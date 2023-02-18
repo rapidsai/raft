@@ -21,9 +21,7 @@
 
 #include <raft/neighbors/specializations/ball_cover.cuh>
 #include <raft/neighbors/specializations/fused_l2_knn.cuh>
-#include <raft/neighbors/specializations/ivf_pq_build.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft/neighbors/specializations/knn.cuh>
-
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
 
 #endif

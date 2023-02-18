@@ -325,7 +325,7 @@ def test_ivf_pq_params(params):
         {
             "k": 10,
             "n_probes": 100,
-            "lut": np.float32,
+            "lut": np.float16,
             "idd": np.float16,
         },
         {

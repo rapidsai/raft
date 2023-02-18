@@ -182,7 +182,7 @@ template <typename ElementType,
           bool is_host_accessible   = false,
           bool is_device_accessible = true,
           size_t... Extents>
-auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+constexpr auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
   using accessor_type = host_device_accessor<
     std::experimental::default_accessor<ElementType>,
@@ -214,7 +214,7 @@ auto make_strided_layout(Extents extents, Strides strides)
  * @return raft::extents
  */
 template <typename IndexType, typename... Extents, typename = ensure_integral_extents<Extents...>>
-auto make_extents(Extents... exts)
+constexpr auto make_extents(Extents... exts)
 {
   return extents<IndexType, ((void)exts, dynamic_extent)...>{exts...};
 }
