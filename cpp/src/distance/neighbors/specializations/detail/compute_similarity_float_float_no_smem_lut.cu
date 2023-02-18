@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include <raft/neighbors/specializations/detail/ivf_pq_compute_similarity.cuh>
 
-namespace raft::neighbors::ivf_pq {
+#include <cuda_fp16.h>
 
-using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
+namespace raft::neighbors::ivf_pq::detail {
 
-TEST_BUILD_SEARCH(f32_i08_u64)
-TEST_BUILD_SERIALIZE_SEARCH(f32_i08_u64)
-INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
+template auto get_compute_similarity_kernel<float, float, true, false>(uint32_t, uint32_t)
+  -> compute_similarity_kernel_t<float, float>;
 
-}  // namespace raft::neighbors::ivf_pq
+}  // namespace raft::neighbors::ivf_pq::detail

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ann_utils.cuh"
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 
@@ -47,7 +47,7 @@
 
 #include <cuda_fp16.h>
 
-namespace raft::spatial::knn::ivf_pq::detail {
+namespace raft::neighbors::ivf_pq::detail {
 
 /**
  * Maximum value of k for the fused calculate & select in ivfpq.
@@ -60,12 +60,6 @@ static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
               "kMaxCapacity must be a power of two, not smaller than the WarpSize.");
 
 using namespace raft::spatial::knn::detail;  // NOLINT
-
-using raft::neighbors::ivf_pq::codebook_gen;
-using raft::neighbors::ivf_pq::index;
-using raft::neighbors::ivf_pq::kIndexGroupSize;
-using raft::neighbors::ivf_pq::kIndexGroupVecLen;
-using raft::neighbors::ivf_pq::search_params;
 
 /** 8-bit floating-point storage type.
  *
@@ -310,81 +304,75 @@ struct calc_chunk_indices {
 };
 
 /**
- * Look up the dataset index that corresponds to a sample index.
+ * Look up the chunk id corresponding to the sample index.
  *
- * Each query vector was compared to all the vectors from n_probes clusters, and sample_ix is one of
- * such vector. This function looks up which cluster sample_ix belongs to, and returns the original
- * dataset index for that vector.
+ * Each query vector was compared to all the vectors from n_probes clusters, and sample_ix is an
+ * ordered number of one of such vectors. This function looks up to which chunk it belongs,
+ * and returns the index within the chunk (which is also an index within a cluster).
  *
- * @return whether the input index is in a valid range
- *    (the opposite can happen if there is not enough data to output in the selected clusters).
+ * @param[inout] sample_ix
+ *   input: the offset of the sample in the batch;
+ *   output: the offset inside the chunk (probe) / selected cluster.
+ * @param[in] n_probes number of probes
+ * @param[in] chunk_indices offsets of the chunks within the batch [n_probes]
+ * @return chunk index (== n_probes when the input index is not in the valid range,
+ *    which can happen if there is not enough data to output in the selected clusters).
  */
-template <typename IdxT>
-__device__ auto find_db_row(IdxT& x,  // NOLINT
-                            uint32_t n_probes,
-                            const IdxT* cluster_offsets,     // [n_clusters + 1,]
-                            const uint32_t* cluster_labels,  // [n_probes,]
-                            const uint32_t* chunk_indices    // [n_probes,]
-                            ) -> bool
+__device__ inline auto find_chunk_ix(uint32_t& sample_ix,  // NOLINT
+                                     uint32_t n_probes,
+                                     const uint32_t* chunk_indices) -> uint32_t
 {
   uint32_t ix_min = 0;
   uint32_t ix_max = n_probes;
   do {
     uint32_t i = (ix_min + ix_max) / 2;
-    if (IdxT(chunk_indices[i]) <= x) {
+    if (chunk_indices[i] <= sample_ix) {
       ix_min = i + 1;
     } else {
       ix_max = i;
     }
   } while (ix_min < ix_max);
-  if (ix_min == n_probes) { return false; }
-  if (ix_min > 0) { x -= chunk_indices[ix_min - 1]; }
-  x += cluster_offsets[cluster_labels[ix_min]];
-  return true;
+  if (ix_min > 0) { sample_ix -= chunk_indices[ix_min - 1]; }
+  return ix_min;
 }
 
 template <int BlockDim, typename IdxT>
 __launch_bounds__(BlockDim) __global__
-  void postprocess_neighbors_kernel(IdxT* neighbors,                    // [n_queries, topk]
-                                    const IdxT* db_indices,             // [n_rows]
-                                    const IdxT* cluster_offsets,        // [n_clusters + 1]
+  void postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
+                                    const uint32_t* neighbors_in,       // [n_queries, topk]
+                                    const IdxT* const* db_indices,      // [n_clusters][..]
                                     const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                                     const uint32_t* chunk_indices,      // [n_queries, n_probes]
                                     uint32_t n_queries,
                                     uint32_t n_probes,
                                     uint32_t topk)
 {
-  uint64_t i        = threadIdx.x + BlockDim * uint64_t(blockIdx.x);
-  uint32_t query_ix = i / uint64_t(topk);
+  const uint64_t i        = threadIdx.x + BlockDim * uint64_t(blockIdx.x);
+  const uint32_t query_ix = i / uint64_t(topk);
   if (query_ix >= n_queries) { return; }
-  uint32_t k = i % uint64_t(topk);
-  neighbors += query_ix * topk;
-  IdxT data_ix = neighbors[k];
-  // backtrace the index if we don't have local top-k
-  bool valid = true;
-  if (n_probes > 0) {
-    valid = find_db_row(data_ix,
-                        n_probes,
-                        cluster_offsets,
-                        clusters_to_probe + n_probes * query_ix,
-                        chunk_indices + n_probes * query_ix);
-  }
-  neighbors[k] = valid ? db_indices[data_ix] : index<IdxT>::kOutOfBoundsRecord;
+  const uint32_t k = i % uint64_t(topk);
+  neighbors_in += query_ix * topk;
+  neighbors_out += query_ix * topk;
+  chunk_indices += query_ix * n_probes;
+  clusters_to_probe += query_ix * n_probes;
+  uint32_t data_ix        = neighbors_in[k];
+  const uint32_t chunk_ix = find_chunk_ix(data_ix, n_probes, chunk_indices);
+  const bool valid        = chunk_ix < n_probes;
+  neighbors_out[k] =
+    valid ? db_indices[clusters_to_probe[chunk_ix]][data_ix] : ivf_pq::kOutOfBoundsRecord<IdxT>;
 }
 
 /**
- * Transform found neighbor indices into the corresponding database indices
+ * Transform found sample indices into the corresponding database indices
  * (as stored in index.indices()).
- *
- * When the main kernel runs with a fused top-k (`manage_local_topk == true`), this function simply
- * fetches the index values  by the returned row ids. Otherwise, the found neighbors require extra
- * pre-processing (performed by `find_db_row`).
+ * The sample indices are the record indices as they appear in the database view formed by the
+ * probed clusters / defined by the `chunk_indices`.
+ * We assume the searched sample sizes (for a single query) fit into `uint32_t`.
  */
 template <typename IdxT>
-void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
-                           bool manage_local_topk,
-                           const IdxT* db_indices,             // [n_rows]
-                           const IdxT* cluster_offsets,        // [n_clusters + 1]
+void postprocess_neighbors(IdxT* neighbors_out,                // [n_queries, topk]
+                           const uint32_t* neighbors_in,       // [n_queries, topk]
+                           const IdxT* const* db_indices,      // [n_clusters][..]
                            const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                            const uint32_t* chunk_indices,      // [n_queries, n_probes]
                            uint32_t n_queries,
@@ -395,13 +383,13 @@ void postprocess_neighbors(IdxT* neighbors,  // [n_queries, topk]
   constexpr int kPNThreads = 256;
   const int pn_blocks      = raft::div_rounding_up_unsafe<size_t>(n_queries * topk, kPNThreads);
   postprocess_neighbors_kernel<kPNThreads, IdxT>
-    <<<pn_blocks, kPNThreads, 0, stream>>>(neighbors,
+    <<<pn_blocks, kPNThreads, 0, stream>>>(neighbors_out,
+                                           neighbors_in,
                                            db_indices,
-                                           cluster_offsets,
                                            clusters_to_probe,
                                            chunk_indices,
                                            n_queries,
-                                           manage_local_topk ? 0u : n_probes,
+                                           n_probes,
                                            topk);
 }
 
@@ -556,8 +544,6 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  * Each block processes a (query, probe) pair: it calculates the distance between the single query
  * vector and all the dataset vector in the cluster that we are probing.
  *
- * @tparam IdxT
- *   The type of data indices
  * @tparam OutT
  *   The output type - distances.
  * @tparam LutT
@@ -585,6 +571,7 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  * @param metric the distance type.
  * @param codebook_kind Defines the way PQ codebooks have been trained.
  * @param topk the `k` in the select top-k.
+ * @param max_samples the size of the output for a single query.
  * @param cluster_centers
  *   The device pointer to the cluster centers in the original space (NB: after rotation)
  *   [n_clusters, dim].
@@ -593,8 +580,6 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   [pq_dim, pq_book_size, pq_len] or [n_clusters, pq_book_size, pq_len,].
  * @param pq_dataset
  *   The device pointer to the PQ index (data) [n_rows, ...].
- * @param cluster_offsets
- *   The device pointer to the cluster offsets [n_clusters + 1].
  * @param cluster_labels
  *   The device pointer to the labels (clusters) for each query and probe [n_queries, n_probes].
  * @param _chunk_indices
@@ -612,35 +597,37 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   [n_queries, max_samples] or [n_queries, n_probes, topk].
  * @param _out_indices
  *   The device pointer to the output indices [n_queries, n_probes, topk].
+ *   These are the indices of the records as they appear in the database view formed by the probed
+ *   clusters / defined by the `_chunk_indices`.
+ *   The indices can have values within the range [0, max_samples).
  *   Ignored  when `Capacity == 0`.
  */
-template <typename IdxT,
-          typename OutT,
+template <typename OutT,
           typename LutT,
           uint32_t PqBits,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
-                                                uint32_t dim,
-                                                uint32_t n_probes,
-                                                uint32_t pq_dim,
-                                                uint32_t n_queries,
-                                                distance::DistanceType metric,
-                                                codebook_gen codebook_kind,
-                                                uint32_t topk,
-                                                const float* cluster_centers,
-                                                const float* pq_centers,
-                                                const uint8_t* pq_dataset,
-                                                const IdxT* cluster_offsets,
-                                                const uint32_t* cluster_labels,
-                                                const uint32_t* _chunk_indices,
-                                                const float* queries,
-                                                const uint32_t* index_list,
-                                                float* query_kths,
-                                                LutT* lut_scores,
-                                                OutT* _out_scores,
-                                                IdxT* _out_indices)
+__global__ void compute_similarity_kernel(uint32_t n_rows,
+                                          uint32_t dim,
+                                          uint32_t n_probes,
+                                          uint32_t pq_dim,
+                                          uint32_t n_queries,
+                                          distance::DistanceType metric,
+                                          codebook_gen codebook_kind,
+                                          uint32_t topk,
+                                          uint32_t max_samples,
+                                          const float* cluster_centers,
+                                          const float* pq_centers,
+                                          const uint8_t* const* pq_dataset,
+                                          const uint32_t* cluster_labels,
+                                          const uint32_t* _chunk_indices,
+                                          const float* queries,
+                                          const uint32_t* index_list,
+                                          float* query_kths,
+                                          LutT* lut_scores,
+                                          OutT* _out_scores,
+                                          uint32_t* _out_indices)
 {
   /* Shared memory:
 
@@ -692,15 +679,14 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     const uint32_t* chunk_indices = _chunk_indices + (n_probes * query_ix);
     const float* query            = queries + (dim * query_ix);
     OutT* out_scores;
-    IdxT* out_indices = nullptr;
+    uint32_t* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
       out_scores  = _out_scores + topk * (probe_ix + (n_probes * query_ix));
       out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
     } else {
       // Store all calculated distances to out_scores
-      auto max_samples = Pow2<128>::roundUp(cluster_offsets[n_probes]);
-      out_scores       = _out_scores + max_samples * query_ix;
+      out_scores = _out_scores + max_samples * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
     const float* cluster_center = cluster_centers + (dim * label);
@@ -791,7 +777,7 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     // so that the warp can achieve the best coalesced read throughput.
     using group_align  = Pow2<kIndexGroupSize>;
     using vec_align    = Pow2<kIndexGroupVecLen>;
-    using local_topk_t = block_sort_t<Capacity, OutT, IdxT>;
+    using local_topk_t = block_sort_t<Capacity, OutT, uint32_t>;
     using op_t         = uint32_t;
     using vec_t        = TxN_t<op_t, kIndexGroupVecLen / sizeof(op_t)>;
 
@@ -799,12 +785,10 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
     if (probe_ix > 0) { sample_offset = chunk_indices[probe_ix - 1]; }
     uint32_t n_samples            = chunk_indices[probe_ix] - sample_offset;
     uint32_t n_samples_aligned    = group_align::roundUp(n_samples);
-    IdxT cluster_offset           = cluster_offsets[label];
     constexpr uint32_t kChunkSize = (kIndexGroupVecLen * 8u) / PqBits;
     uint32_t pq_line_width        = div_rounding_up_unsafe(pq_dim, kChunkSize) * kIndexGroupVecLen;
-    auto pq_thread_data =
-      pq_dataset + (size_t(cluster_offset) + group_align::roundDown(threadIdx.x)) * pq_line_width +
-      group_align::mod(threadIdx.x) * vec_align::Value;
+    auto pq_thread_data = pq_dataset[label] + group_align::roundDown(threadIdx.x) * pq_line_width +
+                          group_align::mod(threadIdx.x) * vec_align::Value;
     pq_line_width *= blockDim.x;
 
     constexpr OutT kDummy = upper_bound<OutT>();
@@ -839,9 +823,9 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
           early_stop_limit);
       }
       if constexpr (kManageLocalTopK) {
-        block_topk.add(score, cluster_offset + i);
+        block_topk.add(score, sample_offset + i);
       } else {
-        if (valid) { out_scores[i + sample_offset] = score; }
+        if (valid) { out_scores[sample_offset + i] = score; }
       }
     }
     if constexpr (kManageLocalTopK) {
@@ -852,7 +836,6 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
       if (threadIdx.x == 0) { atomicMin(query_kths + query_ix, float(out_scores[topk - 1])); }
     } else {
       // fill in the rest of the out_scores with dummy values
-      uint32_t max_samples = uint32_t(Pow2<128>::roundUp(cluster_offsets[n_probes]));
       if (probe_ix + 1 == n_probes) {
         for (uint32_t i = threadIdx.x + sample_offset + n_samples; i < max_samples;
              i += blockDim.x) {
@@ -861,6 +844,57 @@ __global__ void ivfpq_compute_similarity_kernel(uint32_t n_rows,
       }
     }
   }
+}
+
+// The signature of the kernel defined by a minimal set of template parameters
+template <typename OutT, typename LutT>
+using compute_similarity_kernel_t =
+  decltype(&compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
+
+// The config struct lifts the runtime parameters to the template parameters
+template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut>
+struct compute_similarity_kernel_config {
+ public:
+  static auto get(uint32_t pq_bits, uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    return kernel_choose_bits(pq_bits, k_max);
+  }
+
+ private:
+  static auto kernel_choose_bits(uint32_t pq_bits, uint32_t k_max)
+    -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    switch (pq_bits) {
+      case 4: return kernel_try_capacity<4, kMaxCapacity>(k_max);
+      case 5: return kernel_try_capacity<5, kMaxCapacity>(k_max);
+      case 6: return kernel_try_capacity<6, kMaxCapacity>(k_max);
+      case 7: return kernel_try_capacity<7, kMaxCapacity>(k_max);
+      case 8: return kernel_try_capacity<8, kMaxCapacity>(k_max);
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }
+
+  template <uint32_t PqBits, int Capacity>
+  static auto kernel_try_capacity(uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT>
+  {
+    if constexpr (Capacity > 0) {
+      if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
+    }
+    if constexpr (Capacity > 1) {
+      if (k_max * 2 <= Capacity) { return kernel_try_capacity<PqBits, (Capacity / 2)>(k_max); }
+    }
+    return compute_similarity_kernel<OutT, LutT, PqBits, Capacity, PrecompBaseDiff, EnableSMemLut>;
+  }
+};
+
+// A standalone accessor function is necessary to make sure template specializations work correctly
+// (we "extern template" this function)
+template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut>
+auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
+  -> compute_similarity_kernel_t<OutT, LutT>
+{
+  return compute_similarity_kernel_config<OutT, LutT, PrecompBaseDiff, EnableSMemLut>::get(pq_bits,
+                                                                                           k_max);
 }
 
 /**
@@ -926,53 +960,9 @@ constexpr inline auto estimate_carveout(double shmem_fraction,
   return (size_t(100 * s * m * shmem_fraction) - (m - 1) * r) / (s * (m + r));
 }
 
-/**
- * This structure selects configurable template parameters (instance) based on
- * the search/index parameters at runtime.
- *
- * This is done by means of recursively iterating through a small set of possible
- * values for every parameter.
- */
-template <typename IdxT, typename OutT, typename LutT>
-struct ivfpq_compute_similarity {
-  using kernel_t = decltype(&ivfpq_compute_similarity_kernel<IdxT, OutT, LutT, 8, 0, true, true>);
-
-  template <bool PrecompBaseDiff, bool EnableSMemLut>
-  struct configured {
-   public:
-    /** Select a proper kernel instance based on the runtime parameters. */
-    static auto kernel(uint32_t pq_bits, uint32_t k_max) -> kernel_t
-    {
-      switch (pq_bits) {
-        case 4: return kernel_try_capacity<4, kMaxCapacity>(k_max);
-        case 5: return kernel_try_capacity<5, kMaxCapacity>(k_max);
-        case 6: return kernel_try_capacity<6, kMaxCapacity>(k_max);
-        case 7: return kernel_try_capacity<7, kMaxCapacity>(k_max);
-        case 8: return kernel_try_capacity<8, kMaxCapacity>(k_max);
-        default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
-      }
-    }
-
-   private:
-    template <uint32_t PqBits, int Capacity>
-    static auto kernel_try_capacity(uint32_t k_max) -> kernel_t
-    {
-      if constexpr (Capacity > 0) {
-        if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
-      }
-      if constexpr (Capacity > 1) {
-        if (k_max * 2 <= Capacity) { return kernel_try_capacity<PqBits, (Capacity / 2)>(k_max); }
-      }
-      return ivfpq_compute_similarity_kernel<IdxT,
-                                             OutT,
-                                             LutT,
-                                             PqBits,
-                                             Capacity,
-                                             PrecompBaseDiff,
-                                             EnableSMemLut>;
-    }
-  };
-
+/** Select an appropriate kernel instance and launch parameters. */
+template <typename OutT, typename LutT>
+struct compute_similarity {
   /** Estimate the occupancy for the given kernel on the given device. */
   struct occupancy_t {
     using shmem_unit = Pow2<128>;
@@ -984,7 +974,7 @@ struct ivfpq_compute_similarity {
     inline occupancy_t() = default;
     inline occupancy_t(size_t smem,
                        uint32_t n_threads,
-                       kernel_t kernel,
+                       compute_similarity_kernel_t<OutT, LutT> kernel,
                        const cudaDeviceProp& dev_props)
     {
       RAFT_CUDA_TRY(
@@ -996,7 +986,7 @@ struct ivfpq_compute_similarity {
   };
 
   struct selected {
-    kernel_t kernel;
+    compute_similarity_kernel_t<OutT, LutT> kernel;
     dim3 grid_dim;
     dim3 block_dim;
     size_t smem_size;
@@ -1057,11 +1047,10 @@ struct ivfpq_compute_similarity {
 
       [[nodiscard]] auto operator()(uint32_t n_threads) const -> size_t
       {
-        return manage_local_topk
-                 ? matrix::detail::select::warpsort::template calc_smem_size_for_block_wide<OutT,
-                                                                                            IdxT>(
-                     n_threads / subwarp_size, topk)
-                 : 0;
+        return manage_local_topk ? matrix::detail::select::warpsort::
+                                     template calc_smem_size_for_block_wide<OutT, uint32_t>(
+                                       n_threads / subwarp_size, topk)
+                                 : 0;
       }
     } ltk_mem{manage_local_topk, topk};
 
@@ -1105,14 +1094,14 @@ struct ivfpq_compute_similarity {
      the minimum number of blocks (just one, really). Then, we tweak the `n_threads` to further
      optimize occupancy and data locality for the L1 cache.
      */
-    using conf_fast        = configured<true, true>;
-    using conf_no_basediff = configured<false, true>;
-    using conf_no_smem_lut = configured<true, false>;
-    auto topk_or_zero      = manage_local_topk ? topk : 0u;
+    auto conf_fast        = get_compute_similarity_kernel<OutT, LutT, true, true>;
+    auto conf_no_basediff = get_compute_similarity_kernel<OutT, LutT, false, true>;
+    auto conf_no_smem_lut = get_compute_similarity_kernel<OutT, LutT, true, false>;
+    auto topk_or_zero     = manage_local_topk ? topk : 0u;
     std::array candidates{
-      std::make_tuple(conf_fast::kernel(pq_bits, topk_or_zero), lut_mem + bdf_mem, true),
-      std::make_tuple(conf_no_basediff::kernel(pq_bits, topk_or_zero), lut_mem, true),
-      std::make_tuple(conf_no_smem_lut::kernel(pq_bits, topk_or_zero), bdf_mem, false)};
+      std::make_tuple(conf_fast(pq_bits, topk_or_zero), lut_mem + bdf_mem, true),
+      std::make_tuple(conf_no_basediff(pq_bits, topk_or_zero), lut_mem, true),
+      std::make_tuple(conf_no_smem_lut(pq_bits, topk_or_zero), bdf_mem, false)};
 
     // we may allow slightly lower than 100% occupancy;
     constexpr double kTargetOccupancy = 0.75;
@@ -1278,13 +1267,6 @@ void ivfpq_search_worker(raft::device_resources const& handle,
 {
   auto stream = handle.get_stream();
 
-  auto pq_centers      = index.pq_centers().data_handle();
-  auto pq_dataset      = index.pq_dataset().data_handle();
-  auto data_indices    = index.indices().data_handle();
-  auto cluster_centers = index.centers_rot().data_handle();
-  auto cluster_offsets = index.list_offsets().data_handle();
-  auto cluster_sizes   = index.list_sizes().data_handle();
-
   bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
   auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
   if (manage_local_topk) {
@@ -1300,15 +1282,26 @@ void ivfpq_search_worker(raft::device_resources const& handle,
   rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
   rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
-  rmm::device_uvector<IdxT> neighbors_buf(0, stream, mr);
-  IdxT* neighbors_ptr = nullptr;
+  rmm::device_uvector<uint32_t> neighbors_buf(0, stream, mr);
+  uint32_t* neighbors_ptr = nullptr;
   if (manage_local_topk) {
     neighbors_buf.resize(n_queries * topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
+  rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, stream, mr);
+  uint32_t* neighbors_uint32 = nullptr;
+  if constexpr (sizeof(IdxT) == sizeof(uint32_t)) {
+    neighbors_uint32 = reinterpret_cast<uint32_t*>(neighbors);
+  } else {
+    neighbors_uint32_buf.resize(n_queries * topK, stream);
+    neighbors_uint32 = neighbors_uint32_buf.data();
+  }
 
-  calc_chunk_indices::configure(n_probes, n_queries)(
-    cluster_sizes, clusters_to_probe, chunk_index.data(), num_samples.data(), stream);
+  calc_chunk_indices::configure(n_probes, n_queries)(index.list_sizes().data_handle(),
+                                                     clusters_to_probe,
+                                                     chunk_index.data(),
+                                                     num_samples.data(),
+                                                     stream);
 
   auto coresidency = expected_probe_coresidency(index.n_lists(), n_probes, n_queries);
 
@@ -1371,17 +1364,16 @@ void ivfpq_search_worker(raft::device_resources const& handle,
     } break;
   }
 
-  auto search_instance =
-    ivfpq_compute_similarity<IdxT, ScoreT, LutT>::select(handle.get_device_properties(),
-                                                         manage_local_topk,
-                                                         coresidency,
-                                                         preferred_shmem_carveout,
-                                                         index.pq_bits(),
-                                                         index.pq_dim(),
-                                                         precomp_data_count,
-                                                         n_queries,
-                                                         n_probes,
-                                                         topK);
+  auto search_instance = compute_similarity<ScoreT, LutT>::select(handle.get_device_properties(),
+                                                                  manage_local_topk,
+                                                                  coresidency,
+                                                                  preferred_shmem_carveout,
+                                                                  index.pq_bits(),
+                                                                  index.pq_dim(),
+                                                                  precomp_data_count,
+                                                                  n_queries,
+                                                                  n_probes,
+                                                                  topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
   rmm::device_uvector<float> query_kths(0, stream, mr);
@@ -1401,10 +1393,10 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                   index.metric(),
                   index.codebook_kind(),
                   topK,
-                  cluster_centers,
-                  pq_centers,
-                  pq_dataset,
-                  cluster_offsets,
+                  max_samples,
+                  index.centers_rot().data_handle(),
+                  index.pq_centers().data_handle(),
+                  index.data_ptrs().data_handle(),
                   clusters_to_probe,
                   chunk_index.data(),
                   query,
@@ -1416,24 +1408,23 @@ void ivfpq_search_worker(raft::device_resources const& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  matrix::detail::select_k<ScoreT, IdxT>(distances_buf.data(),
-                                         neighbors_ptr,
-                                         n_queries,
-                                         topk_len,
-                                         topK,
-                                         topk_dists.data(),
-                                         neighbors,
-                                         true,
-                                         stream,
-                                         mr);
+  matrix::detail::select_k<ScoreT, uint32_t>(distances_buf.data(),
+                                             neighbors_ptr,
+                                             n_queries,
+                                             topk_len,
+                                             topK,
+                                             topk_dists.data(),
+                                             neighbors_uint32,
+                                             true,
+                                             stream,
+                                             mr);
 
   // Postprocessing
   postprocess_distances(
     distances, topk_dists.data(), index.metric(), n_queries, topK, scaling_factor, stream);
   postprocess_neighbors(neighbors,
-                        manage_local_topk,
-                        data_indices,
-                        cluster_offsets,
+                        neighbors_uint32,
+                        index.inds_ptrs().data_handle(),
                         clusters_to_probe,
                         chunk_index.data(),
                         n_queries,
@@ -1461,6 +1452,20 @@ struct ivfpq_search {
   }
 
  private:
+  template <typename ScoreT, typename LutT>
+  static auto filter_reasonable_instances(const search_params& params) -> fun_t
+  {
+    if constexpr (sizeof(ScoreT) >= sizeof(LutT)) {
+      return ivfpq_search_worker<ScoreT, LutT, IdxT>;
+    } else {
+      RAFT_FAIL(
+        "Unexpected lut_dtype / internal_distance_dtype combination (%d, %d). "
+        "Size of the internal_distance_dtype should be not smaller than the size of the lut_dtype.",
+        int(params.lut_dtype),
+        int(params.internal_distance_dtype));
+    }
+  }
+
   template <typename ScoreT>
   static auto fun_try_lut_t(const search_params& params, distance::DistanceType metric) -> fun_t
   {
@@ -1471,14 +1476,14 @@ struct ivfpq_search {
     }
 
     switch (params.lut_dtype) {
-      case CUDA_R_32F: return ivfpq_search_worker<ScoreT, float, IdxT>;
-      case CUDA_R_16F: return ivfpq_search_worker<ScoreT, half, IdxT>;
+      case CUDA_R_32F: return filter_reasonable_instances<ScoreT, float>(params);
+      case CUDA_R_16F: return filter_reasonable_instances<ScoreT, half>(params);
       case CUDA_R_8U:
       case CUDA_R_8I:
         if (signed_metric) {
-          return ivfpq_search_worker<float, fp_8bit<5, true>, IdxT>;
+          return filter_reasonable_instances<ScoreT, fp_8bit<5, true>>(params);
         } else {
-          return ivfpq_search_worker<float, fp_8bit<5, false>, IdxT>;
+          return filter_reasonable_instances<ScoreT, fp_8bit<5, false>>(params);
         }
       default: RAFT_FAIL("Unexpected lut_dtype (%d)", int(params.lut_dtype));
     }
@@ -1586,27 +1591,12 @@ inline void search(raft::device_resources const& handle,
   auto dim_ext  = index.dim_ext();
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
-  IdxT max_samples = 0;
+  uint32_t max_samples = 0;
   {
-    IdxT offset_worst_case = 0;
-    auto cluster_offsets   = index.list_offsets().data_handle();
-    copy(&max_samples, cluster_offsets + n_probes, 1, stream);
-    if (n_probes < index.n_nonempty_lists()) {
-      copy(&offset_worst_case, cluster_offsets + index.n_nonempty_lists() - n_probes, 1, stream);
-    }
-    handle.sync_stream();
-    max_samples      = Pow2<128>::roundUp(max_samples);
-    IdxT min_samples = index.size() - offset_worst_case;
-    if (IdxT{k} > min_samples) {
-      RAFT_LOG_WARN(
-        "n_probes is too small to get top-k results reliably (n_probes: %u, k: %u, n_samples "
-        "(worst_case): %zu).",
-        n_probes,
-        k,
-        static_cast<uint64_t>(min_samples));
-    }
-    RAFT_EXPECTS(max_samples <= IdxT(std::numeric_limits<uint32_t>::max()),
+    IdxT ms = Pow2<128>::roundUp(index.accum_sorted_sizes()(n_probes));
+    RAFT_EXPECTS(ms <= IdxT(std::numeric_limits<uint32_t>::max()),
                  "The maximum sample size is too big.");
+    max_samples = ms;
   }
 
   auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
@@ -1683,4 +1673,4 @@ inline void search(raft::device_resources const& handle,
   }
 }
 
-}  // namespace raft::spatial::knn::ivf_pq::detail
+}  // namespace raft::neighbors::ivf_pq::detail
