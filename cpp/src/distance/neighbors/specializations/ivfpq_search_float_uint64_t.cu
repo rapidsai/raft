@@ -18,13 +18,16 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_MAKE_INSTANCE(T, IdxT)                                  \
-  template auto build<T, IdxT>(raft::device_resources const& handle, \
-                               const index_params& params,           \
-                               const T* dataset,                     \
-                               IdxT n_rows,                          \
-                               uint32_t dim)                         \
-    ->index<IdxT>;
+#define RAFT_MAKE_INSTANCE(T, IdxT)                                   \
+  template void search<T, IdxT>(raft::device_resources const& handle, \
+                                const search_params& params,          \
+                                const index<IdxT>& index,             \
+                                const T* queries,                     \
+                                uint32_t n_queries,                   \
+                                uint32_t k,                           \
+                                IdxT* neighbors,                      \
+                                float* distances,                     \
+                                rmm::mr::device_memory_resource*)
 
 RAFT_MAKE_INSTANCE(float, uint64_t);
 

@@ -18,10 +18,10 @@
 
 namespace raft::neighbors::ivf_pq {
 
-using f32_i08_u64 = ivf_pq_test<float, int8_t, uint64_t>;
+using f32_f32_u32 = ivf_pq_test<float, float, uint32_t>;
 
-TEST_BUILD_SEARCH(f32_i08_u64)
-TEST_BUILD_SERIALIZE_SEARCH(f32_i08_u64)
-INSTANTIATE(f32_i08_u64, defaults() + big_dims() + var_k());
+TEST_BUILD_SEARCH(f32_f32_u32)
+TEST_BUILD_SERIALIZE_SEARCH(f32_f32_u32)
+INSTANTIATE(f32_f32_u32, defaults() + var_n_probes() + var_k() + special_cases());
 
 }  // namespace raft::neighbors::ivf_pq
