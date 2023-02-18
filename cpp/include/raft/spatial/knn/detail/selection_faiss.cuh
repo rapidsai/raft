@@ -30,9 +30,7 @@ namespace detail {
 template <typename payload_t, typename key_t>
 constexpr int kFaissMaxK()
 {
-  if (sizeof(key_t) >= 8) {
-    return sizeof(payload_t) >= 8 ? 512: 1024;
-  }
+  if (sizeof(key_t) >= 8) { return sizeof(payload_t) >= 8 ? 512 : 1024; }
   return 2048;
 }
 
