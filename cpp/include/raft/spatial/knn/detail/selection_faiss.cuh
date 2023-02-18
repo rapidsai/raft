@@ -27,10 +27,13 @@ namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename key_t, typename payload_t>
+template <typename payload_t, typename key_t>
 constexpr int kFaissMaxK()
 {
-  return (sizeof(key_t) + sizeof(payload_t) > 8) ? 512 : 1024;
+  if (sizeof(key_t) >= 8) {
+    return sizeof(payload_t) >= 8 ? 512: 1024;
+  }
+  return 2048;
 }
 
 template <typename key_t, typename payload_t, bool select_min, int warp_q, int thread_q, int tpb>
@@ -159,7 +162,12 @@ inline void select_k(const key_t* inK,
     select_k_impl<payload_t, key_t, 512, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 1024 && k <= max_k)
-    select_k_impl<payload_t, key_t, max_k, 8>(
+    // note: have to use constexpr std::min here to avoid instantiating templates
+    // for parameters we don't support
+    select_k_impl<payload_t, key_t, std::min(1024, max_k), 8>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
+  else if (k <= 2048 && k <= max_k)
+    select_k_impl<payload_t, key_t, std::min(2048, max_k), 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else
     ASSERT(k <= max_k, "Current max k is %d (requested %d)", max_k, k);
