@@ -103,10 +103,9 @@ _RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
 }
 
 template <typename T, typename IdxT>
-_RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len, bool adaptive)
+_RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
 {
-  if (!adaptive) { return len; }
-  // When writing is skipped in adaptive mode, only read `in`(type T).
+  // When writing is skipped, only read `in`(type T).
   // When writing is not skipped, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T)
   // and `out_idx_buf`(IdxT).
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
@@ -286,7 +285,7 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
         }
       }
       // the condition `(out_buf || early_stop)` is a little tricky:
-      // If we skip writing to `out_buf` (when `out_buf` is false), we should skip writing to
+      // If we skip writing to `out_buf` (when `out_buf` is nullptr), we should skip writing to
       // `out` too. So we won't write the same value to `out` multiple times in different passes.
       // And if we keep skipping the writing, values will be written in `last_filter_kernel` at
       // last.
@@ -386,8 +385,8 @@ _RAFT_DEVICE void choose_bucket(Counter<T, IdxT>* counter,
 // For one-block version, last_filter() could be called when pass < num_passes - 1.
 // So `pass` could not be constexpr
 template <typename T, typename IdxT, int BitsPerPass>
-_RAFT_DEVICE void last_filter(const T* out_buf,
-                              const IdxT* out_idx_buf,
+_RAFT_DEVICE void last_filter(const T* in_buf,
+                              const IdxT* in_idx_buf,
                               T* out,
                               IdxT* out_idx,
                               IdxT current_len,
@@ -404,26 +403,25 @@ _RAFT_DEVICE void last_filter(const T* out_buf,
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
   for (IdxT i = threadIdx.x; i < current_len; i += blockDim.x) {
-    const T value   = out_buf[i];
+    const T value   = in_buf[i];
     const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
-      // For one-block version, `out_idx_buf` could be nullptr at pass 0.
-      // And for adaptive mode, `out_idx_buf` could be nullptr if `out_buf` is `in`
-      out_idx[pos] = out_idx_buf ? out_idx_buf[i] : i;
+      // For one-block version, `in_idx_buf` could be nullptr at pass 0.
+      // And when writing is skipped, `in_idx_buf` could be nullptr if `in_buf` is `in`
+      out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
       if (back_pos < needed_num_of_kth) {
         IdxT pos     = k - 1 - back_pos;
         out[pos]     = value;
-        out_idx[pos] = out_idx_buf ? out_idx_buf[i] : i;
+        out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
     }
   }
 }
 
-// used only for adaptive mode
 template <typename T, typename IdxT, int BitsPerPass>
 __global__ void last_filter_kernel(const T* in,
                                    const IdxT* in_idx,
@@ -441,15 +439,15 @@ __global__ void last_filter_kernel(const T* in,
   Counter<T, IdxT>* counter = counters + batch_id;
   IdxT previous_len         = counter->previous_len;
   if (previous_len == 0) { return; }
-  const IdxT buf_len = calc_buf_len<T>(len, true);
-  if (previous_len > buf_len) {
-    in_buf       = in;
-    in_idx_buf   = in_idx;
+  const IdxT buf_len = calc_buf_len<T>(len);
+  if (previous_len > buf_len || in_buf == in) {
+    in_buf       = in + batch_id * len;
+    in_idx_buf   = in_idx ? (in_idx + batch_id * len) : nullptr;
     previous_len = len;
+  } else {
+    in_buf += batch_id * buf_len;
+    in_idx_buf += batch_id * buf_len;
   }
-
-  in_buf += batch_id * (in_buf == in ? len : buf_len);
-  if (in_idx_buf) { in_idx_buf += batch_id * (in_idx_buf == in_idx ? len : buf_len); }
   out += batch_id * k;
   out_idx += batch_id * k;
 
@@ -528,7 +526,7 @@ __global__ void last_filter_kernel(const T* in,
  * `in` rather than from `in_buf`. The benefit is that we can save the cost of writing candidates
  * and their indices.
  */
-template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool adaptive>
+template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
 __global__ void radix_kernel(const T* in,
                              const IdxT* in_idx,
                              const T* in_buf,
@@ -569,34 +567,31 @@ __global__ void radix_kernel(const T* in,
   // When k=len, early_stop will be true at pass 0. It means filter_and_histogram() should handle
   // correctly the case that pass=0 and early_stop=true. However, this special case of k=len is
   // handled in other way in select_k() so such case is not possible here.
-  bool early_stop = (current_len == current_k);
+  const bool early_stop = (current_len == current_k);
+  const IdxT buf_len    = calc_buf_len<T>(len);
+
+  // "previous_len > buf_len" means previous pass skips writing buffer
+  if (pass == 0 || pass == 1 || previous_len > buf_len) {
+    in_buf       = in + batch_id * len;
+    in_idx_buf   = in_idx ? (in_idx + batch_id * len) : nullptr;
+    previous_len = len;
+  } else {
+    in_buf += batch_id * buf_len;
+    in_idx_buf += batch_id * buf_len;
+  }
+  // "current_len > buf_len" means current pass will skip writing buffer
+  if (pass == 0 || current_len > buf_len) {
+    out_buf     = nullptr;
+    out_idx_buf = nullptr;
+  } else {
+    out_buf += batch_id * buf_len;
+    out_idx_buf += batch_id * buf_len;
+  }
+  out += batch_id * k;
+  out_idx += batch_id * k;
 
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
-  constexpr int num_passes  = calc_num_passes<T, BitsPerPass>();
-  const IdxT buf_len        = calc_buf_len<T>(len, adaptive);
-
-  if constexpr (adaptive) {
-    // Figure out if the previous pass writes buffer
-    if (previous_len > buf_len) {
-      previous_len = len;
-      in_buf       = in;
-      in_idx_buf   = in_idx;
-    }
-    // Figure out if this pass need to write buffer
-    if (current_len > buf_len) {
-      out_buf     = nullptr;
-      out_idx_buf = nullptr;
-    }
-  }
-  in_buf += batch_id * (in_buf == in ? len : buf_len);
-  if (in_idx_buf) { in_idx_buf += batch_id * (in_idx_buf == in_idx ? len : buf_len); }
-  if (out_buf) { out_buf += batch_id * buf_len; }
-  if (out_idx_buf) { out_idx_buf += batch_id * buf_len; }
-  if (out) {
-    out += batch_id * k;
-    out_idx += batch_id * k;
-  }
-  auto histogram = histograms + batch_id * num_buckets;
+  auto histogram            = histograms + batch_id * num_buckets;
 
   filter_and_histogram<T, IdxT, BitsPerPass>(in_buf,
                                              in_idx_buf,
@@ -633,6 +628,7 @@ __global__ void radix_kernel(const T* in,
     choose_bucket<T, IdxT, BitsPerPass>(counter, histogram, current_k, pass);
     __syncthreads();
 
+    constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
     // reset for next pass
     if (pass != num_passes - 1) {
       for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -648,10 +644,17 @@ __global__ void radix_kernel(const T* in,
 
     // For non-adaptive mode, we do the last filtering using the last thread block.
     // For adaptive mode, we'll use a multi-block kernel (last_filter_kernel).
-    if constexpr (!adaptive) {
+    if constexpr (fused_last_filter) {
       if (pass == num_passes - 1) {
-        last_filter<T, IdxT, BitsPerPass>(
-          out_buf, out_idx_buf, out, out_idx, current_len, k, counter, select_min, pass);
+        last_filter<T, IdxT, BitsPerPass>(out_buf ? out_buf : in_buf,
+                                          out_idx_buf ? out_idx_buf : in_idx_buf,
+                                          out,
+                                          out_idx,
+                                          out_buf ? current_len : len,
+                                          k,
+                                          counter,
+                                          select_min,
+                                          pass);
       }
     }
   }
@@ -672,17 +675,13 @@ int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt, bool adaptive)
+unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 {
   static_assert(VECTORIZED_READ_SIZE / sizeof(T) >= 1);
 
   int active_blocks;
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-    &active_blocks,
-    adaptive ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
-             : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>,
-    BlockSize,
-    0));
+    &active_blocks, radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>, BlockSize, 0));
   active_blocks *= sm_cnt;
 
   IdxT best_num_blocks         = 0;
@@ -758,7 +757,7 @@ void radix_topk(const T* in,
                 T* out,
                 IdxT* out_idx,
                 bool select_min,
-                bool adaptive,
+                bool fused_last_filter,
                 unsigned grid_dim,
                 int sm_cnt,
                 rmm::cuda_stream_view stream,
@@ -768,14 +767,12 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  auto kernel              = adaptive ? radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>
-                                      : radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
+  auto kernel              = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
   const int max_chunk_size = calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
   if (max_chunk_size != batch_size) {
-    grid_dim =
-      calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt, adaptive);
+    grid_dim = calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt);
   }
-  const IdxT buf_len = calc_buf_len<T>(len, adaptive);
+  const IdxT buf_len = calc_buf_len<T>(len);
 
   size_t req_aux =
     static_cast<size_t>(max_chunk_size) * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
@@ -838,6 +835,10 @@ void radix_topk(const T* in,
                        out_buf,
                        out_idx_buf);
 
+      if (fused_last_filter && pass == num_passes - 1) {
+        kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, true>;
+      }
+
       kernel<<<blocks, BlockSize, 0, stream>>>(chunk_in,
                                                chunk_in_idx,
                                                in_buf,
@@ -855,7 +856,7 @@ void radix_topk(const T* in,
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
 
-    if (adaptive) {
+    if (!fused_last_filter) {
       dim3 blocks(ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize), chunk_size);
       last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(chunk_in,
                                                                                  chunk_in_idx,
@@ -1123,7 +1124,7 @@ void select_k_updated(const T* in,
                       T* out,
                       IdxT* out_idx,
                       bool select_min,
-                      bool adaptive,
+                      bool fused_last_filter,
                       rmm::cuda_stream_view stream,
                       rmm::mr::device_memory_resource* mr = nullptr)
 {
@@ -1156,7 +1157,7 @@ void select_k_updated(const T* in,
       in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
   } else {
     unsigned grid_dim =
-      impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt, adaptive);
+      impl::calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(batch_size, len, sm_cnt);
     if (grid_dim == 1) {
       impl::radix_topk_one_block<T, IdxT, BitsPerPass, BlockSize>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, sm_cnt, stream, mr);
@@ -1169,7 +1170,7 @@ void select_k_updated(const T* in,
                                                         out,
                                                         out_idx,
                                                         select_min,
-                                                        adaptive,
+                                                        fused_last_filter,
                                                         grid_dim,
                                                         sm_cnt,
                                                         stream,
