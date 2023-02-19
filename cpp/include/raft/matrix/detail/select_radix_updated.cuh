@@ -123,7 +123,7 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
  * @tparam IdxT indexing type
  * @tparam Func void (T x, IdxT idx)
  *
- * @param thread_rank rank of the calling thread among all participated threads
+ * @param thread_rank rank of the calling thread among all participating threads
  * @param num_threads number of the threads that participate in processing
  * @param in the input data
  * @param len the number of elements to read
@@ -186,7 +186,7 @@ struct alignas(128) Counter {
   typename cub::Traits<T>::UnsignedBits kth_value_bits;
 
   // Record how many elements have passed filtering. It's used to determine the position in the
-  // `out_buf` where an element should be written to.
+  // `out_buf` where an element should be written.
   alignas(128) IdxT filter_cnt;
 
   // For a row inside a batch, we may launch multiple thread blocks. This counter is used to
@@ -287,9 +287,8 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
       // the condition `(out_buf || early_stop)` is a little tricky:
       // If we skip writing to `out_buf` (when `out_buf` is nullptr), we should skip writing to
       // `out` too. So we won't write the same value to `out` multiple times in different passes.
-      // And if we keep skipping the writing, values will be written in `last_filter_kernel` at
-      // last.
-      // But when `early_stop` is true, we need to write to `out` since it's the last chance.
+      // And if we keep skipping the writing, values will be written in `last_filter_kernel()` at
+      // last. But when `early_stop` is true, we need to write to `out` since it's the last chance.
       else if ((out_buf || early_stop) && previous_bits < kth_value_bits) {
         IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
         out[pos]     = value;
@@ -409,7 +408,8 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
       out[pos] = value;
       // For one-block version, `in_idx_buf` could be nullptr at pass 0.
-      // And when writing is skipped, `in_idx_buf` could be nullptr if `in_buf` is `in`
+      // For non one-block version, if writing has been skipped, `in_idx_buf` could be nullptr if
+      // `in_buf` is `in`
       out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
@@ -520,11 +520,11 @@ __global__ void last_filter_kernel(const T* in,
  * In the implementation, the filtering step is delayed to the next pass so the filtering and
  * histogram computation are fused. In this way, inputs are read once rather than twice.
  *
- * For the adaptive mode, we don't write candidates (elements in bucket j) to `out_buf` in the
- * filtering step if the number of candidates is relatively large (this could happen when the
- * leading bits of input values are almost the same). And in the next pass, inputs are read from
- * `in` rather than from `in_buf`. The benefit is that we can save the cost of writing candidates
- * and their indices.
+ * During the filtering step, we won't write candidates (elements in bucket j) to `out_buf` if the
+ * number of candidates is larger than the length of `out_buf` (this could happen when the leading
+ * bits of input values are almost the same). And then in the next pass, inputs are read from `in`
+ * rather than from `in_buf`. The benefit is that we can save the cost of writing candidates and
+ * their indices.
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
 __global__ void radix_kernel(const T* in,
@@ -616,7 +616,7 @@ __global__ void radix_kernel(const T* in,
   if (__syncthreads_or(isLastBlock)) {
     if (early_stop) {
       if (threadIdx.x == 0) {
-        // last_filter_kernel from the adaptive mode requires setting previous_len
+        // `last_filter_kernel()` requires setting previous_len
         counter->previous_len = 0;
         counter->len          = 0;
       }
@@ -636,14 +636,12 @@ __global__ void radix_kernel(const T* in,
       }
     }
     if (threadIdx.x == 0) {
-      // last_filter_kernel requires setting previous_len even in the last pass
+      // `last_filter_kernel()` requires setting previous_len even in the last pass
       counter->previous_len = current_len;
       // not necessary for the last pass, but put it here anyway
       counter->filter_cnt = 0;
     }
 
-    // For non-adaptive mode, we do the last filtering using the last thread block.
-    // For adaptive mode, we'll use a multi-block kernel (last_filter_kernel).
     if constexpr (fused_last_filter) {
       if (pass == num_passes - 1) {
         last_filter<T, IdxT, BitsPerPass>(out_buf ? out_buf : in_buf,
@@ -1017,7 +1015,8 @@ __global__ void radix_topk_one_block_kernel(const T* in,
 // radix_topk() might use multiple thread blocks for one row of a batch. In contrast, the following
 // one-block version uses single thread block for one row of a batch, so intermediate data, like
 // counters and global histograms, can be kept in shared memory and cheap sync operations can be
-// used. It's used when len is relatively small.
+// used. It's used when len is relatively small or when the number of blocks per row calculated by
+// `calc_grid_dim()` is 1.
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 void radix_topk_one_block(const T* in,
                           const IdxT* in_idx,
@@ -1108,9 +1107,13 @@ void radix_topk_one_block(const T* in,
  *   the payload selected together with `out`.
  * @param select_min
  *   whether to select k smallest (true) or largest (false) keys.
- * @param adaptive
- *   whether to use the adaptive mode, which is preferable when the most significant bits
- *   of input data are almost the same. That is, when the value range of input data is narrow.
+ * @param fused_last_filter
+ *   when it's true, the last filter is fused into the kernel in the last pass and only one thread
+ *   block will do the filtering; when false, a standalone filter kernel with multiple thread
+ *   blocks is called. The later case is preferable when the most significant bits of input data are
+ *   almost the same. That is, when the value range of input data is narrow. In such case, there
+ *   could be a large number of inputs for the last filter, hence using multiple thread blocks is
+ *   beneficial.
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
