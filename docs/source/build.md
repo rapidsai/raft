@@ -162,16 +162,15 @@ RAFT's cmake has the following configurable flags available:.
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_TESTS | ON, OFF | ON | Compile Googletests |
-| BUILD_BENCH | ON, OFF | ON | Compile benchmarks |
+| BUILD_BENCH | ON, OFF | OFF | Compile benchmarks |
 | raft_FIND_COMPONENTS | nn distance | | Configures the optional components as a space-separated list |
-| RAFT_COMPILE_LIBRARIES | ON, OFF | OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_LIBRARIES | ON, OFF | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
 | RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
 | RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` |
-| RAFT_STATIC_LINK_LIBRARIES | ON, OFF | ON | Build static link libraries instead of shared libraries |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
-| NVTX | ON, OFF | OFF | Enable NVTX Markers |
+| RAFT_NVTX | ON, OFF | OFF | Enable NVTX Markers |
 | CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
 | CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
 | CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
@@ -266,7 +265,7 @@ When the needed [build dependencies](#build-dependencies) are already satisfied,
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-22.10
+  GIT_TAG           branch-23.04
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -298,7 +297,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "22.12")
+set(RAFT_VERSION "23.04")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 

@@ -36,6 +36,9 @@
 
 #include <thrust/sequence.h>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/matrix/specializations/detail/select_k.cuh>
+#endif
 #if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
 #include <raft/cluster/specializations.cuh>
 #endif

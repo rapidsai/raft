@@ -20,7 +20,7 @@
 #include <memory>
 #include <omp.h>
 #include <raft/common/nvtx.hpp>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <thread>
 #include <vector>

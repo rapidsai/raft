@@ -78,6 +78,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         uint32_t pq_dim
         codebook_gen codebook_kind
         bool force_random_rotation
+        bool conservative_memory_allocation
 
     cdef cppclass index[IdxT](ann_index):
         index(const device_resources& handle,
@@ -87,7 +88,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
               uint32_t dim,
               uint32_t pq_bits,
               uint32_t pq_dim,
-              uint32_t n_nonempty_lists)
+              bool conservative_memory_allocation)
 
         IdxT size()
         uint32_t dim()
@@ -98,6 +99,7 @@ cdef extern from "raft/neighbors/ivf_pq_types.hpp" \
         uint32_t n_lists()
         uint32_t rot_dim()
         codebook_gen codebook_kind()
+        bool conservative_memory_allocation()
 
     cpdef cppclass search_params(ann_search_params):
         uint32_t n_probes
