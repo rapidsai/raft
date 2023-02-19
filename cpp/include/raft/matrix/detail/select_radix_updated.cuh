@@ -131,7 +131,7 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
  */
 template <typename T, typename IdxT, typename Func>
 _RAFT_DEVICE void vectorized_process(
-  IdxT thread_rank, IdxT num_threads, const T* in, IdxT len, Func f)
+  size_t thread_rank, size_t num_threads, const T* in, IdxT len, Func f)
 {
   if constexpr (sizeof(T) >= VECTORIZED_READ_SIZE || VECTORIZED_READ_SIZE % sizeof(T) != 0) {
     for (IdxT i = thread_rank; i < len; i += num_threads) {
@@ -240,9 +240,8 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
     };
-    vectorized_process(static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) +
-                         static_cast<IdxT>(threadIdx.x),
-                       static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
+    vectorized_process(static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x,
+                       static_cast<size_t>(blockDim.x) * gridDim.x,
                        in_buf,
                        previous_len,
                        f);
@@ -295,9 +294,8 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
     };
-    vectorized_process(static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) +
-                         static_cast<IdxT>(threadIdx.x),
-                       static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
+    vectorized_process(static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x,
+                       static_cast<size_t>(blockDim.x) * gridDim.x,
                        in_buf,
                        previous_len,
                        f);
@@ -434,7 +432,7 @@ __global__ void last_filter_kernel(const T* in,
                                    Counter<T, IdxT>* counters,
                                    const bool select_min)
 {
-  const int batch_id = blockIdx.y;
+  const size_t batch_id = blockIdx.y;  // size_t to avoid multiplication overflow
 
   Counter<T, IdxT>* counter = counters + batch_id;
   IdxT previous_len         = counter->previous_len;
@@ -483,12 +481,11 @@ __global__ void last_filter_kernel(const T* in,
     }
   };
 
-  vectorized_process(
-    static_cast<IdxT>(blockIdx.x) * static_cast<IdxT>(blockDim.x) + static_cast<IdxT>(threadIdx.x),
-    static_cast<IdxT>(blockDim.x) * static_cast<IdxT>(gridDim.x),
-    in_buf,
-    previous_len,
-    f);
+  vectorized_process(static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x,
+                     static_cast<size_t>(blockDim.x) * gridDim.x,
+                     in_buf,
+                     previous_len,
+                     f);
 }
 
 /**
@@ -542,8 +539,8 @@ __global__ void radix_kernel(const T* in,
                              const bool select_min,
                              const int pass)
 {
-  const int batch_id = blockIdx.y;
-  auto counter       = counters + batch_id;
+  const size_t batch_id = blockIdx.y;
+  auto counter          = counters + batch_id;
   IdxT current_k;
   IdxT previous_len;
   IdxT current_len;
@@ -765,16 +762,16 @@ void radix_topk(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
 
-  auto kernel              = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
-  const int max_chunk_size = calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
-  if (max_chunk_size != batch_size) {
+  auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
+  const size_t max_chunk_size =
+    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+  if (max_chunk_size != static_cast<size_t>(batch_size)) {
     grid_dim = calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt);
   }
   const IdxT buf_len = calc_buf_len<T>(len);
 
-  size_t req_aux =
-    static_cast<size_t>(max_chunk_size) * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
-  size_t req_buf = static_cast<size_t>(max_chunk_size) * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
+  size_t req_aux = max_chunk_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
+  size_t req_buf = max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
   size_t mem_req = req_aux + req_buf;
   size_t mem_free, mem_total;
   RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
@@ -801,7 +798,7 @@ void radix_topk(const T* in,
   rmm::device_uvector<T> buf2(max_chunk_size * buf_len, stream, mr_buf);
   rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * buf_len, stream, mr_buf);
 
-  for (int offset = 0; offset < batch_size; offset += max_chunk_size) {
+  for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
@@ -902,8 +899,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram + bucket, static_cast<IdxT>(1));
     };
-    vectorized_process(
-      static_cast<IdxT>(threadIdx.x), static_cast<IdxT>(blockDim.x), in_buf, previous_len, f);
+    vectorized_process(threadIdx.x, blockDim.x, in_buf, previous_len, f);
   } else {
     // not use vectorized_process here because it increases #registers a lot
     IdxT* p_out_cnt              = &counter->out_cnt;
@@ -957,14 +953,15 @@ __global__ void radix_topk_one_block_kernel(const T* in,
   }
   __syncthreads();
 
-  in += blockIdx.x * len;
-  if (in_idx) { in_idx += blockIdx.x * len; }
-  out += blockIdx.x * k;
-  out_idx += blockIdx.x * k;
-  buf1 += blockIdx.x * len;
-  idx_buf1 += blockIdx.x * len;
-  buf2 += blockIdx.x * len;
-  idx_buf2 += blockIdx.x * len;
+  const size_t batch_id = blockIdx.x;  // size_t to avoid multiplication overflow
+  in += batch_id * len;
+  if (in_idx) { in_idx += batch_id * len; }
+  out += batch_id * k;
+  out_idx += batch_id * k;
+  buf1 += batch_id * len;
+  idx_buf1 += batch_id * len;
+  buf2 += batch_id * len;
+  idx_buf2 += batch_id * len;
   const T* in_buf        = nullptr;
   const IdxT* in_idx_buf = nullptr;
   T* out_buf             = nullptr;
@@ -1032,13 +1029,15 @@ void radix_topk_one_block(const T* in,
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto kernel              = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
-  const int max_chunk_size = calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+  auto kernel = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  const size_t max_chunk_size =
+    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
 
-  auto pool_guard = raft::get_pool_memory_resource(
-    mr,
-    static_cast<size_t>(max_chunk_size) * len * 2 * (sizeof(T) + sizeof(IdxT)) +
-      256 * 4);  // might need extra memory for alignment
+  auto pool_guard =
+    raft::get_pool_memory_resource(mr,
+                                   max_chunk_size * len * 2 * (sizeof(T) + sizeof(IdxT)) +
+                                     256 * 4  // might need extra memory for alignment
+    );
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
@@ -1049,7 +1048,7 @@ void radix_topk_one_block(const T* in,
   rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
 
-  for (int offset = 0; offset < batch_size; offset += max_chunk_size) {
+  for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
     kernel<<<chunk_size, BlockSize, 0, stream>>>(in + offset * len,
                                                  in_idx ? (in_idx + offset * len) : nullptr,
