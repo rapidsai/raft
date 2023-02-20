@@ -55,7 +55,7 @@ enum class Algo {
   kRadix11bits,
   kRadix8bitsUpdated,
   kRadix11bitsUpdated,
-  kRadix11bitsAdaptive,
+  kRadix11bitsExtraPass,
   kWarpAuto,
   kWarpImmediate,
   kWarpFiltered,
@@ -71,7 +71,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kRadix11bits: return os << "kRadix11bits";
     case Algo::kRadix8bitsUpdated: return os << "kRadix8bitsUpdated";
     case Algo::kRadix11bitsUpdated: return os << "kRadix11bitsUpdated";
-    case Algo::kRadix11bitsAdaptive: return os << "kRadix11bitsAdaptive";
+    case Algo::kRadix11bitsExtraPass: return os << "kRadix11bitsExtraPass";
     case Algo::kWarpAuto: return os << "kWarpAuto";
     case Algo::kWarpImmediate: return os << "kWarpImmediate";
     case Algo::kWarpFiltered: return os << "kWarpFiltered";
@@ -126,7 +126,7 @@ void select_k_impl(const device_resources& handle,
                                                                       out,
                                                                       out_idx,
                                                                       select_min,
-                                                                      false,  // adaptive
+                                                                      true,  // fused_last_filter
                                                                       stream);
     case Algo::kRadix11bitsUpdated:
       return detail::select::radix::select_k_updated<T, IdxT, 11, 512>(in,
@@ -137,9 +137,9 @@ void select_k_impl(const device_resources& handle,
                                                                        out,
                                                                        out_idx,
                                                                        select_min,
-                                                                       false,  // adaptive
+                                                                       true,  // fused_last_filter
                                                                        stream);
-    case Algo::kRadix11bitsAdaptive:
+    case Algo::kRadix11bitsExtraPass:
       return detail::select::radix::select_k_updated<T, IdxT, 11, 512>(in,
                                                                        in_idx,
                                                                        batch_size,
@@ -148,7 +148,7 @@ void select_k_impl(const device_resources& handle,
                                                                        out,
                                                                        out_idx,
                                                                        select_min,
-                                                                       true,  // adaptive
+                                                                       false,  // fused_last_filter
                                                                        stream);
     case Algo::kWarpAuto:
       return detail::select::warpsort::select_k<T, IdxT>(

@@ -330,7 +330,7 @@ INSTANTIATE_TEST_CASE_P(                // NOLINT
                                    select::Algo::kRadix11bits,
                                    select::Algo::kRadix8bitsUpdated,
                                    select::Algo::kRadix11bitsUpdated,
-                                   select::Algo::kRadix11bitsAdaptive,
+                                   select::Algo::kRadix11bitsExtraPass,
                                    select::Algo::kWarpImmediate,
                                    select::Algo::kWarpFiltered,
                                    select::Algo::kWarpDistributed)));
@@ -427,7 +427,7 @@ INSTANTIATE_TEST_CASE_P(                          // NOLINT
                                    select::Algo::kRadix11bits,
                                    select::Algo::kRadix8bitsUpdated,
                                    select::Algo::kRadix11bitsUpdated,
-                                   select::Algo::kRadix11bitsAdaptive,
+                                   select::Algo::kRadix11bitsExtraPass,
                                    select::Algo::kWarpImmediate,
                                    select::Algo::kWarpFiltered,
                                    select::Algo::kWarpDistributed,
@@ -444,7 +444,7 @@ INSTANTIATE_TEST_CASE_P(                             // NOLINT
                                    select::Algo::kRadix11bits,
                                    select::Algo::kRadix8bitsUpdated,
                                    select::Algo::kRadix11bitsUpdated,
-                                   select::Algo::kRadix11bitsAdaptive,
+                                   select::Algo::kRadix11bitsExtraPass,
                                    select::Algo::kWarpImmediate,
                                    select::Algo::kWarpFiltered,
                                    select::Algo::kWarpDistributed,
@@ -460,7 +460,7 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
                    testing::Values(select::Algo::kWarpAuto,
                                    select::Algo::kRadix8bitsUpdated,
                                    select::Algo::kRadix11bitsUpdated,
-                                   select::Algo::kRadix11bitsAdaptive)));
+                                   select::Algo::kRadix11bitsExtraPass)));
 
 using ReferencedRandomFloatSizeT =
   SelectK<float, size_t, with_ref<select::Algo::kRadix8bits>::params_random>;
@@ -471,6 +471,6 @@ INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
                                          testing::Values(select::Algo::kRadix11bits,
                                                          select::Algo::kRadix8bitsUpdated,
                                                          select::Algo::kRadix11bitsUpdated,
-                                                         select::Algo::kRadix11bitsAdaptive)));
+                                                         select::Algo::kRadix11bitsExtraPass)));
 
 }  // namespace raft::matrix
