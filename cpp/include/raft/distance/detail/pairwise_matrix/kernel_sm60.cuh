@@ -21,54 +21,28 @@
 
 namespace raft::distance::detail {
 
-template <typename data_type,
-          typename accumulate_type,
-          typename out_type,
-          typename index_type,
-
-          typename policy,
-          // Op (L2, L1, etc...)
-          typename op_type,
-          typename final_op_type,
-          bool row_major>
-struct kernel_params_T {
-  using DataT                        = data_type;
-  using AccT                         = accumulate_type;
-  using OutT                         = out_type;
-  using IdxT                         = index_type;
-  using PolicyT                      = policy;
-  using opT                          = op_type;
-  using FinOpT                       = final_op_type;
-  static constexpr bool is_row_major = row_major;
-};
-
-template <typename KP_T>
-__global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
-
-  void pairwise_matrix_kernel(const typename KP_T::DataT* x,
-                              const typename KP_T::DataT* y,
-                              const typename KP_T::DataT* _xn,
-                              const typename KP_T::DataT* _yn,
-                              typename KP_T::IdxT m,
-                              typename KP_T::IdxT n,
-                              typename KP_T::IdxT k,
-                              typename KP_T::IdxT lda,
-                              typename KP_T::IdxT ldb,
-                              typename KP_T::IdxT ldd,
-                              typename KP_T::OutT* dOutput,
-                              typename KP_T::opT distance_op,
-                              typename KP_T::FinOpT fin_op)
+template <typename Policy,
+          bool row_major,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename opT,
+          typename FinOpT>
+__global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(const DataT* x,
+                                                                              const DataT* y,
+                                                                              const DataT* _xn,
+                                                                              const DataT* _yn,
+                                                                              IdxT m,
+                                                                              IdxT n,
+                                                                              IdxT k,
+                                                                              IdxT lda,
+                                                                              IdxT ldb,
+                                                                              IdxT ldd,
+                                                                              OutT* dOutput,
+                                                                              opT distance_op,
+                                                                              FinOpT fin_op)
 {
-  using AccT  = typename KP_T::AccT;
-  using DataT = typename KP_T::DataT;
-  using OutT  = typename KP_T::OutT;
-  using IdxT  = typename KP_T::IdxT;
-
-  using Policy = typename KP_T::PolicyT;
-
-  // Instantiate compile time parameters to access constexpr members.
-  KP_T compile_time_params{};
-
   extern __shared__ char smem[];
 
   // Wrap operator back into lambdas. This is temporary and should be removed. (TODO)
@@ -80,6 +54,8 @@ __global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
                                             DataT * regyn,
                                             IdxT gridStrideX,
                                             IdxT gridStrideY) {
+    // Use .template to disambiguate (See:
+    // https://en.cppreference.com/w/cpp/language/dependent_name)
     distance_op.template epilog<Policy, AccT, DataT, IdxT>(
       acc, regxn, regyn, gridStrideX, gridStrideY);
   };
@@ -100,7 +76,7 @@ __global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
                     decltype(epilog_op),
                     decltype(fin_op),
                     decltype(row_epilog_op),
-                    compile_time_params.is_row_major,
+                    row_major,
                     write_out>
     obj(x,
         y,
@@ -121,32 +97,39 @@ __global__ __launch_bounds__(KP_T::PolicyT::Nthreads, 2)
   obj.run();
 }
 
-template <typename KP_T>
-static void pairwise_matrix(typename KP_T::opT distance_op,
-                            typename KP_T::FinOpT fin_op,
-                            const typename KP_T::DataT* x,
-                            const typename KP_T::DataT* y,
-                            const typename KP_T::DataT* _xn,
-                            const typename KP_T::DataT* _yn,
-                            typename KP_T::IdxT m,
-                            typename KP_T::IdxT n,
-                            typename KP_T::IdxT k,
-                            typename KP_T::IdxT lda,
-                            typename KP_T::IdxT ldb,
-                            typename KP_T::IdxT ldd,
-                            typename KP_T::OutT* dOutput,
-                            cudaStream_t stream)
+template <typename Policy,
+          bool row_major,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename IdxT,
+          typename OpT,
+          typename FinOpT>
+void pairwise_matrix(OpT distance_op,
+                     FinOpT fin_op,
+                     const DataT* x,
+                     const DataT* y,
+                     const DataT* _xn,
+                     const DataT* _yn,
+                     IdxT m,
+                     IdxT n,
+                     IdxT k,
+                     IdxT lda,
+                     IdxT ldb,
+                     IdxT ldd,
+                     OutT* dOutput,
+                     cudaStream_t stream)
 {
-  using Policy = typename KP_T::PolicyT;
-  using DataT = typename KP_T::DataT;
-
   dim3 blk(Policy::Nthreads);
+  // Use .template to disambiguate (See:
+  // https://en.cppreference.com/w/cpp/language/dependent_name)
   size_t smem_size = distance_op.template shared_mem_size<Policy, DataT>();
-  dim3 grid        = launchConfigGenerator<Policy>(m, n, smem_size, pairwise_matrix_kernel<KP_T>);
+  // Obtain function pointer to kernel
+  auto kernel = pairwise_matrix_kernel<Policy, row_major, DataT, AccT, OutT, IdxT, OpT, FinOpT>;
+  dim3 grid   = launchConfigGenerator<Policy>(m, n, smem_size, kernel);
 
-  pairwise_matrix_kernel<KP_T><<<grid, blk, smem_size, stream>>>(
+  kernel<<<grid, blk, smem_size, stream>>>(
     x, y, _xn, _yn, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op);
-
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 
