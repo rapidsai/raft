@@ -852,7 +852,6 @@ void radix_topk(const T* in,
     }
 
     if (!fused_last_filter) {
-      dim3 blocks(ceildiv<IdxT>(len, VECTORIZED_READ_SIZE / sizeof(T) * BlockSize), chunk_size);
       last_filter_kernel<T, IdxT, BitsPerPass><<<blocks, BlockSize, 0, stream>>>(chunk_in,
                                                                                  chunk_in_idx,
                                                                                  out_buf,
