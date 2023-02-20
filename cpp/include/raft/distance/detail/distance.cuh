@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_runtime_api.h>
-#include <raft/distance/distance_types.hpp>
 #include <raft/distance/detail/canberra.cuh>
 #include <raft/distance/detail/chebyshev.cuh>
 #include <raft/distance/detail/correlation.cuh>
@@ -648,43 +647,6 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
   return worksize;
 }
 
-/**
- * @defgroup pairwise_distance pairwise distance prims
- * @{
- * @brief Convenience wrapper around 'distance' prim to convert runtime metric
- * into compile time for the purpose of dispatch
- * @tparam Type input/accumulation/output data-type
- * @tparam Index_ indexing type
- * @param x first set of points
- * @param y second set of points
- * @param dist output distance matrix
- * @param m number of points in x
- * @param n number of points in y
- * @param k dimensionality
- * @param workspace temporary workspace buffer which can get resized as per the
- * needed workspace size
- * @param metric distance metric
- * @param stream cuda stream
- * @param isRowMajor whether the matrices are row-major or col-major
- */
-template <typename Type, typename Index_, raft::distance::DistanceType DistType>
-void pairwise_distance_impl(const Type* x,
-                            const Type* y,
-                            Type* dist,
-                            Index_ m,
-                            Index_ n,
-                            Index_ k,
-                            rmm::device_uvector<char>& workspace,
-                            cudaStream_t stream,
-                            bool isRowMajor,
-                            Type metric_arg = 2.0f)
-{
-  auto worksize = getWorkspaceSize<DistType, Type, Type, Type, Index_>(x, y, m, n, k);
-  workspace.resize(worksize, stream);
-  distance<DistType, Type, Type, Type, Index_>(
-    x, y, dist, m, n, k, workspace.data(), worksize, stream, isRowMajor, metric_arg);
-}
-/** @} */
 };  // namespace detail
 };  // namespace distance
 };  // namespace raft
