@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/matrix/specializations/detail/select_k.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/specializations/detail/ivf_pq_compute_similarity.cuh>
 
