@@ -16,93 +16,35 @@
 
 #pragma once
 
-#include "ann_utils.cuh"
-
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/serialize.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 
 #include <cstdint>
-#include <fstream>
 
-namespace raft::spatial::knn::ivf_flat::detail {
+namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
-using namespace raft::neighbors::ivf_flat;   // NOLINT
 
 using raft::neighbors::ivf_flat::index;
 using raft::neighbors::ivf_flat::index_params;
 using raft::neighbors::ivf_flat::kIndexGroupSize;
 using raft::neighbors::ivf_flat::list_data;
 using raft::neighbors::ivf_flat::search_params;
-/**
- * Resize a list by the given id, so that it can contain the given number of records;
- * possibly, copy the data.
- *
- * Besides resizing the corresponding list_data, this function updates the device pointers
- *   data_ptrs, inds_ptrs, and the list_sizes if necessary.
- *
- * The new `list_sizes(label)` represents the number of valid records in the index;
- * it can be `list_size` if the previous size was not smaller; otherwise it's not updated.
- *
- * @param[in] handle
- * @param[in] label list id
- * @param[in] list_size the minimum size the list should grow.
- */
-template <typename T, typename IdxT, typename SizeT = uint32_t>
-void resize_list(raft::device_resources const& handle,
-                 std::shared_ptr<list_data<T, IdxT, SizeT>>& orig_list,
-                 SizeT new_used_size,
-                 SizeT old_used_size,
-                 uint32_t dim)
-{
-  bool skip_resize = false;
-  // TODO update total_size
-  if (orig_list) {
-    if (new_used_size <= orig_list->indices.extent(0)) {
-      auto shared_list_size = old_used_size;
-      if (new_used_size <= old_used_size ||
-          orig_list->size.compare_exchange_strong(shared_list_size, new_used_size)) {
-        // We don't need to resize the list if:
-        //  1. The list exists
-        //  2. The new size fits in the list
-        //  3. The list doesn't grow or no-one else has grown it yet
-        skip_resize = true;
-      }
-    }
-  } else {
-    old_used_size = 0;
-  }
-  if (skip_resize) { return; }
-  auto new_list = std::make_shared<list_data<T, IdxT>>(handle, new_used_size, dim);
-  if (old_used_size > 0) {
-    auto copied_data_extents = make_extents<SizeT>(old_used_size, dim);
-    auto copied_view = make_mdspan<T, SizeT, row_major, false, true>(new_list->data.data_handle(),
-                                                                     copied_data_extents);
-    copy(copied_view.data_handle(),
-         orig_list->data.data_handle(),
-         copied_view.size(),
-         handle.get_stream());
-    copy(new_list->indices.data_handle(),
-         orig_list->indices.data_handle(),
-         old_used_size,
-         handle.get_stream());
-  }
-  // swap the shared pointer content with the new list
-  new_list.swap(orig_list);
-}
 
 template <typename T, typename IdxT>
 auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
@@ -110,8 +52,12 @@ auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> i
   auto stream = res.get_stream();
 
   // Allocate the new index
-  index<T, IdxT> target(
-    res, source.metric(), source.n_lists(), source.adaptive_centers(), source.dim());
+  index<T, IdxT> target(res,
+                        source.metric(),
+                        source.n_lists(),
+                        source.adaptive_centers(),
+                        source.conservative_memory_allocation(),
+                        source.dim());
 
   // Copy the independent parts
   copy(target.list_sizes().data_handle(),
@@ -219,7 +165,7 @@ __global__ void build_index_kernel(const LabelT* labels,
   }
 }
 
-/** See raft::spatial::knn::ivf_flat::extend docs */
+/** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
 void extend(raft::device_resources const& handle,
             index<T, IdxT>* index,
@@ -290,9 +236,11 @@ void extend(raft::device_resources const& handle,
     copy(old_list_sizes.data(), old_list_sizes_dev.data_handle(), n_lists, stream);
     copy(new_list_sizes.data(), list_sizes_ptr, n_lists, stream);
     handle.sync_stream();
-    auto lists = index->lists();
+    auto lists            = index->lists();
+    auto list_device_spec = list_spec<uint32_t>{index->dim(), false};
     for (uint32_t label = 0; label < n_lists; label++) {
-      resize_list(handle, lists(label), new_list_sizes[label], old_list_sizes[label], index->dim());
+      ivf::resize_list(
+        handle, lists(label), list_device_spec, new_list_sizes[label], old_list_sizes[label]);
     }
   }
   // Update the pointers and the sizes
@@ -329,7 +277,7 @@ void extend(raft::device_resources const& handle,
   }
 }
 
-/** See raft::spatial::knn::ivf_flat::extend docs */
+/** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
 auto extend(raft::device_resources const& handle,
             const index<T, IdxT>& orig_index,
@@ -342,7 +290,7 @@ auto extend(raft::device_resources const& handle,
   return ext_index;
 }
 
-/** See raft::spatial::knn::ivf_flat::build docs */
+/** See raft::neighbors::ivf_flat::build docs */
 template <typename T, typename IdxT>
 inline auto build(raft::device_resources const& handle,
                   const index_params& params,
@@ -439,9 +387,10 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Allocate new memory
-  auto lists = refinement_index->lists();
+  auto lists            = refinement_index->lists();
+  auto list_device_spec = list_spec<uint32_t>{refinement_index->dim(), false};
   for (uint32_t label = 0; label < n_lists; label++) {
-    resize_list(handle, lists(label), n_candidates, uint32_t(0), refinement_index->dim());
+    ivf::resize_list(handle, lists(label), list_device_spec, n_candidates, uint32_t(0));
   }
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
@@ -460,177 +409,4 @@ inline void fill_refinement_index(raft::device_resources const& handle,
                                          refinement_index->veclen());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
-
-// Serialization version 3
-// No backward compatibility yet; that is, can't add additional fields without breaking
-// backward compatibility.
-// TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
-//             compatible fashion.
-constexpr int serialization_version = 3;
-
-// NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
-// message.
-template <size_t RealSize, size_t ExpectedSize>
-struct check_index_layout {
-  static_assert(RealSize == ExpectedSize,
-                "The size of the index struct has changed since the last update; "
-                "paste in the new size and consider updating the serialization logic");
-};
-
-template struct check_index_layout<sizeof(index<double, std::uint64_t>), 376>;
-
-template <typename T, typename IdxT, typename SizeT>
-void serialize_list(const raft::device_resources& handle,
-                    std::ostream& os,
-                    const list_data<T, IdxT, SizeT>& ld,
-                    std::optional<SizeT> size_override = std::nullopt)
-{
-  auto size = size_override.value_or(ld.size.load());
-  serialize_scalar(handle, os, size);
-  if (size == 0) { return; }
-
-  auto data_extents = make_extents<SizeT>(size, ld.data.extent(1));
-  auto data_array   = make_host_mdarray<T, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
-  copy(data_array.data_handle(), ld.data.data_handle(), data_array.size(), handle.get_stream());
-  copy(inds_array.data_handle(), ld.indices.data_handle(), inds_array.size(), handle.get_stream());
-  handle.sync_stream();
-  serialize_mdspan(handle, os, data_array.view());
-  serialize_mdspan(handle, os, inds_array.view());
-}
-
-template <typename T, typename IdxT, typename SizeT>
-void serialize_list(const raft::device_resources& handle,
-                    std::ostream& os,
-                    const std::shared_ptr<const list_data<T, IdxT, SizeT>>& ld,
-                    std::optional<SizeT> size_override = std::nullopt)
-{
-  if (ld) {
-    return serialize_list(handle, os, *ld, size_override);
-  } else {
-    return serialize_scalar(handle, os, SizeT{0});
-  }
-}
-
-template <typename T, typename IdxT, typename SizeT>
-void deserialize_list(const raft::device_resources& handle,
-                      std::istream& is,
-                      std::shared_ptr<list_data<T, IdxT, SizeT>>& ld,
-                      uint32_t dim)
-{
-  auto size = deserialize_scalar<SizeT>(handle, is);
-  if (size == 0) { return ld.reset(); }
-  std::make_shared<list_data<T, IdxT, SizeT>>(handle, size, dim).swap(ld);
-  auto data_extents = make_extents<SizeT>(size, ld->data.extent(1));
-  auto data_array   = make_host_mdarray<T, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
-  deserialize_mdspan(handle, is, data_array.view());
-  deserialize_mdspan(handle, is, inds_array.view());
-  copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
-  // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
-  copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
-}
-
-/**
- * Save the index to file.
- *
- * Experimental, both the API and the serialization format are subject to change.
- *
- * @param[in] handle the raft handle
- * @param[in] filename the file name for saving the index
- * @param[in] index_ IVF-Flat index
- *
- */
-template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle,
-               const std::string& filename,
-               const index<T, IdxT>& index_)
-{
-  std::ofstream of(filename, std::ios::out | std::ios::binary);
-  if (!of) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
-
-  RAFT_LOG_DEBUG(
-    "Saving IVF-Flat index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
-
-  serialize_scalar(handle, of, serialization_version);
-  serialize_scalar(handle, of, index_.size());
-  serialize_scalar(handle, of, index_.dim());
-  serialize_scalar(handle, of, index_.n_lists());
-  serialize_scalar(handle, of, index_.metric());
-  serialize_scalar(handle, of, index_.veclen());
-  serialize_scalar(handle, of, index_.adaptive_centers());
-  serialize_mdspan(handle, of, index_.centers());
-  if (index_.center_norms()) {
-    bool has_norms = true;
-    serialize_scalar(handle, of, has_norms);
-    serialize_mdspan(handle, of, *index_.center_norms());
-  } else {
-    bool has_norms = false;
-    serialize_scalar(handle, of, has_norms);
-  }
-  auto sizes_host = make_host_vector<uint32_t, uint32_t>(index_.list_sizes().extent(0));
-  copy(sizes_host.data_handle(),
-       index_.list_sizes().data_handle(),
-       sizes_host.size(),
-       handle.get_stream());
-  handle.sync_stream();
-  serialize_mdspan(handle, of, sizes_host.view());
-  for (uint32_t label = 0; label < index_.n_lists(); label++) {
-    serialize_list<T, IdxT, uint32_t>(handle, of, index_.lists()(label), sizes_host(label));
-  }
-  of.close();
-  if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
-}
-
-/** Load an index from file.
- *
- * Experimental, both the API and the serialization format are subject to change.
- *
- * @param[in] handle the raft handle
- * @param[in] filename the name of the file that stores the index
- * @param[in] index_ IVF-Flat index
- *
- */
-template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& handle, const std::string& filename)
-  -> index<T, IdxT>
-{
-  std::ifstream infile(filename, std::ios::in | std::ios::binary);
-
-  if (!infile) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
-
-  auto ver = deserialize_scalar<int>(handle, infile);
-  if (ver != serialization_version) {
-    RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
-  }
-  auto n_rows           = deserialize_scalar<IdxT>(handle, infile);
-  auto dim              = deserialize_scalar<std::uint32_t>(handle, infile);
-  auto n_lists          = deserialize_scalar<std::uint32_t>(handle, infile);
-  auto metric           = deserialize_scalar<raft::distance::DistanceType>(handle, infile);
-  auto veclen           = deserialize_scalar<std::uint32_t>(handle, infile);
-  bool adaptive_centers = deserialize_scalar<bool>(handle, infile);
-
-  index<T, IdxT> index_ = index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
-
-  deserialize_mdspan(handle, infile, index_.centers());
-  bool has_norms = deserialize_scalar<bool>(handle, infile);
-  if (has_norms) {
-    if (!index_.center_norms()) {
-      RAFT_FAIL("Error inconsistent center norms");
-    } else {
-      auto center_norms = *index_.center_norms();
-      deserialize_mdspan(handle, infile, center_norms);
-    }
-  }
-  deserialize_mdspan(handle, infile, index_.list_sizes());
-  for (uint32_t label = 0; label < index_.n_lists(); label++) {
-    deserialize_list<T, IdxT, uint32_t>(handle, infile, index_.lists()(label), index_.dim());
-  }
-  handle.sync_stream();
-  infile.close();
-
-  index_.recompute_internal_state(handle);
-
-  return index_;
-}
-}  // namespace raft::spatial::knn::ivf_flat::detail
+}  // namespace raft::neighbors::ivf_flat::detail

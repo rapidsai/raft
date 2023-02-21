@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "ann_utils.cuh"
-
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -30,6 +28,7 @@
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_loads_stores.cuh>
 #include <raft/util/integer_utils.hpp>
@@ -39,10 +38,9 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
-namespace raft::spatial::knn::ivf_flat::detail {
+namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
-using namespace raft::neighbors::ivf_flat;   // NOLINT
 
 using raft::neighbors::ivf_flat::index;
 using raft::neighbors::ivf_flat::index_params;
@@ -1271,7 +1269,7 @@ inline bool is_min_close(distance::DistanceType metric)
   return select_min;
 }
 
-/** See raft::spatial::knn::ivf_flat::search docs */
+/** See raft::neighbors::ivf_flat::search docs */
 template <typename T, typename IdxT>
 inline void search(raft::device_resources const& handle,
                    const search_params& params,
@@ -1308,4 +1306,4 @@ inline void search(raft::device_resources const& handle,
                                      mr);
 }
 
-}  // namespace raft::spatial::knn::ivf_flat::detail
+}  // namespace raft::neighbors::ivf_flat::detail

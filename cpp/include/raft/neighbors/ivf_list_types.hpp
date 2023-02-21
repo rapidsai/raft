@@ -36,9 +36,12 @@ constexpr static IdxT kInvalidRecord = (std::is_signed_v<IdxT> ? IdxT{0}
                                        1;
 
 /** The data for a single IVF list. */
-template <template <typename> typename SpecT, typename IdxT, typename SizeT = uint32_t>
+template <template <typename> typename SpecT,
+          typename ValueT,
+          typename IdxT,
+          typename SizeT = uint32_t>
 struct list {
-  using value_type   = typename SpecT<SizeT>::value_type;
+  using value_type   = ValueT;
   using list_extents = typename SpecT<SizeT>::list_extents;
 
   /** Possibly encoded data; it's layout is defined by `SpecT`. */

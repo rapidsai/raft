@@ -211,7 +211,7 @@ struct list_spec {
 };
 
 template <typename IdxT, typename SizeT = uint32_t>
-using list_data = ivf::list<list_spec, IdxT, SizeT>;
+using list_data = ivf::list<list_spec, uint8_t, IdxT, SizeT>;
 
 /**
  * @brief IVF-PQ index.

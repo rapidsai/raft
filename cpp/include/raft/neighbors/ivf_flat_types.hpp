@@ -23,6 +23,7 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -38,14 +39,6 @@ namespace raft::neighbors::ivf_flat {
 
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
-
-/**
- * Default value filled in the `indices()` array.
- * One may encounter it trying to access a record within a cluster that is outside of the
- * `list_sizes()` bound (due to the record alignment `kIndexGroupSize`).
- */
-template <typename IdxT>
-constexpr static IdxT kInvalidRecord = std::numeric_limits<IdxT>::max() - 1;
 
 struct index_params : ann::index_params {
   /** The number of inverted lists (clusters) */
@@ -67,6 +60,16 @@ struct index_params : ann::index_params {
    * `index.centers()` "drift" together with the changing distribution of the newly added data.
    */
   bool adaptive_centers = false;
+  /**
+   * By default, the algorithm allocates more space than necessary for individual clusters
+   * (`list_data`). This allows to amortize the cost of memory allocation and reduce the number of
+   * data copies during repeated calls to `extend` (extending the database).
+   *
+   * The alternative is the conservative allocation behavior; when enabled, the algorithm always
+   * allocates the minimum amount of memory required to store the given number of records. Set this
+   * flag to `true` if you prefer to use as little GPU memory for the database as possible.
+   */
+  bool conservative_memory_allocation = false;
 };
 
 struct search_params : ann::search_params {
@@ -77,36 +80,37 @@ struct search_params : ann::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
-/** The data for a single list (cluster). */
-template <typename T, typename IdxT, typename SizeT = uint32_t>
-struct list_data {
-  /** Cluster data. */
-  device_matrix<T, SizeT, row_major> data;
-  /** Source indices. */
-  device_vector<IdxT, SizeT> indices;
-  /** The actual size of the content. */
-  std::atomic<SizeT> size;
+template <typename SizeT = uint32_t>
+struct list_spec {
+  using list_extents = matrix_extent<SizeT>;
 
-  list_data(raft::device_resources const& res, SizeT n_rows, uint32_t dim) : size{n_rows}
+  SizeT align_max;
+  SizeT align_min;
+  uint32_t dim;
+
+  constexpr list_spec(uint32_t dim, bool conservative_memory_allocation)
+    : dim(dim),
+      align_min(kIndexGroupSize),
+      align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
   {
-    auto capacity = round_up_safe<SizeT>(n_rows, kIndexGroupSize);
-    try {
-      data    = make_device_matrix<T, SizeT, row_major>(res, capacity, dim);
-      indices = make_device_vector<IdxT, SizeT>(res, capacity);
-    } catch (std::bad_alloc& e) {
-      RAFT_FAIL(
-        "ivf-flat: failed to allocate a big enough index list to hold all data "
-        "(requested size: %zu records, selected capacity: %zu records). "
-        "Allocator exception: %s",
-        size_t(n_rows),
-        size_t(capacity),
-        e.what());
-    }
-    // Fill the index buffer with a pre-defined marker for easier debugging
-    thrust::fill_n(
-      res.get_thrust_policy(), indices.data_handle(), indices.size(), kInvalidRecord<IdxT>);
+  }
+
+  // Allow casting between different size-types (for safer size and offset calculations)
+  template <typename OtherSizeT>
+  constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
+    : dim{other_spec.dim}, align_min{other_spec.align_min}, align_max{other_spec.align_max}
+  {
+  }
+
+  /** Determine the extents of an array enough to hold a given amount of data. */
+  constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
+  {
+    return make_extents<SizeT>(n_rows, dim);
   }
 };
+
+template <typename ValueT, typename IdxT, typename SizeT = uint32_t>
+using list_data = ivf::list<list_spec, ValueT, IdxT, SizeT>;
 
 /**
  * @brief IVF-flat index.
@@ -232,11 +236,13 @@ struct index : ann::index {
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         bool adaptive_centers,
+        bool conservative_memory_allocation,
         uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
       adaptive_centers_(adaptive_centers),
+      conservative_memory_allocation_{conservative_memory_allocation},
       centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
       center_norms_(std::nullopt),
       lists_{make_host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t>(n_lists)},
@@ -262,7 +268,12 @@ struct index : ann::index {
 
   /** Construct an empty index. It needs to be trained and then populated. */
   index(raft::device_resources const& res, const index_params& params, uint32_t dim)
-    : index(res, params.metric, params.n_lists, params.adaptive_centers, dim)
+    : index(res,
+            params.metric,
+            params.n_lists,
+            params.adaptive_centers,
+            params.conservative_memory_allocation,
+            dim)
   {
   }
 
@@ -281,6 +292,14 @@ struct index : ann::index {
   [[nodiscard]] inline auto inds_ptrs() const noexcept -> device_vector_view<IdxT* const, uint32_t>
   {
     return inds_ptrs_.view();
+  }
+  /**
+   * Whether to use convervative memory allocation when extending the list (cluster) data
+   * (see index_params.conservative_memory_allocation).
+   */
+  [[nodiscard]] constexpr inline auto conservative_memory_allocation() const noexcept -> bool
+  {
+    return conservative_memory_allocation_;
   }
 
   /**
@@ -326,6 +345,7 @@ struct index : ann::index {
   uint32_t veclen_;
   raft::distance::DistanceType metric_;
   bool adaptive_centers_;
+  bool conservative_memory_allocation_;
   host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t> lists_;
   device_vector<uint32_t, uint32_t> list_sizes_;
   device_matrix<float, uint32_t, row_major> centers_;

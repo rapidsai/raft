@@ -155,9 +155,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                   0.001,
                                   min_recall));
       {
-        // new interface
-        raft::spatial::knn::ivf_flat::index_params index_params;
-        raft::spatial::knn::ivf_flat::search_params search_params;
+        ivf_flat::index_params index_params;
+        ivf_flat::search_params search_params;
         index_params.n_lists   = ps.nlist;
         index_params.metric    = ps.metric;
         search_params.n_probes = ps.nprobe;
@@ -201,10 +200,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
-        raft::spatial::knn::ivf_flat::detail::serialize(handle_, "ivf_flat_index", index);
+        ivf_flat::detail::serialize(handle_, "ivf_flat_index", index);
 
-        auto index_loaded =
-          raft::spatial::knn::ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
+        auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
 
         ivf_flat::search(handle_,
                          index_loaded,
