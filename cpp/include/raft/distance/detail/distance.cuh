@@ -304,7 +304,6 @@ void distance_impl(raft::resources const& handle,
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
 void distance_impl(raft::resources const& handle,
                    distance_tag<DistanceType::InnerProduct> distance_type,
@@ -320,18 +319,18 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-    cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-    raft::linalg::gemm(handle,
-                       out,
-                       const_cast<DataT*>(x),
-                       const_cast<DataT*>(y),
-                       m,
-                       n,
-                       k,
-                       !is_row_major,
-                       !is_row_major,
-                       is_row_major,
-                       stream);
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  raft::linalg::gemm(handle,
+                     out,
+                     const_cast<DataT*>(x),
+                     const_cast<DataT*>(y),
+                     m,
+                     n,
+                     k,
+                     !is_row_major,
+                     !is_row_major,
+                     is_row_major,
+                     stream);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -560,7 +559,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt = false;
+  bool perform_sqrt   = false;
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   distance_impl_l2_expanded(
     perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
@@ -581,7 +580,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt = true;
+  bool perform_sqrt   = true;
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   distance_impl_l2_expanded(
     perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);

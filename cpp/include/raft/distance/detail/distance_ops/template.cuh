@@ -27,7 +27,7 @@ namespace raft::distance::detail::ops {
 struct template_distance_op {
   TODO member;
 
-  template_distance_op(TODO member_) noexcept : member(member_) { }
+  template_distance_op(TODO member_) noexcept : member(member_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = TODO;

@@ -169,8 +169,8 @@ void cutlassDistanceKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};      // namespace detail
-};      // namespace distance
-};      // namespace raft
+};  // namespace detail
+};  // namespace distance
+};  // namespace raft
 
 #pragma GCC diagnostic pop
