@@ -42,11 +42,6 @@ namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-using raft::neighbors::ivf_flat::index;
-using raft::neighbors::ivf_flat::index_params;
-using raft::neighbors::ivf_flat::kIndexGroupSize;
-using raft::neighbors::ivf_flat::search_params;
-
 constexpr int kThreadsPerBlock = 128;
 
 /**
@@ -677,8 +672,8 @@ __global__ void __launch_bounds__(kThreadsPerBlock)
                           const uint32_t query_smem_elems,
                           const T* query,
                           const uint32_t* coarse_index,
-                          const IdxT* const* list_indices_ptrs,  // const IdxT* list_indices
-                          const T* const* list_data_ptrs,        // const T* list_data
+                          const IdxT* const* list_indices_ptrs,
+                          const T* const* list_data_ptrs,
                           const uint32_t* list_sizes,
                           const uint32_t n_probes,
                           const uint32_t k,

@@ -107,11 +107,11 @@ auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> i
  *     we use source_vecs[source_ixs[i],:]. In both cases i=0..n_rows-1.
  *
  * @param[in] labels device pointer to the cluster ids for each row [n_rows]
- * @param[in] list_offsets device pointer to the cluster offsets in the output (index) [n_lists]
  * @param[in] source_vecs device pointer to the input data [n_rows, dim]
  * @param[in] source_ixs device pointer to the input indices [n_rows]
- * @param[out] list_data device pointer to the output [index_size, dim]
- * @param[out] list_index device pointer to the source ids corr. to the output [index_size]
+ * @param[out] list_data_ptrs device pointer to the index data of size [n_lists][index_size, dim]
+ * @param[out] list_index_ptrs device pointer to the source ids corr. to the output [n_lists]
+ * [index_size]
  * @param[out] list_sizes_ptr device pointer to the cluster sizes [n_lists];
  *                          it's used as an atomic counter, and must be initialized with zeros.
  * @param n_rows source length
@@ -121,7 +121,6 @@ auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> i
  */
 template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
 __global__ void build_index_kernel(const LabelT* labels,
-                                   // const IdxT* list_offsets,
                                    const T* source_vecs,
                                    const IdxT* source_ixs,
                                    T** list_data_ptrs,
@@ -392,6 +391,8 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   for (uint32_t label = 0; label < n_lists; label++) {
     ivf::resize_list(handle, lists(label), list_device_spec, n_candidates, uint32_t(0));
   }
+  // Update the pointers and the sizes
+  refinement_index->recompute_internal_state(handle);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 

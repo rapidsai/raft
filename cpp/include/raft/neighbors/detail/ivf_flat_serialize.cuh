@@ -95,6 +95,7 @@ void serialize(raft::device_resources const& handle,
     ivf::serialize_list<list_spec, T, IdxT, uint32_t>(
       handle, of, index_.lists()(label), list_store_spec, sizes_host(label));
   }
+  handle.sync_stream();
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
 }
