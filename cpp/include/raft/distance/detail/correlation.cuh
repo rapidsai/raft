@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ static void correlationImpl(const DataT* x,
         auto Q_denom = k * regx2n[i] - (regxn[i] * regxn[i]);
         auto R_denom = k * regy2n[j] - (regyn[j] * regyn[j]);
 
-        acc[i][j] = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+        acc[i][j] = 1 - (numer / raft::sqrt(Q_denom * R_denom));
       }
     }
   };
@@ -262,8 +262,8 @@ void correlationImpl(int m,
                          true,
                          stream,
                          false,
-                         raft::Nop<InType>(),
-                         raft::Sum<InType>());
+                         raft::identity_op(),
+                         raft::add_op());
     raft::linalg::reduce(norm_row_vec,
                          pB,
                          k,
@@ -273,8 +273,8 @@ void correlationImpl(int m,
                          true,
                          stream,
                          false,
-                         raft::Nop<InType>(),
-                         raft::Sum<InType>());
+                         raft::identity_op(),
+                         raft::add_op());
 
     sq_norm_col_vec += (m + n);
     sq_norm_row_vec = sq_norm_col_vec + m;
@@ -290,8 +290,8 @@ void correlationImpl(int m,
                          true,
                          stream,
                          false,
-                         raft::Nop<InType>(),
-                         raft::Sum<InType>());
+                         raft::identity_op(),
+                         raft::add_op());
     sq_norm_col_vec += m;
     sq_norm_row_vec = sq_norm_col_vec;
     raft::linalg::rowNorm(sq_norm_col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream);

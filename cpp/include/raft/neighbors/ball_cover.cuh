@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
 
 #include <cstdint>
 
-#include "ball_cover_types.hpp"
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/ball_cover.cuh>
 #include <raft/spatial/knn/detail/ball_cover/common.cuh>
 #include <thrust/transform.h>
@@ -29,17 +29,22 @@
 namespace raft::neighbors::ball_cover {
 
 /**
+ * @defgroup random_ball_cover Random Ball Cover algorithm
+ * @{
+ */
+
+/**
  * Builds and populates a previously unbuilt BallCoverIndex
  *
  * Usage example:
  * @code{.cpp}
  *
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/ball_cover.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *  BallCoverIndex index(handle, X, metric);
@@ -55,7 +60,7 @@ namespace raft::neighbors::ball_cover {
  * @param[inout] index an empty (and not previous built) instance of BallCoverIndex
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void build_index(const raft::handle_t& handle,
+void build_index(raft::device_resources const& handle,
                  BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
   ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
@@ -72,6 +77,8 @@ void build_index(const raft::handle_t& handle,
 
   index.set_index_trained();
 }
+
+/** @} */  // end group random_ball_cover
 
 /**
  * Performs a faster exact knn in metric spaces using the triangle
@@ -102,7 +109,7 @@ void build_index(const raft::handle_t& handle,
  *               looking in the closest landmark.
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void all_knn_query(const raft::handle_t& handle,
+void all_knn_query(raft::device_resources const& handle,
                    BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                    int_t k,
                    idx_t* inds,
@@ -140,6 +147,11 @@ void all_knn_query(const raft::handle_t& handle,
 }
 
 /**
+ * @ingroup random_ball_cover
+ * @{
+ */
+
+/**
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
  * number of distance computations from O(n^2) to O(sqrt(n)). This
@@ -151,12 +163,12 @@ void all_knn_query(const raft::handle_t& handle,
  * Usage example:
  * @code{.cpp}
  *
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/ball_cover.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *
@@ -190,7 +202,7 @@ void all_knn_query(const raft::handle_t& handle,
  *               looking in the closest landmark.
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void all_knn_query(const raft::handle_t& handle,
+void all_knn_query(raft::device_resources const& handle,
                    BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
@@ -211,6 +223,8 @@ void all_knn_query(const raft::handle_t& handle,
   all_knn_query(
     handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
 }
+
+/** @} */
 
 /**
  * Performs a faster exact knn in metric spaces using the triangle
@@ -242,7 +256,7 @@ void all_knn_query(const raft::handle_t& handle,
  * @param[in] n_query_pts number of query points
  */
 template <typename idx_t, typename value_t, typename int_t>
-void knn_query(const raft::handle_t& handle,
+void knn_query(raft::device_resources const& handle,
                const BallCoverIndex<idx_t, value_t, int_t>& index,
                int_t k,
                const value_t* query,
@@ -282,6 +296,11 @@ void knn_query(const raft::handle_t& handle,
 }
 
 /**
+ * @ingroup random_ball_cover
+ * @{
+ */
+
+/**
  * Performs a faster exact knn in metric spaces using the triangle
  * inequality with a number of landmark points to reduce the
  * number of distance computations from O(n^2) to O(sqrt(n)). This
@@ -292,12 +311,12 @@ void knn_query(const raft::handle_t& handle,
  * Usage example:
  * @code{.cpp}
  *
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/ball_cover.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *
@@ -333,7 +352,7 @@ void knn_query(const raft::handle_t& handle,
  *               looking in the closest landmark.
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
-void knn_query(const raft::handle_t& handle,
+void knn_query(raft::device_resources const& handle,
                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,
                raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,
@@ -364,6 +383,8 @@ void knn_query(const raft::handle_t& handle,
             perform_post_filtering,
             weight);
 }
+
+/** @} */
 
 // TODO: implement functions for:
 //  4. rbc_eps_neigh() - given a populated index, perform query against different query array

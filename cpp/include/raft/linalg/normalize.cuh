@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,16 @@
 
 #include "detail/normalize.cuh"
 
+#include <raft/core/operators.hpp>
 #include <raft/linalg/norm_types.hpp>
 
 namespace raft {
 namespace linalg {
+
+/**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
 
 /**
  * @brief Divide rows by their norm defined by main_op, reduce_op and fin_op
@@ -31,7 +37,7 @@ namespace linalg {
  * @tparam MainLambda Type of main_op
  * @tparam ReduceLambda Type of reduce_op
  * @tparam FinalLambda Type of fin_op
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
  * @param[in] init Initialization value, i.e identity element for the reduction operation
@@ -46,7 +52,7 @@ template <typename ElementType,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-void row_normalize(const raft::handle_t& handle,
+void row_normalize(raft::device_resources const& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
                    ElementType init,
@@ -79,14 +85,14 @@ void row_normalize(const raft::handle_t& handle,
  *
  * @tparam ElementType Input/Output data type
  * @tparam IndexType Integer type used to for addressing
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_matrix_view
  * @param[in] norm_type the type of norm to be applied
  * @param[in] eps If the norm is below eps, the row is considered zero and no division is applied
  */
 template <typename ElementType, typename IndexType>
-void row_normalize(const raft::handle_t& handle,
+void row_normalize(raft::device_resources const& handle,
                    raft::device_matrix_view<const ElementType, IndexType, row_major> in,
                    raft::device_matrix_view<ElementType, IndexType, row_major> out,
                    NormType norm_type,
@@ -94,38 +100,22 @@ void row_normalize(const raft::handle_t& handle,
 {
   switch (norm_type) {
     case L1Norm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L1Op<ElementType>(),
-                    raft::Sum<ElementType>(),
-                    raft::Nop<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::abs_op(), raft::add_op(), raft::identity_op(), eps);
       break;
     case L2Norm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L2Op<ElementType>(),
-                    raft::Sum<ElementType>(),
-                    raft::SqrtOp<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::sq_op(), raft::add_op(), raft::sqrt_op(), eps);
       break;
     case LinfNorm:
-      row_normalize(handle,
-                    in,
-                    out,
-                    ElementType(0),
-                    raft::L1Op<ElementType>(),
-                    raft::Max<ElementType>(),
-                    raft::Nop<ElementType>(),
-                    eps);
+      row_normalize(
+        handle, in, out, ElementType(0), raft::abs_op(), raft::max_op(), raft::identity_op(), eps);
       break;
     default: THROW("Unsupported norm type: %d", norm_type);
   }
 }
+
+/** @} */
 
 }  // namespace linalg
 }  // namespace raft

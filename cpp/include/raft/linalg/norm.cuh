@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/util/input_validation.hpp>
 
@@ -47,7 +48,7 @@ namespace linalg {
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void rowNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -55,7 +56,7 @@ void rowNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::rowNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
@@ -74,7 +75,7 @@ void rowNorm(Type* dots,
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void colNorm(Type* dots,
              const Type* data,
              IdxType D,
@@ -82,10 +83,15 @@ void colNorm(Type* dots,
              NormType type,
              bool rowMajor,
              cudaStream_t stream,
-             Lambda fin_op = raft::Nop<Type, IdxType>())
+             Lambda fin_op = raft::identity_op())
 {
   detail::colNormCaller(dots, data, D, N, type, rowMajor, stream, fin_op);
 }
+
+/**
+ * @defgroup norm Row- or Col-norm computation
+ * @{
+ */
 
 /**
  * @brief Compute norm of the input matrix and perform fin_op
@@ -93,7 +99,7 @@ void colNorm(Type* dots,
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
  * @tparam IdxType Integer type used to for addressing
  * @tparam Lambda device final lambda
- * @param[in] handle raft::handle_t
+ * @param[in] handle raft::device_resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_vector_view
  * @param[in] type the type of norm to be applied
@@ -104,13 +110,13 @@ void colNorm(Type* dots,
 template <typename ElementType,
           typename LayoutPolicy,
           typename IndexType,
-          typename Lambda = raft::Nop<ElementType, IndexType>>
-void norm(const raft::handle_t& handle,
+          typename Lambda = raft::identity_op>
+void norm(raft::device_resources const& handle,
           raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
           raft::device_vector_view<ElementType, IndexType> out,
           NormType type,
           Apply apply,
-          Lambda fin_op = raft::Nop<ElementType, IndexType>())
+          Lambda fin_op = raft::identity_op())
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
@@ -141,6 +147,8 @@ void norm(const raft::handle_t& handle,
             fin_op);
   }
 }
+
+/** @} */
 
 };  // end namespace linalg
 };  // end namespace raft

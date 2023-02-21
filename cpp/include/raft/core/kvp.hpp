@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 #ifdef _RAFT_HAS_CUDA
 #include <cub/cub.cuh>
+#include <raft/util/cuda_utils.cuh>
 #endif
 namespace raft {
 /**
@@ -58,5 +59,27 @@ struct KeyValuePair {
   {
     return (value != b.value) || (key != b.key);
   }
+
+  RAFT_INLINE_FUNCTION bool operator<(const KeyValuePair<_Key, _Value>& b) const
+  {
+    return (key < b.key) || ((key == b.key) && value < b.value);
+  }
+
+  RAFT_INLINE_FUNCTION bool operator>(const KeyValuePair<_Key, _Value>& b) const
+  {
+    return (key > b.key) || ((key == b.key) && value > b.value);
+  }
 };
+
+#ifdef _RAFT_HAS_CUDA
+template <typename _Key, typename _Value>
+RAFT_INLINE_FUNCTION KeyValuePair<_Key, _Value> shfl_xor(const KeyValuePair<_Key, _Value>& input,
+                                                         int laneMask,
+                                                         int width     = WarpSize,
+                                                         uint32_t mask = 0xffffffffu)
+{
+  return KeyValuePair<_Key, _Value>(shfl_xor(input.key, laneMask, width, mask),
+                                    shfl_xor(input.value, laneMask, width, mask));
+}
+#endif
 }  // end namespace raft

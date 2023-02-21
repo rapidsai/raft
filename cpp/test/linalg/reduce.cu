@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include "reduce.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -73,7 +74,7 @@ void reduceLaunch(OutType* dots,
   auto input_view_col_major =
     raft::make_device_matrix_view<const InType, IdxType, raft::col_major>(data, rows, cols);
 
-  raft::handle_t handle{stream};
+  raft::device_resources handle{stream};
 
   if (rowMajor) {
     reduce(handle,
@@ -101,9 +102,9 @@ void reduceLaunch(OutType* dots,
 template <typename InType,
           typename OutType,
           typename IdxType,
-          typename MainLambda   = raft::L2Op<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::SqrtOp<InType>>
+          typename MainLambda   = raft::sq_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::sqrt_op>
 class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType, IdxType>> {
  public:
   ReduceTest()
@@ -183,7 +184,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   ReduceInputs<InType, OutType, IdxType> params;
@@ -301,7 +302,7 @@ REDUCE_TEST((ReduceTest<short,
                         int,
                         ValueToKVP<short, int>,
                         ArgMaxOp<int, short>,
-                        raft::Nop<raft::KeyValuePair<int, short>, int>>),
+                        raft::identity_op>),
             ReduceTestKVPISI32,
             inputs_kvpis_i32);
 REDUCE_TEST((ReduceTest<float,
@@ -309,7 +310,7 @@ REDUCE_TEST((ReduceTest<float,
                         int,
                         ValueToKVP<float, int>,
                         ArgMaxOp<int, float>,
-                        raft::Nop<raft::KeyValuePair<int, float>, int>>),
+                        raft::identity_op>),
             ReduceTestKVPIFI32,
             inputs_kvpif_i32);
 REDUCE_TEST((ReduceTest<double,
@@ -317,7 +318,7 @@ REDUCE_TEST((ReduceTest<double,
                         int,
                         ValueToKVP<double, int>,
                         ArgMaxOp<int, double>,
-                        raft::Nop<raft::KeyValuePair<int, double>, int>>),
+                        raft::identity_op>),
             ReduceTestKVPIDI32,
             inputs_kvpid_i32);
 

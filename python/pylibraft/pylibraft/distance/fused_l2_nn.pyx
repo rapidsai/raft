@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,17 +26,22 @@ from libcpp cimport bool
 
 from .distance_type cimport DistanceType
 
-from pylibraft.common import Handle, cai_wrapper, device_ndarray
+from pylibraft.common import (
+    Handle,
+    auto_convert_output,
+    cai_wrapper,
+    device_ndarray,
+)
 from pylibraft.common.handle import auto_sync_handle
 
-from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle cimport device_resources
 
 
-cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
-        namespace "raft::distance::runtime":
+cdef extern from "raft_runtime/distance/fused_l2_nn.hpp" \
+        namespace "raft::runtime::distance" nogil:
 
     void fused_l2_nn_min_arg(
-        const handle_t &handle,
+        const device_resources &handle,
         int* min,
         const float* x,
         const float* y,
@@ -46,7 +51,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
         bool sqrt) except +
 
     void fused_l2_nn_min_arg(
-        const handle_t &handle,
+        const device_resources &handle,
         int* min,
         const double* x,
         const double* y,
@@ -57,6 +62,7 @@ cdef extern from "raft_distance/fused_l2_min_arg.hpp" \
 
 
 @auto_sync_handle
+@auto_convert_output
 def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     """
     Compute the 1-nearest neighbors between X and Y using the L2 distance
@@ -73,54 +79,50 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     --------
     To compute the 1-nearest neighbors argmin:
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.distance import fused_l2_nn_argmin
+    >>> n_samples = 5000
+    >>> n_clusters = 5
+    >>> n_features = 50
+    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
+    >>> in2 = cp.random.random_sample((n_clusters, n_features),
+    ...                               dtype=cp.float32)
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        import cupy as cp
-        from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn_argmin
-        n_samples = 5000
-        n_clusters = 5
-        n_features = 50
-        in1 = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-        in2 = cp.random.random_sample((n_clusters, n_features),
-                                      dtype=cp.float32)
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-        ...
-        output = fused_l2_nn_argmin(in1, in2, output, handle=handle)
-        ...
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> output = fused_l2_nn_argmin(in1, in2, handle=handle)
+
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
     The output can also be computed in-place on a preallocated
     array:
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> from pylibraft.common import Handle
+    >>> from pylibraft.distance import fused_l2_nn_argmin
+    >>> n_samples = 5000
+    >>> n_clusters = 5
+    >>> n_features = 50
+    >>> in1 = cp.random.random_sample((n_samples, n_features),
+    ...                               dtype=cp.float32)
+    >>> in2 = cp.random.random_sample((n_clusters, n_features),
+    ...                               dtype=cp.float32)
+    >>> output = cp.empty((n_samples, 1), dtype=cp.int32)
+    >>> # A single RAFT handle can optionally be reused across
+    >>> # pylibraft functions.
+    >>> handle = Handle()
 
-        import cupy as cp
-        from pylibraft.common import Handle
-        from pylibraft.distance import fused_l2_nn_argmin
-        n_samples = 5000
-        n_clusters = 5
-        n_features = 50
-        in1 = cp.random.random_sample((n_samples, n_features),
-                                      dtype=cp.float32)
-        in2 = cp.random.random_sample((n_clusters, n_features),
-                                      dtype=cp.float32)
-        output = cp.empty((n_samples, 1), dtype=cp.int32)
-        # A single RAFT handle can optionally be reused across
-        # pylibraft functions.
-        handle = Handle()
-        ...
-        fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
-        ...
-        # pylibraft functions are often asynchronous so the
-        # handle needs to be explicitly synchronized
-        handle.sync()
+    >>> fused_l2_nn_argmin(in1, in2, out=output, handle=handle)
+    array(...)
 
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
    """
 
     x_cai = cai_wrapper(X)
@@ -152,7 +154,7 @@ def fused_l2_nn_argmin(X, Y, out=None, sqrt=True, handle=None):
     d_ptr = <uintptr_t>output_cai.data
 
     handle = handle if handle is not None else Handle()
-    cdef handle_t *h = <handle_t*><size_t>handle.getHandle()
+    cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
     d_dt = output_cai.dtype
 

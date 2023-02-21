@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,6 +57,11 @@ void meanvar(Type* mean,
 }
 
 /**
+ * @defgroup stats_mean_var Mean and Variance
+ * @{
+ */
+
+/**
  * @brief Compute mean and variance for each column of a given matrix.
  *
  * The operation is performed in a single sweep. Consider using it when you need to compute
@@ -75,7 +80,7 @@ void meanvar(Type* mean,
  * normalize the variance using N-1 or N, for true or false respectively.
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void meanvar(const raft::handle_t& handle,
+void meanvar(raft::device_resources const& handle,
              raft::device_matrix_view<const value_t, idx_t, layout_t> data,
              raft::device_vector_view<value_t, idx_t> mean,
              raft::device_vector_view<value_t, idx_t> var,
@@ -98,6 +103,8 @@ void meanvar(const raft::handle_t& handle,
                   std::is_same_v<layout_t, raft::row_major>,
                   handle.get_stream());
 }
+
+/** @} */  // end group stats_mean_var
 
 };  // namespace raft::stats
 

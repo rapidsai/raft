@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,25 @@
 #pragma once
 
 #include "../ivf_flat_types.hpp"
-#include "ann_kmeans_balanced.cuh"
 #include "ann_utils.cuh"
 
-#include <raft/core/handle.hpp>
+#include <raft/cluster/kmeans_balanced.cuh>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/operators.hpp>
+#include <raft/core/serialize.hpp>
 #include <raft/linalg/add.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+
+#include <cstdint>
+#include <fstream>
 
 namespace raft::spatial::knn::ivf_flat::detail {
 
@@ -114,7 +119,7 @@ __global__ void build_index_kernel(const LabelT* labels,
 
 /** See raft::spatial::knn::ivf_flat::extend docs */
 template <typename T, typename IdxT>
-inline auto extend(const handle_t& handle,
+inline auto extend(raft::device_resources const& handle,
                    const index<T, IdxT>& orig_index,
                    const T* new_vectors,
                    const IdxT* new_indices,
@@ -132,15 +137,18 @@ inline auto extend(const handle_t& handle,
                "You must pass data indices when the index is non-empty.");
 
   rmm::device_uvector<LabelT> new_labels(n_rows, stream);
-  kmeans::predict<T, IdxT, LabelT>(handle,
-                                   orig_index.centers().data_handle(),
-                                   n_lists,
-                                   dim,
-                                   new_vectors,
-                                   n_rows,
-                                   new_labels.data(),
-                                   orig_index.metric(),
-                                   stream);
+  raft::cluster::kmeans_balanced_params kmeans_params;
+  kmeans_params.metric     = orig_index.metric();
+  auto new_vectors_view    = raft::make_device_matrix_view<const T, IdxT>(new_vectors, n_rows, dim);
+  auto orig_centroids_view = raft::make_device_matrix_view<const float, IdxT>(
+    orig_index.centers().data_handle(), n_lists, dim);
+  auto labels_view = raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_rows);
+  raft::cluster::kmeans_balanced::predict(handle,
+                                          kmeans_params,
+                                          new_vectors_view,
+                                          orig_centroids_view,
+                                          labels_view,
+                                          utils::mapping<float>{});
 
   index<T, IdxT> ext_index(
     handle, orig_index.metric(), n_lists, orig_index.adaptive_centers(), dim);
@@ -155,16 +163,19 @@ inline auto extend(const handle_t& handle,
   if (ext_index.adaptive_centers()) {
     raft::copy(
       list_sizes_ptr, orig_index.list_sizes().data_handle(), ext_index.list_sizes().size(), stream);
-    kmeans::calc_centers_and_sizes(handle,
-                                   centers_ptr,
-                                   list_sizes_ptr,
-                                   n_lists,
-                                   dim,
-                                   new_vectors,
-                                   n_rows,
-                                   new_labels.data(),
-                                   false,
-                                   stream);
+    auto centroids_view = raft::make_device_matrix_view<float, IdxT>(centers_ptr, n_lists, dim);
+    auto list_sizes_view =
+      raft::make_device_vector_view<std::remove_pointer_t<decltype(list_sizes_ptr)>, IdxT>(
+        list_sizes_ptr, n_lists);
+    auto const_labels_view =
+      raft::make_device_vector_view<const LabelT, IdxT>(new_labels.data(), n_rows);
+    raft::cluster::kmeans_balanced::helpers::calc_centers_and_sizes(handle,
+                                                                    new_vectors_view,
+                                                                    const_labels_view,
+                                                                    centroids_view,
+                                                                    list_sizes_view,
+                                                                    false,
+                                                                    utils::mapping<float>{});
   } else {
     raft::stats::histogram<uint32_t, IdxT>(raft::stats::HistTypeAuto,
                                            reinterpret_cast<int32_t*>(list_sizes_ptr),
@@ -189,8 +200,7 @@ inline auto extend(const handle_t& handle,
   update_host(&index_size, list_offsets_ptr + n_lists, 1, stream);
   handle.sync_stream(stream);
 
-  ext_index.allocate(
-    handle, index_size, ext_index.metric() == raft::distance::DistanceType::L2Expanded);
+  ext_index.allocate(handle, index_size);
 
   // Populate index with the old data
   if (orig_index.size() > 0) {
@@ -244,8 +254,7 @@ inline auto extend(const handle_t& handle,
                             n_lists,
                             raft::linalg::L2Norm,
                             true,
-                            stream,
-                            raft::SqrtOp<float>());
+                            stream);
       RAFT_LOG_TRACE_VEC(ext_index.center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
     }
   }
@@ -256,9 +265,11 @@ inline auto extend(const handle_t& handle,
 
 /** See raft::spatial::knn::ivf_flat::build docs */
 template <typename T, typename IdxT>
-inline auto build(
-  const handle_t& handle, const index_params& params, const T* dataset, IdxT n_rows, uint32_t dim)
-  -> index<T, IdxT>
+inline auto build(raft::device_resources const& handle,
+                  const index_params& params,
+                  const T* dataset,
+                  IdxT n_rows,
+                  uint32_t dim) -> index<T, IdxT>
 {
   auto stream = handle.get_stream();
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
@@ -286,15 +297,15 @@ inline auto build(
                                     n_rows_train,
                                     cudaMemcpyDefault,
                                     stream));
-    kmeans::build_hierarchical<T, IdxT>(handle,
-                                        params.kmeans_n_iters,
-                                        index.dim(),
-                                        trainset.data(),
-                                        n_rows_train,
-                                        index.centers().data_handle(),
-                                        index.n_lists(),
-                                        index.metric(),
-                                        stream);
+    auto trainset_const_view =
+      raft::make_device_matrix_view<const T, IdxT>(trainset.data(), n_rows_train, index.dim());
+    auto centers_view = raft::make_device_matrix_view<float, IdxT>(
+      index.centers().data_handle(), index.n_lists(), index.dim());
+    raft::cluster::kmeans_balanced_params kmeans_params;
+    kmeans_params.n_iters = params.kmeans_n_iters;
+    kmeans_params.metric  = index.metric();
+    raft::cluster::kmeans_balanced::fit(
+      handle, kmeans_params, trainset_const_view, centers_view, utils::mapping<float>{});
   }
 
   // add the data if necessary
@@ -323,7 +334,7 @@ inline auto build(
  * @param[in] n_candidates  of neighbor_candidates
  */
 template <typename T, typename IdxT>
-inline void fill_refinement_index(const handle_t& handle,
+inline void fill_refinement_index(raft::device_resources const& handle,
                                   index<T, IdxT>* refinement_index,
                                   const T* dataset,
                                   const IdxT* candidate_idx,
@@ -338,27 +349,27 @@ inline void fill_refinement_index(const handle_t& handle,
     "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));
 
   rmm::device_uvector<LabelT> new_labels(n_queries * n_candidates, stream);
-  linalg::writeOnlyUnaryOp(
-    new_labels.data(),
-    n_queries * n_candidates,
-    [n_candidates] __device__(LabelT * out, uint32_t i) { *out = i / n_candidates; },
-    stream);
+  auto new_labels_view =
+    raft::make_device_vector_view<LabelT, IdxT>(new_labels.data(), n_queries * n_candidates);
+  linalg::map_offset(
+    handle,
+    new_labels_view,
+    raft::compose_op(raft::cast_op<LabelT>(), raft::div_const_op<IdxT>(n_candidates)));
 
   auto list_sizes_ptr   = refinement_index->list_sizes().data_handle();
   auto list_offsets_ptr = refinement_index->list_offsets().data_handle();
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Calculate new offsets
-  uint32_t n_roundup = Pow2<kIndexGroupSize>::roundUp(n_candidates);
-  linalg::writeOnlyUnaryOp(
-    refinement_index->list_offsets().data_handle(),
-    refinement_index->list_offsets().size(),
-    [n_roundup] __device__(IdxT * out, uint32_t i) { *out = i * n_roundup; },
-    stream);
+  uint32_t n_roundup     = Pow2<kIndexGroupSize>::roundUp(n_candidates);
+  auto list_offsets_view = raft::make_device_vector_view<IdxT, IdxT>(
+    list_offsets_ptr, refinement_index->list_offsets().size());
+  linalg::map_offset(handle,
+                     list_offsets_view,
+                     raft::compose_op(raft::cast_op<IdxT>(), raft::mul_const_op<IdxT>(n_roundup)));
 
   IdxT index_size = n_roundup * n_lists;
-  refinement_index->allocate(
-    handle, index_size, refinement_index->metric() == raft::distance::DistanceType::L2Expanded);
+  refinement_index->allocate(handle, index_size);
 
   RAFT_CUDA_TRY(cudaMemsetAsync(list_sizes_ptr, 0, n_lists * sizeof(uint32_t), stream));
 
@@ -376,5 +387,111 @@ inline void fill_refinement_index(const handle_t& handle,
                                          refinement_index->dim(),
                                          refinement_index->veclen());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+// Serialization version 2
+// No backward compatibility yet; that is, can't add additional fields without breaking
+// backward compatibility.
+// TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
+//             compatible fashion.
+constexpr int serialization_version = 2;
+
+static_assert(sizeof(index<double, std::uint64_t>) == 408,
+              "The size of the index struct has changed since the last update; "
+              "paste in the new size and consider updating the save/load logic");
+
+/**
+ * Save the index to file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the file name for saving the index
+ * @param[in] index_ IVF-Flat index
+ *
+ */
+template <typename T, typename IdxT>
+void serialize(raft::device_resources const& handle,
+               const std::string& filename,
+               const index<T, IdxT>& index_)
+{
+  std::ofstream of(filename, std::ios::out | std::ios::binary);
+  if (!of) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
+
+  RAFT_LOG_DEBUG(
+    "Saving IVF-PQ index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+  serialize_scalar(handle, of, serialization_version);
+  serialize_scalar(handle, of, index_.size());
+  serialize_scalar(handle, of, index_.dim());
+  serialize_scalar(handle, of, index_.n_lists());
+  serialize_scalar(handle, of, index_.metric());
+  serialize_scalar(handle, of, index_.veclen());
+  serialize_scalar(handle, of, index_.adaptive_centers());
+  serialize_mdspan(handle, of, index_.data());
+  serialize_mdspan(handle, of, index_.indices());
+  serialize_mdspan(handle, of, index_.list_sizes());
+  serialize_mdspan(handle, of, index_.list_offsets());
+  serialize_mdspan(handle, of, index_.centers());
+  if (index_.center_norms()) {
+    bool has_norms = true;
+    serialize_scalar(handle, of, has_norms);
+    serialize_mdspan(handle, of, *index_.center_norms());
+  } else {
+    bool has_norms = false;
+    serialize_scalar(handle, of, has_norms);
+  }
+  of.close();
+  if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
+}
+
+/** Load an index from file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the name of the file that stores the index
+ * @param[in] index_ IVF-Flat index
+ *
+ */
+template <typename T, typename IdxT>
+auto deserialize(raft::device_resources const& handle, const std::string& filename)
+  -> index<T, IdxT>
+{
+  std::ifstream infile(filename, std::ios::in | std::ios::binary);
+
+  if (!infile) { RAFT_FAIL("Cannot open %s", filename.c_str()); }
+
+  auto ver = deserialize_scalar<int>(handle, infile);
+  if (ver != serialization_version) {
+    RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
+  }
+  auto n_rows           = deserialize_scalar<IdxT>(handle, infile);
+  auto dim              = deserialize_scalar<std::uint32_t>(handle, infile);
+  auto n_lists          = deserialize_scalar<std::uint32_t>(handle, infile);
+  auto metric           = deserialize_scalar<raft::distance::DistanceType>(handle, infile);
+  auto veclen           = deserialize_scalar<std::uint32_t>(handle, infile);
+  bool adaptive_centers = deserialize_scalar<bool>(handle, infile);
+
+  index<T, IdxT> index_ =
+    raft::spatial::knn::ivf_flat::index<T, IdxT>(handle, metric, n_lists, adaptive_centers, dim);
+
+  index_.allocate(handle, n_rows);
+  auto data = index_.data();
+  deserialize_mdspan(handle, infile, data);
+  deserialize_mdspan(handle, infile, index_.indices());
+  deserialize_mdspan(handle, infile, index_.list_sizes());
+  deserialize_mdspan(handle, infile, index_.list_offsets());
+  deserialize_mdspan(handle, infile, index_.centers());
+  bool has_norms = deserialize_scalar<bool>(handle, infile);
+  if (has_norms) {
+    if (!index_.center_norms()) {
+      RAFT_FAIL("Error inconsistent center norms");
+    } else {
+      auto center_norms = *index_.center_norms();
+      deserialize_mdspan(handle, infile, center_norms);
+    }
+  }
+  infile.close();
+  return index_;
 }
 }  // namespace raft::spatial::knn::ivf_flat::detail

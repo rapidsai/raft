@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #include <raft/linalg/dot.cuh>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -57,7 +57,7 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
   {
     params = ::testing::TestWithParam<DotInputs<T>>::GetParam();
 
-    raft::handle_t handle;
+    raft::device_resources handle;
     cudaStream_t stream = handle.get_stream();
 
     raft::random::RngState r(params.seed);

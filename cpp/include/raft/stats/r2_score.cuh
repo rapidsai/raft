@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,11 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 }
 
 /**
+ * @defgroup stats_r2_score Regression R2 Score
+ * @{
+ */
+
+/**
  * Calculates the "Coefficient of Determination" (R-Squared) score
  * normalizing the sum of squared errors by the total sum of squares.
  *
@@ -64,7 +69,7 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
  * @note The constness of y and y_hat is currently casted away.
  */
 template <typename value_t, typename idx_t>
-value_t r2_score(const raft::handle_t& handle,
+value_t r2_score(raft::device_resources const& handle,
                  raft::device_vector_view<const value_t, idx_t> y,
                  raft::device_vector_view<const value_t, idx_t> y_hat)
 {
@@ -78,6 +83,8 @@ value_t r2_score(const raft::handle_t& handle,
                           y.extent(0),
                           handle.get_stream());
 }
+
+/** @} */  // end group stats_r2_score
 
 }  // namespace stats
 }  // namespace raft

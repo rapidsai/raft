@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -387,7 +387,8 @@ class RBFKernel : public GramMatrixBase<math_t> {
                              math_t,
                              math_t,
                              decltype(fin_op),
-                             index_t>(const_cast<math_t*>(x1.data),
+                             index_t>(device_resources(stream),
+                                      const_cast<math_t*>(x1.data),
                                       const_cast<math_t*>(x2.data),
                                       out.data,
                                       out.n_rows,
@@ -396,7 +397,6 @@ class RBFKernel : public GramMatrixBase<math_t> {
                                       NULL,
                                       0,
                                       fin_op,
-                                      stream,
                                       out.is_row_major);
   }
 };

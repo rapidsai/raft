@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,15 +23,12 @@
 #include <rmm/device_uvector.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
 
 #include <cstdint>
 #include <iostream>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 #include <raft/spatial/knn/faiss_mr.hpp>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
@@ -63,7 +60,7 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
                                        int k,
                                        value_idx* translations)
 {
-  constexpr int kNumWarps = tpb / faiss::gpu::kWarpSize;
+  constexpr int kNumWarps = tpb / WarpSize;
 
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
@@ -71,8 +68,8 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
   /**
    * Uses shared memory
    */
-  faiss::gpu::
-    BlockSelect<value_t, value_idx, false, faiss::gpu::Comparator<value_t>, warp_q, thread_q, tpb>
+  faiss_select::
+    BlockSelect<value_t, value_idx, false, faiss_select::Comparator<value_t>, warp_q, thread_q, tpb>
       heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
@@ -90,7 +87,7 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
   value_t* inKStart   = inK + (row_idx + col);
   value_idx* inVStart = inV + (row_idx + col);
 
-  int limit             = faiss::gpu::utils::roundDown(total_k, faiss::gpu::kWarpSize);
+  int limit             = Pow2<WarpSize>::roundDown(total_k);
   value_idx translation = 0;
 
   for (; i < limit; i += tpb) {
@@ -136,7 +133,7 @@ inline void knn_merge_parts_impl(value_t* inK,
   constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
   auto block              = dim3(n_threads);
 
-  auto kInit = faiss::gpu::Limits<value_t>::getMax();
+  auto kInit = std::numeric_limits<value_t>::max();
   auto vInit = -1;
   knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
     <<<grid, block, 0, stream>>>(
@@ -218,7 +215,7 @@ inline void knn_merge_parts(value_t* inK,
  */
 template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
 void brute_force_knn_impl(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,

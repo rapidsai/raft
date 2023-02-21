@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ namespace linalg {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const bool trans_a,
           const int m,
           const int n,
@@ -69,7 +69,7 @@ void gemv(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows,
           const int n_cols,
@@ -103,7 +103,7 @@ void gemv(const raft::handle_t& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -133,7 +133,7 @@ void gemv(const raft::handle_t& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -165,7 +165,7 @@ void gemv(const raft::handle_t& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -199,7 +199,7 @@ void gemv(const raft::handle_t& handle,
  *
  */
 template <typename math_t>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -246,7 +246,7 @@ template <typename ValueType,
           typename                = std::enable_if_t<std::disjunction_v<
             std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
             std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
-void gemv(const raft::handle_t& handle,
+void gemv(raft::device_resources const& handle,
           raft::device_matrix_view<const ValueType, IndexType, LayoutPolicy> A,
           raft::device_vector_view<const ValueType, IndexType> x,
           raft::device_vector_view<ValueType, IndexType> y,

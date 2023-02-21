@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -30,6 +30,7 @@ function(ConfigureBench)
   target_link_libraries(
     ${BENCH_NAME}
     PRIVATE raft::raft
+            raft_internal
             $<$<BOOL:${ConfigureBench_DIST}>:raft::distance>
             $<$<BOOL:${ConfigureBench_NN}>:raft::nn>
             benchmark::benchmark
@@ -81,6 +82,7 @@ if(BUILD_BENCH)
     bench/distance/distance_l1.cu
     bench/distance/distance_unexp_l2.cu
     bench/distance/fused_l2_nn.cu
+    bench/distance/masked_nn.cu
     bench/distance/kernels.cu
     bench/main.cpp
     OPTIONAL
@@ -96,12 +98,16 @@ if(BUILD_BENCH)
     bench/linalg/matrix_vector_op.cu
     bench/linalg/norm.cu
     bench/linalg/normalize.cu
+    bench/linalg/reduce_cols_by_key.cu
     bench/linalg/reduce_rows_by_key.cu
     bench/linalg/reduce.cu
     bench/main.cpp
   )
 
-  ConfigureBench(NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/main.cpp)
+  ConfigureBench(
+    NAME MATRIX_BENCH PATH bench/matrix/argmin.cu bench/matrix/gather.cu bench/matrix/select_k.cu
+    bench/main.cpp
+  )
 
   ConfigureBench(
     NAME RANDOM_BENCH PATH bench/random/make_blobs.cu bench/random/permute.cu bench/random/rng.cu
@@ -117,15 +123,13 @@ if(BUILD_BENCH)
     bench/neighbors/knn/brute_force_float_int64_t.cu
     bench/neighbors/knn/brute_force_float_uint32_t.cu
     bench/neighbors/knn/ivf_flat_float_int64_t.cu
-    bench/neighbors/knn/ivf_flat_float_uint32_t.cu
     bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_flat_uint8_t_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_float_int64_t.cu
-    bench/neighbors/knn/ivf_pq_float_uint32_t.cu
-    bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
-    bench/neighbors/knn/ivf_pq_uint8_t_uint32_t.cu
-    bench/neighbors/refine.cu
-    bench/neighbors/selection.cu
+    bench/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
+    bench/neighbors/knn/ivf_pq_float_uint64_t.cu
+    bench/neighbors/knn/ivf_pq_int8_t_uint64_t.cu
+    bench/neighbors/knn/ivf_pq_uint8_t_uint64_t.cu
+    bench/neighbors/refine_float_uint64_t.cu
+    bench/neighbors/refine_uint8_t_uint64_t.cu
     bench/main.cpp
     OPTIONAL
     DIST

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include "cublas_wrappers.hpp"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -29,7 +29,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void transpose(const raft::handle_t& handle,
+void transpose(raft::device_resources const& handle,
                math_t* in,
                math_t* out,
                int n_rows,
@@ -82,7 +82,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
 void transpose_row_major_impl(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
@@ -108,7 +108,7 @@ void transpose_row_major_impl(
 
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
 void transpose_col_major_impl(
-  handle_t const& handle,
+  raft::device_resources const& handle,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {

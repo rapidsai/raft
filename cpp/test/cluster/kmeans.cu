@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <optional>
 #include <vector>
 
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
-#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
-#include <raft/cluster/specializations.cuh>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft {
@@ -44,28 +45,23 @@ struct KmeansInputs {
 };
 
 template <typename DataT, typename IndexT>
-void run_cluster_cost(const raft::handle_t& handle,
+void run_cluster_cost(const raft::device_resources& handle,
                       raft::device_vector_view<DataT, IndexT> minClusterDistance,
                       rmm::device_uvector<char>& workspace,
                       raft::device_scalar_view<DataT> clusterCost)
 {
   raft::cluster::kmeans::cluster_cost(
-    handle,
-    minClusterDistance,
-    workspace,
-    clusterCost,
-    [] __device__(const DataT& a, const DataT& b) { return a + b; });
+    handle, minClusterDistance, workspace, clusterCost, raft::add_op{});
 }
 
 template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
   KmeansTest()
-    : stream(handle.get_stream()),
-      d_labels(0, stream),
-      d_labels_ref(0, stream),
-      d_centroids(0, stream),
-      d_sample_weight(0, stream)
+    : d_labels(0, handle.get_stream()),
+      d_labels_ref(0, handle.get_stream()),
+      d_centroids(0, handle.get_stream()),
+      d_sample_weight(0, handle.get_stream())
   {
   }
 
@@ -73,6 +69,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   {
     testparams = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
 
+    auto stream                = handle.get_stream();
     int n_samples              = testparams.n_row;
     int n_features             = testparams.n_col;
     params.n_clusters          = testparams.n_clusters;
@@ -115,8 +112,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     rmm::device_uvector<char> workspace(0, stream);
     rmm::device_uvector<T> L2NormBuf_OR_DistBuf(0, stream);
     rmm::device_uvector<T> inRankCp(0, stream);
-    auto X_view =
-      raft::make_device_matrix_view<const T, int>(X.data_handle(), X.extent(0), X.extent(1));
+    auto X_view = raft::make_const_mdspan(X.view());
     auto centroids_view =
       raft::make_device_matrix_view<T, int>(d_centroids.data(), params.n_clusters, n_features);
     auto miniX = raft::make_device_matrix<T, int>(handle, n_samples / 4, n_features);
@@ -129,12 +125,8 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       miniX.extent(0),
       params.rng_state.seed);
 
-    raft::cluster::kmeans::init_plus_plus(handle,
-                                          params,
-                                          raft::make_device_matrix_view<const T, int>(
-                                            miniX.data_handle(), miniX.extent(0), miniX.extent(1)),
-                                          centroids_view,
-                                          workspace);
+    raft::cluster::kmeans::init_plus_plus(
+      handle, params, raft::make_const_mdspan(miniX.view()), centroids_view, workspace);
 
     auto minClusterDistance = raft::make_device_vector<T, int>(handle, n_samples);
     auto minClusterAndDistance =
@@ -252,6 +244,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     auto X      = raft::make_device_matrix<T, int>(handle, n_samples, n_features);
     auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+    auto stream = handle.get_stream();
 
     raft::random::make_blobs<T, int>(X.data_handle(),
                                      labels.data_handle(),
@@ -287,10 +280,9 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
     raft::copy(d_labels_ref.data(), labels.data_handle(), n_samples, stream);
 
-    T inertia  = 0;
-    int n_iter = 0;
-    auto X_view =
-      raft::make_device_matrix_view<const T, int>(X.data_handle(), X.extent(0), X.extent(1));
+    T inertia   = 0;
+    int n_iter  = 0;
+    auto X_view = raft::make_const_mdspan(X.view());
 
     raft::cluster::kmeans_fit_predict<T, int>(
       handle,
@@ -325,8 +317,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
-  cudaStream_t stream;
+  raft::device_resources handle;
   KmeansInputs<T> testparams;
   rmm::device_uvector<int> d_labels;
   rmm::device_uvector<int> d_labels_ref;

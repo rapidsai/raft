@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@ import numpy as np
 import pytest
 from scipy.spatial.distance import cdist
 
-from pylibraft.common import Handle, device_ndarray
+from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
 
-@pytest.mark.parametrize("n_rows", [100])
-@pytest.mark.parametrize("n_cols", [100])
+@pytest.mark.parametrize("n_rows", [32, 100])
+@pytest.mark.parametrize("n_cols", [40, 100])
 @pytest.mark.parametrize(
     "metric",
     [
@@ -36,6 +36,7 @@ from pylibraft.distance import pairwise_distance
         "russellrao",
         "cosine",
         "sqeuclidean",
+        "inner_product",
     ],
 )
 @pytest.mark.parametrize("inplace", [True, False])
@@ -57,16 +58,20 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
 
     output = np.zeros((n_rows, n_rows), dtype=dtype)
 
-    expected = cdist(input1, input1, metric)
+    if metric == "inner_product":
+        expected = np.matmul(input1, input1.T)
+    else:
+        expected = cdist(input1, input1, metric)
 
     expected[expected <= 1e-5] = 0.0
 
     input1_device = device_ndarray(input1)
     output_device = device_ndarray(output) if inplace else None
 
-    handle = Handle()
+    s2 = Stream()
+    handle = DeviceResources(stream=s2)
     ret_output = pairwise_distance(
-        input1_device, input1_device, output_device, metric
+        input1_device, input1_device, output_device, metric, handle=handle
     )
     handle.sync()
 

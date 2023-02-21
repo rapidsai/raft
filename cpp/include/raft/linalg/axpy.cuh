@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ namespace raft::linalg {
  * @param [in] stream
  */
 template <typename T, bool DevicePointerMode = false>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           const int n,
           const T* alpha,
           const T* x,
@@ -54,7 +54,7 @@ void axpy(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup axpy axpy
+ * @defgroup axpy axpy routine
  * @{
  */
 
@@ -62,7 +62,7 @@ void axpy(const raft::handle_t& handle,
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @param [in] handle raft::handle_t
+ * @param [in] handle raft::device_resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
@@ -72,7 +72,7 @@ template <typename ElementType,
           typename InLayoutPolicy,
           typename OutLayoutPolicy,
           typename ScalarIdxType>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
           raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
@@ -92,7 +92,7 @@ void axpy(const raft::handle_t& handle,
 /**
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
- * @param [in] handle raft::handle_t
+ * @param [in] handle raft::device_resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
@@ -102,7 +102,7 @@ template <typename ElementType,
           typename InLayoutPolicy,
           typename OutLayoutPolicy,
           typename ScalarIdxType>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
           raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 #include <cub/cub.cuh>
 #include <limits>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -30,6 +30,10 @@
 
 namespace raft {
 namespace distance {
+/**
+ * \defgroup fused_l2_nn Fused 1-nearest neighbors
+ * @{
+ */
 
 template <typename LabelT, typename DataT>
 using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
@@ -40,15 +44,22 @@ using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>
 template <typename LabelT, typename DataT>
 using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
 
+/** @} */
+
 /**
  * Initialize array using init value from reduction op
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(const raft::handle_t& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+void initialize(
+  raft::device_resources const& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
 {
   detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
 }
 
+/**
+ * \ingroup fused_l2_nn
+ * @{
+ */
 /**
  * @brief Fused L2 distance and 1-nearest-neighbor computation in a single call.
  *
@@ -210,6 +221,8 @@ void fusedL2NNMinReduce(OutT* min,
   fusedL2NN<DataT, OutT, IdxT>(
     min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
 }
+
+/** @} */
 
 }  // namespace distance
 }  // namespace raft

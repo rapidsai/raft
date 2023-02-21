@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/detail/stddev.cuh>
 
 namespace raft {
@@ -88,6 +88,11 @@ void vars(Type* var,
 }
 
 /**
+ * @defgroup stats_stddev Standard Deviation
+ * @{
+ */
+
+/**
  * @brief Compute stddev of the input matrix
  *
  * Stddev operation is assumed to be performed on a given column.
@@ -104,7 +109,7 @@ void vars(Type* var,
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void stddev(const raft::handle_t& handle,
+void stddev(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, layout_t> data,
             raft::device_vector_view<const value_t, idx_t> mu,
             raft::device_vector_view<value_t, idx_t> std,
@@ -127,6 +132,13 @@ void stddev(const raft::handle_t& handle,
                  handle.get_stream());
 }
 
+/** @} */  // end group stats_stddev
+
+/**
+ * @defgroup stats_variance Variance
+ * @{
+ */
+
 /**
  * @brief Compute variance of the input matrix
  *
@@ -144,7 +156,7 @@ void stddev(const raft::handle_t& handle,
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void vars(const raft::handle_t& handle,
+void vars(raft::device_resources const& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
           raft::device_vector_view<const value_t, idx_t> mu,
           raft::device_vector_view<value_t, idx_t> var,
@@ -166,6 +178,8 @@ void vars(const raft::handle_t& handle,
                is_row_major,
                handle.get_stream());
 }
+
+/** @} */  // end group stats_variance
 
 };  // namespace stats
 };  // namespace raft

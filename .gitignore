@@ -52,3 +52,10 @@ doxygen_check/
 
 ## cibuildwheel
 /wheelhouse
+
+# doxygen
+_xml
+
+# sphinx
+_html
+_text

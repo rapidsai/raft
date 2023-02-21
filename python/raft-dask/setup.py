@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@ install_requires = [
     "numpy",
     "numba>=0.49",
     "joblib>=0.11",
-    "dask-cuda>=22.10",
-    "dask>=2022.9.1",
-    f"ucx-py{cuda_suffix}",
-    "distributed>=2022.9.1",
-    f"pylibraft{cuda_suffix}",
+    "dask-cuda==23.4.*",
+    "dask>=2023.1.1",
+    f"ucx-py{cuda_suffix}==0.31.*",
+    "distributed>=2023.1.1",
+    f"pylibraft{cuda_suffix}==23.4.*",
 ]
 
 extras_require = {
@@ -73,6 +73,7 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     author="NVIDIA Corporation",
     include_package_data=True,

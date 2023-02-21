@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/distance/distance.cuh>
 #include <raft/random/rng.cuh>
@@ -132,7 +132,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                              DataType,
                              DataType,
                              uint8_t,
-                             threshold_final_op_>(x.data(),
+                             threshold_final_op_>(handle,
+                                                  x.data(),
                                                   y.data(),
                                                   dist.data(),
                                                   m,
@@ -141,7 +142,6 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                                                   workspace.data(),
                                                   workspace.size(),
                                                   threshold_op,
-                                                  stream,
                                                   isRowMajor);
     handle.sync_stream(stream);
   }
@@ -156,7 +156,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
   // memory consumption if we use uint8_t instead of bool.
   rmm::device_uvector<uint8_t> dist_ref;
   rmm::device_uvector<uint8_t> dist;
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 };
 

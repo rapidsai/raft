@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -137,7 +137,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     truth_adjusted_rand_index = 1.0;
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
