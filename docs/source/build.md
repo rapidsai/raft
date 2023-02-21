@@ -47,6 +47,7 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 - [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
 - [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0 - Used by cuCollections
 - [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
+- [FAISS](https://github.com/facebookresearch/faiss) v1.7.0 - Used in `raft::neighbors` API.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
@@ -59,14 +60,14 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 ### Header-only C++
 
-`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed.
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
 
 The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
 ./build.sh libraft
 
 ```
-The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build.
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
 ```bash
 ./build.sh libraft -n
 ```
@@ -152,7 +153,7 @@ Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet
 cd cpp
 mkdir build
 cd build
-cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make -j<parallel_level> install
 ```
 
@@ -166,13 +167,15 @@ RAFT's cmake has the following configurable flags available:.
 | RAFT_COMPILE_LIBRARIES | ON, OFF | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
 | RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
+| RAFT_ENABLE_NN_DEPENDENCIES | ON, OFF | OFF | Searches for dependencies of nearest neighbors API, such as FAISS, and compiles them if not found. Needed for `raft::spatial::knn` |
+| RAFT_USE_FAISS_STATIC | ON, OFF | OFF | Statically link FAISS into `libraft-nn` |
 | DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
 | RAFT_NVTX | ON, OFF | OFF | Enable NVTX Markers |
 | CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
 | CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
 | CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
 
-Currently, shared libraries are provided for the `libraft-nn` and `libraft-distance` components.
+Currently, shared libraries are provided for the `libraft-nn` and `libraft-distance` components. The `libraft-nn` component depends upon [FAISS](https://github.com/facebookresearch/faiss) and the `RAFT_ENABLE_NN_DEPENDENCIES` option will build it from source if it is not already installed.
 
 ### Python
 
@@ -274,7 +277,7 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 ### Using C++ pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies.
+Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as FAISS for the `nn` package).
 
 The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 
@@ -299,8 +302,8 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG
-          COMPILE_LIBRARIES CLONE_ON_PIN
+  set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC
+          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
           USE_NN_LIBRARY USE_DISTANCE_LIBRARY
           ENABLE_thrust_DEPENDENCY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
@@ -343,6 +346,8 @@ function(find_and_configure_raft)
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
+          "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
+          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
           "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
           "RAFT_ENABLE_thrust_DEPENDENCY ${PKG_ENABLE_thrust_DEPENDENCY}"
   )
@@ -364,9 +369,13 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         COMPILE_LIBRARIES        NO
         USE_NN_LIBRARY           NO
         USE_DISTANCE_LIBRARY     NO
+        ENABLE_NN_DEPENDENCIES   NO  # This builds FAISS if not installed
+        USE_FAISS_STATIC         NO
         ENABLE_thrust_DEPENDENCY YES
 )
 ```
+
+If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
 
 ## Uninstall
 
