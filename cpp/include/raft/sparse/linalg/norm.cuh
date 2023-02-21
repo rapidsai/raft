@@ -85,7 +85,7 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
  * @param stream cuda stream where to launch work
  * @param fin_op the final lambda op
  */
-template <typename Type, typename IdxType = int, typename Lambda = raft::Nop<Type, IdxType>>
+template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void rowNormCsr(Type* dots,
                 const IdxType* ia,
                 const Type* data,
@@ -93,7 +93,7 @@ void rowNormCsr(Type* dots,
                 IdxType N,
                 raft::linalg::NormType type,
                 cudaStream_t stream,
-                Lambda fin_op = raft::Nop<Type, IdxType>())
+                Lambda fin_op = raft::identity_op())
 {
   detail::rowNormCsrCaller(dots, ia, data, nnz, N, type, stream, fin_op);
 }

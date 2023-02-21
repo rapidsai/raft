@@ -223,6 +223,7 @@ if(BUILD_TESTS)
     test/sparse/degree.cu
     test/sparse/filter.cu
     test/sparse/norm.cu
+    test/sparse/normalize.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sort.cu

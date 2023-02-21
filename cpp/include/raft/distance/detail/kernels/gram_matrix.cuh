@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
@@ -41,10 +42,10 @@ namespace raft::distance::kernels::detail {
  */
 template <typename math_t>
 class GramMatrixBase {
-  const raft::handle_t& handle;
+  const raft::device_resources& handle;
 
  public:
-  GramMatrixBase(const raft::handle_t& handle) : handle(handle){};
+  GramMatrixBase(const raft::device_resources& handle) : handle(handle){};
 
   virtual ~GramMatrixBase(){};
 

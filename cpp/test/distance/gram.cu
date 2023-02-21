@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/random/rng.cuh>
@@ -30,6 +31,8 @@
 #include <rmm/device_uvector.hpp>
 
 namespace raft::distance::kernels {
+
+using namespace raft::distance::matrix::detail;
 
 // Get the offset of element [i,k].
 HDI int get_offset(int i, int k, int ld, bool is_row_major)
@@ -151,20 +154,18 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
 
   void runTest()
   {
-    std::unique_ptr<GramMatrixBase<math_t>> kernel = std::unique_ptr<GramMatrixBase<math_t>>(
-      KernelFactory<math_t>::create(params.kernel, handle.get_cublas_handle()));
+    std::unique_ptr<GramMatrixBase<math_t>> kernel =
+      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel, handle));
 
-    kernel->evaluate(x1.data(),
-                     params.n1,
-                     params.n_cols,
-                     x2.data(),
-                     params.n2,
-                     gram.data(),
-                     params.is_row_major,
-                     stream,
-                     params.ld1,
-                     params.ld2,
-                     params.ld_out);
+    DenseMatrix<math_t> x1_dense(
+      x1.data(), params.n1, params.n_cols, params.is_row_major, params.ld1);
+    DenseMatrix<math_t> x2_dense(
+      x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
+    DenseMatrix<math_t> gram_dense(
+      x1.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
+
+    (*kernel)(x1_dense, x2_dense, gram_dense, stream);
+
     naiveKernel();
     ASSERT_TRUE(raft::devArrMatchHost(
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));

@@ -19,7 +19,7 @@
 #include "../test_utils.cuh"
 
 #include <raft/core/device_resources.hpp>
-#include <raft/sparse/csr.hpp>
+#include <raft/linalg/norm_types.hpp>
 #include <raft/sparse/linalg/norm.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -29,26 +29,24 @@
 namespace raft {
 namespace sparse {
 
-enum NormalizeMethod { MAX, L1 };
-
 template <typename Type_f, typename Index_>
-struct CSRRowNormalizeInputs {
-  NormalizeMethod method;
-  std::vector<Index_> ex_scan;
-  std::vector<Type_f> in_vals;
+struct CSRRowNormInputs {
+  raft::linalg::NormType norm;
+  std::vector<Index_> indptr;
+  std::vector<Type_f> data;
   std::vector<Type_f> verify;
 };
 
 template <typename Type_f, typename Index_>
-class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>> {
+class CSRRowNormTest : public ::testing::TestWithParam<CSRRowNormInputs<Type_f, Index_>> {
  public:
-  CSRRowNormalizeTest()
-    : params(::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>>::GetParam()),
+  CSRRowNormTest()
+    : params(::testing::TestWithParam<CSRRowNormInputs<Type_f, Index_>>::GetParam()),
       stream(handle.get_stream()),
-      in_vals(params.in_vals.size(), stream),
-      verify(params.verify.size(), stream),
-      ex_scan(params.ex_scan.size(), stream),
-      result(params.verify.size(), stream)
+      data(params.data.size(), stream),
+      verify(params.indptr.size() - 1, stream),
+      indptr(params.indptr.size(), stream),
+      result(params.indptr.size() - 1, stream)
   {
   }
 
@@ -57,71 +55,66 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
 
   void Run()
   {
-    Index_ n_rows = params.ex_scan.size();
-    Index_ nnz    = params.in_vals.size();
+    Index_ n_rows = params.indptr.size() - 1;
+    Index_ nnz    = params.data.size();
 
-    raft::update_device(ex_scan.data(), params.ex_scan.data(), n_rows, stream);
-    raft::update_device(in_vals.data(), params.in_vals.data(), nnz, stream);
-    raft::update_device(verify.data(), params.verify.data(), nnz, stream);
+    raft::update_device(indptr.data(), params.indptr.data(), n_rows + 1, stream);
+    raft::update_device(data.data(), params.data.data(), nnz, stream);
+    raft::update_device(verify.data(), params.verify.data(), n_rows, stream);
 
-    switch (params.method) {
-      case MAX:
-        linalg::csr_row_normalize_max<Type_f>(
-          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
-        break;
-      case L1:
-        linalg::csr_row_normalize_l1<Type_f>(
-          ex_scan.data(), in_vals.data(), nnz, n_rows, result.data(), stream);
-        break;
-    }
+    linalg::rowNormCsr(result.data(), indptr.data(), data.data(), nnz, n_rows, params.norm, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(
-      raft::devArrMatch<Type_f>(verify.data(), result.data(), nnz, raft::Compare<Type_f>()));
+      raft::devArrMatch<Type_f>(verify.data(), result.data(), n_rows, raft::Compare<Type_f>()));
   }
 
  protected:
   raft::device_resources handle;
   cudaStream_t stream;
 
-  CSRRowNormalizeInputs<Type_f, Index_> params;
-  rmm::device_uvector<Index_> ex_scan;
-  rmm::device_uvector<Type_f> in_vals, result, verify;
+  CSRRowNormInputs<Type_f, Index_> params;
+  rmm::device_uvector<Index_> indptr;
+  rmm::device_uvector<Type_f> data, result, verify;
 };
 
-using CSRRowNormalizeTestF = CSRRowNormalizeTest<float, int>;
-TEST_P(CSRRowNormalizeTestF, Result) { Run(); }
+using CSRRowNormTestF = CSRRowNormTest<float, int>;
+TEST_P(CSRRowNormTestF, Result) { Run(); }
 
-using CSRRowNormalizeTestD = CSRRowNormalizeTest<double, int>;
-TEST_P(CSRRowNormalizeTestD, Result) { Run(); }
+using CSRRowNormTestD = CSRRowNormTest<double, int>;
+TEST_P(CSRRowNormTestD, Result) { Run(); }
 
-const std::vector<CSRRowNormalizeInputs<float, int>> csrnormalize_inputs_f = {
-  {MAX,
-   {0, 4, 8, 9},
-   {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0},
-   {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0}},
-  {L1,
-   {0, 4, 8, 9},
-   {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0},
-   {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
+const std::vector<CSRRowNormInputs<float, int>> csrnorm_inputs_f = {
+  {raft::linalg::NormType::LinfNorm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {5.0, 10.0, 2.0}},
+  {raft::linalg::NormType::L1Norm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {8.0, 13.0, 4.0}},
+  {raft::linalg::NormType::L2Norm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {30.0, 105.0, 6.0}},
 };
-const std::vector<CSRRowNormalizeInputs<double, int>> csrnormalize_inputs_d = {
-  {MAX,
-   {0, 4, 8, 9},
-   {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0},
-   {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0}},
-  {L1,
-   {0, 4, 8, 9},
-   {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0},
-   {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0}},
+const std::vector<CSRRowNormInputs<double, int>> csrnorm_inputs_d = {
+  {raft::linalg::NormType::LinfNorm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {5.0, 10.0, 2.0}},
+  {raft::linalg::NormType::L1Norm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {8.0, 13.0, 4.0}},
+  {raft::linalg::NormType::L2Norm,
+   {0, 3, 7, 10},
+   {5.0, 1.0, 2.0, 0.0, 10.0, 1.0, 2.0, 1.0, 1.0, 2.0},
+   {30.0, 105.0, 6.0}},
 };
 
-INSTANTIATE_TEST_CASE_P(SparseNormTest,
-                        CSRRowNormalizeTestF,
-                        ::testing::ValuesIn(csrnormalize_inputs_f));
-INSTANTIATE_TEST_CASE_P(SparseNormTest,
-                        CSRRowNormalizeTestD,
-                        ::testing::ValuesIn(csrnormalize_inputs_d));
+INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormTestF, ::testing::ValuesIn(csrnorm_inputs_f));
+INSTANTIATE_TEST_CASE_P(SparseNormTest, CSRRowNormTestD, ::testing::ValuesIn(csrnorm_inputs_d));
 
 }  // namespace sparse
 }  // namespace raft

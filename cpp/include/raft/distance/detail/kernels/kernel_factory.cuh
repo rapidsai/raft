@@ -26,7 +26,7 @@ namespace raft::distance::kernels::detail {
 template <typename math_t>
 class KernelFactory {
  public:
-  static GramMatrixBase<math_t>* create(KernelParams params, const raft::handle_t& handle)
+  static GramMatrixBase<math_t>* create(KernelParams params, const raft::device_resources& handle)
   {
     GramMatrixBase<math_t>* res;
     // KernelParams is not templated, we convert the parameters to math_t here:

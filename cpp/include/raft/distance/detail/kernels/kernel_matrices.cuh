@@ -166,7 +166,7 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
    * @param offset
    * @param handle
    */
-  PolynomialKernel(exp_t exponent, math_t gain, math_t offset, const raft::handle_t& handle)
+  PolynomialKernel(exp_t exponent, math_t gain, math_t offset, const raft::device_resources& handle)
     : GramMatrixBase<math_t>(handle), exponent(exponent), gain(gain), offset(offset)
   {
   }
@@ -232,7 +232,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
    * @param offset
    * @param cublas_handle
    */
-  TanhKernel(math_t gain, math_t offset, const raft::handle_t& handle)
+  TanhKernel(math_t gain, math_t offset, const raft::device_resources& handle)
     : GramMatrixBase<math_t>(handle), gain(gain), offset(offset)
   {
   }
@@ -297,7 +297,8 @@ class RBFKernel : public GramMatrixBase<math_t> {
    * @tparam math_t floating point type
    * @param gain
    */
-  RBFKernel(math_t gain, const raft::handle_t& handle) : GramMatrixBase<math_t>(handle), gain(gain)
+  RBFKernel(math_t gain, const raft::device_resources& handle)
+    : GramMatrixBase<math_t>(handle), gain(gain)
   {
   }
 
