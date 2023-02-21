@@ -90,7 +90,7 @@ cmake_dependent_option(
   RAFT_USE_FAISS_STATIC
   "Build and statically link the FAISS library for nearest neighbors search on GPU"
   OFF
-  RAFT_COMPILE_LIBRARIES
+  "RAFT_COMPILE_LIBRARIES OR RAFT_COMPILE_NN_LIBRARY OR RAFT_ENABLE_NN_DEPENDENCIES"
   ON
 )
 
