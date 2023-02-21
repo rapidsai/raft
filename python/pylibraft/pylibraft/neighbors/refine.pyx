@@ -23,6 +23,7 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport (
     int8_t,
+    int32_t,
     int64_t,
     uint8_t,
     uint32_t,
@@ -58,15 +59,59 @@ from pylibraft.common.cpp.mdspan cimport (
     make_device_matrix_view,
     make_host_matrix_view,
     row_major,
-    get_device_matrix_view_float,
-    get_device_matrix_view_uint64,
-    get_device_matrix_view_uint8,
-    get_device_matrix_view_int8
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
 )
+
+
+cdef device_matrix_view[float, uint64_t, row_major] \
+        get_device_matrix_view_float(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.float32:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[float, uint64_t, row_major](
+        <float*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint64_t, uint64_t, row_major] \
+        get_device_matrix_view_uint64(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint64:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint64_t, uint64_t, row_major](
+        <uint64_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint8_t, uint64_t, row_major] \
+        get_device_matrix_view_uint8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint8_t, uint64_t, row_major](
+        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[int8_t, uint64_t, row_major] \
+        get_device_matrix_view_int8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.int8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[int8_t, uint64_t, row_major](
+        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
 # We omit the const qualifiers in the interface for refine, because cython
@@ -268,9 +313,6 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
                    metric, handle):
     cdef device_resources* handle_ = \
         <device_resources*><size_t>handle.getHandle()
-
-    cdef device_matrix_view[uint64_t, uint64_t, row_major] candidates_view = \
-        get_device_matrix_view_uint64(candidates)
 
     if k is None:
         if indices is not None:

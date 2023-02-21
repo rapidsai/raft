@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <raft/neighbors/detail/ivf_pq_build.cuh>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/detail/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-#include <raft/spatial/knn/detail/ivf_pq_build.cuh>
-#include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
 #include <raft/core/device_resources.hpp>
 
@@ -52,12 +53,11 @@ namespace raft::neighbors::ivf_pq {
 template <typename T, typename IdxT = uint32_t>
 inline auto build(raft::device_resources const& handle,
                   const index_params& params,
-                  const raft::device_matrix_view<const T, IdxT, row_major>& dataset) -> index<IdxT>
+                  raft::device_matrix_view<const T, IdxT, row_major> dataset) -> index<IdxT>
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
-  return raft::spatial::knn::ivf_pq::detail::build(
-    handle, params, dataset.data_handle(), n_rows, dim);
+  return detail::build(handle, params, dataset.data_handle(), n_rows, dim);
 }
 
 /**
@@ -82,16 +82,15 @@ inline auto build(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 inline auto extend(raft::device_resources const& handle,
                    const index<IdxT>& orig_index,
-                   const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,
-                   const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices)
-  -> index<IdxT>
+                   raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+                   raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices) -> index<IdxT>
 {
   IdxT n_rows = new_vectors.extent(0);
   ASSERT(n_rows == new_indices.extent(0),
          "new_vectors and new_indices have different number of rows");
   ASSERT(new_vectors.extent(1) == orig_index.dim(),
          "new_vectors should have the same dimension as the index");
-  return raft::spatial::knn::ivf_pq::detail::extend(
+  return detail::extend(
     handle, orig_index, new_vectors.data_handle(), new_indices.data_handle(), n_rows);
 }
 
@@ -111,8 +110,8 @@ inline auto extend(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 inline void extend(raft::device_resources const& handle,
                    index<IdxT>* index,
-                   const raft::device_matrix_view<const T, IdxT, row_major>& new_vectors,
-                   const raft::device_matrix_view<const IdxT, IdxT, row_major>& new_indices)
+                   raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+                   raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices)
 {
   *index = extend(handle, *index, new_vectors, new_indices);
 }
@@ -147,24 +146,24 @@ template <typename T, typename IdxT>
 inline void search(raft::device_resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
-                   const raft::device_matrix_view<const T, IdxT, row_major>& queries,
+                   raft::device_matrix_view<const T, IdxT, row_major> queries,
                    uint32_t k,
-                   const raft::device_matrix_view<IdxT, IdxT, row_major>& neighbors,
-                   const raft::device_matrix_view<float, IdxT, row_major>& distances)
+                   raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+                   raft::device_matrix_view<float, IdxT, row_major> distances)
 {
   IdxT n_queries    = queries.extent(0);
   bool check_n_rows = (n_queries == neighbors.extent(0)) && (n_queries == distances.extent(0));
   ASSERT(check_n_rows,
          "queries, neighbors and distances parameters have inconsistent number of rows");
-  return raft::spatial::knn::ivf_pq::detail::search(handle,
-                                                    params,
-                                                    index,
-                                                    queries.data_handle(),
-                                                    n_queries,
-                                                    k,
-                                                    neighbors.data_handle(),
-                                                    distances.data_handle(),
-                                                    handle.get_workspace_resource());
+  return detail::search(handle,
+                        params,
+                        index,
+                        queries.data_handle(),
+                        n_queries,
+                        k,
+                        neighbors.data_handle(),
+                        distances.data_handle(),
+                        handle.get_workspace_resource());
 }
 
 /** @} */  // end group ivf_pq
@@ -208,7 +207,7 @@ auto build(raft::device_resources const& handle,
            IdxT n_rows,
            uint32_t dim) -> index<IdxT>
 {
-  return raft::spatial::knn::ivf_pq::detail::build(handle, params, dataset, n_rows, dim);
+  return detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -250,8 +249,7 @@ auto extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows) -> index<IdxT>
 {
-  return raft::spatial::knn::ivf_pq::detail::extend(
-    handle, orig_index, new_vectors, new_indices, n_rows);
+  return detail::extend(handle, orig_index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -275,7 +273,7 @@ void extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -331,8 +329,7 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::spatial::knn::ivf_pq::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
+  return detail::search(handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
 }  // namespace raft::neighbors::ivf_pq

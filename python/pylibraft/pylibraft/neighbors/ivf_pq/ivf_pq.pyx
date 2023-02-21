@@ -25,6 +25,7 @@ import numpy as np
 from cython.operator cimport dereference as deref
 from libc.stdint cimport (
     int8_t,
+    int32_t,
     int64_t,
     uint8_t,
     uint32_t,
@@ -59,10 +60,6 @@ from rmm._lib.memory_resource cimport (
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
-    get_device_matrix_view_float,
-    get_device_matrix_view_int8,
-    get_device_matrix_view_uint8,
-    get_device_matrix_view_uint64,
     make_device_matrix_view,
     row_major,
 )
@@ -70,6 +67,54 @@ from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
 )
+
+
+cdef device_matrix_view[float, uint64_t, row_major] \
+        get_device_matrix_view_float(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.float32:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[float, uint64_t, row_major](
+        <float*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint64_t, uint64_t, row_major] \
+        get_device_matrix_view_uint64(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint64:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint64_t, uint64_t, row_major](
+        <uint64_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint8_t, uint64_t, row_major] \
+        get_device_matrix_view_uint8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.uint8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint8_t, uint64_t, row_major](
+        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[int8_t, uint64_t, row_major] \
+        get_device_matrix_view_int8(array, check_shape=True) except *:
+    cai = array
+    if cai.dtype != np.int8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[int8_t, uint64_t, row_major](
+        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
 def _get_metric(metric):
@@ -141,7 +186,8 @@ cdef class IndexParams:
                  pq_dim=0,
                  codebook_kind="subspace",
                  force_random_rotation=False,
-                 add_data_on_build=True):
+                 add_data_on_build=True,
+                 conservative_memory_allocation=False):
         """"
         Parameters to build index for IVF-PQ nearest neighbor search
 
@@ -196,6 +242,13 @@ cdef class IndexParams:
             the index with the dataset if add_data_on_build == True, otherwise
             the index is left empty, and the extend method can be used
             to add new vectors to the index.
+        conservative_memory_allocation : bool, default = True
+            By default, the algorithm allocates more space than necessary for
+            individual clusters (`list_data`). This allows to amortize the cost
+            of memory allocation and reduce the number of data copies during
+            repeated calls to `extend` (extending the database).
+            To disable this behavior and use as little GPU memory for the
+            database as possible, set this flat to `True`.
 
         """
         self.params.n_lists = n_lists
@@ -213,6 +266,8 @@ cdef class IndexParams:
             raise ValueError("Incorrect codebook kind %s" % codebook_kind)
         self.params.force_random_rotation = force_random_rotation
         self.params.add_data_on_build = add_data_on_build
+        self.params.conservative_memory_allocation = \
+            conservative_memory_allocation
 
     @property
     def n_lists(self):
@@ -250,6 +305,10 @@ cdef class IndexParams:
     def add_data_on_build(self):
         return self.params.add_data_on_build
 
+    @property
+    def conservative_memory_allocation(self):
+        return self.params.conservative_memory_allocation
+
 
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial
@@ -274,7 +333,7 @@ cdef class Index:
             <uint32_t>4,
             <uint32_t>8,
             <uint32_t>0,
-            <uint32_t>0)
+            <bool>False)
 
     def __dealloc__(self):
         if self.index is not NULL:
@@ -325,6 +384,10 @@ cdef class Index:
     @property
     def codebook_kind(self):
         return self.index[0].codebook_kind()
+
+    @property
+    def conservative_memory_allocation(self):
+        return self.index[0].conservative_memory_allocation()
 
 
 @auto_sync_handle

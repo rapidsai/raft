@@ -42,6 +42,7 @@ namespace distance {
  * @tparam OutType output type
  * @tparam FinalLambda user-defined epilogue lamba
  * @tparam Index_ Index type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -89,6 +90,7 @@ void distance(raft::resources const& handle,
  * @tparam AccType accumulation type
  * @tparam OutType output type
  * @tparam Index_ Index type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix
@@ -186,6 +188,7 @@ size_t getWorkspaceSize(const raft::device_matrix_view<InType, layout> x,
  * @tparam AccType accumulation type
  * @tparam OutType output type
  * @tparam Index_ Index type
+ * @param handle raft handle for managing expensive resources
  * @param x first set of points
  * @param y second set of points
  * @param dist output distance matrix

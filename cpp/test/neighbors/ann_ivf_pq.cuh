@@ -25,8 +25,7 @@
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#include <raft/neighbors/specializations/ivf_pq_build.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
 #endif
@@ -121,12 +120,12 @@ auto min_output_size(const raft::device_resources& handle,
                      const ivf_pq::index<IdxT>& index,
                      uint32_t n_probes) -> IdxT
 {
-  uint32_t skip = index.n_nonempty_lists() > n_probes ? index.n_nonempty_lists() - n_probes : 0;
-  auto map_type = [] __device__(uint32_t x) { return IdxT(x); };
-  using iter    = cub::TransformInputIterator<IdxT, decltype(map_type), const uint32_t*>;
-  iter start(index.list_sizes().data_handle() + skip, map_type);
-  iter end(index.list_sizes().data_handle() + index.n_nonempty_lists(), map_type);
-  return thrust::reduce(handle.get_thrust_policy(), start, end);
+  auto acc_sizes        = index.accum_sorted_sizes();
+  uint32_t last_nonzero = index.n_lists();
+  while (last_nonzero > 0 && acc_sizes(last_nonzero - 1) == acc_sizes(last_nonzero)) {
+    last_nonzero--;
+  }
+  return acc_sizes(last_nonzero) - acc_sizes(last_nonzero - std::min(last_nonzero, n_probes));
 }
 
 template <typename EvalT, typename DataT, typename IdxT>
@@ -219,14 +218,16 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1_view, inds_1_view);
   }
 
+  auto build_serialize()
+  {
+    ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
+    return ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
+  }
+
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
-    {
-      auto index = build_index();
-      raft::spatial::knn::ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", index);
-    }
-    auto index = raft::spatial::knn::ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
+    auto index = build_index();
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -278,11 +279,11 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       for (uint32_t k = 0; k < ps.k; k++) {
         auto flat_i   = query_ix * ps.k + k;
         auto found_ix = indices_ivf_pq[flat_i];
-        if (found_ix == ivf_pq::index<IdxT>::kOutOfBoundsRecord) {
+        if (found_ix == ivf_pq::kOutOfBoundsRecord<IdxT>) {
           found_oob++;
           continue;
         }
-        ASSERT_NE(found_ix, ivf_pq::index<IdxT>::kInvalidRecord)
+        ASSERT_NE(found_ix, ivf::kInvalidRecord<IdxT>)
           << "got an invalid record at query_ix = " << query_ix << ", k = " << k
           << " (distance = " << distances_ivf_pq[flat_i] << ")";
         ASSERT_LT(found_ix, ps.num_db_vecs)
@@ -291,7 +292,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       }
     }
     ASSERT_LE(found_oob, max_oob)
-      << "got too many records out-of-bounds (see ivf_pq::index<IdxT>::kOutOfBoundsRecord).";
+      << "got too many records out-of-bounds (see ivf_pq::kOutOfBoundsRecord<IdxT>).";
     if (found_oob > 0) {
       RAFT_LOG_WARN(
         "Got %zu results out-of-bounds because of large top-k (%zu) and small n_probes (%u) and "
@@ -485,6 +486,7 @@ inline auto enum_variety() -> test_cases_t
   });
   ADD_CASE({
     x.search_params.internal_distance_dtype = CUDA_R_16F;
+    x.search_params.lut_dtype               = CUDA_R_16F;
     x.min_recall                            = 0.86;
   });
 
@@ -642,6 +644,12 @@ inline auto special_cases() -> test_cases_t
   TEST_P(type, build_extend_search) /* NOLINT */             \
   {                                                          \
     this->run([this]() { return this->build_2_extends(); }); \
+  }
+
+#define TEST_BUILD_SERIALIZE_SEARCH(type)                    \
+  TEST_P(type, build_serialize_search) /* NOLINT */          \
+  {                                                          \
+    this->run([this]() { return this->build_serialize(); }); \
   }
 
 #define INSTANTIATE(type, vals) \

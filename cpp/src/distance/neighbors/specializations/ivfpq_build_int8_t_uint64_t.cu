@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_INST_BUILD_EXTEND(T, IdxT)                                                           \
-  template auto build<T, IdxT>(raft::device_resources const& handle,                              \
-                               const index_params& params,                                        \
-                               const raft::device_matrix_view<const T, IdxT, row_major>& dataset) \
+#define RAFT_MAKE_INSTANCE(T, IdxT)                                                        \
+  template auto build<T, IdxT>(raft::device_resources const& handle,                       \
+                               const index_params& params,                                 \
+                               raft::device_matrix_view<const T, IdxT, row_major> dataset) \
     ->index<IdxT>;
 
-RAFT_INST_BUILD_EXTEND(int8_t, uint64_t);
+RAFT_MAKE_INSTANCE(int8_t, uint64_t);
 
-#undef RAFT_INST_BUILD_EXTEND
+#undef RAFT_MAKE_INSTANCE
 
 }  // namespace raft::neighbors::ivf_pq
