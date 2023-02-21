@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
+
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/matrix/specializations/detail/select_k.cuh>
+#endif
 
 #include <raft/core/device_resources.hpp>
 

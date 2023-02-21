@@ -21,6 +21,10 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/matrix/specializations/detail/select_k.cuh>
+#endif
+
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
