@@ -253,7 +253,7 @@ void pairwise_distance(raft::resources const& handle,
                        bool isRowMajor = true,
                        Type metric_arg = 2.0f)
 {
-  auto stream = handle.get_stream();
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
   auto dispatch = [&](auto distance_type) {
     auto worksize = getWorkspaceSize<distance_type(), Type, Type, Type, Index_>(x, y, m, n, k);

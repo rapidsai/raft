@@ -722,12 +722,12 @@ void distance_impl(raft::resources const& handle,
 }
 
 /**
- * @brief Evaluate pairwise distances and write to matrix
- *
+ * @brief Evaluate pairwise distances with the user epilogue lamba allowed
  * @tparam DistanceType which distance to evaluate
  * @tparam InType input argument type
  * @tparam AccType accumulation type
  * @tparam OutType output type
+ * @tparam FinalLambda user-defined epilogue lamba
  * @tparam Index_ Index type
  *
  * @param x first set of points
@@ -738,6 +738,72 @@ void distance_impl(raft::resources const& handle,
  * @param k dimensionality
  * @param workspace temporary workspace needed for computations
  * @param worksize number of bytes of the workspace
+ * @param fin_op the final gemm epilogue lambda
+ * @param stream cuda stream
+ * @param isRowMajor whether the matrices are row-major or col-major
+ *
+ * @note fin_op: This is a device lambda which is supposed to operate upon the
+ * input which is AccType and returns the output in OutType. It's signature is
+ * as follows:  <pre>OutType fin_op(AccType in, int g_idx);</pre>. If one needs
+ * any other parameters, feel free to pass them via closure.
+ */
+template <raft::distance::DistanceType distanceType,
+          typename InType,
+          typename AccType,
+          typename OutType,
+          typename FinalLambda,
+          typename Index_ = int>
+void distance(raft::resources const& handle,
+              const InType* x,
+              const InType* y,
+              OutType* out,
+              Index_ m,
+              Index_ n,
+              Index_ k,
+              void* workspace,
+              size_t worksize,
+              FinalLambda fin_op,
+              bool isRowMajor   = true,
+              InType metric_arg = 2.0f)
+{
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
+
+  distance_impl<InType, AccType, OutType, FinalLambda, Index_>(
+    handle,
+    distance_tag<distanceType>{},
+    x,
+    y,
+    out,
+    m,
+    n,
+    k,
+    reinterpret_cast<AccType*>(workspace),
+    worksize,
+    fin_op,
+    isRowMajor,
+    metric_arg);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Evaluate pairwise distances for the simple use case
+ * @tparam DistanceType which distance to evaluate
+ * @tparam InType input argument type
+ * @tparam AccType accumulation type
+ * @tparam OutType output type
+ * @tparam Index_ Index type
+ * @param x first set of points
+ * @param y second set of points
+ * @param dist output distance matrix
+ * @param m number of points in x
+ * @param n number of points in y
+ * @param k dimensionality
+ * @param workspace temporary workspace needed for computations
+ * @param worksize number of bytes of the workspace
+ * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
  *
  * @note if workspace is passed as nullptr, this will return in
@@ -762,26 +828,8 @@ void distance(raft::resources const& handle,
 {
   auto fin_op = raft::identity_op();
 
-  // raft distance support inputs as float/double and output as uint8_t/float/double.
-  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
-                "OutType can be uint8_t, float, double,"
-                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
-
-  distance_impl<InType, AccType, OutType, decltype(fin_op), Index_>(
-    handle,
-    distance_tag<distanceType>{},
-    x,
-    y,
-    out,
-    m,
-    n,
-    k,
-    reinterpret_cast<AccType*>(workspace),
-    worksize,
-    fin_op,
-    isRowMajor,
-    metric_arg);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  distance<distanceType, InType, AccType, OutType, decltype(fin_op), Index_>(
+    handle, x, y, out, m, n, k, workspace, worksize, fin_op, isRowMajor, metric_arg);
 }
 
 /**
