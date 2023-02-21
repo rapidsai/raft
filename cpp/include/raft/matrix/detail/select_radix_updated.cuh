@@ -772,31 +772,20 @@ void radix_topk(const T* in,
 
   size_t req_aux = max_chunk_size * (sizeof(Counter<T, IdxT>) + num_buckets * sizeof(IdxT));
   size_t req_buf = max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
-  size_t mem_req = req_aux + req_buf;
-  size_t mem_free, mem_total;
-  RAFT_CUDA_TRY(cudaMemGetInfo(&mem_free, &mem_total));
-  std::optional<rmm::mr::managed_memory_resource> managed_memory;
-  rmm::mr::device_memory_resource* mr_buf = nullptr;
-  if (mem_req > mem_free) {
-    // if there's not enough memory for buffers on the device, resort to the managed memory.
-    mem_req = req_aux;
-    managed_memory.emplace();
-    mr_buf = &managed_memory.value();
-  }
+  size_t mem_req = req_aux + req_buf + 256 * 6;  // might need extra memory for alignment
 
   auto pool_guard = raft::get_pool_memory_resource(mr, mem_req);
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
                    pool_guard->pool_size());
   }
-  if (mr_buf == nullptr) { mr_buf = mr; }
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> histograms(max_chunk_size * num_buckets, stream, mr);
-  rmm::device_uvector<T> buf1(max_chunk_size * buf_len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * buf_len, stream, mr_buf);
-  rmm::device_uvector<T> buf2(max_chunk_size * buf_len, stream, mr_buf);
-  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * buf_len, stream, mr_buf);
+  rmm::device_uvector<T> buf1(max_chunk_size * buf_len, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(max_chunk_size * buf_len, stream, mr);
+  rmm::device_uvector<T> buf2(max_chunk_size * buf_len, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(max_chunk_size * buf_len, stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
@@ -1108,10 +1097,9 @@ void radix_topk_one_block(const T* in,
  * @param fused_last_filter
  *   when it's true, the last filter is fused into the kernel in the last pass and only one thread
  *   block will do the filtering; when false, a standalone filter kernel with multiple thread
- *   blocks is called. The later case is preferable when the most significant bits of input data are
- *   almost the same. That is, when the value range of input data is narrow. In such case, there
- *   could be a large number of inputs for the last filter, hence using multiple thread blocks is
- *   beneficial.
+ *   blocks is called. The later case is preferable when leading bits of input data are almost the
+ *   same. That is, when the value range of input data is narrow. In such case, there could be a
+ *   large number of inputs for the last filter, hence using multiple thread blocks is beneficial.
  * @param stream
  * @param mr an optional memory resource to use across the calls (you can provide a large enough
  *           memory pool here to avoid memory allocations within the call).
@@ -1144,6 +1132,8 @@ void select_k_updated(const T* in,
     return;
   }
 
+  // TODO: use device_resources::get_device_properties() instead; should change it when we refactor
+  // resource management
   int sm_cnt;
   {
     int dev;
