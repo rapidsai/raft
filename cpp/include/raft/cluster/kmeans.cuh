@@ -17,6 +17,7 @@
 
 #include <optional>
 #include <raft/cluster/detail/kmeans.cuh>
+#include <raft/cluster/detail/kmeans_auto_find_k.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/mdarray.hpp>
@@ -259,6 +260,60 @@ void transform(raft::device_resources const& handle,
 {
   detail::kmeans_transform<DataT, IndexT>(
     handle, params, X, centroids, n_samples, n_features, X_new);
+}
+
+/**
+ * Automatically find the optimal value of k using a binary search.
+ * This method maximizes the Calinski-Harabasz Index while minimizing the per-cluster inertia.
+ *
+ *  @code{.cpp}
+ *   #include <raft/core/handle.hpp>
+ *   #include <raft/cluster/kmeans.cuh>
+ *   #include <raft/cluster/kmeans_types.hpp>
+ *
+ *   #include <raft/random/make_blobs.cuh>
+ *
+ *   using namespace raft::cluster;
+ *
+ *   raft::handle_t handle;
+ *   int n_samples = 100, n_features = 15, n_clusters = 10;
+ *   auto X = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
+ *   auto labels = raft::make_device_vector<float, int>(handle, n_samples);
+ *
+ *   raft::random::make_blobs(handle, X, labels, n_clusters);
+ *
+ *   auto best_k = raft::make_host_scalar<int>(0);
+ *   auto n_iter = raft::make_host_scalar<int>(0);
+ *   auto inertia = raft::make_host_scalar<int>(0);
+ *
+ *   kmeans::find_k(handle, X, best_k.view(), inertia.view(), n_iter.view(), n_clusters+1);
+ *
+ * @endcode
+ *
+ * @tparam idx_t indexing type (should be integral)
+ * @tparam value_t value type (should be floating point)
+ * @param handle raft handle
+ * @param X input observations (shape n_samples, n_dims)
+ * @param best_k best k found from binary search
+ * @param inertia inertia of best k found
+ * @param n_iter number of iterations used to find best k
+ * @param kmax maximum k to try in search
+ * @param kmin minimum k to try in search (should be >= 1)
+ * @param maxiter maximum number of iterations to run
+ * @param tol tolerance for early stopping convergence
+ */
+template <typename idx_t, typename value_t>
+void find_k(raft::device_resources const& handle,
+            raft::device_matrix_view<const value_t, idx_t> X,
+            raft::host_scalar_view<idx_t> best_k,
+            raft::host_scalar_view<value_t> inertia,
+            raft::host_scalar_view<idx_t> n_iter,
+            idx_t kmax,
+            idx_t kmin    = 1,
+            idx_t maxiter = 100,
+            value_t tol   = 1e-3)
+{
+  detail::find_k(handle, X, best_k, inertia, n_iter, kmax, kmin, maxiter, tol);
 }
 
 /**
