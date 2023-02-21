@@ -69,19 +69,19 @@ using vec_len_constant = std::integral_constant<int, n>;
 template <typename F>
 void dispatch(bool row_major, int vec_len, F&& f)
 {
-  if (row_major) {
-    switch (vec_len) {
-      case 4: f(std::bool_constant<true>(), vec_len_constant<4>()); break;
-      case 2: f(std::bool_constant<true>(), vec_len_constant<2>()); break;
-      default: f(std::bool_constant<true>(), vec_len_constant<1>()); break;
-    }
-  } else {
-    switch (vec_len) {
-      case 4: f(std::bool_constant<false>(), vec_len_constant<4>()); break;
-      case 2: f(std::bool_constant<false>(), vec_len_constant<2>()); break;
-      default: f(std::bool_constant<false>(), vec_len_constant<1>()); break;
-    }
-  }
+  // if (row_major) {
+  //   switch (vec_len) {
+  //     case 4: f(std::bool_constant<true>(), vec_len_constant<4>()); break;
+  //     case 2: f(std::bool_constant<true>(), vec_len_constant<2>()); break;
+  //     default: f(std::bool_constant<true>(), vec_len_constant<1>()); break;
+  //   }
+  // } else {
+  //   switch (vec_len) {
+  //     case 4: f(std::bool_constant<false>(), vec_len_constant<4>()); break;
+  //     case 2: f(std::bool_constant<false>(), vec_len_constant<2>()); break;
+  //     default: f(std::bool_constant<false>(), vec_len_constant<1>()); break;
+  //   }
+  // }
 }
 
 template <typename OpT,
