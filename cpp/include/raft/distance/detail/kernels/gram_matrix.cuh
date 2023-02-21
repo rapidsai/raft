@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
@@ -40,232 +41,55 @@ namespace raft::distance::kernels::detail {
  */
 template <typename math_t>
 class GramMatrixBase {
-  cublasHandle_t cublas_handle;
+  const raft::handle_t& handle;
 
  public:
-  GramMatrixBase(cublasHandle_t cublas_handle) : cublas_handle(cublas_handle){};
+  GramMatrixBase(const raft::handle_t& handle) : handle(handle){};
 
   virtual ~GramMatrixBase(){};
 
   /** Convenience function to evaluate the Gram matrix for two vector sets.
+   *  Vector sets are provided in Matrix format
    *
-   * @param [in] x1 device array of vectors, size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of columns (features) in x1 and x2
-   * @param [in] x2 device array of vectors, size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
-   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] is_row_major whether the input and output matrices are in row
-   *        major format
+   * @param [in] x1 device matrix, size [n1*n_cols]
+   * @param [in] x2 device matrix, size [n2*n_cols]
+   * @param [out] out (dense) device matrix to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1
-   * @param ld2 leading dimension of x2
-   * @param ld_out leading dimension of out
-   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
-   * @param offset_x1 offset where x1 starts within norm
-   * @param idx_x2 indirect access to x2 row id within norm
+   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
+   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
    */
-  virtual void operator()(const math_t* x1,
-                          int n1,
-                          int n_cols,
-                          const math_t* x2,
-                          int n2,
-                          math_t* out,
-                          bool is_row_major,
+  virtual void operator()(const raft::distance::matrix::detail::Matrix<math_t>& x1,
+                          const raft::distance::matrix::detail::Matrix<math_t>& x2,
+                          raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                           cudaStream_t stream,
-                          int ld1       = 0,
-                          int ld2       = 0,
-                          int ld_out    = 0,
-                          math_t* norm  = nullptr,
-                          int offset_x1 = 0,
-                          int* idx_x2   = nullptr)
+                          math_t* dot_x1 = nullptr,
+                          math_t* dot_x2 = nullptr)
   {
-    if (ld1 <= 0) { ld1 = is_row_major ? n_cols : n1; }
-    if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
-    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
-    evaluate(
-      x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out, norm, offset_x1, idx_x2);
-  }
-
-  virtual void operator()(const raft::handle_t& handle,
-                          const int* x1_indptr,
-                          const int* x1_indices,
-                          const math_t* x1_data,
-                          int x1_nnz,
-                          int n1,
-                          int n_cols,
-                          const math_t* x2_data,
-                          int n2,
-                          math_t* out,
-                          bool is_row_major,
-                          cudaStream_t stream,
-                          int ld2       = 0,
-                          int ld_out    = 0,
-                          math_t* norm  = nullptr,
-                          int offset_x1 = 0,
-                          int* idx_x2   = nullptr)
-
-  {
-    if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
-    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
-    evaluateSparseX1(handle,
-                     x1_indptr,
-                     x1_indices,
-                     x1_data,
-                     x1_nnz,
-                     n1,
-                     n_cols,
-                     x2_data,
-                     n2,
-                     out,
-                     is_row_major,
-                     stream,
-                     ld2,
-                     ld_out,
-                     norm,
-                     offset_x1,
-                     idx_x2);
-  }
-
-  virtual void operator()(const raft::handle_t& handle,
-                          const int* x1_indptr,
-                          const int* x1_indices,
-                          const math_t* x1_data,
-                          int x1_nnz,
-                          int n1,
-                          int n_cols,
-                          const int* x2_indptr,
-                          const int* x2_indices,
-                          const math_t* x2_data,
-                          int x2_nnz,
-                          int n2,
-                          math_t* out,
-                          bool is_row_major,
-                          cudaStream_t stream,
-                          int ld_out = 0)
-  {
-    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
-    evaluateSparse(handle,
-                   x1_indptr,
-                   x1_indices,
-                   x1_data,
-                   x1_nnz,
-                   n1,
-                   n_cols,
-                   x2_indptr,
-                   x2_indices,
-                   x2_data,
-                   x2_nnz,
-                   n2,
-                   out,
-                   is_row_major,
-                   stream,
-                   ld_out);
+    ASSERT(x1.n_rows == out.n_rows,
+           "GramMatrix input matrix dimensions for x1 and out do not match");
+    ASSERT(x2.n_rows == out.n_cols,
+           "GramMatrix input matrix dimensions for x2 and out do not match");
+    ASSERT(x1.n_cols == x2.n_cols, "GramMatrix input matrix dimensions for x1 and x2 do not match");
+    evaluate(x1, x2, out, stream, dot_x1, dot_x2);
   }
 
   /** Evaluate the Gram matrix for two vector sets using simple dot product.
    *
-   * @param [in] x1 device array of vectors, size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of columns (features) in x1 and x2
-   * @param [in] x2 device array of vectors, size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
+   * @param [in] x1 device matrix, size [n1*n_cols]
+   * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] is_row_major whether the input and output matrices are in row
-   *        major format
    * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1 (usually it is n1)
-   * @param ld2 leading dimension of x2 (usually it is n2)
-   * @param ld_out leading dimension of out (usually it is n1)
-   * @param norm optional L2 row norm of x1 for expanded computation within RBF.
-   * @param offset_x1 offset where x1 starts within norm
-   * @param idx_x2 indirect access to x2 row id within norm
+   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
+   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
    */
-  virtual void evaluate(const math_t* x1,
-                        int n1,
-                        int n_cols,
-                        const math_t* x2,
-                        int n2,
-                        math_t* out,
-                        bool is_row_major,
+  virtual void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
+                        const raft::distance::matrix::detail::Matrix<math_t>& x2,
+                        raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                         cudaStream_t stream,
-                        int ld1,
-                        int ld2,
-                        int ld_out,
-                        math_t* norm,
-                        int offset_x1,
-                        int* idx_x2)
+                        math_t* dot_x1,
+                        math_t* dot_x2)
   {
-    linear(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
-  }
-
-  virtual void evaluateSparseX1(const raft::handle_t& handle,
-                                const int* x1_indptr,
-                                const int* x1_indices,
-                                const math_t* x1_data,
-                                int x1_nnz,
-                                int n1,
-                                int n_cols,
-                                const math_t* x2_data,
-                                int n2,
-                                math_t* out,
-                                bool is_row_major,
-                                cudaStream_t stream,
-                                int ld2,
-                                int ld_out,
-                                math_t* norm,
-                                int offset_x1,
-                                int* idx_x2)
-  {
-    linearSparseX1(handle,
-                   x1_indptr,
-                   x1_indices,
-                   x1_data,
-                   x1_nnz,
-                   n1,
-                   n_cols,
-                   x2_data,
-                   n2,
-                   out,
-                   is_row_major,
-                   stream,
-                   ld2,
-                   ld_out);
-  }
-
-  virtual void evaluateSparse(const raft::handle_t& handle,
-                              const int* x1_indptr,
-                              const int* x1_indices,
-                              const math_t* x1_data,
-                              int x1_nnz,
-                              int n1,
-                              int n_cols,
-                              const int* x2_indptr,
-                              const int* x2_indices,
-                              const math_t* x2_data,
-                              int x2_nnz,
-                              int n2,
-                              math_t* out,
-                              bool is_row_major,
-                              cudaStream_t stream,
-                              int ld_out)
-  {
-    linearSparse(handle,
-                 x1_indptr,
-                 x1_indices,
-                 x1_data,
-                 x1_nnz,
-                 n1,
-                 n_cols,
-                 x2_indptr,
-                 x2_indices,
-                 x2_data,
-                 x2_nnz,
-                 n2,
-                 out,
-                 is_row_major,
-                 stream,
-                 ld_out);
+    linear(x1, x2, out, stream);
   }
 
   // private:
@@ -279,106 +103,89 @@ class GramMatrixBase {
    *
    * Can be used as a building block for more complex kernel functions.
    *
-   * @param [in] x1 device array of vectors, size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of columns (features) in x1 and x2
-   * @param [in] x2 device array of vectors, size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
+   * @param [in] x1 device matrix, size [n1*n_cols]
+   * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] is_row_major whether the input and output matrices are in row
-   *        major format
    * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1
-   * @param ld2 leading dimension of x2
-   * @param ld_out leading dimension of out
    */
-  void linear(const math_t* x1,
-              int n1,
-              int n_cols,
-              const math_t* x2,
-              int n2,
-              math_t* out,
-              bool is_row_major,
-              cudaStream_t stream,
-              int ld1,
-              int ld2,
-              int ld_out)
+  void linear(const raft::distance::matrix::detail::DenseMatrix<math_t>& x1,
+              const raft::distance::matrix::detail::DenseMatrix<math_t>& x2,
+              raft::distance::matrix::detail::DenseMatrix<math_t>& out,
+              cudaStream_t stream)
   {
+    ASSERT(x1.is_row_major == x2.is_row_major,
+           "GramMatrix leading dimensions for x1 and x2 do not match");
+    ASSERT(x2.is_row_major == out.is_row_major,
+           "GramMatrix leading dimensions for x2 and out do not match");
+
     math_t alpha = 1.0;
     math_t beta  = 0.0;
-    if (is_row_major) {
+    if (out.is_row_major) {
       // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
                                                        CUBLAS_OP_T,
                                                        CUBLAS_OP_N,
-                                                       n2,
-                                                       n1,
-                                                       n_cols,
+                                                       out.n_cols,
+                                                       out.n_rows,
+                                                       x1.n_cols,
                                                        &alpha,
-                                                       x2,
-                                                       ld2,
-                                                       x1,
-                                                       ld1,
+                                                       x2.data,
+                                                       x2.ld,
+                                                       x1.data,
+                                                       x1.ld,
                                                        &beta,
-                                                       out,
-                                                       ld_out,
+                                                       out.data,
+                                                       out.ld,
                                                        stream));
     } else {
       // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
                                                        CUBLAS_OP_N,
                                                        CUBLAS_OP_T,
-                                                       n1,
-                                                       n2,
-                                                       n_cols,
+                                                       out.n_rows,
+                                                       out.n_cols,
+                                                       x1.n_cols,
                                                        &alpha,
-                                                       x1,
-                                                       ld1,
-                                                       x2,
-                                                       ld2,
+                                                       x1.data,
+                                                       x1.ld,
+                                                       x2.data,
+                                                       x2.ld,
                                                        &beta,
-                                                       out,
-                                                       ld_out,
+                                                       out.data,
+                                                       out.ld,
                                                        stream));
     }
   }
 
-  void linearSparseX1(const raft::handle_t& handle,
-                      const int* x1_indptr,
-                      const int* x1_indices,
-                      const math_t* x1_data,
-                      int x1_nnz,
-                      int n1,
-                      int n_cols,
-                      const math_t* x2_data,
-                      int n2,
-                      math_t* out,
-                      bool is_row_major,
-                      cudaStream_t stream,
-                      int ld2,
-                      int ld_out)
+  void linear(const raft::distance::matrix::detail::CsrMatrix<math_t>& x1,
+              const raft::distance::matrix::detail::DenseMatrix<math_t>& x2,
+              raft::distance::matrix::detail::DenseMatrix<math_t>& out,
+              cudaStream_t stream)
   {
     math_t alpha = 1.0;
     math_t beta  = 0.0;
 
+    ASSERT(x2.is_row_major == out.is_row_major,
+           "GramMatrix leading dimensions for x2 and out do not match");
+
     cusparseSpMatDescr_t descrX1;
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(&descrX1,
-                                                              n1,
-                                                              n_cols,
-                                                              x1_nnz,
-                                                              const_cast<int*>(x1_indptr),
-                                                              const_cast<int*>(x1_indices),
-                                                              const_cast<math_t*>(x1_data)));
+                                                              x1.n_rows,
+                                                              x1.n_cols,
+                                                              x1.nnz,
+                                                              const_cast<int*>(x1.indptr),
+                                                              const_cast<int*>(x1.indices),
+                                                              const_cast<math_t*>(x1.data)));
 
-    auto order = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+    auto order = out.is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
 
     cusparseDnMatDescr_t descrX2;
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
-      &descrX2, n2, n_cols, ld2, const_cast<math_t*>(x2_data), order));
+      &descrX2, x2.n_rows, x2.n_cols, x2.ld, const_cast<math_t*>(x2.data), order));
 
     cusparseDnMatDescr_t descrOut;
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
-      &descrOut, n1, n2, ld_out, const_cast<math_t*>(out), order));
+      &descrOut, out.n_rows, out.n_cols, out.ld, const_cast<math_t*>(out.data), order));
 
     auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1 : CUSPARSE_SPMM_CSR_ALG2;
 
@@ -421,130 +228,80 @@ class GramMatrixBase {
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
-  void linearSparse(const raft::handle_t& handle,
-                    const int* x1_indptr,
-                    const int* x1_indices,
-                    const math_t* x1_data,
-                    int x1_nnz,
-                    int n1,
-                    int n_cols,
-                    const int* x2_indptr,
-                    const int* x2_indices,
-                    const math_t* x2_data,
-                    int x2_nnz,
-                    int n2,
-                    math_t* out,
-                    bool is_row_major,
-                    cudaStream_t stream,
-                    int ld_out)
+  void linear(const raft::distance::matrix::detail::CsrMatrix<math_t>& x1,
+              const raft::distance::matrix::detail::CsrMatrix<math_t>& x2,
+              raft::distance::matrix::detail::DenseMatrix<math_t>& out,
+              cudaStream_t stream)
   {
-    int minor_out = is_row_major ? n2 : n1;
-    ASSERT(ld_out == minor_out, "Sparse linear Kernel distance does not support ld_out parameter");
-    distanceSparse(handle,
-                   x1_indptr,
-                   x1_indices,
-                   x1_data,
-                   x1_nnz,
-                   n1,
-                   n_cols,
-                   x2_indptr,
-                   x2_indices,
-                   x2_data,
-                   x2_nnz,
-                   n2,
-                   out,
-                   is_row_major,
-                   stream,
-                   raft::distance::DistanceType::InnerProduct);
-  }
-
-  void distanceSparse(const raft::handle_t& handle,
-                      const int* x1_indptr,
-                      const int* x1_indices,
-                      const math_t* x1_data,
-                      int x1_nnz,
-                      int n1,
-                      int n_cols,
-                      const int* x2_indptr,
-                      const int* x2_indices,
-                      const math_t* x2_data,
-                      int x2_nnz,
-                      int n2,
-                      math_t* out,
-                      bool is_row_major,
-                      cudaStream_t stream,
-                      raft::distance::DistanceType metric,
-                      float metricArg = 0.0)
-  {
+    int minor_out = out.is_row_major ? out.n_cols : out.n_rows;
+    ASSERT(out.ld == minor_out, "Sparse linear Kernel distance does not support ld_out parameter");
     raft::sparse::distance::distances_config_t<int, math_t> dist_config(handle);
 
     // switch a,b based on is_row_major
-    if (!is_row_major) {
-      dist_config.a_nrows   = n2;
-      dist_config.a_ncols   = n_cols;
-      dist_config.a_nnz     = x2_nnz;
-      dist_config.a_indptr  = const_cast<int*>(x2_indptr);
-      dist_config.a_indices = const_cast<int*>(x2_indices);
-      dist_config.a_data    = const_cast<math_t*>(x2_data);
-      dist_config.b_nrows   = n1;
-      dist_config.b_ncols   = n_cols;
-      dist_config.b_nnz     = x1_nnz;
-      dist_config.b_indptr  = const_cast<int*>(x1_indptr);
-      dist_config.b_indices = const_cast<int*>(x1_indices);
-      dist_config.b_data    = const_cast<math_t*>(x1_data);
+    if (!out.is_row_major) {
+      dist_config.a_nrows   = x2.n_rows;
+      dist_config.a_ncols   = x2.n_cols;
+      dist_config.a_nnz     = x2.nnz;
+      dist_config.a_indptr  = const_cast<int*>(x2.indptr);
+      dist_config.a_indices = const_cast<int*>(x2.indices);
+      dist_config.a_data    = const_cast<math_t*>(x2.data);
+      dist_config.b_nrows   = x1.n_rows;
+      dist_config.b_ncols   = x1.n_cols;
+      dist_config.b_nnz     = x1.nnz;
+      dist_config.b_indptr  = const_cast<int*>(x1.indptr);
+      dist_config.b_indices = const_cast<int*>(x1.indices);
+      dist_config.b_data    = const_cast<math_t*>(x1.data);
     } else {
-      dist_config.a_nrows   = n1;
-      dist_config.a_ncols   = n_cols;
-      dist_config.a_nnz     = x1_nnz;
-      dist_config.a_indptr  = const_cast<int*>(x1_indptr);
-      dist_config.a_indices = const_cast<int*>(x1_indices);
-      dist_config.a_data    = const_cast<math_t*>(x1_data);
-      dist_config.b_nrows   = n2;
-      dist_config.b_ncols   = n_cols;
-      dist_config.b_nnz     = x2_nnz;
-      dist_config.b_indptr  = const_cast<int*>(x2_indptr);
-      dist_config.b_indices = const_cast<int*>(x2_indices);
-      dist_config.b_data    = const_cast<math_t*>(x2_data);
+      dist_config.a_nrows   = x1.n_rows;
+      dist_config.a_ncols   = x1.n_cols;
+      dist_config.a_nnz     = x1.nnz;
+      dist_config.a_indptr  = const_cast<int*>(x1.indptr);
+      dist_config.a_indices = const_cast<int*>(x1.indices);
+      dist_config.a_data    = const_cast<math_t*>(x1.data);
+      dist_config.b_nrows   = x2.n_rows;
+      dist_config.b_ncols   = x2.n_cols;
+      dist_config.b_nnz     = x2.nnz;
+      dist_config.b_indptr  = const_cast<int*>(x2.indptr);
+      dist_config.b_indices = const_cast<int*>(x2.indices);
+      dist_config.b_data    = const_cast<math_t*>(x2.data);
     }
 
-    if (raft::sparse::distance::supportedDistance.find(metric) ==
-        raft::sparse::distance::supportedDistance.end())
-      THROW("DistanceType not supported: %d", metric);
-
-    raft::sparse::distance::pairwiseDistance(out, dist_config, metric, metricArg);
+    raft::sparse::distance::pairwiseDistance(
+      out.data, dist_config, raft::distance::DistanceType::InnerProduct, 0.0);
   }
 
-  /** Calculates the Gram matrix using Euclidean distance.
+  /** Calculates the Gram matrix using simple dot product between vector sets.
+   *
+   * out = x1 * x2
    *
    * Can be used as a building block for more complex kernel functions.
    *
-   * @param [in] x1 device array of vectors, size [n1*n_cols]
-   * @param [in] n1 number vectors in x1
-   * @param [in] n_cols number of columns (features) in x1 and x2
-   * @param [in] x2 device array of vectors, size [n2*n_cols]
-   * @param [in] n2 number vectors in x2
+   * @param [in] x1 device matrix, size [n1*n_cols]
+   * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] is_row_major whether the input and output matrices are in row
-   *        major format
    * @param [in] stream cuda stream
-   * @param ld1 leading dimension of x1
-   * @param ld2 leading dimension of x2
-   * @param ld_out leading dimension of out
    */
-  virtual void distance(const math_t* x1,
-                        int n1,
-                        int n_cols,
-                        const math_t* x2,
-                        int n2,
-                        math_t* out,
-                        bool is_row_major,
-                        cudaStream_t stream,
-                        int ld1,
-                        int ld2,
-                        int ld_out)
+  void linear(const raft::distance::matrix::detail::Matrix<math_t>& x1,
+              const raft::distance::matrix::detail::Matrix<math_t>& x2,
+              raft::distance::matrix::detail::DenseMatrix<math_t>& out,
+              cudaStream_t stream)
   {
-    raft::distance::distance<raft::distance::DistanceType::L2Unexpanded, math_t, math_t, math_t>(
-      x1, x2, out, n1, n2, n_cols, stream, is_row_major);
+    // dispatch
+    if (x1.isDense()) {
+      ASSERT(x2.isDense(), "GramMatrix input matrix does not allow Dense*Csr");
+      auto x1_dense = x1.asDense();
+      auto x2_dense = x2.asDense();
+      linear(*x1_dense, *x2_dense, out, stream);
+    } else {
+      auto x1_csr = x1.asCsr();
+      if (x2.isDense()) {
+        auto x2_dense = x2.asDense();
+        linear(*x1_csr, *x2_dense, out, stream);
+      } else {
+        auto x2_csr = x2.asCsr();
+        linear(*x1_csr, *x2_csr, out, stream);
+      }
+    }
   }
 };
 };  // end namespace raft::distance::kernels::detail
