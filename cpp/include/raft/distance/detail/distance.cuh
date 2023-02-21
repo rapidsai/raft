@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,17 @@
 
 #pragma once
 
-#include <type_traits>
 #include <cuda_runtime_api.h>
+#include <type_traits>
+
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
+
 #include <raft/core/operators.hpp>
 
 #include <raft/distance/detail/distance_ops/canberra.cuh>
+#include <raft/distance/detail/distance_ops/chebyshev.cuh>
 #include <raft/distance/detail/distance_ops/correlation.cuh>
 #include <raft/distance/detail/distance_ops/cosine.cuh>
 #include <raft/distance/detail/distance_ops/hamming.cuh>
@@ -30,7 +36,6 @@
 #include <raft/distance/detail/distance_ops/l1.cuh>
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>
 #include <raft/distance/detail/distance_ops/l2_unexp.cuh>
-#include <raft/distance/detail/distance_ops/chebyshev.cuh>
 #include <raft/distance/detail/distance_ops/minkowski.cuh>
 #include <raft/distance/detail/distance_ops/russel_rao.cuh>
 
@@ -48,7 +53,7 @@ namespace detail {
  * @brief: A tag type for overload resolution based on DistanceType
  *
  * It is not possible to partially specialize function templates on a single
- * parameter. Intead, it is often easier to use a combination of conventional
+ * parameter. Instead, it is often easier to use a combination of conventional
  * method overloading and a parameter with a specific tag type. The following
  * type is used to help method overloading based on the DistanceType enum.
  */
@@ -97,25 +102,20 @@ using distance_tag = std::integral_constant<DistanceType, d>;
  * @param is_row_major  Whether the matrices are row-major or col-major
  * @param metric_arg    The `p` argument for Lp.
  */
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::Canberra> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT* workspace,                                   // unused
-  size_t worksize,                                   // unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT metric_arg)                                  // unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::Canberra> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,  // unused
+                   size_t worksize,  // unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT metric_arg)  // unused
 {
   ops::canberra_distance_op distance_op{};
 
@@ -126,29 +126,24 @@ void distance_impl(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::CorrelationExpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT* workspace,
-  size_t worksize,
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::CorrelationExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // unused
 {
-  ASSERT(!(((x != y) && (worksize < 2 * (m + n) * sizeof(AccT))) ||
-           (worksize < 2 * m * sizeof(AccT))),
-         "workspace size error");
+  ASSERT(
+    !(((x != y) && (worksize < 2 * (m + n) * sizeof(AccT))) || (worksize < 2 * m * sizeof(AccT))),
+    "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   AccT* norm_col_vec    = workspace;
@@ -208,36 +203,29 @@ void distance_impl(
     corr_op, m, n, k, x, y, norm_col_vec, norm_row_vec, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::CosineExpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT* workspace,
-  size_t worksize,
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::CosineExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // unused
 {
   // raft distance support inputs as float/double and output as uint8_t/float/double.
   static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(
-    !(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
-    "workspace size error");
+  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
+         "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
-
 
   DataT* norm_A = workspace;
   DataT* norm_B = workspace;
@@ -282,25 +270,20 @@ void distance_impl(
   }
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::HammingUnexpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::HammingUnexpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   ops::hamming_distance_op<IdxT> distance_op{k};
 
@@ -311,33 +294,26 @@ void distance_impl(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::HellingerExpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::HellingerExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   // First sqrt x and y
   const auto raft_sqrt = raft::linalg::unaryOp<DataT, raft::sqrt_op, IdxT>;
 
   raft_sqrt((DataT*)x, x, m * k, raft::sqrt_op{}, stream);
-  if (x != y) {
-    raft_sqrt((DataT*)y, y, n * k, raft::sqrt_op{}, stream);
-  }
+  if (x != y) { raft_sqrt((DataT*)y, y, n * k, raft::sqrt_op{}, stream); }
 
   // Then calculate Hellinger distance
   ops::hellinger_distance_op distance_op{};
@@ -350,32 +326,25 @@ void distance_impl(
 
   // Finally revert sqrt of x and y
   raft_sqrt((DataT*)x, x, m * k, raft::sqrt_op{}, stream);
-  if (x != y) {
-    raft_sqrt((DataT*)y, y, n * k, raft::sqrt_op{}, stream);
-  }
+  if (x != y) { raft_sqrt((DataT*)y, y, n * k, raft::sqrt_op{}, stream); }
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::JensenShannon> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::JensenShannon> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   ops::jensen_shannon_distance_op distance_op{};
 
@@ -386,34 +355,31 @@ void distance_impl(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::KLDivergence> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::KLDivergence> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   auto unaryOp_lambda = [] __device__(DataT input) {
-  const bool x_zero = (input == 0);
-  return (!x_zero) * raft::log(input + x_zero);  };
+    const bool x_zero = (input == 0);
+    return (!x_zero) * raft::log(input + x_zero);
+  };
 
   auto unaryOp_lambda_reverse = [] __device__(DataT input) {
-  // reverse previous log (x) back to x using (e ^ log(x))
-  const bool x_zero = (input == 0);
-  return (!x_zero) * raft::exp(input);  };
+    // reverse previous log (x) back to x using (e ^ log(x))
+    const bool x_zero = (input == 0);
+    return (!x_zero) * raft::exp(input);
+  };
 
   // This op takes some shortcuts when x equals y. So its behavior changes based
   // on this.
@@ -437,26 +403,20 @@ void distance_impl(
   }
 }
 
-
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::L1> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::L1> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   ops::l1_distance_op distance_op{};
 
@@ -472,8 +432,8 @@ template <typename DataT,
           typename OutT,
           typename FinOpT,
           typename IdxT = int>
-void distance_impl_l2_expanded(                      // NOTE: different name
-  bool perform_sqrt,                                 // dispatch on sqrt
+void distance_impl_l2_expanded(  // NOTE: different name
+  bool perform_sqrt,             // dispatch on sqrt
   const DataT* x,
   const DataT* y,
   OutT* out,
@@ -491,9 +451,8 @@ void distance_impl_l2_expanded(                      // NOTE: different name
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(
-    !(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
-    "workspace size error");
+  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
+         "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   DataT* norm_A = workspace;
@@ -539,73 +498,60 @@ void distance_impl_l2_expanded(                      // NOTE: different name
   }
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::L2Expanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT* workspace,
-  size_t worksize,
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::L2Expanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   bool perform_sqrt = false;
-  distance_impl_l2_expanded(perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
+  distance_impl_l2_expanded(
+    perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::L2SqrtExpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT* workspace,
-  size_t worksize,
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::L2SqrtExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT* workspace,
+                   size_t worksize,
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   bool perform_sqrt = true;
-  distance_impl_l2_expanded(perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
+  distance_impl_l2_expanded(
+    perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::L2Unexpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::L2Unexpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   bool perform_sqrt = false;
   ops::l2_unexp_distance_op l2_op(perform_sqrt);
@@ -618,25 +564,20 @@ void distance_impl(
     l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::L2SqrtUnexpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::L2SqrtUnexpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   bool perform_sqrt = true;
   ops::l2_unexp_distance_op l2_op(perform_sqrt);
@@ -649,25 +590,20 @@ void distance_impl(
     l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::Linf> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::Linf> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   ops::chebyshev_distance_op distance_op{};
 
@@ -678,25 +614,20 @@ void distance_impl(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::LpUnexpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT metric_arg)
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::LpUnexpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT metric_arg)
 {
   ops::minkowski_distance_op<DataT> distance_op{metric_arg};
 
@@ -707,25 +638,20 @@ void distance_impl(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
-template <typename DataT,
-          typename AccT,
-          typename OutT,
-          typename FinOpT,
-          typename IdxT = int>
-void distance_impl(
-  distance_tag<DistanceType::RusselRaoExpanded> distance_type,
-  const DataT* x,
-  const DataT* y,
-  OutT* out,
-  IdxT m,
-  IdxT n,
-  IdxT k,
-  AccT*,                                             // workspace unused
-  size_t,                                            // worksize unused
-  FinOpT fin_op,
-  cudaStream_t stream,
-  bool is_row_major,
-  DataT)                                             // metric_arg unused
+template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
+void distance_impl(distance_tag<DistanceType::RusselRaoExpanded> distance_type,
+                   const DataT* x,
+                   const DataT* y,
+                   OutT* out,
+                   IdxT m,
+                   IdxT n,
+                   IdxT k,
+                   AccT*,   // workspace unused
+                   size_t,  // worksize unused
+                   FinOpT fin_op,
+                   cudaStream_t stream,
+                   bool is_row_major,
+                   DataT)  // metric_arg unused
 {
   ops::russel_rao_distance_op<IdxT> distance_op{k};
 
@@ -785,7 +711,18 @@ void distance(const InType* x,
 
   distance_impl<InType, AccType, OutType, decltype(fin_op), Index_>(
     distance_tag<distanceType>{},
-    x, y, out, m, n, k, reinterpret_cast<AccType*>(workspace), worksize, fin_op, stream, isRowMajor, metric_arg);
+    x,
+    y,
+    out,
+    m,
+    n,
+    k,
+    reinterpret_cast<AccType*>(workspace),
+    worksize,
+    fin_op,
+    stream,
+    isRowMajor,
+    metric_arg);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

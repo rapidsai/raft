@@ -20,8 +20,13 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the cosine distance
-
+/**
+ * @brief the expanded cosine distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ * d(x, y) = 1 - (x ⋅ y) / ( ||x||_2 ||y||_2)
+ */
 struct cosine_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = true;
@@ -60,7 +65,6 @@ struct cosine_distance_op {
   }
 };
 
-
 template <typename DataT, typename AccT>
 struct cosine_cutlass_op {
   __device__ cosine_cutlass_op() noexcept {}
@@ -70,6 +74,5 @@ struct cosine_cutlass_op {
   }
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
 };
-
 
 }  // namespace raft::distance::detail::ops

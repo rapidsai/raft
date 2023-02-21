@@ -20,8 +20,13 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the chebyshev distance
-
+/**
+ * @brief the L_inf (Chebyshev) distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *  c_ij = max_k | x_ik - y_kj |
+ */
 struct chebyshev_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;

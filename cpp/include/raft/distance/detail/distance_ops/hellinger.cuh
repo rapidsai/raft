@@ -19,10 +19,14 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the hellinger distance
-//
-// Fill in the TODO items.
-
+/**
+ * @brief the Hellinger distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *  c_ij = sqrt(1 - sum_k sqrt(x_ik * y_kj))
+ *
+ */
 struct hellinger_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;

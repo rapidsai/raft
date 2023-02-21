@@ -20,7 +20,13 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the l2 unexpanded distance
+/**
+ * @brief the unexpanded euclidean distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ * c_ij = optional_sqrt ( sum_k (x_ik - y_kj)^2 )
+ */
 struct l2_unexp_distance_op {
   bool sqrt;
 

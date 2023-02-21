@@ -19,18 +19,21 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation of the kl_divergence
+/**
+ * @brief the KL Divergence distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *   c_ij = 0.5 * sum(x * log (x / y));
+ */
 struct kl_divergence_op {
   const bool is_row_major;
   const bool x_equal_y;
 
-  kl_divergence_op(
-    bool row_major_,
-    bool x_equal_y_=false
-  ) noexcept
-  : is_row_major(row_major_),
-    x_equal_y(x_equal_y_)
-  { }
+  kl_divergence_op(bool row_major_, bool x_equal_y_ = false) noexcept
+    : is_row_major(row_major_), x_equal_y(x_equal_y_)
+  {
+  }
 
   // Load norms of input data
   static constexpr bool use_norms = false;

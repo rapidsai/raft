@@ -19,13 +19,18 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the minkowski distance
-
+/**
+ * @brief the unexpanded Lp (Minkowski) distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *   c_ij = (sum_k |x_ik - y_jk|^p)^(1/p)
+ */
 template <typename DataT_struct>
 struct minkowski_distance_op {
   DataT_struct p;
 
-  minkowski_distance_op(DataT_struct p_) noexcept : p(p_) { }
+  minkowski_distance_op(DataT_struct p_) noexcept : p(p_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = false;

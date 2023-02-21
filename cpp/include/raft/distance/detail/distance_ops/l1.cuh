@@ -19,7 +19,13 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the l1 distance
+/**
+ * @brief the L1 distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *   c_ij = sum_k abs(x_ik  - y_kj)
+ */
 struct l1_distance_op {
   // Do not load norms of data, the computation of L1 distance does not use them.
   static constexpr bool use_norms = false;

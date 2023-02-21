@@ -20,13 +20,17 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the hamming distance
-
+/**
+ * @brief the Hamming Unexpanded distance matrix calculation
+ *  It computes the following equation:
+ *
+ *    c_ij = sum_k (x_ik != y_kj) / k
+ */
 template <typename IdxT_struct>
 struct hamming_distance_op {
   IdxT_struct k;
 
-  hamming_distance_op(IdxT_struct k_) noexcept : k(k_) { }
+  hamming_distance_op(IdxT_struct k_) noexcept : k(k_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = false;

@@ -20,9 +20,14 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the correlation distance
-
-
+/** @brief The correlation distance
+ *
+ * It computes the following equation:
+ *
+ * d(x, y) = ((x - mean(x)) ⋅ (y - mean(y)))
+ *           /
+ *           (|| x - mean(x) ||_2 || y - mean(y) ||_2)
+ */
 template <typename DataT_struct, typename IdxT_struct>
 struct correlation_distance_op {
   const DataT_struct* x2n;
@@ -31,19 +36,13 @@ struct correlation_distance_op {
   IdxT_struct n;
   IdxT_struct k;
 
-  correlation_distance_op(
-    bool is_row_major,
-    const DataT_struct* x2n_,
-    const DataT_struct* y2n_,
-    IdxT_struct m_,
-    IdxT_struct n_,
-    IdxT_struct k_
-  ) noexcept
-  : x2n(x2n_),
-    y2n(y2n_),
-    m(m_),
-    n(n_),
-    k(k_)
+  correlation_distance_op(bool is_row_major,
+                          const DataT_struct* x2n_,
+                          const DataT_struct* y2n_,
+                          IdxT_struct m_,
+                          IdxT_struct n_,
+                          IdxT_struct k_) noexcept
+    : x2n(x2n_), y2n(y2n_), m(m_), n(n_), k(k_)
   {
     // The distance op is typically created before the row-major/col-major
     // swapping has been done. So we do it here.
@@ -52,7 +51,6 @@ struct correlation_distance_op {
       std::swap(m, n);
     }
   }
-
 
   // Load norms of input data
   static constexpr bool use_norms = true;

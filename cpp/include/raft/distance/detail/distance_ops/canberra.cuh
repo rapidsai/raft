@@ -20,8 +20,13 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the canberra distance
-
+/**
+ * @brief The canberra distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *  c_ij = sum_k |x_ik - y_kj| / ( |x_ik| + |y_kj| )
+ */
 struct canberra_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;

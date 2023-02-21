@@ -20,17 +20,19 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the russel_rao distance
-
+/**
+ * @brief the Russell Rao distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ *  c_ij = (k - (sum_k x_ik * y_kj)) / k
+ */
 template <typename IdxT_struct>
 struct russel_rao_distance_op {
   IdxT_struct k;
   const float one_over_k;
 
-  russel_rao_distance_op(IdxT_struct k_) noexcept
-    : k(k_),
-      one_over_k(1.0f / k_)
-  { }
+  russel_rao_distance_op(IdxT_struct k_) noexcept : k(k_), one_over_k(1.0f / k_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = false;

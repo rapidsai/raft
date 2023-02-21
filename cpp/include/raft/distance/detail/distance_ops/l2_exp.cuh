@@ -20,9 +20,14 @@
 
 namespace raft::distance::detail::ops {
 
-// Describes the computation the l2 expanded distance
-//
-// TODO: more explanation.
+/**
+ * @brief the expanded euclidean distance matrix calculation
+ *
+ * It computes the following equation:
+ *
+ * c_ij = - 2 sum_k x_ik * y_kj + ||x_i.||_2 + ||y_.j||_2
+ *
+ */
 struct l2_exp_distance_op {
   bool sqrt;
 
