@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ namespace raft::neighbors::ivf_pq {
 using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
 
 TEST_BUILD_EXTEND_SEARCH(f32_f32_u64)
+TEST_BUILD_SERIALIZE_SEARCH(f32_f32_u64)
 INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims_moderate_lut());
 
 }  // namespace raft::neighbors::ivf_pq
