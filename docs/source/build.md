@@ -300,7 +300,7 @@ set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
   set(oneValueArgs VERSION FORK PINNED_TAG
-          COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES CLONE_ON_PIN
+          COMPILE_LIBRARIES CLONE_ON_PIN
           USE_NN_LIBRARY USE_DISTANCE_LIBRARY
           ENABLE_thrust_DEPENDENCY)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
@@ -364,12 +364,9 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         COMPILE_LIBRARIES        NO
         USE_NN_LIBRARY           NO
         USE_DISTANCE_LIBRARY     NO
-        ENABLE_NN_DEPENDENCIES   NO
         ENABLE_thrust_DEPENDENCY YES
 )
 ```
-
-If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
 
 ## Uninstall
 

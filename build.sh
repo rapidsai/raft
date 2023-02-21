@@ -71,7 +71,6 @@ BUILD_BENCH=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
-ENABLE_NN_DEPENDENCIES=OFF
 INSTALL_TARGET=install
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
@@ -276,7 +275,6 @@ if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
 fi
 
 if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-    ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
@@ -297,7 +295,6 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
           $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling nearest neighbors lib for gtests"
-      ENABLE_NN_DEPENDENCIES=ON
       COMPILE_NN_LIBRARY=ON
     fi
 
@@ -321,7 +318,6 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
     if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
           $CMAKE_TARGET == *"NEIGHBORS_BENCH"*  ]]; then
       echo "-- Enabling nearest neighbors lib for benchmarks"
-      ENABLE_NN_DEPENDENCIES=ON
       COMPILE_NN_LIBRARY=ON
     fi
 
