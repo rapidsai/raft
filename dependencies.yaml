@@ -179,6 +179,8 @@ dependencies:
           - ucx-py=0.31.*
           - ucx-proc=*=gpu
           - rmm=23.04
+          - libfaiss>=1.7.1=cuda*
+          - faiss-proc=*=cuda
           - dask-cuda=23.04
   test_python:
     common:
