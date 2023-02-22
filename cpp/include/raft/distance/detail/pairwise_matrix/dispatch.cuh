@@ -198,7 +198,7 @@ void distance_matrix_cutlass_dispatch(opT cutlass_op,
     // respectively.
 
     // Prevent double, vec_len=4 combination (this is not supported)
-    constexpr int vec_len = std::min(vec_len_aligned, static_cast<int>(16 / sizeof(DataT)));
+    constexpr int vec_len = std::min(vec_len_aligned(), static_cast<int>(16 / sizeof(DataT)));
 
     cutlassDistanceKernel<DataT, AccT, OutT, IdxT, vec_len, FinOpT, opT, row_major()>(
       x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, fin_op, cutlass_op, stream);
