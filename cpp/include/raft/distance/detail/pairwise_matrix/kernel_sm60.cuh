@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstddef>
+#include <raft/util/arch.cuh>
 #include <raft/core/operators.hpp>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 
@@ -28,7 +29,8 @@ template <typename Policy,
           typename OutT,
           typename IdxT,
           typename opT,
-          typename FinOpT>
+          typename FinOpT,
+          typename SM_compat_t>
 __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(const DataT* x,
                                                                               const DataT* y,
                                                                               const DataT* _xn,
@@ -41,8 +43,15 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(co
                                                                               IdxT ldd,
                                                                               OutT* dOutput,
                                                                               opT distance_op,
-                                                                              FinOpT fin_op)
+                                                                              FinOpT fin_op,
+                                                                              SM_compat_t sm_compat_range)
 {
+  // Early exit to minimize the size of the kernel when it is not supposed to be compiled.
+  if constexpr(! sm_compat_range.contains(raft::arch::SM_compute_arch())) {
+    assert(false);
+    return;
+  }
+
   extern __shared__ char smem[];
 
   // Wrap operator back into lambdas. This is temporary and should be removed. (TODO)
@@ -103,7 +112,8 @@ template <typename Policy,
           typename OutT,
           typename IdxT,
           typename OpT,
-          typename FinOpT>
+          typename FinOpT,
+          typename SM_compat_t>
 void pairwise_matrix(OpT distance_op,
                      FinOpT fin_op,
                      const DataT* x,
@@ -117,18 +127,19 @@ void pairwise_matrix(OpT distance_op,
                      IdxT ldb,
                      IdxT ldd,
                      OutT* dOutput,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     SM_compat_t sm_compat_range)
 {
   dim3 blk(Policy::Nthreads);
   // Use .template to disambiguate (See:
   // https://en.cppreference.com/w/cpp/language/dependent_name)
   size_t smem_size = distance_op.template shared_mem_size<Policy>();
   // Obtain function pointer to kernel
-  auto kernel = pairwise_matrix_kernel<Policy, row_major, DataT, AccT, OutT, IdxT, OpT, FinOpT>;
+  auto kernel = pairwise_matrix_kernel<Policy, row_major, DataT, AccT, OutT, IdxT, OpT, FinOpT, decltype(sm_compat_range)>;
   dim3 grid   = launchConfigGenerator<Policy>(m, n, smem_size, kernel);
 
   kernel<<<grid, blk, smem_size, stream>>>(
-    x, y, _xn, _yn, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op);
+    x, y, _xn, _yn, m, n, k, lda, ldb, ldd, dOutput, distance_op, fin_op, sm_compat_range);
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 

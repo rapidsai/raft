@@ -46,6 +46,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/arch.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace raft {
@@ -261,8 +262,11 @@ void distance_impl(raft::resources const& handle,
     distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
       distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
   } else {
-    const auto deviceVersion = getComputeCapability();
-    if (deviceVersion.first >= 8) {
+    auto runtime_arch = raft::arch::kernel_runtime_arch();
+    auto cutlass_range = raft::arch::SM_range(raft::arch::SM_80(), raft::arch::SM_future());
+    auto legacy_range = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_80());
+
+    if (cutlass_range.contains(runtime_arch)) {
       // If device is SM_80 or later, use CUTLASS-based kernel.
       using Op = ops::cosine_cutlass_op<DataT, AccT>;
       Op distance_op{};
@@ -272,8 +276,8 @@ void distance_impl(raft::resources const& handle,
     } else {
       // Else use "legacy" L2
       ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
-      distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+      distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT, decltype(legacy_range)>(
+        distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major, legacy_range);
     }
   }
 }
@@ -527,8 +531,11 @@ void distance_impl_l2_expanded(  // NOTE: different name
     distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
       l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
   } else {
-    const auto deviceVersion = getComputeCapability();
-    if (deviceVersion.first >= 8) {
+    auto runtime_arch = raft::arch::kernel_runtime_arch();
+    auto cutlass_range = raft::arch::SM_range(raft::arch::SM_80(), raft::arch::SM_future());
+    auto legacy_range = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_80());
+
+    if (cutlass_range.contains(runtime_arch)) {
       // If device is SM_80 or later, use CUTLASS-based kernel.
       using L2Op = ops::l2_exp_cutlass_op<DataT, AccT>;
       L2Op l2_op(perform_sqrt);
@@ -536,10 +543,11 @@ void distance_impl_l2_expanded(  // NOTE: different name
       distance_matrix_cutlass_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
         l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     } else {
-      // Else use "legacy" L2
+      // Else use "legacy" L2. Compile *only* for architectures in the legacy
+      // range. For newer architectures, compile empty kernels.
       ops::l2_exp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
-      distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+      distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT, decltype(legacy_range)>(
+        l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major, legacy_range);
     }
   }
 }
