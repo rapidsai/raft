@@ -44,10 +44,7 @@ struct template_distance_op {
     return Policy::SmemSize + TODO;
   }
 
-  DI void core(AccT& acc, DataT& x, DataT& y) const
-  {
-    TODO;
-  };
+  DI void core(AccT& acc, DataT& x, DataT& y) const { TODO; };
 
   template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],

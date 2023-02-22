@@ -56,8 +56,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(co
                                             IdxT gridStrideY) {
     // Use .template to disambiguate (See:
     // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template epilog<Policy>(
-      acc, regxn, regyn, gridStrideX, gridStrideY);
+    distance_op.template epilog<Policy>(acc, regxn, regyn, gridStrideX, gridStrideY);
   };
 
   // No support for row_epilog_op.

@@ -42,10 +42,7 @@ struct l1_distance_op {
     return Policy::SmemSize;
   }
 
-  DI void core(AccT& acc, DataT& x, DataT& y) const
-  {
-    acc += raft::abs(x - y);
-  };
+  DI void core(AccT& acc, DataT& x, DataT& y) const { acc += raft::abs(x - y); };
 
   template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],

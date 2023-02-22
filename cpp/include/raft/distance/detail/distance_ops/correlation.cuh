@@ -36,12 +36,8 @@ struct correlation_distance_op {
   IdxT n;
   IdxT k;
 
-  correlation_distance_op(bool is_row_major,
-                          const DataT* x2n_,
-                          const DataT* y2n_,
-                          IdxT m_,
-                          IdxT n_,
-                          IdxT k_) noexcept
+  correlation_distance_op(
+    bool is_row_major, const DataT* x2n_, const DataT* y2n_, IdxT m_, IdxT n_, IdxT k_) noexcept
     : x2n(x2n_), y2n(y2n_), m(m_), n(n_), k(k_)
   {
     // The distance op is typically created before the row-major/col-major
@@ -66,10 +62,7 @@ struct correlation_distance_op {
     return Policy::SmemSize + (2 * (Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
 
-  DI void core(AccT& acc, DataT& x, DataT& y) const
-  {
-    acc += x * y;
-  };
+  DI void core(AccT& acc, DataT& x, DataT& y) const { acc += x * y; };
 
   template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
