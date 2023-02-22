@@ -230,7 +230,7 @@ class TanhKernel : public GramMatrixBase<math_t> {
    * @tparam math_t floating point type
    * @param gain
    * @param offset
-   * @param cublas_handle
+   * @param handle
    */
   TanhKernel(math_t gain, math_t offset, const raft::device_resources& handle)
     : GramMatrixBase<math_t>(handle), gain(gain), offset(offset)
@@ -282,7 +282,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
     int n2         = is_row_major ? rows : cols;
     math_t* dot_n1 = is_row_major ? dot_x2 : dot_x1;
     math_t* dot_n2 = is_row_major ? dot_x1 : dot_x2;
-    rbf_kernel_expanded<<<dim3(raft::ceildiv(rows, 32), raft::ceildiv(cols, 4), 1),
+    rbf_kernel_expanded<<<dim3(raft::ceildiv(n1, 32), raft::ceildiv(n2, 4), 1),
                           dim3(32, 4, 1),
                           0,
                           stream>>>(inout, ld, n1, n2, dot_n1, dot_n2, gain);
@@ -309,8 +309,16 @@ class RBFKernel : public GramMatrixBase<math_t> {
     auto norm = raft::linalg::NormType::L2Norm;
     if (matrix.isDense()) {
       auto dense_matrix = matrix.asDense();
-      raft::linalg::rowNorm(
-        target, dense_matrix->data, matrix.n_cols, matrix.n_rows, norm, false, stream);
+      int minor         = dense_matrix->is_row_major ? matrix.n_cols : matrix.n_rows;
+      ASSERT(dense_matrix->ld == minor,
+             "RBF Kernel lazy rowNorm compute does not support ld parameter");
+      raft::linalg::rowNorm(target,
+                            dense_matrix->data,
+                            matrix.n_cols,
+                            matrix.n_rows,
+                            norm,
+                            dense_matrix->is_row_major,
+                            stream);
     } else {
       auto csr_matrix = matrix.asCsr();
       raft::sparse::linalg::rowNormCsr(

@@ -162,7 +162,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     DenseMatrix<math_t> x2_dense(
       x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
     DenseMatrix<math_t> gram_dense(
-      x1.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
+      gram.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
 
     (*kernel)(x1_dense, x2_dense, gram_dense, stream);
 
