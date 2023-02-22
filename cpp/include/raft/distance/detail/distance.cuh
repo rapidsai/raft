@@ -28,7 +28,6 @@
 #include <raft/core/operators.hpp>
 
 #include <raft/distance/detail/distance_ops/canberra.cuh>
-#include <raft/distance/detail/distance_ops/chebyshev.cuh>
 #include <raft/distance/detail/distance_ops/correlation.cuh>
 #include <raft/distance/detail/distance_ops/cosine.cuh>
 #include <raft/distance/detail/distance_ops/hamming.cuh>
@@ -38,6 +37,7 @@
 #include <raft/distance/detail/distance_ops/l1.cuh>
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>
 #include <raft/distance/detail/distance_ops/l2_unexp.cuh>
+#include <raft/distance/detail/distance_ops/l_inf.cuh>
 #include <raft/distance/detail/distance_ops/lp_unexp.cuh>
 #include <raft/distance/detail/distance_ops/russel_rao.cuh>
 
@@ -657,7 +657,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::chebyshev_distance_op distance_op{};
+  ops::l_inf_distance_op distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;

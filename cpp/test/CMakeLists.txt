@@ -109,7 +109,6 @@ if(BUILD_TESTS)
     PATH
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
-    test/distance/dist_chebyshev.cu
     test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
     test/distance/dist_euc_exp.cu
@@ -121,6 +120,7 @@ if(BUILD_TESTS)
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
+    test/distance/dist_l_inf.cu
     test/distance/dist_lp_unexp.cu
     test/distance/dist_russell_rao.cu
     test/distance/masked_nn.cu

@@ -27,7 +27,7 @@ namespace raft::distance::detail::ops {
  *
  *  c_ij = max_k | x_ik - y_kj |
  */
-struct chebyshev_distance_op {
+struct l_inf_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;
   // Whether the core function requires so many instructions that it makes sense
