@@ -26,6 +26,7 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = sum_k abs(x_ik  - y_kj)
  */
+template <typename DataT, typename AccT, typename IdxT>
 struct l1_distance_op {
   // Do not load norms of data, the computation of L1 distance does not use them.
   static constexpr bool use_norms = false;
@@ -35,19 +36,18 @@ struct l1_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     acc += raft::abs(x - y);
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

@@ -28,6 +28,7 @@ namespace raft::distance::detail::ops {
  * c_ij = - 2 sum_k x_ik * y_kj + ||x_i.||_2 + ||y_.j||_2
  *
  */
+template <typename DataT, typename AccT, typename IdxT>
 struct l2_exp_distance_op {
   bool sqrt;
 
@@ -41,19 +42,18 @@ struct l2_exp_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     acc += x * y;
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

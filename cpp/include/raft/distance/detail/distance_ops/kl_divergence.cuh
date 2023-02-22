@@ -26,6 +26,7 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = 0.5 * sum(x * log (x / y));
  */
+template <typename DataT, typename AccT, typename IdxT>
 struct kl_divergence_op {
   const bool is_row_major;
   const bool x_equal_y;
@@ -43,13 +44,12 @@ struct kl_divergence_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     // TODO: make sure that these branches get hoisted out of main loop.. Could
@@ -75,7 +75,7 @@ struct kl_divergence_op {
     }
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

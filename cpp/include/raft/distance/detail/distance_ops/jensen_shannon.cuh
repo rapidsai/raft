@@ -29,6 +29,7 @@ namespace raft::distance::detail::ops {
  * c_ij = sqrt(0.5 * sum( -x_i * (log(0.5 * (x_i + y_i)) - log(x_i))
  *       + (-y_i * (log(0.5 * (x_i + y_i)) - log(y_i)))))
  */
+template <typename DataT, typename AccT, typename IdxT>
 struct jensen_shannon_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;
@@ -38,13 +39,12 @@ struct jensen_shannon_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     const DataT m     = 0.5f * (x + y);
@@ -56,7 +56,7 @@ struct jensen_shannon_distance_op {
     acc += (-x * (logM - raft::log(x + x_zero))) + (-y * (logM - raft::log(y + y_zero)));
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

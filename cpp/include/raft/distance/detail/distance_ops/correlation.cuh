@@ -28,26 +28,26 @@ namespace raft::distance::detail::ops {
  *           /
  *           (|| x - mean(x) ||_2 || y - mean(y) ||_2)
  */
-template <typename DataT_struct, typename IdxT_struct>
+template <typename DataT, typename AccT, typename IdxT>
 struct correlation_distance_op {
-  const DataT_struct* x2n;
-  const DataT_struct* y2n;
-  IdxT_struct m;
-  IdxT_struct n;
-  IdxT_struct k;
+  const DataT* x2n;
+  const DataT* y2n;
+  IdxT m;
+  IdxT n;
+  IdxT k;
 
   correlation_distance_op(bool is_row_major,
-                          const DataT_struct* x2n_,
-                          const DataT_struct* y2n_,
-                          IdxT_struct m_,
-                          IdxT_struct n_,
-                          IdxT_struct k_) noexcept
+                          const DataT* x2n_,
+                          const DataT* y2n_,
+                          IdxT m_,
+                          IdxT n_,
+                          IdxT k_) noexcept
     : x2n(x2n_), y2n(y2n_), m(m_), n(n_), k(k_)
   {
     // The distance op is typically created before the row-major/col-major
     // swapping has been done. So we do it here.
     if (!is_row_major) {
-      std::swap<const DataT_struct*>(x2n, y2n);
+      std::swap<const DataT*>(x2n, y2n);
       std::swap(m, n);
     }
   }
@@ -60,19 +60,18 @@ struct correlation_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + (2 * (Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     acc += x * y;
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

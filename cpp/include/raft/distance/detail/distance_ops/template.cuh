@@ -24,6 +24,7 @@ namespace raft::distance::detail::ops {
 //
 // Fill in the TODO items.
 
+template <typename DataT, typename AccT, typename IdxT>
 struct template_distance_op {
   TODO member;
 
@@ -43,13 +44,12 @@ struct template_distance_op {
     return Policy::SmemSize + TODO;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     TODO;
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

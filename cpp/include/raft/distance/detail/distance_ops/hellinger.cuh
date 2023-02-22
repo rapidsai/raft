@@ -27,6 +27,7 @@ namespace raft::distance::detail::ops {
  *  c_ij = sqrt(1 - sum_k sqrt(x_ik * y_kj))
  *
  */
+template <typename DataT, typename AccT, typename IdxT>
 struct hellinger_distance_op {
   // Load norms of input data
   static constexpr bool use_norms = false;
@@ -36,13 +37,12 @@ struct hellinger_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     // This is sqrt(x) * sqrt(y).
@@ -50,7 +50,7 @@ struct hellinger_distance_op {
     acc += product;
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

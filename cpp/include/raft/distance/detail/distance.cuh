@@ -120,7 +120,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT metric_arg)  // unused
 {
-  ops::canberra_distance_op distance_op{};
+  ops::canberra_distance_op<DataT, AccT, IdxT> distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -203,8 +203,8 @@ void distance_impl(raft::resources const& handle,
     raft::linalg::rowNorm(sq_norm_col_vec, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
   }
 
-  using CorrOp = ops::correlation_distance_op<DataT, IdxT>;
-  CorrOp corr_op(is_row_major, sq_norm_col_vec, sq_norm_row_vec, m, n, k);
+  using OpT = ops::correlation_distance_op<DataT, AccT, IdxT>;
+  OpT corr_op(is_row_major, sq_norm_col_vec, sq_norm_row_vec, m, n, k);
   distance_matrix_dispatch<decltype(corr_op), DataT, AccT, OutT, FinOpT, IdxT>(
     corr_op, m, n, k, x, y, norm_col_vec, norm_row_vec, out, fin_op, stream, is_row_major);
 }
@@ -257,7 +257,7 @@ void distance_impl(raft::resources const& handle,
 
   if constexpr (__CUDACC_VER_MAJOR__ == 12) {
     // Always execute legacy kernels on CUDA 12
-    ops::cosine_distance_op distance_op{};
+    ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
     distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
       distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
   } else {
@@ -271,7 +271,7 @@ void distance_impl(raft::resources const& handle,
         distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     } else {
       // Else use "legacy" L2
-      ops::cosine_distance_op distance_op{};
+      ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
       distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
         distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     }
@@ -293,7 +293,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::hamming_distance_op<IdxT> distance_op{k};
+  ops::hamming_distance_op<DataT, AccT, IdxT> distance_op{k};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -357,7 +357,7 @@ void distance_impl(raft::resources const& handle,
   if (x != y) { raft_sqrt((DataT*)y, y, n * k, raft::sqrt_op{}, stream); }
 
   // Then calculate Hellinger distance
-  ops::hellinger_distance_op distance_op{};
+  ops::hellinger_distance_op<DataT, AccT, IdxT> distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -387,7 +387,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::jensen_shannon_distance_op distance_op{};
+  ops::jensen_shannon_distance_op<DataT, AccT, IdxT> distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -428,7 +428,7 @@ void distance_impl(raft::resources const& handle,
 
   // This op takes some shortcuts when x equals y. So its behavior changes based
   // on this.
-  ops::kl_divergence_op kl_divergence{is_row_major, x == y};
+  ops::kl_divergence_op<DataT, AccT, DataT> kl_divergence{is_row_major, x == y};
 
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
@@ -463,13 +463,13 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::l1_distance_op distance_op{};
+  ops::l1_distance_op<DataT, AccT, IdxT> distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  distance_matrix_dispatch<ops::l1_distance_op, DataT, AccT, OutT, FinOpT, IdxT>(
+  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -523,7 +523,7 @@ void distance_impl_l2_expanded(  // NOTE: different name
 
   if constexpr (__CUDACC_VER_MAJOR__ == 12) {
     // Always execute legacy kernels on CUDA 12
-    ops::l2_exp_distance_op l2_op(perform_sqrt);
+    ops::l2_exp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
     distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
       l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
   } else {
@@ -537,7 +537,7 @@ void distance_impl_l2_expanded(  // NOTE: different name
         l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     } else {
       // Else use "legacy" L2
-      ops::l2_exp_distance_op l2_op(perform_sqrt);
+      ops::l2_exp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
       distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
         l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     }
@@ -602,7 +602,7 @@ void distance_impl(raft::resources const& handle,
                    DataT)  // metric_arg unused
 {
   bool perform_sqrt = false;
-  ops::l2_unexp_distance_op l2_op(perform_sqrt);
+  ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
 
   // The unexpanded L2 does not require the norms of a and b to be calculated.
   const DataT* norm_A = nullptr;
@@ -630,7 +630,7 @@ void distance_impl(raft::resources const& handle,
                    DataT)  // metric_arg unused
 {
   bool perform_sqrt = true;
-  ops::l2_unexp_distance_op l2_op(perform_sqrt);
+  ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
 
   // The unexpanded L2 does not require the norms of a and b to be calculated.
   const DataT* norm_A = nullptr;
@@ -657,7 +657,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::l_inf_distance_op distance_op{};
+  ops::l_inf_distance_op<DataT, AccT, IdxT> distance_op{};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -683,7 +683,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT metric_arg)
 {
-  ops::lp_unexp_distance_op<DataT> distance_op{metric_arg};
+  ops::lp_unexp_distance_op<DataT, AccT, IdxT> distance_op{metric_arg};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
@@ -709,7 +709,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  ops::russel_rao_distance_op<IdxT> distance_op{k};
+  ops::russel_rao_distance_op<DataT, AccT, IdxT> distance_op{k};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;

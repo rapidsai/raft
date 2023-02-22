@@ -27,12 +27,12 @@ namespace raft::distance::detail::ops {
  *
  *  c_ij = (k - (sum_k x_ik * y_kj)) / k
  */
-template <typename IdxT_struct>
+template <typename DataT, typename AccT, typename IdxT>
 struct russel_rao_distance_op {
-  IdxT_struct k;
+  IdxT k;
   const float one_over_k;
 
-  russel_rao_distance_op(IdxT_struct k_) noexcept : k(k_), one_over_k(1.0f / k_) {}
+  russel_rao_distance_op(IdxT k_) noexcept : k(k_), one_over_k(1.0f / k_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = false;
@@ -42,19 +42,18 @@ struct russel_rao_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
+  template <typename Policy>
   constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
 
-  template <typename AccT, typename DataT>
   DI void core(AccT& acc, DataT& x, DataT& y) const
   {
     acc += x * y;
   };
 
-  template <typename Policy, typename AccT, typename DataT, typename IdxT>
+  template <typename Policy>
   DI void epilog(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
                  DataT* regxn,
                  DataT* regyn,

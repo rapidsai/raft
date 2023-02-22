@@ -56,7 +56,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(co
                                             IdxT gridStrideY) {
     // Use .template to disambiguate (See:
     // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template epilog<Policy, AccT, DataT, IdxT>(
+    distance_op.template epilog<Policy>(
       acc, regxn, regyn, gridStrideX, gridStrideY);
   };
 
@@ -123,7 +123,7 @@ void pairwise_matrix(OpT distance_op,
   dim3 blk(Policy::Nthreads);
   // Use .template to disambiguate (See:
   // https://en.cppreference.com/w/cpp/language/dependent_name)
-  size_t smem_size = distance_op.template shared_mem_size<Policy, DataT>();
+  size_t smem_size = distance_op.template shared_mem_size<Policy>();
   // Obtain function pointer to kernel
   auto kernel = pairwise_matrix_kernel<Policy, row_major, DataT, AccT, OutT, IdxT, OpT, FinOpT>;
   dim3 grid   = launchConfigGenerator<Policy>(m, n, smem_size, kernel);
