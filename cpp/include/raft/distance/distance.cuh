@@ -102,9 +102,6 @@ void distance(raft::resources const& handle,
  * @param worksize number of bytes of the workspace
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
- *
- * @note if workspace is passed as nullptr, this will return in
- *  worksize, the number of bytes of workspace required
  */
 template <raft::distance::DistanceType distanceType,
           typename InType,

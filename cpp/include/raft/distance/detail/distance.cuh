@@ -804,9 +804,6 @@ void distance(raft::resources const& handle,
  * @param worksize number of bytes of the workspace
  * @param stream cuda stream
  * @param isRowMajor whether the matrices are row-major or col-major
- *
- * @note if workspace is passed as nullptr, this will return in
- *  worksize, the number of bytes of workspace required
  */
 template <raft::distance::DistanceType distanceType,
           typename InType,
