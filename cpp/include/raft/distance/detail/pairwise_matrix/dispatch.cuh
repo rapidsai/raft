@@ -17,9 +17,9 @@
 
 #include "kernel_sm60.cuh"
 #include <cstdio>
-#include <raft/util/arch.cuh>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/contractions.cuh>
+#include <raft/util/arch.cuh>
 #include <utility>
 
 namespace raft::distance::detail {
@@ -90,21 +90,22 @@ template <typename OpT,
           typename AccT,
           typename OutT,
           typename FinOpT,
-          typename IdxT = int,
+          typename IdxT        = int,
           typename SM_compat_t = raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>>
-void distance_matrix_dispatch(OpT distance_op,
-                              IdxT m,
-                              IdxT n,
-                              IdxT k,
-                              const DataT* x,
-                              const DataT* y,
-                              const DataT* x_norm,
-                              const DataT* y_norm,
-                              OutT* out,
-                              FinOpT fin_op,
-                              cudaStream_t stream,
-                              bool is_row_major,
-                              SM_compat_t sm_compat_range = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_future()))
+void distance_matrix_dispatch(
+  OpT distance_op,
+  IdxT m,
+  IdxT n,
+  IdxT k,
+  const DataT* x,
+  const DataT* y,
+  const DataT* x_norm,
+  const DataT* y_norm,
+  OutT* out,
+  FinOpT fin_op,
+  cudaStream_t stream,
+  bool is_row_major,
+  SM_compat_t sm_compat_range = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_future()))
 {
   // Determine leading dimensions and, if column-major, flip order of passing x
   // and y.
@@ -148,7 +149,21 @@ void distance_matrix_dispatch(OpT distance_op,
     typedef typename std::conditional<row_major(), RowPolicy, ColPolicy>::type Policy;
 
     return pairwise_matrix<Policy, row_major(), DataT, AccT, OutT, IdxT, OpT, FinOpT>(
-      distance_op, fin_op, x, y, x_norm, y_norm, m, n, k, ldx, ldy, ld_out, out, stream, sm_compat_range);
+      distance_op,
+      fin_op,
+      x,
+      y,
+      x_norm,
+      y_norm,
+      m,
+      n,
+      k,
+      ldx,
+      ldy,
+      ld_out,
+      out,
+      stream,
+      sm_compat_range);
   });
 }
 

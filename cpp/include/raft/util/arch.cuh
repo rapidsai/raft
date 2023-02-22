@@ -43,26 +43,24 @@ namespace raft::arch {
 namespace inner {
 template <int n>
 struct SM_generic {
-public:
-  __host__ __device__ constexpr int value() const {
-    return n;
-  }
+ public:
+  __host__ __device__ constexpr int value() const { return n; }
 };
 
 // A
 __global__ inline void dummy_runtime_kernel() {}
-}
+}  // namespace inner
 
 // A list of architectures that RAPIDS explicitly builds for (SM60, ..., SM90)
 // and SM_MIN and SM_FUTURE, that allow specifying an open interval of
 // compatible compute architectures.
-using SM_min = inner::SM_generic<350>;
-using SM_60 = inner::SM_generic<600>;
-using SM_70 = inner::SM_generic<700>;
-using SM_75 = inner::SM_generic<750>;
-using SM_80 = inner::SM_generic<800>;
-using SM_86 = inner::SM_generic<860>;
-using SM_90 = inner::SM_generic<900>;
+using SM_min    = inner::SM_generic<350>;
+using SM_60     = inner::SM_generic<600>;
+using SM_70     = inner::SM_generic<700>;
+using SM_75     = inner::SM_generic<750>;
+using SM_80     = inner::SM_generic<800>;
+using SM_86     = inner::SM_generic<860>;
+using SM_90     = inner::SM_generic<900>;
 using SM_future = inner::SM_generic<99999>;
 
 // This is a type that uses the __CUDA_ARCH__ macro to obtain the compile-time
@@ -70,7 +68,8 @@ using SM_future = inner::SM_generic<99999>;
 // i.e., inside a __global__ function template.
 struct SM_compute_arch {
   template <int dummy = 0>
-  __host__ __device__ constexpr int value() const {
+  __host__ __device__ constexpr int value() const
+  {
 #ifdef __CUDA_ARCH__
     return __CUDA_ARCH__;
 #else
@@ -91,21 +90,20 @@ struct SM_compute_arch {
 // the kernel runs.
 struct SM_runtime {
   friend SM_runtime kernel_runtime_arch();
-private:
-  const int _version;
-  SM_runtime(int version)
-    : _version (version) {}
 
-public:
-  __host__ __device__ int value() const  {
-    return _version;
-  }
+ private:
+  const int _version;
+  SM_runtime(int version) : _version(version) {}
+
+ public:
+  __host__ __device__ int value() const { return _version; }
 };
 
 // Computes which compute architecture of a kernel will run
 //
 // Semantics are described above in the documentation of SM_runtime.
-SM_runtime kernel_runtime_arch() {
+SM_runtime kernel_runtime_arch()
+{
   auto kernel = inner::dummy_runtime_kernel;
   cudaFuncAttributes attributes;
   cudaFuncGetAttributes(&attributes, kernel);
@@ -117,17 +115,18 @@ SM_runtime kernel_runtime_arch() {
 // conditionally compile a kernel.
 template <typename SM_MIN, typename SM_MAX>
 struct SM_range {
-private:
+ private:
   const SM_MIN _min;
   const SM_MAX _max;
-public:
-  __host__ __device__ constexpr SM_range(SM_MIN min, SM_MAX max)
-    : _min(min), _max(max) {}
+
+ public:
+  __host__ __device__ constexpr SM_range(SM_MIN min, SM_MAX max) : _min(min), _max(max) {}
 
   template <typename SM_t>
-  __host__ __device__ constexpr bool contains(SM_t current) const {
+  __host__ __device__ constexpr bool contains(SM_t current) const
+  {
     return _min.value() <= current.value() && current.value() < _max.value();
   }
 };
 
-} // namespace raft::arch
+}  // namespace raft::arch
