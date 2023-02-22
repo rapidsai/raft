@@ -27,10 +27,10 @@ namespace raft::distance::detail::ops {
  *   c_ij = (sum_k |x_ik - y_jk|^p)^(1/p)
  */
 template <typename DataT_struct>
-struct minkowski_distance_op {
+struct lp_unexp_distance_op {
   DataT_struct p;
 
-  minkowski_distance_op(DataT_struct p_) noexcept : p(p_) {}
+  lp_unexp_distance_op(DataT_struct p_) noexcept : p(p_) {}
 
   // Load norms of input data
   static constexpr bool use_norms = false;

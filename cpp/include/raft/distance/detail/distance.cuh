@@ -38,7 +38,7 @@
 #include <raft/distance/detail/distance_ops/l1.cuh>
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>
 #include <raft/distance/detail/distance_ops/l2_unexp.cuh>
-#include <raft/distance/detail/distance_ops/minkowski.cuh>
+#include <raft/distance/detail/distance_ops/lp_unexp.cuh>
 #include <raft/distance/detail/distance_ops/russel_rao.cuh>
 
 #include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
@@ -683,7 +683,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT metric_arg)
 {
-  ops::minkowski_distance_op<DataT> distance_op{metric_arg};
+  ops::lp_unexp_distance_op<DataT> distance_op{metric_arg};
 
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
