@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/matrix/detail/select_radix.cuh>
-#include <raft/matrix/detail/select_radix_updated.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
 
@@ -53,8 +52,6 @@ enum class Algo {
   kPublicApi,
   kRadix8bits,
   kRadix11bits,
-  kRadix8bitsUpdated,
-  kRadix11bitsUpdated,
   kRadix11bitsExtraPass,
   kWarpAuto,
   kWarpImmediate,
@@ -69,8 +66,6 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kPublicApi: return os << "kPublicApi";
     case Algo::kRadix8bits: return os << "kRadix8bits";
     case Algo::kRadix11bits: return os << "kRadix11bits";
-    case Algo::kRadix8bitsUpdated: return os << "kRadix8bitsUpdated";
-    case Algo::kRadix11bitsUpdated: return os << "kRadix11bitsUpdated";
     case Algo::kRadix11bitsExtraPass: return os << "kRadix11bitsExtraPass";
     case Algo::kWarpAuto: return os << "kWarpAuto";
     case Algo::kWarpImmediate: return os << "kWarpImmediate";
@@ -112,44 +107,38 @@ void select_k_impl(const device_resources& handle,
       }
     }
     case Algo::kRadix8bits:
-      return detail::select::radix::select_k<T, IdxT, 8, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      return detail::select::radix::select_k<T, IdxT, 8, 512>(in,
+                                                              in_idx,
+                                                              batch_size,
+                                                              len,
+                                                              k,
+                                                              out,
+                                                              out_idx,
+                                                              select_min,
+                                                              true,  // fused_last_filter
+                                                              stream);
     case Algo::kRadix11bits:
-      return detail::select::radix::select_k<T, IdxT, 11, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
-    case Algo::kRadix8bitsUpdated:
-      return detail::select::radix::select_k_updated<T, IdxT, 8, 512>(in,
-                                                                      in_idx,
-                                                                      batch_size,
-                                                                      len,
-                                                                      k,
-                                                                      out,
-                                                                      out_idx,
-                                                                      select_min,
-                                                                      true,  // fused_last_filter
-                                                                      stream);
-    case Algo::kRadix11bitsUpdated:
-      return detail::select::radix::select_k_updated<T, IdxT, 11, 512>(in,
-                                                                       in_idx,
-                                                                       batch_size,
-                                                                       len,
-                                                                       k,
-                                                                       out,
-                                                                       out_idx,
-                                                                       select_min,
-                                                                       true,  // fused_last_filter
-                                                                       stream);
+      return detail::select::radix::select_k<T, IdxT, 11, 512>(in,
+                                                               in_idx,
+                                                               batch_size,
+                                                               len,
+                                                               k,
+                                                               out,
+                                                               out_idx,
+                                                               select_min,
+                                                               true,  // fused_last_filter
+                                                               stream);
     case Algo::kRadix11bitsExtraPass:
-      return detail::select::radix::select_k_updated<T, IdxT, 11, 512>(in,
-                                                                       in_idx,
-                                                                       batch_size,
-                                                                       len,
-                                                                       k,
-                                                                       out,
-                                                                       out_idx,
-                                                                       select_min,
-                                                                       false,  // fused_last_filter
-                                                                       stream);
+      return detail::select::radix::select_k<T, IdxT, 11, 512>(in,
+                                                               in_idx,
+                                                               batch_size,
+                                                               len,
+                                                               k,
+                                                               out,
+                                                               out_idx,
+                                                               select_min,
+                                                               false,  // fused_last_filter
+                                                               stream);
     case Algo::kWarpAuto:
       return detail::select::warpsort::select_k<T, IdxT>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
