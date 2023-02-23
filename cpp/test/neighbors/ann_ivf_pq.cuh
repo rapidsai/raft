@@ -236,7 +236,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto dist =
       make_device_mdarray<double>(handle_, &managed_memory, make_extents<uint32_t>(n_take));
 
-    ivf_pq::detail::reconstruct_list_data(handle_, index, rec_data.view(), label, n_skip);
+    ivf_pq::reconstruct_list_data(handle_, index, rec_data.view(), label, n_skip);
 
     matrix::gather(database.data(),
                    IdxT{dim},

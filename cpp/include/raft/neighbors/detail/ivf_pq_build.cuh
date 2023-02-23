@@ -653,6 +653,7 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   }
 }
 
+/** Decode the list data; see the public interface for the api and usage. */
 template <typename T, typename IdxT>
 void reconstruct_list_data(raft::device_resources const& res,
                            const index<IdxT>& index,
