@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -15,4 +15,4 @@ rapids-mamba-retry env create --force -f env.yaml -n checks
 conda activate checks
 
 # Run pre-commit checks
-pre-commit run --hook-stage manual --all-files --show-diff-on-failure
+pre-commit run --all-files --show-diff-on-failure
