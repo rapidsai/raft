@@ -25,7 +25,6 @@
 #pragma once
 
 #include <raft/core/error.hpp>
-#include <raft/core/logger.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
