@@ -558,6 +558,177 @@ void train_per_cluster(raft::device_resources const& handle,
 }
 
 /**
+ * Decode a lvl-2 pq-encoded vector in the given list (cluster).
+ * One vector per thread.
+ * NB: this function only decodes the PQ (second level) enconding; to get the approximation of the
+ * original vector, you need to add the cluster centroid and apply the inverse matrix transform to
+ * the result of this function.
+ *
+ * @tparam PqBits
+ *
+ * @param[out] out_vector the destination for the decoded vector (one-per-thread).
+ * @param[in] in_list_data the encoded cluster data.
+ * @param[in] pq_centers the codebook
+ * @param[in] codebook_kind
+ * @param[in] in_ix in-cluster index of the vector to be decoded (one-per-thread).
+ * @param[in] cluster_ix label/id of the cluster (one-per-thread).
+ */
+template <uint32_t PqBits>
+__device__ void reconstruct_vector(
+  device_vector_view<float, uint32_t, row_major> out_vector,
+  device_mdspan<const uint8_t, list_spec<uint32_t>::list_extents, row_major> in_list_data,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  codebook_gen codebook_kind,
+  uint32_t in_ix,
+  uint32_t cluster_ix)
+{
+  using group_align         = Pow2<kIndexGroupSize>;
+  const uint32_t group_ix   = group_align::div(in_ix);
+  const uint32_t ingroup_ix = group_align::mod(in_ix);
+  const uint32_t pq_len     = pq_centers.extent(1);
+  const uint32_t pq_dim     = out_vector.extent(0) / pq_len;
+
+  using layout_t            = typename decltype(out_vector)::layout_type;
+  using accessor_t          = typename decltype(out_vector)::accessor_type;
+  auto reinterpreted_vector = mdspan<float, extent_2d<uint32_t>, layout_t, accessor_t>(
+    out_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
+
+  pq_vec_t code_chunk;
+  bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
+  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
+    // read the chunk
+    code_chunk = *reinterpret_cast<const pq_vec_t*>(&in_list_data(group_ix, i, ingroup_ix, 0));
+    // read the codes, one/pq_dim at a time
+#pragma unroll
+    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
+      uint32_t partition_ix;
+      switch (codebook_kind) {
+        case codebook_gen::PER_CLUSTER: {
+          partition_ix = cluster_ix;
+        } break;
+        case codebook_gen::PER_SUBSPACE: {
+          partition_ix = j;
+        } break;
+        default: __builtin_unreachable();
+      }
+      uint8_t code = code_view[k];
+      // read a piece of the reconstructed vector
+      for (uint32_t l = 0; l < pq_len; l++) {
+        reinterpreted_vector(j, l) = pq_centers(partition_ix, l, code);
+      }
+    }
+  }
+}
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
+  device_matrix_view<float, uint32_t, row_major> out_vectors,
+  device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  device_matrix_view<const float, uint32_t, row_major> centers_rot,
+  codebook_gen codebook_kind,
+  uint32_t cluster_ix,
+  uint32_t n_skip)
+{
+  const auto out_dim = out_vectors.extent(1);
+  using layout_t     = typename decltype(out_vectors)::layout_type;
+  using accessor_t   = typename decltype(out_vectors)::accessor_type;
+
+  const uint32_t pq_dim = out_dim / pq_centers.extent(1);
+  auto pq_extents =
+    list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_vectors.extent(0) + n_skip + 1);
+  auto pq_dataset =
+    make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
+
+  for (uint32_t ix = threadIdx.x + BlockSize * blockIdx.x; ix < out_vectors.extent(0);
+       ix += BlockSize) {
+    auto one_vector = mdspan<float, extent_1d<uint32_t>, layout_t, accessor_t>(
+      &out_vectors(ix, 0), extent_1d<uint32_t>{out_vectors.extent(1)});
+    reconstruct_vector<PqBits>(
+      one_vector, pq_dataset, pq_centers, codebook_kind, ix + n_skip, cluster_ix);
+    for (uint32_t j = 0; j < out_dim; j++) {
+      one_vector(j) += centers_rot(cluster_ix, j);
+    }
+  }
+}
+
+template <typename T, typename IdxT>
+void reconstruct_list_data(raft::device_resources const& res,
+                           const index<IdxT>& index,
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label,
+                           uint32_t n_skip)
+{
+  auto n_rows = out_vectors.extent(0);
+  if (n_rows == 0) { return; }
+  // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
+  // to avoid an extra device-host data copy and the stream sync.
+  RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
+               "n_skip + output size must be not bigger than the cluster size.");
+
+  auto tmp = make_device_mdarray<float>(
+    res, res.get_workspace_resource(), make_extents<uint32_t>(n_rows, index.rot_dim()));
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [](uint32_t pq_bits) {
+    switch (pq_bits) {
+      case 4: return reconstruct_list_data_kernel<kBlockSize, 4>;
+      case 5: return reconstruct_list_data_kernel<kBlockSize, 5>;
+      case 6: return reconstruct_list_data_kernel<kBlockSize, 6>;
+      case 7: return reconstruct_list_data_kernel<kBlockSize, 7>;
+      case 8: return reconstruct_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }(index.pq_bits());
+  kernel<<<blocks, threads, 0, res.get_stream()>>>(tmp.view(),
+                                                   index.data_ptrs(),
+                                                   index.pq_centers(),
+                                                   index.centers_rot(),
+                                                   index.codebook_kind(),
+                                                   label,
+                                                   n_skip);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  float* out_float_ptr = nullptr;
+  rmm::device_uvector<float> out_float_buf(0, res.get_stream(), res.get_workspace_resource());
+  if constexpr (std::is_same_v<T, float>) {
+    out_float_ptr = out_vectors.data_handle();
+  } else {
+    out_float_buf.resize(size_t{n_rows} * size_t{index.dim()}, res.get_stream());
+    out_float_ptr = out_float_buf.data();
+  }
+  // Rotate the results back to the original space
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(res,
+               false,
+               false,
+               index.dim(),
+               n_rows,
+               index.rot_dim(),
+               &alpha,
+               index.rotation_matrix().data_handle(),
+               index.dim(),
+               tmp.data_handle(),
+               index.rot_dim(),
+               &beta,
+               out_float_ptr,
+               index.dim(),
+               res.get_stream());
+  // Transform the data to the original type, if necessary
+  if constexpr (!std::is_same_v<T, float>) {
+    linalg::map_k(out_vectors.data_handle(),
+                  out_float_buf.size(),
+                  utils::mapping<T>{},
+                  res.get_stream(),
+                  out_float_ptr);
+  }
+}
+
+/**
  * Compute the code: find the closest cluster in each pq_dim-subspace.
  *
  * @tparam SubWarpSize
@@ -625,6 +796,67 @@ __device__ auto compute_pq_code(
   return code;
 }
 
+/**
+ * Compute a PQ code for a single input vector per subwarp and write it into the
+ * appropriate cluster.
+ * Subwarp size here is the minimum between WarpSize and the codebook size.
+ *
+ * @tparam BlockSize
+ * @tparam PqBits
+ *
+ * @param[out] out_list_data an array of pointers to the database clusers.
+ * @param[in] in_vector input unencoded data, one-per-subwarp
+ * @param[in] pq_centers codebook
+ * @param[in] codebook_kind
+ * @param[in] out_ix in-cluster output index (where to write the encoded data), one-per-subwarp.
+ * @param[in] cluster_ix label/id of the cluster to fill, one-per-subwarp.
+ */
+template <uint32_t BlockSize, uint32_t PqBits>
+__device__ auto compute_and_write_pq_code(
+  device_mdspan<uint8_t, list_spec<uint32_t>::list_extents, row_major> out_list_data,
+  device_vector_view<const float, uint32_t, row_major> in_vector,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  codebook_gen codebook_kind,
+  uint32_t out_ix,
+  uint32_t cluster_ix)
+{
+  constexpr uint32_t kSubWarpSize = std::min<uint32_t>(WarpSize, 1u << PqBits);
+  using subwarp_align             = Pow2<kSubWarpSize>;
+  const uint32_t lane_id          = subwarp_align::mod(threadIdx.x);
+
+  using group_align         = Pow2<kIndexGroupSize>;
+  const uint32_t group_ix   = group_align::div(out_ix);
+  const uint32_t ingroup_ix = group_align::mod(out_ix);
+  const uint32_t pq_len     = pq_centers.extent(1);
+  const uint32_t pq_dim     = in_vector.extent(0) / pq_len;
+
+  using layout_t            = typename decltype(in_vector)::layout_type;
+  using accessor_t          = typename decltype(in_vector)::accessor_type;
+  auto reinterpreted_vector = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
+    in_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
+
+  __shared__ pq_vec_t codes[subwarp_align::div(BlockSize)];
+  pq_vec_t& code = codes[subwarp_align::div(threadIdx.x)];
+  bitfield_view_t<PqBits> out{reinterpret_cast<uint8_t*>(&code)};
+  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
+    // clear the chunk for writing
+    if (lane_id == 0) { code = pq_vec_t{}; }
+    // fill-in the values, one/pq_dim at a time
+#pragma unroll
+    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
+      // find the label
+      auto l = compute_pq_code<kSubWarpSize>(
+        pq_centers, reinterpreted_vector, codebook_kind, j, cluster_ix);
+      if (lane_id == 0) { out[k] = l; }
+    }
+    // write the chunk into the dataset
+    if (lane_id == 0) {
+      *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code;
+    }
+  }
+}
+
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
 __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   device_matrix_view<const float, IdxT, row_major> new_vectors,
@@ -639,7 +871,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   constexpr uint32_t kSubWarpSize = std::min<uint32_t>(WarpSize, 1u << PqBits);
   using subwarp_align             = Pow2<kSubWarpSize>;
   const uint32_t lane_id          = subwarp_align::mod(threadIdx.x);
-  const IdxT row_ix = subwarp_align::div(IdxT{threadIdx.x} + IdxT{blockDim.x} * IdxT{blockIdx.x});
+  const IdxT row_ix = subwarp_align::div(IdxT{threadIdx.x} + IdxT{BlockSize} * IdxT{blockIdx.x});
   if (row_ix >= new_vectors.extent(0)) { return; }
 
   const uint32_t cluster_ix = new_labels[row_ix];
@@ -647,7 +879,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   if (lane_id == 0) { out_ix = atomicAdd(&list_sizes(cluster_ix), 1); }
   out_ix = shfl(out_ix, 0, kSubWarpSize);
 
-  // write the label
+  // write the label  (one record per subwarp)
   auto pq_indices = inds_ptrs(cluster_ix);
   if (lane_id == 0) {
     if (std::holds_alternative<IdxT>(src_offset_or_indices)) {
@@ -657,40 +889,21 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
     }
   }
 
-  // write the codes
-  using group_align         = Pow2<kIndexGroupSize>;
-  const uint32_t group_ix   = group_align::div(out_ix);
-  const uint32_t ingroup_ix = group_align::mod(out_ix);
-  const uint32_t pq_len     = pq_centers.extent(1);
-  const uint32_t pq_dim     = new_vectors.extent(1) / pq_len;
-
-  auto pq_extents = list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
-  auto pq_extents_vectorized =
-    make_extents<uint32_t>(pq_extents.extent(0), pq_extents.extent(1), pq_extents.extent(2));
-  auto pq_dataset = make_mdspan<pq_vec_t, uint32_t, row_major, false, true>(
-    reinterpret_cast<pq_vec_t*>(data_ptrs[cluster_ix]), pq_extents_vectorized);
-
-  __shared__ pq_vec_t codes[subwarp_align::div(BlockSize)];
-  pq_vec_t& code = codes[subwarp_align::div(threadIdx.x)];
-  bitfield_view_t<PqBits> out{reinterpret_cast<uint8_t*>(&code)};
-  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
-  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
-    // clear the chunk for writing
-    if (lane_id == 0) { code = pq_vec_t{}; }
-    // fill-in the values, one/pq_dim at a time
-#pragma unroll
-    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
-      // find the label
-      using layout_t   = typename decltype(new_vectors)::layout_type;
-      using accessor_t = typename decltype(new_vectors)::accessor_type;
-      auto one_vector  = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
-        &new_vectors(row_ix, 0), extent_2d<uint32_t>{pq_dim, pq_len});
-      auto l = compute_pq_code<kSubWarpSize>(pq_centers, one_vector, codebook_kind, j, cluster_ix);
-      if (lane_id == 0) { out[k] = l; }
-    }
-    // write the chunk into the dataset
-    if (lane_id == 0) { pq_dataset(group_ix, i, ingroup_ix) = code; }
-  }
+  // write the codes (one record per subwarp):
+  // 1. select input row
+  using layout_t    = typename decltype(new_vectors)::layout_type;
+  using accessor_t  = typename decltype(new_vectors)::accessor_type;
+  const auto in_dim = new_vectors.extent(1);
+  auto one_vector =
+    mdspan<const float, extent_1d<uint32_t>, layout_t, accessor_t>(&new_vectors(row_ix, 0), in_dim);
+  // 2. select output cluster
+  const uint32_t pq_dim = in_dim / pq_centers.extent(1);
+  auto pq_extents       = list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
+  auto pq_dataset =
+    make_mdspan<uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
+  // 3. compute and write the vector
+  compute_and_write_pq_code<BlockSize, PqBits>(
+    pq_dataset, one_vector, pq_centers, codebook_kind, out_ix, cluster_ix);
 }
 
 /**

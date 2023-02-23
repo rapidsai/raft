@@ -22,6 +22,7 @@
 
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
 #if defined RAFT_DISTANCE_COMPILED
@@ -139,7 +140,6 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
   }
 
- protected:
   void gen_data()
   {
     database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
@@ -216,10 +216,69 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
   }
 
+  void check_reconstruction(const index<IdxT>& index,
+                            double compression_ratio,
+                            uint32_t label,
+                            uint32_t n_take,
+                            uint32_t n_skip)
+  {
+    auto rec_list = index.lists()[label];
+    auto dim      = index.dim();
+    n_take        = std::min<uint32_t>(n_take, rec_list->size.load());
+    n_skip        = std::min<uint32_t>(n_skip, rec_list->size.load() - n_take);
+
+    if (n_take == 0) { return; }
+
+    auto rec_data  = make_device_matrix<DataT>(handle_, n_take, dim);
+    auto orig_data = make_device_matrix<DataT>(handle_, n_take, dim);
+
+    rmm::mr::managed_memory_resource managed_memory;
+    auto dist =
+      make_device_mdarray<double>(handle_, &managed_memory, make_extents<uint32_t>(n_take));
+
+    ivf_pq::detail::reconstruct_list_data(handle_, index, rec_data.view(), label, n_skip);
+
+    matrix::gather(database.data(),
+                   IdxT{dim},
+                   IdxT{n_take},
+                   rec_list->indices.data_handle() + n_skip,
+                   IdxT{n_take},
+                   orig_data.data_handle(),
+                   stream_);
+
+    auto rec_data_view  = rec_data.view();
+    auto orig_data_view = orig_data.view();
+    linalg::map_offset(
+      handle_, dist.view(), [rec_data_view, orig_data_view, dim] __device__(uint32_t i) {
+        spatial::knn::detail::utils::mapping<float> f{};
+        double d = 0.0f;
+        for (uint32_t j = 0; j < dim; j++) {
+          double t = f(rec_data_view(i, j)) - f(orig_data_view(i, j));
+          d += t * t;
+        }
+        return sqrt(d / double(dim));
+      });
+    handle_.sync_stream();
+    for (uint32_t i = 0; i < n_take; i++) {
+      double d = dist(i);
+      // The theoretical estimate of the error is hard to come up with,
+      // the estimate below is based on experimentation + curse of dimensionality
+      ASSERT_LE(d, 0.04 * std::pow(2.0, compression_ratio))
+        << " (label = " << label << ", ix = " << (n_skip + i) << ")";
+    }
+  }
+
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
     auto index = build_index();
+
+    double compression_ratio =
+      static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
+
+    // check a small subset of data in a randomly chosen cluster to see if the data reconstruction
+    // works well.
+    check_reconstruction(index, compression_ratio, uint32_t(rand()) % index.n_lists(), 100, 7);
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -244,11 +303,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     // A very conservative lower bound on recall
     double min_recall =
       static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
-    double low_precision_factor =
-      static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
     // Using a heuristic to lower the required recall due to code-packing errors
     min_recall =
-      std::min(std::erfc(0.05 * low_precision_factor / std::max(min_recall, 0.5)), min_recall);
+      std::min(std::erfc(0.05 * compression_ratio / std::max(min_recall, 0.5)), min_recall);
     // Use explicit per-test min recall value if provided.
     min_recall = ps.min_recall.value_or(min_recall);
 
@@ -258,7 +315,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                                 distances_ivf_pq,
                                 ps.num_queries,
                                 ps.k,
-                                0.0001 * low_precision_factor,
+                                0.0001 * compression_ratio,
                                 min_recall))
       << ps;
 
