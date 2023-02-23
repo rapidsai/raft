@@ -14,12 +14,8 @@
 # limitations under the License.
 #
 
-import os
-
 from setuptools import find_packages
 from skbuild import setup
-
-cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 
 install_requires = [
     "numpy",
@@ -27,9 +23,9 @@ install_requires = [
     "joblib>=0.11",
     "dask-cuda==23.4.*",
     "dask>=2023.1.1",
-    f"ucx-py{cuda_suffix}==0.31.*",
+    "ucx-py==0.31.*",
     "distributed>=2023.1.1",
-    f"pylibraft{cuda_suffix}==23.4.*",
+    "pylibraft==23.4.*",
 ]
 
 extras_require = {
@@ -50,7 +46,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 
 setup(
-    name=f"raft-dask{cuda_suffix}",
+    name="raft-dask",
     description="Reusable Accelerated Functions & Tools Dask Infrastructure",
     version="23.04.00",
     classifiers=[

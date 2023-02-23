@@ -14,17 +14,13 @@
 # limitations under the License.
 #
 
-import os
-
 from setuptools import find_packages
 from skbuild import setup
-
-cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 
 install_requires = [
     "numpy",
     "cuda-python>=11.7.1,<12.0",
-    f"rmm{cuda_suffix}==23.4.*",
+    "rmm==23.4.*",
 ]
 
 extras_require = {
@@ -46,7 +42,7 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 
 setup(
-    name=f"pylibraft{cuda_suffix}",
+    name="pylibraft",
     description="RAFT: Reusable Algorithms Functions and other Tools",
     version="23.04.00",
     classifiers=[
