@@ -560,7 +560,7 @@ void train_per_cluster(raft::device_resources const& handle,
 /**
  * Decode a lvl-2 pq-encoded vector in the given list (cluster).
  * One vector per thread.
- * NB: this function only decodes the PQ (second level) enconding; to get the approximation of the
+ * NB: this function only decodes the PQ (second level) encoding; to get the approximation of the
  * original vector, you need to add the cluster centroid and apply the inverse matrix transform to
  * the result of this function.
  *
