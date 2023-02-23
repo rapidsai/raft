@@ -38,16 +38,7 @@
 
 #include <raft/distance/detail/fused_l2_nn_epilogue_elementwise.cuh>
 #include <raft/distance/detail/fused_l2_nn_gemm.h>
-
-#define CUTLASS_CHECK(status)                                                                    \
-  {                                                                                              \
-    cutlass::Status error = status;                                                              \
-    if (error != cutlass::Status::kSuccess) {                                                    \
-      std::cerr << "Got cutlass error: " << cutlassGetStatusString(error) << " at: " << __LINE__ \
-                << std::endl;                                                                    \
-      exit(EXIT_FAILURE);                                                                        \
-    }                                                                                            \
-  }
+#include <raft/util/cutlass_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -161,14 +152,11 @@ void cutlassFusedL2NNKernel(const DataT* x,
   // Instantiate CUTLASS kernel depending on templates
   cutlassDist cutlassDist_op;
   // Check the problem size is supported or not
-  cutlass::Status status = cutlassDist_op.can_implement(arguments);
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op.can_implement(arguments));
   // Initialize CUTLASS kernel with arguments and workspace pointer
-  status = cutlassDist_op.initialize(arguments, workspace.data(), stream);
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
   // Launch initialized CUTLASS kernel
-  status = cutlassDist_op();
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op());
 }
 
 };  // namespace detail

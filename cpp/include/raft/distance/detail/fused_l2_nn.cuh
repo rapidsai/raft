@@ -324,7 +324,7 @@ void fusedL2NNImpl(OutT* min,
   const auto deviceVersion = getComputeCapability();
 
   if (deviceVersion.first >= 8) {
-    using L2Op              = L2ExpandedOp<DataT, DataT>;
+    using L2Op                  = L2ExpandedOp<DataT, DataT>;
     using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
     kvp_cg_min_reduce_op_ cg_reduce_op;
     L2Op L2_dist_op(sqrt);

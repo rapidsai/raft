@@ -302,7 +302,7 @@ struct FusedL2NNWithFusedEpilogue {
         params_B(args.ldb),
         params_C(args.ldc),
         params_D(args.ldd),
-        // Here we additional pass user args via args.epilogue
+        // Here we pass additional user args via args.epilogue
         params_Tensor(args.ldt, args.epilogue),
         output_op(args.epilogue),
         mode(args.mode),
@@ -581,16 +581,18 @@ struct FusedL2NNWithFusedEpilogue {
         params.params_D, ptr_D, params.problem_size.mn(), thread_idx, threadblock_offset);
 
       // Additional tensor to load from
-      typename Epilogue::TensorTileIterator tensor_iterator(shared_storage.epilogue_combined_store.reduced_store,
-                                                            params.params_Tensor,
-                                                            // Only the final block outputs Tensor
-                                                            ptr_Tensor,
-                                                            params.problem_size.mn(),
-                                                            thread_idx,
-                                                            threadblock_offset);
+      typename Epilogue::TensorTileIterator tensor_iterator(
+        shared_storage.epilogue_combined_store.reduced_store,
+        params.params_Tensor,
+        // Only the final block outputs Tensor
+        ptr_Tensor,
+        params.problem_size.mn(),
+        thread_idx,
+        threadblock_offset);
 
       // Construct the epilogue
-      Epilogue epilogue(shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
+      Epilogue epilogue(
+        shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
 
       // Move to appropriate location for this output tile
       if (ptr_Vector) {
@@ -670,7 +672,8 @@ struct FusedL2NNWithFusedEpilogue {
       threadblock_offset);
 
     // Construct the epilogue
-    Epilogue epilogue(shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
+    Epilogue epilogue(
+      shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
 
 #if SPLIT_K_ENABLED
     // Wait on the semaphore - this latency may have been covered by iterator construction

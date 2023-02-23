@@ -20,7 +20,8 @@
   * kernels.
 * This is adapted from LinearCombinationBiasElementwise from CUTLASS 2.9.0
 * customized for applying elementwise distance formula on accumulated GEMM value
-* and applying user-defined final custom operation on the distance value.
+* and applying user-defined operation which can convert distance values to key-value pair.
+* .
 */
 
 #pragma once
@@ -135,7 +136,7 @@ class FusedL2NNEpilogueElementwise {
   CUTLASS_HOST_DEVICE
   bool is_source_needed() const
   {
-    // we use for making sure C matrix path is used for A mat norm.
+    // we use for making sure C matrix is used for A mat norm.
     return true;
   }
 
