@@ -272,10 +272,10 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 // cg::reduce functor for FusedL2NN used in its cutlass version
 // to output the min distance value & key(loc id).
 template <typename AccType, typename Index, typename OutType>
-struct kvp_cg_reduce_op {
+struct kvp_cg_min_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
 
-  __host__ __device__ kvp_cg_reduce_op() noexcept {};
+  __host__ __device__ kvp_cg_min_reduce_op() noexcept {};
 
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
@@ -325,8 +325,8 @@ void fusedL2NNImpl(OutT* min,
 
   if (deviceVersion.first >= 8) {
     using L2Op              = L2ExpandedOp<DataT, DataT>;
-    using kvp_cg_reduce_op_ = kvp_cg_reduce_op<DataT, IdxT, OutT>;
-    kvp_cg_reduce_op_ cg_reduce_op;
+    using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
+    kvp_cg_min_reduce_op_ cg_reduce_op;
     L2Op L2_dist_op(sqrt);
 
     IdxT lda, ldb, ldd;
@@ -337,7 +337,7 @@ void fusedL2NNImpl(OutT* min,
                            OutT,
                            IdxT,
                            P::Veclen,
-                           kvp_cg_reduce_op_,
+                           kvp_cg_min_reduce_op_,
                            L2Op,
                            ReduceOpT,
                            KVPReduceOpT>(x,

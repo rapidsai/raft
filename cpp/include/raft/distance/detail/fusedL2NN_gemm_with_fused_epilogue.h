@@ -363,10 +363,15 @@ struct FusedL2NNWithFusedEpilogue {
     }
   };
 
+  struct epilogue_SharedStorage {
+    typename Epilogue::SharedStorage epilogue;
+    typename Epilogue::TensorTileIterator::SharedStorage reduced_store;
+  };
+
   /// Shared memory storage structure
   union SharedStorage {
     typename Mma::SharedStorage main_loop;
-    typename Epilogue::SharedStorage epilogue;
+    epilogue_SharedStorage epilogue_combined_store;
   };
 
  public:
@@ -576,7 +581,8 @@ struct FusedL2NNWithFusedEpilogue {
         params.params_D, ptr_D, params.problem_size.mn(), thread_idx, threadblock_offset);
 
       // Additional tensor to load from
-      typename Epilogue::TensorTileIterator tensor_iterator(params.params_Tensor,
+      typename Epilogue::TensorTileIterator tensor_iterator(shared_storage.epilogue_combined_store.reduced_store,
+                                                            params.params_Tensor,
                                                             // Only the final block outputs Tensor
                                                             ptr_Tensor,
                                                             params.problem_size.mn(),
@@ -584,7 +590,7 @@ struct FusedL2NNWithFusedEpilogue {
                                                             threadblock_offset);
 
       // Construct the epilogue
-      Epilogue epilogue(shared_storage.epilogue, thread_idx, warp_idx, lane_idx);
+      Epilogue epilogue(shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
 
       // Move to appropriate location for this output tile
       if (ptr_Vector) {
@@ -652,6 +658,7 @@ struct FusedL2NNWithFusedEpilogue {
 
     // Additional tensor to load from
     typename Epilogue::TensorTileIterator tensor_iterator(
+      shared_storage.epilogue_combined_store.reduced_store,
       params.params_Tensor,
       // Only the final block outputs Tensor
       ((params.mode == GemmUniversalMode::kGemm && params.grid_tiled_shape.k() > 1) &&
@@ -663,7 +670,7 @@ struct FusedL2NNWithFusedEpilogue {
       threadblock_offset);
 
     // Construct the epilogue
-    Epilogue epilogue(shared_storage.epilogue, thread_idx, warp_idx, lane_idx);
+    Epilogue epilogue(shared_storage.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
 
 #if SPLIT_K_ENABLED
     // Wait on the semaphore - this latency may have been covered by iterator construction
