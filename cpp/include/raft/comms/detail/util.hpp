@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 
 #include <nccl.h>
 #include <raft/core/error.hpp>
