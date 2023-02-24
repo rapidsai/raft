@@ -108,7 +108,7 @@ void refine_device(raft::device_resources const& handle,
     handle.get_thrust_policy(), fake_coarse_idx.data(), fake_coarse_idx.data() + n_queries);
 
   raft::neighbors::ivf_flat::index<data_t, idx_t> refinement_index(
-    handle, metric, n_queries, false, false, dim);
+    handle, metric, n_queries, false, true, dim);
 
   raft::neighbors::ivf_flat::detail::fill_refinement_index(handle,
                                                            &refinement_index,

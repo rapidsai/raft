@@ -219,10 +219,7 @@ struct index : ann::index {
     return centers_.extent(1);
   }
   /** Number of clusters/inverted lists. */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t
-  {
-    return lists_.extent(0);
-  }
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return lists_.size(); }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&) = delete;
@@ -245,15 +242,12 @@ struct index : ann::index {
       conservative_memory_allocation_{conservative_memory_allocation},
       centers_(make_device_matrix<float, uint32_t>(res, n_lists, dim)),
       center_norms_(std::nullopt),
-      lists_{make_host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t>(n_lists)},
+      lists_{n_lists},
       list_sizes_{make_device_vector<uint32_t, uint32_t>(res, n_lists)},
       data_ptrs_{make_device_vector<T*, uint32_t>(res, n_lists)},
       inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
       total_size_{0}
   {
-    for (uint32_t i = 0; i < n_lists; i++) {
-      lists_(i) = std::shared_ptr<list_data<T, IdxT>>();
-    }
     switch (metric_) {
       case raft::distance::DistanceType::L2Expanded:
       case raft::distance::DistanceType::L2SqrtExpanded:
@@ -315,9 +309,10 @@ struct index : ann::index {
     auto this_inds_ptrs       = inds_ptrs();
     IdxT recompute_total_size = 0;
     for (uint32_t label = 0; label < this_lists.size(); label++) {
-      const auto data_ptr  = this_lists(label) ? this_lists(label)->data.data_handle() : nullptr;
-      const auto inds_ptr  = this_lists(label) ? this_lists(label)->indices.data_handle() : nullptr;
-      const auto list_size = this_lists(label) ? IdxT(this_lists(label)->size) : 0;
+      auto& list           = this_lists[label];
+      const auto data_ptr  = list ? list->data.data_handle() : nullptr;
+      const auto inds_ptr  = list ? list->indices.data_handle() : nullptr;
+      const auto list_size = list ? IdxT(list->size) : 0;
       copy(&this_data_ptrs(label), &data_ptr, 1, stream);
       copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
       recompute_total_size += list_size;
@@ -327,14 +322,14 @@ struct index : ann::index {
   }
 
   /** Lists' data and indices. */
-  inline auto lists() noexcept -> host_vector_view<std::shared_ptr<list_data<T, IdxT>>, uint32_t>
+  inline auto lists() noexcept -> std::vector<std::shared_ptr<list_data<T, IdxT>>>&
   {
-    return lists_.view();
+    return lists_;
   }
   [[nodiscard]] inline auto lists() const noexcept
-    -> host_vector_view<const std::shared_ptr<list_data<T, IdxT>>, uint32_t>
+    -> const std::vector<std::shared_ptr<list_data<T, IdxT>>>&
   {
-    return lists_.view();
+    return lists_;
   }
 
  private:
@@ -346,7 +341,7 @@ struct index : ann::index {
   raft::distance::DistanceType metric_;
   bool adaptive_centers_;
   bool conservative_memory_allocation_;
-  host_vector<std::shared_ptr<list_data<T, IdxT>>, uint32_t> lists_;
+  std::vector<std::shared_ptr<list_data<T, IdxT>>> lists_;
   device_vector<uint32_t, uint32_t> list_sizes_;
   device_matrix<float, uint32_t, row_major> centers_;
   std::optional<device_vector<float, uint32_t>> center_norms_;
@@ -359,7 +354,7 @@ struct index : ann::index {
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
   {
-    auto n_lists = lists_.extent(0);
+    auto n_lists = lists_.size();
     RAFT_EXPECTS(dim() % veclen_ == 0, "dimensionality is not a multiple of the veclen");
     RAFT_EXPECTS(list_sizes_.extent(0) == n_lists, "inconsistent list size");
     RAFT_EXPECTS(data_ptrs_.extent(0) == n_lists, "inconsistent list size");

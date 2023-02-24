@@ -163,6 +163,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
+        index_params.metric_arg               = 0;
 
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);

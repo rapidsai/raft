@@ -42,7 +42,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-template struct check_index_layout<sizeof(index<double, std::uint64_t>), 376>;
+template struct check_index_layout<sizeof(index<double, std::uint64_t>), 368>;
 
 /**
  * Save the index to file.
@@ -70,7 +70,6 @@ void serialize(raft::device_resources const& handle,
   serialize_scalar(handle, of, index_.dim());
   serialize_scalar(handle, of, index_.n_lists());
   serialize_scalar(handle, of, index_.metric());
-  serialize_scalar(handle, of, index_.veclen());
   serialize_scalar(handle, of, index_.adaptive_centers());
   serialize_scalar(handle, of, index_.conservative_memory_allocation());
   serialize_mdspan(handle, of, index_.centers());
@@ -93,7 +92,7 @@ void serialize(raft::device_resources const& handle,
   auto list_store_spec = list_spec<uint32_t>{index_.dim(), true};
   for (uint32_t label = 0; label < index_.n_lists(); label++) {
     ivf::serialize_list<list_spec, T, IdxT, uint32_t>(
-      handle, of, index_.lists()(label), list_store_spec, sizes_host(label));
+      handle, of, index_.lists()[label], list_store_spec, sizes_host(label));
   }
   handle.sync_stream();
   of.close();
@@ -125,7 +124,6 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
   auto dim              = deserialize_scalar<std::uint32_t>(handle, infile);
   auto n_lists          = deserialize_scalar<std::uint32_t>(handle, infile);
   auto metric           = deserialize_scalar<raft::distance::DistanceType>(handle, infile);
-  auto veclen           = deserialize_scalar<std::uint32_t>(handle, infile);
   bool adaptive_centers = deserialize_scalar<bool>(handle, infile);
   bool cma              = deserialize_scalar<bool>(handle, infile);
 
@@ -137,7 +135,7 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
     if (!index_.center_norms()) {
       RAFT_FAIL("Error inconsistent center norms");
     } else {
-      auto center_norms = *index_.center_norms();
+      auto center_norms = index_.center_norms().value();
       deserialize_mdspan(handle, infile, center_norms);
     }
   }
@@ -147,7 +145,7 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
   auto list_store_spec  = list_spec<uint32_t>{index_.dim(), true};
   for (uint32_t label = 0; label < index_.n_lists(); label++) {
     ivf::deserialize_list<list_spec, T, IdxT, uint32_t>(
-      handle, infile, index_.lists()(label), list_store_spec, list_device_spec);
+      handle, infile, index_.lists()[label], list_store_spec, list_device_spec);
   }
   handle.sync_stream();
   infile.close();

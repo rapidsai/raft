@@ -40,12 +40,6 @@ namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-using raft::neighbors::ivf_flat::index;
-using raft::neighbors::ivf_flat::index_params;
-using raft::neighbors::ivf_flat::kIndexGroupSize;
-using raft::neighbors::ivf_flat::list_data;
-using raft::neighbors::ivf_flat::search_params;
-
 template <typename T, typename IdxT>
 auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
 {
@@ -69,18 +63,12 @@ auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> i
        source.centers().size(),
        stream);
   if (source.center_norms().has_value())
-    copy(target.center_norms().value.data_handle(),
-         source.center_norms().value.data_handle(),
-         source.center_norms().value.size(),
+    copy(target.center_norms().value().data_handle(),
+         source.center_norms().value().data_handle(),
+         source.center_norms().value().size(),
          stream);
   // Copy shared pointers
-  {
-    auto source_lists = source.lists();
-    auto target_lists = target.lists();
-    for (uint32_t label = 0; label < source_lists.size(); label++) {
-      target_lists(label) = source_lists(label);
-    }
-  }
+  target.lists() = source.lists();
 
   // Make sure the device pointers point to the new lists
   target.recompute_internal_state(res);
@@ -178,6 +166,8 @@ void extend(raft::device_resources const& handle,
   auto stream  = handle.get_stream();
   auto n_lists = index->n_lists();
   auto dim     = index->dim();
+  auto list_device_spec =
+    list_spec<uint32_t>{index->dim(), index->conservative_memory_allocation()};
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::extend(%zu, %u)", size_t(n_rows), dim);
 
@@ -235,11 +225,10 @@ void extend(raft::device_resources const& handle,
     copy(old_list_sizes.data(), old_list_sizes_dev.data_handle(), n_lists, stream);
     copy(new_list_sizes.data(), list_sizes_ptr, n_lists, stream);
     handle.sync_stream();
-    auto lists            = index->lists();
-    auto list_device_spec = list_spec<uint32_t>{index->dim(), false};
+    auto& lists = index->lists();
     for (uint32_t label = 0; label < n_lists; label++) {
       ivf::resize_list(
-        handle, lists(label), list_device_spec, new_list_sizes[label], old_list_sizes[label]);
+        handle, lists[label], list_device_spec, new_list_sizes[label], old_list_sizes[label]);
     }
   }
   // Update the pointers and the sizes
@@ -389,7 +378,7 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   auto lists            = refinement_index->lists();
   auto list_device_spec = list_spec<uint32_t>{refinement_index->dim(), false};
   for (uint32_t label = 0; label < n_lists; label++) {
-    ivf::resize_list(handle, lists(label), list_device_spec, n_candidates, uint32_t(0));
+    ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
   }
   // Update the pointers and the sizes
   refinement_index->recompute_internal_state(handle);
