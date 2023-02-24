@@ -22,6 +22,11 @@ files:
       - cudatoolkit
       - py_version
       - test_python
+  cuann_bench:
+    output: none
+    includes:
+      - cudatoolkit
+      - nn_bench
   checks:
     output: none
     includes:
@@ -79,6 +84,14 @@ dependencies:
       - output_types: [conda]
         packages:
           - clang-tools=11.1.0
+  nn_bench:
+    common:
+      - output_types: [conda]
+        packages:
+          - hnswlib
+          - nlohmann_json
+          - glog
+
   cudatoolkit:
     specific:
       - output_types: conda

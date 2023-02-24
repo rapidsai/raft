@@ -2,23 +2,23 @@
 
 # Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
-# raft build script
+# raft build scripts
 
-# This script is used to build the component(s) in this repo from
+# This scripts is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
 # build as needed (see the help output for details)
 
-# Abort script on first error
+# Abort scripts on first error
 set -e
 
 NUMARGS=$#
 ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
-# script, and that this script resides in the repo dir!
+# scripts, and that this scripts resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench cuann_bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -29,6 +29,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    docs             - build the documentation
    tests            - build the tests
    bench            - build the benchmarks
+   cuann_bench      - build cuda ann benchmarks
 
  and <flag> is:
    -v                          - verbose build mode
@@ -62,13 +63,14 @@ RAFT_DASK_BUILD_DIR=${REPODIR}/python/raft-dask/_skbuild
 PYLIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
 BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PYLIBRAFT_BUILD_DIR} ${RAFT_DASK_BUILD_DIR}"
 
-# Set defaults for vars modified by flags to this script
+# Set defaults for vars modified by flags to this scripts
 CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_BENCH=OFF
+BUILD_CUANN_BENCH=OFF
 BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
@@ -336,6 +338,14 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
 
 fi
 
+if hasArg cuann_bench || (( ${NUMARGS} == 0 )); then
+    BUILD_CUANN_BENCH=ON
+    CMAKE_TARGET="${CMAKE_TARGET};CUANN_BENCH"
+    ENABLE_NN_DEPENDENCIES=ON
+    COMPILE_NN_LIBRARY=ON
+    COMPILE_DIST_LIBRARY=ON
+fi
+
 if hasArg --buildfaiss; then
     BUILD_STATIC_FAISS=ON
 fi
@@ -348,8 +358,6 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-
-
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
@@ -384,7 +392,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench || hasArg cuann_bench; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -405,6 +413,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_BENCH=${BUILD_BENCH} \
+          -DBUILD_CUANN_BENCH=${BUILD_CUANN_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
@@ -429,7 +438,6 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
         EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
     fi
-
     cd ${REPODIR}/python/raft-dask
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -443,7 +451,6 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
     if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
         EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
     fi
-
     cd ${REPODIR}/python/pylibraft
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then

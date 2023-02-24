@@ -47,6 +47,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
 option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
+option(BUILD_CUANN_BENCH "Build raft ann benchmarks" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -738,4 +739,11 @@ endif()
 
 if(BUILD_BENCH)
   include(bench/CMakeLists.txt)
+endif()
+
+# ##################################################################################################
+# * build cuann benchmark executable -----------------------------------------------
+
+if(BUILD_CUANN_BENCH)
+  include(cuann_bench/CMakeLists.txt)
 endif()
