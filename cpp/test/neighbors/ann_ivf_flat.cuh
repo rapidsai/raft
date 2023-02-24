@@ -181,7 +181,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
 
-        ivf_flat::extend(handle_, &index, half_of_data_view);
+        auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
 
         auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
@@ -201,7 +201,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
         auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
-        ivf_flat::detail::serialize(handle_, "ivf_flat_index", index);
+        ivf_flat::detail::serialize(handle_, "ivf_flat_index", index_2);
 
         auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
 

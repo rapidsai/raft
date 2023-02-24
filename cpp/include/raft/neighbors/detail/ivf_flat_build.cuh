@@ -273,8 +273,8 @@ auto extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows) -> index<T, IdxT>
 {
-  auto ext_index = clone(handle, &orig_index);
-  extend(handle, &ext_index, new_vectors, new_indices, n_rows);
+  auto ext_index = clone(handle, orig_index);
+  detail::extend(handle, &ext_index, new_vectors, new_indices, n_rows);
   return ext_index;
 }
 
