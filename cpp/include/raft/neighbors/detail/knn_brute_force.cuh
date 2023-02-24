@@ -188,6 +188,17 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   if (last_col_tile_size && (last_col_tile_size < static_cast<size_t>(k))) {
     temp_out_cols -= k - last_col_tile_size;
   }
+
+  // if we have less than k items in the index, we should fill out the result
+  // to indicate that we are missing items (and match behaviour in faiss)
+  if (n < static_cast<size_t>(k)) {
+    thrust::fill(handle.get_thrust_policy(),
+                 distances,
+                 distances + m * k,
+                 std::numeric_limits<ElementType>::lowest());
+    thrust::fill(handle.get_thrust_policy(), indices, indices + m * k, -1);
+  }
+
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
   rmm::device_uvector<IndexType> temp_out_indices(tile_rows * temp_out_cols, stream);
 
