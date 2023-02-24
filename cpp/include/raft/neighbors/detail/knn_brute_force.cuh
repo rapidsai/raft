@@ -27,6 +27,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
 #include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
@@ -448,17 +449,30 @@ void brute_force_knn_impl(
           haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
           break;
         default:
-          tiled_brute_force_knn<value_t, IdxType>(handle,
-                                                  search_items,
-                                                  input[i],
-                                                  n,
-                                                  sizes[i],
-                                                  D,
-                                                  k,
-                                                  out_d_ptr,
-                                                  out_i_ptr,
-                                                  metric,
-                                                  metricArg);
+          // currently we don't support col_major inside tiled_brute_force_knn, because
+          // of limitattions of the pairwise_distance API:
+          // 1) paiwise_distance takes a single 'isRowMajor' parameter - and we have
+          // multiple options here (like rowMajorQuery/rowMajorIndex)
+          // 2) because of tiling, we need to be able to set a custom stride in the PW
+          // api, which isn't supported
+          // Instead, transpose the input matrices if they are passed as col-major.
+          auto search = search_items;
+          rmm::device_uvector<value_t> search_row_major(0, stream);
+          if (!rowMajorQuery) {
+            search_row_major.resize(n * D, stream);
+            raft::linalg::transpose(handle, search, search_row_major.data(), n, D, stream);
+            search = search_row_major.data();
+          }
+          auto index = input[i];
+          rmm::device_uvector<value_t> index_row_major(0, stream);
+          if (!rowMajorIndex) {
+            index_row_major.resize(sizes[i] * D, stream);
+            raft::linalg::transpose(handle, index, index_row_major.data(), sizes[i], D, stream);
+            index = index_row_major.data();
+          }
+
+          tiled_brute_force_knn<value_t, IdxType>(
+            handle, search, index, n, sizes[i], D, k, out_d_ptr, out_i_ptr, metric, metricArg);
           break;
       }
     }

@@ -21,6 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
 #if defined RAFT_NN_COMPILED
@@ -46,14 +47,16 @@ struct TiledKNNInputs {
   int k;
   int row_tiles;
   int col_tiles;
-  raft::distance::DistanceType metric_;
+  raft::distance::DistanceType metric;
+  bool row_major;
 };
 
 std::ostream& operator<<(std::ostream& os, const TiledKNNInputs& input)
 {
   return os << "num_queries:" << input.num_queries << " num_vecs:" << input.num_db_vecs
             << " dim:" << input.dim << " k:" << input.k << " row_tiles:" << input.row_tiles
-            << " col_tiles:" << input.col_tiles << " metric:" << print_metric{input.metric_};
+            << " col_tiles:" << input.col_tiles << " metric:" << print_metric{input.metric}
+            << " row_major:" << input.row_major;
 }
 
 template <typename T>
@@ -89,16 +92,32 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
 
     // calculate the naive knn, by calculating the full pairwise distances and doing a k-select
     rmm::device_uvector<T> temp_distances(num_db_vecs * num_queries, stream_);
-    distance::pairwise_distance(
-      handle_,
-      raft::make_device_matrix_view<T, int>(search_queries.data(), num_queries, dim),
-      raft::make_device_matrix_view<T, int>(database.data(), num_db_vecs, dim),
-      raft::make_device_matrix_view<T, int>(temp_distances.data(), num_queries, num_db_vecs),
-      metric,
-      metric_arg);
+    rmm::device_uvector<char> workspace(0, stream_);
+    distance::pairwise_distance(handle_,
+                                search_queries.data(),
+                                database.data(),
+                                temp_distances.data(),
+                                num_queries,
+                                num_db_vecs,
+                                dim,
+                                workspace,
+                                metric,
+                                params_.row_major,
+                                metric_arg);
+
+    // setting the 'isRowMajor' flag in the pairwise distances api, not only sets
+    // the inputs as colmajor - but also the output. this means we have to transpose in this
+    // case
+    auto temp_dist = temp_distances.data();
+    rmm::device_uvector<T> temp_row_major_dist(num_db_vecs * num_queries, stream_);
+    if (!params_.row_major) {
+      raft::linalg::transpose(
+        handle_, temp_dist, temp_row_major_dist.data(), num_queries, num_db_vecs, stream_);
+      temp_dist = temp_row_major_dist.data();
+    }
 
     using namespace raft::spatial;
-    knn::select_k<int, T>(temp_distances.data(),
+    knn::select_k<int, T>(temp_dist,
                           nullptr,
                           num_queries,
                           num_db_vecs,
@@ -120,8 +139,8 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                           raft_indices_.data(),
                                                           raft_distances_.data(),
                                                           k_,
-                                                          true,
-                                                          true,
+                                                          params_.row_major,
+                                                          params_.row_major,
                                                           nullptr,
                                                           metric,
                                                           metric_arg);
@@ -158,7 +177,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
     num_db_vecs = params_.num_db_vecs;
     dim         = params_.dim;
     k_          = params_.k;
-    metric      = params_.metric_;
+    metric      = params_.metric;
 
     unsigned long long int seed = 1234ULL;
     raft::random::RngState r(seed);
@@ -187,35 +206,36 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
 };
 
 const std::vector<TiledKNNInputs> random_inputs = {
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Expanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Unexpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtExpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtUnexpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L1},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Linf},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::InnerProduct},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CorrelationExpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CosineExpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::LpUnexpanded},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::JensenShannon},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Expanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2Unexpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtUnexpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L1, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Linf, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::InnerProduct, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CorrelationExpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::CosineExpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::LpUnexpanded, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::JensenShannon, true},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::L2SqrtExpanded, true},
   // BrayCurtis isn't currently supported by pairwise_distance api
   // {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::BrayCurtis},
-  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Canberra},
-  {10000, 40000, 32, 30, 512, 1024, raft::distance::DistanceType::L2Expanded},
-  {345, 1023, 16, 128, 512, 1024, raft::distance::DistanceType::CosineExpanded},
-  {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded},
+  {256, 512, 16, 8, 16, 8, raft::distance::DistanceType::Canberra, true},
+  {10000, 40000, 32, 30, 512, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {345, 1023, 16, 128, 512, 1024, raft::distance::DistanceType::CosineExpanded, true},
+  {789, 20516, 64, 256, 512, 4096, raft::distance::DistanceType::L2SqrtExpanded, true},
   // Test where the final column tile has < K items:
-  {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded},
+  {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded, true},
   // Test where passing column_tiles < K
-  {1, 40, 32, 30, 1, 8, raft::distance::DistanceType::L2Expanded},
+  {1, 40, 32, 30, 1, 8, raft::distance::DistanceType::L2Expanded, true},
   // Passing tile sizes of 0 means to use the public api (instead of the
-  // detail api).
-  {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded},
-  {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded},
-  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::LpUnexpanded},
-  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::L2SqrtExpanded},
-  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::CosineExpanded},
-  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::InnerProduct}};
+  // detail api). Note that we can only test col_major in the public api
+  {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::LpUnexpanded, true},
+  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::CosineExpanded, true},
+  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::InnerProduct, false}};
 
 typedef TiledKNNTest<float> TiledKNNTestF;
 TEST_P(TiledKNNTestF, BruteForce) { this->testBruteForce(); }
