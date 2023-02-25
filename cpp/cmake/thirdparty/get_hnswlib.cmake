@@ -21,25 +21,11 @@ function(find_and_configure_hnswlib)
 
     set ( EXTERNAL_INCLUDES_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
 
-    if( NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/hnswlib )
+    if( NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/hnswlib-src )
 
         execute_process (
-                COMMAND mkdir hnswlib
+                COMMAND git clone --branch=v0.6.2 https://github.com/nmslib/hnswlib.git hnswlib-src
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
-
-        execute_process (
-                COMMAND wget https://github.com/nmslib/hnswlib/archive/refs/tags/v0.6.2.zip -O hnswlib-0.6.2.zip
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib )
-
-        execute_process (
-                COMMAND unzip hnswlib-0.6.2.zip
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib )
-        execute_process (
-                COMMAND mv -f hnswlib-0.6.2/hnswlib/ .
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib )
-        execute_process (
-                COMMAND rm -r hnswlib-0.6.2 hnswlib-0.6.2.zip
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib )
 
     endif ()
 endfunction()
