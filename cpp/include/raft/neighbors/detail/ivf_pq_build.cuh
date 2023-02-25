@@ -664,7 +664,8 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   const uint32_t pq_len     = pq_centers.extent(1);
   const uint32_t pq_dim     = new_vectors.extent(1) / pq_len;
 
-  auto pq_extents = list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
+  auto pq_extents =
+    list_spec<uint8_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
   auto pq_extents_vectorized =
     make_extents<uint32_t>(pq_extents.extent(0), pq_extents.extent(1), pq_extents.extent(2));
   auto pq_dataset = make_mdspan<pq_vec_t, uint32_t, row_major, false, true>(
@@ -906,7 +907,7 @@ void extend(raft::device_resources const& handle,
   std::optional<list_data<IdxT, size_t>> placeholder_list(
     std::in_place_t{},
     handle,
-    list_spec<size_t>(spec),
+    list_spec<uint8_t, size_t>(spec),
     n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows));
 
   // Available device memory

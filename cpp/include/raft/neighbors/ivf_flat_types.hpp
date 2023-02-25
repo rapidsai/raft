@@ -80,8 +80,9 @@ struct search_params : ann::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
-template <typename SizeT = uint32_t>
+template <typename ValueT, typename SizeT = uint32_t>
 struct list_spec {
+  using value_type   = ValueT;
   using list_extents = matrix_extent<SizeT>;
 
   SizeT align_max;
@@ -110,7 +111,7 @@ struct list_spec {
 };
 
 template <typename ValueT, typename IdxT, typename SizeT = uint32_t>
-using list_data = ivf::list<list_spec, ValueT, IdxT, SizeT>;
+using list_data = ivf::list<list_spec<ValueT, SizeT>, IdxT, SizeT>;
 
 /**
  * @brief IVF-flat index.
