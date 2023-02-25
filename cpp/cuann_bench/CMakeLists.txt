@@ -15,14 +15,14 @@
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
-option(RAFT_CUANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf flat algorithm in benchmark" ON)
+option(RAFT_CUANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" OFF)
+option(RAFT_CUANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" OFF)
+option(RAFT_CUANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" OFF)
+option(RAFT_CUANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" OFF)
+option(RAFT_CUANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" OFF)
+option(RAFT_CUANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_CUANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
-option(RAFT_CUANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
+option(RAFT_CUANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" OFF)
 
 set(RAFT_CUANN_BENCH_USE_FAISS OFF)
 if(RAFT_CUANN_BENCH_USE_FAISS_BFKNN
@@ -44,6 +44,12 @@ if(RAFT_CUANN_BENCH_USE_RAFT_BFKNN
   set(RAFT_CUANN_BENCH_USE_RAFT ON)
 endif()
 
+if(NOT RAFT_CUANN_BENCH_USE_RAFT)
+  set(RAFT_COMPILE_DISTANCE_LIBRARY OFF)
+  set(RAFT_COMPILE_NN_LIBRARY OFF)
+  set(RAFT_ENABLE_NN_DEPENDENCIES OFF)
+endif()
+
 option(RAFT_CUANN_BENCH_USE_MULTIGPU "Use multi-gpus (where possible) in benchmarks" OFF)
 
 include(cmake/thirdparty/get_nlohmann_json.cmake)
@@ -56,66 +62,114 @@ if(RAFT_CUANN_BENCH_USE_FAISS)
   include(cmake/thirdparty/get_faiss.cmake)
 endif()
 
-add_executable(
-  CUANN_BENCH cuann_bench/src/benchmark.cu cuann_bench/src/raft_ivf_flat.cu
-              cuann_bench/src/raft_ivf_pq.cu cuann_bench/src/util.cpp
-)
+function(ConfigureCuannBench)
 
-target_link_libraries(
-  CUANN_BENCH
-  PRIVATE raft::raft
-          nlohmann_json::nlohmann_json
-          raft_internal
-          $<$<BOOL:${RAFT_CUANN_BENCH_USE_RAFT}>:raft::distance>
-          $<$<BOOL:${RAFT_CUANN_BENCH_USE_RAFT}>:raft::nn>
-          $<$<BOOL:${RAFT_CUANN_BENCH_USE_FAISS}>:faiss::faiss>
-          $<$<BOOL:${RAFT_CUANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>
-          # $<$<BOOL:${RAFT_CUANN_BENCH_USE_HNSWLIB}>:hnswlib>
-          Threads::Threads
-          $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-          $<TARGET_NAME_IF_EXISTS:conda_env>
-)
+  set(oneValueArgs NAME)
+  set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
 
-set_target_properties(
-  CUANN_BENCH
-  PROPERTIES # set target compile options
-             INSTALL_RPATH "\$ORIGIN/../../../lib"
-             CXX_STANDARD 17
-             CXX_STANDARD_REQUIRED ON
-             CUDA_STANDARD 17
-             CUDA_STANDARD_REQUIRED ON
-             POSITION_INDEPENDENT_CODE ON
-             INTERFACE_POSITION_INDEPENDENT_CODE ON
-)
+  cmake_parse_arguments(
+    ConfigureCuannBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
+  )
 
-target_compile_options(
-  CUANN_BENCH PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-)
+  set(BENCH_NAME CUANN_BENCH_${ConfigureCuannBench_NAME})
 
-target_compile_definitions(
-  CUANN_BENCH
-  PUBLIC RAFT_CUANN_BENCH_USE_FAISS_BFKNN=${RAFT_CUANN_BENCH_USE_FAISS_BFKNN}
-         RAFT_CUANN_BENCH_USE_FAISS_IVF_FLAT=${RAFT_CUANN_BENCH_USE_FAISS_IVF_FLAT}
-         RAFT_CUANN_BENCH_USE_FAISS_IVF_PQ=${RAFT_CUANN_BENCH_USE_FAISS_IVF_PQ}
-         RAFT_CUANN_BENCH_USE_RAFT_BFKNN=${RAFT_CUANN_BENCH_USE_RAFT_BFKNN}
-         RAFT_CUANN_BENCH_USE_RAFT_IVF_FLAT=${RAFT_CUANN_BENCH_USE_RAFT_IVF_FLAT}
-         RAFT_CUANN_BENCH_USE_RAFT_IVF_PQ=${RAFT_CUANN_BENCH_USE_RAFT_IVF_PQ}
-         RAFT_CUANN_BENCH_USE_HNSWLIB=${RAFT_CUANN_BENCH_USE_HNSWLIB}
-         RAFT_CUANN_BENCH_USE_GGNN=${RAFT_CUANN_BENCH_USE_GGNN}
-)
+  add_executable(
+    ${BENCH_NAME} ${ConfigureCuannBench_PATH} cuann_bench/src/conf.cpp cuann_bench/src/util.cpp
+  )
+  target_link_libraries(
+    ${BENCH_NAME}
+    PRIVATE raft::raft
+            nlohmann_json::nlohmann_json
+            $<$<BOOL:${RAFT_CUANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>
+            ${ConfigureCuannBench_LINKS}
+            Threads::Threads
+            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+            $<TARGET_NAME_IF_EXISTS:conda_env>
+  )
 
-target_include_directories(
-  CUANN_BENCH
-  PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-  PRIVATE
-    "$<BUILD_INTERFACE:$<$<BOOL:${RAFT_CUANN_BENCH_USE_GGNN}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include>>"
-    "$<BUILD_INTERFACE:$<$<BOOL:${RAFT_CUANN_BENCH_USE_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>>"
-)
+  set_target_properties(
+    ${BENCH_NAME}
+    PROPERTIES # set target compile options
+               INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
+  )
 
-install(
-  TARGETS CUANN_BENCH
-  COMPONENT testing
-  DESTINATION bin/CUANN_BENCH
-  EXCLUDE_FROM_ALL
-)
+  set(${ConfigureCuannBench_CXXFLAGS} ${RAFT_CXX_FLAGS} ${ConfigureCuannBench_CXXFLAGS})
+
+  target_compile_options(
+    ${BENCH_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${ConfigureCuannBench_CXXFLAGS}>"
+                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  if(RAFT_CUANN_BENCH_USE_${ConfigureCuannBench_NAME})
+    target_compile_definitions(
+      ${BENCH_NAME}
+      PUBLIC
+        RAFT_CUANN_BENCH_USE_${ConfigureCuannBench_NAME}=${RAFT_CUANN_BENCH_USE_}${ConfigureCuannBench_NAME}
+    )
+  endif()
+
+  target_include_directories(
+    ${BENCH_NAME}
+    PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+    PRIVATE ${ConfigureCuannBench_INCLUDES}
+  )
+
+  install(
+    TARGETS ${BENCH_NAME}
+    COMPONENT testing
+    DESTINATION bin/cuann_bench
+    EXCLUDE_FROM_ALL
+  )
+endfunction()
+
+if(RAFT_CUANN_BENCH_USE_HNSWLIB)
+  ConfigureCuannBench(
+    NAME HNSWLIB PATH cuann_bench/src/benchmark.cpp INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib/hnswlib CXXFLAGS -mavx
+  )
+endif()
+
+if(RAFT_CUANN_BENCH_USE_RAFT_IVF_PQ)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_PQ PATH cuann_bench/src/benchmark.cu cuann_bench/src/raft_ivf_pq.cu LINKS
+    raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_CUANN_BENCH_USE_RAFT_IVF_FLAT)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_FLAT PATH cuann_bench/src/benchmark.cu cuann_bench/src/raft_ivf_flat.cu LINKS
+    raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_CUANN_BENCH_USE_RAFT_BFKNN)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_FLAT PATH cuann_bench/src/benchmark.cu LINKS raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_CUANN_BENCH_USE_FAISS_IVF_FLAT)
+  ConfigureCuannBench(NAME FAISS_IVF_FLAT PATH cuann_bench/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_CUANN_BENCH_USE_FAISS_IVF_PQ)
+  ConfigureCuannBench(NAME FAISS_IVF_PQ PATH cuann_bench/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_CUANN_BENCH_USE_FAISS_BFKNN)
+  ConfigureCuannBench(NAME FAISS_BFKNN PATH cuann_bench/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_CUANN_BENCH_USE_GGNN)
+  ConfigureCuannBench(
+    NAME GGNN PATH cuann_bench/src/benchmark.cu INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include
+  )
+endif()

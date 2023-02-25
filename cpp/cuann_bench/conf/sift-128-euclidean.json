@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "sift-128-euclidean",
-    "base_file": "/workspace/rapids/knn/cuann/benchmark/sift-128-euclidean/base.fbin",
-    "query_file": "/workspace/rapids/knn/cuann/benchmark/sift-128-euclidean/query.fbin",
+    "base_file": "/home/cjnolet/workspace/ann_data/sift-128-euclidean/base.fbin",
+    "query_file": "/home/cjnolet/workspace/ann_data/sift-128-euclidean/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {
@@ -12,6 +12,86 @@
   },
   "index": [
     {
+      "name" : "hnswlib.M12",
+      "algo" : "hnswlib",
+      "build_param": {"M":12, "efConstruction":500, "numThreads":32},
+      "file" : "index/deep-100M/hnswlib/M12",
+      "search_params" : [
+        {"ef":10, "numThreads":1},
+        {"ef":20, "numThreads":1},
+        {"ef":40, "numThreads":1},
+        {"ef":60, "numThreads":1},
+        {"ef":80, "numThreads":1},
+        {"ef":120, "numThreads":1},
+        {"ef":200, "numThreads":1},
+        {"ef":400, "numThreads":1},
+        {"ef":600, "numThreads":1},
+        {"ef":800, "numThreads":1}
+      ],
+      "search_result_file" : "result/deep-100M/hnswlib/M12"
+    },
+    {
+      "name" : "hnswlib.M16",
+      "algo" : "hnswlib",
+      "build_param": {"M":16, "efConstruction":500, "numThreads":32},
+      "file" : "index/deep-100M/hnswlib/M16",
+      "search_params" : [
+        {"ef":10, "numThreads":1},
+        {"ef":20, "numThreads":1},
+        {"ef":40, "numThreads":1},
+        {"ef":60, "numThreads":1},
+        {"ef":80, "numThreads":1},
+        {"ef":120, "numThreads":1},
+        {"ef":200, "numThreads":1},
+        {"ef":400, "numThreads":1},
+        {"ef":600, "numThreads":1},
+        {"ef":800, "numThreads":1}
+      ],
+      "search_result_file" : "result/deep-100M/hnswlib/M16"
+    },
+    {
+      "name" : "hnswlib.M24",
+      "algo" : "hnswlib",
+      "build_param": {"M":24, "efConstruction":500, "numThreads":32},
+      "file" : "index/deep-100M/hnswlib/M24",
+      "search_params" : [
+        {"ef":10, "numThreads":1},
+        {"ef":20, "numThreads":1},
+        {"ef":40, "numThreads":1},
+        {"ef":60, "numThreads":1},
+        {"ef":80, "numThreads":1},
+        {"ef":120, "numThreads":1},
+        {"ef":200, "numThreads":1},
+        {"ef":400, "numThreads":1},
+        {"ef":600, "numThreads":1},
+        {"ef":800, "numThreads":1}
+      ],
+      "search_result_file" : "result/deep-100M/hnswlib/M24"
+    },
+    {
+      "name" : "hnswlib.M36",
+      "algo" : "hnswlib",
+      "build_param": {"M":36, "efConstruction":500, "numThreads":32},
+      "file" : "index/deep-100M/hnswlib/M36",
+      "search_params" : [
+        {"ef":10, "numThreads":1},
+        {"ef":20, "numThreads":1},
+        {"ef":40, "numThreads":1},
+        {"ef":60, "numThreads":1},
+        {"ef":80, "numThreads":1},
+        {"ef":120, "numThreads":1},
+        {"ef":200, "numThreads":1},
+        {"ef":400, "numThreads":1},
+        {"ef":600, "numThreads":1},
+        {"ef":800, "numThreads":1}
+      ],
+      "search_result_file" : "result/deep-100M/hnswlib/M36"
+    },
+
+
+
+      
+	  {
       "name": "raft_bfknn",
       "algo": "raft_bfknn",
       "build_param": {},

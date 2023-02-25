@@ -32,9 +32,6 @@
 #ifdef RAFT_CUANN_BENCH_USE_GGNN
 #include "ggnn_wrapper.cuh"
 #endif
-#ifdef RAFT_CUANN_BENCH_USE_HNSWLIB
-#include "hnswlib_wrapper.h"
-#endif
 #ifdef RAFT_CUANN_BENCH_USE_RAFT_BFKNN
 #include "raft_wrapper.h"
 #endif
@@ -66,23 +63,6 @@ cuann::Metric parse_metric(const std::string& metric_str)
     throw std::runtime_error("invalid metric: '" + metric_str + "'");
   }
 }
-
-#ifdef RAFT_CUANN_BENCH_USE_HNSWLIB
-template <typename T>
-void parse_build_param(const nlohmann::json& conf, typename cuann::HnswLib<T>::BuildParam& param)
-{
-  param.ef_construction = conf.at("efConstruction");
-  param.M               = conf.at("M");
-  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
-}
-
-template <typename T>
-void parse_search_param(const nlohmann::json& conf, typename cuann::HnswLib<T>::SearchParam& param)
-{
-  param.ef = conf.at("ef");
-  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
-}
-#endif
 
 #ifdef RAFT_CUANN_BENCH_USE_FAISS
 template <typename T>
@@ -275,9 +255,6 @@ std::unique_ptr<cuann::ANN<T>> create_algo(const std::string& algo,
   std::unique_ptr<cuann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
-#ifdef RAFT_CUANN_BENCH_USE_HNSWLIB
-    if (algo == "hnswlib") { ann = make_algo<T, cuann::HnswLib>(metric, dim, conf); }
-#endif
 #ifdef RAFT_CUANN_BENCH_USE_FAISS
     if (algo == "faiss_gpu_ivf_flat") {
       ann = make_algo<T, cuann::FaissGpuIVFFlat>(metric, dim, conf, dev_list);
@@ -294,11 +271,7 @@ std::unique_ptr<cuann::ANN<T>> create_algo(const std::string& algo,
 #endif
   }
 
-  if constexpr (std::is_same_v<T, uint8_t>) {
-#ifdef RAFT_CUANN_BENCH_USE_HNSWLIB
-    if (algo == "hnswlib") { ann = make_algo<T, cuann::HnswLib>(metric, dim, conf); }
-#endif
-  }
+  if constexpr (std::is_same_v<T, uint8_t>) {}
 
 #ifdef RAFT_CUANN_BENCH_USE_GGNN
   if (algo == "ggnn") { ann = make_algo<T, cuann::Ggnn>(metric, dim, conf); }
@@ -327,13 +300,6 @@ template <typename T>
 std::unique_ptr<typename cuann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-#ifdef RAFT_CUANN_BENCH_USE_HNSWLIB
-  if (algo == "hnswlib") {
-    auto param = std::make_unique<typename cuann::HnswLib<T>::SearchParam>();
-    parse_search_param<T>(conf, *param);
-    return param;
-  }
-#endif
 #ifdef RAFT_CUANN_BENCH_USE_FAISS
   if (algo == "faiss_gpu_ivf_flat" || algo == "faiss_gpu_ivf_pq" || algo == "faiss_gpu_ivf_sq") {
     auto param = std::make_unique<typename cuann::FaissGpu<T>::SearchParam>();
