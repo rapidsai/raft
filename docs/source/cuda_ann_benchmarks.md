@@ -20,7 +20,17 @@ You can limit the algorithms that are built by providing a semicolon-delimited l
 ./build.sh bench-ann --limit-bench-ann=HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH
 ```
 
-By default, the `benchmark` program accepts dataset of `float` type. To use other type, change the line `using data_t = float;` in `benchmark/src/benchmark.cu` to the target type. For example, `using data_t = uint8_t;` will enable running `benchmark` with dataset of `uint8_t` type.
+Available targets to use with `--limit-bench-ann` are:
+- FAISS_IVF_FLAT_ANN_BENCH
+- FAISS_IVF_PQ_ANN_BENCH
+- FAISS_BFKNN_ANN_BENCH
+- GGNN_ANN_BENCH
+- HNSWLIB_ANN_BENCH
+- RAFT_IVF_PQ_ANN_BENCH
+- RAFT_IVF_FLAT_ANN_BENCH
+- RAFT_BFKNN_ANN_BENCH
+
+By default, the `*_ANN_BENCH` executables program accept dataset of `float` type. To use other type, change the line `using data_t = float;` in `bench/ann/src/benchmark.cu` (or `bench/ann/src/benchmark/cpp` if benchmarking a non-CUDA algorithm) to the target type. For example, `using data_t = uint8_t;` will enable running `benchmark` with dataset of `uint8_t` type.
 
 
 ### Usage
@@ -120,7 +130,7 @@ Commonly used datasets can be downloaded from two websites:
 #### step 2: building index
 An index is a data structure to facilitate searching. Different algorithms may use different data structures for their index. We can use `RAFT_IVF_FLAT_ANN_BENCH -b` to build an index and save it to disk.
 
-To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configuration file is required. Refer to [`benchmark/conf/glove-100-inner.json`](../../cpp/bench/ann/conf/glove-100-inner.json) as an example. Configuration file has 3 sections:
+To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configuration file is required. Refer to [`bench/ann/conf/glove-100-inner.json`](../../cpp/bench/ann/conf/glove-100-inner.json) as an example. Configuration file has 3 sections:
 * `dataset` section specifies the name and files of a dataset, and also the distance in use. Since the `*_ANN_BENCH` programs are for index building and searching, only `base_file` for database vectors and `query_file` for query vectors are needed. Ground truth files are for evaluation thus not needed.
     - To use only a subset of the base dataset, an optional parameter `subset_size` can be specified. It means using only the first `subset_size` vectors of `base_file` as the base dataset.
 * `search_basic_param` section specifies basic parameters for searching:
@@ -137,8 +147,8 @@ To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configurat
 
 The usage of `*_ANN_BENCH` can be found by running `*_ANN_BENCH -h` on one of the executables:
 ```
-$ ./*_ANN_BENCH -h
-usage: ./*_ANN_BENCH -b|s [-f] [-i index_names] conf.json
+$ ./cpp/build/*_ANN_BENCH -h
+usage: ./cpp/build/*_ANN_BENCH -b|s [-f] [-i index_names] conf.json
    -b: build mode, will build index
    -s: search mode, will search using built index
        one and only one of -b and -s should be specified
@@ -151,8 +161,8 @@ usage: ./*_ANN_BENCH -b|s [-f] [-i index_names] conf.json
 ```
 * `-b`: build index.
 * `-s`: do the searching with built index.
-* `-f`: before doing the real task, `benchmark` checks that needed input files exist and output files don't exist. If these conditions are not met, it quits so no file would be overwritten accidentally. To ignore existing output files and force overwrite them, use the `-f` option.
-* `-i`: by default, `benchmark -b` will build all indices found in the configuration file, and `benchmark -s` will search using all the indices. To select a subset of indices to build or search, we can use the `-i` option.
+* `-f`: before doing the real task, the program checks that needed input files exist and output files don't exist. If these conditions are not met, it quits so no file would be overwritten accidentally. To ignore existing output files and force overwrite them, use the `-f` option.
+* `-i`: by default, the `-b` flag will build all indices found in the configuration file, and `-s` will search using all the indices. To select a subset of indices to build or search, we can use the `-i` option.
 
 It's easier to describe the usage of `-i` option with an example. Suppose we have a configuration file `a.json`, and it contains:
 ```
@@ -174,19 +184,19 @@ It's easier to describe the usage of `-i` option with an example. Suppose we hav
 Then,
 ```
 # build all indices: hnsw1, hnsw2 and faiss
-./HNSWLIB_ANN_BENCH -b a.json
+./cpp/build/HNSWLIB_ANN_BENCH -b a.json
 
 # build only hnsw1
-./HNSWLIB_ANN_BENCH -b -i hnsw1 a.json
+./cpp/build/HNSWLIB_ANN_BENCH -b -i hnsw1 a.json
 
 # build hnsw1 and hnsw2
-./HNSWLIB_ANN_BENCH -b -i hnsw1,hnsw2 a.json
+./cpp/build/HNSWLIB_ANN_BENCH -b -i hnsw1,hnsw2 a.json
 
 # build hnsw1 and hnsw2
-./HNSWLIB_ANN_BENCH -b -i 'hnsw*' a.json
+./cpp/build/HNSWLIB_ANN_BENCH -b -i 'hnsw*' a.json
 
 # build faiss
-./FAISS_IVF_FLAT_ANN_BENCH -b -i 'faiss' a.json
+./cpp/build/FAISS_IVF_FLAT_ANN_BENCH -b -i 'faiss' a.json
 ```
 In the last two commands, we use wildcard "`*`" to match both `hnsw1` and `hnsw2`. Note the use of "`*`" is quite limited. It can occur only at the end of a pattern, so both "`*nsw1`" and "`h*sw1`" are interpreted literally and will not match anything. Also note that quotation marks must be used to prevent "`*`" from being interpreted by the shell.
 
