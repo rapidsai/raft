@@ -45,6 +45,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
                                  can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
+   --limit-cuann-bench         - semicolon-separated list of cuann benchmark executables to compute (e.g. CUANN_BENCH_HNSWLIB;CUANN_BENCH_RAFT_IVF_PQ)
    --allgpuarch                - build for all supported GPU architectures
    --buildfaiss                - build faiss statically into raft
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
@@ -176,6 +177,21 @@ function limitBench {
     fi
 }
 
+function limitCuannBench {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-cuann-bench" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_CUANN_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-cuann-bench=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_CUANN_BENCH_TARGETS} ]]; then
+            # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-cuann-bench=$LIMIT_CUANN_BENCH_TARGETS/}
+            CUANN_BENCH_TARGETS=${LIMIT_CUANN_BENCH_TARGETS}
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -187,6 +203,7 @@ if (( ${NUMARGS} != 0 )); then
     cacheTool
     limitTests
     limitBench
+    limitCuannBench
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -340,10 +357,14 @@ fi
 
 if hasArg cuann_bench || (( ${NUMARGS} == 0 )); then
     BUILD_CUANN_BENCH=ON
-    CMAKE_TARGET="${CMAKE_TARGET};CUANN_BENCH_HNSWLIB"
-    ENABLE_NN_DEPENDENCIES=ON
-    COMPILE_NN_LIBRARY=ON
-    COMPILE_DIST_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${CUANN_BENCH_TARGETS}"
+
+    # Force compile nn library when needed benchmark targets are specified
+    if [[ $CMAKE_TARGET == *"_RAFT_"* ]]; then
+      ENABLE_NN_DEPENDENCIES=ON
+      COMPILE_DIST_LIBRARY=ON
+      COMPILE_NN_LIBRARY=ON
+    fi
 fi
 
 if hasArg --buildfaiss; then

@@ -110,7 +110,7 @@ function(ConfigureCuannBench)
     target_compile_definitions(
       ${BENCH_NAME}
       PUBLIC
-        RAFT_CUANN_BENCH_USE_${ConfigureCuannBench_NAME}=${RAFT_CUANN_BENCH_USE_}${ConfigureCuannBench_NAME}
+        RAFT_CUANN_BENCH_USE_${ConfigureCuannBench_NAME}=RAFT_CUANN_BENCH_USE_${ConfigureCuannBench_NAME}
     )
   endif()
 

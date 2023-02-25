@@ -24,7 +24,7 @@ Most of the libraries are optional, and they can be enabled by the CUANN_USE_XYZ
 #### installing NCCL
 If `CUANN_USE_MULTI_GPU = 1` in `benchmark/Makefile`, NCCL is required.
 
-It's most convenient to install NCCL under `${cuann_path}/third_party/nccl/`, like using "O/S agnostic local installer" downloaded from https://developer.nvidia.com/nccl/nccl-download. Otherwise, may need to modify `CPPFLAGS` and `LDFLAGS` in `benchmark/Makefile` to add include and library paths.
+It's most convenient to install NCCL under `${cuann_bench_path}/third_party/nccl/`, like using "O/S agnostic local installer" downloaded from https://developer.nvidia.com/nccl/nccl-download. Otherwise, may need to modify `CPPFLAGS` and `LDFLAGS` in `benchmark/Makefile` to add include and library paths.
 
 
 #### installing FAISS library
@@ -35,7 +35,7 @@ FAISS can be installed in many ways:
 
 For manual installation: need to install FAISS from source. See [Building from source](https://github.com/facebookresearch/faiss/blob/master/INSTALL.md#building-from-source) for detailed steps.
 
-It's most convenient to install FAISS under `${cuann_path}/third_party/faiss/`. Otherwise, may need to modify `FAISS_PATH` in `benchmark/Makefile`.
+It's most convenient to install FAISS under `${cuann_bench_path}/third_party/faiss/`. Otherwise, may need to modify `FAISS_PATH` in `benchmark/Makefile`.
 
 An example of cmake build commands:
 ```
@@ -44,7 +44,7 @@ cmake -DFAISS_ENABLE_GPU=ON \
   -DFAISS_ENABLE_PYTHON=OFF -DBUILD_TESTING=OFF \
   -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CUDA_ARCHITECTURES="70;75;80;86" \
-  -DCMAKE_INSTALL_PREFIX=${cuann_path}/third_party/faiss ..
+  -DCMAKE_INSTALL_PREFIX=${cuann_bench_path}/third_party/faiss ..
 ```
 
 
@@ -254,7 +254,7 @@ It saves recall value in result txt file, so avoids to recompute recall if the s
 
 
 ## How to add a new ANN algorithm
-Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `include/cuann/ann.h`) and implements all the pure virtual functions.
+Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `src/cuann_bench/ann.h`) and implements all the pure virtual functions.
 
 In addition, it should define two `struct`s for building and searching parameters. The searching parameter class should inherit `struct ANN<T>::AnnSearchParam`. Take `class HnswLib` as an example, its definition is:
 ```

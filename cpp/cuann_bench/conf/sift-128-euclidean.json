@@ -15,7 +15,7 @@
       "name" : "hnswlib.M12",
       "algo" : "hnswlib",
       "build_param": {"M":12, "efConstruction":500, "numThreads":32},
-      "file" : "index/deep-100M/hnswlib/M12",
+      "file" : "index/sift-128-euclidean/hnswlib/M12",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -28,13 +28,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/deep-100M/hnswlib/M12"
+      "search_result_file" : "result/sift-128-euclidean/hnswlib/M12"
     },
     {
       "name" : "hnswlib.M16",
       "algo" : "hnswlib",
       "build_param": {"M":16, "efConstruction":500, "numThreads":32},
-      "file" : "index/deep-100M/hnswlib/M16",
+      "file" : "index/sift-128-euclidean/hnswlib/M16",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -47,13 +47,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/deep-100M/hnswlib/M16"
+      "search_result_file" : "result/sift-128-euclidean/hnswlib/M16"
     },
     {
       "name" : "hnswlib.M24",
       "algo" : "hnswlib",
       "build_param": {"M":24, "efConstruction":500, "numThreads":32},
-      "file" : "index/deep-100M/hnswlib/M24",
+      "file" : "index/sift-128-euclidean/hnswlib/M24",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -66,13 +66,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/deep-100M/hnswlib/M24"
+      "search_result_file" : "result/sift-128-euclidean/hnswlib/M24"
     },
     {
       "name" : "hnswlib.M36",
       "algo" : "hnswlib",
       "build_param": {"M":36, "efConstruction":500, "numThreads":32},
-      "file" : "index/deep-100M/hnswlib/M36",
+      "file" : "index/sift-128-euclidean/hnswlib/M36",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -85,7 +85,7 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/deep-100M/hnswlib/M36"
+      "search_result_file" : "result/sift-128-euclidean/hnswlib/M36"
     },
 
 
@@ -721,769 +721,7 @@
       ],
       "search_result_file": "result/sift-128-euclidean/faiss_flat/flat"
     },
-    {
-      "name": "libcuann.dimpq128-cluster1024",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 128,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster1024",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster1024"
-    },
-    {
-      "name": "libcuann.dimpq128-cluster1024-prof",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 128,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-float",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster1024-prof"
-    },
-    {
-      "name": "libcuann.dimpq64-cluster1024-float-half",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 64,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq64-cluster1024-float-half",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq64-cluster1024-float-half"
-    },
-    {
-      "name": "libcuann.dimpq64-cluster1024-float-fp8",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 64,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq64-cluster1024-float-fp8",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq64-cluster1024-float-fp8"
-    },
-    {
-      "name": "libcuann.dimpq32-cluster1024-float-fp8",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 32,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq32-cluster1024-float-fp8",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq32-cluster1024-float-fp8"
-    },
-    {
-      "name": "libcuann.dimpq16-cluster1024-float-fp8",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 16,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq16-cluster1024-float-fp8",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq16-cluster1024-float-fp8"
-    },
-    {
-      "name": "libcuann.dimpq128-cluster1024-float-float",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 128,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-float",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-float"
-    },
-    {
-      "name": "libcuann.dimpq128-cluster1024-float-half",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 128,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-half",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1000,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-half"
-    },
-    {
-      "name": "libcuann.dimpq128-cluster1024-float-fp8",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 1024,
-        "dimPq": 128,
-        "sampleRatio": 1
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-fp8",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster1024-float-fp8"
-    },
-    {
-      "name": "libcuann.dimpq128-cluster16384",
-      "algo": "libcuann",
-      "build_param": {
-        "numDataset": 1000000,
-        "numClusters": 16384,
-        "dimPq": 128,
-        "sampleRatio": 2
-      },
-      "file": "index/sift-128-euclidean/libcuann/dimpq128-cluster16384",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1000
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 2000
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/libcuann/dimpq128-cluster16384"
-    },
-    {
-      "name": "ivf_flat.nlist1024",
-      "algo": "ivf_flat",
-      "build_param": {
-        "nlist": 1024,
-        "ratio": 1,
-        "niter": 25
-      },
-      "file": "index/sift-128-euclidean/ivf_flat/nlist1024",
-      "search_params": [
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 1
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 5
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 10
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 50
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 100
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 200
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 500
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 1000
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/ivf_flat/nlist1024"
-    },
-    {
-      "name": "ivf_flat.nlist16384",
-      "algo": "ivf_flat",
-      "build_param": {
-        "nlist": 16384,
-        "ratio": 2,
-        "niter": 20
-      },
-      "file": "index/sift-128-euclidean/ivf_flat/nlist16384",
-      "search_params": [
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 1
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 5
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 10
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 50
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 100
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 200
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 500
-        },
-        {
-          "max_batch": 10000,
-          "max_k": 10,
-          "nprobe": 1000
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/ivf_flat/nlist16384"
-    },
-    {
-      "name": "multigpu-libcuann.dimpq128-cluster1024",
-      "algo": "libcuann",
-      "multigpu": [
-        0,
-        1
-      ],
-      "build_param": {
-        "numDataset": 591757,
-        "numClusters": 1024,
-        "dimPq": 128
-      },
-      "file": "index/sift-128-euclidean/multigpu/libcuann/dimpq128-cluster1024",
-      "search_params": [
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 5
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 10
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 50
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 100
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 200
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 500
-        },
-        {
-          "max_batch_size": 10000,
-          "k": 10,
-          "numProbes": 1000
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/multigpu/libcuann/dimpq128-cluster1024"
-    },
+
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024",
       "algo": "raft_ivf_pq",
@@ -1533,26 +771,6 @@
         }
       ],
       "search_result_file": "result/sift-128-euclidean/raft_ivf_pq/dimpq128-cluster1024"
-    },
-    {
-      "name": "raft_ivf_pq.dimpq128-cluster1024-prof",
-      "algo": "raft_ivf_pq",
-      "build_param": {
-        "nlist": 1024,
-        "pq_dim": 128,
-        "ratio": 1,
-        "niter": 25
-      },
-      "file": "index/sift-128-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-float",
-      "search_params": [
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
-      ],
-      "search_result_file": "result/sift-128-euclidean/raft_ivf_pq/dimpq128-cluster1024-prof"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-float",
@@ -1781,7 +999,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/sift-128-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
+      "file": "index/sift-128-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half",
       "search_params": [
         {
           "k": 10,
@@ -1820,7 +1038,7 @@
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/sift-128-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
+      "search_result_file": "result/sift-128-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half"
     },
     {
       "name": "raft_ivf_pq.dimpq32-cluster1024-float-fp8",
