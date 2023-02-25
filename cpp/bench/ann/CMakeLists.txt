@@ -1,0 +1,162 @@
+# =============================================================================
+# Copyright (c) 2023, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+# =============================================================================
+
+# ##################################################################################################
+# * compiler function -----------------------------------------------------------------------------
+
+option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" OFF)
+
+set(RAFT_ANN_BENCH_USE_FAISS OFF)
+if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
+   OR RAFT_ANN_BENCH_USE_FAISS_IVFPQ
+   OR RAFT_ANN_BENCH_USE_FAISS_IFFLAT
+)
+  set(RAFT_ANN_BENCH_USE_FAISS ON)
+endif()
+
+if(RAFT_ANN_BENCH_USE_HNSWLIB)
+  message("Using hnswlib")
+  include(cmake/thirdparty/get_hnswlib.cmake)
+endif()
+
+option(RAFT_ANN_BENCH_USE_MULTIGPU "Use multi-gpus (where possible) in benchmarks" OFF)
+
+include(cmake/thirdparty/get_nlohmann_json.cmake)
+
+if(RAFT_ANN_BENCH_USE_GGNN)
+  include(cmake/thirdparty/get_ggnn.cmake)
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS)
+  include(cmake/thirdparty/get_faiss.cmake)
+endif()
+
+function(ConfigureCuannBench)
+
+  set(oneValueArgs NAME)
+  set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
+
+  cmake_parse_arguments(
+    ConfigureCuannBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
+  )
+
+  set(BENCH_NAME ${ConfigureCuannBench_NAME}_ANN_BENCH)
+
+  add_executable(
+    ${BENCH_NAME} ${ConfigureCuannBench_PATH} bench/ann/src/conf.cpp bench/ann/src/util.cpp
+  )
+  target_link_libraries(
+    ${BENCH_NAME}
+    PRIVATE raft::raft
+            nlohmann_json::nlohmann_json
+            $<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>
+            ${ConfigureCuannBench_LINKS}
+            Threads::Threads
+            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+            $<TARGET_NAME_IF_EXISTS:conda_env>
+  )
+
+  set_target_properties(
+    ${BENCH_NAME}
+    PROPERTIES # set target compile options
+               INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
+  )
+
+  set(${ConfigureCuannBench_CXXFLAGS} ${RAFT_CXX_FLAGS} ${ConfigureCuannBench_CXXFLAGS})
+
+  target_compile_options(
+    ${BENCH_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${ConfigureCuannBench_CXXFLAGS}>"
+                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  if(RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME})
+    target_compile_definitions(
+      ${BENCH_NAME}
+      PUBLIC
+        RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME}=RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME}
+    )
+  endif()
+
+  target_include_directories(
+    ${BENCH_NAME}
+    PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
+    PRIVATE ${ConfigureCuannBench_INCLUDES}
+  )
+
+  install(
+    TARGETS ${BENCH_NAME}
+    COMPONENT testing
+    DESTINATION bin/ann
+    EXCLUDE_FROM_ALL
+  )
+endfunction()
+
+if(RAFT_ANN_BENCH_USE_HNSWLIB)
+  ConfigureCuannBench(
+    NAME HNSWLIB PATH bench/ann/src/benchmark.cpp INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib/hnswlib CXXFLAGS -mavx
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_PQ PATH bench/ann/src/benchmark.cu bench/ann/src/raft_ivf_pq.cu LINKS
+    raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_FLAT PATH bench/ann/src/benchmark.cu bench/ann/src/raft_ivf_flat.cu LINKS
+    raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_BFKNN)
+  ConfigureCuannBench(
+    NAME RAFT_IVF_FLAT PATH bench/ann/src/benchmark.cu LINKS raft::distance raft::nn
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
+  ConfigureCuannBench(NAME FAISS_IVF_FLAT PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
+  ConfigureCuannBench(NAME FAISS_IVF_PQ PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
+  ConfigureCuannBench(NAME FAISS_BFKNN PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
+endif()
+
+if(RAFT_ANN_BENCH_USE_GGNN)
+  ConfigureCuannBench(
+    NAME GGNN PATH bench/ann/src/benchmark.cu INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include
+  )
+endif()
