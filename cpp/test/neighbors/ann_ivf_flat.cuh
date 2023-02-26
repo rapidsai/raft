@@ -190,7 +190,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::extend(handle_,
-                         &index,
+                         &index_2,
                          new_half_of_data_view,
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
                            new_half_of_data_indices_view));
@@ -218,25 +218,26 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         handle_.sync_stream(stream_);
 
         // Test the centroid invariants
-        if (index.adaptive_centers()) {
+        if (index_2.adaptive_centers()) {
           // The centers must be up-to-date with the corresponding data
-          std::vector<uint32_t> list_sizes(index.n_lists());
+          std::vector<uint32_t> list_sizes(index_2.n_lists());
           rmm::device_uvector<float> centroid(ps.dim, stream_);
-          raft::copy(list_sizes.data(), index.list_sizes().data_handle(), index.n_lists(), stream_);
+          raft::copy(
+            list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
           handle_.sync_stream(stream_);
-          for (uint32_t l = 0; l < index.n_lists(); l++) {
+          for (uint32_t l = 0; l < index_2.n_lists(); l++) {
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
             raft::spatial::knn::detail::utils::copy_selected<float>((IdxT)list_sizes[l],
                                                                     (IdxT)ps.dim,
                                                                     database.data(),
-                                                                    index.inds_ptrs()(l),
+                                                                    index_2.inds_ptrs()(l),
                                                                     (IdxT)ps.dim,
                                                                     cluster_data.data(),
                                                                     (IdxT)ps.dim,
                                                                     stream_);
             raft::stats::mean<float, uint32_t>(
               centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
-            ASSERT_TRUE(raft::devArrMatch(index.centers().data_handle() + ps.dim * l,
+            ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle() + ps.dim * l,
                                           centroid.data(),
                                           ps.dim,
                                           raft::CompareApprox<float>(0.001),
@@ -244,9 +245,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           }
         } else {
           // The centers must be immutable
-          ASSERT_TRUE(raft::devArrMatch(index.centers().data_handle(),
+          ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle(),
                                         index.centers().data_handle(),
-                                        index.centers().size(),
+                                        index_2.centers().size(),
                                         raft::Compare<float>(),
                                         stream_));
         }
