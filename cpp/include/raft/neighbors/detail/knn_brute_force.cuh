@@ -389,6 +389,18 @@ void brute_force_knn_impl(
     id_ranges = translations;
   }
 
+  // perform preprocessing
+  std::unique_ptr<MetricProcessor<value_t>> query_metric_processor =
+    create_processor<value_t>(metric, n, D, k, rowMajorQuery, userStream);
+  query_metric_processor->preprocess(search_items);
+
+  std::vector<std::unique_ptr<MetricProcessor<value_t>>> metric_processors(input.size());
+  for (size_t i = 0; i < input.size(); i++) {
+    metric_processors[i] =
+      create_processor<value_t>(metric, sizes[i], D, k, rowMajorQuery, userStream);
+    metric_processors[i]->preprocess(input[i]);
+  }
+
   int device;
   RAFT_CUDA_TRY(cudaGetDevice(&device));
 
@@ -481,8 +493,24 @@ void brute_force_knn_impl(
             index = index_row_major.data();
           }
 
-          tiled_brute_force_knn<value_t, IdxType>(
-            handle, search, index, n, sizes[i], D, k, out_d_ptr, out_i_ptr, metric, metricArg);
+          // cosine/correlation are handled by metric processor, use IP distance
+          // for brute force knn call
+          auto tiled_metric = metric;
+          if (metric == raft::distance::DistanceType::CosineExpanded ||
+              metric == raft::distance::DistanceType::CorrelationExpanded) {
+            tiled_metric = raft::distance::DistanceType::InnerProduct;
+          }
+          tiled_brute_force_knn<value_t, IdxType>(handle,
+                                                  search,
+                                                  index,
+                                                  n,
+                                                  sizes[i],
+                                                  D,
+                                                  k,
+                                                  out_d_ptr,
+                                                  out_i_ptr,
+                                                  tiled_metric,
+                                                  metricArg);
           break;
       }
     }
@@ -499,6 +527,12 @@ void brute_force_knn_impl(
     // This is necessary for proper index translations. If there are
     // no translations or partitions to combine, it can be skipped.
     knn_merge_parts(out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
+  }
+
+  query_metric_processor->revert(search_items);
+  query_metric_processor->postprocess(out_D);
+  for (size_t i = 0; i < input.size(); i++) {
+    metric_processors[i]->revert(input[i]);
   }
 
   if (translations == nullptr) delete id_ranges;
