@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,5 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+from .include_test import raft_include_test
 
 __version__ = "23.04.00"
