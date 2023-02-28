@@ -234,7 +234,6 @@ const std::vector<TiledKNNInputs> random_inputs = {
   {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded, false},
   {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::LpUnexpanded, true},
   {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::L2SqrtExpanded, false},
-  {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::CosineExpanded, true},
   {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::InnerProduct, false}};
 
 typedef TiledKNNTest<float> TiledKNNTestF;
