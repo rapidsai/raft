@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace benchmark {
+namespace raft::bench::ann {
 
 class Timer {
  public:
@@ -77,6 +77,6 @@ void log_error(Ts... vs)
   log_("error", vs...);
 }
 
-}  // namespace benchmark
+}  // namespace raft::bench::ann
 
 #endif

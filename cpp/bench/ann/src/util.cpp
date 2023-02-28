@@ -21,7 +21,7 @@
 #include <cstring>
 #include <sstream>
 
-namespace benchmark {
+namespace raft::bench::ann {
 
 std::vector<std::string> split(const std::string& s, char delimiter)
 {
@@ -65,4 +65,4 @@ bool create_dir(const std::string& dir)
   return true;
 }
 
-}  // namespace benchmark
+}  // namespace raft::bench::ann

@@ -110,7 +110,7 @@ inline bool mkdir(const std::vector<std::string>& dirs)
   return true;
 }
 
-inline bool check(const std::vectorConfiguration::Index > &indices,
+inline bool check(const std::vector<Configuration::Index>& indices,
                   bool build_mode,
                   bool force_overwrite)
 {
@@ -489,7 +489,7 @@ inline int run_main(int argc, char** argv)
   bool build_mode      = false;
   bool search_mode     = false;
   bool only_check      = false;
-  string index_patterns("*");
+  std::string index_patterns("*");
 
   int opt;
   while ((opt = getopt(argc, argv, "bscfi:h")) != -1) {
@@ -554,5 +554,7 @@ inline int run_main(int argc, char** argv)
     log_error("exception occurs: %s", e.what());
     return -1;
   }
+
+  return 0;
 }
-}  // namespace raft::bench::ann
+};  // namespace raft::bench::ann

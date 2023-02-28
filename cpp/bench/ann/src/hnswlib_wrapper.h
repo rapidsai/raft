@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef HNSWLIB_WRAPPER_H_
-#define HNSWLIB_WRAPPER_H_
+#pragma once
 
 #include <algorithm>
 #include <atomic>
@@ -32,12 +31,11 @@
 #include <utility>
 #include <vector>
 
-#include "ann.h"
+#include "ann.hpp"
 #include <hnswlib.h>
 
 namespace raft::bench::ann {
 
-namespace {
 template <typename T>
 struct hnsw_dist_t {
   using type = void;
@@ -158,8 +156,6 @@ class FixedThreadPool {
   std::vector<std::thread> threads_;
   std::atomic<bool> finished_{false};
 };
-
-}  // namespace
 
 template <typename T>
 class HnswLib : public ANN<T> {
@@ -328,6 +324,4 @@ void HnswLib<T>::get_search_knn_results_(const T* query,
   }
 }
 
-}  // namespace raft::bench::ann
-
-#endif
+};  // namespace raft::bench::ann

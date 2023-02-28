@@ -15,11 +15,12 @@
  */
 #pragma once
 
+#include "ann.hpp"
 #include <string>
 
 namespace raft::bench::ann {
 
-inline raft::bench::ann::Metric parse_metric(const std::string& metric_str)
+inline Metric parse_metric(const std::string& metric_str)
 {
   if (metric_str == "inner_product") {
     return raft::bench::ann::Metric::kInnerProduct;
@@ -29,4 +30,4 @@ inline raft::bench::ann::Metric parse_metric(const std::string& metric_str)
     throw std::runtime_error("invalid metric: '" + metric_str + "'");
   }
 }
-}  // namespace raft::bench::ann
+};  // namespace raft::bench::ann

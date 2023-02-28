@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef FACTORY_H_
-#define FACTORY_H_
+
+#pragma once
 
 #include <algorithm>
 #include <cmath>
@@ -24,24 +24,15 @@
 #include <type_traits>
 #include <utility>
 
-#include "ann.h"
+#include "benchmark_util.hpp"
+
+#include "ann.hpp"
 #undef WARP_SIZE
 #include "hnswlib_wrapper.h"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
-namespace benchmark {
-
-raft::bench::ann::Metric parse_metric(const std::string& metric_str)
-{
-  if (metric_str == "inner_product") {
-    return raft::bench::ann::Metric::kInnerProduct;
-  } else if (metric_str == "euclidean") {
-    return raft::bench::ann::Metric::kEuclidean;
-  } else {
-    throw std::runtime_error("invalid metric: '" + metric_str + "'");
-  }
-}
+namespace raft::bench::ann {
 
 template <typename T>
 void parse_build_param(const nlohmann::json& conf,
@@ -124,4 +115,4 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 
-}  // namespace benchmark
+};  // namespace raft::bench::ann

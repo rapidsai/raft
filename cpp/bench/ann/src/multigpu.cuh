@@ -27,7 +27,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "ann.h"
+#include "ann.hpp"
 #include "cudart_util.h"
 
 #define NCCLCHECK(cmd)                                                                      \

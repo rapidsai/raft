@@ -19,7 +19,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "ann.h"
+#include "ann.hpp"
 #include "cudart_util.h"
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 

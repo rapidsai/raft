@@ -33,7 +33,7 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <type_traits>
 
-#include "ann.h"
+#include "ann.hpp"
 #include "cudart_util.h"
 #include "raft_ann_bench_utils.h"
 

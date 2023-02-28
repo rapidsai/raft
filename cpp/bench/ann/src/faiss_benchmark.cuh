@@ -24,7 +24,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "ann.h"
+#include "ann.hpp"
 #undef WARP_SIZE
 #include "faiss_wrapper.h"
 #define JSON_DIAGNOSTICS 1

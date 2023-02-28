@@ -1,5 +1,4 @@
-#ifndef ANN_H_
-#define ANN_H_
+
 
 /*
  * Copyright (c) 2023, NVIDIA CORPORATION.
@@ -16,6 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#pragma once
 #include <string>
 #include <vector>
 
@@ -85,5 +86,3 @@ class ANN {
 };
 
 }  // namespace raft::bench::ann
-
-#endif  // ANN_H_

@@ -16,4 +16,4 @@
 #include "benchmark.hpp"
 #include "raft_benchmark.cuh"
 
-int run_main(int argc, char** argv) { return run_main(argc, argv); }
+int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }

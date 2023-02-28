@@ -35,7 +35,7 @@
 #include <string>
 #include <type_traits>
 
-#include "ann.h"
+#include "ann.hpp"
 
 namespace {
 
