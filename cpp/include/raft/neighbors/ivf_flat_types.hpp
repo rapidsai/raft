@@ -97,8 +97,8 @@ struct list_spec {
   }
 
   // Allow casting between different size-types (for safer size and offset calculations)
-  template <typename OtherSizeT>
-  constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
+  template <typename OtherValueT, typename OtherSizeT>
+  constexpr explicit list_spec(const list_spec<OtherValueT, OtherSizeT>& other_spec)
     : dim{other_spec.dim}, align_min{other_spec.align_min}, align_max{other_spec.align_max}
   {
   }
@@ -166,7 +166,10 @@ struct index : ann::index {
    *     x[16, 4], x[16, 5], x[17, 4], x[17, 5], ... x[30, 4], x[30, 5],    -    ,    -    ,
    *
    */
-  /** Sizes of the lists (clusters) [n_lists] */
+  /** Sizes of the lists (clusters) [n_lists]
+   * NB: This may differ from the actual list size if the shared lists have been extended by another
+   * index
+   */
   inline auto list_sizes() noexcept -> device_vector_view<uint32_t, uint32_t>
   {
     return list_sizes_.view();
