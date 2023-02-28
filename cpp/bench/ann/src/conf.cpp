@@ -23,7 +23,7 @@
 
 #include "util.h"
 
-namespace benchmark {
+namespace raft::bench::ann {
 using std::runtime_error;
 using std::string;
 using std::unordered_set;
@@ -133,4 +133,4 @@ unordered_set<string> Configuration::match_(const vector<string>& candidates,
   return matched;
 }
 
-}  // namespace benchmark
+}  // namespace raft::bench::ann

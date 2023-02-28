@@ -16,4 +16,4 @@
 #include "hnswlib_benchmark.hpp"
 #include "benchmark.hpp"
 
-int run_main(int argc, char** argv) { return run_main(argc, argv); }
+int run_main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }

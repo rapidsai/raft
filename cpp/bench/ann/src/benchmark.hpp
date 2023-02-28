@@ -42,18 +42,16 @@ using std::string;
 using std::to_string;
 using std::unordered_set;
 using std::vector;
-using namespace benchmark;
-using raft::bench::ann::MemoryType;
 
 namespace raft::bench::ann {
 
 // supported types: float, half (very few implementations support it), uint8_t, int8_t
 using data_t = float;
 
-inline bool check_file_exist(const vector<string>& files)
+inline bool check_file_exist(const std::vector<string>& files)
 {
   bool ret = true;
-  unordered_set<string> processed;
+  std::unordered_set<std::string> processed;
   for (const auto& file : files) {
     if (processed.find(file) == processed.end() && !file_exists(file)) {
       log_error("file '%s' doesn't exist or is not a regular file", file.c_str());
@@ -64,7 +62,7 @@ inline bool check_file_exist(const vector<string>& files)
   return ret;
 }
 
-inline bool check_file_not_exist(const vector<string>& files, bool force_overwrite)
+inline bool check_file_not_exist(const std::vector<std::string>& files, bool force_overwrite)
 {
   bool ret = true;
   for (const auto& file : files) {
@@ -80,10 +78,10 @@ inline bool check_file_not_exist(const vector<string>& files, bool force_overwri
   return ret;
 }
 
-inline bool check_no_duplicate_file(const vector<string>& files)
+inline bool check_no_duplicate_file(const std::vector<std::string>& files)
 {
   bool ret = true;
-  unordered_set<string> processed;
+  std::unordered_set<string> processed;
   for (const auto& file : files) {
     if (processed.find(file) != processed.end()) {
       log_error("'%s' occurs more than once as output file, would be overwritten", file.c_str());
@@ -94,9 +92,9 @@ inline bool check_no_duplicate_file(const vector<string>& files)
   return ret;
 }
 
-inline bool mkdir(const vector<string>& dirs)
+inline bool mkdir(const std::vector<std::string>& dirs)
 {
-  unordered_set<string> processed;
+  std::unordered_set<string> processed;
   for (const auto& dir : dirs) {
     if (processed.find(dir) == processed.end() && !dir_exists(dir)) {
       if (create_dir(dir)) {
@@ -112,20 +110,20 @@ inline bool mkdir(const vector<string>& dirs)
   return true;
 }
 
-inline bool check(const vector<Configuration::Index>& indices,
+inline bool check(const std::vectorConfiguration::Index > &indices,
                   bool build_mode,
                   bool force_overwrite)
 {
-  vector<string> files_should_exist;
-  vector<string> dirs_should_exist;
-  vector<string> output_files;
+  std::vector<std::string> files_should_exist;
+  std::vector<std::string> dirs_should_exist;
+  std::vector<std::string> output_files;
   for (const auto& index : indices) {
     if (build_mode) {
       output_files.push_back(index.file);
       output_files.push_back(index.file + ".txt");
 
       auto pos = index.file.rfind('/');
-      if (pos != string::npos) { dirs_should_exist.push_back(index.file.substr(0, pos)); }
+      if (pos != std::string::npos) { dirs_should_exist.push_back(index.file.substr(0, pos)); }
     } else {
       files_should_exist.push_back(index.file);
       files_should_exist.push_back(index.file + ".txt");
@@ -134,7 +132,7 @@ inline bool check(const vector<Configuration::Index>& indices,
       output_files.push_back(index.search_result_file + ".0.txt");
 
       auto pos = index.search_result_file.rfind('/');
-      if (pos != string::npos) {
+      if (pos != std::string::npos) {
         dirs_should_exist.push_back(index.search_result_file.substr(0, pos));
       }
     }
@@ -148,12 +146,12 @@ inline bool check(const vector<Configuration::Index>& indices,
   return ret;
 }
 
-inline void write_build_info(const string& file_prefix,
-                             const string& dataset,
-                             const string& distance,
-                             const string& name,
-                             const string& algo,
-                             const string& build_param,
+inline void write_build_info(const std::string& file_prefix,
+                             const std::string& dataset,
+                             const std::string& distance,
+                             const std::string& name,
+                             const std::string& algo,
+                             const std::string& build_param,
                              float build_time)
 {
   std::ofstream ofs(file_prefix + ".txt");
@@ -170,7 +168,7 @@ inline void write_build_info(const string& file_prefix,
 }
 
 template <typename T>
-void build(const benchmark::Dataset<T>* dataset, const vector<Configuration::Index>& indices)
+void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& indices)
 {
   cudaStream_t stream;
   ANN_CUDA_CHECK(cudaStreamCreate(&stream));
@@ -229,13 +227,13 @@ void build(const benchmark::Dataset<T>* dataset, const vector<Configuration::Ind
   ANN_CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-inline void write_search_result(const string& file_prefix,
-                                const string& dataset,
-                                const string& distance,
-                                const string& name,
-                                const string& algo,
-                                const string& build_param,
-                                const string& search_param,
+inline void write_search_result(const std::string& file_prefix,
+                                const std::string& dataset,
+                                const std::string& distance,
+                                const std::string& name,
+                                const std::string& algo,
+                                const std::string& build_param,
+                                const std::string& search_param,
                                 int batch_size,
                                 int run_count,
                                 int k,
@@ -275,8 +273,7 @@ inline void write_search_result(const string& file_prefix,
 }
 
 template <typename T>
-inline void search(const benchmark::Dataset<T>* dataset,
-                   const vector<Configuration::Index>& indices)
+inline void search(const Dataset<T>* dataset, const std::vector<Configuration::Index>& indices)
 {
   if (indices.empty()) { return; }
   cudaStream_t stream;
@@ -303,12 +300,12 @@ inline void search(const benchmark::Dataset<T>* dataset,
              query_set_size % batch_size);
   }
   const size_t num_batches = (query_set_size - 1) / batch_size + 1;
-  size_t* neighbors        = new size_t[query_set_size * k];
+  std::size_t* neighbors   = new std::size_t[query_set_size * k];
   int* neighbors_buf       = new int[query_set_size * k];
   float* distances         = new float[query_set_size * k];
-  vector<float> search_times;
+  std::vector<float> search_times;
   search_times.reserve(num_batches);
-  size_t* d_neighbors;
+  std::size_t* d_neighbors;
   float* d_distances;
   ANN_CUDA_CHECK(cudaMalloc((void**)&d_neighbors, query_set_size * k * sizeof(*d_neighbors)));
   ANN_CUDA_CHECK(cudaMalloc((void**)&d_distances, query_set_size * k * sizeof(*d_distances)));
@@ -326,9 +323,9 @@ inline void search(const benchmark::Dataset<T>* dataset,
     log_info("loading index '%s' from file '%s'", index.name.c_str(), index.file.c_str());
     algo->load(index.file);
 
-    const T* this_query_set = query_set;
-    size_t* this_neighbors  = neighbors;
-    float* this_distances   = distances;
+    const T* this_query_set     = query_set;
+    std::size_t* this_neighbors = neighbors;
+    float* this_distances       = distances;
     if (algo_property.query_memory_type == MemoryType::Device) {
       this_query_set = d_query_set;
       this_neighbors = d_neighbors;
@@ -371,8 +368,8 @@ inline void search(const benchmark::Dataset<T>* dataset,
       float best_search_time_p999    = std::numeric_limits<float>::max();
       for (int run = 0; run < run_count; ++run) {
         log_info("run %d / %d", run + 1, run_count);
-        for (size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
-          size_t row            = batch_id * batch_size;
+        for (std::size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
+          std::size_t row       = batch_id * batch_size;
           int actual_batch_size = (batch_id == num_batches - 1) ? query_set_size - row : batch_size;
           ANN_CUDA_CHECK(cudaStreamSynchronize(stream));
 #ifdef NVTX
@@ -471,7 +468,7 @@ inline void search(const benchmark::Dataset<T>* dataset,
   ANN_CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-inline const string usage(const string& argv0)
+inline const std::string usage(const string& argv0)
 {
   return "usage: " + argv0 + " -b|s [-c] [-f] [-i index_names] conf.json\n" +
          "   -b: build mode, will build index\n" +
@@ -507,11 +504,11 @@ inline int run_main(int argc, char** argv)
     }
   }
   if (build_mode == search_mode) {
-    cerr << "one and only one of -b and -s should be specified\n\n" << usage(argv[0]) << endl;
+    std::cerr << "one and only one of -b and -s should be specified\n\n" << usage(argv[0]) << endl;
     return -1;
   }
   if (argc - optind != 1) {
-    cerr << usage(argv[0]) << endl;
+    std::cerr << usage(argv[0]) << endl;
     return -1;
   }
   string conf_file = argv[optind];
@@ -536,7 +533,7 @@ inline int run_main(int argc, char** argv)
     vector<Configuration::Index> indices = conf.get_indices(index_patterns);
     if (!check(indices, build_mode, force_overwrite)) { return -1; }
 
-    string message = "will ";
+    std::string message = "will ";
     message += build_mode ? "build:" : "search:";
     for (const auto& index : indices) {
       message += "\n  " + index.name;

@@ -31,7 +31,7 @@
 
 #include "cudart_util.h"
 
-namespace benchmark {
+namespace raft::bench::ann {
 
 // http://big-ann-benchmarks.com/index.html:
 // binary format that starts with 8 bytes of data consisting of num_points(uint32_t)
@@ -380,6 +380,6 @@ void BinDataset<T>::map_base_set_() const
   this->mapped_base_set_ = reinterpret_cast<T*>(original_map_ptr + subset_offset_);
 }
 
-}  // namespace benchmark
+}  // namespace  raft::bench::ann
 
 #endif

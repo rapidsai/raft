@@ -17,16 +17,6 @@
 
 #include <string>
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-using std::to_string;
-using std::unordered_set;
-using std::vector;
-using namespace benchmark;
-using raft::bench::ann::MemoryType;
-
 namespace raft::bench::ann {
 
 inline raft::bench::ann::Metric parse_metric(const std::string& metric_str)
