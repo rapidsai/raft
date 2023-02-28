@@ -13,8 +13,4 @@
 # limitations under the License.
 #
 
-import pylibraft.config
-from pylibraft._version import get_versions
-
-__version__ = get_versions()["version"]
-del get_versions
+__version__ = "23.04.00"
