@@ -24,8 +24,8 @@
 #include <limits>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/masked_nn.cuh>
-#include <raft/handle.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -97,7 +97,7 @@ struct masked_l2_nn : public fixture {
   using OutT       = raft::KeyValuePair<IdxT, DataT>;
   using RedOpT     = raft::distance::MinAndDistanceReduceOp<int, DataT>;
   using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
-  using ParamT     = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
+  using ParamT     = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
 
   // Parameters
   Params params;
@@ -143,15 +143,15 @@ struct masked_l2_nn : public fixture {
 
     loop_on_state(state, [this, masked_l2_params]() {
       // It is sufficient to only benchmark the L2-squared metric
-      raft::distance::maskedL2NN<DataT, OutT, IdxT>(handle,
-                                                    masked_l2_params,
-                                                    x.view(),
-                                                    y.view(),
-                                                    xn.view(),
-                                                    yn.view(),
-                                                    adj.view(),
-                                                    group_idxs.view(),
-                                                    out.view());
+      raft::distance::masked_l2_nn<DataT, OutT, IdxT>(handle,
+                                                      masked_l2_params,
+                                                      x.view(),
+                                                      y.view(),
+                                                      xn.view(),
+                                                      yn.view(),
+                                                      adj.view(),
+                                                      group_idxs.view(),
+                                                      out.view());
     });
 
     // Virtual flop count if no skipping had occurred.
@@ -201,7 +201,7 @@ struct masked_l2_nn : public fixture {
 
     state.counters["SM count"] = raft::getMultiProcessorCount();
   }
-};  // struct MaskedL2NN
+};
 
 const std::vector<Params> masked_l2_nn_input_vecs = {
   // Very fat matrices...

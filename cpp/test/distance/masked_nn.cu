@@ -259,11 +259,11 @@ auto run_masked_nn(const raft::handle_t& handle, Inputs<DataT> inp, const Params
                      raft::linalg::L2Norm,
                      raft::linalg::Apply::ALONG_ROWS);
 
-  // Create parameters for maskedL2NN
+  // Create parameters for masked_l2_nn
   using IdxT       = int;
   using RedOpT     = MinAndDistanceReduceOp<int, DataT>;
   using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
-  using ParamT     = raft::distance::MaskedL2NNParams<RedOpT, PairRedOpT>;
+  using ParamT     = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
 
   bool init_out = true;
   ParamT masked_l2_params{RedOpT{}, PairRedOpT{}, p.sqrt, init_out};
@@ -272,15 +272,15 @@ auto run_masked_nn(const raft::handle_t& handle, Inputs<DataT> inp, const Params
   auto out = raft::make_device_vector<OutT, IdxT, raft::layout_c_contiguous>(handle, p.m);
 
   // Launch kernel
-  raft::distance::maskedL2NN<DataT, OutT, IdxT>(handle,
-                                                masked_l2_params,
-                                                inp.x.view(),
-                                                inp.y.view(),
-                                                x_norm.view(),
-                                                y_norm.view(),
-                                                inp.adj.view(),
-                                                inp.group_idxs.view(),
-                                                out.view());
+  raft::distance::masked_l2_nn<DataT, OutT, IdxT>(handle,
+                                                  masked_l2_params,
+                                                  inp.x.view(),
+                                                  inp.y.view(),
+                                                  x_norm.view(),
+                                                  y_norm.view(),
+                                                  inp.adj.view(),
+                                                  inp.group_idxs.view(),
+                                                  out.view());
 
   handle.sync_stream();
 
@@ -386,7 +386,7 @@ TEST_P(MaskedL2NNTest, ReferenceCheckFloat)
                           handle.get_stream()));
 }
 
-// This test checks whether running the maskedL2NN twice returns the same
+// This test checks whether running the masked_l2_nn twice returns the same
 // output.
 TEST_P(MaskedL2NNTest, DeterminismCheck)
 {

@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <raft/neighbors/detail/ivf_pq_build.cuh>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/detail/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-#include <raft/spatial/knn/detail/ivf_pq_build.cuh>
-#include <raft/spatial/knn/detail/ivf_pq_search.cuh>
 
 #include <raft/core/device_resources.hpp>
 
@@ -65,13 +66,13 @@ namespace raft::neighbors::ivf_pq {
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-inline auto build(raft::device_resources const& handle,
-                  const index_params& params,
-                  const T* dataset,
-                  IdxT n_rows,
-                  uint32_t dim) -> index<IdxT>
+auto build(raft::device_resources const& handle,
+           const index_params& params,
+           const T* dataset,
+           IdxT n_rows,
+           uint32_t dim) -> index<IdxT>
 {
-  return raft::spatial::knn::ivf_pq::detail::build(handle, params, dataset, n_rows, dim);
+  return detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -107,14 +108,13 @@ inline auto build(raft::device_resources const& handle,
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
-inline auto extend(raft::device_resources const& handle,
-                   const index<IdxT>& orig_index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows) -> index<IdxT>
+auto extend(raft::device_resources const& handle,
+            const index<IdxT>& orig_index,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows) -> index<IdxT>
 {
-  return raft::spatial::knn::ivf_pq::detail::extend(
-    handle, orig_index, new_vectors, new_indices, n_rows);
+  return detail::extend(handle, orig_index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -132,13 +132,13 @@ inline auto extend(raft::device_resources const& handle,
  * @param n_rows the number of samples
  */
 template <typename T, typename IdxT>
-inline void extend(raft::device_resources const& handle,
-                   index<IdxT>* index,
-                   const T* new_vectors,
-                   const IdxT* new_indices,
-                   IdxT n_rows)
+void extend(raft::device_resources const& handle,
+            index<IdxT>* index,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -184,18 +184,17 @@ inline void extend(raft::device_resources const& handle,
  *           memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
-inline void search(raft::device_resources const& handle,
-                   const search_params& params,
-                   const index<IdxT>& index,
-                   const T* queries,
-                   uint32_t n_queries,
-                   uint32_t k,
-                   IdxT* neighbors,
-                   float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr)
+void search(raft::device_resources const& handle,
+            const search_params& params,
+            const index<IdxT>& index,
+            const T* queries,
+            uint32_t n_queries,
+            uint32_t k,
+            IdxT* neighbors,
+            float* distances,
+            rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::spatial::knn::ivf_pq::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
+  return detail::search(handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
 /** @} */  // end group ivf_pq

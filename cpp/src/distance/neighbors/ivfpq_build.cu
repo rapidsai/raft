@@ -15,6 +15,7 @@
  */
 
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 
 namespace raft::runtime::neighbors::ivf_pq {
@@ -64,18 +65,4 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t);
 
 #undef RAFT_INST_BUILD_EXTEND
 
-void save(raft::device_resources const& handle,
-          const std::string& filename,
-          const raft::neighbors::ivf_pq::index<uint64_t>& index)
-{
-  raft::spatial::knn::ivf_pq::detail::save(handle, filename, index);
-};
-
-void load(raft::device_resources const& handle,
-          const std::string& filename,
-          raft::neighbors::ivf_pq::index<uint64_t>* index)
-{
-  if (!index) { RAFT_FAIL("Invalid index pointer"); }
-  *index = raft::spatial::knn::ivf_pq::detail::load<uint64_t>(handle, filename);
-};
 }  // namespace raft::runtime::neighbors::ivf_pq

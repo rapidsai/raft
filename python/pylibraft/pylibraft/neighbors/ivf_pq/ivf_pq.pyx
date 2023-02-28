@@ -132,7 +132,8 @@ cdef class IndexParams:
                  pq_dim=0,
                  codebook_kind="subspace",
                  force_random_rotation=False,
-                 add_data_on_build=True):
+                 add_data_on_build=True,
+                 conservative_memory_allocation=False):
         """"
         Parameters to build index for IVF-PQ nearest neighbor search
 
@@ -187,6 +188,13 @@ cdef class IndexParams:
             the index with the dataset if add_data_on_build == True, otherwise
             the index is left empty, and the extend method can be used
             to add new vectors to the index.
+        conservative_memory_allocation : bool, default = True
+            By default, the algorithm allocates more space than necessary for
+            individual clusters (`list_data`). This allows to amortize the cost
+            of memory allocation and reduce the number of data copies during
+            repeated calls to `extend` (extending the database).
+            To disable this behavior and use as little GPU memory for the
+            database as possible, set this flat to `True`.
 
         """
         self.params.n_lists = n_lists
@@ -204,6 +212,8 @@ cdef class IndexParams:
             raise ValueError("Incorrect codebook kind %s" % codebook_kind)
         self.params.force_random_rotation = force_random_rotation
         self.params.add_data_on_build = add_data_on_build
+        self.params.conservative_memory_allocation = \
+            conservative_memory_allocation
 
     @property
     def n_lists(self):
@@ -241,6 +251,10 @@ cdef class IndexParams:
     def add_data_on_build(self):
         return self.params.add_data_on_build
 
+    @property
+    def conservative_memory_allocation(self):
+        return self.params.conservative_memory_allocation
+
 
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial
@@ -265,7 +279,7 @@ cdef class Index:
             <uint32_t>4,
             <uint32_t>8,
             <uint32_t>0,
-            <uint32_t>0)
+            <bool>False)
 
     def __dealloc__(self):
         if self.index is not NULL:
@@ -316,6 +330,10 @@ cdef class Index:
     @property
     def codebook_kind(self):
         return self.index[0].codebook_kind()
+
+    @property
+    def conservative_memory_allocation(self):
+        return self.index[0].conservative_memory_allocation()
 
 
 @auto_sync_handle
@@ -795,7 +813,7 @@ def save(filename, Index index, handle=None):
 
     cdef string c_filename = filename.encode('utf-8')
 
-    c_ivf_pq.save(deref(handle_), c_filename, deref(index.index))
+    c_ivf_pq.serialize(deref(handle_), c_filename, deref(index.index))
 
 
 @auto_sync_handle
@@ -852,7 +870,7 @@ def load(filename, handle=None):
     cdef string c_filename = filename.encode('utf-8')
     index = Index()
 
-    c_ivf_pq.load(deref(handle_), c_filename, index.index)
+    c_ivf_pq.deserialize(deref(handle_), c_filename, index.index)
     index.trained = True
 
     return index

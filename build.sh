@@ -57,6 +57,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
 "
 LIBRAFT_BUILD_DIR=${LIBRAFT_BUILD_DIR:=${REPODIR}/cpp/build}
 SPHINX_BUILD_DIR=${REPODIR}/docs
+DOXYGEN_BUILD_DIR=${REPODIR}/cpp/doxygen
 RAFT_DASK_BUILD_DIR=${REPODIR}/python/raft-dask/_skbuild
 PYLIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
 BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PYLIBRAFT_BUILD_DIR} ${RAFT_DASK_BUILD_DIR}"
@@ -452,7 +453,8 @@ fi
 
 if hasArg docs; then
     set -x
-    cmake --build ${LIBRAFT_BUILD_DIR} -v --target docs_raft
+    cd ${DOXYGEN_BUILD_DIR}
+    doxygen Doxyfile
     cd ${SPHINX_BUILD_DIR}
-    make html
+    sphinx-build -b html source _html
 fi

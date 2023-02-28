@@ -38,24 +38,24 @@ template <typename DataT,
           typename KVPReduceOpT,
           typename CoreLambda,
           typename FinalLambda>
-__global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
-                                                                   const DataT* x,
-                                                                   const DataT* y,
-                                                                   const DataT* xn,
-                                                                   const DataT* yn,
-                                                                   const uint64_t* adj,
-                                                                   const IdxT* group_idxs,
-                                                                   IdxT num_groups,
-                                                                   IdxT m,
-                                                                   IdxT n,
-                                                                   IdxT k,
-                                                                   bool sqrt,
-                                                                   DataT maxVal,
-                                                                   int* mutex,
-                                                                   ReduceOpT redOp,
-                                                                   KVPReduceOpT pairRedOp,
-                                                                   CoreLambda core_op,
-                                                                   FinalLambda fin_op)
+__global__ __launch_bounds__(P::Nthreads, 2) void masked_l2_nn_kernel(OutT* min,
+                                                                      const DataT* x,
+                                                                      const DataT* y,
+                                                                      const DataT* xn,
+                                                                      const DataT* yn,
+                                                                      const uint64_t* adj,
+                                                                      const IdxT* group_idxs,
+                                                                      IdxT num_groups,
+                                                                      IdxT m,
+                                                                      IdxT n,
+                                                                      IdxT k,
+                                                                      bool sqrt,
+                                                                      DataT maxVal,
+                                                                      int* mutex,
+                                                                      ReduceOpT redOp,
+                                                                      KVPReduceOpT pairRedOp,
+                                                                      CoreLambda core_op,
+                                                                      FinalLambda fin_op)
 {
   extern __shared__ char smem[];
 
@@ -181,7 +181,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
 }
 
 /**
- * @brief Wrapper for maskedL2NNkernel
+ * @brief Wrapper for masked_l2_nn_kernel
  *
  * Responsibilities:
  * - Allocate (and initialize) workspace memory for:
@@ -230,26 +230,26 @@ __global__ __launch_bounds__(P::Nthreads, 2) void maskedL2NNkernel(OutT* min,
  *
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void maskedL2NNImpl(raft::device_resources const& handle,
-                    OutT* out,
-                    const DataT* x,
-                    const DataT* y,
-                    const DataT* xn,
-                    const DataT* yn,
-                    const bool* adj,
-                    const IdxT* group_idxs,
-                    IdxT num_groups,
-                    IdxT m,
-                    IdxT n,
-                    IdxT k,
-                    ReduceOpT redOp,
-                    KVPReduceOpT pairRedOp,
-                    bool sqrt,
-                    bool initOutBuffer)
+void masked_l2_nn_impl(raft::device_resources const& handle,
+                       OutT* out,
+                       const DataT* x,
+                       const DataT* y,
+                       const DataT* xn,
+                       const DataT* yn,
+                       const bool* adj,
+                       const IdxT* group_idxs,
+                       IdxT num_groups,
+                       IdxT m,
+                       IdxT n,
+                       IdxT k,
+                       ReduceOpT redOp,
+                       KVPReduceOpT pairRedOp,
+                       bool sqrt,
+                       bool initOutBuffer)
 {
   typedef typename linalg::Policy4x4<DataT, 1>::Policy P;
 
-  static_assert(P::Mblk == 64, "maskedL2NNImpl only supports a policy with 64 rows per block.");
+  static_assert(P::Mblk == 64, "masked_l2_nn_impl only supports a policy with 64 rows per block.");
 
   // Get stream and workspace memory resource
   rmm::mr::device_memory_resource* ws_mr =
@@ -286,14 +286,14 @@ void maskedL2NNImpl(raft::device_resources const& handle,
   auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
   auto fin_op      = raft::identity_op{};
 
-  auto kernel               = maskedL2NNkernel<DataT,
-                                 OutT,
-                                 IdxT,
-                                 P,
-                                 ReduceOpT,
-                                 KVPReduceOpT,
-                                 decltype(core_lambda),
-                                 decltype(fin_op)>;
+  auto kernel               = masked_l2_nn_kernel<DataT,
+                                    OutT,
+                                    IdxT,
+                                    P,
+                                    ReduceOpT,
+                                    KVPReduceOpT,
+                                    decltype(core_lambda),
+                                    decltype(fin_op)>;
   constexpr size_t smemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
   dim3 block(P::Nthreads);
   dim3 grid = launchConfigGenerator<P>(m, n, smemSize, kernel);

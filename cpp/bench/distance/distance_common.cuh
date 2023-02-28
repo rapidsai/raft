@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,8 @@ struct distance : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      raft::distance::distance<DType, T, T, T>(x.data(),
+      raft::distance::distance<DType, T, T, T>(handle,
+                                               x.data(),
                                                y.data(),
                                                out.data(),
                                                params.m,
@@ -57,7 +58,6 @@ struct distance : public fixture {
                                                params.k,
                                                (void*)workspace.data(),
                                                worksize,
-                                               stream,
                                                params.isRowMajor);
     });
   }
