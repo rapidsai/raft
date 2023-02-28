@@ -35,7 +35,7 @@
 #include "ann.h"
 #include <hnswlib.h>
 
-namespace cuann {
+namespace raft::bench::ann {
 
 namespace {
 template <typename T>
@@ -328,6 +328,6 @@ void HnswLib<T>::get_search_knn_results_(const T* query,
   }
 }
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

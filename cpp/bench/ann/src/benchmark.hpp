@@ -30,9 +30,9 @@
 #include <unordered_set>
 #include <vector>
 
+#include "benchmark_util.hpp"
 #include "conf.h"
 #include "dataset.h"
-#include "factory.h"
 #include "util.h"
 
 using std::cerr;
@@ -43,12 +43,14 @@ using std::to_string;
 using std::unordered_set;
 using std::vector;
 using namespace benchmark;
-using cuann::MemoryType;
+using raft::bench::ann::MemoryType;
+
+namespace raft::bench::ann {
 
 // supported types: float, half (very few implementations support it), uint8_t, int8_t
 using data_t = float;
 
-bool check_file_exist(const vector<string>& files)
+inline bool check_file_exist(const vector<string>& files)
 {
   bool ret = true;
   unordered_set<string> processed;
@@ -62,7 +64,7 @@ bool check_file_exist(const vector<string>& files)
   return ret;
 }
 
-bool check_file_not_exist(const vector<string>& files, bool force_overwrite)
+inline bool check_file_not_exist(const vector<string>& files, bool force_overwrite)
 {
   bool ret = true;
   for (const auto& file : files) {
@@ -78,7 +80,7 @@ bool check_file_not_exist(const vector<string>& files, bool force_overwrite)
   return ret;
 }
 
-bool check_no_duplicate_file(const vector<string>& files)
+inline bool check_no_duplicate_file(const vector<string>& files)
 {
   bool ret = true;
   unordered_set<string> processed;
@@ -92,7 +94,7 @@ bool check_no_duplicate_file(const vector<string>& files)
   return ret;
 }
 
-bool mkdir(const vector<string>& dirs)
+inline bool mkdir(const vector<string>& dirs)
 {
   unordered_set<string> processed;
   for (const auto& dir : dirs) {
@@ -110,7 +112,9 @@ bool mkdir(const vector<string>& dirs)
   return true;
 }
 
-bool check(const vector<Configuration::Index>& indices, bool build_mode, bool force_overwrite)
+inline bool check(const vector<Configuration::Index>& indices,
+                  bool build_mode,
+                  bool force_overwrite)
 {
   vector<string> files_should_exist;
   vector<string> dirs_should_exist;
@@ -144,13 +148,13 @@ bool check(const vector<Configuration::Index>& indices, bool build_mode, bool fo
   return ret;
 }
 
-void write_build_info(const string& file_prefix,
-                      const string& dataset,
-                      const string& distance,
-                      const string& name,
-                      const string& algo,
-                      const string& build_param,
-                      float build_time)
+inline void write_build_info(const string& file_prefix,
+                             const string& dataset,
+                             const string& distance,
+                             const string& name,
+                             const string& algo,
+                             const string& build_param,
+                             float build_time)
 {
   std::ofstream ofs(file_prefix + ".txt");
   if (!ofs) { throw std::runtime_error("can't open build info file: " + file_prefix + ".txt"); }
@@ -225,21 +229,21 @@ void build(const benchmark::Dataset<T>* dataset, const vector<Configuration::Ind
   ANN_CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-void write_search_result(const string& file_prefix,
-                         const string& dataset,
-                         const string& distance,
-                         const string& name,
-                         const string& algo,
-                         const string& build_param,
-                         const string& search_param,
-                         int batch_size,
-                         int run_count,
-                         int k,
-                         float search_time_average,
-                         float search_time_p99,
-                         float search_time_p999,
-                         const int* neighbors,
-                         size_t query_set_size)
+inline void write_search_result(const string& file_prefix,
+                                const string& dataset,
+                                const string& distance,
+                                const string& name,
+                                const string& algo,
+                                const string& build_param,
+                                const string& search_param,
+                                int batch_size,
+                                int run_count,
+                                int k,
+                                float search_time_average,
+                                float search_time_p99,
+                                float search_time_p999,
+                                const int* neighbors,
+                                size_t query_set_size)
 {
   std::ofstream ofs(file_prefix + ".txt");
   if (!ofs) { throw std::runtime_error("can't open search result file: " + file_prefix + ".txt"); }
@@ -271,7 +275,8 @@ void write_search_result(const string& file_prefix,
 }
 
 template <typename T>
-void search(const benchmark::Dataset<T>* dataset, const vector<Configuration::Index>& indices)
+inline void search(const benchmark::Dataset<T>* dataset,
+                   const vector<Configuration::Index>& indices)
 {
   if (indices.empty()) { return; }
   cudaStream_t stream;
@@ -466,7 +471,7 @@ void search(const benchmark::Dataset<T>* dataset, const vector<Configuration::In
   ANN_CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-const string usage(const string& argv0)
+inline const string usage(const string& argv0)
 {
   return "usage: " + argv0 + " -b|s [-c] [-f] [-i index_names] conf.json\n" +
          "   -b: build mode, will build index\n" +
@@ -481,7 +486,7 @@ const string usage(const string& argv0)
          "       for example, -i \"hnsw1,hnsw2,faiss\" or -i \"hnsw*,faiss\"";
 }
 
-int main(int argc, char** argv)
+inline int run_main(int argc, char** argv)
 {
   bool force_overwrite = false;
   bool build_mode      = false;
@@ -553,3 +558,4 @@ int main(int argc, char** argv)
     return -1;
   }
 }
+}  // namespace raft::bench::ann

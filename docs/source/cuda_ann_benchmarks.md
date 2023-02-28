@@ -30,7 +30,7 @@ Available targets to use with `--limit-bench-ann` are:
 - RAFT_IVF_FLAT_ANN_BENCH
 - RAFT_BFKNN_ANN_BENCH
 
-By default, the `*_ANN_BENCH` executables program accept dataset of `float` type. To use other type, change the line `using data_t = float;` in `bench/ann/src/benchmark.cu` (or `bench/ann/src/benchmark/cpp` if benchmarking a non-CUDA algorithm) to the target type. For example, `using data_t = uint8_t;` will enable running `benchmark` with dataset of `uint8_t` type.
+By default, the `*_ANN_BENCH` executables program accept dataset of `float` type. To use other type, change the line `using data_t = float;` in `cpp/bench/ann/src/benchmark.cu` (or `cpp/bench/ann/src/benchmark/cpp` if benchmarking a non-CUDA algorithm) to the target type. For example, `using data_t = uint8_t;` will enable running `benchmark` with dataset of `uint8_t` type.
 
 
 ### Usage
@@ -46,7 +46,7 @@ A complete example (run from the RAFT source code root directory):
 # (1) prepare a dataset
 pip3 install numpy h5py # if they have not been installed already
 pushd
-cd bench/ann
+cd cpp/bench/ann
 mkdir data && cd data
 wget http://ann-benchmarks.com/glove-100-angular.hdf5
 # option -n is used here to normalize vectors so cosine distance is converted
@@ -67,7 +67,7 @@ popd
 
 # (4) evaluate result
 pushd
-cd bench/ann
+cd cpp/bench/ann
 ./scripts/eval.pl \
   -o result.csv \
   data/glove-100-inner/groundtruth.neighbors.ibin \
@@ -89,13 +89,13 @@ Some implementation can take `float16` database and query vectors as inputs and 
 Commonly used datasets can be downloaded from two websites:
 1.  Million-scale datasets can be found at the [Data sets](https://github.com/erikbern/ann-benchmarks#data-sets) section of [`ann-benchmarks`](https://github.com/erikbern/ann-benchmarks).
 
-    However, these datasets are in HDF5 format. Use `bench/ann/scripts/hdf5_to_fbin.py` to transform the format. A few Python packages are required to run it:
+    However, these datasets are in HDF5 format. Use `cpp/bench/ann/scripts/hdf5_to_fbin.py` to transform the format. A few Python packages are required to run it:
     ```
     pip3 install numpy h5py
     ```
     The usage of this script is:
     ```
-    $ bench/ann/scripts/hdf5_to_fbin.py
+    $ cpp/bench/ann/scripts/hdf5_to_fbin.py
     usage: scripts/hdf5_to_fbin.py [-n] <input>.hdf5
        -n: normalize base/query set
      outputs: <input>.base.fbin
@@ -110,13 +110,13 @@ Commonly used datasets can be downloaded from two websites:
 
 2.  Billion-scale datasets can be found at [`big-ann-benchmarks`](http://big-ann-benchmarks.com). The ground truth file contains both neighbors and distances, thus should be split. A script is provided for this:
     ```
-    $ bench/ann/scripts/split_groundtruth.pl
+    $ cpp/bench/ann/scripts/split_groundtruth.pl
     usage: script/split_groundtruth.pl input output_prefix
     ```
     Take Deep-1B dataset as an example:
     ```
     pushd
-    cd bench/ann
+    cd cpp/bench/ann
     mkdir -p data/deep-1B && cd data/deep-1B
     # download manually "Ground Truth" file of "Yandex DEEP"
     # suppose the file name is deep_new_groundtruth.public.10K.bin
@@ -130,7 +130,7 @@ Commonly used datasets can be downloaded from two websites:
 #### step 2: building index
 An index is a data structure to facilitate searching. Different algorithms may use different data structures for their index. We can use `RAFT_IVF_FLAT_ANN_BENCH -b` to build an index and save it to disk.
 
-To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configuration file is required. Refer to [`bench/ann/conf/glove-100-inner.json`](../../cpp/bench/ann/conf/glove-100-inner.json) as an example. Configuration file has 3 sections:
+To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configuration file is required. Refer to [`cpp/bench/ann/conf/glove-100-inner.json`](../../cpp/cpp/bench/ann/conf/glove-100-inner.json) as an example. Configuration file has 3 sections:
 * `dataset` section specifies the name and files of a dataset, and also the distance in use. Since the `*_ANN_BENCH` programs are for index building and searching, only `base_file` for database vectors and `query_file` for query vectors are needed. Ground truth files are for evaluation thus not needed.
     - To use only a subset of the base dataset, an optional parameter `subset_size` can be specified. It means using only the first `subset_size` vectors of `base_file` as the base dataset.
 * `search_basic_param` section specifies basic parameters for searching:
@@ -206,9 +206,9 @@ Use the `-s` flag on any of the `*_ANN_BENCH` executables. Other options are the
 
 
 #### step 4: evaluating results
-Use `bench/ann/scripts/eval.pl` to evaluate benchmark results. The usage is:
+Use `cpp/bench/ann/scripts/eval.pl` to evaluate benchmark results. The usage is:
 ```
-$ bench/ann/scripts/eval.pl
+$ cpp/bench/ann/scripts/eval.pl
 usage: [-f] [-o output.csv] groundtruth.neighbors.ibin result_paths...
   result_paths... are paths to the search result files.
     Can specify multiple paths.
@@ -221,7 +221,7 @@ usage: [-f] [-o output.csv] groundtruth.neighbors.ibin result_paths...
 Note that there can be multiple arguments for paths of result files. Each argument can be either a file name or a path. If it's a directory, all files found under it recursively will be used as input files.
 An example:
 ```
-bench/ann/scripts/eval.pl groundtruth.neighbors.ibin \
+cpp/bench/ann/scripts/eval.pl groundtruth.neighbors.ibin \
   result/glove-100-angular/10/hnsw/angular_M_24_*.txt \
   result/glove-100-angular/10/faiss/
 ```
@@ -234,7 +234,7 @@ It saves recall value in result txt file, so avoids to recompute recall if the s
 
 
 ## How to add a new ANN algorithm
-Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `bench/ann/src/ann.h`) and implements all the pure virtual functions.
+Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
 
 In addition, it should define two `struct`s for building and searching parameters. The searching parameter class should inherit `struct ANN<T>::AnnSearchParam`. Take `class HnswLib` as an example, its definition is:
 ```
@@ -273,7 +273,7 @@ The benchmark program uses JSON configuration file. To add the new algorithm to 
 },
 ```
 
-How to interpret these JSON objects is totally left to the implementation and should be specified in `bench/ann/src/factory.cuh`:
+How to interpret these JSON objects is totally left to the implementation and should be specified in `cpp/bench/ann/src/factory.cuh`:
 * First, add two functions for parsing JSON object to `struct BuildParam` and `struct SearchParam`, respectively:
     ```
     template<typename T>

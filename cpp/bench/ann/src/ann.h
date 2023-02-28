@@ -21,7 +21,7 @@
 
 #include <cuda_runtime_api.h>
 
-namespace cuann {
+namespace raft::bench::ann {
 
 enum class Metric {
   kInnerProduct,
@@ -84,6 +84,6 @@ class ANN {
   int dim_;
 };
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif  // ANN_H_

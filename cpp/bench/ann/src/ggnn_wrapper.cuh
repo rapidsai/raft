@@ -23,7 +23,7 @@
 #include "cudart_util.h"
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 
-namespace cuann {
+namespace raft::bench::ann {
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 class GgnnImpl;
@@ -304,6 +304,6 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
   ANN_CUDA_CHECK(cudaStreamSynchronize(ggnn_device.stream));
 }
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

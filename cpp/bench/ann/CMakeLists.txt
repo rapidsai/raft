@@ -32,6 +32,14 @@ if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
   set(RAFT_ANN_BENCH_USE_FAISS ON)
 endif()
 
+set(RAFT_ANN_BENCH_USE_RAFT OFF)
+if(RAFT_ANN_BENCH_USE_RAFT_BFKNN
+   OR RAFT_ANN_BENCH_USE_RAFT_IVFPQ
+   OR RAFT_ANN_BENCH_USE_RAFT_IVFFLAT
+)
+  set(RAFT_ANN_BENCH_USE_RAFT ON)
+endif()
+
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   message("Using hnswlib")
   include(cmake/thirdparty/get_hnswlib.cmake)
@@ -117,46 +125,32 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureCuannBench(
-    NAME HNSWLIB PATH bench/ann/src/benchmark.cpp INCLUDES
+    NAME HNSWLIB PATH bench/ann/src/hnswlib_benchmark.cpp INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS -mavx
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
+if(RAFT_ANN_BENCH_USE_RAFT)
   ConfigureCuannBench(
-    NAME RAFT_IVF_PQ PATH bench/ann/src/benchmark.cu bench/ann/src/raft_ivf_pq.cu LINKS
-    raft::distance raft::nn
+    NAME
+    RAFT_IVF_PQ
+    PATH
+    bench/ann/src/raft_benchmark.cu
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft_ivf_pq.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft_ivf_flat.cu>
+    LINKS
+    raft::distance
+    raft::nn
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
-  ConfigureCuannBench(
-    NAME RAFT_IVF_FLAT PATH bench/ann/src/benchmark.cu bench/ann/src/raft_ivf_flat.cu LINKS
-    raft::distance raft::nn
-  )
-endif()
-
-if(RAFT_ANN_BENCH_USE_RAFT_BFKNN)
-  ConfigureCuannBench(
-    NAME RAFT_IVF_FLAT PATH bench/ann/src/benchmark.cu LINKS raft::distance raft::nn
-  )
-endif()
-
-if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
-  ConfigureCuannBench(NAME FAISS_IVF_FLAT PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
-endif()
-
-if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
-  ConfigureCuannBench(NAME FAISS_IVF_PQ PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
-endif()
-
-if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
-  ConfigureCuannBench(NAME FAISS_BFKNN PATH bench/ann/src/benchmark.cu LINKS faiss::faiss)
+if(RAFT_ANN_BENCH_USE_FAISS)
+  ConfigureCuannBench(NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss_benchmark.cu LINKS faiss::faiss)
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
   ConfigureCuannBench(
-    NAME GGNN PATH bench/ann/src/benchmark.cu INCLUDES
+    NAME GGNN PATH bench/ann/src/ggnn_benchmark.cu INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include
   )
 endif()

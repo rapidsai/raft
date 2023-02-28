@@ -83,7 +83,7 @@ class DeviceRestorer {
 
 }  // namespace
 
-namespace cuann {
+namespace raft::bench::ann {
 
 template <typename T, typename Algo>
 class MultiGpuANN : public ANN<T> {
@@ -510,6 +510,6 @@ void MultiGpuANN<T, Algo>::reset_search_data_placement_(
     arr, from, all_result_size, k, batch_size, dev_cnt_);
 }
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

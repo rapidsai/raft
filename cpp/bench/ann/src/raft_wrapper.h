@@ -29,11 +29,11 @@
 
 namespace raft_temp {
 
-inline raft::distance::DistanceType parse_metric_type(cuann::Metric metric)
+inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric metric)
 {
-  if (metric == cuann::Metric::kInnerProduct) {
+  if (metric == raft::bench::ann::Metric::kInnerProduct) {
     return raft::distance::DistanceType::InnerProduct;
-  } else if (metric == cuann::Metric::kEuclidean) {
+  } else if (metric == raft::bench::ann::Metric::kEuclidean) {
     return raft::distance::DistanceType::L2Expanded;
   } else {
     throw std::runtime_error("raft supports only metric type of inner product and L2");
@@ -42,7 +42,7 @@ inline raft::distance::DistanceType parse_metric_type(cuann::Metric metric)
 
 }  // namespace raft_temp
 
-namespace cuann {
+namespace raft::bench::ann {
 
 // brute force fused L2 KNN - RAFT
 template <typename T>
@@ -150,6 +150,6 @@ void RaftGpu<T>::search(const T* queries,
                                          metric_type_);
 }
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

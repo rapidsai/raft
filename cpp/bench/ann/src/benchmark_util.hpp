@@ -13,9 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "raft_ivf_pq_wrapper.h"
+#pragma once
+
+#include <string>
+
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::string;
+using std::to_string;
+using std::unordered_set;
+using std::vector;
+using namespace benchmark;
+using raft::bench::ann::MemoryType;
 
 namespace raft::bench::ann {
-template class RaftIvfPQ<float, uint64_t>;
-template class RaftIvfPQ<uint8_t, uint64_t>;
+
+inline raft::bench::ann::Metric parse_metric(const std::string& metric_str)
+{
+  if (metric_str == "inner_product") {
+    return raft::bench::ann::Metric::kInnerProduct;
+  } else if (metric_str == "euclidean") {
+    return raft::bench::ann::Metric::kEuclidean;
+  } else {
+    throw std::runtime_error("invalid metric: '" + metric_str + "'");
+  }
+}
 }  // namespace raft::bench::ann

@@ -31,19 +31,19 @@
 #include <string>
 #include <type_traits>
 
-namespace cuann {
+namespace raft::bench::ann {
 
-inline raft::distance::DistanceType parse_metric_type(cuann::Metric metric)
+inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric metric)
 {
-  if (metric == cuann::Metric::kInnerProduct) {
+  if (metric == raft::bench::ann::Metric::kInnerProduct) {
     return raft::distance::DistanceType::InnerProduct;
-  } else if (metric == cuann::Metric::kEuclidean) {
+  } else if (metric == raft::bench::ann::Metric::kEuclidean) {
     // Even for L2 expanded RAFT IVF Flat uses unexpanded formula
     return raft::distance::DistanceType::L2Expanded;
   } else {
     throw std::runtime_error("raft supports only metric type of inner product and L2");
   }
 }
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

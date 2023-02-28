@@ -20,21 +20,21 @@
 
 #include <cuda_runtime_api.h>
 
-#define ANN_CUDA_CHECK(call)                        \
-  {                                                 \
-    cuann::cuda_check_((call), __FILE__, __LINE__); \
+#define ANN_CUDA_CHECK(call)                                   \
+  {                                                            \
+    raft::bench::ann::cuda_check_((call), __FILE__, __LINE__); \
   }
 
 #ifndef NDEBUG
-#define ANN_CUDA_CHECK_LAST_ERROR()                    \
-  {                                                    \
-    cuann::cuda_check_last_error_(__FILE__, __LINE__); \
+#define ANN_CUDA_CHECK_LAST_ERROR()                               \
+  {                                                               \
+    raft::bench::ann::cuda_check_last_error_(__FILE__, __LINE__); \
   }
 #else
 #define ANN_CUDA_CHECK_LAST_ERROR()
 #endif
 
-namespace cuann {
+namespace raft::bench::ann {
 
 constexpr unsigned int WARP_FULL_MASK = 0xffffffff;
 constexpr int WARP_SIZE               = 32;
@@ -60,5 +60,5 @@ inline void cuda_check_last_error_(const char* file, int line)
   cuda_check_(err, file, line);
 }
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 #endif

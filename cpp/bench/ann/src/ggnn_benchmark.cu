@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "raft_ivf_pq_wrapper.h"
+#include "benchmark.hpp"
+#include "ggnn_benchmark.cuh"
 
-namespace raft::bench::ann {
-template class RaftIvfPQ<float, uint64_t>;
-template class RaftIvfPQ<uint8_t, uint64_t>;
-}  // namespace raft::bench::ann
+int run_main(int argc, char** argv) { return run_main(argc, argv); }

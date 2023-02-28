@@ -35,9 +35,9 @@
 
 #include "ann.h"
 #include "cudart_util.h"
-#include "raft_cuann_utils.h"
+#include "raft_ann_bench_utils.h"
 
-namespace cuann {
+namespace raft::bench::ann {
 
 template <typename T, typename IdxT>
 class RaftIvfPQ : public ANN<T> {
@@ -220,6 +220,6 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
   handle_.sync_stream();
   return;
 }
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif

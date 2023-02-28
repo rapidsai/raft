@@ -39,11 +39,11 @@
 
 namespace {
 
-faiss::MetricType parse_metric_type(cuann::Metric metric)
+faiss::MetricType parse_metric_type(raft::bench::ann::Metric metric)
 {
-  if (metric == cuann::Metric::kInnerProduct) {
+  if (metric == raft::bench::ann::Metric::kInnerProduct) {
     return faiss::METRIC_INNER_PRODUCT;
-  } else if (metric == cuann::Metric::kEuclidean) {
+  } else if (metric == raft::bench::ann::Metric::kEuclidean) {
     return faiss::METRIC_L2;
   } else {
     throw std::runtime_error("faiss supports only metric type of inner product and L2");
@@ -71,7 +71,7 @@ class OmpSingleThreadScope {
 
 }  // namespace
 
-namespace cuann {
+namespace raft::bench::ann {
 
 template <typename T>
 class FaissGpu : public ANN<T> {
@@ -310,6 +310,6 @@ class FaissGpuFlat : public FaissGpu<T> {
   }
 };
 
-}  // namespace cuann
+}  // namespace raft::bench::ann
 
 #endif
