@@ -818,9 +818,9 @@ void initScalableKMeansPlusPlus(raft::device_resources const& handle,
 template <typename DataT, typename IndexT>
 void kmeans_fit(raft::device_resources const& handle,
                 const KMeansParams& params,
-                raft::device_matrix_view<const DataT> X,
-                std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                raft::device_matrix_view<DataT> centroids,
+                raft::device_matrix_view<const DataT, IndexT> X,
+                std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+                raft::device_matrix_view<DataT, IndexT> centroids,
                 raft::host_scalar_view<DataT> inertia,
                 raft::host_scalar_view<IndexT> n_iter)
 {
@@ -982,10 +982,10 @@ void kmeans_fit(raft::device_resources const& handle,
 template <typename DataT, typename IndexT>
 void kmeans_predict(raft::device_resources const& handle,
                     const KMeansParams& params,
-                    raft::device_matrix_view<const DataT> X,
-                    std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                    raft::device_matrix_view<const DataT> centroids,
-                    raft::device_vector_view<IndexT> labels,
+                    raft::device_matrix_view<const DataT, IndexT> X,
+                    std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+                    raft::device_matrix_view<const DataT, IndexT> centroids,
+                    raft::device_vector_view<IndexT, IndexT> labels,
                     bool normalize_weight,
                     raft::host_scalar_view<DataT> inertia)
 {
@@ -1122,10 +1122,10 @@ void kmeans_predict(raft::device_resources const& handle,
 template <typename DataT, typename IndexT = int>
 void kmeans_fit_predict(raft::device_resources const& handle,
                         const KMeansParams& params,
-                        raft::device_matrix_view<const DataT> X,
-                        std::optional<raft::device_vector_view<const DataT>> sample_weight,
-                        std::optional<raft::device_matrix_view<DataT>> centroids,
-                        raft::device_vector_view<IndexT> labels,
+                        raft::device_matrix_view<const DataT, IndexT> X,
+                        std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
+                        std::optional<raft::device_matrix_view<DataT, IndexT>> centroids,
+                        raft::device_vector_view<IndexT, IndexT> labels,
                         raft::host_scalar_view<DataT> inertia,
                         raft::host_scalar_view<IndexT> n_iter)
 {

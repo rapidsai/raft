@@ -78,8 +78,17 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
-    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
+    NAME
+    CLUSTER_TEST
+    PATH
+    test/cluster/kmeans.cu
+    test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu
+    test/cluster/linkage.cu
+    test/cluster/kmeans_find_k.cu
+    OPTIONAL
+    DIST
+    NN
   )
 
   ConfigureTest(
