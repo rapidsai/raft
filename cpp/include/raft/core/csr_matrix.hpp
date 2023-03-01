@@ -197,7 +197,7 @@ class compressed_structure
    */
   view_type view()
   {
-    if (this->get_nnz() > 0) {
+    if (this->get_nnz() == 0) {
       RAFT_LOG_WARN(
         "Cannot create compressed_structure.view() because it has not been initialized (sparsity "
         "is 0)");

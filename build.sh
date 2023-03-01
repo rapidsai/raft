@@ -456,5 +456,5 @@ if hasArg docs; then
     cd ${DOXYGEN_BUILD_DIR}
     doxygen Doxyfile
     cd ${SPHINX_BUILD_DIR}
-    sphinx-build -b dirhtml source _html
+    sphinx-build -b html source _html
 fi
