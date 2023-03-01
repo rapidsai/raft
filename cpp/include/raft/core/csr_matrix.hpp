@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/span.hpp>
 #include <raft/core/sparse_types.hpp>
 
@@ -142,14 +142,14 @@ class compressed_structure
   using indices_container_type        = typename indices_container_policy_type::container_type;
 
   constexpr compressed_structure(
-    raft::device_resources const& handle,
+    raft::resources const& handle,
     IndptrType n_rows,
     IndicesType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<indptr_container_type>)
     : sparse_structure_type{n_rows, n_cols, nnz},
       handle_{handle},
-      cp_indptr_{handle.get_stream()},
-      cp_indices_{handle.get_stream()},
+      cp_indptr_{handle},
+      cp_indices_{handle},
       c_indptr_{cp_indptr_.create(n_rows + 1)},
       c_indices_{cp_indices_.create(nnz)} {};
 
@@ -215,12 +215,12 @@ class compressed_structure
   void initialize_sparsity(NZType nnz) override
   {
     sparse_structure_type::initialize_sparsity(nnz);
-    c_indptr_.resize(this->get_n_rows() + 1, handle_.get_stream());
-    c_indices_.resize(nnz, handle_.get_stream());
+    c_indptr_.resize(this->get_n_rows() + 1);
+    c_indices_.resize(nnz);
   }
 
  protected:
-  raft::device_resources const& handle_;
+  raft::resources const& handle_;
   indptr_container_policy_type cp_indptr_;
   indices_container_policy_type cp_indices_;
   indptr_container_type c_indptr_;
@@ -251,9 +251,9 @@ template <typename ElementType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy,
-          SparsityType type_enum  = SparsityType::OWNING,
-          typename structure_type = std::conditional_t<
-            type_enum == SparsityType::OWNING,
+          SparsityType sparsity_type = SparsityType::OWNING,
+          typename structure_type    = std::conditional_t<
+            sparsity_type == SparsityType::OWNING,
             compressed_structure<IndptrType, IndicesType, NZType, is_device, ContainerPolicy>,
             compressed_structure_view<IndptrType, IndicesType, NZType, is_device>>>
 class csr_matrix
@@ -265,7 +265,7 @@ class csr_matrix
  public:
   using element_type        = ElementType;
   using structure_view_type = typename structure_type::view_type;
-  static constexpr auto get_type_enum() { return type_enum; }
+  static constexpr auto get_sparsity_type() { return sparsity_type; }
   using sparse_matrix_type =
     sparse_matrix<ElementType,
                   structure_type,
@@ -274,8 +274,8 @@ class csr_matrix
                   ContainerPolicy>;
   using container_type = typename ContainerPolicy<ElementType>::container_type;
 
-  template <typename = typename std::enable_if<type_enum == SparsityType::OWNING>>
-  csr_matrix(raft::device_resources const& handle,
+  template <typename = typename std::enable_if<sparsity_type == SparsityType::OWNING>>
+  csr_matrix(raft::resources const& handle,
              IndptrType n_rows,
              IndicesType n_cols,
              NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
@@ -283,10 +283,9 @@ class csr_matrix
 
   // Constructor that owns the data but not the structure
 
-  template <typename = typename std::enable_if<type_enum == SparsityType::PRESERVING>>
-  csr_matrix(raft::device_resources const& handle,
-             std::shared_ptr<structure_type>
-               structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+  template <typename = typename std::enable_if<sparsity_type == SparsityType::PRESERVING>>
+  csr_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
+    std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
 
   /**
@@ -294,7 +293,7 @@ class csr_matrix
    * Please note this will resize the underlying memory buffers
    * @param nnz new sparsity to initialize.
    */
-  template <typename = std::enable_if<type_enum == SparsityType::OWNING>>
+  template <typename = std::enable_if<sparsity_type == SparsityType::OWNING>>
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);

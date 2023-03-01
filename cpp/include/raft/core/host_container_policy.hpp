@@ -22,9 +22,10 @@
  */
 #pragma once
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <vector>
 
-namespace raft::detail {
+namespace raft {
 
 /**
  * @brief A container policy for host mdarray.
@@ -47,7 +48,7 @@ class host_vector_policy {
 
   constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
     default;
-  explicit constexpr host_vector_policy(rmm::cuda_stream_view) noexcept(
+  explicit constexpr host_vector_policy(raft::resources const& res) noexcept(
     std::is_nothrow_default_constructible_v<ElementType>)
     : host_vector_policy()
   {
@@ -66,4 +67,4 @@ class host_vector_policy {
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
-}  // namespace raft::detail
+}  // namespace raft

@@ -15,7 +15,10 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
 
 namespace raft {
@@ -126,7 +129,7 @@ void test_device_flatten()
 
     three_d_extents extents{3, 3, 3};
     typename three_d_mdarray::mapping_type layout{extents};
-    typename three_d_mdarray::container_policy_type policy{handle.get_stream()};
+    typename three_d_mdarray::container_policy_type policy{handle};
     three_d_mdarray mda{layout, policy};
 
     auto flat_view = flatten(mda);
@@ -186,7 +189,7 @@ void test_reshape()
 
     four_d_extents extents{2, 2, 2, 2};
     typename four_d_mdarray::mapping_type layout{extents};
-    typename four_d_mdarray::container_policy_type policy{handle.get_stream()};
+    typename four_d_mdarray::container_policy_type policy{handle};
     four_d_mdarray mda{layout, policy};
 
     auto matrix = reshape(mda, raft::extents<int, dynamic_extent, dynamic_extent>{4, 4});

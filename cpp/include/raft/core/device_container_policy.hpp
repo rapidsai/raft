@@ -22,19 +22,20 @@
  */
 #pragma once
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/detail/span.hpp>  // dynamic_extent
 #include <raft/core/host_device_accessor.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 #include <thrust/device_ptr.h>
 
-namespace raft::detail {
+namespace raft {
 /**
  * @brief A simplified version of thrust::device_reference with support for CUDA stream.
  */
@@ -137,7 +138,7 @@ class device_uvector {
     return device_reference<T const>{thrust::device_ptr<T const>{data_.data() + i}, data_.stream()};
   }
 
-  void resize(size_type size, rmm::cuda_stream_view stream) { data_.resize(size, stream); }
+  void resize(size_type size) { data_.resize(size, data_.stream()); }
 
   [[nodiscard]] auto data() noexcept -> pointer { return data_.data(); }
   [[nodiscard]] auto data() const noexcept -> const_pointer { return data_.data(); }
@@ -148,8 +149,7 @@ class device_uvector {
  */
 template <typename ElementType>
 class device_uvector_policy {
-  rmm::cuda_stream_view stream_;
-  rmm::mr::device_memory_resource* mr_;
+  raft::resources const& res_;
 
  public:
   using element_type   = ElementType;
@@ -166,17 +166,12 @@ class device_uvector_policy {
  public:
   auto create(size_t n) -> container_type
   {
-    return mr_ ? container_type(n, stream_, mr_) : container_type(n, stream_);
+    return container_type(
+      n, resource::get_cuda_stream(res_), resource::get_workspace_resource(res_));
   }
 
   device_uvector_policy() = delete;
-  explicit device_uvector_policy(
-    rmm::cuda_stream_view stream,
-    rmm::mr::device_memory_resource* mr =
-      nullptr) noexcept(std::is_nothrow_copy_constructible_v<rmm::cuda_stream_view>)
-    : stream_{stream}, mr_(mr)
-  {
-  }
+  device_uvector_policy(raft::resources const& res) : res_{res} {}
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -192,4 +187,4 @@ class device_uvector_policy {
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
 
-}  // namespace raft::detail
+}  // namespace raft

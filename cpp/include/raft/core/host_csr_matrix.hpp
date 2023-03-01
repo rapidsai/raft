@@ -16,10 +16,8 @@
 #pragma once
 
 #include <raft/core/csr_matrix.hpp>
-#include <raft/core/device_container_policy.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/device_span.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/detail/host_mdarray.hpp>
+#include <raft/core/host_span.hpp>
 #include <raft/core/sparse_types.hpp>
 #include <type_traits>
 
@@ -29,24 +27,24 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy,
+          template <typename T> typename ContainerPolicy = detail::host_vector_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
-using device_csr_matrix =
+using host_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy, sparsity_type>;
 
 /**
- * Specialization for a sparsity-owning csr matrix which uses device memory
+ * Specialization for a sparsity-owning csr matrix which uses host memory
  */
 template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_sparsity_owning_csr_matrix =
+          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+using host_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
 template <typename T>
-struct is_device_csr_matrix : std::false_type {
+struct is_host_csr_matrix : std::false_type {
 };
 
 template <typename ElementType,
@@ -56,65 +54,65 @@ template <typename ElementType,
           template <typename T>
           typename ContainerPolicy,
           SparsityType sparsity_type>
-struct is_device_csr_matrix<
-  device_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, sparsity_type>>
+struct is_host_csr_matrix<
+  host_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, sparsity_type>>
   : std::true_type {
 };
 
 template <typename T>
-constexpr bool is_device_csr_matrix_v = is_device_csr_matrix<T>::value;
+constexpr bool is_host_csr_matrix_v = is_host_csr_matrix<T>::value;
 
 template <typename T>
-constexpr bool is_device_csr_sparsity_owning_v =
-  is_device_csr_matrix<T>::value and T::get_sparsity_type() == OWNING;
+constexpr bool is_host_csr_sparsity_owning_v =
+  is_host_csr_matrix<T>::value and T::get_sparsity_type() == OWNING;
 
 template <typename T>
-constexpr bool is_device_csr_sparsity_preserving_v =
-  is_device_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
+constexpr bool is_host_csr_sparsity_preserving_v =
+  is_host_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
 
 /**
- * Specialization for a csr matrix view which uses device memory
+ * Specialization for a csr matrix view which uses host memory
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
+using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
 
 /**
- * Specialization for a sparsity-preserving csr matrix which uses device memory
+ * Specialization for a sparsity-preserving csr matrix which uses host memory
  */
 template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
-                                                         IndptrType,
-                                                         IndicesType,
-                                                         NZType,
-                                                         true,
-                                                         ContainerPolicy,
-                                                         SparsityType::PRESERVING>;
+          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
+                                                       IndptrType,
+                                                       IndicesType,
+                                                       NZType,
+                                                       true,
+                                                       ContainerPolicy,
+                                                       SparsityType::PRESERVING>;
 
 /**
- * Specialization for a csr matrix view which uses device memory
+ * Specialization for a csr matrix view which uses host memory
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
+using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
 
 /**
- * Specialization for a sparsity-owning compressed structure which uses device memory
+ * Specialization for a sparsity-owning compressed structure which uses host memory
  */
 template <typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_compressed_structure =
+          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+using host_compressed_structure =
   compressed_structure<IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
 /**
- * Specialization for a sparsity-preserving compressed structure view which uses device memory
+ * Specialization for a sparsity-preserving compressed structure view which uses host memory
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
-using device_compressed_structure_view =
+using host_compressed_structure_view =
   compressed_structure_view<IndptrType, IndicesType, NZType, true>;
 
 /**
@@ -126,7 +124,6 @@ using device_compressed_structure_view =
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
- * @param[in] handle a raft handle for managing expensive device resources
  * @param[in] n_rows total number of rows in the matrix
  * @param[in] n_cols total number of columns in the matrix
  * @param[in] nnz number of non-zeros in the matrix if known [optional]
@@ -136,13 +133,10 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_device_csr_matrix(raft::device_resources const& handle,
-                            IndptrType n_rows,
-                            IndicesType n_cols,
-                            NZType nnz = 0)
+auto make_host_csr_matrix(IndptrType n_rows, IndicesType n_cols, NZType nnz = 0)
 {
-  return device_sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
-    handle, n_rows, n_cols, nnz);
+  return host_sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
+    n_rows, n_cols, nnz);
 }
 
 /**
@@ -154,7 +148,6 @@ auto make_device_csr_matrix(raft::device_resources const& handle,
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
- * @param[in] handle raft handle for managing expensive device resources
  * @param[in] structure_ a sparsity-preserving compressed structural view
  * @return a sparsity-preserving sparse matrix in compressed (csr) format
  */
@@ -162,14 +155,11 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_device_csr_matrix(
-  raft::device_resources const& handle,
-  device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+auto make_host_csr_matrix(
+  host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
-  return device_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
-    handle,
-    std::make_shared<device_compressed_structure_view<IndptrType, IndicesType, NZType>>(
-      structure_));
+  return host_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
+    std::make_shared<host_compressed_structure_view<IndptrType, IndicesType, NZType>>(structure_));
 }
 
 /**
@@ -180,7 +170,7 @@ auto make_device_csr_matrix(
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
- * @param[in] ptr a pointer to array of nonzero matrix elements on device (size nnz)
+ * @param[in] ptr a pointer to array of nonzero matrix elements on host (size nnz)
  * @param[in] structure_ a sparsity-preserving compressed sparse structural view
  * @return a sparsity-preserving csr matrix view
  */
@@ -188,11 +178,11 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_device_csr_matrix_view(
-  ElementType* ptr, device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+auto make_host_csr_matrix_view(
+  ElementType* ptr, host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
-  return device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
-    raft::device_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
+  return host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
+    raft::host_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
 }
 
 /**
@@ -203,7 +193,7 @@ auto make_device_csr_matrix_view(
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
- * @param[in] elements device span containing array of matrix elements (size nnz)
+ * @param[in] elements host span containing array of matrix elements (size nnz)
  * @param[in] structure_ a sparsity-preserving structural view
  * @return a sparsity-preserving csr matrix view
  */
@@ -211,13 +201,13 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_device_csr_matrix_view(
-  raft::device_span<ElementType> elements,
-  device_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+auto make_host_csr_matrix_view(
+  raft::host_span<ElementType> elements,
+  host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
   RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  return device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
+  return host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
     elements, std::make_shared(structure_));
 }
 
@@ -228,19 +218,15 @@ auto make_device_csr_matrix_view(
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
- * @param[in] handle raft handle for managing expensive device resources
  * @param[in] n_rows total number of rows
  * @param[in] n_cols total number of cols
  * @param[in] nnz total number of nonzeros, if known
  * @return a sparsity-owning compressed structure instance
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_compressed_structure(raft::device_resources const& handle,
-                               IndptrType n_rows,
-                               IndicesType n_cols,
-                               NZType nnz = 0)
+auto make_compressed_structure(IndptrType n_rows, IndicesType n_cols, NZType nnz = 0)
 {
-  return device_compressed_structure<IndptrType, IndicesType, NZType>(handle, n_rows, n_cols, nnz);
+  return host_compressed_structure<IndptrType, IndicesType, NZType>(n_rows, n_cols, nnz);
 }
 
 /**
@@ -259,12 +245,12 @@ auto make_compressed_structure(raft::device_resources const& handle,
  * @return a sparsity-preserving compressed structural view
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_device_csr_structure_view(
+auto make_host_csr_structure_view(
   IndptrType* indptr, IndicesType* indices, IndptrType n_rows, IndicesType n_cols, NZType nnz)
 {
-  return device_compressed_structure_view<IndptrType, IndicesType, NZType>(
-    raft::device_span<IndptrType>(indptr, n_rows + 1),
-    raft::device_span<IndicesType>(indices, nnz),
+  return host_compressed_structure_view<IndptrType, IndicesType, NZType>(
+    raft::host_span<IndptrType>(indptr, n_rows + 1),
+    raft::host_span<IndicesType>(indices, nnz),
     n_cols);
 }
 
@@ -282,11 +268,11 @@ auto make_device_csr_structure_view(
  *
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_device_csr_structure_view(raft::device_span<IndptrType> indptr,
-                                    raft::device_span<IndicesType> indices,
-                                    IndicesType n_cols)
+auto make_host_csr_structure_view(raft::host_span<IndptrType> indptr,
+                                  raft::host_span<IndicesType> indices,
+                                  IndicesType n_cols)
 {
-  return device_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
+  return host_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
 
 };  // namespace raft

@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/span.hpp>
 #include <raft/core/sparse_types.hpp>
 
@@ -54,7 +54,7 @@ template <typename RowType, typename ColType, typename NZType, bool is_device>
 class coordinate_structure_view
   : public coordinate_structure_t<RowType, ColType, NZType, is_device> {
  public:
-  static constexpr SparsityType type_enum = PRESERVING;
+  static constexpr SparsityType sparsity_type = PRESERVING;
   using view_type = coordinate_structure_view<RowType, ColType, NZType, is_device>;
   using row_type  = typename sparse_structure<RowType, ColType, NZType, is_device>::row_type;
   using col_type  = typename sparse_structure<RowType, ColType, NZType, is_device>::col_type;
@@ -122,7 +122,7 @@ template <typename RowType,
           typename ContainerPolicy>
 class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZType, is_device> {
  public:
-  static constexpr SparsityType type_enum = OWNING;
+  static constexpr SparsityType sparsity_type = OWNING;
   using sparse_structure_type = coordinate_structure_t<RowType, ColType, NZType, is_device>;
   using row_type              = typename sparse_structure_type::row_type;
   using col_type              = typename sparse_structure_type::col_type;
@@ -134,14 +134,14 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
   using col_container_type        = typename col_container_policy_type::container_type;
 
   coordinate_structure(
-    raft::device_resources const& handle,
+    raft::resources const& handle,
     row_type n_rows,
     col_type n_cols,
     nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<row_container_type>)
     : coordinate_structure_t<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
       handle_{handle},
-      cp_rows_{handle.get_stream()},
-      cp_cols_{handle.get_stream()},
+      cp_rows_{handle},
+      cp_cols_{handle},
       c_rows_{cp_rows_.create(0)},
       c_cols_{cp_cols_.create(0)} {};
 
@@ -202,12 +202,12 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
   void initialize_sparsity(nnz_type nnz)
   {
     sparse_structure_type::initialize_sparsity(nnz);
-    c_rows_.resize(nnz, handle_.get_stream());
-    c_cols_.resize(nnz, handle_.get_stream());
+    c_rows_.resize(nnz);
+    c_cols_.resize(nnz);
   }
 
  protected:
-  raft::device_resources const& handle_;
+  raft::resources const& handle_;
   row_container_policy_type cp_rows_;
   col_container_policy_type cp_cols_;
   row_container_type c_rows_;
@@ -236,9 +236,9 @@ template <typename ElementType,
           bool is_device,
           template <typename T>
           typename ContainerPolicy,
-          SparsityType type_enum  = SparsityType::OWNING,
-          typename structure_type = std::conditional_t<
-            type_enum == SparsityType::OWNING,
+          SparsityType sparsity_type = SparsityType::OWNING,
+          typename structure_type    = std::conditional_t<
+            sparsity_type == SparsityType::OWNING,
             coordinate_structure<RowType, ColType, NZType, is_device, ContainerPolicy>,
             coordinate_structure_view<RowType, ColType, NZType, is_device>>>
 class coo_matrix
@@ -257,20 +257,18 @@ class coo_matrix
                   coo_matrix_view<ElementType, RowType, ColType, NZType, is_device>,
                   is_device,
                   ContainerPolicy>;
-  template <typename = typename std::enable_if<type_enum == SparsityType::OWNING>>
-  coo_matrix(raft::device_resources const& handle,
+  template <typename = typename std::enable_if<sparsity_type == SparsityType::OWNING>>
+  coo_matrix(raft::resources const& handle,
              RowType n_rows,
              ColType n_cols,
              NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
 
   // Constructor that owns the data but not the structure
-  template <typename = typename std::enable_if<type_enum == SparsityType::PRESERVING>>
-  coo_matrix(raft::device_resources const& handle,
-             std::shared_ptr<structure_type>
-               structure) noexcept(std::is_nothrow_default_constructible_v<container_type>)
+  template <typename = typename std::enable_if<sparsity_type == SparsityType::PRESERVING>>
+  coo_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
+    std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
-
   /**
    * Return a view of the structure underlying this matrix
    * @return
@@ -282,7 +280,7 @@ class coo_matrix
    * Please note this will resize the underlying memory buffers
    * @param nnz new sparsity to initialize.
    */
-  template <typename = std::enable_if<type_enum == SparsityType::OWNING>>
+  template <typename = std::enable_if<sparsity_type == SparsityType::OWNING>>
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);

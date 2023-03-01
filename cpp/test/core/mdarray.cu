@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream.hpp>
@@ -65,7 +69,7 @@ namespace raft {
 void test_uvector_policy()
 {
   auto s = rmm::cuda_stream{};
-  detail::device_uvector<float> dvec(10, s);
+  device_uvector<float> dvec(10, s);
   auto a  = dvec[2];
   a       = 3;
   float c = a;
@@ -77,16 +81,16 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 void test_mdarray_basic()
 {
   using matrix_extent = stdex::extents<int, dynamic_extent, dynamic_extent>;
-  auto s              = rmm::cuda_stream_default;
+  raft::device_resources handle;
   {
     /**
      * device policy
      */
     layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
     using mdarray_t = device_mdarray<float, matrix_extent, layout_c_contiguous>;
-    auto policy     = mdarray_t::container_policy_type{s};
-    static_assert(std::is_same_v<typename decltype(policy)::accessor_type,
-                                 detail::device_uvector_policy<float>>);
+    auto policy     = mdarray_t::container_policy_type{handle};
+    static_assert(
+      std::is_same_v<typename decltype(policy)::accessor_type, device_uvector_policy<float>>);
     device_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
 
     array(0, 3) = 1;
@@ -97,7 +101,7 @@ void test_mdarray_basic()
 
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
-    thrust::for_each_n(rmm::exec_policy(s),
+    thrust::for_each_n(rmm::exec_policy(resource::get_cuda_stream(handle)),
                        thrust::make_counting_iterator(0ul),
                        1,
                        [d_view, p_status] __device__(auto i) {
@@ -105,19 +109,19 @@ void test_mdarray_basic()
                          d_view(0, 2) = 3;
                          if (d_view(0, 2) != 3) { myAtomicAdd(p_status, 1); }
                        });
-    check_status(p_status, s);
+    check_status(p_status, resource::get_cuda_stream(handle));
 
     // const ref access
     auto const& arr = array;
     ASSERT_EQ(arr(0, 3), 1);
     auto const_d_view = arr.view();
-    thrust::for_each_n(rmm::exec_policy(s),
+    thrust::for_each_n(rmm::exec_policy(resource::get_cuda_stream(handle)),
                        thrust::make_counting_iterator(0ul),
                        1,
                        [const_d_view, p_status] __device__(auto i) {
                          if (const_d_view(0, 3) != 1) { myAtomicAdd(p_status, 1); }
                        });
-    check_status(p_status, s);
+    check_status(p_status, resource::get_cuda_stream(handle));
 
     // utilities
     static_assert(array.rank_dynamic() == 2);
@@ -137,7 +141,7 @@ void test_mdarray_basic()
     using mdarray_t = host_mdarray<float, matrix_extent, layout_c_contiguous>;
     mdarray_t::container_policy_type policy;
     static_assert(
-      std::is_same_v<typename decltype(policy)::accessor_type, detail::host_vector_policy<float>>);
+      std::is_same_v<typename decltype(policy)::accessor_type, host_vector_policy<float>>);
     layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
     host_mdarray<float, matrix_extent, layout_c_contiguous> array{layout, policy};
 
@@ -160,7 +164,7 @@ void test_mdarray_basic()
     using static_extent = stdex::extents<int, 16, 16>;
     layout_c_contiguous::mapping<static_extent> layout{static_extent{}};
     using mdarray_t = device_mdarray<float, static_extent, layout_c_contiguous>;
-    mdarray_t::container_policy_type policy{s};
+    mdarray_t::container_policy_type policy{handle};
     device_mdarray<float, static_extent, layout_c_contiguous> array{layout, policy};
 
     static_assert(array.rank_dynamic() == 0);
@@ -256,17 +260,16 @@ TEST(MDArray, CopyMove)
   using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
-  auto s              = rmm::cuda_stream_default;
-  test_mdarray_copy_move<d_matrix_t>(rmm::exec_policy(s), [s]() { return policy_t{s}; });
+  raft::device_resources handle;
+  auto s = resource::get_cuda_stream(handle);
+  test_mdarray_copy_move<d_matrix_t>(rmm::exec_policy(s), [handle]() { return policy_t{handle}; });
 
   using h_matrix_t = host_mdarray<float, matrix_extent>;
-  test_mdarray_copy_move<h_matrix_t>(thrust::host,
-                                     []() { return detail::host_vector_policy<float>{}; });
+  test_mdarray_copy_move<h_matrix_t>(thrust::host, []() { return host_vector_policy<float>{}; });
 
   {
-    d_matrix_t arr;
-    auto s = rmm::cuda_stream();
-    policy_t policy{s};
+    d_matrix_t arr(handle);
+    policy_t policy{handle};
     matrix_extent extents{3, 3};
     d_matrix_t::layout_type::mapping<matrix_extent> layout{extents};
     d_matrix_t non_dft{layout, policy};
@@ -276,9 +279,9 @@ TEST(MDArray, CopyMove)
     ASSERT_EQ(arr.extent(0), non_dft.extent(0));
   }
   {
-    h_matrix_t arr;
+    h_matrix_t arr(handle);
     using h_policy_t = typename h_matrix_t::container_policy_type;
-    h_policy_t policy{s};
+    h_policy_t policy{handle};
     matrix_extent extents{3, 3};
     h_matrix_t::layout_type::mapping<matrix_extent> layout{extents};
     h_matrix_t non_dft{layout, policy};
@@ -487,8 +490,8 @@ TEST(MDSpan, LayoutRightPadded) { test_mdspan_layout_right_padded(); }
 void test_mdarray_padding()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
-  auto s             = rmm::cuda_stream_default;
-
+  raft::device_resources handle;
+  auto s = resource::get_cuda_stream(handle);
   {
     constexpr int rows            = 6;
     constexpr int cols            = 7;
@@ -504,9 +507,9 @@ void test_mdarray_padding()
     using padded_mdarray_type = device_mdarray<float, extents_type, padded_layout_row_major>;
     padded_layout_row_major::mapping<extents_type> layout(extents_type(rows, cols));
 
-    auto device_policy = padded_mdarray_type::container_policy_type{s};
+    auto device_policy = padded_mdarray_type::container_policy_type{handle};
     static_assert(std::is_same_v<typename decltype(device_policy)::accessor_type,
-                                 detail::device_uvector_policy<float>>);
+                                 device_uvector_policy<float>>);
     padded_mdarray_type padded_device_array{layout, device_policy};
 
     // direct access mdarray
@@ -519,7 +522,7 @@ void test_mdarray_padding()
 
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
-    thrust::for_each_n(rmm::exec_policy(s),
+    thrust::for_each_n(rmm::exec_policy(),
                        thrust::make_counting_iterator(0ul),
                        1,
                        [d_view, p_status] __device__(size_t i) {
@@ -731,7 +734,8 @@ struct TestElement1 {
 void test_mdspan_padding_by_type()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
-  auto s             = rmm::cuda_stream_default;
+  raft::device_resources handle;
+  auto s = rmm::cuda_stream_default;
 
   {
     constexpr int rows            = 6;
@@ -749,7 +753,7 @@ void test_mdspan_padding_by_type()
 
       using padded_mdarray_type =
         device_mdarray<TestElement1, extents_type, padded_layout_row_major>;
-      auto device_policy = padded_mdarray_type::container_policy_type{s};
+      auto device_policy = padded_mdarray_type::container_policy_type{handle};
 
       padded_layout_row_major::mapping<extents_type> layout{extents_type{rows, cols}};
       padded_mdarray_type padded_device_array{layout, device_policy};
@@ -776,7 +780,7 @@ void test_mdspan_padding_by_type()
                         alignment_bytes>::value>;
       using padded_mdarray_type =
         device_mdarray<TestElement1, extents_type, padded_layout_col_major>;
-      auto device_policy = padded_mdarray_type::container_policy_type{s};
+      auto device_policy = padded_mdarray_type::container_policy_type{handle};
 
       padded_layout_col_major::mapping<extents_type> layout{extents_type{rows, cols}};
       padded_mdarray_type padded_device_array{layout, device_policy};
@@ -803,6 +807,7 @@ TEST(MDSpan, MDSpanPaddingType) { test_mdspan_padding_by_type(); }
 void test_mdspan_aligned_matrix()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
+  raft::device_resources handle;
   constexpr int rows = 2;
   constexpr int cols = 10;
 
@@ -828,7 +833,7 @@ void test_mdspan_aligned_matrix()
   using extent_1d = stdex::extents<size_t, dynamic_extent>;
   layout_c_contiguous::mapping<extent_1d> layout_1d{extent_1d{rows * 32}};
   using mdarray_t    = device_mdarray<long, extent_1d, layout_c_contiguous>;
-  auto device_policy = mdarray_t::container_policy_type{s};
+  auto device_policy = mdarray_t::container_policy_type{handle};
   mdarray_t device_array_1d{layout_1d, device_policy};
 
   // direct access mdarray -- initialize with above data

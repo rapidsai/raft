@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,8 +169,9 @@ class mdarray
   using const_view_type = view_type_impl<element_type const>;
 
  public:
-  constexpr mdarray() noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : cp_{rmm::cuda_stream_default}, c_{cp_.create(0)} {};
+  constexpr mdarray(raft::resources const& handle) noexcept(
+    std::is_nothrow_default_constructible_v<container_type>)
+    : cp_{handle}, c_{cp_.create(0)} {};
   constexpr mdarray(mdarray const&) noexcept(std::is_nothrow_copy_constructible_v<container_type>) =
     default;
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =

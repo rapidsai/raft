@@ -17,9 +17,10 @@
 #pragma once
 
 #include <cstdint>
-#include <raft/core/detail/device_mdarray.hpp>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 
@@ -33,7 +34,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<ElementType>>
+          typename ContainerPolicy = device_uvector_policy<ElementType>>
 using device_mdarray =
   mdarray<ElementType, Extents, LayoutPolicy, device_accessor<ContainerPolicy>>;
 
@@ -80,12 +81,12 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_device_mdarray(raft::device_resources const& handle, extents<IndexType, Extents...> exts)
+auto make_device_mdarray(raft::resources const& handle, extents<IndexType, Extents...> exts)
 {
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
   typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle.get_stream()};
+  typename mdarray_t::container_policy_type policy{handle};
 
   return mdarray_t{layout, policy};
 }
@@ -104,14 +105,14 @@ template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous,
           size_t... Extents>
-auto make_device_mdarray(raft::device_resources const& handle,
+auto make_device_mdarray(raft::resources const& handle,
                          rmm::mr::device_memory_resource* mr,
                          extents<IndexType, Extents...> exts)
 {
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
   typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle.get_stream(), mr};
+  typename mdarray_t::container_policy_type policy{handle};
 
   return mdarray_t{layout, policy};
 }
@@ -130,10 +131,10 @@ auto make_device_mdarray(raft::device_resources const& handle,
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_device_matrix(raft::device_resources const& handle, IndexType n_rows, IndexType n_cols)
+auto make_device_matrix(raft::resources const& handle, IndexType n_rows, IndexType n_cols)
 {
   return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(
-    handle.get_stream(), make_extents<IndexType>(n_rows, n_cols));
+    handle, make_extents<IndexType>(n_rows, n_cols));
 }
 
 /**
@@ -146,11 +147,11 @@ auto make_device_matrix(raft::device_resources const& handle, IndexType n_rows, 
  * @return raft::device_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_device_scalar(raft::device_resources const& handle, ElementType const& v)
+auto make_device_scalar(raft::resources const& handle, ElementType const& v)
 {
   scalar_extent<IndexType> extents;
   using policy_t = typename device_scalar<ElementType>::container_policy_type;
-  policy_t policy{handle.get_stream()};
+  policy_t policy{handle};
   auto scalar = device_scalar<ElementType>{extents, policy};
   scalar(0)   = v;
   return scalar;
@@ -168,9 +169,9 @@ auto make_device_scalar(raft::device_resources const& handle, ElementType const&
 template <typename ElementType,
           typename IndexType    = std::uint32_t,
           typename LayoutPolicy = layout_c_contiguous>
-auto make_device_vector(raft::device_resources const& handle, IndexType n)
+auto make_device_vector(raft::resources const& handle, IndexType n)
 {
-  return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(handle.get_stream(),
+  return make_device_mdarray<ElementType, IndexType, LayoutPolicy>(handle,
                                                                    make_extents<IndexType>(n));
 }
 

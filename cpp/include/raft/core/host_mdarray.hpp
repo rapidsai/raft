@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <raft/core/host_mdspan.hpp>
 
-#include <raft/core/detail/host_mdarray.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {
@@ -33,7 +33,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::host_vector_policy<ElementType>>
+          typename ContainerPolicy = host_vector_policy<ElementType>>
 using host_mdarray = mdarray<ElementType, Extents, LayoutPolicy, host_accessor<ContainerPolicy>>;
 
 /**

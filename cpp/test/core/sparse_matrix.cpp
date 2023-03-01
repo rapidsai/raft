@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include <raft/core/device_coo_matrix.hpp>
-#include <raft/core/device_csr_matrix.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/host_coo_matrix.hpp>
+#include <raft/core/host_csr_matrix.hpp>
 #include <type_traits>
 
 namespace raft {
@@ -24,7 +23,7 @@ namespace raft {
 /**
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
-template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
+template <typename S, typename = std::enable_if_t<is_host_csr_matrix_v<S>>>
 bool test_csr_owning_ref(S& mat)
 {
   using IndptrType = typename S::structure_type::indptr_type;
@@ -35,7 +34,7 @@ bool test_csr_owning_ref(S& mat)
   return true;
 }
 
-template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_owning_v<S>>>
+template <typename S, typename = std::enable_if_t<is_host_csr_sparsity_owning_v<S>>>
 bool test_csr_sparsity_owning_ref(S& mat)
 {
   std::cout << "Sparsity owning value address: " << static_cast<void*>(mat.get_elements().data())
@@ -44,7 +43,7 @@ bool test_csr_sparsity_owning_ref(S& mat)
   return true;
 }
 
-template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_preserving_v<S>>>
+template <typename S, typename = std::enable_if_t<is_host_csr_sparsity_preserving_v<S>>>
 bool test_csr_sparsity_preserving_ref(S& mat)
 {
   std::cout << "Sparsity preserving value address: "
@@ -56,8 +55,7 @@ bool test_csr_sparsity_preserving_ref(S& mat)
 // just simple integration test, main tests are in mdspan ref implementation.
 void test_coo_matrix()
 {
-  raft::device_resources handle;
-  auto mat = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
+  auto mat = raft::make_host_coo_matrix<float, int, int, int>(5, 5);
 
   auto structure_view = mat.structure_view();
   //  auto sparse_view = mat.view();
@@ -78,12 +76,10 @@ void test_coo_matrix()
 
 void test_csr_matrix()
 {
-  raft::device_resources handle;
-  auto sparsity_owning = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
+  auto sparsity_owning = raft::make_host_csr_matrix<float, int, int, int>(5, 5);
 
-  auto comp_struct = raft::make_compressed_structure(handle, 5, 5, 5);
-  auto sparsity_preserving =
-    raft::make_device_csr_matrix<float, int, int>(handle, comp_struct.view());
+  auto comp_struct         = raft::make_compressed_structure(5, 5, 5);
+  auto sparsity_preserving = raft::make_host_csr_matrix<float, int, int>(comp_struct.view());
 
   auto structure_view = sparsity_owning.structure_view();
   //  auto sparse_view = mat.view();
