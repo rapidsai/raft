@@ -47,7 +47,7 @@ struct check_index_layout {
 };
 
 // TODO: Recompute this and come back to it.
-// template struct check_index_layout<sizeof(index<std::uint64_t>), 536>;
+template struct check_index_layout<sizeof(index<std::uint64_t>), 448>;
 
 /**
  * Save the index to file.

@@ -67,6 +67,8 @@ class resources {
    * Note that this does not create any new resources.
    */
   resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
+  resources(resources&&) = delete;
+  resources& operator=(resources&&) = delete;
 
   /**
    * @brief Returns true if a resource_factory has been registered for the
