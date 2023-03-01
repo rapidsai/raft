@@ -508,7 +508,8 @@ void lobpcg(
   bool largest          = true,
   int verbosityLevel    = 0)
 {
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream     = handle.get_stream();
+  auto thrust_exec_policy = handle.get_thrust_policy();
   // auto size_y         = 0;
   // if (Y_opt.has_value()) size_y = Y_opt.value().extent(1);
   auto n      = X.extent(0);
@@ -537,7 +538,8 @@ void lobpcg(
       // ApplyConstraints
   }*/
   auto BX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_x);
-  b_orthonormalize(handle, X, BX.view(), B_opt);
+  auto BXView = BX.view();
+  b_orthonormalize(handle, X, BXView, B_opt);
   // Compute the initial Ritz vectors: solve the eigenproblem.
   auto AX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, size_x);
   spmm(handle, A, X, AX.view());
@@ -557,7 +559,7 @@ void lobpcg(
 
   raft::linalg::gemm(handle, X, eigVector.view(), X);
   raft::linalg::gemm(handle, AX.view(), eigVector.view(), AX.view());
-  if (B_opt) raft::linalg::gemm(handle, BX.view(), eigVector.view(), BX.view());
+  if (B_opt) raft::linalg::gemm(handle, BXView, eigVector.view(), BXView);
 
   // Active index set
   // TODO: use uint8_t
@@ -579,7 +581,7 @@ void lobpcg(
 
   std::int32_t iteration_number = -1;
   bool restart = true;
-  //bool explicitGramFlag = false;
+  bool explicitGramFlag = false;
   while (iteration_number < max_iter + 1) {
     iteration_number += 1;
     // auto lambda_matrix = raft::make_device_matrix_view<value_t, index_t,
@@ -588,7 +590,7 @@ void lobpcg(
       handle, BX.extent(0), eigLambda.extent(0));
     if (B_opt) {
       raft::matrix::copy(handle,
-                         raft::make_const_mdspan(BX.view()),
+                         raft::make_const_mdspan(BXView),
                          aux.view());
     } else {
       raft::matrix::copy(handle,
@@ -650,26 +652,33 @@ void lobpcg(
     if (verbosityLevel > 0) {
       // TODO add verb
     }
-    auto activeBlockVectorR =
+    auto activeR =
       raft::make_device_matrix<value_t, index_t, col_major>(handle, R.extent(0), currentBlockSize);
 
-    selectColsIf(handle, R.view(), active_mask.view(), activeBlockVectorR.view());
+    selectColsIf(handle, R.view(), active_mask.view(), activeR.view());
     
     if (iteration_number > 0)
     {
+      /* TODO
+      Pbuffer.resize(n * currentBlockSize, stream);
+      APbuffer.resize(n * currentBlockSize, stream);
+      BPbuffer.resize(n * currentBlockSize, stream);
       activePView = raft::make_device_matrix_view<value_t, index_t, col_major>(Pbuffer.data(), n, currentBlockSize);
       activeAPView = raft::make_device_matrix_view<value_t, index_t, col_major>(APbuffer.data(), n, currentBlockSize);
+      selectColsIf(handle, R.view(), active_mask.view(), activePView);
+      selectColsIf(handle, AP.view(), active_mask.view(), activeAPView);
       if (B_opt.has_value()) {
         activeBPView = raft::make_device_matrix_view<value_t, index_t, col_major>(BPbuffer.data(), n, currentBlockSize);
-      }
+        selectColsIf(handle, BP.view(), active_mask.view(), activeBPView);
+      }*/
     }
     if (M_opt.has_value())
     {
       // Apply preconditioner T to the active residuals.
       auto MRtemp =
         raft::make_device_matrix<value_t, index_t, col_major>(handle, R.extent(0), currentBlockSize);
-      spmm(handle, M_opt.value(), activeBlockVectorR.view(), MRtemp.view());
-      raft::copy(activeBlockVectorR.data_handle(), MRtemp.data_handle(), MRtemp.size(), stream);
+      spmm(handle, M_opt.value(), activeR.view(), MRtemp.view());
+      raft::copy(activeR.data_handle(), MRtemp.data_handle(), MRtemp.size(), stream);
     }
     // Apply constraints to the preconditioned residuals.
     if (Y_opt.has_value())
@@ -681,34 +690,35 @@ void lobpcg(
     if (B_opt.has_value())
     {
       auto BXT = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, BX.extent(1), BX.extent(0));
-      auto BXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, BXT.extent(0), activeBlockVectorR.extent(1));
+      auto BXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, BXT.extent(0), activeR.extent(1));
       auto XBXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, X.extent(0), BXTR.extent(1));
 
       raft::linalg::transpose(handle, BX.view(), BXT.view());
-      raft::linalg::gemm(handle, BXT.view(), activeBlockVectorR.view(), BXTR.view());
+      raft::linalg::gemm(handle, BXT.view(), activeR.view(), BXTR.view());
       raft::linalg::gemm(handle, X, BXTR.view(), XBXTR.view());
       raft::linalg::subtract(handle,
-                             raft::make_const_mdspan(activeBlockVectorR.view()),
+                             raft::make_const_mdspan(activeR.view()),
                              raft::make_const_mdspan(XBXTR.view()),
-                             activeBlockVectorR.view());
+                             activeR.view());
     } else {
       
-      auto XTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, XT.extent(0), activeBlockVectorR.extent(1));
+      auto XTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, XT.extent(0), activeR.extent(1));
       auto XXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, X.extent(0), XTR.extent(1));
 
-      raft::linalg::gemm(handle, XT.view(), activeBlockVectorR.view(), XTR.view());
+      raft::linalg::gemm(handle, XT.view(), activeR.view(), XTR.view());
       raft::linalg::gemm(handle, X, XTR.view(), XXTR.view());
       raft::linalg::subtract(handle,
-                             raft::make_const_mdspan(activeBlockVectorR.view()),
+                             raft::make_const_mdspan(activeR.view()),
                              raft::make_const_mdspan(XXTR.view()),
-                             activeBlockVectorR.view());
+                             activeR.view());
     }
     // B-orthonormalize the preconditioned residuals.
-    auto BR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, activeBlockVectorR.extent(0), activeBlockVectorR.extent(1));
-    b_orthonormalize(handle, activeBlockVectorR.view(), BR.view(), B_opt);
+    auto BR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, activeR.extent(0), activeR.extent(1));
+    auto BRView = BR.view();
+    b_orthonormalize(handle, activeR.view(), BRView, B_opt);
 
-    auto AR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, activeBlockVectorR.extent(1));
-    spmm(handle, A, activeBlockVectorR.view(), AR.view());
+    auto activeAR = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, n, activeR.extent(1));
+    spmm(handle, A, activeR.view(), activeAR.view());
 
     if (iteration_number > 0)
     {
@@ -717,12 +727,12 @@ void lobpcg(
       int b_orth_status = 0;
       if (B_opt.has_value())
       {
-        b_orth_status = b_orthonormalize(handle, activePView, activeBPView, B_opt, std::make_optional(invR.view()), std::make_optional(normal.view()), false);
-      } else
-      {
         auto BP = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, activePView.extent(0), activePView.extent(1));
         b_orth_status = b_orthonormalize(handle, activePView, BP.view(), B_opt, std::make_optional(invR.view()), std::make_optional(normal.view()));
-      }
+      } else
+      {
+        b_orth_status = b_orthonormalize(handle, activePView, activeBPView, B_opt, std::make_optional(invR.view()), std::make_optional(normal.view()), false);
+      } 
       if (b_orth_status != 0) {
         restart = true;
       } else {
@@ -730,6 +740,84 @@ void lobpcg(
         raft::linalg::gemm(handle, activeAPView, invR.view(), activeAPView);
         restart = false;
       }
+      
+      // Perform the Rayleigh Ritz Procedure:
+      // Compute symmetric Gram matrices:
+      value_t myeps = 1; // TODO: std::is_same_t<value_t, float> ? 1e-4 : 1e-8;
+      if (!explicitGramFlag)
+      {
+        value_t* residual_norms_max_elem = thrust::max_element(thrust_exec_policy,
+          residual_norms.data_handle(),
+          residual_norms.data_handle() + residual_norms.size());
+        value_t residual_norms_max = 0;
+        raft::copy(&residual_norms_max, residual_norms_max_elem, 1, stream);
+        explicitGramFlag = residual_norms_max <= myeps;
+      }
+
+      if (!B_opt.has_value())
+      {
+        // Shared memory assignments to simplify the code
+        BXView = raft::make_device_matrix_view<value_t, index_t, col_major>(X.data_handle(), n, currentBlockSize);
+        BRView = raft::make_device_matrix_view<value_t, index_t, col_major>(activeR.data_handle(), n, currentBlockSize);
+        //if (!restart) TODO
+          //activeBPView = raft::make_device_matrix_view<value_t, index_t, col_major>(P.data_handle(), n, currentBlockSize);
+      }
+    }
+    // Common submatrices
+    auto gramXAR = raft::make_device_matrix<value_t, index_t, col_major>(handle, X.extent(1), activeAR.extent(1));
+    auto gramRAR = raft::make_device_matrix<value_t, index_t, col_major>(handle, R.extent(1), activeAR.extent(1));
+    auto gramXBX = raft::make_device_matrix<value_t, index_t, col_major>(handle, X.extent(1), BX.extent(1));
+    auto gramRBR = raft::make_device_matrix<value_t, index_t, col_major>(handle, R.extent(1), BRView.extent(1));
+    auto gramXBR = raft::make_device_matrix<value_t, index_t, col_major>(handle, X.extent(1), BRView.extent(1));
+    raft::linalg::gemm(handle, 
+      raft::make_device_matrix_view<value_t, index_t, row_major>(X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+      activeAR.view(), gramXAR.view());
+
+    raft::linalg::gemm(handle, 
+      raft::make_device_matrix_view<value_t, index_t, row_major>(activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+      activeAR.view(), gramRAR.view());
+
+    if (explicitGramFlag)
+    {
+      auto device_half = raft::make_device_scalar<value_t>(handle, 0.5);
+      raft::linalg::gemm(handle,
+        raft::make_device_matrix_view<value_t, index_t, row_major>(gramRAR.data_handle(), gramRAR.extent(0), gramRAR.extent(1)),  // transpose for gemm
+        identView,
+        gramRAR.view(),
+        std::make_optional(device_half.view()),
+        std::make_optional(device_half.view()));
+      raft::linalg::gemm(handle, 
+        raft::make_device_matrix_view<value_t, index_t, row_major>(X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+        AX.view(), gramXAX.view());
+      raft::linalg::gemm(handle,
+        raft::make_device_matrix_view<value_t, index_t, row_major>(gramXAX.data_handle(), gramXAX.extent(0), gramXAX.extent(1)),  // transpose for gemm
+        identView,
+        gramXAX.view(),
+        std::make_optional(device_half.view()),
+        std::make_optional(device_half.view()));
+
+      raft::linalg::gemm(handle, 
+        raft::make_device_matrix_view<value_t, index_t, row_major>(X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+        BX.view(), gramXBX.view());
+      raft::linalg::gemm(handle,
+        raft::make_device_matrix_view<value_t, index_t, row_major>(activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+        BRView, gramRBR.view());
+      raft::linalg::gemm(handle,
+        raft::make_device_matrix_view<value_t, index_t, row_major>(X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+        BRView, gramXBR.view());
+    }
+    else
+    {
+      raft::matrix::fill(handle, gramXAX.view(), value_t(0));
+      raft::matrix::set_diagonal(handle, make_const_mdspan(eigLambda.view()), gramXAX.view());
+
+      raft::matrix::eye(handle, gramXBX.view());
+      raft::matrix::eye(handle, gramRBR.view());
+      raft::matrix::fill(handle, gramXBR.view(), value_t(0));
+    }
+    if (!restart)
+    {
+      //raft::linalg::gemm(handle)
     }
   }
   return;
