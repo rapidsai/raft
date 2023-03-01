@@ -139,11 +139,10 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
     col_type n_cols,
     nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<row_container_type>)
     : coordinate_structure_t<RowType, ColType, NZType, is_device>(n_rows, n_cols, nnz),
-      handle_{handle},
-      cp_rows_{handle},
-      cp_cols_{handle},
-      c_rows_{cp_rows_.create(0)},
-      c_cols_{cp_cols_.create(0)} {};
+      cp_rows_{},
+      cp_cols_{},
+      c_rows_{cp_rows_.create(handle, 0)},
+      c_cols_{cp_cols_.create(handle, 0)} {};
 
   coordinate_structure(coordinate_structure const&) noexcept(
     std::is_nothrow_copy_constructible_v<row_container_type>) = default;
@@ -207,7 +206,6 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
   }
 
  protected:
-  raft::resources const& handle_;
   row_container_policy_type cp_rows_;
   col_container_policy_type cp_cols_;
   row_container_type c_rows_;

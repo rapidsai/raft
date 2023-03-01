@@ -86,9 +86,9 @@ auto make_device_mdarray(raft::resources const& handle, extents<IndexType, Exten
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
   typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle};
+  typename mdarray_t::container_policy_type policy{};
 
-  return mdarray_t{layout, policy};
+  return mdarray_t{handle, layout, policy};
 }
 
 /**
@@ -112,9 +112,9 @@ auto make_device_mdarray(raft::resources const& handle,
   using mdarray_t = device_mdarray<ElementType, decltype(exts), LayoutPolicy>;
 
   typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{handle};
+  typename mdarray_t::container_policy_type policy{};
 
-  return mdarray_t{layout, policy};
+  return mdarray_t{handle, layout, policy};
 }
 
 /**
@@ -151,8 +151,8 @@ auto make_device_scalar(raft::resources const& handle, ElementType const& v)
 {
   scalar_extent<IndexType> extents;
   using policy_t = typename device_scalar<ElementType>::container_policy_type;
-  policy_t policy{handle};
-  auto scalar = device_scalar<ElementType>{extents, policy};
+  policy_t policy{};
+  auto scalar = device_scalar<ElementType>{handle, extents, policy};
   scalar(0)   = v;
   return scalar;
 }

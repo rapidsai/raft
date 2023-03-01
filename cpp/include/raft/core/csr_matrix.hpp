@@ -147,11 +147,10 @@ class compressed_structure
     IndicesType n_cols,
     NZType nnz = 0) noexcept(std::is_nothrow_default_constructible_v<indptr_container_type>)
     : sparse_structure_type{n_rows, n_cols, nnz},
-      handle_{handle},
-      cp_indptr_{handle},
-      cp_indices_{handle},
-      c_indptr_{cp_indptr_.create(n_rows + 1)},
-      c_indices_{cp_indices_.create(nnz)} {};
+      cp_indptr_{},
+      cp_indices_{},
+      c_indptr_{cp_indptr_.create(handle, n_rows + 1)},
+      c_indices_{cp_indices_.create(handle, nnz)} {};
 
   compressed_structure(compressed_structure const&) noexcept(
     std::is_nothrow_copy_constructible_v<indptr_container_type>) = default;
@@ -220,7 +219,6 @@ class compressed_structure
   }
 
  protected:
-  raft::resources const& handle_;
   indptr_container_policy_type cp_indptr_;
   indices_container_policy_type cp_indices_;
   indptr_container_type c_indptr_;

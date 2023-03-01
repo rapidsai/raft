@@ -162,18 +162,14 @@ class sparse_matrix {
                 row_type n_rows,
                 col_type n_cols,
                 nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : handle_{handle},
-      structure_{std::make_shared<structure_type>(handle, n_rows, n_cols, nnz)},
-      cp_{handle},
-      c_elements_{cp_.create(0)} {};
+    : structure_{std::make_shared<structure_type>(handle, n_rows, n_cols, nnz)},
+      cp_{},
+      c_elements_{cp_.create(handle, 0)} {};
 
   // Constructor that owns the data but not the structure
   sparse_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
-    : handle_{handle},
-      structure_{structure},
-      cp_{handle},
-      c_elements_{cp_.create(structure.get()->get_nnz())} {};
+    : structure_{structure}, cp_{}, c_elements_{cp_.create(handle, structure.get()->get_nnz())} {};
 
   constexpr sparse_matrix(sparse_matrix const&) noexcept(
     std::is_nothrow_copy_constructible_v<container_type>) = default;
@@ -213,7 +209,6 @@ class sparse_matrix {
   }
 
  protected:
-  raft::resources const& handle_;
   std::shared_ptr<structure_type> structure_;
   container_policy_type cp_;
   container_type c_elements_;

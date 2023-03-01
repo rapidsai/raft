@@ -235,10 +235,10 @@ auto make_device_csr_matrix_view(
  * @return a sparsity-owning compressed structure instance
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_compressed_structure(raft::device_resources const& handle,
-                               IndptrType n_rows,
-                               IndicesType n_cols,
-                               NZType nnz = 0)
+auto make_device_compressed_structure(raft::device_resources const& handle,
+                                      IndptrType n_rows,
+                                      IndicesType n_cols,
+                                      NZType nnz = 0)
 {
   return device_compressed_structure<IndptrType, IndicesType, NZType>(handle, n_rows, n_cols, nnz);
 }

@@ -17,8 +17,8 @@
 
 #include <raft/core/coo_matrix.hpp>
 #include <raft/core/device_container_policy.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/device_span.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/sparse_types.hpp>
 
 namespace raft {
@@ -94,7 +94,7 @@ using device_coordinate_structure_view = coordinate_structure_view<RowType, ColT
  * @return a sparsity-owning sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_device_coo_matrix(raft::device_resources const& handle,
+auto make_device_coo_matrix(raft::resources const& handle,
                             RowType n_rows,
                             ColType n_cols,
                             NZType nnz = 0)
@@ -117,7 +117,7 @@ auto make_device_coo_matrix(raft::device_resources const& handle,
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_device_coo_matrix(raft::device_resources const& handle,
+auto make_device_coo_matrix(raft::resources const& handle,
                             device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   return device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
@@ -181,10 +181,10 @@ auto make_device_coo_matrix_view(
  * @return a sparsity-owning coordinate structure instance
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_coordinate_structure(raft::device_resources const& handle,
-                               RowType n_rows,
-                               ColType n_cols,
-                               NZType nnz = 0)
+auto make_device_coordinate_structure(raft::resources const& handle,
+                                      RowType n_rows,
+                                      ColType n_cols,
+                                      NZType nnz = 0)
 {
   return device_coordinate_structure<RowType, ColType, NZType>(handle, n_rows, n_cols, nnz);
 }

@@ -44,15 +44,10 @@ class host_vector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type { return container_type(n); }
+  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
 
   constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
     default;
-  explicit constexpr host_vector_policy(raft::resources const& res) noexcept(
-    std::is_nothrow_default_constructible_v<ElementType>)
-    : host_vector_policy()
-  {
-  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {

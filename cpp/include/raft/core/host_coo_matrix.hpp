@@ -16,7 +16,7 @@
 #pragma once
 
 #include <raft/core/coo_matrix.hpp>
-#include <raft/core/detail/host_mdarray.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_span.hpp>
 #include <raft/core/sparse_types.hpp>
 
@@ -26,16 +26,16 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy,
+          template <typename T> typename ContainerPolicy = host_vector_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_coo_matrix =
-  coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy, sparsity_type>;
+  coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy, sparsity_type>;
 
 /**
  * Specialization for a coo matrix view which uses host memory
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-using host_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, true>;
+using host_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, false>;
 
 /**
  * Specialization for a sparsity-owning coo matrix which uses host memory
@@ -44,20 +44,20 @@ template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_sparsity_owning_coo_matrix =
-  coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy>;
+  coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy>;
 
 template <typename ElementType,
           typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
                                                        RowType,
                                                        ColType,
                                                        NZType,
-                                                       true,
+                                                       false,
                                                        ContainerPolicy,
                                                        SparsityType::PRESERVING>;
 
@@ -67,15 +67,15 @@ using host_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
 template <typename RowType,
           typename ColType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_coordinate_structure =
-  coordinate_structure<RowType, ColType, NZType, true, ContainerPolicy>;
+  coordinate_structure<RowType, ColType, NZType, false, ContainerPolicy>;
 
 /**
  * Specialization for a sparsity-preserving coordinate structure view which uses host memory
  */
 template <typename RowType, typename ColType, typename NZType>
-using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, true>;
+using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, false>;
 
 /**
  * Create a sparsity-owning sparse matrix in the coordinate format. sparsity-owning means that
@@ -92,10 +92,13 @@ using host_coordinate_structure_view = coordinate_structure_view<RowType, ColTyp
  * @return a sparsity-owning sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_host_coo_matrix(RowType n_rows, ColType n_cols, NZType nnz = 0)
+auto make_host_coo_matrix(raft::resources const& handle,
+                          RowType n_rows,
+                          ColType n_cols,
+                          NZType nnz = 0)
 {
   return host_sparsity_owning_coo_matrix<ElementType, RowType, ColType, NZType>(
-    n_rows, n_cols, nnz);
+    handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -111,10 +114,11 @@ auto make_host_coo_matrix(RowType n_rows, ColType n_cols, NZType nnz = 0)
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
-auto make_host_coo_matrix(host_coordinate_structure_view<RowType, ColType, NZType> structure_)
+auto make_host_coo_matrix(raft::resources const& handle,
+                          host_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   return host_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
-    std::make_shared(structure_));
+    handle, std::make_shared(structure_));
 }
 
 /**
@@ -173,9 +177,12 @@ auto make_host_coo_matrix_view(raft::host_span<ElementType> elements,
  * @return a sparsity-owning coordinate structure instance
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_coordinate_structure(RowType n_rows, ColType n_cols, NZType nnz = 0)
+auto make_host_coordinate_structure(raft::resources const& handle,
+                                    RowType n_rows,
+                                    ColType n_cols,
+                                    NZType nnz = 0)
 {
-  return host_coordinate_structure<RowType, ColType, NZType>(n_rows, n_cols, nnz);
+  return host_coordinate_structure<RowType, ColType, NZType>(handle, n_rows, n_cols, nnz);
 }
 
 /**

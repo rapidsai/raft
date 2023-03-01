@@ -16,8 +16,9 @@
 #pragma once
 
 #include <raft/core/csr_matrix.hpp>
-#include <raft/core/detail/host_mdarray.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_span.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/sparse_types.hpp>
 #include <type_traits>
 
@@ -27,10 +28,10 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy,
+          template <typename T> typename ContainerPolicy = host_vector_policy,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_csr_matrix =
-  csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy, sparsity_type>;
+  csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy, sparsity_type>;
 
 /**
  * Specialization for a sparsity-owning csr matrix which uses host memory
@@ -39,9 +40,9 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_sparsity_owning_csr_matrix =
-  csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
+  csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy>;
 
 template <typename T>
 struct is_host_csr_matrix : std::false_type {
@@ -74,7 +75,7 @@ constexpr bool is_host_csr_sparsity_preserving_v =
  * Specialization for a csr matrix view which uses host memory
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
+using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, false>;
 
 /**
  * Specialization for a sparsity-preserving csr matrix which uses host memory
@@ -83,12 +84,12 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
                                                        IndptrType,
                                                        IndicesType,
                                                        NZType,
-                                                       true,
+                                                       false,
                                                        ContainerPolicy,
                                                        SparsityType::PRESERVING>;
 
@@ -96,7 +97,7 @@ using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
  * Specialization for a csr matrix view which uses host memory
  */
 template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
+using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, false>;
 
 /**
  * Specialization for a sparsity-owning compressed structure which uses host memory
@@ -104,16 +105,16 @@ using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesTyp
 template <typename IndptrType,
           typename IndicesType,
           typename NZType,
-          template <typename T> typename ContainerPolicy = detail::host_vector_policy>
+          template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_compressed_structure =
-  compressed_structure<IndptrType, IndicesType, NZType, true, ContainerPolicy>;
+  compressed_structure<IndptrType, IndicesType, NZType, false, ContainerPolicy>;
 
 /**
  * Specialization for a sparsity-preserving compressed structure view which uses host memory
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
 using host_compressed_structure_view =
-  compressed_structure_view<IndptrType, IndicesType, NZType, true>;
+  compressed_structure_view<IndptrType, IndicesType, NZType, false>;
 
 /**
  * Create a sparsity-owning sparse matrix in the compressed-sparse row format. sparsity-owning
@@ -133,10 +134,13 @@ template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_host_csr_matrix(IndptrType n_rows, IndicesType n_cols, NZType nnz = 0)
+auto make_host_csr_matrix(raft::resources const& handle,
+                          IndptrType n_rows,
+                          IndicesType n_cols,
+                          NZType nnz = 0)
 {
   return host_sparsity_owning_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
-    n_rows, n_cols, nnz);
+    handle, n_rows, n_cols, nnz);
 }
 
 /**
@@ -156,9 +160,11 @@ template <typename ElementType,
           typename IndicesType,
           typename NZType = uint64_t>
 auto make_host_csr_matrix(
+  raft::resources const& handle,
   host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
 {
   return host_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
+    handle,
     std::make_shared<host_compressed_structure_view<IndptrType, IndicesType, NZType>>(structure_));
 }
 
@@ -224,9 +230,12 @@ auto make_host_csr_matrix_view(
  * @return a sparsity-owning compressed structure instance
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_compressed_structure(IndptrType n_rows, IndicesType n_cols, NZType nnz = 0)
+auto make_host_compressed_structure(raft::resources const& handle,
+                                    IndptrType n_rows,
+                                    IndicesType n_cols,
+                                    NZType nnz = 0)
 {
-  return host_compressed_structure<IndptrType, IndicesType, NZType>(n_rows, n_cols, nnz);
+  return host_compressed_structure<IndptrType, IndicesType, NZType>(handle, n_rows, n_cols, nnz);
 }
 
 /**

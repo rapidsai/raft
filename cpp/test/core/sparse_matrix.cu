@@ -25,7 +25,7 @@ namespace raft {
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
 template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
-bool test_csr_owning_ref(S& mat)
+bool test_device_csr_owning_ref(S& mat)
 {
   using IndptrType = typename S::structure_type::indptr_type;
 
@@ -36,7 +36,7 @@ bool test_csr_owning_ref(S& mat)
 }
 
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_owning_v<S>>>
-bool test_csr_sparsity_owning_ref(S& mat)
+bool test_device_csr_sparsity_owning_ref(S& mat)
 {
   std::cout << "Sparsity owning value address: " << static_cast<void*>(mat.get_elements().data())
             << std::endl;
@@ -45,7 +45,7 @@ bool test_csr_sparsity_owning_ref(S& mat)
 }
 
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_preserving_v<S>>>
-bool test_csr_sparsity_preserving_ref(S& mat)
+bool test_device_csr_sparsity_preserving_ref(S& mat)
 {
   std::cout << "Sparsity preserving value address: "
             << static_cast<void*>(mat.get_elements().data()) << std::endl;
@@ -54,7 +54,7 @@ bool test_csr_sparsity_preserving_ref(S& mat)
 }
 
 // just simple integration test, main tests are in mdspan ref implementation.
-void test_coo_matrix()
+void test_device_coo_matrix()
 {
   raft::device_resources handle;
   auto mat = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
@@ -76,12 +76,12 @@ void test_coo_matrix()
   ASSERT_EQ(structure_view2.get_nnz(), 5);
 }
 
-void test_csr_matrix()
+void test_device_csr_matrix()
 {
   raft::device_resources handle;
   auto sparsity_owning = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
 
-  auto comp_struct = raft::make_compressed_structure(handle, 5, 5, 5);
+  auto comp_struct = raft::make_device_compressed_structure(handle, 5, 5, 5);
   auto sparsity_preserving =
     raft::make_device_csr_matrix<float, int, int>(handle, comp_struct.view());
 
@@ -100,20 +100,20 @@ void test_csr_matrix()
   std::cout << "Value address: " << static_cast<void*>(sparsity_owning.get_elements().data())
             << std::endl;
 
-  test_csr_owning_ref(sparsity_owning);
-  test_csr_owning_ref(sparsity_preserving);
+  test_device_csr_owning_ref(sparsity_owning);
+  test_device_csr_owning_ref(sparsity_preserving);
 
-  test_csr_sparsity_owning_ref(sparsity_owning);
-  test_csr_sparsity_preserving_ref(sparsity_preserving);
+  test_device_csr_sparsity_owning_ref(sparsity_owning);
+  test_device_csr_sparsity_preserving_ref(sparsity_preserving);
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);
   ASSERT_EQ(structure_view2.get_n_rows(), 5);
   ASSERT_EQ(structure_view2.get_nnz(), 5);
 }
 
-TEST(SparseMatrix, Basic)
+TEST(DeviceSparseMatrix, Basic)
 {
-  test_csr_matrix();
-  test_coo_matrix();
+  test_device_csr_matrix();
+  test_device_coo_matrix();
 }
 }  // namespace raft

@@ -149,8 +149,6 @@ class device_uvector {
  */
 template <typename ElementType>
 class device_uvector_policy {
-  raft::resources const& res_;
-
  public:
   using element_type   = ElementType;
   using container_type = device_uvector<element_type>;
@@ -164,14 +162,12 @@ class device_uvector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type
+  auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(
-      n, resource::get_cuda_stream(res_), resource::get_workspace_resource(res_));
+    return container_type(n, resource::get_cuda_stream(res), resource::get_workspace_resource(res));
   }
 
-  device_uvector_policy() = delete;
-  device_uvector_policy(raft::resources const& res) : res_{res} {}
+  device_uvector_policy() = default;
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
