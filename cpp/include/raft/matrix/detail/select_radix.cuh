@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
@@ -30,6 +32,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 
 namespace raft::matrix::detail::select::radix {
 
