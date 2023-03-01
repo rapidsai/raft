@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
 repos:
       - repo: https://github.com/PyCQA/isort
@@ -17,7 +17,6 @@ repos:
                 files: python/.*
                 # Explicitly specify the pyproject.toml at the repo root, not per-project.
                 args: ["--config", "pyproject.toml"]
-                exclude: .*_version.py,.*versioneer.py
       - repo: https://github.com/PyCQA/flake8
         rev: 5.0.4
         hooks:
@@ -36,7 +35,6 @@ repos:
                        "python/pylibraft/pylibraft",
                        "python/raft-dask/raft_dask"]
                 pass_filenames: false
-                exclude: .*_version.py
       - repo: https://github.com/PyCQA/pydocstyle
         rev: 6.1.1
         hooks:
@@ -98,6 +96,11 @@ repos:
         hooks:
               - id: codespell
                 exclude: (?x)^(^CHANGELOG.md$)
+      - repo: https://github.com/rapidsai/dependency-file-generator
+        rev: v1.4.0
+        hooks:
+            - id: rapids-dependency-file-generator
+              args: ["--clean"]
 
 
 default_language_version:
