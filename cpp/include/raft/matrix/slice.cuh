@@ -74,6 +74,40 @@ void slice(raft::device_resources const& handle,
                       handle.get_stream());
 }
 
+/**
+ * @brief Insert a small matrix into a bigger matrix using a slice (in-place)
+ * @tparam m_t type of matrix elements
+ * @tparam idx_t integer type used for indexing
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix (column-major)
+ * @param[out] out: output matrix (column-major)
+ * @param[in] coords: coordinates of the insertion slice
+ * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice(handle, in, out, {0, 1, 4, 3});
+ */
+template <typename m_t, typename idx_t>
+void slice_insert(raft::device_resources const& handle,
+                  raft::device_matrix_view<m_t, idx_t, col_major> in,
+                  raft::device_matrix_view<m_t, idx_t, col_major> out,
+                  slice_coordinates<idx_t> coords)
+{
+  RAFT_EXPECTS(coords.row2 > coords.row1, "row2 must be > row1");
+  RAFT_EXPECTS(coords.col2 > coords.col1, "col2 must be > col1");
+  RAFT_EXPECTS(coords.row1 >= 0, "row1 must be >= 0");
+  RAFT_EXPECTS(coords.row2 <= out.extent(0), "row2 must be <= number of rows in the output matrix");
+  RAFT_EXPECTS(coords.col1 >= 0, "col1 must be >= 0");
+  RAFT_EXPECTS(coords.col2 <= out.extent(1),
+               "col2 must be <= number of columns in the output matrix");
+
+  detail::sliceMatrix_insert(in.data_handle(),
+                             out.extent(0),
+                             out.extent(1),
+                             out.data_handle(),
+                             coords.row1,
+                             coords.col1,
+                             coords.row2,
+                             coords.col2,
+                             handle.get_stream());
+}
 /** @} */  // end group matrix_slice
 
 }  // namespace raft::matrix

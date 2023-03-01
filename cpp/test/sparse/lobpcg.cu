@@ -111,6 +111,46 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
     ASSERT_TRUE(hostVecMatch(expected, res, raft::CompareApprox<math_t>(0.0001)));
   }
 
+  void test_bmat()
+  {
+    auto total = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 6, 6);
+    auto x1    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x2    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x3    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x4    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x5    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x6    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x7    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x8    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto x9    = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    raft::linalg::range(x1.data_handle(), 0, 4, handle.get_stream());
+    raft::linalg::range(x2.data_handle(), 4, 8, handle.get_stream());
+    raft::linalg::range(x3.data_handle(), 8, 12, handle.get_stream());
+    raft::linalg::range(x4.data_handle(), 12, 16, handle.get_stream());
+    raft::linalg::range(x5.data_handle(), 16, 20, handle.get_stream());
+    raft::linalg::range(x6.data_handle(), 20, 24, handle.get_stream());
+    raft::linalg::range(x7.data_handle(), 24, 28, handle.get_stream());
+    raft::linalg::range(x8.data_handle(), 28, 32, handle.get_stream());
+    raft::linalg::range(x9.data_handle(), 32, 36, handle.get_stream());
+    std::vector<raft::device_matrix_view<math_t, idx_t, col_major>> xs = {x1.view(),
+                                                                          x2.view(),
+                                                                          x3.view(),
+                                                                          x4.view(),
+                                                                          x5.view(),
+                                                                          x6.view(),
+                                                                          x7.view(),
+                                                                          x8.view(),
+                                                                          x9.view()};
+    raft::sparse::solver::detail::bmat(handle, total.view(), xs, 3);
+    std::vector<math_t> res(total.size());
+    std::vector<math_t> expected{0, 1, 12, 13, 24, 25, 2,  3,  14, 15, 26, 27,
+                                 4, 5, 16, 17, 28, 29, 6,  7,  18, 19, 30, 31,
+                                 8, 9, 20, 21, 32, 33, 10, 11, 22, 23, 34, 35};
+    raft::copy(res.data(), total.data_handle(), total.size(), handle.get_stream());
+    handle.sync_stream();
+    ASSERT_TRUE(hostVecMatch(expected, res, raft::CompareApprox<math_t>(0.0001)));
+  }
+
   void test_b_orthonormalize()
   {
     idx_t n_rows_v     = n_rows_a;
@@ -135,6 +175,7 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
 
   void Run()
   {
+    test_bmat();
     test_selectcolsif();
     test_b_orthonormalize();
     raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows_a, stream);
