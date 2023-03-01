@@ -500,6 +500,16 @@ void brute_force_knn_impl(
               metric == raft::distance::DistanceType::CorrelationExpanded) {
             tiled_metric = raft::distance::DistanceType::InnerProduct;
           }
+
+          // L2Expanded distance seems to cause a bunch of test failures in cuml
+          // revert to using L2Unexpanded while we figure this out
+          if (metric == raft::distance::DistanceType::L2Expanded) {
+            tiled_metric = raft::distance::DistanceType::L2Unexpanded;
+          }
+          if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
+            tiled_metric = raft::distance::DistanceType::L2SqrtUnexpanded;
+          }
+
           tiled_brute_force_knn<value_t, IdxType>(handle,
                                                   search,
                                                   index,
