@@ -316,6 +316,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
+  - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
   - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
 - `python`: Source code for Python libraries.
