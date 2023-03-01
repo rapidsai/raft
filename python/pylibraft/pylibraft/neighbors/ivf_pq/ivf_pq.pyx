@@ -23,15 +23,7 @@ import warnings
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport (
-    int8_t,
-    int32_t,
-    int64_t,
-    uint8_t,
-    uint32_t,
-    uint64_t,
-    uintptr_t,
-)
+from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
@@ -58,63 +50,17 @@ from rmm._lib.memory_resource cimport (
 )
 
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
-from pylibraft.common.cpp.mdspan cimport (
-    device_matrix_view,
-    make_device_matrix_view,
-    row_major,
+from pylibraft.common.cpp.mdspan cimport device_matrix_view
+from pylibraft.common.mdspan cimport (
+    get_dmv_float,
+    get_dmv_int8,
+    get_dmv_uint8,
+    get_dmv_uint64,
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
 )
-
-
-cdef device_matrix_view[float, uint64_t, row_major] \
-        get_device_matrix_view_float(array, check_shape=True) except *:
-    cai = array
-    if cai.dtype != np.float32:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[float, uint64_t, row_major](
-        <float*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef device_matrix_view[uint64_t, uint64_t, row_major] \
-        get_device_matrix_view_uint64(array, check_shape=True) except *:
-    cai = array
-    if cai.dtype != np.uint64:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[uint64_t, uint64_t, row_major](
-        <uint64_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef device_matrix_view[uint8_t, uint64_t, row_major] \
-        get_device_matrix_view_uint8(array, check_shape=True) except *:
-    cai = array
-    if cai.dtype != np.uint8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[uint8_t, uint64_t, row_major](
-        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef device_matrix_view[int8_t, uint64_t, row_major] \
-        get_device_matrix_view_int8(array, check_shape=True) except *:
-    cai = array
-    if cai.dtype != np.int8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[int8_t, uint64_t, row_major](
-        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
 def _get_metric(metric):
@@ -464,21 +410,21 @@ def build(IndexParams index_params, dataset, handle=None):
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           get_device_matrix_view_float(dataset_cai),
+                           get_dmv_float(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           get_device_matrix_view_int8(dataset_cai),
+                           get_dmv_int8(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           get_device_matrix_view_uint8(dataset_cai),
+                           get_dmv_uint8(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     else:
@@ -574,23 +520,20 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            get_device_matrix_view_float(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai,
-                                                          check_shape=False))
+                            get_dmv_float(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            get_device_matrix_view_int8(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai,
-                                                          check_shape=False))
+                            get_dmv_int8(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            get_device_matrix_view_uint8(vecs_cai),
-                            get_device_matrix_view_uint64(idx_cai,
-                                                          check_shape=False))
+                            get_dmv_uint8(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -779,28 +722,28 @@ def search(SearchParams search_params,
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            get_device_matrix_view_float(queries_cai),
+                            get_dmv_float(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_device_matrix_view_uint64(neighbors_cai),
-                            get_device_matrix_view_float(distances_cai))
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            get_device_matrix_view_int8(queries_cai),
+                            get_dmv_int8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_device_matrix_view_uint64(neighbors_cai),
-                            get_device_matrix_view_float(distances_cai))
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            get_device_matrix_view_uint8(queries_cai),
+                            get_dmv_uint8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_device_matrix_view_uint64(neighbors_cai),
-                            get_device_matrix_view_float(distances_cai))
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 
