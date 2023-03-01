@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "../test_utils.cuh"
+
 #include <gtest/gtest.h>
+#include <raft/core/device_buffer.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -946,5 +950,61 @@ void test_mdarray_unravel()
 }  // anonymous namespace
 
 TEST(MDArray, Unravel) { test_mdarray_unravel(); }
+
+TEST(DeviceBuffer, DevicePointer)
+{
+  {
+    raft::device_resources handle;
+    auto exts  = raft::make_extents<int>(5);
+    auto array = raft::make_device_mdarray<int, int>(handle, exts);
+
+    raft::device_buffer d_buf{handle, array.data_handle(), exts};
+
+    ASSERT_EQ(array.data_handle(), d_buf.view().data_handle());
+    static_assert(!std::is_const_v<typename decltype(d_buf.view())::element_type>,
+                  "element_type should not be const");
+  }
+
+  {
+    raft::device_resources handle;
+    auto exts        = raft::make_extents<int>(5);
+    auto const array = raft::make_device_mdarray<int, int>(handle, exts);
+
+    raft::device_buffer d_buf{handle, array.data_handle(), exts};
+
+    ASSERT_EQ(array.data_handle(), d_buf.view().data_handle());
+    static_assert(std::is_const_v<typename decltype(d_buf.view())::element_type>,
+                  "element_type should be const");
+  }
+}
+
+TEST(DeviceBuffer, HostPointerWithWriteBack)
+{
+  raft::device_resources handle;
+  auto exts  = raft::make_extents<int>(5);
+  auto array = raft::make_host_mdarray<int, int>(exts);
+  thrust::fill(array.data_handle(), array.data_handle() + array.extent(0), 1);
+  rmm::device_uvector<int> result(5, handle.get_stream());
+
+  {
+    raft::device_buffer d_buf{handle, array.data_handle(), exts, true};
+    auto d_view = d_buf.view();
+
+    thrust::fill(rmm::exec_policy(handle.get_stream()),
+                 d_view.data_handle(),
+                 d_view.data_handle() + d_view.extent(0),
+                 10);
+    raft::copy(result.data(), d_view.data_handle(), d_view.extent(0), handle.get_stream());
+
+    static_assert(!std::is_const_v<typename decltype(d_buf.view())::element_type>,
+                  "element_type should not be const");
+  }
+
+  ASSERT_TRUE(raft::devArrMatchHost(array.data_handle(),
+                                    result.data(),
+                                    array.extent(0),
+                                    raft::Compare<int>(),
+                                    handle.get_stream()));
+}
 
 }  // namespace raft
