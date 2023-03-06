@@ -58,15 +58,13 @@ template struct check_index_layout<sizeof(index<std::uint64_t>), 536>;
  *
  */
 template <typename IdxT>
-void serialize(raft::device_resources const& handle_,
-              std::ostream& os,
-              const index<IdxT>& index) {
-
+void serialize(raft::device_resources const& handle_, std::ostream& os, const index<IdxT>& index)
+{
   RAFT_LOG_DEBUG("Size %zu, dim %d, pq_dim %d, pq_bits %d",
-  static_cast<size_t>(index.size()),
-  static_cast<int>(index.dim()),
-  static_cast<int>(index.pq_dim()),
-  static_cast<int>(index.pq_bits()));
+                 static_cast<size_t>(index.size()),
+                 static_cast<int>(index.dim()),
+                 static_cast<int>(index.pq_dim()),
+                 static_cast<int>(index.pq_bits()));
 
   serialize_scalar(handle_, os, kSerializationVersion);
   serialize_scalar(handle_, os, index.size());
@@ -86,9 +84,9 @@ void serialize(raft::device_resources const& handle_,
 
   auto sizes_host = make_host_mdarray<uint32_t, uint32_t, row_major>(index.list_sizes().extents());
   copy(sizes_host.data_handle(),
-        index.list_sizes().data_handle(),
-        sizes_host.size(),
-        handle_.get_stream());
+       index.list_sizes().data_handle(),
+       sizes_host.size(),
+       handle_.get_stream());
   handle_.sync_stream();
   serialize_mdspan(handle_, os, sizes_host.view());
   auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
@@ -96,7 +94,6 @@ void serialize(raft::device_resources const& handle_,
     ivf::serialize_list<list_spec, IdxT, uint32_t>(
       handle_, os, index.lists()[label], list_store_spec, sizes_host(label));
   }
-
 }
 
 /**
