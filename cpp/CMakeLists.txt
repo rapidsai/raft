@@ -739,5 +739,3 @@ endif()
 if(BUILD_BENCH)
   include(bench/CMakeLists.txt)
 endif()
-
-include(template/CMakeLists.txt)
