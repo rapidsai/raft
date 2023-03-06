@@ -32,7 +32,6 @@ TEST(TemporaryDeviceBuffer, DevicePointer)
     auto exts  = raft::make_extents<int>(5);
     auto array = raft::make_device_mdarray<int, int>(handle, exts);
 
-    // raft::device_buffer d_buf{handle, array.data_handle(), exts};
     auto d_buf = raft::make_temporary_device_buffer(handle, array.data_handle(), exts);
 
     ASSERT_EQ(array.data_handle(), d_buf.view().data_handle());
@@ -45,7 +44,6 @@ TEST(TemporaryDeviceBuffer, DevicePointer)
     auto exts  = raft::make_extents<int>(5);
     auto array = raft::make_device_mdarray<int, int>(handle, exts);
 
-    // raft::device_buffer d_buf{handle, array.data_handle(), exts};
     auto d_buf = raft::make_readonly_temporary_device_buffer(handle, array.data_handle(), exts);
 
     ASSERT_EQ(array.data_handle(), d_buf.view().data_handle());
@@ -63,7 +61,6 @@ TEST(TemporaryDeviceBuffer, HostPointerWithWriteBack)
   rmm::device_uvector<int> result(5, handle.get_stream());
 
   {
-    // raft::device_buffer d_buf{handle, array.data_handle(), exts, true};
     auto d_buf  = raft::make_writeback_temporary_device_buffer(handle, array.data_handle(), exts);
     auto d_view = d_buf.view();
 
