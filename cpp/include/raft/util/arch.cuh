@@ -47,7 +47,7 @@ struct SM_generic {
   __host__ __device__ constexpr int value() const { return n; }
 };
 
-// A
+// A dummy kernel that is used to determine the runtime architecture.
 __global__ inline void dummy_runtime_kernel() {}
 }  // namespace inner
 
@@ -102,7 +102,7 @@ struct SM_runtime {
 // Computes which compute architecture of a kernel will run
 //
 // Semantics are described above in the documentation of SM_runtime.
-SM_runtime kernel_runtime_arch()
+inline SM_runtime kernel_runtime_arch()
 {
   auto kernel = inner::dummy_runtime_kernel;
   cudaFuncAttributes attributes;
