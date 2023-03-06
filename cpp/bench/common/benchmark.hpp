@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
-#include <raft/cudart_utils.h>
-#include <raft/interruptible.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/make_blobs.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <benchmark/benchmark.h>
 
@@ -110,7 +110,7 @@ class fixture {
   rmm::device_buffer scratch_buf_;
 
  public:
-  raft::handle_t handle;
+  raft::device_resources handle;
   rmm::cuda_stream_view stream;
 
   fixture() : stream{handle.get_stream()}

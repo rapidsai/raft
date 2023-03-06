@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.hpp>
+#include <raft/distance/specializations.cuh>
 #endif
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -91,7 +91,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     if (params.ld1 == 0) { params.ld1 = params.is_row_major ? params.n_cols : params.n1; }
     if (params.ld2 == 0) { params.ld2 = params.is_row_major ? params.n_cols : params.n2; }
     if (params.ld_out == 0) { params.ld_out = params.is_row_major ? params.n2 : params.n1; }
-    // Derive the size of the ouptut from the offset of the last element.
+    // Derive the size of the output from the offset of the last element.
     size_t size = get_offset(params.n1 - 1, params.n_cols - 1, params.ld1, params.is_row_major) + 1;
     x1.resize(size, stream);
     size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2, params.is_row_major) + 1;
@@ -170,7 +170,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
   GramMatrixInputs params;
 

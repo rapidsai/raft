@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  * Copyright 2020 KETAN DATE & RAKESH NAGI
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,7 +66,7 @@ void hungarian_test(int problemsize,
                     weight_t epsilon,
                     bool verbose = false)
 {
-  raft::handle_t handle;
+  raft::device_resources handle;
 
   weight_t* h_cost = new weight_t[batchsize * problemsize * problemsize];
 

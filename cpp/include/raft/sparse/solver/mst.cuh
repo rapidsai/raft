@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 namespace raft::sparse::solver {
 
 /**
- * Compute the minimium spanning tree (MST) or minimum spanning forest (MSF) depending on
+ * Compute the minimum spanning tree (MST) or minimum spanning forest (MSF) depending on
  * the connected components of the given graph.
  *
  * @tparam vertex_t integral type for precision of vertex indexing
@@ -44,7 +44,7 @@ namespace raft::sparse::solver {
  * when an msf is encountered)
  */
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t = weight_t>
-Graph_COO<vertex_t, edge_t, weight_t> mst(const raft::handle_t& handle,
+Graph_COO<vertex_t, edge_t, weight_t> mst(raft::device_resources const& handle,
                                           edge_t const* offsets,
                                           vertex_t const* indices,
                                           weight_t const* weights,

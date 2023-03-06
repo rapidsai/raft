@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ void make_blobs(DataT* out,
                 DataT center_box_min           = (DataT)-10.0,
                 DataT center_box_max           = (DataT)10.0,
                 uint64_t seed                  = 0ULL,
-                GeneratorType type             = GenPhilox)
+                GeneratorType type             = GenPC)
 {
   detail::make_blobs_caller(out,
                             labels,
@@ -92,6 +92,11 @@ void make_blobs(DataT* out,
                             seed,
                             type);
 }
+
+/**
+ * @defgroup make_blobs Generate Isotropic Gaussian Clusters
+ * @{
+ */
 
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_blobs
@@ -124,7 +129,7 @@ void make_blobs(DataT* out,
  */
 template <typename DataT, typename IdxT, typename layout>
 void make_blobs(
-  raft::handle_t const& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<DataT, IdxT, layout> out,
   raft::device_vector_view<IdxT, IdxT> labels,
   IdxT n_clusters                                                        = 5,
@@ -135,7 +140,7 @@ void make_blobs(
   DataT center_box_min                                                   = (DataT)-10.0,
   DataT center_box_max                                                   = (DataT)10.0,
   uint64_t seed                                                          = 0ULL,
-  GeneratorType type                                                     = GenPhilox)
+  GeneratorType type                                                     = GenPC)
 {
   if (centers.has_value()) {
     RAFT_EXPECTS(centers.value().extent(0) == (IdxT)n_clusters,
@@ -173,6 +178,9 @@ void make_blobs(
                             seed,
                             type);
 }
+
+/** @} */  // end group make_blobs
+
 }  // end namespace raft::random
 
 #endif

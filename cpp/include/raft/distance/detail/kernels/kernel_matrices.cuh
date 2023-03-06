@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ __global__ void polynomial_kernel_nopad(
  * @param inout device vector in column major format, size [ld * cols]
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
- * @param cols number of colums
+ * @param cols number of columns
  * @param exponent
  * @param gain
  * @param offset
@@ -85,7 +85,7 @@ __global__ void tanh_kernel_nopad(math_t* inout, size_t len, math_t gain, math_t
  * @param inout device vector in column major format, size [ld * cols]
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
- * @param cols number of colums
+ * @param cols number of columns
  * @param gain
  * @param offset
  */
@@ -359,7 +359,8 @@ class RBFKernel : public GramMatrixBase<math_t> {
                              math_t,
                              math_t,
                              decltype(fin_op),
-                             index_t>(const_cast<math_t*>(x1),
+                             index_t>(device_resources(stream),
+                                      const_cast<math_t*>(x1),
                                       const_cast<math_t*>(x2),
                                       out,
                                       n1,
@@ -368,7 +369,6 @@ class RBFKernel : public GramMatrixBase<math_t> {
                                       NULL,
                                       0,
                                       fin_op,
-                                      stream,
                                       is_row_major);
   }
 };

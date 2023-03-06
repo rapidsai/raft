@@ -1,28 +1,17 @@
 Cluster
 =======
 
-This page provides C++ class references for the publicly-exposed elements of the `raft/cluster` headers. RAFT provides
+This page provides C++ API references for the publicly-exposed elements of the `raft/cluster` headers. RAFT provides
 fundamental clustering algorithms which are, themselves, considered reusable building blocks for other algorithms.
 
-K-Means
--------
+.. role:: py(code)
+   :language: c++
+   :class: highlight
 
-.. doxygennamespace:: raft::cluster::kmeans
-    :project: RAFT
-    :members:
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-
-Hierarchical Clustering
------------------------
-
-.. doxygennamespace:: raft::cluster::hierarchy
-    :project: RAFT
-    :members:
-
-
-Spectral Clustering
--------------------
-
-.. doxygennamespace:: raft::spectral
-    :project: RAFT
-    :members:
+   cluster_kmeans.rst
+   cluster_slhc.rst
+   cluster_spectral.rst

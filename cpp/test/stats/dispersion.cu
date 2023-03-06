@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <optional>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/dispersion.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -95,7 +95,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
 
  protected:
   DispersionInputs<T> params;
-  raft::handle_t handle;
+  raft::device_resources handle;
   rmm::device_uvector<T> exp_mean, act_mean;
   cudaStream_t stream = 0;
   int npoints;

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,11 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 
-from pylibraft.common import Handle
+from pylibraft.common import DeviceResources, device_ndarray
 from pylibraft.random import rmat
-
-from pylibraft.testing.utils import TestDeviceBuffer
 
 
 def generate_theta(r_scale, c_scale):
@@ -35,7 +33,7 @@ def generate_theta(r_scale, c_scale):
         theta[4 * i + 1] = b / total
         theta[4 * i + 2] = c / total
         theta[4 * i + 3] = d / total
-    theta_device = TestDeviceBuffer(theta, "C")
+    theta_device = device_ndarray(theta)
     return theta, theta_device
 
 
@@ -46,9 +44,9 @@ def generate_theta(r_scale, c_scale):
 def test_rmat(n_edges, r_scale, c_scale, dtype):
     theta, theta_device = generate_theta(r_scale, c_scale)
     out_buff = np.empty((n_edges, 2), dtype=dtype)
-    output_device = TestDeviceBuffer(out_buff, "C")
+    output_device = device_ndarray(out_buff)
 
-    handle = Handle()
+    handle = DeviceResources()
     rmat(output_device, theta_device, r_scale, c_scale, 12345, handle=handle)
     handle.sync()
     output = output_device.copy_to_host()
@@ -69,7 +67,7 @@ def test_rmat_exception():
     dtype = np.int32
     with pytest.raises(Exception) as exception:
         out_buff = np.empty((n_edges, 2), dtype=dtype)
-        output_device = TestDeviceBuffer(out_buff, "C")
+        output_device = device_ndarray(out_buff)
         rmat(output_device, None, r_scale, c_scale, 12345)
         assert exception is not None
         assert exception.message == "'theta' cannot be None!"
@@ -85,7 +83,7 @@ def test_rmat_valueerror():
     r_scale = c_scale = 16
     with pytest.raises(ValueError) as exception:
         out_buff = np.empty((n_edges, 2), dtype=np.int16)
-        output_device = TestDeviceBuffer(out_buff, "C")
+        output_device = device_ndarray(out_buff)
         theta, theta_device = generate_theta(r_scale, c_scale)
         rmat(output_device, theta_device, r_scale, c_scale, 12345)
         assert exception is not None

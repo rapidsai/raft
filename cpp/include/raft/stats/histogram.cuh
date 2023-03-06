@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/stats/common.hpp>
 #include <raft/stats/detail/histogram.cuh>
+#include <raft/stats/stats_types.hpp>
 
 // This file is a shameless amalgamation of independent works done by
 // Lars Nyland and Andy Adinets
@@ -71,6 +71,11 @@ void histogram(HistType type,
 }
 
 /**
+ * @defgroup stats_histogram Histogram
+ * @{
+ */
+
+/**
  * @brief Perform histogram on the input data. It chooses the right load size
  * based on the input data vector length. It also supports large-bin cases
  * using a specialized smem-based hashing technique.
@@ -86,7 +91,7 @@ void histogram(HistType type,
  * @note signature of binner_op is `int func(value_t, IdxT);`
  */
 template <typename value_t, typename idx_t, typename binner_op = IdentityBinner<value_t, idx_t>>
-void histogram(const raft::handle_t& handle,
+void histogram(raft::device_resources const& handle,
                HistType type,
                raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
                raft::device_matrix_view<int, idx_t, raft::col_major> bins,
@@ -106,6 +111,9 @@ void histogram(const raft::handle_t& handle,
                                                handle.get_stream(),
                                                binner);
 }
+
+/** @} */  // end group stats_histogram
+
 };  // end namespace stats
 };  // end namespace raft
 

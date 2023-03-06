@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_sqrt Matrix Square Root
+ * @{
+ */
+
+/**
  * @brief Square root of every element in the input matrix
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam idx_t integer type used for indexing
@@ -33,7 +38,7 @@ namespace raft::matrix {
  * @param[out] out: output matrix. The result is stored in the out matrix
  */
 template <typename math_t, typename idx_t, typename layout>
-void sqrt(const raft::handle_t& handle,
+void sqrt(raft::device_resources const& handle,
           raft::device_matrix_view<const math_t, idx_t, layout> in,
           raft::device_matrix_view<math_t, idx_t, layout> out)
 {
@@ -50,7 +55,8 @@ void sqrt(const raft::handle_t& handle,
  * @param[inout] inout: input matrix with in-place results
  */
 template <typename math_t, typename idx_t, typename layout>
-void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
+void sqrt(raft::device_resources const& handle,
+          raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
   detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
 }
@@ -67,7 +73,7 @@ void sqrt(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, 
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_sqrt(const raft::handle_t& handle,
+void weighted_sqrt(raft::device_resources const& handle,
                    raft::device_matrix_view<const math_t, idx_t, layout> in,
                    raft::device_matrix_view<math_t, idx_t, layout> out,
                    raft::host_scalar_view<math_t> scalar,
@@ -93,7 +99,7 @@ void weighted_sqrt(const raft::handle_t& handle,
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_sqrt(const raft::handle_t& handle,
+void weighted_sqrt(raft::device_resources const& handle,
                    raft::device_matrix_view<math_t, idx_t, layout> inout,
                    raft::host_scalar_view<math_t> scalar,
                    bool set_neg_zero = false)
@@ -101,5 +107,7 @@ void weighted_sqrt(const raft::handle_t& handle,
   detail::seqRoot(
     inout.data_handle(), *(scalar.data_handle()), inout.size(), handle.get_stream(), set_neg_zero);
 }
+
+/** @} */  // end group matrix_sqrt
 
 }  // namespace raft::matrix

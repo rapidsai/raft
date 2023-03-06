@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 #include "detail/coalesced_reduction.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/operators.hpp>
 
 namespace raft {
 namespace linalg {
@@ -56,9 +57,9 @@ namespace linalg {
 template <typename InType,
           typename OutType      = InType,
           typename IdxType      = int,
-          typename MainLambda   = raft::Nop<InType, IdxType>,
-          typename ReduceLambda = raft::Sum<OutType>,
-          typename FinalLambda  = raft::Nop<OutType>>
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
 void coalescedReduction(OutType* dots,
                         const InType* data,
                         IdxType D,
@@ -66,9 +67,9 @@ void coalescedReduction(OutType* dots,
                         OutType init,
                         cudaStream_t stream,
                         bool inplace           = false,
-                        MainLambda main_op     = raft::Nop<InType, IdxType>(),
-                        ReduceLambda reduce_op = raft::Sum<OutType>(),
-                        FinalLambda final_op   = raft::Nop<OutType>())
+                        MainLambda main_op     = raft::identity_op(),
+                        ReduceLambda reduce_op = raft::add_op(),
+                        FinalLambda final_op   = raft::identity_op())
 {
   detail::coalescedReduction<InType, OutType, IdxType>(
     dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
@@ -100,7 +101,7 @@ void coalescedReduction(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param handle raft::handle_t
+ * @param handle raft::device_resources
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
@@ -112,21 +113,21 @@ void coalescedReduction(OutType* dots,
 template <typename InValueType,
           typename LayoutPolicy,
           typename OutValueType,
-          typename IndexType,
-          typename MainLambda   = raft::Nop<InValueType>,
-          typename ReduceLambda = raft::Sum<OutValueType>,
-          typename FinalLambda  = raft::Nop<OutValueType>>
-void coalesced_reduction(const raft::handle_t& handle,
-                         raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
-                         raft::device_vector_view<OutValueType, IndexType> dots,
+          typename IdxType,
+          typename MainLambda   = raft::identity_op,
+          typename ReduceLambda = raft::add_op,
+          typename FinalLambda  = raft::identity_op>
+void coalesced_reduction(raft::device_resources const& handle,
+                         raft::device_matrix_view<const InValueType, IdxType, LayoutPolicy> data,
+                         raft::device_vector_view<OutValueType, IdxType> dots,
                          OutValueType init,
                          bool inplace           = false,
-                         MainLambda main_op     = raft::Nop<InValueType>(),
-                         ReduceLambda reduce_op = raft::Sum<OutValueType>(),
-                         FinalLambda final_op   = raft::Nop<OutValueType>())
+                         MainLambda main_op     = raft::identity_op(),
+                         ReduceLambda reduce_op = raft::add_op(),
+                         FinalLambda final_op   = raft::identity_op())
 {
   if constexpr (std::is_same_v<LayoutPolicy, raft::row_major>) {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(0),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(0),
                  "Output should be equal to number of rows in Input");
 
     coalescedReduction(dots.data_handle(),
@@ -140,7 +141,7 @@ void coalesced_reduction(const raft::handle_t& handle,
                        reduce_op,
                        final_op);
   } else if constexpr (std::is_same_v<LayoutPolicy, raft::col_major>) {
-    RAFT_EXPECTS(static_cast<IndexType>(dots.size()) == data.extent(1),
+    RAFT_EXPECTS(static_cast<IdxType>(dots.size()) == data.extent(1),
                  "Output should be equal to number of columns in Input");
 
     coalescedReduction(dots.data_handle(),

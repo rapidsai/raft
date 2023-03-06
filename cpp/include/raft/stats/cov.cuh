@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ namespace stats {
  * function returns!
  */
 template <typename Type>
-void cov(const raft::handle_t& handle,
+void cov(raft::device_resources const& handle,
          Type* covar,
          Type* data,
          const Type* mu,
@@ -58,6 +58,11 @@ void cov(const raft::handle_t& handle,
 {
   detail::cov(handle, covar, data, mu, D, N, sample, rowMajor, stable, stream);
 }
+
+/**
+ * @defgroup stats_cov Covariance Matrix Construction
+ * @{
+ */
 
 /**
  * @brief Compute covariance of the input matrix
@@ -80,7 +85,7 @@ void cov(const raft::handle_t& handle,
  * function returns!
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void cov(const raft::handle_t& handle,
+void cov(raft::device_resources const& handle,
          raft::device_matrix_view<value_t, idx_t, layout_t> data,
          raft::device_vector_view<const value_t, idx_t> mu,
          raft::device_matrix_view<value_t, idx_t, layout_t> covar,
@@ -107,6 +112,9 @@ void cov(const raft::handle_t& handle,
               stable,
               handle.get_stream());
 }
+
+/** @} */  // end group stats_cov
+
 };  // end namespace stats
 };  // end namespace raft
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,30 @@
  */
 
 #pragma once
+
 #include <raft/distance/detail/pairwise_distance_base.cuh>
+#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft {
 namespace distance {
 namespace detail {
+
+template <typename DataT, typename AccT>
+struct L2ExpandedOp {
+  bool sqrt;
+
+  __device__ L2ExpandedOp() noexcept : sqrt(false) {}
+  __device__ L2ExpandedOp(bool isSqrt) noexcept : sqrt(isSqrt) {}
+  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  {
+    AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
+    return sqrt ? raft::sqrt(outVal) : outVal;
+  }
+
+  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+};
 
 /**
  * @brief the expanded euclidean distance matrix calculation implementer
@@ -71,71 +89,85 @@ void euclideanExpImpl(const DataT* x,
                       FinalLambda fin_op,
                       cudaStream_t stream)
 {
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
-  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
+#if (__CUDACC_VER_MAJOR__ < 12)
+  const auto deviceVersion = getComputeCapability();
+  if (deviceVersion.first >= 8) {
+    using L2Op = L2ExpandedOp<DataT, AccT>;
+    L2Op L2_dist_op(sqrt);
 
-  typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+    cutlassDistanceKernel<DataT, AccT, OutT, IdxT, VecLen, FinalLambda, L2Op, isRowMajor>(
+      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, fin_op, L2_dist_op, stream);
 
-  dim3 blk(KPolicy::Nthreads);
+  } else
+#endif
+  {
 
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
+    typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy RowPolicy;
+    typedef typename raft::linalg::Policy4x4<DataT, VecLen>::ColPolicy ColPolicy;
 
-  // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [sqrt] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                         DataT * regxn,
-                                         DataT * regyn,
-                                         IdxT gridStrideX,
-                                         IdxT gridStrideY) {
-#pragma unroll
-    for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
-#pragma unroll
-      for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
-      }
-    }
-    if (sqrt) {
+    typedef typename std::conditional<isRowMajor, RowPolicy, ColPolicy>::type KPolicy;
+
+    dim3 blk(KPolicy::Nthreads);
+
+    // Accumulation operation lambda
+    auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) { acc += x * y; };
+
+    // epilogue operation lambda for final value calculation
+    auto epilog_lambda = [sqrt] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
+                                           DataT * regxn,
+                                           DataT * regyn,
+                                           IdxT gridStrideX,
+                                           IdxT gridStrideY) {
 #pragma unroll
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
         }
       }
+      if (sqrt) {
+#pragma unroll
+        for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
+#pragma unroll
+          for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
+            acc[i][j] = raft::sqrt(acc[i][j]);
+          }
+        }
+      }
+    };
+
+    constexpr size_t shmemSize =
+      KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
+    if (isRowMajor) {
+      auto euclideanExpRowMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                         DataT,
+                                                                         AccT,
+                                                                         OutT,
+                                                                         IdxT,
+                                                                         KPolicy,
+                                                                         decltype(core_lambda),
+                                                                         decltype(epilog_lambda),
+                                                                         FinalLambda,
+                                                                         true>;
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
+
+      euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
+        x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
+    } else {
+      auto euclideanExpColMajor = pairwiseDistanceMatKernelPriorToAmpere<true,
+                                                                         DataT,
+                                                                         AccT,
+                                                                         OutT,
+                                                                         IdxT,
+                                                                         KPolicy,
+                                                                         decltype(core_lambda),
+                                                                         decltype(epilog_lambda),
+                                                                         FinalLambda,
+                                                                         false>;
+      dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
+      euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
+        x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
     }
-  };
-
-  constexpr size_t shmemSize =
-    KPolicy::SmemSize + ((KPolicy::Mblk + KPolicy::Nblk) * sizeof(DataT));
-  if (isRowMajor) {
-    auto euclideanExpRowMajor = pairwiseDistanceMatKernel<true,
-                                                          DataT,
-                                                          AccT,
-                                                          OutT,
-                                                          IdxT,
-                                                          KPolicy,
-                                                          decltype(core_lambda),
-                                                          decltype(epilog_lambda),
-                                                          FinalLambda,
-                                                          true>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpRowMajor);
-
-    euclideanExpRowMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
-  } else {
-    auto euclideanExpColMajor = pairwiseDistanceMatKernel<true,
-                                                          DataT,
-                                                          AccT,
-                                                          OutT,
-                                                          IdxT,
-                                                          KPolicy,
-                                                          decltype(core_lambda),
-                                                          decltype(epilog_lambda),
-                                                          FinalLambda,
-                                                          false>;
-    dim3 grid = launchConfigGenerator<KPolicy>(m, n, shmemSize, euclideanExpColMajor);
-    euclideanExpColMajor<<<grid, blk, shmemSize, stream>>>(
-      x, y, xn, yn, m, n, k, lda, ldb, ldd, dOutput, core_lambda, epilog_lambda, fin_op);
   }
 
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -164,6 +196,7 @@ void euclideanExp(IdxT m,
 {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
+
   if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
     euclideanExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
       x, y, xn, yn, m, n, k, lda, ldb, ldd, sqrt, dOutput, fin_op, stream);
@@ -215,10 +248,11 @@ void euclideanAlgo1(Index_ m,
                     cudaStream_t stream,
                     bool isRowMajor)
 {
-  auto norm_op = [] __device__(InType in) { return in; };
-
-  typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, OutType, AccType>::type ExpOutType;
+  // raft distance support inputs as float/double and output as uint8_t/float/double.
+  static_assert(!((sizeof(OutType) > 1) && (sizeof(AccType) != sizeof(OutType))),
+                "OutType can be uint8_t, float, double,"
+                "if sizeof(OutType) > 1 then sizeof(AccType) == sizeof(OutType).");
+  typedef typename std::conditional<sizeof(OutType) == 1, OutType, AccType>::type ExpOutType;
   ExpOutType* pDcast = reinterpret_cast<ExpOutType*>(pD);
 
   ASSERT(
@@ -231,10 +265,13 @@ void euclideanAlgo1(Index_ m,
   InType* row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
-    raft::linalg::rowNorm(row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+    raft::linalg::rowNorm(
+      row_vec, pB, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   } else {
-    raft::linalg::rowNorm(col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, norm_op);
+    raft::linalg::rowNorm(
+      col_vec, pA, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
   }
 
   if (isRowMajor) {
@@ -313,7 +350,7 @@ void euclideanUnExpImpl(const DataT* x,
       for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-          acc[i][j] = raft::mySqrt(acc[i][j]);
+          acc[i][j] = raft::sqrt(acc[i][j]);
         }
       }
     }

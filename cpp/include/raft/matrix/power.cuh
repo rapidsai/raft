@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_power Matrix Power Operations
+ * @{
+ */
+
+/**
  * @brief Power of every element in the input matrix
  * @tparam math_t type of matrix elements
  * @tparam idx_t integer type used for indexing
@@ -32,7 +37,7 @@ namespace raft::matrix {
  * @param[in] scalar: every element is multiplied with scalar.
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_power(const raft::handle_t& handle,
+void weighted_power(raft::device_resources const& handle,
                     raft::device_matrix_view<const math_t, idx_t, layout> in,
                     raft::device_matrix_view<math_t, idx_t, layout> out,
                     math_t scalar)
@@ -51,7 +56,7 @@ void weighted_power(const raft::handle_t& handle,
  * @param[in] scalar: every element is multiplied with scalar.
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_power(const raft::handle_t& handle,
+void weighted_power(raft::device_resources const& handle,
                     raft::device_matrix_view<math_t, idx_t, layout> inout,
                     math_t scalar)
 {
@@ -67,7 +72,8 @@ void weighted_power(const raft::handle_t& handle,
  * @param[inout] inout: input matrix and also the result is stored
  */
 template <typename math_t, typename idx_t, typename layout>
-void power(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
+void power(raft::device_resources const& handle,
+           raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
   detail::power<math_t>(inout.data_handle(), inout.size(), handle.get_stream());
 }
@@ -83,12 +89,14 @@ void power(const raft::handle_t& handle, raft::device_matrix_view<math_t, idx_t,
  * @{
  */
 template <typename math_t, typename idx_t, typename layout>
-void power(const raft::handle_t& handle,
+void power(raft::device_resources const& handle,
            raft::device_matrix_view<const math_t, idx_t, layout> in,
            raft::device_matrix_view<math_t, idx_t, layout> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be same size.");
   detail::power<math_t>(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
 }
+
+/** @} */  // end group matrix_power
 
 }  // namespace raft::matrix

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
@@ -29,8 +29,8 @@ template <typename T, typename IdxT>
 struct ArgMaxInputs {
   std::vector<T> input_matrix;
   std::vector<IdxT> output_matrix;
-  std::size_t n_cols;
   std::size_t n_rows;
+  std::size_t n_cols;
 };
 
 template <typename T, typename IdxT>
@@ -67,7 +67,7 @@ class ArgMaxTest : public ::testing::TestWithParam<ArgMaxInputs<T, IdxT>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   ArgMaxInputs<T, IdxT> params;
 
   raft::device_matrix<T, std::uint32_t, row_major> input;

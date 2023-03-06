@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <optional>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -106,8 +106,8 @@ class RegressionTest : public ::testing::TestWithParam<RegressionInputs<T>> {
   }
 
  protected:
+  raft::device_resources handle;
   RegressionInputs<T> params;
-  raft::handle_t handle;
   cudaStream_t stream           = 0;
   double mean_abs_error         = 0;
   double mean_squared_error     = 0;

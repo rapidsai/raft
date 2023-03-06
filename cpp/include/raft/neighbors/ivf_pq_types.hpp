@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,27 @@
 
 #pragma once
 
-#include "ann_types.hpp"
+#include <raft/neighbors/ann_types.hpp>
+#include <raft/neighbors/ivf_list_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/fill.h>
+
+#include <memory>
 #include <type_traits>
 
 namespace raft::neighbors::ivf_pq {
+
+/**
+ * @ingroup ivf_pq
+ * @{
+ */
 
 /** A type for specifying how PQ codebooks are created. */
 enum class codebook_gen {  // NOLINT
@@ -83,6 +94,16 @@ struct index_params : ann::index_params {
    * regardless of the values of `dim` and `pq_dim`.
    */
   bool force_random_rotation = false;
+  /**
+   * By default, the algorithm allocates more space than necessary for individual clusters
+   * (`list_data`). This allows to amortize the cost of memory allocation and reduce the number of
+   * data copies during repeated calls to `extend` (extending the database).
+   *
+   * The alternative is the conservative allocation behavior; when enabled, the algorithm always
+   * allocates the minimum amount of memory required to store the given number of records. Set this
+   * flag to `true` if you prefer to use as little GPU memory for the database as possible.
+   */
+  bool conservative_memory_allocation = false;
 };
 
 struct search_params : ann::search_params {
@@ -108,16 +129,89 @@ struct search_params : ann::search_params {
    */
   cudaDataType_t internal_distance_dtype = CUDA_R_32F;
   /**
-   * Thread block size of the distance calculation kernel at search time.
-   * When zero, an optimal block size is selected using a heuristic.
+   * Preferred fraction of SM's unified memory / L1 cache to be used as shared memory.
    *
-   * Possible values: [0, 256, 512, 1024]
+   * Possible values: [0.0 - 1.0] as a fraction of the `sharedMemPerMultiprocessor`.
+   *
+   * One wants to increase the carveout to make sure a good GPU occupancy for the main search
+   * kernel, but not to keep it too high to leave some memory to be used as L1 cache. Note, this
+   * value is interpreted only as a hint. Moreover, a GPU usually allows only a fixed set of cache
+   * configurations, so the provided value is rounded up to the nearest configuration. Refer to the
+   * NVIDIA tuning guide for the target GPU architecture.
+   *
+   * Note, this is a low-level tuning parameter that can have drastic negative effects on the search
+   * performance if tweaked incorrectly.
    */
-  uint32_t preferred_thread_block_size = 0;
+  double preferred_shmem_carveout = 1.0;
 };
 
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
+
+/** Size of the interleaved group. */
+constexpr static uint32_t kIndexGroupSize = 32;
+/** Stride of the interleaved group for vectorized loads. */
+constexpr static uint32_t kIndexGroupVecLen = 16;
+
+/**
+ * Default value returned by `search` when the `n_probes` is too small and top-k is too large.
+ * One may encounter it if the combined size of probed clusters is smaller than the requested
+ * number of results per query.
+ */
+template <typename IdxT>
+constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
+
+template <typename SizeT = uint32_t>
+struct list_spec {
+  using value_type = uint8_t;
+  /** PQ-encoded data stored in the interleaved format:
+   *
+   *    [ ceildiv(list_size, kIndexGroupSize)
+   *    , ceildiv(pq_dim, (kIndexGroupVecLen * 8u) / pq_bits)
+   *    , kIndexGroupSize
+   *    , kIndexGroupVecLen
+   *    ].
+   */
+  using list_extents =
+    extents<SizeT, dynamic_extent, dynamic_extent, kIndexGroupSize, kIndexGroupVecLen>;
+
+  SizeT align_max;
+  SizeT align_min;
+  uint32_t pq_bits;
+  uint32_t pq_dim;
+
+  constexpr list_spec(uint32_t pq_bits, uint32_t pq_dim, bool conservative_memory_allocation)
+    : pq_bits(pq_bits),
+      pq_dim(pq_dim),
+      align_min(kIndexGroupSize),
+      align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
+  {
+  }
+
+  // Allow casting between different size-types (for safer size and offset calculations)
+  template <typename OtherSizeT>
+  constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
+    : pq_bits{other_spec.pq_bits},
+      pq_dim{other_spec.pq_dim},
+      align_min{other_spec.align_min},
+      align_max{other_spec.align_max}
+  {
+  }
+
+  /** Determine the extents of an array enough to hold a given amount of data. */
+  constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
+  {
+    // how many elems of pq_dim fit into one kIndexGroupVecLen-byte chunk
+    auto pq_chunk = (kIndexGroupVecLen * 8u) / pq_bits;
+    return make_extents<SizeT>(div_rounding_up_safe<SizeT>(n_rows, kIndexGroupSize),
+                               div_rounding_up_safe<SizeT>(pq_dim, pq_chunk),
+                               kIndexGroupSize,
+                               kIndexGroupVecLen);
+  }
+};
+
+template <typename IdxT, typename SizeT = uint32_t>
+using list_data = ivf::list<list_spec, IdxT, SizeT>;
 
 /**
  * @brief IVF-PQ index.
@@ -171,7 +265,10 @@ struct index : ann::index {
 
  public:
   /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return indices_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
+  {
+    return accum_sorted_sizes_(n_lists());
+  }
   /** Dimensionality of the input data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t { return dim_; }
   /**
@@ -215,11 +312,14 @@ struct index : ann::index {
     return codebook_kind_;
   }
   /** Number of clusters/inverted lists (first level quantization). */
-  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return n_lists_; }
-  /** Number of non-empty clusters/inverted lists. */
-  [[nodiscard]] constexpr inline auto n_nonempty_lists() const noexcept -> uint32_t
+  [[nodiscard]] constexpr inline auto n_lists() const noexcept -> uint32_t { return lists_.size(); }
+  /**
+   * Whether to use convervative memory allocation when extending the list (cluster) data
+   * (see index_params.conservative_memory_allocation).
+   */
+  [[nodiscard]] constexpr inline auto conservative_memory_allocation() const noexcept -> bool
   {
-    return n_nonempty_lists_;
+    return conservative_memory_allocation_;
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
@@ -230,42 +330,37 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
+  index(raft::device_resources const& handle,
         raft::distance::DistanceType metric,
         codebook_gen codebook_kind,
         uint32_t n_lists,
         uint32_t dim,
-        uint32_t pq_bits          = 8,
-        uint32_t pq_dim           = 0,
-        uint32_t n_nonempty_lists = 0)
+        uint32_t pq_bits                    = 8,
+        uint32_t pq_dim                     = 0,
+        bool conservative_memory_allocation = false)
     : ann::index(),
       metric_(metric),
       codebook_kind_(codebook_kind),
-      n_lists_(n_lists),
       dim_(dim),
       pq_bits_(pq_bits),
       pq_dim_(pq_dim == 0 ? calculate_pq_dim(dim) : pq_dim),
-      n_nonempty_lists_(n_nonempty_lists),
+      conservative_memory_allocation_(conservative_memory_allocation),
       pq_centers_{make_device_mdarray<float>(handle, make_pq_centers_extents())},
-      pq_dataset_{make_device_mdarray<uint8_t>(
-        handle, make_extents<IdxT>(0, this->pq_dim() * this->pq_bits() / 8))},
-      indices_{make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))},
-      rotation_matrix_{
-        make_device_mdarray<float>(handle, make_extents<uint32_t>(this->rot_dim(), this->dim()))},
-      list_offsets_{make_device_mdarray<IdxT>(handle, make_extents<uint32_t>(this->n_lists() + 1))},
-      centers_{make_device_mdarray<float>(
-        handle, make_extents<uint32_t>(this->n_lists(), this->dim_ext()))},
-      centers_rot_{make_device_mdarray<float>(
-        handle, make_extents<uint32_t>(this->n_lists(), this->rot_dim()))}
+      lists_{n_lists},
+      rotation_matrix_{make_device_matrix<float, uint32_t>(handle, this->rot_dim(), this->dim())},
+      list_sizes_{make_device_vector<uint32_t, uint32_t>(handle, n_lists)},
+      centers_{make_device_matrix<float, uint32_t>(handle, n_lists, this->dim_ext())},
+      centers_rot_{make_device_matrix<float, uint32_t>(handle, n_lists, this->rot_dim())},
+      data_ptrs_{make_device_vector<uint8_t*, uint32_t>(handle, n_lists)},
+      inds_ptrs_{make_device_vector<IdxT*, uint32_t>(handle, n_lists)},
+      accum_sorted_sizes_{make_host_vector<IdxT, uint32_t>(n_lists + 1)}
   {
     check_consistency();
+    accum_sorted_sizes_(n_lists) = 0;
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle,
-        const index_params& params,
-        uint32_t dim,
-        uint32_t n_nonempty_lists = 0)
+  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
     : index(handle,
             params.metric,
             params.codebook_kind,
@@ -273,103 +368,119 @@ struct index : ann::index {
             dim,
             params.pq_bits,
             params.pq_dim,
-            n_nonempty_lists)
+            params.conservative_memory_allocation)
   {
   }
 
-  /**
-   * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
-   * of data.
-   */
-  void allocate(const handle_t& handle, IdxT index_size)
-  {
-    pq_dataset_ =
-      make_device_mdarray<uint8_t>(handle, make_extents<IdxT>(index_size, pq_dataset_.extent(1)));
-    indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
-    check_consistency();
-  }
-
+  using pq_centers_extents =
+    std::experimental::extents<uint32_t, dynamic_extent, dynamic_extent, dynamic_extent>;
   /**
    * PQ cluster centers
    *
-   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_book_size, pq_len]
-   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_book_size, pq_len]
+   *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+   *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
    */
-  inline auto pq_centers() noexcept -> device_mdspan<float, extent_3d<uint32_t>, row_major>
+  inline auto pq_centers() noexcept -> device_mdspan<float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
   [[nodiscard]] inline auto pq_centers() const noexcept
-    -> device_mdspan<const float, extent_3d<uint32_t>, row_major>
+    -> device_mdspan<const float, pq_centers_extents, row_major>
   {
     return pq_centers_.view();
   }
 
-  /** PQ-encoded data [size, pq_dim * pq_bits / 8]. */
-  inline auto pq_dataset() noexcept -> device_mdspan<uint8_t, extent_2d<IdxT>, row_major>
+  /** Lists' data and indices. */
+  inline auto lists() noexcept -> std::vector<std::shared_ptr<list_data<IdxT>>>& { return lists_; }
+  [[nodiscard]] inline auto lists() const noexcept
+    -> const std::vector<std::shared_ptr<list_data<IdxT>>>&
   {
-    return pq_dataset_.view();
-  }
-  [[nodiscard]] inline auto pq_dataset() const noexcept
-    -> device_mdspan<const uint8_t, extent_2d<IdxT>, row_major>
-  {
-    return pq_dataset_.view();
+    return lists_;
   }
 
-  /** Inverted list indices: ids of items in the source data [size] */
-  inline auto indices() noexcept -> device_mdspan<IdxT, extent_1d<IdxT>, row_major>
+  /** Pointers to the inverted lists (clusters) data  [n_lists]. */
+  inline auto data_ptrs() noexcept -> device_vector_view<uint8_t*, uint32_t, row_major>
   {
-    return indices_.view();
+    return data_ptrs_.view();
   }
-  [[nodiscard]] inline auto indices() const noexcept
-    -> device_mdspan<const IdxT, extent_1d<IdxT>, row_major>
+  [[nodiscard]] inline auto data_ptrs() const noexcept
+    -> device_vector_view<const uint8_t* const, uint32_t, row_major>
   {
-    return indices_.view();
+    return make_mdspan<const uint8_t* const, uint32_t, row_major, false, true>(
+      data_ptrs_.data_handle(), data_ptrs_.extents());
+  }
+
+  /** Pointers to the inverted lists (clusters) indices  [n_lists]. */
+  inline auto inds_ptrs() noexcept -> device_vector_view<IdxT*, uint32_t, row_major>
+  {
+    return inds_ptrs_.view();
+  }
+  [[nodiscard]] inline auto inds_ptrs() const noexcept
+    -> device_vector_view<const IdxT* const, uint32_t, row_major>
+  {
+    return make_mdspan<const IdxT* const, uint32_t, row_major, false, true>(
+      inds_ptrs_.data_handle(), inds_ptrs_.extents());
   }
 
   /** The transform matrix (original space -> rotated padded space) [rot_dim, dim] */
-  inline auto rotation_matrix() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto rotation_matrix() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return rotation_matrix_.view();
   }
   [[nodiscard]] inline auto rotation_matrix() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return rotation_matrix_.view();
   }
 
   /**
-   * Offsets into the lists [n_lists + 1].
+   * Accumulated list sizes, sorted in descending order [n_lists + 1].
    * The last value contains the total length of the index.
+   * The value at index zero is always zero.
+   *
+   * That is, the content of this span is as if the `list_sizes` was sorted and then accumulated.
+   *
+   * This span is used during search to estimate the maximum size of the workspace.
    */
-  inline auto list_offsets() noexcept -> device_mdspan<IdxT, extent_1d<uint32_t>, row_major>
+  inline auto accum_sorted_sizes() noexcept -> host_vector_view<IdxT, uint32_t, row_major>
   {
-    return list_offsets_.view();
+    return accum_sorted_sizes_.view();
   }
-  [[nodiscard]] inline auto list_offsets() const noexcept
-    -> device_mdspan<const IdxT, extent_1d<uint32_t>, row_major>
+  [[nodiscard]] inline auto accum_sorted_sizes() const noexcept
+    -> host_vector_view<const IdxT, uint32_t, row_major>
   {
-    return list_offsets_.view();
+    return accum_sorted_sizes_.view();
+  }
+
+  /** Sizes of the lists [n_lists]. */
+  inline auto list_sizes() noexcept -> device_vector_view<uint32_t, uint32_t, row_major>
+  {
+    return list_sizes_.view();
+  }
+  [[nodiscard]] inline auto list_sizes() const noexcept
+    -> device_vector_view<const uint32_t, uint32_t, row_major>
+  {
+    return list_sizes_.view();
   }
 
   /** Cluster centers corresponding to the lists in the original space [n_lists, dim_ext] */
-  inline auto centers() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto centers() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return centers_.view();
   }
   [[nodiscard]] inline auto centers() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_.view();
   }
 
   /** Cluster centers corresponding to the lists in the rotated space [n_lists, rot_dim] */
-  inline auto centers_rot() noexcept -> device_mdspan<float, extent_2d<uint32_t>, row_major>
+  inline auto centers_rot() noexcept -> device_matrix_view<float, uint32_t, row_major>
   {
     return centers_rot_.view();
   }
   [[nodiscard]] inline auto centers_rot() const noexcept
-    -> device_mdspan<const float, extent_2d<uint32_t>, row_major>
+    -> device_matrix_view<const float, uint32_t, row_major>
   {
     return centers_rot_.view();
   }
@@ -377,19 +488,23 @@ struct index : ann::index {
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;
-  uint32_t n_lists_;
   uint32_t dim_;
   uint32_t pq_bits_;
   uint32_t pq_dim_;
-  uint32_t n_nonempty_lists_;
+  bool conservative_memory_allocation_;
 
-  device_mdarray<float, extent_3d<uint32_t>, row_major> pq_centers_;
-  device_mdarray<uint8_t, extent_2d<IdxT>, row_major> pq_dataset_;
-  device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> rotation_matrix_;
-  device_mdarray<IdxT, extent_1d<uint32_t>, row_major> list_offsets_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_;
-  device_mdarray<float, extent_2d<uint32_t>, row_major> centers_rot_;
+  // Primary data members
+  std::vector<std::shared_ptr<list_data<IdxT>>> lists_;
+  device_vector<uint32_t, uint32_t, row_major> list_sizes_;
+  device_mdarray<float, pq_centers_extents, row_major> pq_centers_;
+  device_matrix<float, uint32_t, row_major> centers_;
+  device_matrix<float, uint32_t, row_major> centers_rot_;
+  device_matrix<float, uint32_t, row_major> rotation_matrix_;
+
+  // Computed members for accelerating search.
+  device_vector<uint8_t*, uint32_t, row_major> data_ptrs_;
+  device_vector<IdxT*, uint32_t, row_major> inds_ptrs_;
+  host_vector<IdxT, uint32_t, row_major> accum_sorted_sizes_;
 
   /** Throw an error if the index content is inconsistent. */
   void check_consistency()
@@ -404,13 +519,13 @@ struct index : ann::index {
                  pq_bits() * pq_dim());
   }
 
-  auto make_pq_centers_extents() -> extent_3d<uint32_t>
+  auto make_pq_centers_extents() -> pq_centers_extents
   {
     switch (codebook_kind()) {
       case codebook_gen::PER_SUBSPACE:
-        return make_extents<uint32_t>(pq_dim(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(pq_dim(), pq_len(), pq_book_size());
       case codebook_gen::PER_CLUSTER:
-        return make_extents<uint32_t>(n_lists(), pq_book_size(), pq_len());
+        return make_extents<uint32_t>(n_lists(), pq_len(), pq_book_size());
       default: RAFT_FAIL("Unreachable code");
     }
   }
@@ -420,7 +535,7 @@ struct index : ann::index {
     // If the dimensionality is large enough, we can reduce it to improve performance
     if (dim >= 128) { dim /= 2; }
     // Round it down to 32 to improve performance.
-    uint32_t r = raft::round_down_safe<uint32_t>(dim, 32);
+    auto r = raft::round_down_safe<uint32_t>(dim, 32);
     if (r > 0) return r;
     // If the dimensionality is really low, round it to the closest power-of-two
     r = 1;
@@ -430,5 +545,7 @@ struct index : ann::index {
     return r;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_pq

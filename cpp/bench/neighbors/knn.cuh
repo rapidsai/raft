@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,13 +26,12 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/specializations.cuh>
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
 #endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
@@ -148,7 +147,7 @@ struct ivf_flat_knn {
   raft::neighbors::ivf_flat::search_params search_params;
   params ps;
 
-  ivf_flat_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
+  ivf_flat_knn(const raft::device_resources& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
     index_params.metric  = raft::distance::DistanceType::L2Expanded;
@@ -156,7 +155,7 @@ struct ivf_flat_knn {
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }
 
-  void search(const raft::handle_t& handle,
+  void search(const raft::device_resources& handle,
               const ValT* search_items,
               dist_t* out_dists,
               IdxT* out_idxs)
@@ -176,7 +175,7 @@ struct ivf_pq_knn {
   raft::neighbors::ivf_pq::search_params search_params;
   params ps;
 
-  ivf_pq_knn(const raft::handle_t& handle, const params& ps, const ValT* data) : ps(ps)
+  ivf_pq_knn(const raft::device_resources& handle, const params& ps, const ValT* data) : ps(ps)
   {
     index_params.n_lists = 4096;
     index_params.metric  = raft::distance::DistanceType::L2Expanded;
@@ -184,7 +183,7 @@ struct ivf_pq_knn {
       handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
   }
 
-  void search(const raft::handle_t& handle,
+  void search(const raft::device_resources& handle,
               const ValT* search_items,
               dist_t* out_dists,
               IdxT* out_idxs)
@@ -202,12 +201,12 @@ struct brute_force_knn {
   ValT* index;
   params ps;
 
-  brute_force_knn(const raft::handle_t& handle, const params& ps, const ValT* data)
+  brute_force_knn(const raft::device_resources& handle, const params& ps, const ValT* data)
     : index(const_cast<ValT*>(data)), ps(ps)
   {
   }
 
-  void search(const raft::handle_t& handle,
+  void search(const raft::device_resources& handle,
               const ValT* search_items,
               dist_t* out_dists,
               IdxT* out_idxs)
@@ -287,7 +286,7 @@ struct knn : public fixture {
       std::ostringstream label_stream;
       label_stream << params_ << "#" << strategy_ << "#" << scope_;
       state.SetLabel(label_stream.str());
-      raft::handle_t handle(stream);
+      raft::device_resources handle(stream);
       std::optional<ImplT> index;
 
       if (scope_ == Scope::SEARCH) {  // also implies TransferStrategy::NO_COPY

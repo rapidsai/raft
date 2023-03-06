@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/interruptible.hpp>
+#include <raft/core/interruptible.hpp>
 #include <raft/stats/contingency_matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -135,7 +135,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
                                   raft::Compare<T>()));
   }
 
-  raft::handle_t handle;
+  raft::device_resources handle;
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T minLabel, maxLabel;

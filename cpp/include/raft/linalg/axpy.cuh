@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ namespace raft::linalg {
  * @param [in] stream
  */
 template <typename T, bool DevicePointerMode = false>
-void axpy(const raft::handle_t& handle,
+void axpy(raft::device_resources const& handle,
           const int n,
           const T* alpha,
           const T* x,
@@ -54,7 +54,7 @@ void axpy(const raft::handle_t& handle,
 }
 
 /**
- * @defgroup axpy axpy
+ * @defgroup axpy axpy routine
  * @{
  */
 
@@ -62,66 +62,61 @@ void axpy(const raft::handle_t& handle,
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @tparam InType  Type raft::device_mdspan
- * @tparam ScalarIdxType Index Type of scalar
- * @param [in] handle raft::handle_t
+ * @param [in] handle raft::device_resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
  */
-template <typename InType,
-          typename OutType,
-          typename ScalarIdxType,
-          typename = raft::enable_if_input_device_mdspan<InType>,
-          typename = raft::enable_if_output_device_mdspan<OutType>>
-void axpy(const raft::handle_t& handle,
-          raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
-          InType x,
-          OutType y)
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
+void axpy(raft::device_resources const& handle,
+          raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
-  axpy<typename InType::value_type, true>(handle,
-                                          y.size(),
-                                          alpha.data_handle(),
-                                          x.data_handle(),
-                                          x.stride(0),
-                                          y.data_handle(),
-                                          y.stride(0),
-                                          handle.get_stream());
+  axpy<ElementType, true>(handle,
+                          y.size(),
+                          alpha.data_handle(),
+                          x.data_handle(),
+                          x.stride(0),
+                          y.data_handle(),
+                          y.stride(0),
+                          handle.get_stream());
 }
 
 /**
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
- *
- * @tparam MdspanType  Type raft::device_mdspan
- * @tparam ScalarIdxType Index Type of scalar
- * @param [in] handle raft::handle_t
+ * @param [in] handle raft::device_resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
  */
-template <typename InType,
-          typename OutType,
-          typename ScalarIdxType,
-          typename = raft::enable_if_input_device_mdspan<InType>,
-          typename = raft::enable_if_output_device_mdspan<OutType>>
-void axpy(const raft::handle_t& handle,
-          raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> alpha,
-          InType x,
-          OutType y)
+template <typename ElementType,
+          typename IndexType,
+          typename InLayoutPolicy,
+          typename OutLayoutPolicy,
+          typename ScalarIdxType>
+void axpy(raft::device_resources const& handle,
+          raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
+          raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
+          raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
 {
   RAFT_EXPECTS(y.size() == x.size(), "Size mismatch between Output and Input");
 
-  axpy<typename InType::value_type, false>(handle,
-                                           y.size(),
-                                           alpha.data_handle(),
-                                           x.data_handle(),
-                                           x.stride(0),
-                                           y.data_handle(),
-                                           y.stride(0),
-                                           handle.get_stream());
+  axpy<ElementType, false>(handle,
+                           y.size(),
+                           alpha.data_handle(),
+                           x.data_handle(),
+                           x.stride(0),
+                           y.data_handle(),
+                           y.stride(0),
+                           handle.get_stream());
 }
 
 /** @} */  // end of group axpy
