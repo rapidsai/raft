@@ -139,17 +139,17 @@ class temporary_device_buffer {
  *
  * @code{.cpp}
  * #include <raft/core/device_resources.hpp>
- * 
+ *
  * raft::device_resources handle;
- * 
+ *
  * // Initialize raft::device_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
  * auto exts  = raft::make_extents<int>(5);
  * auto array = raft::make_device_mdarray<int, int>(handle, exts);
- * 
+ *
  * auto d_buf = raft::make_temporary_device_buffer(handle, array.data_handle(), exts);
  * @endcode
- * 
+ *
  * @tparam ElementType type of the input
  * @tparam IndexType index type of `raft::extents`
  * @tparam LayoutPolicy layout of the input
@@ -180,20 +180,20 @@ auto make_temporary_device_buffer(raft::device_resources const& handle,
  * @brief Factory to create a `raft::temporary_device_buffer` which produces a
  *        read-only `raft::device_mdspan` from `view()` method with
  *        `write_back=false`
- * 
+ *
  * @code{.cpp}
  * #include <raft/core/device_resources.hpp>
- * 
+ *
  * raft::device_resources handle;
- * 
+ *
  * // Initialize raft::device_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
  * auto exts  = raft::make_extents<int>(5);
  * auto array = raft::make_device_mdarray<int, int>(handle, exts);
- * 
+ *
  * auto d_buf = raft::make_readonly_temporary_device_buffer(handle, array.data_handle(), exts);
  * @endcode
- * 
+ *
  * @tparam ElementType type of the input
  * @tparam IndexType index type of `raft::extents`
  * @tparam LayoutPolicy layout of the input
@@ -226,17 +226,17 @@ auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
  *
  * @code{.cpp}
  * #include <raft/core/device_resources.hpp>
- * 
+ *
  * raft::device_resources handle;
- * 
+ *
  * // Initialize raft::host_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
  * auto exts  = raft::make_extents<int>(5);
  * auto array = raft::make_host_mdarray<int, int>(handle, exts);
- * 
+ *
  * auto d_buf = raft::make_writeback_temporary_device_buffer(handle, array.data_handle(), exts);
  * @endcode
- * 
+ *
  * @tparam ElementType type of the input
  * @tparam IndexType index type of `raft::extents`
  * @tparam LayoutPolicy layout of the input
