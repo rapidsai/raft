@@ -48,7 +48,7 @@ struct canberra_distance_op {
     const auto diff = raft::abs(x - y);
     const auto add  = raft::abs(x) + raft::abs(y);
     // deal with potential for 0 in denominator by
-    // forcing 1/0 instead
+    // forcing 0/1 instead
     acc += ((add != 0) * diff / (add + (add == 0)));
   };
 
