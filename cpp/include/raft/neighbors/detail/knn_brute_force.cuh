@@ -176,6 +176,22 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   // stores pairwise distances for the current tile
   rmm::device_uvector<ElementType> temp_distances(tile_rows * tile_cols, stream);
 
+  // calculate norms for L2 expanded distances - this lets us avoid calculating
+  // norms repeatedly per-tile, and just do once for the entire input
+  auto pairwise_metric = metric;
+  rmm::device_uvector<ElementType> search_norms(0, stream);
+  rmm::device_uvector<ElementType> index_norms(0, stream);
+  if (metric == raft::distance::DistanceType::L2Expanded ||
+      metric == raft::distance::DistanceType::L2SqrtExpanded) {
+    search_norms.resize(m, stream);
+    index_norms.resize(n, stream);
+    raft::linalg::rowNorm(
+      search_norms.data(), search, d, m, raft::linalg::NormType::L2Norm, true, stream);
+    raft::linalg::rowNorm(
+      index_norms.data(), index, d, n, raft::linalg::NormType::L2Norm, true, stream);
+    pairwise_metric = raft::distance::DistanceType::InnerProduct;
+  }
+
   // if we're tiling over columns, we need additional buffers for temporary output
   // distances/indices
   size_t num_col_tiles = raft::ceildiv(n, tile_cols);
@@ -223,9 +239,28 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                     current_query_size,
                                                     current_centroid_size,
                                                     d,
-                                                    metric,
+                                                    pairwise_metric,
                                                     true,
                                                     metric_arg);
+      if (metric == raft::distance::DistanceType::L2Expanded ||
+          metric == raft::distance::DistanceType::L2SqrtExpanded) {
+        auto row_norms = search_norms.data() + i;
+        auto col_norms = index_norms.data() + j;
+        auto dist      = temp_distances.data();
+        auto count     = thrust::make_counting_iterator<IndexType>(0);
+
+        thrust::for_each(handle.get_thrust_policy(),
+                         count,
+                         count + current_query_size * current_centroid_size,
+                         [=] __device__(IndexType i) {
+                           IndexType row = i / current_centroid_size,
+                                     col = i % current_centroid_size;
+                           dist[i]       = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+                           if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
+                             dist[i] = sqrt(dist[i]);
+                           }
+                         });
+      }
 
       detail::select_k<IndexType, ElementType>(temp_distances.data(),
                                                nullptr,
@@ -494,20 +529,11 @@ void brute_force_knn_impl(
           }
 
           // cosine/correlation are handled by metric processor, use IP distance
-          // for brute force knn call
+          // for brute force knn call.
           auto tiled_metric = metric;
           if (metric == raft::distance::DistanceType::CosineExpanded ||
               metric == raft::distance::DistanceType::CorrelationExpanded) {
             tiled_metric = raft::distance::DistanceType::InnerProduct;
-          }
-
-          // L2Expanded distance seems to cause a bunch of test failures in cuml
-          // revert to using L2Unexpanded while we figure this out
-          if (metric == raft::distance::DistanceType::L2Expanded) {
-            tiled_metric = raft::distance::DistanceType::L2Unexpanded;
-          }
-          if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
-            tiled_metric = raft::distance::DistanceType::L2SqrtUnexpanded;
           }
 
           tiled_brute_force_knn<value_t, IdxType>(handle,
