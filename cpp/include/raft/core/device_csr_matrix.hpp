@@ -122,6 +122,23 @@ using device_compressed_structure_view =
  * means that all of the underlying vectors (data, indptr, indices) are owned by the csr_matrix
  * instance. If not known up front, the sparsity can be ignored in this factory function and
  * `resize()` invoked on the instance once the sparsity is known.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::device_resources handle;
+ * csr_matrix = raft::make_device_csr_matrix(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * int nnz = 5000;
+ * csr_matrix.initialize_sparsity(nnz);
+ * @endcode
+
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -150,6 +167,23 @@ auto make_device_csr_matrix(raft::device_resources const& handle,
  * sparsity-preserving means that a view of the csr sparsity is supplied, allowing the values in
  * the sparsity to change but not the sparsity itself. The csr_matrix instance does not own the
  * sparsity, the sparsity must be known up front, and cannot be resized later.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::device_resources handle;
+ * coo_structure = raft::make_device_compressed_structure(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * csr_structure.initialize_sparsity(nnz);
+ * csr_matrix = raft::make_device_csr_matrix(handle, csr_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -176,6 +210,23 @@ auto make_device_csr_matrix(
  * Create a non-owning sparse matrix view in the coordinate format. This is sparsity-preserving,
  * meaning that the underlying sparsity is known and cannot be changed. Use the sparsity-owning
  * coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointer is assumed to reference device memory for a size of nnz
+ * float* d_elm_ptr = ...;
+ *
+ * raft::device_resources handle;
+ * csr_structure = raft::make_device_compressed_structure(handle, n_rows, n_cols, nnz);
+ * csr_matrix_view = raft::make_device_csr_matrix_view(handle, d_elm_ptr, csr_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -199,6 +250,24 @@ auto make_device_csr_matrix_view(
  * Create a non-owning sparse matrix view in the compressed-sparse row format. This is
  * sparsity-preserving, meaning that the underlying sparsity is known and cannot be changed. Use the
  * sparsity-owning coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_span.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following span is assumed to be of size nnz
+ * raft::device_span<float> d_elm_ptr;
+ *
+ * raft::device_resources handle;
+ * csr_structure = raft::make_device_compressed_structure(handle, n_rows, n_cols, nnz);
+ * csr_matrix_view = raft::make_device_csr_matrix_view(handle, d_elm_ptr, csr_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -225,6 +294,23 @@ auto make_device_csr_matrix_view(
  * Create a sparsity-owning compressed structure. This is not sparsity-preserving, meaning that
  * the underlying sparsity does not need to be known upon construction. When not known up front,
  * the allocation of the underlying indices array is delayed until `resize(nnz)` is invoked.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * raft::device_resources handle;
+ * csr_structure = raft::make_device_compressed_structure(handle, n_rows, n_cols, nnz);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * csr_structure.initialize_sparsity(nnz);
+ * @endcode
+ *
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
@@ -247,6 +333,26 @@ auto make_device_compressed_structure(raft::device_resources const& handle,
  * Create a non-owning sparsity-preserved compressed structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointer is assumed to reference device memory of size n_rows+1
+ * int *indptr = ...;
+ *
+ * // The following pointer is assumed to reference device memory of size nnz
+ * int *indices = ...;
+ *
+ * raft::device_resources handle;
+ * csr_structure = raft::make_device_compressed_structure_view(handle, indptr, indices, n_rows,
+ * n_cols, nnz);
+ * @endcode *
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -272,6 +378,26 @@ auto make_device_csr_structure_view(
  * Create a non-owning sparsity-preserved compressed structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following device spans is assumed to be of size n_rows+1
+ * raft::device_span<int> indptr;
+ *
+ * // The following device span is assumed to be of size nnz
+ * raft::device_span<int> indices;
+ *
+ * raft::device_resources handle;
+ * csr_structure = raft::make_device_compressed_structure_view(handle, indptr, indices, n_rows,
+ * n_cols);
+ * @endcode
+ *
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType

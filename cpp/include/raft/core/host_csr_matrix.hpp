@@ -121,6 +121,23 @@ using host_compressed_structure_view =
  * means that all of the underlying vectors (data, indptr, indices) are owned by the csr_matrix
  * instance. If not known up front, the sparsity can be ignored in this factory function and
  * `resize()` invoked on the instance once the sparsity is known.
+ *
+ * @code{.cpp}
+ * #include <raft/core/host_resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::resources handle;
+ * csr_matrix = raft::make_host_csr_matrix(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * int nnz = 5000;
+ * csr_matrix.initialize_sparsity(nnz);
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -148,6 +165,24 @@ auto make_host_csr_matrix(raft::resources const& handle,
  * sparsity-preserving means that a view of the csr sparsity is supplied, allowing the values in
  * the sparsity to change but not the sparsity itself. The csr_matrix instance does not own the
  * sparsity, the sparsity must be known up front, and cannot be resized later.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_compressed_structure(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * csr_structure.initialize_sparsity(nnz);
+ * csr_matrix = raft::make_host_csr_matrix(handle, csr_structure.view());
+ * @endcode
+
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -172,6 +207,23 @@ auto make_host_csr_matrix(
  * Create a non-owning sparse matrix view in the coordinate format. This is sparsity-preserving,
  * meaning that the underlying sparsity is known and cannot be changed. Use the sparsity-owning
  * coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointer is assumed to reference device memory for a size of nnz
+ * float* h_elm_ptr = ...;
+ *
+ * raft::resources handle;
+ * csr_structure = raft::make_host_compressed_structure(handle, n_rows, n_cols, nnz);
+ * csr_matrix_view = raft::make_host_csr_matrix_view(handle, h_elm_ptr, csr_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -195,6 +247,24 @@ auto make_host_csr_matrix_view(
  * Create a non-owning sparse matrix view in the compressed-sparse row format. This is
  * sparsity-preserving, meaning that the underlying sparsity is known and cannot be changed. Use the
  * sparsity-owning coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_span.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following span is assumed to be of size nnz
+ * raft::host_span<float> h_elm_ptr;
+ *
+ * raft::resources handle;
+ * csr_structure = raft::make_host_compressed_structure(handle, n_rows, n_cols, nnz);
+ * csr_matrix_view = raft::make_host_csr_matrix_view(handle, h_elm_ptr, csr_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -221,6 +291,23 @@ auto make_host_csr_matrix_view(
  * Create a sparsity-owning compressed structure. This is not sparsity-preserving, meaning that
  * the underlying sparsity does not need to be known upon construction. When not known up front,
  * the allocation of the underlying indices array is delayed until `resize(nnz)` is invoked.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * raft::resources handle;
+ * csr_structure = raft::make_host_compressed_structure(handle, n_rows, n_cols, nnz);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * csr_structure.initialize_sparsity(nnz);
+ * @endcode *
+ *
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
@@ -242,6 +329,27 @@ auto make_host_compressed_structure(raft::resources const& handle,
  * Create a non-owning sparsity-preserved compressed structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointer is assumed to reference host-accessible memory of size n_rows+1
+ * int *indptr = ...;
+ *
+ * // The following pointer is assumed to reference host-accessible memory of size nnz
+ * int *indices = ...;
+ *
+ * raft::resources handle;
+ * csr_structure = raft::make_host_compressed_structure_view(handle, indptr, indices, n_rows,
+ * n_cols, nnz);
+ * @endcode
+ *
+ *
  * @tparam ElementType
  * @tparam IndptrType
  * @tparam IndicesType
@@ -267,6 +375,26 @@ auto make_host_csr_structure_view(
  * Create a non-owning sparsity-preserved compressed structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_csr_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following host span is assumed to be of size n_rows+1
+ * raft::host_span<int> indptr;
+ *
+ * // The following host span is assumed to be of size nnz
+ * raft::host_span<int> indices;
+ *
+ * raft::resources handle;
+ * csr_structure = raft::make_host_compressed_structure_view(handle, indptr, indices, n_rows,
+ * n_cols);
+ * @endcode
+ *
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType

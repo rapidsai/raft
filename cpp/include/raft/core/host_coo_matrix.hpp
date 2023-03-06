@@ -82,6 +82,23 @@ using host_coordinate_structure_view = coordinate_structure_view<RowType, ColTyp
  * all of the underlying vectors (data, indptr, indices) are owned by the coo_matrix instance. If
  * not known up front, the sparsity can be ignored in this factory function and `resize()` invoked
  * on the instance once the sparsity is known.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::resources handle;
+ * coo_matrix = raft::make_host_coo_matrix(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * int nnz = 5000;
+ * coo_matrix.initialize_sparsity(nnz);
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam RowType
  * @tparam ColType
@@ -106,6 +123,23 @@ auto make_host_coo_matrix(raft::resources const& handle,
  * that a view of the coo sparsity is supplied, allowing the values in the sparsity to change but
  * not the sparsity itself. The csr_matrix instance does not own the sparsity, the sparsity must
  * be known up front, and cannot be resized later.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure(handle, n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * coo_structure.initialize_sparsity(nnz);
+ * coo_matrix = raft::make_host_coo_matrix(handle, coo_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam RowType
  * @tparam ColType
@@ -125,6 +159,23 @@ auto make_host_coo_matrix(raft::resources const& handle,
  * Create a non-owning sparse matrix view in the coordinate format. This is sparsity-preserving,
  * meaning that the underlying sparsity is known and cannot be changed. Use the sparsity-owning
  * coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointer is assumed to reference host-accessible memory for a size of nnz
+ * float* h_elm_ptr = ...;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure(handle, n_rows, n_cols, nnz);
+ * coo_matrix_view = raft::make_host_coo_matrix_view(handle, h_elm_ptr, coo_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam RowType
  * @tparam ColType
@@ -145,6 +196,24 @@ auto make_host_coo_matrix_view(ElementType* ptr,
  * Create a non-owning sparse matrix view in the coordinate format. This is sparsity-preserving,
  * meaning that the underlying sparsity is known and cannot be changed. Use the sparsity-owning
  * coo_matrix if sparsity needs to be mutable.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_span.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following span is assumed to be of size nnz
+ * raft::host_span<float> h_elm_ptr;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure(handle, n_rows, n_cols, nnz);
+ * coo_matrix_view = raft::make_host_coo_matrix_view(handle, h_elm_ptr, coo_structure.view());
+ * @endcode
+ *
  * @tparam ElementType
  * @tparam RowType
  * @tparam ColType
@@ -167,6 +236,23 @@ auto make_host_coo_matrix_view(raft::host_span<ElementType> elements,
  * Create a sparsity-owning coordinate structure object. If not known up front, this object can be
  * resized() once the sparsity (number of non-zeros) is known, postponing the allocation of the
  * underlying data arrays.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure(handle, n_rows, n_cols, nnz);
+ *  * ...
+ * // compute expected sparsity
+ * ...
+ * coo_structure.initialize_sparsity(nnz);
+ * @endcode
+ *
  * @tparam RowType
  * @tparam ColType
  * @tparam NZType
@@ -189,6 +275,24 @@ auto make_host_coordinate_structure(raft::resources const& handle,
  * Create a non-owning sparsity-preserved coordinate structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following pointers are assumed to reference host-accessible memory of size nnz
+ * int *rows = ...;
+ * int *cols = ...;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure_view(handle, rows, cols, n_rows, n_cols,
+ * nnz);
+ * @endcode
+ *
  * @tparam RowType
  * @tparam ColType
  * @tparam NZType
@@ -211,6 +315,23 @@ auto make_host_coo_structure_view(
  * Create a non-owning sparsity-preserved coordinate structure view. Sparsity-preserving means that
  * the underlying sparsity is known and cannot be changed. Use the sparsity-owning version if the
  * sparsity is not known up front.
+ *
+ * @code{.cpp}
+ * #include <raft/core/resources.hpp>
+ * #include <raft/core/host_coo_matrix.hpp>
+ *
+ * int n_rows = 100000;
+ * int n_cols = 10000;
+ * int nnz = 5000;
+ *
+ * // The following host spans are assumed to be of size nnz
+ * raft::host_span<int> rows;
+ * raft::host_span<int> cols;
+ *
+ * raft::resources handle;
+ * coo_structure = raft::make_host_coordinate_structure_view(handle, rows, cols, n_rows, n_cols);
+ * @endcode
+ *
  * @tparam RowType
  * @tparam ColType
  * @tparam NZType
