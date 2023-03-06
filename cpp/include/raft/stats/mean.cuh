@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/stats/detail/mean.cuh>
 
 namespace raft {
@@ -51,6 +51,11 @@ void mean(
 }
 
 /**
+ * @defgroup stats_mean Mean
+ * @{
+ */
+
+/**
  * @brief Compute mean of the input matrix
  *
  * Mean operation is assumed to be performed on a given column.
@@ -65,7 +70,7 @@ void mean(
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean(const raft::handle_t& handle,
+void mean(raft::device_resources const& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
           raft::device_vector_view<value_t, idx_t> mu,
           bool sample)
@@ -73,7 +78,7 @@ void mean(const raft::handle_t& handle,
   static_assert(
     std::is_same_v<layout_t, raft::row_major> || std::is_same_v<layout_t, raft::col_major>,
     "Data layout not supported");
-  RAFT_EXPECTS(data.extent(1) == mu.extent(0), "Size mismatch betwen data and mu");
+  RAFT_EXPECTS(data.extent(1) == mu.extent(0), "Size mismatch between data and mu");
   RAFT_EXPECTS(mu.is_exhaustive(), "mu must be contiguous");
   RAFT_EXPECTS(data.is_exhaustive(), "data must be contiguous");
   detail::mean(mu.data_handle(),
@@ -84,6 +89,8 @@ void mean(const raft::handle_t& handle,
                std::is_same_v<layout_t, raft::row_major>,
                handle.get_stream());
 }
+
+/** @} */  // end group stats_mean
 
 };  // namespace stats
 };  // namespace raft

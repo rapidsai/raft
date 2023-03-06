@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,9 +40,6 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-
-///@todo: enable once logging has been enabled in raft
-//#include "logger.hpp"
 
 namespace raft {
 
@@ -246,7 +243,7 @@ class grid_1d_block_t {
  * @tparam Type data type
  * @param dst destination pointer
  * @param src source pointer
- * @param len lenth of the src/dst buffers in terms of number of elements
+ * @param len length of the src/dst buffers in terms of number of elements
  * @param stream cuda stream
  */
 template <typename Type>
@@ -335,6 +332,32 @@ void print_vector(const char* variable_name, const T* ptr, size_t componentsCoun
 }
 /** @} */
 
+/**
+ * Returns the id of the device for which the pointer is located
+ * @param p pointer to check
+ * @return id of device for which pointer is located, otherwise -1.
+ */
+template <typename T>
+int get_device_for_address(const T* p)
+{
+  if (!p) { return -1; }
+
+  cudaPointerAttributes att;
+  cudaError_t err = cudaPointerGetAttributes(&att, p);
+  if (err == cudaErrorInvalidValue) {
+    // Make sure the current thread error status has been reset
+    err = cudaGetLastError();
+    return -1;
+  }
+
+  // memoryType is deprecated for CUDA 10.0+
+  if (att.type == cudaMemoryTypeDevice) {
+    return att.device;
+  } else {
+    return -1;
+  }
+}
+
 /** helper method to get max usable shared mem per block parameter */
 inline int getSharedMemPerBlock()
 {
@@ -355,6 +378,18 @@ inline int getMultiProcessorCount()
   return mpCount;
 }
 
+/** helper method to get major minor compute capability version */
+inline std::pair<int, int> getComputeCapability()
+{
+  int devId;
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
+  int majorVer, minorVer;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&majorVer, cudaDevAttrComputeCapabilityMajor, devId));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&minorVer, cudaDevAttrComputeCapabilityMinor, devId));
+
+  return std::make_pair(majorVer, minorVer);
+}
+
 /** helper method to convert an array on device to a string on host */
 template <typename T>
 std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t stream, int width = 4)
@@ -367,7 +402,12 @@ std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t strea
 
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {
-    ss << std::setw(width) << arr_h[i];
+    typedef
+      typename std::conditional_t<std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>, int, T>
+        CastT;
+
+    auto val = static_cast<CastT>(arr_h[i]);
+    ss << std::setw(width) << val;
 
     if (i < size - 1) ss << ", ";
   }
@@ -503,7 +543,7 @@ constexpr inline auto upper_bound<half>() -> half
  * resource in any case.
  *
  * @param[inout] mr if not null do nothing; otherwise get the current device resource and wrap it
- * into a `pool_memory_resource` if neccessary and return the pointer to the result.
+ * into a `pool_memory_resource` if necessary and return the pointer to the result.
  * @param initial_size if a new memory pool is created, this would be its initial size (rounded up
  * to 256 bytes).
  *

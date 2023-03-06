@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ namespace linalg {
  * @param stream: cuda stream
  */
 template <typename math_t>
-void transpose(const raft::handle_t& handle,
+void transpose(raft::device_resources const& handle,
                math_t* in,
                math_t* out,
                int n_rows,
@@ -57,6 +57,11 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 }
 
 /**
+ * @defgroup transpose Matrix transpose
+ * @{
+ */
+
+/**
  * @brief Transpose a matrix. The output has same layout policy as the input.
  *
  * @tparam T Data type of input matrix element.
@@ -71,7 +76,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
  * @param[out] out    Output matirx, storage is pre-allocated by caller.
  */
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
-auto transpose(handle_t const& handle,
+auto transpose(raft::device_resources const& handle,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
   -> std::enable_if_t<std::is_floating_point_v<T>, void>
@@ -94,6 +99,9 @@ auto transpose(handle_t const& handle,
     }
   }
 }
+
+/** @} */  // end of group transpose
+
 };  // end namespace linalg
 };  // end namespace raft
 

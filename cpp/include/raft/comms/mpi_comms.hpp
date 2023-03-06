@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,47 @@ namespace comms {
 
 using mpi_comms = detail::mpi_comms;
 
-inline void initialize_mpi_comms(handle_t* handle, MPI_Comm comm)
+/**
+ * @defgroup mpi_comms_factory MPI Comms Factory Functions
+ * @{
+ */
+
+/**
+ * Given a properly initialized MPI_Comm, construct an instance of RAFT's
+ * MPI Communicator and inject it into the given RAFT handle instance
+ * @param handle raft handle for managing expensive resources
+ * @param comm an initialized MPI communicator
+ *
+ * @code{.cpp}
+ * #include <raft/comms/mpi_comms.hpp>
+ * #include <raft/core/device_mdarray.hpp>
+ *
+ * MPI_Comm mpi_comm;
+ * raft::raft::device_resources handle;
+ *
+ * initialize_mpi_comms(&handle, mpi_comm);
+ * ...
+ * const auto& comm = handle.get_comms();
+ * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
+ * ...
+ * comm.allgather((gather_data.data_handle())[comm.get_rank()],
+ *                gather_data.data_handle(),
+ *                1,
+ *                handle.get_stream());
+ *
+ * comm.sync_stream(handle.get_stream());
+ * @endcode
+ */
+inline void initialize_mpi_comms(device_resources* handle, MPI_Comm comm)
 {
   auto communicator = std::make_shared<comms_t>(
     std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));
   handle->set_comms(communicator);
 };
+
+/**
+ * @}
+ */
 
 };  // namespace comms
 };  // end namespace raft

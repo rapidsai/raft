@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/linalg/reduce_rows_by_key.cuh>
@@ -112,7 +112,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     rmm::device_uvector<T> weight(0, stream);
     if (params.weighted) {
       weight.resize(nobs, stream);
-      raft::random::RngState r(params.seed, raft::random::GeneratorType::GenPhilox);
+      raft::random::RngState r(params.seed);
       uniform(handle, r, weight.data(), nobs, T(1), params.max_weight);
     }
 
@@ -145,7 +145,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
 
  protected:
   ReduceRowsInputs<T> params;
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream = 0;
 
   int device_count = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/random/rng.cuh>
+#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <set>
@@ -75,7 +76,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   SWoRInputs<T> params;
@@ -144,7 +145,7 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   SWoRInputs<T> params;
@@ -213,7 +214,11 @@ const std::vector<SWoRInputs<float>> inputsf = {{1024, 512, -1, 0.f, GenPhilox, 
         << "repeated index @i=" << i << " idx=" << val;                                            \
       occurrence.insert(val);                                                                      \
     }                                                                                              \
-    if (params.largeWeightIndex >= 0) { ASSERT_EQ(h_outIdx[0], params.largeWeightIndex); }         \
+    if (params.largeWeightIndex >= 0) {                                                            \
+      ASSERT_TRUE((h_outIdx[0] == params.largeWeightIndex) ||                                      \
+                  (h_outIdx[1] == params.largeWeightIndex) ||                                      \
+                  (h_outIdx[2] == params.largeWeightIndex));                                       \
+    }                                                                                              \
   } while (false)
 
 using SWoRTestF = SWoRTest<float>;

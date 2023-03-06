@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,14 +30,14 @@
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/gather.cuh>
@@ -88,7 +88,7 @@ struct KeyValueIndexOp {
 
 // Computes the intensity histogram from a sequence of labels
 template <typename SampleIteratorT, typename CounterT, typename IndexT>
-void countLabels(const raft::handle_t& handle,
+void countLabels(raft::device_resources const& handle,
                  SampleIteratorT labels,
                  CounterT* count,
                  IndexT n_samples,
@@ -96,9 +96,13 @@ void countLabels(const raft::handle_t& handle,
                  rmm::device_uvector<char>& workspace)
 {
   cudaStream_t stream = handle.get_stream();
-  IndexT num_levels   = n_clusters + 1;
-  IndexT lower_level  = 0;
-  IndexT upper_level  = n_clusters;
+
+  // CUB::DeviceHistogram requires a signed index type
+  typedef typename std::make_signed_t<IndexT> CubIndexT;
+
+  CubIndexT num_levels  = n_clusters + 1;
+  CubIndexT lower_level = 0;
+  CubIndexT upper_level = n_clusters;
 
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceHistogram::HistogramEven(nullptr,
@@ -108,7 +112,7 @@ void countLabels(const raft::handle_t& handle,
                                                     num_levels,
                                                     lower_level,
                                                     upper_level,
-                                                    n_samples,
+                                                    static_cast<CubIndexT>(n_samples),
                                                     stream));
 
   workspace.resize(temp_storage_bytes, stream);
@@ -120,12 +124,12 @@ void countLabels(const raft::handle_t& handle,
                                                     num_levels,
                                                     lower_level,
                                                     upper_level,
-                                                    n_samples,
+                                                    static_cast<CubIndexT>(n_samples),
                                                     stream));
 }
 
 template <typename DataT, typename IndexT>
-void checkWeight(const raft::handle_t& handle,
+void checkWeight(raft::device_resources const& handle,
                  raft::device_vector_view<DataT, IndexT> weight,
                  rmm::device_uvector<char>& workspace)
 {
@@ -156,12 +160,11 @@ void checkWeight(const raft::handle_t& handle,
       n_samples);
 
     auto scale = static_cast<DataT>(n_samples) / wt_sum;
-    raft::linalg::unaryOp(
-      weight.data_handle(),
-      weight.data_handle(),
-      n_samples,
-      [=] __device__(const DataT& wt) { return wt * scale; },
-      stream);
+    raft::linalg::unaryOp(weight.data_handle(),
+                          weight.data_handle(),
+                          n_samples,
+                          raft::mul_const_op<DataT>{scale},
+                          stream);
   }
 }
 
@@ -179,38 +182,47 @@ IndexT getCentroidsBatchSize(int batch_centroids, IndexT n_local_clusters)
   return (minVal == 0) ? n_local_clusters : minVal;
 }
 
-template <typename DataT, typename ReductionOpT, typename IndexT = int>
-void computeClusterCost(const raft::handle_t& handle,
-                        raft::device_vector_view<DataT, IndexT> minClusterDistance,
+template <typename InputT,
+          typename OutputT,
+          typename MainOpT,
+          typename ReductionOpT,
+          typename IndexT = int>
+void computeClusterCost(raft::device_resources const& handle,
+                        raft::device_vector_view<InputT, IndexT> minClusterDistance,
                         rmm::device_uvector<char>& workspace,
-                        raft::device_scalar_view<DataT> clusterCost,
+                        raft::device_scalar_view<OutputT> clusterCost,
+                        MainOpT main_op,
                         ReductionOpT reduction_op)
 {
-  cudaStream_t stream       = handle.get_stream();
+  cudaStream_t stream = handle.get_stream();
+
+  cub::TransformInputIterator<OutputT, MainOpT, InputT*> itr(minClusterDistance.data_handle(),
+                                                             main_op);
+
   size_t temp_storage_bytes = 0;
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(nullptr,
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 
   workspace.resize(temp_storage_bytes, stream);
 
   RAFT_CUDA_TRY(cub::DeviceReduce::Reduce(workspace.data(),
                                           temp_storage_bytes,
-                                          minClusterDistance.data_handle(),
+                                          itr,
                                           clusterCost.data_handle(),
                                           minClusterDistance.size(),
                                           reduction_op,
-                                          DataT(),
+                                          OutputT(),
                                           stream));
 }
 
 template <typename DataT, typename IndexT>
-void sampleCentroids(const raft::handle_t& handle,
+void sampleCentroids(raft::device_resources const& handle,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<DataT, IndexT> minClusterDistance,
                      raft::device_vector_view<uint8_t, IndexT> isSampleCentroid,
@@ -267,16 +279,14 @@ void sampleCentroids(const raft::handle_t& handle,
                        sampledMinClusterDistance.data_handle(),
                        nPtsSampledInRank,
                        inRankCp.data(),
-                       [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> val) {  // MapTransformOp
-                         return val.key;
-                       },
+                       raft::key_op{},
                        stream);
 }
 
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
-void pairwise_distance_kmeans(const raft::handle_t& handle,
+void pairwise_distance_kmeans(raft::device_resources const& handle,
                               raft::device_matrix_view<const DataT, IndexT> X,
                               raft::device_matrix_view<const DataT, IndexT> centroids,
                               raft::device_matrix_view<DataT, IndexT> pairwiseDistance,
@@ -304,7 +314,7 @@ void pairwise_distance_kmeans(const raft::handle_t& handle,
 // shuffle and randomly select 'n_samples_to_gather' from input 'in' and stores
 // in 'out' does not modify the input
 template <typename DataT, typename IndexT>
-void shuffleAndGather(const raft::handle_t& handle,
+void shuffleAndGather(raft::device_resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT> in,
                       raft::device_matrix_view<DataT, IndexT> out,
                       uint32_t n_samples_to_gather,
@@ -329,7 +339,7 @@ void shuffleAndGather(const raft::handle_t& handle,
                        in.extent(1),
                        in.extent(0),
                        indices.data_handle(),
-                       n_samples_to_gather,
+                       static_cast<IndexT>(n_samples_to_gather),
                        out.data_handle(),
                        stream);
 }
@@ -339,7 +349,7 @@ void shuffleAndGather(const raft::handle_t& handle,
 // is the distance between the sample and the 'centroid[key]'
 template <typename DataT, typename IndexT>
 void minClusterAndDistanceCompute(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const DataT, IndexT> X,
   raft::device_matrix_view<const DataT, IndexT> centroids,
   raft::device_vector_view<raft::KeyValuePair<IndexT, DataT>, IndexT> minClusterAndDistance,
@@ -464,17 +474,15 @@ void minClusterAndDistanceCompute(
             pair.value = val;
             return pair;
           },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> a, raft::KeyValuePair<IndexT, DataT> b) {
-            return (b.value < a.value) ? b : a;
-          },
-          [=] __device__(raft::KeyValuePair<IndexT, DataT> pair) { return pair; });
+          raft::argmin_op{},
+          raft::identity_op{});
       }
     }
   }
 }
 
 template <typename DataT, typename IndexT>
-void minClusterDistanceCompute(const raft::handle_t& handle,
+void minClusterDistanceCompute(raft::device_resources const& handle,
                                raft::device_matrix_view<const DataT, IndexT> X,
                                raft::device_matrix_view<DataT, IndexT> centroids,
                                raft::device_vector_view<DataT, IndexT> minClusterDistance,
@@ -542,7 +550,6 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
     if (is_fused) {
       workspace.resize((sizeof(IndexT)) * ns, stream);
 
-      // todo(lsugy): remove cIdx
       raft::distance::fusedL2NNMinReduce<DataT, DataT, IndexT>(
         minClusterDistanceView.data_handle(),
         datasetView.data_handle(),
@@ -577,30 +584,23 @@ void minClusterDistanceCompute(const raft::handle_t& handle,
         pairwise_distance_kmeans<DataT, IndexT>(
           handle, datasetView, centroidsView, pairwiseDistanceView, workspace, metric);
 
-        raft::linalg::coalescedReduction(
-          minClusterDistanceView.data_handle(),
-          pairwiseDistanceView.data_handle(),
-          pairwiseDistanceView.extent(1),
-          pairwiseDistanceView.extent(0),
-          std::numeric_limits<DataT>::max(),
-          stream,
-          true,
-          [=] __device__(DataT val, IndexT i) {  // MainLambda
-            return val;
-          },
-          [=] __device__(DataT a, DataT b) {  // ReduceLambda
-            return (b < a) ? b : a;
-          },
-          [=] __device__(DataT val) {  // FinalLambda
-            return val;
-          });
+        raft::linalg::coalescedReduction(minClusterDistanceView.data_handle(),
+                                         pairwiseDistanceView.data_handle(),
+                                         pairwiseDistanceView.extent(1),
+                                         pairwiseDistanceView.extent(0),
+                                         std::numeric_limits<DataT>::max(),
+                                         stream,
+                                         true,
+                                         raft::identity_op{},
+                                         raft::min_op{},
+                                         raft::identity_op{});
       }
     }
   }
 }
 
 template <typename DataT, typename IndexT>
-void countSamplesInCluster(const raft::handle_t& handle,
+void countSamplesInCluster(raft::device_resources const& handle,
                            const KMeansParams& params,
                            raft::device_matrix_view<const DataT, IndexT> X,
                            raft::device_vector_view<const DataT, IndexT> L2NormX,

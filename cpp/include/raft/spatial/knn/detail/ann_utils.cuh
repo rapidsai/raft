@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,19 @@
 
 #pragma once
 
+#include <raft/core/logger.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/integer_utils.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <memory>
+#include <optional>
 
 namespace raft::spatial::knn::detail::utils {
 
@@ -54,8 +61,9 @@ struct pointer_residency_count<Type, Types...> {
     cudaPointerAttributes attr;
     RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
     switch (attr.type) {
-      case cudaMemoryTypeUnregistered:
-      case cudaMemoryTypeHost: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeUnregistered: return std::make_tuple(on_device, on_host + 1);
+      case cudaMemoryTypeHost:
+        return std::make_tuple(on_device + int(attr.devicePointer == ptr), on_host + 1);
       case cudaMemoryTypeDevice: return std::make_tuple(on_device + 1, on_host);
       case cudaMemoryTypeManaged: return std::make_tuple(on_device + 1, on_host + 1);
       default: return std::make_tuple(on_device, on_host);
@@ -74,6 +82,58 @@ auto check_pointer_residency(const Types*... ptrs) -> pointer_residency
   if (on_host == n_args) { return pointer_residency::host_only; }
   return pointer_residency::mixed;
 }
+
+/** RAII helper to access the host data from gpu when necessary. */
+template <typename PtrT, typename Action>
+struct with_mapped_memory_t {
+  with_mapped_memory_t(PtrT ptr, size_t size, Action action) : action_(action)
+  {
+    if (ptr == nullptr) { return; }
+    switch (utils::check_pointer_residency(ptr)) {
+      case utils::pointer_residency::device_only:
+      case utils::pointer_residency::host_and_device: {
+        dev_ptr_ = (void*)ptr;  // NOLINT
+      } break;
+      default: {
+        host_ptr_ = (void*)ptr;  // NOLINT
+        RAFT_CUDA_TRY(cudaHostRegister(host_ptr_, size, choose_flags(ptr)));
+        RAFT_CUDA_TRY(cudaHostGetDevicePointer(&dev_ptr_, host_ptr_, 0));
+      } break;
+    }
+  }
+
+  ~with_mapped_memory_t()
+  {
+    if (host_ptr_ != nullptr) { cudaHostUnregister(host_ptr_); }
+  }
+
+  auto operator()() { return action_((PtrT)dev_ptr_); }  // NOLINT
+
+ private:
+  Action action_;
+  void* host_ptr_ = nullptr;
+  void* dev_ptr_  = nullptr;
+
+  template <typename T>
+  static auto choose_flags(const T*) -> unsigned int
+  {
+    int dev_id, readonly_supported;
+    RAFT_CUDA_TRY(cudaGetDevice(&dev_id));
+    RAFT_CUDA_TRY(cudaDeviceGetAttribute(
+      &readonly_supported, cudaDevAttrHostRegisterReadOnlySupported, dev_id));
+    if (readonly_supported) {
+      return cudaHostRegisterMapped | cudaHostRegisterReadOnly;
+    } else {
+      return cudaHostRegisterMapped;
+    }
+  }
+
+  template <typename T>
+  static auto choose_flags(T*) -> unsigned int
+  {
+    return cudaHostRegisterMapped;
+  }
+};
 
 template <typename T>
 struct config {
@@ -149,196 +209,6 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
     } break;
     default: RAFT_FAIL("memset: unreachable code");
   }
-}
-
-template <typename IdxT, typename OutT>
-__global__ void argmin_along_rows_kernel(IdxT n_rows, uint32_t n_cols, const float* a, OutT* out)
-{
-  __shared__ OutT shm_ids[1024];    // NOLINT
-  __shared__ float shm_vals[1024];  // NOLINT
-  IdxT i = blockIdx.x;
-  if (i >= n_rows) return;
-  OutT min_idx  = n_cols;
-  float min_val = raft::upper_bound<float>();
-  for (OutT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    if (min_val > a[j + n_cols * i]) {
-      min_val = a[j + n_cols * i];
-      min_idx = j;
-    }
-  }
-  shm_vals[threadIdx.x] = min_val;
-  shm_ids[threadIdx.x]  = min_idx;
-  __syncthreads();
-  for (IdxT offset = blockDim.x / 2; offset > 0; offset >>= 1) {
-    if (threadIdx.x < offset) {
-      if (shm_vals[threadIdx.x] < shm_vals[threadIdx.x + offset]) {
-      } else if (shm_vals[threadIdx.x] > shm_vals[threadIdx.x + offset]) {
-        shm_vals[threadIdx.x] = shm_vals[threadIdx.x + offset];
-        shm_ids[threadIdx.x]  = shm_ids[threadIdx.x + offset];
-      } else if (shm_ids[threadIdx.x] > shm_ids[threadIdx.x + offset]) {
-        shm_ids[threadIdx.x] = shm_ids[threadIdx.x + offset];
-      }
-    }
-    __syncthreads();
-  }
-  if (threadIdx.x == 0) { out[i] = shm_ids[0]; }
-}
-
-/**
- * @brief Find index of the smallest element in each row.
- *
- * NB: device-only function
- * TODO: specialize select_k for the case of `k == 1` and use that one instead.
- *
- * @tparam IdxT index type
- * @tparam OutT output type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of selected indices [n_rows]
- * @param stream
- */
-template <typename IdxT, typename OutT>
-inline void argmin_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, OutT* out, rmm::cuda_stream_view stream)
-{
-  IdxT block_dim = 1024;
-  while (block_dim > n_cols) {
-    block_dim /= 2;
-  }
-  block_dim = max(block_dim, (IdxT)128);
-  argmin_along_rows_kernel<IdxT, OutT><<<n_rows, block_dim, 0, stream>>>(n_rows, n_cols, a, out);
-}
-
-template <typename IdxT>
-__global__ void dots_along_rows_kernel(IdxT n_rows, IdxT n_cols, const float* a, float* out)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (threadIdx.x == 0) { out[i] = sqsum; }
-}
-
-/**
- * @brief Square sum of values in each row (row-major matrix).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param n_rows
- * @param n_cols
- * @param[in] a device pointer to the row-major matrix [n_rows, n_cols]
- * @param[out] out device pointer to the vector of dot-products [n_rows]
- * @param stream
- */
-template <typename IdxT>
-inline void dots_along_rows(
-  IdxT n_rows, IdxT n_cols, const float* a, float* out, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows, threads.y), 1, 1);
-  dots_along_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a, out);
-  /**
-   * TODO: this can be replaced with the rowNorm helper as shown below.
-   * However, the rowNorm helper seems to incur a significant performance penalty
-   * (example case ann-search slowed down from 150ms to 186ms).
-   *
-   * raft::linalg::rowNorm(out, a, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
-   */
-}
-
-template <typename IdxT>
-__global__ void normalize_rows_kernel(IdxT n_rows, IdxT n_cols, float* a)
-{
-  IdxT i = threadIdx.y + (blockDim.y * static_cast<IdxT>(blockIdx.x));
-  if (i >= n_rows) return;
-
-  float sqsum = 0.0;
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    float val = a[j + (n_cols * i)];
-    sqsum += val * val;
-  }
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 1);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 2);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 4);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 8);
-  sqsum += __shfl_xor_sync(0xffffffff, sqsum, 16);
-  if (sqsum <= 1e-8) return;
-  sqsum = rsqrtf(sqsum);  // reciprocal of the square root
-  for (IdxT j = threadIdx.x; j < n_cols; j += blockDim.x) {
-    a[j + n_cols * i] *= sqsum;
-  }
-}
-
-/**
- * @brief Divide rows by their L2 norm (square root of sum of squares).
- *
- * NB: device-only function
- *
- * @tparam IdxT index type
- *
- * @param[in] n_rows
- * @param[in] n_cols
- * @param[inout] a device pointer to a row-major matrix [n_rows, n_cols]
- * @param stream
- */
-template <typename IdxT>
-inline void normalize_rows(IdxT n_rows, IdxT n_cols, float* a, rmm::cuda_stream_view stream)
-{
-  dim3 threads(32, 4, 1);  // DO NOT CHANGE
-  dim3 blocks(ceildiv(n_rows, threads.y), 1, 1);
-  normalize_rows_kernel<IdxT><<<blocks, threads, 0, stream>>>(n_rows, n_cols, a);
-}
-
-template <typename IdxT, typename Lambda>
-__global__ void map_along_rows_kernel(
-  IdxT n_rows, uint32_t n_cols, float* a, const uint32_t* d, Lambda map)
-{
-  IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
-  IdxT i   = gid / n_cols;
-  if (i >= n_rows) return;
-  float& x = a[gid];
-  x        = map(x, d[i]);
-}
-
-/**
- * @brief Map a binary function over a matrix and a vector element-wise, broadcasting the vector
- * values along rows: `m[i, j] = op(m[i,j], v[i])`
- *
- * NB: device-only function
- *
- * @tparam IdxT   index type
- * @tparam Lambda
- *
- * @param n_rows
- * @param n_cols
- * @param[inout] m device pointer to a row-major matrix [n_rows, n_cols]
- * @param[in] v device pointer to a vector [n_rows]
- * @param op the binary operation to apply on every element of matrix rows and of the vector
- */
-template <typename IdxT, typename Lambda>
-inline void map_along_rows(IdxT n_rows,
-                           uint32_t n_cols,
-                           float* m,
-                           const uint32_t* v,
-                           Lambda op,
-                           rmm::cuda_stream_view stream)
-{
-  dim3 threads(128, 1, 1);
-  dim3 blocks(ceildiv<IdxT>(n_rows * n_cols, threads.x), 1, 1);
-  map_along_rows_kernel<<<blocks, threads, 0, stream>>>(n_rows, n_cols, m, v, op);
 }
 
 template <typename T, typename IdxT>
@@ -495,5 +365,203 @@ void copy_selected(IdxT n_rows,
     default: RAFT_FAIL("All pointers must reside on the same side, host or device.");
   }
 }
+
+/**
+ * A batch input iterator over the data source.
+ * Given an input pointer, it decides whether the current device has the access to the data and
+ * gives it back to the user in batches. Three scenarios are possible:
+ *
+ *  1. if `source == nullptr`: then `batch.data() == nullptr`
+ *  2. if `source` is accessible from the device, `batch.data()` points directly at the source at
+ *     the proper offsets on each iteration.
+ *  3. if `source` is not accessible from the device, `batch.data()` points to an intermediate
+ *     buffer; the corresponding data is copied in the given `stream` on every iterator dereference
+ *     (i.e. batches can be skipped). Dereferencing the same batch two times in a row does not force
+ *     the copy.
+ *
+ * In all three scenarios, the number of iterations, batch offsets and sizes are the same.
+ *
+ * The iterator can be reused. If the number of iterations is one, at most one copy will ever be
+ * invoked (i.e. small datasets are not reloaded multiple times).
+ */
+template <typename T>
+struct batch_load_iterator {
+  using size_type = size_t;
+
+  /** A single batch of data residing in device memory. */
+  struct batch {
+    /** Logical width of a single row in a batch, in elements of type `T`. */
+    [[nodiscard]] auto row_width() const -> size_type { return row_width_; }
+    /** Logical offset of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto offset() const -> size_type { return pos_.value_or(0) * batch_size_; }
+    /** Logical size of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto size() const -> size_type { return batch_len_; }
+    /** Logical size of the batch, in rows (`row_width()`) */
+    [[nodiscard]] auto data() const -> const T* { return const_cast<const T*>(dev_ptr_); }
+    /** Whether this batch copies the data (i.e. the source is inaccessible from the device). */
+    [[nodiscard]] auto does_copy() const -> bool { return needs_copy_; }
+
+   private:
+    batch(const T* source,
+          size_type n_rows,
+          size_type row_width,
+          size_type batch_size,
+          rmm::cuda_stream_view stream,
+          rmm::mr::device_memory_resource* mr)
+      : stream_(stream),
+        buf_(0, stream, mr),
+        source_(source),
+        dev_ptr_(nullptr),
+        n_rows_(n_rows),
+        row_width_(row_width),
+        batch_size_(std::min(batch_size, n_rows)),
+        pos_(std::nullopt),
+        n_iters_(raft::div_rounding_up_safe(n_rows, batch_size)),
+        needs_copy_(false)
+    {
+      if (source_ == nullptr) { return; }
+      cudaPointerAttributes attr;
+      RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, source_));
+      dev_ptr_ = reinterpret_cast<T*>(attr.devicePointer);
+      if (dev_ptr_ == nullptr) {
+        buf_.resize(row_width_ * batch_size_, stream);
+        dev_ptr_    = buf_.data();
+        needs_copy_ = true;
+      }
+    }
+    rmm::cuda_stream_view stream_;
+    rmm::device_uvector<T> buf_;
+    const T* source_;
+    size_type n_rows_;
+    size_type row_width_;
+    size_type batch_size_;
+    size_type n_iters_;
+    bool needs_copy_;
+
+    std::optional<size_type> pos_;
+    size_type batch_len_;
+    T* dev_ptr_;
+
+    friend class batch_load_iterator<T>;
+
+    /**
+     * Changes the state of the batch to point at the `pos` index.
+     * If necessary, copies the data from the source in the registered stream.
+     */
+    void load(const size_type& pos)
+    {
+      // No-op if the data is already loaded, or it's the end of the input.
+      if (pos == pos_ || pos >= n_iters_) { return; }
+      pos_.emplace(pos);
+      batch_len_ = std::min(batch_size_, n_rows_ - std::min(offset(), n_rows_));
+      if (source_ == nullptr) { return; }
+      if (needs_copy_) {
+        if (size() > 0) {
+          RAFT_LOG_DEBUG("batch_load_iterator::copy(offset = %zu, size = %zu, row_width = %zu)",
+                         size_t(offset()),
+                         size_t(size()),
+                         size_t(row_width()));
+          copy(dev_ptr_, source_ + offset() * row_width(), size() * row_width(), stream_);
+        }
+      } else {
+        dev_ptr_ = const_cast<T*>(source_) + offset() * row_width();
+      }
+    }
+  };
+
+  using value_type = batch;
+  using reference  = const value_type&;
+  using pointer    = const value_type*;
+
+  /**
+   * Create a batch iterator over the data `source`.
+   *
+   * For convenience, the data `source` is read in logical units of size `row_width`; batch sizes
+   * and offsets are calculated in logical rows. Hence, can interpret the data as a contiguous
+   * row-major matrix of size [n_rows, row_width], and the batches are the sub-matrices of size
+   * [x<=batch_size, n_rows].
+   *
+   * @param source the input data -- host, device, or nullptr.
+   * @param n_rows the size of the input in logical rows.
+   * @param row_width the size of the logical row in the elements of type `T`.
+   * @param batch_size the desired size of the batch.
+   * @param stream the ordering for the host->device copies, if applicable.
+   * @param mr a custom memory resource for the intermediate buffer, if applicable.
+   */
+  batch_load_iterator(const T* source,
+                      size_type n_rows,
+                      size_type row_width,
+                      size_type batch_size,
+                      rmm::cuda_stream_view stream,
+                      rmm::mr::device_memory_resource* mr = rmm::mr::get_current_device_resource())
+    : cur_batch_(new batch(source, n_rows, row_width, batch_size, stream, mr)), cur_pos_(0)
+  {
+  }
+  /**
+   * Whether this iterator copies the data on every iteration
+   * (i.e. the source is inaccessible from the device).
+   */
+  [[nodiscard]] auto does_copy() const -> bool { return cur_batch_->does_copy(); }
+  /** Reset the iterator position to `begin()` */
+  void reset() { cur_pos_ = 0; }
+  /** Reset the iterator position to `end()` */
+  void reset_to_end() { cur_pos_ = cur_batch_->n_iters_; }
+  [[nodiscard]] auto begin() const -> const batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    x.reset();
+    return x;
+  }
+  [[nodiscard]] auto end() const -> const batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    x.reset_to_end();
+    return x;
+  }
+  [[nodiscard]] auto operator*() const -> reference
+  {
+    cur_batch_->load(cur_pos_);
+    return *cur_batch_;
+  }
+  [[nodiscard]] auto operator->() const -> pointer
+  {
+    cur_batch_->load(cur_pos_);
+    return cur_batch_.get();
+  }
+  friend auto operator==(const batch_load_iterator<T>& x, const batch_load_iterator<T>& y) -> bool
+  {
+    return x.cur_batch_ == y.cur_batch_ && x.cur_pos_ == y.cur_pos_;
+  };
+  friend auto operator!=(const batch_load_iterator<T>& x, const batch_load_iterator<T>& y) -> bool
+  {
+    return x.cur_batch_ != y.cur_batch_ || x.cur_pos_ != y.cur_pos_;
+  };
+  auto operator++() -> batch_load_iterator<T>&
+  {
+    ++cur_pos_;
+    return *this;
+  }
+  auto operator++(int) -> batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    ++cur_pos_;
+    return x;
+  }
+  auto operator--() -> batch_load_iterator<T>&
+  {
+    --cur_pos_;
+    return *this;
+  }
+  auto operator--(int) -> batch_load_iterator<T>
+  {
+    batch_load_iterator<T> x(*this);
+    --cur_pos_;
+    return x;
+  }
+
+ private:
+  std::shared_ptr<value_type> cur_batch_;
+  size_type cur_pos_;
+};
 
 }  // namespace raft::spatial::knn::detail::utils

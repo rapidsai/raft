@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __TRANSPOSE_H
-#define __TRANSPOSE_H
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/sparse/linalg/detail/transpose.h>
 
 namespace raft {
@@ -42,7 +40,7 @@ namespace linalg {
  * @param[in] stream : Cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_transpose(const raft::handle_t& handle,
+void csr_transpose(raft::device_resources const& handle,
                    const value_idx* csr_indptr,
                    const value_idx* csr_indices,
                    const value_t* csr_data,
@@ -70,5 +68,3 @@ void csr_transpose(const raft::handle_t& handle,
 };  // end NAMESPACE linalg
 };  // end NAMESPACE sparse
 };  // end NAMESPACE raft
-
-#endif

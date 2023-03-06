@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ namespace raft::cache {
  * whose size equals the associativity. These are the cache sets. If a cache
  * set is full, then new indices are stored by replacing the oldest entries.
  *
- * Using this index mapping we implement methods to store and retrive data from
+ * Using this index mapping we implement methods to store and retrieve data from
  * the cache buffer, where a unit of data that we are storing is math_t[n_vec].
  * For example in SVM we store full columns of the kernel matrix at each cache
  * entry.
@@ -67,7 +67,7 @@ namespace raft::cache {
  * // We assume that our ML algo repeatedly calls calc, and the set of keys have
  * // an overlap. We will use the cache to avoid repeated calculations.
  *
- * // Assume we have raft::handle_t& h, and cudaStream_t stream
+ * // Assume we have raft::device_resources& h, and cudaStream_t stream
  * Cache<float> cache(h.get_device_allocator(), stream, m);
  *
  * // A buffer that we will reuse to store the cache indices.
@@ -300,7 +300,7 @@ class Cache {
 
     raft::update_host(n_cached, d_num_selected_out.data(), 1, stream);
 
-    // Similarily re-group the input indices
+    // Similarly re-group the input indices
     raft::copy(ws_tmp.data(), keys, n, stream);
     cub::DevicePartition::Flagged(d_temp_storage.data(),
                                   d_temp_storage_size,

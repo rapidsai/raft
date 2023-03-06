@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,11 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
 }
 
 /**
+ * @defgroup stats_accuracy Accuracy Score
+ * @{
+ */
+
+/**
  * @brief Compute accuracy of predictions. Useful for classification.
  * @tparam value_t: data type for predictions (e.g., int for classification)
  * @tparam idx_t Index type of matrix extent.
@@ -50,7 +55,7 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
  * @return: Accuracy score in [0, 1]; higher is better.
  */
 template <typename value_t, typename idx_t>
-float accuracy(const raft::handle_t& handle,
+float accuracy(raft::device_resources const& handle,
                raft::device_vector_view<const value_t, idx_t> predictions,
                raft::device_vector_view<const value_t, idx_t> ref_predictions)
 {
@@ -63,6 +68,9 @@ float accuracy(const raft::handle_t& handle,
                                 predictions.extent(0),
                                 handle.get_stream());
 }
+
+/** @} */  // end group stats_accuracy
+
 }  // namespace stats
 }  // namespace raft
 

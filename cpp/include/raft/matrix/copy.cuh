@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,11 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_copy Matrix copy operations
+ * @{
+ */
+
+/**
  * @brief Copy selected rows of the input matrix into contiguous space.
  *
  * On exit out[i + k*n_rows] = in[indices[i] + k*n_rows],
@@ -34,7 +39,7 @@ namespace raft::matrix {
  * @param[in] indices of the rows to be copied
  */
 template <typename m_t, typename idx_t, typename layout>
-void copy_rows(const raft::handle_t& handle,
+void copy_rows(raft::device_resources const& handle,
                raft::device_matrix_view<const m_t, idx_t, layout> in,
                raft::device_matrix_view<m_t, idx_t, layout> out,
                raft::device_vector_view<idx_t, idx_t> indices)
@@ -60,7 +65,7 @@ void copy_rows(const raft::handle_t& handle,
  * @param[out] out: output matrix
  */
 template <typename m_t, typename matrix_idx_t>
-void copy(const raft::handle_t& handle,
+void copy(raft::device_resources const& handle,
           raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
           raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
 {
@@ -79,7 +84,7 @@ void copy(const raft::handle_t& handle,
  * @param out: output matrix
  */
 template <typename m_t, typename idx_t>
-void trunc_zero_origin(const raft::handle_t& handle,
+void trunc_zero_origin(raft::device_resources const& handle,
                        raft::device_matrix_view<const m_t, idx_t, col_major> in,
                        raft::device_matrix_view<m_t, idx_t, col_major> out)
 {
@@ -93,5 +98,7 @@ void trunc_zero_origin(const raft::handle_t& handle,
                                       out.extent(1),
                                       handle.get_stream());
 }
+
+/** @} */  // end of group matrix_copy
 
 }  // namespace raft::matrix

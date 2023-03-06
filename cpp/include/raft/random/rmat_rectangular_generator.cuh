@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,11 @@
 #include "detail/rmat_rectangular_generator.cuh"
 
 namespace raft::random {
+
+/**
+ * @defgroup rmat RMAT Rectangular Generator
+ * @{
+ */
 
 /**
  * @brief Generate a bipartite RMAT graph for a rectangular adjacency matrix.
@@ -73,7 +78,7 @@ namespace raft::random {
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::random::RngState& r,
   raft::device_vector_view<const ProbT, IdxT> theta,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
@@ -97,7 +102,7 @@ void rmat_rectangular_gen(
  * @pre `out_src.extent(0) == out_dst.extent(0)` is `true`
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen(const raft::handle_t& handle,
+void rmat_rectangular_gen(raft::device_resources const& handle,
                           raft::random::RngState& r,
                           raft::device_vector_view<const ProbT, IdxT> theta,
                           raft::device_vector_view<IdxT, IdxT> out_src,
@@ -120,7 +125,7 @@ void rmat_rectangular_gen(const raft::handle_t& handle,
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::random::RngState& r,
   raft::device_vector_view<const ProbT, IdxT> theta,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
@@ -147,7 +152,7 @@ void rmat_rectangular_gen(
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::random::RngState& r,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
   raft::device_vector_view<IdxT, IdxT> out_src,
@@ -174,7 +179,7 @@ void rmat_rectangular_gen(
  * @pre `out_src.extent(0) == out_dst.extent(0)` is `true`
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen(const raft::handle_t& handle,
+void rmat_rectangular_gen(raft::device_resources const& handle,
                           raft::random::RngState& r,
                           raft::device_vector_view<IdxT, IdxT> out_src,
                           raft::device_vector_view<IdxT, IdxT> out_dst,
@@ -199,7 +204,7 @@ void rmat_rectangular_gen(const raft::handle_t& handle,
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::random::RngState& r,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
   ProbT a,
@@ -211,6 +216,8 @@ void rmat_rectangular_gen(
   detail::rmat_rectangular_gen_output<IdxT> output(out);
   detail::rmat_rectangular_gen_impl(handle, r, output, a, b, c, r_scale, c_scale);
 }
+
+/** @} */  // end group rmat
 
 /**
  * @brief Legacy overload of `rmat_rectangular_gen`

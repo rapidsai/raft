@@ -223,7 +223,7 @@ endfunction()
 #   each `dataset` to be generated and a HTML chart to be generated from those
 #   datasets. Several aspects of the compilation can be displayed, such as
 #   compilation time and executable size. The aspect being plotted on the
-#   generated chart can be controled via the `ASPECT` argument.
+#   generated chart can be controlled via the `ASPECT` argument.
 #
 #   Parameters
 #   ----------

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -56,6 +57,49 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
   }
 
  protected:
+  void test_API()
+  {
+    auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
+      data.data(), params.n_row, params.n_col);
+    auto sing_vals_view = raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);
+    auto left_eig_vectors_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+      left_eig_vectors_qr.data(), params.n_row, params.n_col);
+    auto right_eig_vectors_view = raft::make_device_matrix_view<T, int, raft::col_major>(
+      right_eig_vectors_trans_qr.data(), params.n_col, params.n_col);
+    raft::linalg::svd_eig(handle, data_view, sing_vals_view, right_eig_vectors_view, std::nullopt);
+    raft::linalg::svd_qr(handle, data_view, sing_vals_view);
+    raft::linalg::svd_qr(
+      handle, data_view, sing_vals_view, std::make_optional(left_eig_vectors_view));
+    raft::linalg::svd_qr(
+      handle, data_view, sing_vals_view, std::nullopt, std::make_optional(right_eig_vectors_view));
+    raft::linalg::svd_qr_transpose_right_vec(handle, data_view, sing_vals_view);
+    raft::linalg::svd_qr_transpose_right_vec(
+      handle, data_view, sing_vals_view, std::make_optional(left_eig_vectors_view));
+    raft::linalg::svd_qr_transpose_right_vec(
+      handle, data_view, sing_vals_view, std::nullopt, std::make_optional(right_eig_vectors_view));
+  }
+
+  void test_qr()
+  {
+    auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
+      data.data(), params.n_row, params.n_col);
+    auto sing_vals_qr_view =
+      raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);
+    auto left_eig_vectors_qr_view =
+      std::optional(raft::make_device_matrix_view<T, int, raft::col_major>(
+        left_eig_vectors_qr.data(), params.n_row, params.n_col));
+    auto right_eig_vectors_trans_qr_view =
+      std::make_optional(raft::make_device_matrix_view<T, int, raft::col_major>(
+        right_eig_vectors_trans_qr.data(), params.n_col, params.n_col));
+
+    svd_qr_transpose_right_vec(handle,
+                               data_view,
+                               sing_vals_qr_view,
+                               left_eig_vectors_qr_view,
+                               right_eig_vectors_trans_qr_view);
+    handle.sync_stream(stream);
+  }
+
   void SetUp() override
   {
     int len = params.len;
@@ -78,27 +122,13 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
     raft::update_device(right_eig_vectors_ref.data(), right_eig_vectors_ref_h, right_evl, stream);
     raft::update_device(sing_vals_ref.data(), sing_vals_ref_h, params.n_col, stream);
 
-    auto data_view = raft::make_device_matrix_view<const T, int, raft::col_major>(
-      data.data(), params.n_row, params.n_col);
-    auto sing_vals_qr_view =
-      raft::make_device_vector_view<T, int>(sing_vals_qr.data(), params.n_col);
-    std::optional<raft::device_matrix_view<T, int, raft::col_major>> left_eig_vectors_qr_view =
-      raft::make_device_matrix_view<T, int, raft::col_major>(
-        left_eig_vectors_qr.data(), params.n_row, params.n_col);
-    std::optional<raft::device_matrix_view<T, int, raft::col_major>>
-      right_eig_vectors_trans_qr_view = raft::make_device_matrix_view<T, int, raft::col_major>(
-        right_eig_vectors_trans_qr.data(), params.n_col, params.n_col);
-
-    svd_qr_transpose_right_vec(handle,
-                               data_view,
-                               sing_vals_qr_view,
-                               left_eig_vectors_qr_view,
-                               right_eig_vectors_trans_qr_view);
-    handle.sync_stream(stream);
+    test_API();
+    raft::update_device(data.data(), data_h, len, stream);
+    test_qr();
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   SvdInputs<T> params;

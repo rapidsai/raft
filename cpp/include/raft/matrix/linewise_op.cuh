@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@
 #include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
+
+/**
+ * @defgroup linewise_op Matrix Linewise Operations
+ * @{
+ */
 
 /**
  * Run a function over matrix lines (rows or columns) with a variable number
@@ -57,7 +62,7 @@ template <typename m_t,
           typename Lambda,
           typename... vec_t,
           typename = raft::enable_if_device_mdspan<vec_t...>>
-void linewise_op(const raft::handle_t& handle,
+void linewise_op(raft::device_resources const& handle,
                  raft::device_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_matrix_view<m_t, idx_t, layout> out,
                  const bool alongLines,
@@ -92,7 +97,7 @@ template <typename m_t,
           typename Lambda,
           typename... vec_t,
           typename = raft::enable_if_device_mdspan<vec_t...>>
-void linewise_op(const raft::handle_t& handle,
+void linewise_op(raft::device_resources const& handle,
                  raft::device_aligned_matrix_view<const m_t, idx_t, layout> in,
                  raft::device_aligned_matrix_view<m_t, idx_t, layout> out,
                  const bool alongLines,
@@ -114,5 +119,7 @@ void linewise_op(const raft::handle_t& handle,
   detail::MatrixLinewiseOp<16, 256>::runPadded<m_t, idx_t>(
     out, in, lineLen, nLines, alongLines, op, handle.get_stream(), vecs.data_handle()...);
 }
+
+/** @} */  // end of group linewise_op
 
 }  // namespace raft::matrix

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ namespace raft::spatial::knn {
  */
 template <typename T = float, typename value_idx = int>
 [[deprecated("Consider using new-style raft::spatial::knn::*::build functions")]] inline void
-approx_knn_build_index(raft::handle_t& handle,
+approx_knn_build_index(raft::device_resources& handle,
                        raft::spatial::knn::knnIndex* index,
                        knnIndexParam* params,
                        raft::distance::DistanceType metric,
@@ -67,7 +67,7 @@ approx_knn_build_index(raft::handle_t& handle,
  */
 template <typename T = float, typename value_idx = int>
 [[deprecated("Consider using new-style raft::spatial::knn::*::search functions")]] inline void
-approx_knn_search(raft::handle_t& handle,
+approx_knn_search(raft::device_resources& handle,
                   float* distances,
                   int64_t* indices,
                   raft::spatial::knn::knnIndex* index,

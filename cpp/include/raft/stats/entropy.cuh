@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,11 @@ double entropy(const T* clusterArray,
 }
 
 /**
+ * @defgroup stats_entropy Entropy
+ * @{
+ */
+
+/**
  * @brief Function to calculate entropy
  * <a href="https://en.wikipedia.org/wiki/Entropy_(information_theory)">more info on entropy</a>
  *
@@ -59,7 +64,7 @@ double entropy(const T* clusterArray,
  * @return the entropy score
  */
 template <typename value_t, typename idx_t>
-double entropy(const raft::handle_t& handle,
+double entropy(raft::device_resources const& handle,
                raft::device_vector_view<const value_t, idx_t> cluster_array,
                const value_t lower_label_range,
                const value_t upper_label_range)
@@ -71,6 +76,9 @@ double entropy(const raft::handle_t& handle,
                          upper_label_range,
                          handle.get_stream());
 }
+
+/** @} */  // end group stats_entropy
+
 };  // end namespace stats
 };  // end namespace raft
 

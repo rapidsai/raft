@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,44 @@
 
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <type_traits>
 
 namespace raft::random {
+
+namespace permute_impl {
+
+template <typename T, typename InputOutputValueType, typename IdxType, typename Layout>
+struct perms_out_view {
+};
+
+template <typename InputOutputValueType, typename IdxType, typename Layout>
+struct perms_out_view<std::nullopt_t, InputOutputValueType, IdxType, Layout> {
+  // permsOut won't have a value anyway,
+  // so we can pick any integral value type we want.
+  using type = raft::device_vector_view<IdxType, IdxType>;
+};
+
+template <typename PermutationIndexType,
+          typename InputOutputValueType,
+          typename IdxType,
+          typename Layout>
+struct perms_out_view<std::optional<raft::device_vector_view<PermutationIndexType, IdxType>>,
+                      InputOutputValueType,
+                      IdxType,
+                      Layout> {
+  using type = raft::device_vector_view<PermutationIndexType, IdxType>;
+};
+
+template <typename T, typename InputOutputValueType, typename IdxType, typename Layout>
+using perms_out_view_t = typename perms_out_view<T, InputOutputValueType, IdxType, Layout>::type;
+
+}  // namespace permute_impl
+
+/**
+ * \defgroup permute Permutation
+ * @{
+ */
 
 /**
  * @brief Randomly permute the rows of the input matrix.
@@ -61,7 +95,7 @@ namespace raft::random {
  *   then we recommend Knuth Shuffle.
  */
 template <typename InputOutputValueType, typename IntType, typename IdxType, typename Layout>
-void permute(const raft::handle_t& handle,
+void permute(raft::device_resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              std::optional<raft::device_vector_view<IntType, IdxType>> permsOut,
              std::optional<raft::device_matrix_view<InputOutputValueType, IdxType, Layout>> out)
@@ -99,35 +133,6 @@ void permute(const raft::handle_t& handle,
   }
 }
 
-namespace permute_impl {
-
-template <typename T, typename InputOutputValueType, typename IdxType, typename Layout>
-struct perms_out_view {
-};
-
-template <typename InputOutputValueType, typename IdxType, typename Layout>
-struct perms_out_view<std::nullopt_t, InputOutputValueType, IdxType, Layout> {
-  // permsOut won't have a value anyway,
-  // so we can pick any integral value type we want.
-  using type = raft::device_vector_view<IdxType, IdxType>;
-};
-
-template <typename PermutationIndexType,
-          typename InputOutputValueType,
-          typename IdxType,
-          typename Layout>
-struct perms_out_view<std::optional<raft::device_vector_view<PermutationIndexType, IdxType>>,
-                      InputOutputValueType,
-                      IdxType,
-                      Layout> {
-  using type = raft::device_vector_view<PermutationIndexType, IdxType>;
-};
-
-template <typename T, typename InputOutputValueType, typename IdxType, typename Layout>
-using perms_out_view_t = typename perms_out_view<T, InputOutputValueType, IdxType, Layout>::type;
-
-}  // namespace permute_impl
-
 /**
  * @brief Overload of `permute` that compiles if users pass in `std::nullopt`
  *   for either or both of `permsOut` and `out`.
@@ -137,7 +142,7 @@ template <typename InputOutputValueType,
           typename Layout,
           typename PermsOutType,
           typename OutType>
-void permute(const raft::handle_t& handle,
+void permute(raft::device_resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              PermsOutType&& permsOut,
              OutType&& out)
@@ -159,6 +164,8 @@ void permute(const raft::handle_t& handle,
   std::optional<out_view_type> out_arg            = std::forward<OutType>(out);
   permute(handle, in, permsOut_arg, out_arg);
 }
+
+/** @} */
 
 /**
  * @brief Legacy overload of `permute` that takes raw arrays instead of mdspan.

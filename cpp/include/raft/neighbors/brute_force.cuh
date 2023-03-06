@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,11 @@
 #include <raft/spatial/knn/detail/selection_faiss.cuh>
 
 namespace raft::neighbors::brute_force {
+
+/**
+ * @defgroup brute_force_knn Brute-force K-Nearest Neighbors
+ * @{
+ */
 
 /**
  * @brief Performs a k-select across several (contiguous) row-partitioned index/distance
@@ -49,11 +54,11 @@ namespace raft::neighbors::brute_force {
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  compute multiple knn graphs and aggregate row-wise
  *  (see detailed description above)
@@ -74,7 +79,7 @@ namespace raft::neighbors::brute_force {
  */
 template <typename value_t, typename idx_t>
 inline void knn_merge_parts(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
   raft::device_matrix_view<const idx_t, idx_t, row_major> in_values,
   raft::device_matrix_view<value_t, idx_t, row_major> out_keys,
@@ -111,12 +116,12 @@ inline void knn_merge_parts(
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  int k = 10;
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
@@ -141,7 +146,7 @@ template <typename idx_t,
           typename matrix_idx,
           typename index_layout,
           typename search_layout>
-void knn(raft::handle_t const& handle,
+void knn(raft::device_resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
@@ -202,12 +207,12 @@ void knn(raft::handle_t const& handle,
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
@@ -225,7 +230,7 @@ void knn(raft::handle_t const& handle,
  * @param[in] metric type of distance computation to perform (must be a variant of L2)
  */
 template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
-void fused_l2_knn(const raft::handle_t& handle,
+void fused_l2_knn(raft::device_resources const& handle,
                   raft::device_matrix_view<const value_t, idx_t, idx_layout> index,
                   raft::device_matrix_view<const value_t, idx_t, query_layout> query,
                   raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,
@@ -268,5 +273,7 @@ void fused_l2_knn(const raft::handle_t& handle,
                                          handle.get_stream(),
                                          metric);
 }
+
+/** @} */  // end group brute_force_knn
 
 }  // namespace raft::neighbors::brute_force

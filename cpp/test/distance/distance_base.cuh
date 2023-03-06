@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/mdarray.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/mdarray.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #if defined RAFT_DISTANCE_COMPILED
@@ -51,7 +52,7 @@ __global__ void naiveDistanceKernel(DataType* dist,
   }
   if (type == raft::distance::DistanceType::L2SqrtExpanded ||
       type == raft::distance::DistanceType::L2SqrtUnexpanded)
-    acc = raft::mySqrt(acc);
+    acc = raft::sqrt(acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -78,9 +79,9 @@ __global__ void naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
     auto b    = y[yidx];
     auto diff = (a > b) ? (a - b) : (b - a);
     if (type == raft::distance::DistanceType::Linf) {
-      acc = raft::myMax(acc, diff);
+      acc = raft::max(acc, diff);
     } else if (type == raft::distance::DistanceType::Canberra) {
-      const auto add = raft::myAbs(a) + raft::myAbs(b);
+      const auto add = raft::abs(a) + raft::abs(b);
       // deal with potential for 0 in denominator by
       // forcing 1/0 instead
       acc += ((add != 0) * diff / (add + (add == 0)));
@@ -118,7 +119,29 @@ __global__ void naiveCosineDistanceKernel(
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
   // Use 1.0 - (cosine similarity) to calc the distance
-  dist[outidx] = (DataType)1.0 - acc_ab / (raft::mySqrt(acc_a) * raft::mySqrt(acc_b));
+  dist[outidx] = (DataType)1.0 - acc_ab / (raft::sqrt(acc_a) * raft::sqrt(acc_b));
+}
+
+template <typename DataType>
+__global__ void naiveInnerProductKernel(
+  DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
+{
+  int midx = threadIdx.x + blockIdx.x * blockDim.x;
+  int nidx = threadIdx.y + blockIdx.y * blockDim.y;
+  if (midx >= m || nidx >= n) { return; }
+
+  DataType acc_ab = DataType(0);
+
+  for (int i = 0; i < k; ++i) {
+    int xidx = isRowMajor ? i + midx * k : i * m + midx;
+    int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
+    auto a   = x[xidx];
+    auto b   = y[yidx];
+    acc_ab += a * b;
+  }
+
+  int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
+  dist[outidx] = acc_ab;
 }
 
 template <typename DataType>
@@ -136,7 +159,7 @@ __global__ void naiveHellingerDistanceKernel(
     int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a   = x[xidx];
     auto b   = y[yidx];
-    acc_ab += raft::mySqrt(a) * raft::mySqrt(b);
+    acc_ab += raft::sqrt(a) * raft::sqrt(b);
   }
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -144,7 +167,7 @@ __global__ void naiveHellingerDistanceKernel(
   // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
   acc_ab         = 1 - acc_ab;
   auto rectifier = (!signbit(acc_ab));
-  dist[outidx]   = raft::mySqrt(rectifier * acc_ab);
+  dist[outidx]   = raft::sqrt(rectifier * acc_ab);
 }
 
 template <typename DataType>
@@ -166,11 +189,11 @@ __global__ void naiveLpUnexpDistanceKernel(DataType* dist,
     int yidx  = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a    = x[xidx];
     auto b    = y[yidx];
-    auto diff = raft::L1Op<DataType>()(a - b);
-    acc += raft::myPow(diff, p);
+    auto diff = raft::abs(a - b);
+    acc += raft::pow(diff, p);
   }
   auto one_over_p = 1 / p;
-  acc             = raft::myPow(acc, one_over_p);
+  acc             = raft::pow(acc, one_over_p);
   int outidx      = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx]    = acc;
 }
@@ -221,7 +244,7 @@ __global__ void naiveJensenShannonDistanceKernel(
 
     acc += (-a * (!p_zero * log(p + p_zero))) + (-b * (!q_zero * log(q + q_zero)));
   }
-  acc          = raft::mySqrt(0.5f * acc);
+  acc          = raft::sqrt(0.5f * acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -296,7 +319,7 @@ __global__ void naiveCorrelationDistanceKernel(
   auto Q_denom = k * a_sq_norm - (a_norm * a_norm);
   auto R_denom = k * b_sq_norm - (b_norm * b_norm);
 
-  acc = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+  acc = 1 - (numer / raft::sqrt(Q_denom * R_denom));
 
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -347,6 +370,9 @@ void naiveDistance(DataType* dist,
       naiveHammingDistanceKernel<DataType>
         <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
       break;
+    case raft::distance::DistanceType::InnerProduct:
+      naiveInnerProductKernel<DataType><<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
+      break;
     case raft::distance::DistanceType::JensenShannon:
       naiveJensenShannonDistanceKernel<DataType>
         <<<nblks, TPB, 0, stream>>>(dist, x, y, m, n, k, isRowMajor);
@@ -384,7 +410,8 @@ template <typename DataType>
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType, typename layout>
-void distanceLauncher(DataType* x,
+void distanceLauncher(raft::device_resources const& handle,
+                      DataType* x,
                       DataType* y,
                       DataType* dist,
                       DataType* dist2,
@@ -393,11 +420,8 @@ void distanceLauncher(DataType* x,
                       int k,
                       DistanceInputs<DataType>& params,
                       DataType threshold,
-                      cudaStream_t stream,
                       DataType metric_arg = 2.0f)
 {
-  raft::handle_t handle(stream);
-
   auto x_v    = make_device_matrix_view<DataType, int, layout>(x, m, k);
   auto y_v    = make_device_matrix_view<DataType, int, layout>(y, n, k);
   auto dist_v = make_device_matrix_view<DataType, int, layout>(dist, m, n);
@@ -453,7 +477,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     DataType threshold = -10000.f;
 
     if (isRowMajor) {
-      distanceLauncher<distanceType, DataType, layout_c_contiguous>(x.data(),
+      distanceLauncher<distanceType, DataType, layout_c_contiguous>(handle,
+                                                                    x.data(),
                                                                     y.data(),
                                                                     dist.data(),
                                                                     dist2.data(),
@@ -462,11 +487,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                                                     k,
                                                                     params,
                                                                     threshold,
-                                                                    stream,
                                                                     metric_arg);
 
     } else {
-      distanceLauncher<distanceType, DataType, layout_f_contiguous>(x.data(),
+      distanceLauncher<distanceType, DataType, layout_f_contiguous>(handle,
+                                                                    x.data(),
                                                                     y.data(),
                                                                     dist.data(),
                                                                     dist2.data(),
@@ -475,14 +500,13 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                                                     k,
                                                                     params,
                                                                     threshold,
-                                                                    stream,
                                                                     metric_arg);
     }
     handle.sync_stream(stream);
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   DistanceInputs<DataType> params;
@@ -499,29 +523,17 @@ class BigMatrixDistanceTest : public ::testing::Test {
     auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
     common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
 
-    size_t worksize = raft::distance::getWorkspaceSize<distanceType, float, float, float>(
-      x.data(), x.data(), m, n, k);
-    rmm::device_uvector<char> workspace(worksize, handle.get_stream());
-    raft::distance::distance<distanceType, float, float, float>(x.data(),
-                                                                x.data(),
-                                                                dist.data(),
-                                                                m,
-                                                                n,
-                                                                k,
-                                                                workspace.data(),
-                                                                worksize,
-                                                                handle.get_stream(),
-                                                                true,
-                                                                0.0f);
+    raft::distance::distance<distanceType, float, float, float>(
+      handle, x.data(), x.data(), dist.data(), m, n, k, true, 0.0f);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 
  protected:
+  raft::device_resources handle;
   int m = 48000;
   int n = 48000;
   int k = 1;
-  raft::handle_t handle;
   rmm::device_uvector<float> x, dist;
 };
 }  // end namespace distance

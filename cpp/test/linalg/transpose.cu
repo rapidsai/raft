@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -71,7 +71,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   TranposeInputs<T> params;
@@ -133,7 +133,7 @@ namespace {
  * @return The transposed matrix.
  */
 template <typename T, typename IndexType, typename LayoutPolicy>
-[[nodiscard]] auto transpose(handle_t const& handle,
+[[nodiscard]] auto transpose(raft::device_resources const& handle,
                              device_matrix_view<T, IndexType, LayoutPolicy> in)
   -> std::enable_if_t<std::is_floating_point_v<T> &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
@@ -158,7 +158,7 @@ template <typename T, typename IndexType, typename LayoutPolicy>
  * @return The transposed matrix.
  */
 template <typename T, typename IndexType>
-[[nodiscard]] auto transpose(handle_t const& handle,
+[[nodiscard]] auto transpose(raft::device_resources const& handle,
                              device_matrix_view<T, IndexType, layout_stride> in)
   -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, IndexType, layout_stride>>
 {
@@ -188,7 +188,7 @@ template <typename T, typename IndexType>
 template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
-  handle_t handle;
+  raft::device_resources handle;
   auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 3);
   T k{0};
   for (size_t i = 0; i < v.extent(0); ++i) {
@@ -223,7 +223,7 @@ namespace {
 template <typename T, typename LayoutPolicy>
 void test_transpose_submatrix()
 {
-  handle_t handle;
+  raft::device_resources handle;
   auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 33);
   T k{0};
   size_t row_beg{3}, row_end{13}, col_beg{2}, col_end{11};

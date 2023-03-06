@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,12 @@
 #include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
+
+/**
+ * @defgroup matrix_init Matrix initialization operations
+ * @{
+ */
+
 /**
  * @brief set values to scalar in matrix
  * @tparam math_t data-type upon which the math operation will be performed
@@ -33,7 +39,7 @@ namespace raft::matrix {
  * @param[in] scalar scalar value to fill matrix elements
  */
 template <typename math_t, typename extents, typename layout>
-void fill(const raft::handle_t& handle,
+void fill(raft::device_resources const& handle,
           raft::device_mdspan<const math_t, extents, layout> in,
           raft::device_mdspan<math_t, extents, layout> out,
           raft::host_scalar_view<math_t> scalar)
@@ -55,7 +61,7 @@ void fill(const raft::handle_t& handle,
  * @param[in] scalar scalar value to fill matrix elements
  */
 template <typename math_t, typename extents, typename layout>
-void fill(const raft::handle_t& handle,
+void fill(raft::device_resources const& handle,
           raft::device_mdspan<math_t, extents, layout> inout,
           math_t scalar)
 {
@@ -63,4 +69,7 @@ void fill(const raft::handle_t& handle,
   detail::setValue(
     inout.data_handle(), inout.data_handle(), scalar, inout.size(), handle.get_stream());
 }
+
+/** @} */  // end of group matrix_init
+
 }  // namespace raft::matrix

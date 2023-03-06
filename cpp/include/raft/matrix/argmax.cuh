@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,27 @@
 namespace raft::matrix {
 
 /**
- * @brief Argmax: find the row idx with maximum value for each column
+ * @defgroup argmax Argmax operation
+ * @{
+ */
+
+/**
+ * @brief Argmax: find the col idx with maximum value for each row
  * @param[in] handle: raft handle
  * @param[in] in: input matrix of size (n_rows, n_cols)
- * @param[out] out: output vector of size n_cols
+ * @param[out] out: output vector of size n_rows
  */
 template <typename math_t, typename idx_t, typename matrix_idx_t>
-void argmax(const raft::handle_t& handle,
+void argmax(raft::device_resources const& handle,
             raft::device_matrix_view<const math_t, matrix_idx_t, row_major> in,
             raft::device_vector_view<idx_t, matrix_idx_t> out)
 {
   RAFT_EXPECTS(out.extent(0) == in.extent(0),
                "Size of output vector must equal number of rows in input matrix.");
   detail::argmax(
-    in.data_handle(), in.extent(0), in.extent(1), out.data_handle(), handle.get_stream());
+    in.data_handle(), in.extent(1), in.extent(0), out.data_handle(), handle.get_stream());
 }
+
+/** @} */  // end of group argmax
+
 }  // namespace raft::matrix

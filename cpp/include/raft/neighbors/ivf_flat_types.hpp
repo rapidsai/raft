@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,13 @@
 #include <raft/util/integer_utils.hpp>
 
 #include <optional>
+#include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
+/**
+ * @ingroup ivf_flat
+ * @{
+ */
 
 /** Size of the interleaved group (see `index::data` description). */
 constexpr static uint32_t kIndexGroupSize = 32;
@@ -37,6 +42,19 @@ struct index_params : ann::index_params {
   uint32_t kmeans_n_iters = 20;
   /** The fraction of data to use during iterative kmeans building. */
   double kmeans_trainset_fraction = 0.5;
+  /**
+   * By default (adaptive_centers = false), the cluster centers are trained in `ivf_flat::build`,
+   * and never modified in `ivf_flat::extend`. As a result, you may need to retrain the index
+   * from scratch after invoking (`ivf_flat::extend`) a few times with new data, the distribution of
+   * which is no longer representative of the original training set.
+   *
+   * The alternative behavior (adaptive_centers = true) is to update the cluster centers for new
+   * data when it is added. In this case, `index.centers()` are always exactly the centroids of the
+   * data in the corresponding clusters. The drawback of this behavior is that the centroids depend
+   * on the order of adding new data (through the classification of the added data); that is,
+   * `index.centers()` "drift" together with the changing distribution of the newly added data.
+   */
+  bool adaptive_centers = false;
 };
 
 struct search_params : ann::search_params {
@@ -71,6 +89,11 @@ struct index : ann::index {
   [[nodiscard]] constexpr inline auto metric() const noexcept -> raft::distance::DistanceType
   {
     return metric_;
+  }
+  /** Whether `centers()` change upon extending the index (ivf_pq::extend). */
+  [[nodiscard]] constexpr inline auto adaptive_centers() const noexcept -> bool
+  {
+    return adaptive_centers_;
   }
   /**
    * Inverted list data [size, dim].
@@ -200,10 +223,15 @@ struct index : ann::index {
   ~index()                          = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle, raft::distance::DistanceType metric, uint32_t n_lists, uint32_t dim)
+  index(raft::device_resources const& handle,
+        raft::distance::DistanceType metric,
+        uint32_t n_lists,
+        bool adaptive_centers,
+        uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
+      adaptive_centers_(adaptive_centers),
       data_(make_device_mdarray<T>(handle, make_extents<IdxT>(0, dim))),
       indices_(make_device_mdarray<IdxT>(handle, make_extents<IdxT>(0))),
       list_sizes_(make_device_mdarray<uint32_t>(handle, make_extents<uint32_t>(n_lists))),
@@ -215,8 +243,8 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(const handle_t& handle, const index_params& params, uint32_t dim)
-    : index(handle, params.metric, params.n_lists, dim)
+  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
+    : index(handle, params.metric, params.n_lists, params.adaptive_centers, dim)
   {
   }
 
@@ -224,14 +252,21 @@ struct index : ann::index {
    * Replace the content of the index with new uninitialized mdarrays to hold the indicated amount
    * of data.
    */
-  void allocate(const handle_t& handle, IdxT index_size, bool allocate_center_norms)
+  void allocate(raft::device_resources const& handle, IdxT index_size)
   {
     data_    = make_device_mdarray<T>(handle, make_extents<IdxT>(index_size, dim()));
     indices_ = make_device_mdarray<IdxT>(handle, make_extents<IdxT>(index_size));
-    center_norms_ =
-      allocate_center_norms
-        ? std::optional(make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists())))
-        : std::nullopt;
+
+    switch (metric_) {
+      case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2Unexpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        center_norms_ = make_device_mdarray<float>(handle, make_extents<uint32_t>(n_lists()));
+        break;
+      default: center_norms_ = std::nullopt;
+    }
+
     check_consistency();
   }
 
@@ -242,6 +277,7 @@ struct index : ann::index {
    */
   uint32_t veclen_;
   raft::distance::DistanceType metric_;
+  bool adaptive_centers_;
   device_mdarray<T, extent_2d<IdxT>, row_major> data_;
   device_mdarray<IdxT, extent_1d<IdxT>, row_major> indices_;
   device_mdarray<uint32_t, extent_1d<uint32_t>, row_major> list_sizes_;
@@ -275,5 +311,7 @@ struct index : ann::index {
     return veclen;
   }
 };
+
+/** @} */
 
 }  // namespace raft::neighbors::ivf_flat

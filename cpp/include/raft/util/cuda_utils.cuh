@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,11 @@
 
 #include <math_constants.h>
 #include <stdint.h>
+#include <type_traits>
 
 #include <raft/core/cudart_utils.hpp>
+#include <raft/core/math.hpp>
+#include <raft/core/operators.hpp>
 
 #ifndef ENABLE_MEMCPY_ASYNC
 // enable memcpy_async interface by default for newer GPUs
@@ -257,12 +260,14 @@ DI double myAtomicMax(double* address, double val)
 template <typename T>
 HDI T myMax(T x, T y);
 template <>
-HDI float myMax<float>(float x, float y)
+[[deprecated("use raft::max from raft/core/math.hpp instead")]] HDI float myMax<float>(float x,
+                                                                                       float y)
 {
   return fmaxf(x, y);
 }
 template <>
-HDI double myMax<double>(double x, double y)
+[[deprecated("use raft::max from raft/core/math.hpp instead")]] HDI double myMax<double>(double x,
+                                                                                         double y)
 {
   return fmax(x, y);
 }
@@ -275,12 +280,14 @@ HDI double myMax<double>(double x, double y)
 template <typename T>
 HDI T myMin(T x, T y);
 template <>
-HDI float myMin<float>(float x, float y)
+[[deprecated("use raft::min from raft/core/math.hpp instead")]] HDI float myMin<float>(float x,
+                                                                                       float y)
 {
   return fminf(x, y);
 }
 template <>
-HDI double myMin<double>(double x, double y)
+[[deprecated("use raft::min from raft/core/math.hpp instead")]] HDI double myMin<double>(double x,
+                                                                                         double y)
 {
   return fmin(x, y);
 }
@@ -296,7 +303,7 @@ HDI double myMin<double>(double x, double y)
 template <typename T>
 DI T myAtomicMin(T* address, T val)
 {
-  myAtomicReduce(address, val, myMin<T>);
+  myAtomicReduce(address, val, raft::min_op{});
   return *address;
 }
 
@@ -310,17 +317,8 @@ DI T myAtomicMin(T* address, T val)
 template <typename T>
 DI T myAtomicMax(T* address, T val)
 {
-  myAtomicReduce(address, val, myMax<T>);
+  myAtomicReduce(address, val, raft::max_op{});
   return *address;
-}
-
-/**
- * Sign function
- */
-template <typename T>
-HDI int sgn(const T val)
-{
-  return (T(0) < val) - (val < T(0));
 }
 
 /**
@@ -330,14 +328,14 @@ HDI int sgn(const T val)
 template <typename T>
 HDI T myExp(T x);
 template <>
-HDI float myExp(float x)
+[[deprecated("use raft::exp from raft/core/math.hpp instead")]] HDI float myExp(float x)
 {
   return expf(x);
 }
 template <>
-HDI double myExp(double x)
+[[deprecated("use raft::exp from raft/core/math.hpp instead")]] HDI double myExp(double x)
 {
-  return exp(x);
+  return ::exp(x);
 }
 /** @} */
 
@@ -366,14 +364,14 @@ inline __device__ double myInf<double>()
 template <typename T>
 HDI T myLog(T x);
 template <>
-HDI float myLog(float x)
+[[deprecated("use raft::log from raft/core/math.hpp instead")]] HDI float myLog(float x)
 {
   return logf(x);
 }
 template <>
-HDI double myLog(double x)
+[[deprecated("use raft::log from raft/core/math.hpp instead")]] HDI double myLog(double x)
 {
-  return log(x);
+  return ::log(x);
 }
 /** @} */
 
@@ -384,14 +382,14 @@ HDI double myLog(double x)
 template <typename T>
 HDI T mySqrt(T x);
 template <>
-HDI float mySqrt(float x)
+[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]] HDI float mySqrt(float x)
 {
   return sqrtf(x);
 }
 template <>
-HDI double mySqrt(double x)
+[[deprecated("use raft::sqrt from raft/core/math.hpp instead")]] HDI double mySqrt(double x)
 {
-  return sqrt(x);
+  return ::sqrt(x);
 }
 /** @} */
 
@@ -402,14 +400,18 @@ HDI double mySqrt(double x)
 template <typename T>
 DI void mySinCos(T x, T& s, T& c);
 template <>
-DI void mySinCos(float x, float& s, float& c)
+[[deprecated("use raft::sincos from raft/core/math.hpp instead")]] DI void mySinCos(float x,
+                                                                                    float& s,
+                                                                                    float& c)
 {
   sincosf(x, &s, &c);
 }
 template <>
-DI void mySinCos(double x, double& s, double& c)
+[[deprecated("use raft::sincos from raft/core/math.hpp instead")]] DI void mySinCos(double x,
+                                                                                    double& s,
+                                                                                    double& c)
 {
-  sincos(x, &s, &c);
+  ::sincos(x, &s, &c);
 }
 /** @} */
 
@@ -420,14 +422,14 @@ DI void mySinCos(double x, double& s, double& c)
 template <typename T>
 DI T mySin(T x);
 template <>
-DI float mySin(float x)
+[[deprecated("use raft::sin from raft/core/math.hpp instead")]] DI float mySin(float x)
 {
   return sinf(x);
 }
 template <>
-DI double mySin(double x)
+[[deprecated("use raft::sin from raft/core/math.hpp instead")]] DI double mySin(double x)
 {
-  return sin(x);
+  return ::sin(x);
 }
 /** @} */
 
@@ -441,12 +443,12 @@ DI T myAbs(T x)
   return x < 0 ? -x : x;
 }
 template <>
-DI float myAbs(float x)
+[[deprecated("use raft::abs from raft/core/math.hpp instead")]] DI float myAbs(float x)
 {
   return fabsf(x);
 }
 template <>
-DI double myAbs(double x)
+[[deprecated("use raft::abs from raft/core/math.hpp instead")]] DI double myAbs(double x)
 {
   return fabs(x);
 }
@@ -459,14 +461,16 @@ DI double myAbs(double x)
 template <typename T>
 HDI T myPow(T x, T power);
 template <>
-HDI float myPow(float x, float power)
+[[deprecated("use raft::pow from raft/core/math.hpp instead")]] HDI float myPow(float x,
+                                                                                float power)
 {
   return powf(x, power);
 }
 template <>
-HDI double myPow(double x, double power)
+[[deprecated("use raft::pow from raft/core/math.hpp instead")]] HDI double myPow(double x,
+                                                                                 double power)
 {
-  return pow(x, power);
+  return ::pow(x, power);
 }
 /** @} */
 
@@ -477,14 +481,14 @@ HDI double myPow(double x, double power)
 template <typename T>
 HDI T myTanh(T x);
 template <>
-HDI float myTanh(float x)
+[[deprecated("use raft::tanh from raft/core/math.hpp instead")]] HDI float myTanh(float x)
 {
   return tanhf(x);
 }
 template <>
-HDI double myTanh(double x)
+[[deprecated("use raft::tanh from raft/core/math.hpp instead")]] HDI double myTanh(double x)
 {
-  return tanh(x);
+  return ::tanh(x);
 }
 /** @} */
 
@@ -495,40 +499,81 @@ HDI double myTanh(double x)
 template <typename T>
 HDI T myATanh(T x);
 template <>
-HDI float myATanh(float x)
+[[deprecated("use raft::atanh from raft/core/math.hpp instead")]] HDI float myATanh(float x)
 {
   return atanhf(x);
 }
 template <>
-HDI double myATanh(double x)
+[[deprecated("use raft::atanh from raft/core/math.hpp instead")]] HDI double myATanh(double x)
 {
-  return atanh(x);
+  return ::atanh(x);
 }
 /** @} */
 
 /**
- * @defgroup LambdaOps Lambda operations in reduction kernels
+ * @defgroup LambdaOps Legacy lambda operations, to be deprecated
  * @{
  */
-// IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in, IdxType i = 0) { return in; }
+  [[deprecated("Nop is deprecated. Use identity_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return in;
+  }
+};
+
+template <typename Type, typename IdxType = int>
+struct SqrtOp {
+  [[deprecated("SqrtOp is deprecated. Use sqrt_op instead.")]] HDI Type
+  operator()(Type in, IdxType i = 0) const
+  {
+    return raft::sqrt(in);
+  }
+};
+
+template <typename Type, typename IdxType = int>
+struct L0Op {
+  [[deprecated("L0Op is deprecated. Use nz_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in != Type(0) ? Type(1) : Type(0);
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct L1Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+  [[deprecated("L1Op is deprecated. Use abs_op instead.")]] HDI Type operator()(Type in,
+                                                                                IdxType i = 0) const
+  {
+    return raft::abs(in);
+  }
 };
 
 template <typename Type, typename IdxType = int>
 struct L2Op {
-  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
+  [[deprecated("L2Op is deprecated. Use sq_op instead.")]] HDI Type operator()(Type in,
+                                                                               IdxType i = 0) const
+  {
+    return in * in;
+  }
+};
+
+template <typename InT, typename OutT = InT>
+struct Sum {
+  [[deprecated("Sum is deprecated. Use add_op instead.")]] HDI OutT operator()(InT a, InT b) const
+  {
+    return a + b;
+  }
 };
 
 template <typename Type>
-struct Sum {
-  HDI Type operator()(Type a, Type b) { return a + b; }
+struct Max {
+  [[deprecated("Max is deprecated. Use max_op instead.")]] HDI Type operator()(Type a, Type b) const
+  {
+    if (b > a) { return b; }
+    return a;
+  }
 };
 /** @} */
 
@@ -611,9 +656,52 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
   return inFlag;
 }
 
+/** For every thread in the warp, set the corresponding bit to the thread's flag value.  */
+DI uint32_t ballot(bool inFlag, uint32_t mask = 0xffffffffu)
+{
+#if CUDART_VERSION >= 9000
+  return __ballot_sync(mask, inFlag);
+#else
+  return __ballot(inFlag);
+#endif
+}
+
+/** True CUDA alignment of a type (adapted from CUB) */
+template <typename T>
+struct cuda_alignment {
+  struct Pad {
+    T val;
+    char byte;
+  };
+
+  static constexpr int bytes = sizeof(Pad) - sizeof(T);
+};
+
+template <typename LargeT, typename UnitT>
+struct is_multiple {
+  static constexpr int large_align_bytes = cuda_alignment<LargeT>::bytes;
+  static constexpr int unit_align_bytes  = cuda_alignment<UnitT>::bytes;
+  static constexpr bool value =
+    (sizeof(LargeT) % sizeof(UnitT) == 0) && (large_align_bytes % unit_align_bytes == 0);
+};
+
+template <typename LargeT, typename UnitT>
+inline constexpr bool is_multiple_v = is_multiple<LargeT, UnitT>::value;
+
+template <typename T>
+struct is_shuffleable {
+  static constexpr bool value =
+    std::is_same_v<T, int> || std::is_same_v<T, unsigned int> || std::is_same_v<T, long> ||
+    std::is_same_v<T, unsigned long> || std::is_same_v<T, long long> ||
+    std::is_same_v<T, unsigned long long> || std::is_same_v<T, float> || std::is_same_v<T, double>;
+};
+
+template <typename T>
+inline constexpr bool is_shuffleable_v = is_shuffleable<T>::value;
+
 /**
  * @brief Shuffle the data inside a warp
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param srcLane lane from where to shuffle
  * @param width lane width
@@ -621,7 +709,10 @@ DI bool all(bool inFlag, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl(T val,
+                                                 int srcLane,
+                                                 int width     = WarpSize,
+                                                 uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_sync(mask, val, srcLane, width);
@@ -630,9 +721,40 @@ DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
 #endif
 }
 
+/// Overload of shfl for data types not supported by the CUDA intrinsics
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl(T val,
+                                                  int srcLane,
+                                                  int width     = WarpSize,
+                                                  uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl((unsigned int)input_alias[0], srcLane, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl((unsigned int)input_alias[i], srcLane, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
+}
+
 /**
  * @brief Shuffle the data inside a warp from lower lane IDs
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param delta lower lane ID delta from where to shuffle
  * @param width lane width
@@ -640,7 +762,10 @@ DI T shfl(T val, int srcLane, int width = WarpSize, uint32_t mask = 0xffffffffu)
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_up(T val,
+                                                    int delta,
+                                                    int width     = WarpSize,
+                                                    uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_up_sync(mask, val, delta, width);
@@ -649,9 +774,40 @@ DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu
 #endif
 }
 
+/// Overload of shfl_up for data types not supported by the CUDA intrinsics
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_up(T val,
+                                                     int delta,
+                                                     int width     = WarpSize,
+                                                     uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl_up((unsigned int)input_alias[0], delta, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl_up((unsigned int)input_alias[i], delta, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
+}
+
 /**
  * @brief Shuffle the data inside a warp
- * @tparam T the data type (currently assumed to be 4B)
+ * @tparam T the data type
  * @param val value to be shuffled
  * @param laneMask mask to be applied in order to perform xor shuffle
  * @param width lane width
@@ -659,13 +815,47 @@ DI T shfl_up(T val, int delta, int width = WarpSize, uint32_t mask = 0xffffffffu
  * @return the shuffled data
  */
 template <typename T>
-DI T shfl_xor(T val, int laneMask, int width = WarpSize, uint32_t mask = 0xffffffffu)
+DI std::enable_if_t<is_shuffleable_v<T>, T> shfl_xor(T val,
+                                                     int laneMask,
+                                                     int width     = WarpSize,
+                                                     uint32_t mask = 0xffffffffu)
 {
 #if CUDART_VERSION >= 9000
   return __shfl_xor_sync(mask, val, laneMask, width);
 #else
   return __shfl_xor(val, laneMask, width);
 #endif
+}
+
+/// Overload of shfl_xor for data types not supported by the CUDA intrinsics
+template <typename T>
+DI std::enable_if_t<!is_shuffleable_v<T>, T> shfl_xor(T val,
+                                                      int laneMask,
+                                                      int width     = WarpSize,
+                                                      uint32_t mask = 0xffffffffu)
+{
+  using UnitT =
+    std::conditional_t<is_multiple_v<T, int>,
+                       unsigned int,
+                       std::conditional_t<is_multiple_v<T, short>, unsigned short, unsigned char>>;
+
+  constexpr int n_words = sizeof(T) / sizeof(UnitT);
+
+  T output;
+  UnitT* output_alias = reinterpret_cast<UnitT*>(&output);
+  UnitT* input_alias  = reinterpret_cast<UnitT*>(&val);
+
+  unsigned int shuffle_word;
+  shuffle_word    = shfl_xor((unsigned int)input_alias[0], laneMask, width, mask);
+  output_alias[0] = shuffle_word;
+
+#pragma unroll
+  for (int i = 1; i < n_words; ++i) {
+    shuffle_word    = shfl_xor((unsigned int)input_alias[i], laneMask, width, mask);
+    output_alias[i] = shuffle_word;
+  }
+
+  return output;
 }
 
 /**
@@ -730,24 +920,55 @@ DI auto dp4a(unsigned int a, unsigned int b, unsigned int c) -> unsigned int
 }
 
 /**
- * @brief Warp-level sum reduction
- * @param val input value
+ * @brief Logical-warp-level reduction
+ * @tparam logicalWarpSize Logical warp size (2, 4, 8, 16 or 32)
  * @tparam T Value type to be reduced
+ * @tparam ReduceLambda Reduction operation type
+ * @param val input value
+ * @param reduce_op Reduction operation
+ * @return Reduction result. All lanes will have the valid result.
+ */
+template <int logicalWarpSize, typename T, typename ReduceLambda>
+DI T logicalWarpReduce(T val, ReduceLambda reduce_op)
+{
+#pragma unroll
+  for (int i = logicalWarpSize / 2; i > 0; i >>= 1) {
+    T tmp = shfl_xor(val, i);
+    val   = reduce_op(val, tmp);
+  }
+  return val;
+}
+
+/**
+ * @brief Warp-level reduction
+ * @tparam T Value type to be reduced
+ * @tparam ReduceLambda Reduction operation type
+ * @param val input value
+ * @param reduce_op Reduction operation
  * @return Reduction result. All lanes will have the valid result.
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block. All threads in the warp must enter this
  *       function together
- * @todo Expand this to support arbitrary reduction ops
+ */
+template <typename T, typename ReduceLambda>
+DI T warpReduce(T val, ReduceLambda reduce_op)
+{
+  return logicalWarpReduce<WarpSize>(val, reduce_op);
+}
+
+/**
+ * @brief Warp-level sum reduction
+ * @tparam T Value type to be reduced
+ * @param val input value
+ * @return Reduction result. All lanes will have the valid result.
+ * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
+ *       number of warps in a block. All threads in the warp must enter this
+ *       function together
  */
 template <typename T>
 DI T warpReduce(T val)
 {
-#pragma unroll
-  for (int i = WarpSize / 2; i > 0; i >>= 1) {
-    T tmp = shfl_xor(val, i);
-    val += tmp;
-  }
-  return val;
+  return warpReduce(val, raft::add_op{});
 }
 
 /**
