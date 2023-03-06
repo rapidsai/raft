@@ -127,7 +127,15 @@ void distance_matrix_dispatch(OpT distance_op,
 
   // Compute number of elements that can be loaded in one instruction
   // without causing misalignent errors.
-  int vec_len_aligned = (byte_alignment % sizeof(DataT) == 0) ? byte_alignment / sizeof(DataT) : 1;
+  int vec_len_aligned;
+  if (byte_alignment % sizeof(DataT) == 0) {
+    // In the future, we might support `int8_t` input. In that case,
+    // byte_alignment / sizeof(DataT) might exceed 4. We maximize at 4 here, to
+    // prevent adding more cases in dispatch (which are expensive to compile).
+    vec_len_aligned = min(4, byte_alignment / sizeof(DataT));
+  } else {
+    vec_len_aligned = 1;
+  }
 
   dispatch(is_row_major, vec_len_aligned, [&](auto row_major, auto vec_len_aligned) {
     // row_major and vec_len are std::integral_constants of type bool and int
