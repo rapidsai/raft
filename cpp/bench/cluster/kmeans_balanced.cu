@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ struct KMeansBalancedBenchParams {
 
 template <typename T, typename IndexT = int>
 struct KMeansBalanced : public fixture {
-  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p) {}
+  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p), X(handle), centroids(handle) {}
 
   void run_benchmark(::benchmark::State& state) override
   {

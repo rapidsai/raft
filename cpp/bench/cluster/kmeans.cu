@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,13 @@ inline auto operator<<(std::ostream& os, const KMeansBenchParams& p) -> std::ost
 
 template <typename T, typename IndexT = int>
 struct KMeans : public BlobsFixture<T, IndexT> {
-  KMeans(const KMeansBenchParams& p) : BlobsFixture<T, IndexT>(p.data, p.blobs), params(p) {}
+  KMeans(const KMeansBenchParams& p)
+    : BlobsFixture<T, IndexT>(p.data, p.blobs),
+      params(p),
+      centroids(this->handle),
+      labels(this->handle)
+  {
+  }
 
   void run_benchmark(::benchmark::State& state) override
   {
