@@ -103,6 +103,7 @@ using host_coordinate_structure_view = coordinate_structure_view<RowType, ColTyp
  * @tparam RowType
  * @tparam ColType
  * @tparam NZType
+ * @param[in] handle raft handle for managing expensive resources
  * @param[in] n_rows total number of rows in the matrix
  * @param[in] n_cols total number of columns in the matrix
  * @param[in] nnz number of non-zeros in the matrix if known [optional]
@@ -144,6 +145,7 @@ auto make_host_coo_matrix(raft::resources const& handle,
  * @tparam RowType
  * @tparam ColType
  * @tparam NZType
+ * @param[in] handle raft handle for managing expensive resources
  * @param[in] structure_ a sparsity-preserving coordinate structural view
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */

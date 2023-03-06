@@ -142,6 +142,7 @@ using host_compressed_structure_view =
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
+ * @param[in] handle raft handle for managing expensive resources
  * @param[in] n_rows total number of rows in the matrix
  * @param[in] n_cols total number of columns in the matrix
  * @param[in] nnz number of non-zeros in the matrix if known [optional]
@@ -187,6 +188,7 @@ auto make_host_csr_matrix(raft::resources const& handle,
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
+ * @param[in] handle raft handle for managing expensive resources
  * @param[in] structure_ a sparsity-preserving compressed structural view
  * @return a sparsity-preserving sparse matrix in compressed (csr) format
  */
@@ -311,6 +313,7 @@ auto make_host_csr_matrix_view(
  * @tparam IndptrType
  * @tparam IndicesType
  * @tparam NZType
+ * @param[in] handle raft handle for managing expensive resources
  * @param[in] n_rows total number of rows
  * @param[in] n_cols total number of cols
  * @param[in] nnz total number of nonzeros, if known

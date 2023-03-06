@@ -72,7 +72,8 @@ using host_matrix = host_mdarray<ElementType, matrix_extent<IndexType>, LayoutPo
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param exts dimensionality of the array (series of integers)
+ * @param[in] res raft handle for managing expensive resources
+ * @param[in] exts dimensionality of the array (series of integers)
  * @return raft::host_mdarray
  */
 template <typename ElementType,
@@ -120,6 +121,7 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] res raft handle for managing expensive resources
  * @param[in] n_rows number or rows in matrix
  * @param[in] n_cols number of columns in matrix
  * @return raft::host_matrix
@@ -159,6 +161,7 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
  *
  * @tparam ElementType the data type of the scalar element
  * @tparam IndexType the index type of the extents
+ * @param[in] res raft handle for managing expensive resources
  * @param[in] v scalar type to wrap
  * @return raft::host_scalar
  */
@@ -207,6 +210,7 @@ auto make_host_scalar(ElementType const& v)
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] res raft handle for managing expensive resources
  * @param[in] n number of elements in vector
  * @return raft::host_vector
  */
