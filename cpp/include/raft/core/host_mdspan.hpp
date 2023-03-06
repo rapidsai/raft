@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 
 #include <cstdint>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
 #include <raft/core/host_device_accessor.hpp>
 
 namespace raft {
 
 template <typename AccessorPolicy>
-using host_accessor = host_device_accessor<AccessorPolicy, true, false>;
+using host_accessor = host_device_accessor<AccessorPolicy, memory_type::host>;
 
 /**
  * @brief std::experimental::mdspan with host tag to avoid accessing incorrect memory location.
@@ -34,8 +35,6 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, host_accessor<AccessorPolicy>>;
-
-namespace detail {
 
 template <typename T, bool B>
 struct is_host_mdspan : std::false_type {
@@ -56,22 +55,18 @@ using is_input_host_mdspan_t = is_host_mdspan<T, is_input_mdspan_v<T>>;
 template <typename T>
 using is_output_host_mdspan_t = is_host_mdspan<T, is_output_mdspan_v<T>>;
 
-}  // namespace detail
-
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::host_mdspan or a
  * derived type
  */
 template <typename... Tn>
-inline constexpr bool is_host_mdspan_v = std::conjunction_v<detail::is_host_mdspan_t<Tn>...>;
+inline constexpr bool is_host_mdspan_v = std::conjunction_v<is_host_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-inline constexpr bool is_input_host_mdspan_v =
-  std::conjunction_v<detail::is_input_host_mdspan_t<Tn>...>;
+inline constexpr bool is_input_host_mdspan_v = std::conjunction_v<is_input_host_mdspan_t<Tn>...>;
 
 template <typename... Tn>
-inline constexpr bool is_output_host_mdspan_v =
-  std::conjunction_v<detail::is_output_host_mdspan_t<Tn>...>;
+inline constexpr bool is_output_host_mdspan_v = std::conjunction_v<is_output_host_mdspan_t<Tn>...>;
 
 template <typename... Tn>
 using enable_if_host_mdspan = std::enable_if_t<is_input_mdspan_v<Tn...>>;
@@ -149,7 +144,9 @@ auto make_host_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexType
 
   static_assert(std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
                 std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value);
-  assert(ptr == alignTo(ptr, detail::alignment::value));
+  assert(reinterpret_cast<std::uintptr_t>(ptr) ==
+         std::experimental::details::alignTo(reinterpret_cast<std::uintptr_t>(ptr),
+                                             detail::alignment::value));
   data_handle_type aligned_pointer = ptr;
 
   matrix_extent<IndexType> extents{n_rows, n_cols};

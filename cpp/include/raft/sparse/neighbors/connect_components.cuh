@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/neighbors/detail/connect_components.cuh>
@@ -64,7 +64,7 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(
-  const raft::handle_t& handle,
+  raft::device_resources const& handle,
   raft::sparse::COO<value_t, value_idx>& out,
   const value_t* X,
   const value_idx* orig_colors,

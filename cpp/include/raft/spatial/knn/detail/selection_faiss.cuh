@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,25 +20,21 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/utils/Heap.h>
+#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
 
-template <typename key_t, typename payload_t>
+template <typename payload_t, typename key_t>
 constexpr int kFaissMaxK()
 {
-  return (sizeof(key_t) + sizeof(payload_t) > 8) ? 512 : 1024;
+  if (sizeof(key_t) >= 8) { return sizeof(payload_t) >= 8 ? 512 : 1024; }
+  return 2048;
 }
 
-template <typename key_t, typename payload_t, bool select_min, int warp_q, int thread_q, int tpb>
+template <typename payload_t, typename key_t, bool select_min, int warp_q, int thread_q, int tpb>
 __global__ void select_k_kernel(const key_t* inK,
                                 const payload_t* inV,
                                 size_t n_rows,
@@ -55,9 +51,14 @@ __global__ void select_k_kernel(const key_t* inK,
   __shared__ key_t smemK[kNumWarps * warp_q];
   __shared__ payload_t smemV[kNumWarps * warp_q];
 
-  faiss::gpu::
-    BlockSelect<key_t, payload_t, select_min, faiss::gpu::Comparator<key_t>, warp_q, thread_q, tpb>
-      heap(initK, initV, smemK, smemV, k);
+  faiss_select::BlockSelect<key_t,
+                            payload_t,
+                            select_min,
+                            faiss_select::Comparator<key_t>,
+                            warp_q,
+                            thread_q,
+                            tpb>
+    heap(initK, initV, smemK, smemV, k);
 
   // Grid is exactly sized to rows available
   int row = blockIdx.x;
@@ -105,10 +106,10 @@ inline void select_k_impl(const key_t* inK,
   auto kInit = select_min ? upper_bound<key_t>() : lower_bound<key_t>();
   auto vInit = -1;
   if (select_min) {
-    select_k_kernel<key_t, payload_t, false, warp_q, thread_q, n_threads>
+    select_k_kernel<payload_t, key_t, false, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit, vInit, k);
   } else {
-    select_k_kernel<key_t, payload_t, true, warp_q, thread_q, n_threads>
+    select_k_kernel<payload_t, key_t, true, warp_q, thread_q, n_threads>
       <<<grid, block, 0, stream>>>(inK, inV, n_rows, n_cols, outK, outV, kInit, vInit, k);
   }
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -159,7 +160,12 @@ inline void select_k(const key_t* inK,
     select_k_impl<payload_t, key_t, 512, 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else if (k <= 1024 && k <= max_k)
-    select_k_impl<payload_t, key_t, max_k, 8>(
+    // note: have to use constexpr std::min here to avoid instantiating templates
+    // for parameters we don't support
+    select_k_impl<payload_t, key_t, std::min(1024, max_k), 8>(
+      inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
+  else if (k <= 2048 && k <= max_k)
+    select_k_impl<payload_t, key_t, std::min(2048, max_k), 8>(
       inK, inV, n_rows, n_cols, outK, outV, select_min, k, stream);
   else
     ASSERT(k <= max_k, "Current max k is %d (requested %d)", max_k, k);

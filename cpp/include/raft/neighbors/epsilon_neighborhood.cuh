@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/spatial/knn/detail/epsilon_neighborhood.cuh>
 
 namespace raft::neighbors::epsilon_neighborhood {
@@ -60,6 +60,11 @@ void epsUnexpL2SqNeighborhood(bool* adj,
 }
 
 /**
+ * @defgroup epsilon_neighbors Epislon Neighborhood Operations
+ * @{
+ */
+
+/**
  * @brief Computes epsilon neighborhood for the L2-Squared distance metric and given ball size.
  * The epsilon neighbors is represented by a dense boolean adjacency matrix of size m * n and
  * an array of degrees for each vertex, which can be used as a compressed sparse row (CSR)
@@ -67,10 +72,10 @@ void epsUnexpL2SqNeighborhood(bool* adj,
  *
  * @code{.cpp}
  *  #include <raft/neighbors/epsilon_neighborhood.cuh>
- *  #include <raft/core/handle.hpp>
+ *  #include <raft/core/device_resources.hpp>
  *  #include <raft/core/device_mdarray.hpp>
  *  using namespace raft::neighbors;
- *  raft::handle_t handle;
+ *  raft::raft::device_resources handle;
  *  ...
  *  auto adj = raft::make_device_matrix<bool>(handle, m * n);
  *  auto vd = raft::make_device_vector<int>(handle, m+1);
@@ -92,7 +97,7 @@ void epsUnexpL2SqNeighborhood(bool* adj,
  *                    squared as we compute L2-squared distance in this method)
  */
 template <typename value_t, typename idx_t, typename matrix_idx_t>
-void eps_neighbors_l2sq(const raft::handle_t& handle,
+void eps_neighbors_l2sq(raft::device_resources const& handle,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> x,
                         raft::device_matrix_view<const value_t, matrix_idx_t, row_major> y,
                         raft::device_matrix_view<bool, matrix_idx_t, row_major> adj,
@@ -109,6 +114,8 @@ void eps_neighbors_l2sq(const raft::handle_t& handle,
                                            eps,
                                            handle.get_stream());
 }
+
+/** @} */  // end group epsilon_neighbors
 
 }  // namespace raft::neighbors::epsilon_neighborhood
 

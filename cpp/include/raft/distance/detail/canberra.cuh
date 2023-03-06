@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,21 +73,17 @@ static void canberraImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<AccT, IdxT>()(x - y);
-    const auto add  = raft::myAbs(x) + raft::myAbs(y);
+    const auto diff = raft::abs(x - y);
+    const auto add  = raft::abs(x) + raft::abs(y);
     // deal with potential for 0 in denominator by
     // forcing 1/0 instead
     acc += ((add != 0) * diff / (add + (add == 0)));
   };
 
   // epilogue operation lambda for final value calculation
-  auto epilog_lambda = [] __device__(AccT acc[KPolicy::AccRowsPerTh][KPolicy::AccColsPerTh],
-                                     DataT * regxn,
-                                     DataT * regyn,
-                                     IdxT gridStrideX,
-                                     IdxT gridStrideY) { return; };
+  auto epilog_lambda = raft::void_op();
 
-  if (isRowMajor) {
+  if constexpr (isRowMajor) {
     auto canberraRowMajor = pairwiseDistanceMatKernel<false,
                                                       DataT,
                                                       AccT,
@@ -141,16 +137,8 @@ void canberra(IdxT m,
 {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    canberraImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
-    canberraImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  } else {
-    canberraImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
-  }
+  canberraImpl<DataT, AccT, OutT, IdxT, 1, FinalLambda, isRowMajor>(
+    x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream);
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,18 @@
 namespace raft::matrix {
 
 /**
+ * @defgroup matrix_triangular Extract Matrix Triangles
+ * @{
+ */
+
+/**
  * @brief Copy the upper triangular part of a matrix to another
  * @param[in] handle: raft handle
  * @param[in] src: input matrix with a size of n_rows x n_cols
  * @param[out] dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t>
-void upper_triangular(const raft::handle_t& handle,
+void upper_triangular(raft::device_resources const& handle,
                       raft::device_matrix_view<const m_t, idx_t, col_major> src,
                       raft::device_matrix_view<m_t, idx_t, col_major> dst)
 {
@@ -38,4 +43,7 @@ void upper_triangular(const raft::handle_t& handle,
   detail::copyUpperTriangular(
     src.data_handle(), dst.data_handle(), src.extent(0), src.extent(1), handle.get_stream());
 }
+
+/** @} */  // end group matrix_triangular
+
 }  // namespace raft::matrix

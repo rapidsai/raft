@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,17 +60,18 @@ inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(const raft::handle_t& handle_,
-                                                                 const edge_t* offsets_,
-                                                                 const vertex_t* indices_,
-                                                                 const weight_t* weights_,
-                                                                 const vertex_t v_,
-                                                                 const edge_t e_,
-                                                                 vertex_t* color_,
-                                                                 cudaStream_t stream_,
-                                                                 bool symmetrize_output_,
-                                                                 bool initialize_colors_,
-                                                                 int iterations_)
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(
+  raft::device_resources const& handle_,
+  const edge_t* offsets_,
+  const vertex_t* indices_,
+  const weight_t* weights_,
+  const vertex_t v_,
+  const edge_t e_,
+  vertex_t* color_,
+  cudaStream_t stream_,
+  bool symmetrize_output_,
+  bool initialize_colors_,
+  int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -220,7 +221,7 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration()
   auto nthreads = std::min(v, max_threads);
   auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  // maximum alteration that does not change realtive weights order
+  // maximum alteration that does not change relative weights order
   alteration_t max = alteration_max();
 
   // pool of rand values

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <sys/timeb.h>
 #include <vector>
 
-#include "../test_utils.h"
+#include "../test_utils.cuh"
 
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
@@ -242,7 +242,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RmatInputs params;
@@ -347,7 +347,7 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   RmatInputs params;

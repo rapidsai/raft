@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cudart_utils.hpp>
@@ -65,7 +65,7 @@ enum struct sparse_mv_alg_t : int {
   SPARSE_MV_UNDEFINED = -1,
   SPARSE_MV_ALG_DEFAULT,  // generic, for any sparse matrix
   SPARSE_MV_ALG1,         // typical for CSR
-  SPARSE_MV_ALG2          // may provide better performamce for irregular sparse matrices
+  SPARSE_MV_ALG2          // may provide better performance for irregular sparse matrices
 };
 
 // Vector "view"-like aggregate for linear algebra purposes
@@ -89,7 +89,7 @@ struct vector_view_t {
 template <typename value_type>
 class vector_t {
  public:
-  vector_t(handle_t const& raft_handle, size_type sz)
+  vector_t(device_resources const& raft_handle, size_type sz)
     : buffer_(sz, raft_handle.get_stream()), thrust_policy(raft_handle.get_thrust_policy())
   {
   }
@@ -128,7 +128,7 @@ class vector_t {
 
 template <typename index_type, typename value_type>
 struct sparse_matrix_t {
-  sparse_matrix_t(handle_t const& raft_handle,
+  sparse_matrix_t(device_resources const& raft_handle,
                   index_type const* row_offsets,
                   index_type const* col_indices,
                   value_type const* values,
@@ -145,7 +145,7 @@ struct sparse_matrix_t {
   {
   }
 
-  sparse_matrix_t(handle_t const& raft_handle,
+  sparse_matrix_t(device_resources const& raft_handle,
                   index_type const* row_offsets,
                   index_type const* col_indices,
                   value_type const* values,
@@ -162,7 +162,7 @@ struct sparse_matrix_t {
   }
 
   template <typename CSRView>
-  sparse_matrix_t(handle_t const& raft_handle, CSRView const& csr_view)
+  sparse_matrix_t(device_resources const& raft_handle, CSRView const& csr_view)
     : handle_(raft_handle),
       row_offsets_(csr_view.offsets),
       col_indices_(csr_view.indices),
@@ -276,15 +276,15 @@ struct sparse_matrix_t {
 #endif
   }
 
-  handle_t const& get_handle(void) const { return handle_; }
+  device_resources const& get_handle(void) const { return handle_; }
 
 #if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const
   {
     switch (alg) {
-      case sparse_mv_alg_t::SPARSE_MV_ALG1: return CUSPARSE_CSRMV_ALG1;
-      case sparse_mv_alg_t::SPARSE_MV_ALG2: return CUSPARSE_CSRMV_ALG2;
-      default: return CUSPARSE_MV_ALG_DEFAULT;
+      case sparse_mv_alg_t::SPARSE_MV_ALG1: return CUSPARSE_SPMV_CSR_ALG1;
+      case sparse_mv_alg_t::SPARSE_MV_ALG2: return CUSPARSE_SPMV_CSR_ALG2;
+      default: return CUSPARSE_SPMV_ALG_DEFAULT;
     }
   }
 #endif
@@ -292,7 +292,7 @@ struct sparse_matrix_t {
   // private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence,
   // aggregate
 
-  handle_t const& handle_;
+  raft::device_resources const& handle_;
   index_type const* row_offsets_;
   index_type const* col_indices_;
   value_type const* values_;
@@ -303,7 +303,7 @@ struct sparse_matrix_t {
 
 template <typename index_type, typename value_type>
 struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
-  laplacian_matrix_t(handle_t const& raft_handle,
+  laplacian_matrix_t(device_resources const& raft_handle,
                      index_type const* row_offsets,
                      index_type const* col_indices,
                      value_type const* values,
@@ -318,7 +318,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
 
-  laplacian_matrix_t(handle_t const& raft_handle,
+  laplacian_matrix_t(device_resources const& raft_handle,
                      sparse_matrix_t<index_type, value_type> const& csr_m)
     : sparse_matrix_t<index_type, value_type>(raft_handle,
                                               csr_m.row_offsets_,
@@ -376,7 +376,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
 template <typename index_type, typename value_type>
 struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
-  modularity_matrix_t(handle_t const& raft_handle,
+  modularity_matrix_t(device_resources const& raft_handle,
                       index_type const* row_offsets,
                       index_type const* col_indices,
                       value_type const* values,
@@ -388,7 +388,7 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
   }
 
-  modularity_matrix_t(handle_t const& raft_handle,
+  modularity_matrix_t(device_resources const& raft_handle,
                       sparse_matrix_t<index_type, value_type> const& csr_m)
     : laplacian_matrix_t<index_type, value_type>(raft_handle, csr_m)
   {

@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-from .include_test import raft_include_test
+__version__ = "23.04.00"

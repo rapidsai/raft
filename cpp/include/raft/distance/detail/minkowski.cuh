@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ void minkowskiUnExpImpl(const DataT* x,
 
   // Accumulation operation lambda
   auto core_lambda = [p] __device__(AccT & acc, DataT & x, DataT & y) {
-    const auto diff = raft::L1Op<DataT>()(x - y);
-    acc += raft::myPow(diff, p);
+    const auto diff = raft::abs(x - y);
+    acc += raft::pow(diff, p);
   };
 
   // epilogue operation lambda for final value calculation
@@ -89,12 +89,12 @@ void minkowskiUnExpImpl(const DataT* x,
     for (int i = 0; i < KPolicy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < KPolicy::AccColsPerTh; ++j) {
-        acc[i][j] = raft::myPow(acc[i][j], one_over_p);
+        acc[i][j] = raft::pow(acc[i][j], one_over_p);
       }
     }
   };
 
-  if (isRowMajor) {
+  if constexpr (isRowMajor) {
     auto minkowskiUnExpRowMajor = pairwiseDistanceMatKernel<false,
                                                             DataT,
                                                             AccT,
@@ -151,10 +151,7 @@ void minkowskiUnExp(IdxT m,
 {
   size_t bytesA = sizeof(DataT) * lda;
   size_t bytesB = sizeof(DataT) * ldb;
-  if (16 % sizeof(DataT) == 0 && bytesA % 16 == 0 && bytesB % 16 == 0) {
-    minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), FinalLambda, isRowMajor>(
-      x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
-  } else if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
+  if (8 % sizeof(DataT) == 0 && bytesA % 8 == 0 && bytesB % 8 == 0) {
     minkowskiUnExpImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), FinalLambda, isRowMajor>(
       x, y, m, n, k, lda, ldb, ldd, dOutput, fin_op, stream, metric_arg);
   } else {
