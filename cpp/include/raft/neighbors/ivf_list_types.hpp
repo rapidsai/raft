@@ -36,10 +36,10 @@ constexpr static IdxT kInvalidRecord = (std::is_signed_v<IdxT> ? IdxT{0}
                                        1;
 
 /** The data for a single IVF list. */
-template <typename SpecT, typename IdxT, typename SizeT = uint32_t>
+template <template <typename> typename SpecT, typename IdxT, typename SizeT = uint32_t>
 struct list {
-  using value_type   = typename SpecT::value_type;
-  using list_extents = typename SpecT::list_extents;
+  using value_type   = typename SpecT<SizeT>::value_type;
+  using list_extents = typename SpecT<SizeT>::list_extents;
 
   /** Possibly encoded data; it's layout is defined by `SpecT`. */
   device_mdarray<value_type, list_extents, row_major> data;
@@ -49,7 +49,7 @@ struct list {
   std::atomic<SizeT> size;
 
   /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
-  list(raft::device_resources const& res, const SpecT& spec, SizeT n_rows);
+  list(raft::device_resources const& res, const SpecT<SizeT>& spec, SizeT n_rows);
 };
 
 }  // namespace raft::neighbors::ivf

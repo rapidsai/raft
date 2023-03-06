@@ -166,8 +166,8 @@ void extend(raft::device_resources const& handle,
   auto stream  = handle.get_stream();
   auto n_lists = index->n_lists();
   auto dim     = index->dim();
-  auto list_device_spec =
-    list_spec<T, uint32_t>{index->dim(), index->conservative_memory_allocation()};
+  typename list_spec_wrapper<T>::list_spec<uint32_t> list_device_spec{
+    index->dim(), index->conservative_memory_allocation()};
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::extend(%zu, %u)", size_t(n_rows), dim);
 
@@ -375,8 +375,9 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Allocate new memory
-  auto lists            = refinement_index->lists();
-  auto list_device_spec = list_spec<T, uint32_t>{refinement_index->dim(), false};
+  auto lists = refinement_index->lists();
+  typename list_spec_wrapper<T>::list_spec<uint32_t> list_device_spec{refinement_index->dim(),
+                                                                      false};
   for (uint32_t label = 0; label < n_lists; label++) {
     ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
   }

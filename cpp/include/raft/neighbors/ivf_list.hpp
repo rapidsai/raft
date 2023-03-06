@@ -35,8 +35,10 @@
 namespace raft::neighbors::ivf {
 
 /** The data for a single IVF list. */
-template <typename SpecT, typename IdxT, typename SizeT>
-list<SpecT, IdxT, SizeT>::list(raft::device_resources const& res, const SpecT& spec, SizeT n_rows)
+template <template <typename> typename SpecT, typename IdxT, typename SizeT>
+list<SpecT, IdxT, SizeT>::list(raft::device_resources const& res,
+                               const SpecT<SizeT>& spec,
+                               SizeT n_rows)
   : size{n_rows}
 {
   auto capacity = round_up_safe<SizeT>(n_rows, spec.align_max);
@@ -45,7 +47,8 @@ list<SpecT, IdxT, SizeT>::list(raft::device_resources const& res, const SpecT& s
     capacity = std::min<SizeT>(capacity, spec.align_max);
   }
   try {
-    data = make_device_mdarray<typename SpecT::value_type>(res, spec.make_list_extents(capacity));
+    data =
+      make_device_mdarray<typename SpecT<SizeT>::value_type>(res, spec.make_list_extents(capacity));
     indices = make_device_vector<IdxT, SizeT>(res, capacity);
   } catch (std::bad_alloc& e) {
     RAFT_FAIL(
@@ -65,13 +68,10 @@ list<SpecT, IdxT, SizeT>::list(raft::device_resources const& res, const SpecT& s
  * Resize a list by the given id, so that it can contain the given number of records;
  * copy the data if necessary.
  */
-template <template <typename, typename> typename SpecT,
-          typename ValueT,
-          typename IdxT,
-          typename SizeT>
+template <template <typename> typename SpecT, typename IdxT, typename SizeT>
 void resize_list(raft::device_resources const& res,
-                 std::shared_ptr<list<SpecT<ValueT, SizeT>, IdxT, SizeT>>& orig_list,  // NOLINT
-                 const SpecT<ValueT, SizeT>& spec,
+                 std::shared_ptr<list<SpecT, IdxT, SizeT>>& orig_list,  // NOLINT
+                 const SpecT<SizeT>& spec,
                  SizeT new_used_size,
                  SizeT old_used_size)
 {
@@ -92,12 +92,12 @@ void resize_list(raft::device_resources const& res,
     old_used_size = 0;
   }
   if (skip_resize) { return; }
-  auto new_list =
-    std::make_shared<list<SpecT<ValueT, SizeT>, IdxT, SizeT>>(res, spec, new_used_size);
+  auto new_list = std::make_shared<list<SpecT, IdxT, SizeT>>(res, spec, new_used_size);
   if (old_used_size > 0) {
-    auto copied_data_extents = SpecT<ValueT, size_t>{spec}.make_list_extents(old_used_size);
-    auto copied_view         = make_mdspan<ValueT, size_t, row_major, false, true>(
-      new_list->data.data_handle(), copied_data_extents);
+    auto copied_data_extents = SpecT<size_t>{spec}.make_list_extents(old_used_size);
+    auto copied_view =
+      make_mdspan<typename SpecT<SizeT>::value_type, size_t, row_major, false, true>(
+        new_list->data.data_handle(), copied_data_extents);
     copy(copied_view.data_handle(),
          orig_list->data.data_handle(),
          copied_view.size(),
@@ -111,11 +111,11 @@ void resize_list(raft::device_resources const& res,
   new_list.swap(orig_list);
 }
 
-template <typename SpecT, typename IdxT, typename SizeT>
+template <template <typename> typename SpecT, typename IdxT, typename SizeT>
 void serialize_list(const raft::device_resources& handle,
                     std::ostream& os,
                     const list<SpecT, IdxT, SizeT>& ld,
-                    const SpecT& store_spec,
+                    const SpecT<SizeT>& store_spec,
                     std::optional<SizeT> size_override = std::nullopt)
 {
   auto size = size_override.value_or(ld.size.load());
@@ -123,8 +123,9 @@ void serialize_list(const raft::device_resources& handle,
   if (size == 0) { return; }
 
   auto data_extents = store_spec.make_list_extents(size);
-  auto data_array   = make_host_mdarray<typename SpecT::value_type, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
+  auto data_array =
+    make_host_mdarray<typename SpecT<SizeT>::value_type, SizeT, row_major>(data_extents);
+  auto inds_array = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
   copy(data_array.data_handle(), ld.data.data_handle(), data_array.size(), handle.get_stream());
   copy(inds_array.data_handle(), ld.indices.data_handle(), inds_array.size(), handle.get_stream());
   handle.sync_stream();
@@ -132,11 +133,11 @@ void serialize_list(const raft::device_resources& handle,
   serialize_mdspan(handle, os, inds_array.view());
 }
 
-template <typename SpecT, typename IdxT, typename SizeT>
+template <template <typename> typename SpecT, typename IdxT, typename SizeT>
 void serialize_list(const raft::device_resources& handle,
                     std::ostream& os,
-                    const std::shared_ptr<const list<SpecT, IdxT, SizeT>>& ld,
-                    const SpecT& store_spec,
+                    const std::shared_ptr<list<SpecT, IdxT, SizeT>>& ld,
+                    const SpecT<SizeT>& store_spec,
                     std::optional<SizeT> size_override = std::nullopt)
 {
   if (ld) {
@@ -146,19 +147,20 @@ void serialize_list(const raft::device_resources& handle,
   }
 }
 
-template <typename SpecT, typename IdxT, typename SizeT>
+template <template <typename> typename SpecT, typename IdxT, typename SizeT>
 void deserialize_list(const raft::device_resources& handle,
                       std::istream& is,
                       std::shared_ptr<list<SpecT, IdxT, SizeT>>& ld,
-                      const SpecT& store_spec,
-                      const SpecT& device_spec)
+                      const SpecT<SizeT>& store_spec,
+                      const SpecT<SizeT>& device_spec)
 {
   auto size = deserialize_scalar<SizeT>(handle, is);
   if (size == 0) { return ld.reset(); }
   std::make_shared<list<SpecT, IdxT, SizeT>>(handle, device_spec, size).swap(ld);
   auto data_extents = store_spec.make_list_extents(size);
-  auto data_array   = make_host_mdarray<typename SpecT::value_type, SizeT, row_major>(data_extents);
-  auto inds_array   = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
+  auto data_array =
+    make_host_mdarray<typename SpecT<SizeT>::value_type, SizeT, row_major>(data_extents);
+  auto inds_array = make_host_mdarray<IdxT, SizeT, row_major>(make_extents<SizeT>(size));
   deserialize_mdspan(handle, is, data_array.view());
   deserialize_mdspan(handle, is, inds_array.view());
   copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());

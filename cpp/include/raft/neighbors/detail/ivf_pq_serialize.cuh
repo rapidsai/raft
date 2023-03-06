@@ -94,9 +94,9 @@ void serialize(raft::device_resources const& handle_,
        handle_.get_stream());
   handle_.sync_stream();
   serialize_mdspan(handle_, of, sizes_host.view());
-  auto list_store_spec = list_spec<uint8_t, uint32_t>{index.pq_bits(), index.pq_dim(), true};
+  auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
   for (uint32_t label = 0; label < index.n_lists(); label++) {
-    ivf::serialize_list<list_spec<uint8_t, uint32_t>, IdxT, uint32_t>(
+    ivf::serialize_list<list_spec, IdxT, uint32_t>(
       handle_, of, index.lists()[label], list_store_spec, sizes_host(label));
   }
 
@@ -151,10 +151,10 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   deserialize_mdspan(handle_, infile, index.centers_rot());
   deserialize_mdspan(handle_, infile, index.rotation_matrix());
   deserialize_mdspan(handle_, infile, index.list_sizes());
-  auto list_device_spec = list_spec<uint8_t, uint32_t>{pq_bits, pq_dim, cma};
-  auto list_store_spec  = list_spec<uint8_t, uint32_t>{pq_bits, pq_dim, true};
+  auto list_device_spec = list_spec<uint32_t>{pq_bits, pq_dim, cma};
+  auto list_store_spec  = list_spec<uint32_t>{pq_bits, pq_dim, true};
   for (auto& list : index.lists()) {
-    ivf::deserialize_list<list_spec<uint8_t, uint32_t>, IdxT, uint32_t>(
+    ivf::deserialize_list<list_spec, IdxT, uint32_t>(
       handle_, infile, list, list_store_spec, list_device_spec);
   }
 
