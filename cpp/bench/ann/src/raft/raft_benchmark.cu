@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "../common/benchmark.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -211,6 +210,8 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 
-}  // namespace raft::bench::ann
+};  // namespace raft::bench::ann
+
+#include "../common/benchmark.hpp"
 
 int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }

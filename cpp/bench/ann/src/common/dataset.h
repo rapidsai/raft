@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef DATASET_H_
-#define DATASET_H_
-
+#pragma once
 #include <cuda_fp16.h>
 #include <errno.h>
 #include <sys/mman.h>
@@ -272,8 +270,8 @@ Dataset<T>::~Dataset()
 {
   delete[] base_set_;
   delete[] query_set_;
-  if (d_base_set_) { RAFT_CUDA_TRY(cudaFree(d_base_set_)); }
-  if (d_query_set_) { RAFT_CUDA_TRY(cudaFree(d_query_set_)); }
+  if (d_base_set_) { RAFT_CUDA_TRY_NO_THROW(cudaFree(d_base_set_)); }
+  if (d_query_set_) { RAFT_CUDA_TRY_NO_THROW(cudaFree(d_query_set_)); }
 }
 
 template <typename T>
@@ -381,5 +379,3 @@ void BinDataset<T>::map_base_set_() const
 }
 
 }  // namespace  raft::bench::ann
-
-#endif

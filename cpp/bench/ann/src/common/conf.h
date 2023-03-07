@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef CONF_H_
-#define CONF_H_
-
+#pragma once
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -72,5 +70,3 @@ class Configuration {
 };
 
 }  // namespace raft::bench::ann
-
-#endif

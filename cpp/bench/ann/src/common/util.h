@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef UTIL_H_
-#define UTIL_H_
+#pragma once
 
 #include <chrono>
 #include <cstdio>
@@ -78,5 +77,3 @@ void log_error(Ts... vs)
 }
 
 }  // namespace raft::bench::ann
-
-#endif

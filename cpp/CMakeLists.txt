@@ -745,6 +745,5 @@ endif()
 # * build ann benchmark executable -----------------------------------------------
 
 if(BUILD_ANN_BENCH)
-  message("GOT HERE!")
   include(bench/ann/CMakeLists.txt)
 endif()

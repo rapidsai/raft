@@ -14,14 +14,6 @@
  * limitations under the License.
  */
 
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use raft_runtime/cudart_utils.hpp instead.
- */
-
-#ifndef __RAFT_RT_CUDART_UTILS_H
-#define __RAFT_RT_CUDART_UTILS_H
-
 #pragma once
 
 #include <raft/core/error.hpp>
@@ -31,7 +23,7 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cuda_fp16.h>
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 
 #include <chrono>
 #include <cstdio>
@@ -540,5 +532,3 @@ inline auto get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_
 }
 
 }  // namespace raft
-
-#endif
