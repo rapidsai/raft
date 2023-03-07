@@ -128,7 +128,6 @@ void serialize(raft::device_resources const& handle_,
  *
  * @param[in] handle the raft handle
  * @param[in] is input stream
- * @param[in] index IVF-PQ index
  *
  */
 template <typename IdxT>
@@ -184,7 +183,6 @@ auto deserialize(raft::device_resources const& handle_, std::istream& is) -> ind
  *
  * @param[in] handle the raft handle
  * @param[in] filename the name of the file that stores the index
- * @param[in] index IVF-PQ index
  *
  */
 template <typename IdxT>
