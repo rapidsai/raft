@@ -114,7 +114,7 @@ void serialize(raft::device_resources const& handle_,
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  serialize(handle_, of, index);
+  detail::serialize(handle_, of, index);
 
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -194,7 +194,7 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
 
   if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  auto index = deserialize<IdxT>(handle_, infile);
+  auto index = detail::deserialize<IdxT>(handle_, infile);
 
   infile.close();
 
