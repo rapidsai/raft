@@ -370,6 +370,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/ivfpq_search_float_uint64_t.cu
     src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
     src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
+    src/distance/neighbors/ivf_flat_search.cu
+    src/distance/neighbors/ivf_flat_build.cu
     src/distance/neighbors/specializations/ivfpq_build_float_uint64_t.cu
     src/distance/neighbors/specializations/ivfpq_build_int8_t_uint64_t.cu
     src/distance/neighbors/specializations/ivfpq_build_uint8_t_uint64_t.cu
