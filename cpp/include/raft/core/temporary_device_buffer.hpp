@@ -31,9 +31,9 @@ namespace raft {
  */
 
 /**
- * @brief An object which provides temporary access on-device to memory from either a host or device pointer.
- * This object provides a `view()` method that will provide a `raft::device_mdspan` that may
- * be read-only depending on const-qualified nature of the input pointer.
+ * @brief An object which provides temporary access on-device to memory from either a host or device
+ * pointer. This object provides a `view()` method that will provide a `raft::device_mdspan` that
+ * may be read-only depending on const-qualified nature of the input pointer.
  *
  * @tparam ElementType type of the input
  * @tparam Extents raft::extents
