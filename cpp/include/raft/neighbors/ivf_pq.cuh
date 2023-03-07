@@ -18,7 +18,7 @@
 
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
-#include <raft/neighbors/detail/ivf_pq_serialize.cuh>
+#include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_resources.hpp>
