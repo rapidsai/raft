@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,31 +14,36 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_ggnn)
+function(find_and_configure_glog)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    set ( EXTERNAL_INCLUDES_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/ )
-    if (NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/ggnn-src/)
+    rapids_cpm_find(glog ${PKG_VERSION}
+            GLOBAL_TARGETS      glog::glog
+            BUILD_EXPORT_SET    raft-exports
+            INSTALL_EXPORT_SET  raft-exports
+            CPM_ARGS
+            GIT_REPOSITORY         https://github.com/${PKG_FORK}/glog.git
+            GIT_TAG                ${PKG_PINNED_TAG}
+            SOURCE_SUBDIR          cpp
+            EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+            )
 
-        execute_process (
-                COMMAND git clone "https://github.com/${PKG_FORK}/ggnn" --branch ${PKG_PINNED_TAG} ggnn-src
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/ )
-
-        message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
-        execute_process (
-                COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/ggnn.patch
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src
-        )
+    if(glog_ADDED)
+        message(VERBOSE "RAFT: Using glog located in ${glog_SOURCE_DIR}")
+    else()
+        message(VERBOSE "RAFT: Using glog located in ${glog_DIR}")
     endif()
+
 
 endfunction()
 
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_ggnn(VERSION          0.5
-        FORK             cgtuebingen
-        PINNED_TAG       release_0.5
-        EXCLUDE_FROM_ALL YES)
+# CPM_glog_SOURCE=/path/to/local/glog
+find_and_configure_glog(VERSION 0.6.0
+        FORK             google
+        PINNED_TAG       v0.6.0
+        EXCLUDE_FROM_ALL ON
+        )

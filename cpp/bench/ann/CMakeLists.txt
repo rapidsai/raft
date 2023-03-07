@@ -21,8 +21,8 @@ option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in bench
 option(RAFT_ANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" OFF)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" OFF)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" OFF)
-option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
@@ -69,7 +69,8 @@ function(ConfigureCuannBench)
   set(BENCH_NAME ${ConfigureCuannBench_NAME}_ANN_BENCH)
 
   add_executable(
-    ${BENCH_NAME} ${ConfigureCuannBench_PATH} bench/ann/src/conf.cpp bench/ann/src/util.cpp
+    ${BENCH_NAME} ${ConfigureCuannBench_PATH} bench/ann/src/common/conf.cpp
+                  bench/ann/src/common/util.cpp
   )
   target_link_libraries(
     ${BENCH_NAME}
@@ -125,7 +126,7 @@ endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureCuannBench(
-    NAME HNSWLIB PATH bench/ann/src/hnswlib_benchmark.cpp INCLUDES
+    NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS -mavx
   )
 endif()
@@ -135,9 +136,9 @@ if(RAFT_ANN_BENCH_USE_RAFT)
     NAME
     RAFT_IVF_PQ
     PATH
-    bench/ann/src/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft_ivf_pq.cu>
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft_ivf_flat.cu>
+    bench/ann/src/raft/raft_benchmark.cu
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft/raft_ivf_pq.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft/raft_ivf_flat.cu>
     LINKS
     raft::distance
     raft::nn
@@ -145,12 +146,15 @@ if(RAFT_ANN_BENCH_USE_RAFT)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  ConfigureCuannBench(NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss_benchmark.cu LINKS faiss::faiss)
+  ConfigureCuannBench(
+    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
+  include(cmake/thirdparty/get_glog.cmake)
   ConfigureCuannBench(
-    NAME GGNN PATH bench/ann/src/ggnn_benchmark.cu INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include
+    NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu INCLUDES
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include LINKS glog::glog
   )
 endif()

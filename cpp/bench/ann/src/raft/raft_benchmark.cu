@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "benchmark.hpp"
+#include "../common/benchmark.hpp"
 #include "raft_benchmark.cuh"
 
 int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }

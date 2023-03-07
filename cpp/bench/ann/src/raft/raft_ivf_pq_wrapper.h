@@ -33,8 +33,8 @@
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <type_traits>
 
-#include "ann.hpp"
-#include "cudart_util.h"
+#include "../common/ann.hpp"
+#include "../common/cudart_util.h"
 #include "raft_ann_bench_utils.h"
 
 namespace raft::bench::ann {

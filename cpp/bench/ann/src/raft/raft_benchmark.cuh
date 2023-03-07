@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "ann.hpp"
+#include "../common/ann.hpp"
 #undef WARP_SIZE
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
 #include "raft_wrapper.h"

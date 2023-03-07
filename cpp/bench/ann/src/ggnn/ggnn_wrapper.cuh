@@ -19,8 +19,9 @@
 #include <memory>
 #include <stdexcept>
 
-#include "ann.hpp"
-#include "cudart_util.h"
+#include "../common/ann.hpp"
+#include "../common/benchmark_util.hpp"
+#include "../common/cudart_util.h"
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 
 namespace raft::bench::ann {
