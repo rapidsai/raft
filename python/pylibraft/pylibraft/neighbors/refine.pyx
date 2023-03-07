@@ -272,6 +272,9 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
             raise ValueError("Argument k must be specified if both indices "
                              "and distances arg is None")
 
+    queries_cai = cai_wrapper(queries)
+    dataset_cai = cai_wrapper(dataset)
+    candidates_cai = cai_wrapper(candidates)
     n_queries = cai_wrapper(queries).shape[0]
 
     if indices is None:
@@ -280,36 +283,37 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    cdef DistanceType c_metric = _get_metric(metric)
+    indices_cai = cai_wrapper(indices)
+    distances_cai = cai_wrapper(distances)
 
-    dataset_cai = cai_wrapper(dataset)
+    cdef DistanceType c_metric = _get_metric(metric)
 
     if dataset_cai.dtype == np.float32:
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     get_dmv_float(dataset, check_shape=True),
-                     get_dmv_float(queries, check_shape=True),
-                     get_dmv_uint64(candidates, check_shape=True),
-                     get_dmv_uint64(indices, check_shape=True),
-                     get_dmv_float(distances, check_shape=True),
+                     get_dmv_float(dataset_cai, check_shape=True),
+                     get_dmv_float(queries_cai, check_shape=True),
+                     get_dmv_uint64(candidates_cai, check_shape=True),
+                     get_dmv_uint64(indices_cai, check_shape=True),
+                     get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     elif dataset_cai.dtype == np.int8:
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     get_dmv_int8(dataset, check_shape=True),
-                     get_dmv_int8(queries, check_shape=True),
-                     get_dmv_uint64(candidates, check_shape=True),
-                     get_dmv_uint64(indices, check_shape=True),
-                     get_dmv_float(distances, check_shape=True),
+                     get_dmv_int8(dataset_cai, check_shape=True),
+                     get_dmv_int8(queries_cai, check_shape=True),
+                     get_dmv_uint64(candidates_cai, check_shape=True),
+                     get_dmv_uint64(indices_cai, check_shape=True),
+                     get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     elif dataset_cai.dtype == np.uint8:
         with cuda_interruptible():
             c_refine(deref(handle_),
-                     get_dmv_uint8(dataset, check_shape=True),
-                     get_dmv_uint8(queries, check_shape=True),
-                     get_dmv_uint64(candidates, check_shape=True),
-                     get_dmv_uint64(indices, check_shape=True),
-                     get_dmv_float(distances, check_shape=True),
+                     get_dmv_uint8(dataset_cai, check_shape=True),
+                     get_dmv_uint8(queries_cai, check_shape=True),
+                     get_dmv_uint64(candidates_cai, check_shape=True),
+                     get_dmv_uint64(indices_cai, check_shape=True),
+                     get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     else:
         raise TypeError("dtype %s not supported" % dataset_cai.dtype)

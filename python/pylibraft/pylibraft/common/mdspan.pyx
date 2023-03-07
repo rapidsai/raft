@@ -157,8 +157,7 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
 
 
 cdef device_matrix_view[float, uint64_t, row_major] \
-        get_dmv_float(array, check_shape) except *:
-    cai = array
+        get_dmv_float(cai, check_shape) except *:
     if cai.dtype != np.float32:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
@@ -169,8 +168,7 @@ cdef device_matrix_view[float, uint64_t, row_major] \
 
 
 cdef device_matrix_view[uint8_t, uint64_t, row_major] \
-        get_dmv_uint8(array, check_shape) except *:
-    cai = array
+        get_dmv_uint8(cai, check_shape) except *:
     if cai.dtype != np.uint8:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
@@ -181,8 +179,7 @@ cdef device_matrix_view[uint8_t, uint64_t, row_major] \
 
 
 cdef device_matrix_view[int8_t, uint64_t, row_major] \
-        get_dmv_int8(array, check_shape) except *:
-    cai = array
+        get_dmv_int8(cai, check_shape) except *:
     if cai.dtype != np.int8:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
@@ -193,8 +190,7 @@ cdef device_matrix_view[int8_t, uint64_t, row_major] \
 
 
 cdef device_matrix_view[uint64_t, uint64_t, row_major] \
-        get_dmv_uint64(array, check_shape) except *:
-    cai = array
+        get_dmv_uint64(cai, check_shape) except *:
     if cai.dtype != np.uint64:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
