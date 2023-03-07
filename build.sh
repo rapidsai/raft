@@ -463,6 +463,8 @@ fi
 ################################################################################
 # Initiate build for example RAFT application template (if needed)
 
-pushd cpp/template
-./build.sh
-popd
+if hasArg template; then
+    pushd cpp/template
+    ./build.sh
+    popd
+fi

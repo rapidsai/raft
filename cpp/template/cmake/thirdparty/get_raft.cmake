@@ -16,7 +16,7 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAPIDS_VERSION}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG)
+    set(oneValueArgs VERSION FORK PINNED_TAG COMPONENTS COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
@@ -27,7 +27,7 @@ function(find_and_configure_raft)
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    faiss-exports
             INSTALL_EXPORT_SET  faiss-exports
-            COMPONENTS "distance nn"
+            COMPONENTS          ${PKG_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
@@ -35,16 +35,19 @@ function(find_and_configure_raft)
             OPTIONS
             "BUILD_TESTS OFF"
             "BUILD_BENCH OFF"
-            "RAFT_COMPILE_LIBRARIES ON"
+            "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
             "RAFT_USE_FAISS_STATIC OFF" # Turn this on to build FAISS into your binary
-            "RAFT_ENABLE_NN_DEPENDENCIES ON"
+            "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
             )
 endfunction()
 
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             ${RAFT_FORK}
-        PINNED_TAG       ${RAFT_PINNED_TAG}
-        )
+find_and_configure_raft(VERSION ${RAFT_VERSION}.00
+        FORK                    ${RAFT_FORK}
+        PINNED_TAG              ${RAFT_PINNED_TAG}
+        COMPONENTS              "nn distance"
+        COMPILE_LIBRARIES       ON
+        ENABLE_NN_DEPENDENCIES  ON
+)
