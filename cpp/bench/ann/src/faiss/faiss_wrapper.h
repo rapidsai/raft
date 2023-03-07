@@ -36,6 +36,8 @@
 #include <type_traits>
 
 #include "../common/ann.hpp"
+#include "../common/benchmark_util.hpp"
+#include "../common/cudart_util.h"
 
 namespace {
 

@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "../common/ann.hpp"
+#include "../common/benchmark_util.hpp"
 #undef WARP_SIZE
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
 #include "raft_wrapper.h"

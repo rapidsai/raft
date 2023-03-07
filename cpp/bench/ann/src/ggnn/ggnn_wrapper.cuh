@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef GGNN_WRAPPER_H_
-#define GGNN_WRAPPER_H_
+
+#pragma once
 
 #include <memory>
 #include <stdexcept>
@@ -306,5 +306,3 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
 }
 
 }  // namespace raft::bench::ann
-
-#endif
