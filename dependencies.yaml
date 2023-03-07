@@ -22,7 +22,7 @@ files:
       - cudatoolkit
       - py_version
       - test_python
-  cuann_bench:
+  bench_ann:
     output: none
     includes:
       - cudatoolkit
