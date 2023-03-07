@@ -255,7 +255,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                          [=] __device__(IndexType i) {
                            IndexType row = i / current_centroid_size,
                                      col = i % current_centroid_size;
-                           dist[i]       = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+
+                           auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+                           // correct for small instabilities
+                           dist[i] = val > 1e-6 ? val : 0;
                            if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
                              dist[i] = sqrt(dist[i]);
                            }
