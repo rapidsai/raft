@@ -80,41 +80,39 @@ struct search_params : ann::search_params {
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 
-template <typename ValueT>
-struct list_spec_wrapper {
-  template <typename SizeT = uint32_t>
-  struct list_spec {
-    using value_type   = ValueT;
-    using list_extents = matrix_extent<SizeT>;
+template <typename SizeT, typename ValueT, typename IdxT>
+struct list_spec {
+  using value_type   = ValueT;
+  using list_extents = matrix_extent<SizeT>;
+  using index_type   = IdxT;
 
-    SizeT align_max;
-    SizeT align_min;
-    uint32_t dim;
+  SizeT align_max;
+  SizeT align_min;
+  uint32_t dim;
 
-    constexpr list_spec(uint32_t dim, bool conservative_memory_allocation)
-      : dim(dim),
-        align_min(kIndexGroupSize),
-        align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
-    {
-    }
+  constexpr list_spec(uint32_t dim, bool conservative_memory_allocation)
+    : dim(dim),
+      align_min(kIndexGroupSize),
+      align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
+  {
+  }
 
-    // Allow casting between different size-types (for safer size and offset calculations)
-    template <typename OtherSizeT>
-    constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
-      : dim{other_spec.dim}, align_min{other_spec.align_min}, align_max{other_spec.align_max}
-    {
-    }
+  // Allow casting between different size-types (for safer size and offset calculations)
+  template <typename OtherSizeT>
+  constexpr explicit list_spec(const list_spec<OtherSizeT, ValueT, IdxT>& other_spec)
+    : dim{other_spec.dim}, align_min{other_spec.align_min}, align_max{other_spec.align_max}
+  {
+  }
 
-    /** Determine the extents of an array enough to hold a given amount of data. */
-    constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
-    {
-      return make_extents<SizeT>(n_rows, dim);
-    }
-  };
+  /** Determine the extents of an array enough to hold a given amount of data. */
+  constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
+  {
+    return make_extents<SizeT>(n_rows, dim);
+  }
 };
 
 template <typename ValueT, typename IdxT, typename SizeT = uint32_t>
-using list_data = ivf::list<list_spec_wrapper<ValueT>::list_spec, IdxT, SizeT>;
+using list_data = ivf::list<list_spec, SizeT, ValueT, IdxT>;
 
 /**
  * @brief IVF-flat index.
