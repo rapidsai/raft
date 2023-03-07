@@ -38,9 +38,9 @@ namespace raft::arch {
  *   compile-time architecture is in a specified compatibility range.
  */
 
-// inner::SM_generic is a template to create a generic compile-time SM
+// detail::SM_generic is a template to create a generic compile-time SM
 // architecture constant.
-namespace inner {
+namespace detail {
 template <int n>
 struct SM_generic {
  public:
@@ -49,30 +49,39 @@ struct SM_generic {
 
 // A dummy kernel that is used to determine the runtime architecture.
 __global__ inline void dummy_runtime_kernel() {}
-}  // namespace inner
+}  // namespace detail
 
 // A list of architectures that RAPIDS explicitly builds for (SM60, ..., SM90)
 // and SM_MIN and SM_FUTURE, that allow specifying an open interval of
 // compatible compute architectures.
-using SM_min    = inner::SM_generic<350>;
-using SM_60     = inner::SM_generic<600>;
-using SM_70     = inner::SM_generic<700>;
-using SM_75     = inner::SM_generic<750>;
-using SM_80     = inner::SM_generic<800>;
-using SM_86     = inner::SM_generic<860>;
-using SM_90     = inner::SM_generic<900>;
-using SM_future = inner::SM_generic<99999>;
+using SM_min    = detail::SM_generic<350>;
+using SM_60     = detail::SM_generic<600>;
+using SM_70     = detail::SM_generic<700>;
+using SM_75     = detail::SM_generic<750>;
+using SM_80     = detail::SM_generic<800>;
+using SM_86     = detail::SM_generic<860>;
+using SM_90     = detail::SM_generic<900>;
+using SM_future = detail::SM_generic<99999>;
 
 // This is a type that uses the __CUDA_ARCH__ macro to obtain the compile-time
 // compute architecture. It can only be used where __CUDA_ARCH__ is defined,
 // i.e., inside a __global__ function template.
 struct SM_compute_arch {
   template <int dummy = 0>
-  __host__ __device__ constexpr int value() const
+  __device__ constexpr int value() const
   {
 #ifdef __CUDA_ARCH__
     return __CUDA_ARCH__;
 #else
+    // This function should not be called in host code (because __CUDA_ARCH__ is
+    // not defined). This function is constexpr and thus can be called in host
+    // code (due to the --expt-relaxed-constexpr compile flag). We would like to
+    // provide an intelligible error message when this function is called in
+    // host code, which we do below.
+    //
+    // To make sure the static_assert only fires in host code, we use a dummy
+    // template parameter as described in P2593:
+    // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2593r0.html
     static_assert(dummy != 0,
                   "SM_compute_arch.value() is only callable from a __global__ function template. "
                   "A way to create a function template is by adding 'template <int dummy = 0>'.");
@@ -104,7 +113,7 @@ struct SM_runtime {
 // Semantics are described above in the documentation of SM_runtime.
 inline SM_runtime kernel_runtime_arch()
 {
-  auto kernel = inner::dummy_runtime_kernel;
+  auto kernel = detail::dummy_runtime_kernel;
   cudaFuncAttributes attributes;
   cudaFuncGetAttributes(&attributes, kernel);
 
