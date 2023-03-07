@@ -274,7 +274,7 @@ void distance_impl(raft::resources const& handle,
       distance_matrix_cutlass_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
         distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
     } else {
-      // Else use "legacy" L2
+      // Else use "legacy" cosine kernel
       ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
       distance_matrix_dispatch<decltype(distance_op),
                                DataT,

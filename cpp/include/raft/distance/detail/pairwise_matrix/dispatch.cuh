@@ -16,6 +16,7 @@
 #pragma once
 
 #include "kernel_sm60.cuh"
+#include <algorithm>
 #include <cstdio>
 #include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
 #include <raft/linalg/contractions.cuh>
@@ -131,7 +132,15 @@ void distance_matrix_dispatch(
 
   // Compute number of elements that can be loaded in one instruction
   // without causing misalignent errors.
-  int vec_len_aligned = (byte_alignment % sizeof(DataT) == 0) ? byte_alignment / sizeof(DataT) : 1;
+  int vec_len_aligned;
+  if (byte_alignment % sizeof(DataT) == 0) {
+    // In the future, we might support `int8_t` input. In that case,
+    // byte_alignment / sizeof(DataT) might exceed 4. We maximize at 4 here, to
+    // prevent adding more cases in dispatch (which are expensive to compile).
+    vec_len_aligned = std::min(4, int(byte_alignment / sizeof(DataT)));
+  } else {
+    vec_len_aligned = 1;
+  }
 
   dispatch(is_row_major, vec_len_aligned, [&](auto row_major, auto vec_len_aligned) {
     // row_major and vec_len are std::integral_constants of type bool and int
