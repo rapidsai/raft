@@ -42,14 +42,16 @@ namespace raft {
  */
 template <typename ElementType,
           typename Extents,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<std::remove_cv_t<ElementType>>>
+          typename LayoutPolicy                        = layout_c_contiguous,
+          template <typename> typename ContainerPolicy = detail::device_uvector_policy>
 class temporary_device_buffer {
-  using view_type            = device_mdspan<ElementType, Extents, LayoutPolicy>;
-  using index_type           = typename Extents::index_type;
-  using element_type         = std::remove_cv_t<ElementType>;
-  using owning_device_buffer = device_mdarray<element_type, Extents, LayoutPolicy, ContainerPolicy>;
-  using data_store           = std::variant<ElementType*, owning_device_buffer>;
+  using view_type        = device_mdspan<ElementType, Extents, LayoutPolicy>;
+  using index_type       = typename Extents::index_type;
+  using element_type     = std::remove_cv_t<ElementType>;
+  using container_policy = ContainerPolicy<element_type>;
+  using owning_device_buffer =
+    device_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
+  using data_store                        = std::variant<ElementType*, owning_device_buffer>;
   static constexpr bool is_const_pointer_ = std::is_const_v<ElementType>;
 
  public:
@@ -163,9 +165,9 @@ class temporary_device_buffer {
  * @return raft::temporary_device_buffer
  */
 template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<std::remove_cv_t<ElementType>>,
+          typename IndexType                           = std::uint32_t,
+          typename LayoutPolicy                        = layout_c_contiguous,
+          template <typename> typename ContainerPolicy = detail::device_uvector_policy,
           size_t... Extents>
 auto make_temporary_device_buffer(raft::device_resources const& handle,
                                   ElementType* data,
@@ -205,9 +207,9 @@ auto make_temporary_device_buffer(raft::device_resources const& handle,
  * @return raft::temporary_device_buffer
  */
 template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<std::remove_cv_t<ElementType>>,
+          typename IndexType                           = std::uint32_t,
+          typename LayoutPolicy                        = layout_c_contiguous,
+          template <typename> typename ContainerPolicy = detail::device_uvector_policy,
           size_t... Extents>
 auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
                                            ElementType* data,
@@ -248,9 +250,9 @@ auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
  * @return raft::temporary_device_buffer
  */
 template <typename ElementType,
-          typename IndexType       = std::uint32_t,
-          typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::device_uvector_policy<ElementType>,
+          typename IndexType                           = std::uint32_t,
+          typename LayoutPolicy                        = layout_c_contiguous,
+          template <typename> typename ContainerPolicy = detail::device_uvector_policy,
           size_t... Extents,
           typename = std::enable_if_t<not std::is_const_v<ElementType>>>
 auto make_writeback_temporary_device_buffer(raft::device_resources const& handle,
