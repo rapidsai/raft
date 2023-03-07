@@ -241,7 +241,8 @@ void update_host(Type* h_ptr, const Type* d_ptr, size_t len, rmm::cuda_stream_vi
 template <typename Type>
 void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len, rmm::cuda_stream_view stream)
 {
-  CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type), cudaMemcpyDeviceToDevice, stream));
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type), cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
 
@@ -270,7 +271,7 @@ void print_device_vector(const char* variable_name,
                          OutStream& out)
 {
   auto host_mem = std::make_unique<T[]>(componentsCount);
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemcpy(host_mem.get(), devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
   print_host_vector(variable_name, host_mem.get(), componentsCount, out);
 }
