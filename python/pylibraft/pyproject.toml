@@ -39,15 +39,9 @@ known_dask = [
     "dask_cuda",
 ]
 known_rapids = [
-    "nvtext",
-    "cudf",
-    "cuml",
-    "cugraph",
-    "dask_cudf",
     "rmm",
 ]
 known_first_party = [
-    "raft",
     "pylibraft",
 ]
 default_section = "THIRDPARTY"
