@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "../common/ann.hpp"
-#undef WARP_SIZE
 #include "ggnn_wrapper.cuh"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>

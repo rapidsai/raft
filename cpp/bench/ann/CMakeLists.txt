@@ -41,7 +41,6 @@ if(RAFT_ANN_BENCH_USE_RAFT_BFKNN
 endif()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
-  message("Using hnswlib")
   include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
 
