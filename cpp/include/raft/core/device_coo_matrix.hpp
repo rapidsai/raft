@@ -78,6 +78,33 @@ using device_coordinate_structure =
 template <typename RowType, typename ColType, typename NZType>
 using device_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, true>;
 
+template <typename T>
+struct is_device_coo_matrix : std::false_type {
+};
+
+template <typename ElementType,
+          typename RowType,
+          typename ColType,
+          typename NZType,
+          template <typename T>
+          typename ContainerPolicy,
+          SparsityType sparsity_type>
+struct is_device_coo_matrix<
+  device_coo_matrix<ElementType, RowType, ColType, NZType, ContainerPolicy, sparsity_type>>
+  : std::true_type {
+};
+
+template <typename T>
+constexpr bool is_device_coo_matrix_v = is_device_coo_matrix<T>::value;
+
+template <typename T>
+constexpr bool is_device_coo_sparsity_owning_v =
+  is_device_coo_matrix<T>::value and T::get_sparsity_type() == OWNING;
+
+template <typename T>
+constexpr bool is_device_coo_sparsity_preserving_v =
+  is_device_coo_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
+
 /**
  * Create a sparsity-owning sparse matrix in the coordinate format. sparsity-owning means that
  * all of the underlying vectors (data, indptr, indices) are owned by the coo_matrix instance. If
@@ -155,7 +182,8 @@ auto make_device_coo_matrix(raft::resources const& handle,
                             device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   return device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
-    handle, std::make_shared(structure_));
+    handle,
+    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
 }
 
 /**
@@ -192,7 +220,8 @@ auto make_device_coo_matrix_view(
   ElementType* ptr, device_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
-    raft::device_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
+    raft::device_span<ElementType>(ptr, structure_.get_nnz()),
+    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
 }
 
 /**
@@ -233,7 +262,8 @@ auto make_device_coo_matrix_view(
   RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
   return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
-    elements, std::make_shared(structure_));
+    elements,
+    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
 }
 
 /**

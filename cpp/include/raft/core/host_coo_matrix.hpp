@@ -77,6 +77,33 @@ using host_coordinate_structure =
 template <typename RowType, typename ColType, typename NZType>
 using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, false>;
 
+template <typename T>
+struct is_host_coo_matrix : std::false_type {
+};
+
+template <typename ElementType,
+          typename RowType,
+          typename ColType,
+          typename NZType,
+          template <typename T>
+          typename ContainerPolicy,
+          SparsityType sparsity_type>
+struct is_host_coo_matrix<
+  host_coo_matrix<ElementType, RowType, ColType, NZType, ContainerPolicy, sparsity_type>>
+  : std::true_type {
+};
+
+template <typename T>
+constexpr bool is_host_coo_matrix_v = is_host_coo_matrix<T>::value;
+
+template <typename T>
+constexpr bool is_host_coo_sparsity_owning_v =
+  is_host_coo_matrix<T>::value and T::get_sparsity_type() == OWNING;
+
+template <typename T>
+constexpr bool is_host_coo_sparsity_preserving_v =
+  is_host_coo_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
+
 /**
  * Create a sparsity-owning sparse matrix in the coordinate format. sparsity-owning means that
  * all of the underlying vectors (data, indptr, indices) are owned by the coo_matrix instance. If
@@ -122,7 +149,7 @@ auto make_host_coo_matrix(raft::resources const& handle,
 /**
  * Create a sparsity-preserving sparse matrix in the coordinate format. sparsity-preserving means
  * that a view of the coo sparsity is supplied, allowing the values in the sparsity to change but
- * not the sparsity itself. The csr_matrix instance does not own the sparsity, the sparsity must
+ * not the sparsity itself. The coo_matrix instance does not own the sparsity, the sparsity must
  * be known up front, and cannot be resized later.
  *
  * @code{.cpp}
@@ -154,7 +181,7 @@ auto make_host_coo_matrix(raft::resources const& handle,
                           host_coordinate_structure_view<RowType, ColType, NZType> structure_)
 {
   return host_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
-    handle, std::make_shared(structure_));
+    handle, std::make_shared<host_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
 }
 
 /**

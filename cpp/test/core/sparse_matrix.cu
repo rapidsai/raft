@@ -25,55 +25,87 @@ namespace raft {
  * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
  */
 template <typename S, typename = std::enable_if_t<is_device_csr_matrix_v<S>>>
-bool test_device_csr_owning_ref(S& mat)
+void test_device_csr_owning_ref(S& mat, void* d)
 {
-  using IndptrType = typename S::structure_type::indptr_type;
-
-  IndptrType indptr_t = 50;
-  std::cout << "csr owning: " << static_cast<void*>(mat.get_elements().data()) << std::endl;
-  mat.structure_view();
-  return true;
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
 }
 
+/**
+ * Example of accepting a csr_matrix which also owns structure and can initialize sparsity
+ */
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_owning_v<S>>>
-bool test_device_csr_sparsity_owning_ref(S& mat)
+void test_device_csr_sparsity_owning_ref(S& mat, void* d)
 {
-  std::cout << "Sparsity owning value address: " << static_cast<void*>(mat.get_elements().data())
-            << std::endl;
-  mat.structure_view();
-  return true;
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
 }
 
+/**
+ * Example of accepting a csr_matrix which does not own the structure
+ */
 template <typename S, typename = std::enable_if_t<is_device_csr_sparsity_preserving_v<S>>>
-bool test_device_csr_sparsity_preserving_ref(S& mat)
+void test_device_csr_sparsity_preserving_ref(S& mat, void* d)
 {
-  std::cout << "Sparsity preserving value address: "
-            << static_cast<void*>(mat.get_elements().data()) << std::endl;
-  mat.structure_view();
-  return true;
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
 }
 
-// just simple integration test, main tests are in mdspan ref implementation.
+/**
+ * Example of accepting a value-owning matrix type which doesn't need to adjust sparsity
+ */
+template <typename S, typename = std::enable_if_t<is_device_coo_matrix_v<S>>>
+void test_device_coo_owning_ref(S& mat, void* d)
+{
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
+}
+
+/**
+ * Example of accepting a coo_matrix which also owns structure and can initialize sparsity
+ */
+template <typename S, typename = std::enable_if_t<is_device_coo_sparsity_owning_v<S>>>
+void test_device_coo_sparsity_owning_ref(S& mat, void* d)
+{
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
+}
+
+/**
+ * Example of accepting a coo_matrix which does not own the structure
+ */
+template <typename S, typename = std::enable_if_t<is_device_coo_sparsity_preserving_v<S>>>
+void test_device_coo_sparsity_preserving_ref(S& mat, void* d)
+{
+  ASSERT_EQ(static_cast<void*>(mat.get_elements().data()), d);
+}
+
 void test_device_coo_matrix()
 {
   raft::device_resources handle;
-  auto mat = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
+  auto sparsity_owning = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
 
-  auto structure_view = mat.structure_view();
-  //  auto sparse_view = mat.view();
+  auto structure_view = sparsity_owning.structure_view();
 
   ASSERT_EQ(structure_view.get_n_cols(), 5);
   ASSERT_EQ(structure_view.get_n_rows(), 5);
   ASSERT_EQ(structure_view.get_nnz(), 0);
 
-  mat.initialize_sparsity(5);
+  auto coord_struct = raft::make_device_coordinate_structure(handle, 5, 5, 5);
+  auto sparsity_preserving =
+    raft::make_device_coo_matrix<float, int, int>(handle, coord_struct.view());
 
-  auto structure_view2 = mat.structure_view();
-  //  auto sparse_view2 = mat.view();
+  sparsity_owning.initialize_sparsity(5);
+
+  auto structure_view2 = sparsity_owning.structure_view();
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);
   ASSERT_EQ(structure_view2.get_n_rows(), 5);
   ASSERT_EQ(structure_view2.get_nnz(), 5);
+
+  void* d_owning     = static_cast<void*>(sparsity_owning.get_elements().data());
+  void* d_preserving = static_cast<void*>(sparsity_preserving.get_elements().data());
+
+  test_device_coo_owning_ref(sparsity_owning, d_owning);
+  test_device_coo_owning_ref(sparsity_preserving, d_preserving);
+
+  test_device_coo_sparsity_owning_ref(sparsity_owning, d_owning);
+  test_device_coo_sparsity_preserving_ref(sparsity_preserving, d_preserving);
 }
 
 void test_device_csr_matrix()
@@ -86,7 +118,6 @@ void test_device_csr_matrix()
     raft::make_device_csr_matrix<float, int, int>(handle, comp_struct.view());
 
   auto structure_view = sparsity_owning.structure_view();
-  //  auto sparse_view = mat.view();
 
   ASSERT_EQ(structure_view.get_n_cols(), 5);
   ASSERT_EQ(structure_view.get_n_rows(), 5);
@@ -95,25 +126,23 @@ void test_device_csr_matrix()
   sparsity_owning.initialize_sparsity(5);
 
   auto structure_view2 = sparsity_owning.structure_view();
-  //  auto sparse_view2 = mat.view();
-
-  std::cout << "Value address: " << static_cast<void*>(sparsity_owning.get_elements().data())
-            << std::endl;
-
-  test_device_csr_owning_ref(sparsity_owning);
-  test_device_csr_owning_ref(sparsity_preserving);
-
-  test_device_csr_sparsity_owning_ref(sparsity_owning);
-  test_device_csr_sparsity_preserving_ref(sparsity_preserving);
 
   ASSERT_EQ(structure_view2.get_n_cols(), 5);
   ASSERT_EQ(structure_view2.get_n_rows(), 5);
   ASSERT_EQ(structure_view2.get_nnz(), 5);
+
+  void* d_owning     = static_cast<void*>(sparsity_owning.get_elements().data());
+  void* d_preserving = static_cast<void*>(sparsity_preserving.get_elements().data());
+
+  test_device_csr_owning_ref(sparsity_owning, d_owning);
+  test_device_csr_owning_ref(sparsity_preserving, d_preserving);
+
+  test_device_csr_sparsity_owning_ref(sparsity_owning, d_owning);
+  test_device_csr_sparsity_preserving_ref(sparsity_preserving, d_preserving);
 }
 
-TEST(DeviceSparseMatrix, Basic)
-{
-  test_device_csr_matrix();
-  test_device_coo_matrix();
-}
+TEST(DeviceSparseCOOMatrix, Basic) { test_device_coo_matrix(); }
+
+TEST(DeviceSparseCSRMatrix, Basic) { test_device_csr_matrix(); }
+
 }  // namespace raft
