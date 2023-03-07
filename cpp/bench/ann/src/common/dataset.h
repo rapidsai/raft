@@ -29,7 +29,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "cudart_util.h"
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 
@@ -272,8 +272,8 @@ Dataset<T>::~Dataset()
 {
   delete[] base_set_;
   delete[] query_set_;
-  if (d_base_set_) { ANN_CUDA_CHECK(cudaFree(d_base_set_)); }
-  if (d_query_set_) { ANN_CUDA_CHECK(cudaFree(d_query_set_)); }
+  if (d_base_set_) { RAFT_CUDA_TRY(cudaFree(d_base_set_)); }
+  if (d_query_set_) { RAFT_CUDA_TRY(cudaFree(d_query_set_)); }
 }
 
 template <typename T>
@@ -281,8 +281,8 @@ const T* Dataset<T>::base_set_on_gpu() const
 {
   if (!d_base_set_) {
     base_set();
-    ANN_CUDA_CHECK(cudaMalloc((void**)&d_base_set_, base_set_size_ * dim_ * sizeof(T)));
-    ANN_CUDA_CHECK(cudaMemcpy(
+    RAFT_CUDA_TRY(cudaMalloc((void**)&d_base_set_, base_set_size_ * dim_ * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMemcpy(
       d_base_set_, base_set_, base_set_size_ * dim_ * sizeof(T), cudaMemcpyHostToDevice));
   }
   return d_base_set_;
@@ -293,8 +293,8 @@ const T* Dataset<T>::query_set_on_gpu() const
 {
   if (!d_query_set_) {
     query_set();
-    ANN_CUDA_CHECK(cudaMalloc((void**)&d_query_set_, query_set_size_ * dim_ * sizeof(T)));
-    ANN_CUDA_CHECK(cudaMemcpy(
+    RAFT_CUDA_TRY(cudaMalloc((void**)&d_query_set_, query_set_size_ * dim_ * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMemcpy(
       d_query_set_, query_set_, query_set_size_ * dim_ * sizeof(T), cudaMemcpyHostToDevice));
   }
   return d_query_set_;

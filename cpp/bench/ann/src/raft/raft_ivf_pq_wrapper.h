@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef RAFT_IVF_PQ_WRAPPER_H_
-#define RAFT_IVF_PQ_WRAPPER_H_
+#pragma once
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -34,8 +33,8 @@
 #include <type_traits>
 
 #include "../common/ann.hpp"
-#include "../common/cudart_util.h"
 #include "raft_ann_bench_utils.h"
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 
@@ -99,7 +98,7 @@ RaftIvfPQ<T, IdxT>::RaftIvfPQ(Metric metric, int dim, const BuildParam& param, f
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
   index_params_.metric = parse_metric_type(metric);
-  ANN_CUDA_CHECK(cudaGetDevice(&device_));
+  RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T, typename IdxT>
@@ -221,5 +220,3 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
   return;
 }
 }  // namespace raft::bench::ann
-
-#endif

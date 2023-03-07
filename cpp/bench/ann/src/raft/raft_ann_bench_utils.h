@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef RAFT_CUANN_UTILS_H_
-#define RAFT_CUANN_UTILS_H_
-
+#pragma once
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -45,5 +43,3 @@ inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric m
   }
 }
 }  // namespace raft::bench::ann
-
-#endif

@@ -37,7 +37,7 @@
 
 #include "../common/ann.hpp"
 #include "../common/benchmark_util.hpp"
-#include "../common/cudart_util.h"
+#include <raft/util/cudart_utils.hpp>
 
 namespace {
 
@@ -127,7 +127,7 @@ FaissGpu<T>::FaissGpu(Metric metric, int dim, int nlist)
   : ANN<T>(metric, dim), metric_type_(parse_metric_type(metric)), nlist_(nlist)
 {
   static_assert(std::is_same_v<T, float>, "faiss support only float type");
-  ANN_CUDA_CHECK(cudaGetDevice(&device_));
+  RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T>

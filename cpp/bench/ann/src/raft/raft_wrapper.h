@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef RAFT_WRAPPER_H_
-#define RAFT_WRAPPER_H_
+#pragma once
 
 #include <cassert>
 #include <memory>
@@ -91,7 +90,7 @@ RaftGpu<T>::RaftGpu(Metric metric, int dim)
 {
   static_assert(std::is_same_v<T, float>, "raft support only float type");
   assert(metric_type_ == raft::distance::DistanceType::L2Expanded);
-  ANN_CUDA_CHECK(cudaGetDevice(&device_));
+  RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T>
@@ -151,5 +150,3 @@ void RaftGpu<T>::search(const T* queries,
 }
 
 }  // namespace raft::bench::ann
-
-#endif

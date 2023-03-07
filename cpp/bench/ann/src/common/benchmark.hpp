@@ -171,7 +171,7 @@ template <typename T>
 void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& indices)
 {
   cudaStream_t stream;
-  ANN_CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   log_info(
     "base set from dataset '%s', #vector = %zu", dataset->name().c_str(), dataset->base_set_size());
@@ -199,19 +199,20 @@ void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& i
     }
 
     log_info("building index '%s'", index.name.c_str());
-    ANN_CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 #ifdef NVTX
     nvtxRangePush("build");
 #endif
     Timer timer;
     algo->build(base_set_ptr, dataset->base_set_size(), stream);
-    ANN_CUDA_CHECK(cudaStreamSynchronize(stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     float elapsed_ms = timer.elapsed_ms();
 #ifdef NVTX
     nvtxRangePop();
 #endif
     log_info("built index in %.2f seconds", elapsed_ms / 1000.0f);
-    ANN_CUDA_CHECK_LAST_ERROR();
+    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     algo->save(index.file);
     write_build_info(index.file,
@@ -224,7 +225,7 @@ void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& i
     log_info("saved index to %s", index.file.c_str());
   }
 
-  ANN_CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 inline void write_search_result(const std::string& file_prefix,
@@ -277,7 +278,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
 {
   if (indices.empty()) { return; }
   cudaStream_t stream;
-  ANN_CUDA_CHECK(cudaStreamCreate(&stream));
+  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
 
   log_info("loading query set from dataset '%s', #vector = %zu",
            dataset->name().c_str(),
@@ -307,8 +308,8 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
   search_times.reserve(num_batches);
   std::size_t* d_neighbors;
   float* d_distances;
-  ANN_CUDA_CHECK(cudaMalloc((void**)&d_neighbors, query_set_size * k * sizeof(*d_neighbors)));
-  ANN_CUDA_CHECK(cudaMalloc((void**)&d_distances, query_set_size * k * sizeof(*d_distances)));
+  RAFT_CUDA_TRY(cudaMalloc((void**)&d_neighbors, query_set_size * k * sizeof(*d_neighbors)));
+  RAFT_CUDA_TRY(cudaMalloc((void**)&d_distances, query_set_size * k * sizeof(*d_distances)));
 
   for (const auto& index : indices) {
     log_info("creating algo '%s', param=%s", index.algo.c_str(), index.build_param.dump().c_str());
@@ -356,8 +357,8 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
       log_info("search with param: %s", index.search_params[i].dump().c_str());
 
       if (algo_property.query_memory_type == MemoryType::Device) {
-        ANN_CUDA_CHECK(cudaMemset(d_neighbors, 0, query_set_size * k * sizeof(*d_neighbors)));
-        ANN_CUDA_CHECK(cudaMemset(d_distances, 0, query_set_size * k * sizeof(*d_distances)));
+        RAFT_CUDA_TRY(cudaMemset(d_neighbors, 0, query_set_size * k * sizeof(*d_neighbors)));
+        RAFT_CUDA_TRY(cudaMemset(d_distances, 0, query_set_size * k * sizeof(*d_distances)));
       } else {
         memset(neighbors, 0, query_set_size * k * sizeof(*neighbors));
         memset(distances, 0, query_set_size * k * sizeof(*distances));
@@ -371,7 +372,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
         for (std::size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
           std::size_t row       = batch_id * batch_size;
           int actual_batch_size = (batch_id == num_batches - 1) ? query_set_size - row : batch_size;
-          ANN_CUDA_CHECK(cudaStreamSynchronize(stream));
+          RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 #ifdef NVTX
           string nvtx_label = "batch" + to_string(batch_id);
           if (run_count != 1) { nvtx_label = "run" + to_string(run) + "-" + nvtx_label; }
@@ -390,7 +391,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                        this_neighbors + row * k,
                        this_distances + row * k,
                        stream);
-          ANN_CUDA_CHECK(cudaStreamSynchronize(stream));
+          RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
           float elapsed_ms = timer.elapsed_ms();
 #ifdef NVTX
           nvtxRangePop();
@@ -424,17 +425,18 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
         }
         search_times.clear();
       }
-      ANN_CUDA_CHECK_LAST_ERROR();
+      RAFT_CUDA_TRY(cudaDeviceSynchronize());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       if (algo_property.query_memory_type == MemoryType::Device) {
-        ANN_CUDA_CHECK(cudaMemcpy(neighbors,
-                                  d_neighbors,
-                                  query_set_size * k * sizeof(*d_neighbors),
-                                  cudaMemcpyDeviceToHost));
-        ANN_CUDA_CHECK(cudaMemcpy(distances,
-                                  d_distances,
-                                  query_set_size * k * sizeof(*d_distances),
-                                  cudaMemcpyDeviceToHost));
+        RAFT_CUDA_TRY(cudaMemcpy(neighbors,
+                                 d_neighbors,
+                                 query_set_size * k * sizeof(*d_neighbors),
+                                 cudaMemcpyDeviceToHost));
+        RAFT_CUDA_TRY(cudaMemcpy(distances,
+                                 d_distances,
+                                 query_set_size * k * sizeof(*d_distances),
+                                 cudaMemcpyDeviceToHost));
       }
 
       for (size_t j = 0; j < query_set_size * k; ++j) {
@@ -463,9 +465,9 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
   delete[] neighbors;
   delete[] neighbors_buf;
   delete[] distances;
-  ANN_CUDA_CHECK(cudaFree(d_neighbors));
-  ANN_CUDA_CHECK(cudaFree(d_distances));
-  ANN_CUDA_CHECK(cudaStreamDestroy(stream));
+  RAFT_CUDA_TRY(cudaFree(d_neighbors));
+  RAFT_CUDA_TRY(cudaFree(d_distances));
+  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
 inline const std::string usage(const string& argv0)

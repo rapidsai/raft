@@ -21,8 +21,8 @@
 
 #include "../common/ann.hpp"
 #include "../common/benchmark_util.hpp"
-#include "../common/cudart_util.h"
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 
@@ -184,7 +184,7 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
   if (dim != D) { throw std::runtime_error("mis-matched dim"); }
 
   int device;
-  ANN_CUDA_CHECK(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
 
   ggnn_ = std::make_unique<GGNNGPUInstance>(
     device, build_param_.dataset_size, build_param_.num_layers, true, build_param_.tau);
@@ -242,7 +242,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::search(const T* queries,
   }
 
   ggnn_->set_stream(stream);
-  ANN_CUDA_CHECK(cudaMemcpyToSymbol(c_tau_query, &search_param_.tau, sizeof(float)));
+  RAFT_CUDA_TRY(cudaMemcpyToSymbol(c_tau_query, &search_param_.tau, sizeof(float)));
 
   const int block_dim      = search_param_.block_dim;
   const int max_iterations = search_param_.max_iterations;
@@ -289,7 +289,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::save(const std::string& file) c
   ggnn_->set_stream(0);
 
   ggnn_host.downloadAsync(ggnn_device);
-  ANN_CUDA_CHECK(cudaStreamSynchronize(ggnn_device.stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(ggnn_device.stream));
   ggnn_host.store(file);
 }
 
@@ -302,7 +302,7 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::load(const std::string& file)
 
   ggnn_host.load(file);
   ggnn_host.uploadAsync(ggnn_device);
-  ANN_CUDA_CHECK(cudaStreamSynchronize(ggnn_device.stream));
+  RAFT_CUDA_TRY(cudaStreamSynchronize(ggnn_device.stream));
 }
 
 }  // namespace raft::bench::ann

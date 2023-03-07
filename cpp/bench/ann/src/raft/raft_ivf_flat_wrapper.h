@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef RAFT_IVF_FLAT_WRAPPER_H_
-#define RAFT_IVF_FLAT_WRAPPER_H_
+#pragma once
 
 #include <cassert>
 #include <fstream>
@@ -36,8 +35,8 @@
 #include <type_traits>
 
 #include "../common/ann.hpp"
-#include "../common/cudart_util.h"
 #include "raft_ann_bench_utils.h"
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 
@@ -98,7 +97,7 @@ RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric, int dim, const BuildParam
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
   index_params_.metric = parse_metric_type(metric);
-  ANN_CUDA_CHECK(cudaGetDevice(&device_));
+  RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T, typename IdxT>
@@ -143,4 +142,3 @@ void RaftIvfFlatGpu<T, IdxT>::search(
   return;
 }
 }  // namespace raft::bench::ann
-#endif

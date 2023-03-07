@@ -77,11 +77,6 @@ struct cuda_error : public raft::exception {
     }                                              \
   } while (0)
 
-// FIXME: Remove after consumers rename
-#ifndef CUDA_TRY
-#define CUDA_TRY(call) RAFT_CUDA_TRY(call)
-#endif
-
 /**
  * @brief Debug macro to check for CUDA errors
  *
@@ -101,16 +96,6 @@ struct cuda_error : public raft::exception {
 #define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
 #endif
 
-// FIXME: Remove after consumers rename
-#ifndef CHECK_CUDA
-#define CHECK_CUDA(call) RAFT_CHECK_CUDA(call)
-#endif
-
-/** FIXME: remove after cuml rename */
-#ifndef CUDA_CHECK
-#define CUDA_CHECK(call) RAFT_CUDA_TRY(call)
-#endif
-
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
@@ -126,17 +111,6 @@ struct cuda_error : public raft::exception {
              cudaGetErrorString(status));                          \
     }                                                              \
   } while (0)
-
-// FIXME: Remove after cuml rename
-#ifndef CUDA_CHECK_NO_THROW
-#define CUDA_CHECK_NO_THROW(call) RAFT_CUDA_TRY_NO_THROW(call)
-#endif
-
-/**
- * Alias to raft scope for now.
- * TODO: Rename original implementations in 22.04 to fix
- * https://github.com/rapidsai/raft/issues/128
- */
 
 namespace raft {
 
@@ -249,7 +223,7 @@ class grid_1d_block_t {
 template <typename Type>
 void copy(Type* dst, const Type* src, size_t len, rmm::cuda_stream_view stream)
 {
-  CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
 
 /**
