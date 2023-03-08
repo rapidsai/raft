@@ -462,6 +462,21 @@ void brute_force_knn_impl(
     out_I = all_I.data();
   }
 
+  // currently we don't support col_major inside tiled_brute_force_knn, because
+  // of limitattions of the pairwise_distance API:
+  // 1) paiwise_distance takes a single 'isRowMajor' parameter - and we have
+  // multiple options here (like rowMajorQuery/rowMajorIndex)
+  // 2) because of tiling, we need to be able to set a custom stride in the PW
+  // api, which isn't supported
+  // Instead, transpose the input matrices if they are passed as col-major.
+  auto search = search_items;
+  rmm::device_uvector<value_t> search_row_major(0, userStream);
+  if (!rowMajorQuery) {
+    search_row_major.resize(n * D, userStream);
+    raft::linalg::transpose(handle, search, search_row_major.data(), n, D, userStream);
+    search = search_row_major.data();
+  }
+
   // Make other streams from pool wait on main stream
   handle.wait_stream_pool_on_stream();
 
@@ -471,38 +486,16 @@ void brute_force_knn_impl(
 
     auto stream = handle.get_next_usable_stream(i);
 
-    // currently we don't support col_major inside tiled_brute_force_knn, because
-    // of limitattions of the pairwise_distance API:
-    // 1) paiwise_distance takes a single 'isRowMajor' parameter - and we have
-    // multiple options here (like rowMajorQuery/rowMajorIndex)
-    // 2) because of tiling, we need to be able to set a custom stride in the PW
-    // api, which isn't supported
-    // Instead, transpose the input matrices if they are passed as col-major.
-    // This also lets us use fusedL2KNN for col-major inputs
-    auto search = search_items;
-    rmm::device_uvector<value_t> search_row_major(0, stream);
-    if (!rowMajorQuery) {
-      search_row_major.resize(n * D, stream);
-      raft::linalg::transpose(handle, search, search_row_major.data(), n, D, stream);
-      search = search_row_major.data();
-    }
-    auto index = input[i];
-    rmm::device_uvector<value_t> index_row_major(0, stream);
-    if (!rowMajorIndex) {
-      index_row_major.resize(sizes[i] * D, stream);
-      raft::linalg::transpose(handle, index, index_row_major.data(), sizes[i], D, stream);
-      index = index_row_major.data();
-    }
-
-    if (k <= 64 && (metric == raft::distance::DistanceType::L2Unexpanded ||
-                    metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-                    metric == raft::distance::DistanceType::L2Expanded ||
-                    metric == raft::distance::DistanceType::L2SqrtExpanded)) {
+    if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        (metric == raft::distance::DistanceType::L2Unexpanded ||
+         metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
+         metric == raft::distance::DistanceType::L2Expanded ||
+         metric == raft::distance::DistanceType::L2SqrtExpanded)) {
       fusedL2Knn(D,
                  out_i_ptr,
                  out_d_ptr,
-                 index,
-                 search,
+                 input[i],
+                 search_items,
                  sizes[i],
                  n,
                  k,
@@ -522,7 +515,7 @@ void brute_force_knn_impl(
           res_D,
           n * k,
           [p] __device__(float input) { return powf(fabsf(input), p); },
-          userStream);
+          stream);
       }
     } else {
       switch (metric) {
@@ -534,6 +527,18 @@ void brute_force_knn_impl(
           haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
           break;
         default:
+
+          auto index = input[i];
+          rmm::device_uvector<value_t> index_row_major(0, userStream);
+          if (!rowMajorIndex) {
+            index_row_major.resize(sizes[i] * D, userStream);
+            raft::linalg::transpose(handle, index, index_row_major.data(), sizes[i], D, userStream);
+            index = index_row_major.data();
+
+            // Make other streams from pool wait on main stream
+            handle.wait_stream_pool_on_stream();
+          }
+
           // cosine/correlation are handled by metric processor, use IP distance
           // for brute force knn call.
           auto tiled_metric = metric;
