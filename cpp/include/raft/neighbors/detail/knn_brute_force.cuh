@@ -498,18 +498,8 @@ void brute_force_knn_impl(
                     metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
                     metric == raft::distance::DistanceType::L2Expanded ||
                     metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-      fusedL2Knn(D,
-                 out_i_ptr,
-                 out_d_ptr,
-                 index,
-                 search,
-                 sizes[i],
-                 n,
-                 k,
-                 rowMajorIndex,
-                 rowMajorQuery,
-                 stream,
-                 metric);
+      fusedL2Knn(
+        D, out_i_ptr, out_d_ptr, index, search, sizes[i], n, k, true, true, stream, metric);
 
       // Perform necessary post-processing
       if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
