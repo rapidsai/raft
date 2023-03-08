@@ -14,20 +14,24 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/ivf_flat.cuh>
 // #include <raft/neighbors/specializations/detail/ivf_flat_search.cuh>
 #include <raft_runtime/neighbors/ivf_flat.hpp>
 
 namespace raft::runtime::neighbors::ivf_flat {
 
 #define RAFT_INST_SEARCH(T, IdxT)                                         \
-  void search(raft::device_resources const&,                              \
-              const raft::neighbors::ivf_flat::search_params&,            \
-              const raft::neighbors::ivf_flat::index<T, IdxT>&,           \
+  void search(raft::device_resources const& handle,                       \
+              const raft::neighbors::ivf_flat::index<T, IdxT>& index,     \
               raft::device_matrix_view<const T, IdxT, row_major> queries, \
               raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
-              raft::device_matrix_view<T, IdxT, row_major> distances,     \
-              uint32_t k);
+              raft::device_matrix_view<float, IdxT, row_major> distances, \
+              raft::neighbors::ivf_flat::search_params const& params,     \
+              uint32_t k)                                                 \
+  {                                                                       \
+    raft::neighbors::ivf_flat::search<T, IdxT, uint32_t>(                 \
+      handle, index, queries, neighbors, distances, params, k);           \
+  }
 
 RAFT_INST_SEARCH(float, uint64_t);
 RAFT_INST_SEARCH(int8_t, uint64_t);

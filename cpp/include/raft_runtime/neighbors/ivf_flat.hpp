@@ -23,35 +23,48 @@ namespace raft::runtime::neighbors::ivf_flat {
 // We define overloads for build and extend with void return type. This is used in the Cython
 // wrappers, where exception handling is not compatible with return type that has nontrivial
 // constructor.
-#define RAFT_INST_BUILD_EXTEND(T, IdxT)                                      \
-  auto build(raft::device_resources const& handle,                           \
-             raft::device_matrix_view<const T, uint64_t, row_major> dataset, \
-             const raft::neighbors::ivf_flat::index_params& params)          \
-    ->raft::neighbors::ivf_flat::index<T, IdxT>;                             \
-                                                                             \
-  auto extend(raft::device_resources const& handle,                          \
-              const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index,   \
-              const T* new_vectors,                                          \
-              const IdxT* new_indices,                                       \
-              IdxT n_rows)                                                   \
-    ->raft::neighbors::ivf_flat::index<T, IdxT>;                             \
-                                                                             \
-  void build(raft::device_resources const& handle,                           \
-             raft::device_matrix_view<const T, uint64_t, row_major> dataset, \
-             const raft::neighbors::ivf_flat::index_params& params,          \
-             raft::neighbors::ivf_flat::index<T, IdxT>* idx);                \
-                                                                             \
-  void extend(raft::device_resources const& handle,                          \
-              raft::neighbors::ivf_flat::index<T, IdxT>* idx,                \
-              const T* new_vectors,                                          \
-              const IdxT* new_indices,                                       \
-              IdxT n_rows);
+#define RAFT_INST_BUILD_EXTEND(T, IdxT)                                              \
+  auto build(raft::device_resources const& handle,                                   \
+             raft::device_matrix_view<const T, uint64_t, row_major> dataset,         \
+             const raft::neighbors::ivf_flat::index_params& params)                  \
+    ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
+                                                                                     \
+  auto extend(raft::device_resources const& handle,                                  \
+              const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index,           \
+              raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
+              std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices) \
+    ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
+                                                                                     \
+  void build(raft::device_resources const& handle,                                   \
+             raft::device_matrix_view<const T, uint64_t, row_major> dataset,         \
+             const raft::neighbors::ivf_flat::index_params& params,                  \
+             raft::neighbors::ivf_flat::index<T, IdxT>* idx);                        \
+                                                                                     \
+  void extend(raft::device_resources const& handle,                                  \
+              raft::neighbors::ivf_flat::index<T, IdxT>* idx,                        \
+              raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
+              std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices);
 
 RAFT_INST_BUILD_EXTEND(float, uint64_t)
 RAFT_INST_BUILD_EXTEND(int8_t, uint64_t)
 RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
 
 #undef RAFT_INST_BUILD_EXTEND
+
+#define RAFT_INST_SEARCH(T, IdxT)                                 \
+  void search(raft::device_resources const&,                      \
+              const raft::neighbors::ivf_flat::index<T, IdxT>&,   \
+              raft::device_matrix_view<const T, IdxT, row_major>, \
+              raft::device_matrix_view<IdxT, IdxT, row_major>,    \
+              raft::device_matrix_view<float, IdxT, row_major>,   \
+              raft::neighbors::ivf_flat::search_params const&,    \
+              uint32_t);
+
+RAFT_INST_SEARCH(float, uint64_t);
+RAFT_INST_SEARCH(int8_t, uint64_t);
+RAFT_INST_SEARCH(uint8_t, uint64_t);
+
+#undef RAFT_INST_SEARCH
 
 // /**
 //  * Save the index to file.
