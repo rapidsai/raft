@@ -45,7 +45,12 @@ from pylibraft.common import (
 )
 from pylibraft.common.cai_wrapper import cai_wrapper
 
-from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
+from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
+    device_vector_view,
+    make_device_vector_view,
+    row_major,
+)
 
 from pylibraft.common.interruptible import cuda_interruptible
 
@@ -59,6 +64,8 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
+from pylibraft.common.cpp.optional cimport optional
+
 from pylibraft.neighbors.ivf_pq import (
     _check_input_array,
     _get_metric,
@@ -66,16 +73,15 @@ from pylibraft.neighbors.ivf_pq import (
 )
 
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
+from pylibraft.common.mdspan cimport (
+    get_dmv_float,
+    get_dmv_int8,
+    get_dmv_uint8,
+    get_dmv_uint64,
+)
 from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
     index_params,
     search_params,
-)
-
-from pylibraft.neighbors.refine import (
-    get_device_matrix_view_float,
-    get_device_matrix_view_int8,
-    get_device_matrix_view_uint8,
-    get_device_matrix_view_uint64,
 )
 
 
@@ -177,11 +183,21 @@ cdef class Index:
         cdef device_resources* handle_ = \
             <device_resources*><size_t>handle.getHandle()
 
-        self.index_int8 = NULL
-        self.index_uint8 = NULL
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
         self.index_float = new c_ivf_flat.index[float, uint64_t](
+            deref(handle_), _get_metric("sqeuclidean"),
+            <uint32_t>1,
+            <uint32_t>False,
+            <uint32_t>8)
+
+        self.index_int8 = new c_ivf_flat.index[int8_t, uint64_t](
+            deref(handle_), _get_metric("sqeuclidean"),
+            <uint32_t>1,
+            <uint32_t>False,
+            <uint32_t>8)
+
+        self.index_uint8 = new c_ivf_flat.index[uint8_t, uint64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
@@ -281,7 +297,6 @@ def build(IndexParams index_params, dataset, handle=None):
     dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
-    cdef uintptr_t dataset_ptr = dataset_cai.data
 
     cdef uint64_t n_rows = dataset_cai.shape[0]
     cdef uint32_t dim = dataset_cai.shape[1]
@@ -293,32 +308,28 @@ def build(IndexParams index_params, dataset, handle=None):
 
     idx = Index()
 
-    cdef device_matrix_view[float, uint64_t, row_major] dataset_v = \
-        get_device_matrix_view_float(dataset)
     if dataset_dt == np.float32:
         with cuda_interruptible():
             c_ivf_flat.build(deref(handle_),
-                             dataset_view,
+                             get_dmv_float(dataset, check_shape=True),
                              index_params.params,
                              idx.index_float)
-        idx.trained = True
-    # elif dataset_dt == np.byte:
-    #     with cuda_interruptible():
-    #         c_ivf_flat.build(deref(handle_),
-    #                          get_device_matrix_view_int8(dataset),
-    #                          index_params.params,
-    #                          idx.index_int8)
-    #     idx.trained = True
-    # elif dataset_dt == np.ubyte:
-    #     with cuda_interruptible():
-    #         c_ivf_flat.build(deref(handle_),
-    #                          get_device_matrix_view_uint8(dataset),
-    #                          index_params.params,
-    #                          idx.index_uint8)
-    #     idx.trained = True
-    # else:
-    #     raise TypeError("dtype %s not supported" % dataset_dt)
+    elif dataset_dt == np.byte:
+        with cuda_interruptible():
+            c_ivf_flat.build(deref(handle_),
+                             get_dmv_int8(dataset, check_shape=True),
+                             index_params.params,
+                             idx.index_int8)
+    elif dataset_dt == np.ubyte:
+        with cuda_interruptible():
+            c_ivf_flat.build(deref(handle_),
+                             get_dmv_uint8(dataset, check_shape=True),
+                             index_params.params,
+                             idx.index_uint8)
+    else:
+        raise TypeError("dtype %s not supported" % dataset_dt)
 
+    idx.trained = True
     return idx
 
 
@@ -402,30 +413,40 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef uintptr_t vecs_ptr = vecs_cai.data
-    cdef uintptr_t idx_ptr = idx_cai.data
+    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_float
+    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_int8
+    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_uint8
 
     if vecs_dt == np.float32:
+        if index.index_float[0].size() > 0:
+            new_indices_float = make_device_vector_view(
+                <uint64_t *><uintptr_t>idx_cai.data,
+                <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               index.index_float,
-                              <float*>vecs_ptr,
-                              <uint64_t*> idx_ptr,
-                              <uint64_t> n_rows)
+                              get_dmv_float(new_vectors, check_shape=True),
+                              new_indices_float)
     elif vecs_dt == np.int8:
+        if index.index_int8[0].size() > 0:
+            new_indices_int8 = make_device_vector_view(
+                <uint64_t *><uintptr_t>idx_cai.data,
+                <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               index.index_int8,
-                              <int8_t*>vecs_ptr,
-                              <uint64_t*> idx_ptr,
-                              <uint64_t> n_rows)
+                              get_dmv_int8(new_vectors, check_shape=True),
+                              new_indices_int8)
     elif vecs_dt == np.uint8:
+        if index.index_uint8[0].size() > 0:
+            new_indices_uint8 = make_device_vector_view(
+                <uint64_t *><uintptr_t>idx_cai.data,
+                <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               index.index_uint8,
-                              <uint8_t*>vecs_ptr,
-                              <uint64_t*> idx_ptr,
-                              <uint64_t> n_rows)
+                              get_dmv_uint8(new_vectors, check_shape=True),
+                              new_indices_uint8)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -570,35 +591,35 @@ def search(SearchParams search_params,
 
     cdef c_ivf_flat.search_params params = search_params.params
 
-    # if queries_dt == np.float32:
-    #     with cuda_interruptible():
-    #         c_ivf_flat.search(deref(handle_),
-    #                         params,
-    #                         deref(index.index_float),
-    #                         get_device_matrix_view_float(queries),
-    #                         get_device_matrix_view_uint64(neighbors),
-    #                         get_device_matrix_view_float(distances),
-    #                         <uint32_t> k)
-    # elif queries_dt == np.byte:
-    #     with cuda_interruptible():
-    #         c_ivf_flat.search(deref(handle_),
-    #                         params,
-    #                         deref(index.index_int8),
-    #                         get_device_matrix_view_int8(queries),
-    #                         get_device_matrix_view_uint64(neighbors),
-    #                         get_device_matrix_view_float(distances),
-    #                         <uint32_t> k)
-    # elif queries_dt == np.ubyte:
-    #     with cuda_interruptible():
-    #         c_ivf_flat.search(deref(handle_),
-    #                         params,
-    #                         deref(index.index_uint8),
-    #                         get_device_matrix_view_uint8(queries),
-    #                         get_device_matrix_view_uint64(neighbors),
-    #                         get_device_matrix_view_float(distances),
-    #                         <uint32_t> k)
-    # else:
-    #     raise ValueError("query dtype %s not supported" % queries_dt)
+    if queries_dt == np.float32:
+        with cuda_interruptible():
+            c_ivf_flat.search(deref(handle_),
+                              deref(index.index_float),
+                              get_dmv_float(queries, check_shape=True),
+                              get_dmv_uint64(neighbors, check_shape=True),
+                              get_dmv_float(distances, check_shape=True),
+                              params,
+                              <uint32_t> k)
+    elif queries_dt == np.byte:
+        with cuda_interruptible():
+            c_ivf_flat.search(deref(handle_),
+                              deref(index.index_int8),
+                              get_dmv_int8(queries, check_shape=True),
+                              get_dmv_uint64(neighbors, check_shape=True),
+                              get_dmv_float(distances, check_shape=True),
+                              params,
+                              <uint32_t> k)
+    elif queries_dt == np.ubyte:
+        with cuda_interruptible():
+            c_ivf_flat.search(deref(handle_),
+                              deref(index.index_uint8),
+                              get_dmv_uint8(queries, check_shape=True),
+                              get_dmv_uint64(neighbors, check_shape=True),
+                              get_dmv_float(distances, check_shape=True),
+                              params,
+                              <uint32_t> k)
+    else:
+        raise ValueError("query dtype %s not supported" % queries_dt)
 
     return (distances, neighbors)
 
