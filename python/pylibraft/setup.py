@@ -17,20 +17,6 @@
 from setuptools import find_packages
 from skbuild import setup
 
-install_requires = [
-    "numpy",
-    "cuda-python>=11.7.1,<12.0",
-    "rmm==23.4.*",
-]
-
-extras_require = {
-    "test": [
-        "pytest",
-        "scipy",
-        "scikit-learn",
-    ]
-}
-
 
 def exclude_libcxx_symlink(cmake_manifest):
     return list(
@@ -42,17 +28,6 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 
 setup(
-    name="pylibraft",
-    description="RAFT: Reusable Algorithms Functions and other Tools",
-    version="23.04.00",
-    classifiers=[
-        "Intended Audience :: Developers",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-    ],
-    author="NVIDIA Corporation",
     include_package_data=True,
     package_data={
         # Note: A dict comprehension with an explicit copy is necessary
@@ -71,11 +46,8 @@ setup(
             ]
         )
     },
-    install_requires=install_requires,
-    extras_require=extras_require,
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
-    license="Apache 2.0",
     zip_safe=False,
 )
