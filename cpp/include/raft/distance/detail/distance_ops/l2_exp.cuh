@@ -61,7 +61,8 @@ struct l2_exp_distance_op {
     for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-        acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
+        DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
+        acc[i][j] = val * (val > DataT(0.0));
       }
     }
     if (sqrt) {
@@ -86,6 +87,10 @@ struct l2_exp_cutlass_op {
   __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
+    // outVal could be negative due to numerical instability, especially when
+    // calculating self distance.
+    // clamp to 0 to avoid potential NaN in sqrt
+    outVal = outVal * (outVal > DataT(0.0));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
