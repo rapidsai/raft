@@ -139,11 +139,3 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
         device_matrix_view[float, uint64_t, row_major] distances,
         const search_params& params) except +
-
-    # cdef void save(const device_resources& handle,
-    #                const string& filename,
-    #                const index[uint64_t]& index) except +
-
-    # cdef void load(const device_resources& handle,
-    #                const string& filename,
-    #                index[uint64_t]* index) except +

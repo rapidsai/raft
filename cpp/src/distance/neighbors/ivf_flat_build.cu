@@ -59,18 +59,4 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t);
 
 #undef RAFT_INST_BUILD_EXTEND
 
-// void save(raft::device_resources const& handle,
-//           const std::string& filename,
-//           const raft::neighbors::ivf_flat::index<T, uint64_t>& index)
-// {
-//   raft::spatial::knn::ivf_flat::detail::save(handle, filename, index);
-// };
-
-// void load(raft::device_resources const& handle,
-//           const std::string& filename,
-//           raft::neighbors::ivf_flat::index<T, uint64_t>* index)
-// {
-//   if (!index) { RAFT_FAIL("Invalid index pointer"); }
-//   *index = raft::spatial::knn::ivf_flat::detail::load<T, uint64_t>(handle, filename);
-// };
 }  // namespace raft::runtime::neighbors::ivf_flat
