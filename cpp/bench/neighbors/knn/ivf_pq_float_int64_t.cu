@@ -18,6 +18,6 @@
 
 namespace raft::bench::spatial {
 
-KNN_REGISTER(uint8_t, uint32_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
+KNN_REGISTER(float, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
 
 }  // namespace raft::bench::spatial

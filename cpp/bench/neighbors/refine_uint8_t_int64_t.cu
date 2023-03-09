@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-#include "../knn.cuh"
+#include "refine.cuh"
+#include <common/benchmark.hpp>
 
-namespace raft::bench::spatial {
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
+#endif
 
-KNN_REGISTER(float, uint64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
-}  // namespace raft::bench::spatial
+using namespace raft::neighbors;
+
+namespace raft::bench::neighbors {
+using refine_uint8_int64 = RefineAnn<uint8_t, float, int64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs<int64_t>());
+}  // namespace raft::bench::neighbors

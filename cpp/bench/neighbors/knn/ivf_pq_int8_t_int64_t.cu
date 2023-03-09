@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include "../knn.cuh"
 
-namespace raft::neighbors::ivf_pq {
+namespace raft::bench::spatial {
 
-using f32_u08_u64 = ivf_pq_test<float, uint8_t, uint64_t>;
+KNN_REGISTER(int8_t, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
 
-TEST_BUILD_SEARCH(f32_u08_u64)
-TEST_BUILD_EXTEND_SEARCH(f32_u08_u64)
-INSTANTIATE(f32_u08_u64, small_dims_per_cluster() + enum_variety());
-
-}  // namespace raft::neighbors::ivf_pq
+}  // namespace raft::bench::spatial
