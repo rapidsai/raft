@@ -23,7 +23,7 @@ import warnings
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t, uintptr_t
+from libc.stdint cimport int32_t, int64_t, uint32_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
@@ -259,7 +259,7 @@ cdef class IndexParams:
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial
     # constructor.
-    cdef c_ivf_pq.index[uint64_t] * index
+    cdef c_ivf_pq.index[int64_t] * index
     cdef readonly bool trained
 
     def __cinit__(self, handle=None):
@@ -272,7 +272,7 @@ cdef class Index:
 
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
-        self.index = new c_ivf_pq.index[uint64_t](
+        self.index = new c_ivf_pq.index[int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             c_ivf_pq.codebook_gen.PER_SUBSPACE,
             <uint32_t>1,
@@ -396,7 +396,7 @@ def build(IndexParams index_params, dataset, handle=None):
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
 
-    cdef uint64_t n_rows = dataset_cai.shape[0]
+    cdef int64_t n_rows = dataset_cai.shape[0]
     cdef uint32_t dim = dataset_cai.shape[1]
 
     if handle is None:
@@ -504,7 +504,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
     vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
-    cdef uint64_t n_rows = vecs_cai.shape[0]
+    cdef int64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
 
     _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'),
@@ -618,7 +618,7 @@ def search(SearchParams search_params,
     k : int
         The number of neighbors.
     neighbors : Optional CUDA array interface compliant matrix shape
-                (n_queries, k), dtype uint64_t. If supplied, neighbor
+                (n_queries, k), dtype int64_t. If supplied, neighbor
                 indices will be written here in-place. (default None)
     distances : Optional CUDA array interface compliant matrix shape
                 (n_queries, k) If supplied, the distances to the

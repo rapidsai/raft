@@ -52,9 +52,9 @@ namespace raft::runtime::neighbors::ivf_pq {
     raft::neighbors::ivf_pq::extend<T, IdxT>(handle, idx, new_vectors, new_indices);               \
   }
 
-RAFT_INST_BUILD_EXTEND(float, uint64_t);
-RAFT_INST_BUILD_EXTEND(int8_t, uint64_t);
-RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t);
+RAFT_INST_BUILD_EXTEND(float, int64_t);
+RAFT_INST_BUILD_EXTEND(int8_t, int64_t);
+RAFT_INST_BUILD_EXTEND(uint8_t, int64_t);
 
 #undef RAFT_INST_BUILD_EXTEND
 

@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/refine.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 
-namespace raft::neighbors {
+namespace raft::neighbors::ivf_pq {
 
-template void refine<uint64_t, uint8_t, float, uint64_t>(
-  raft::device_resources const& handle,
-  raft::host_matrix_view<const uint8_t, uint64_t, row_major> dataset,
-  raft::host_matrix_view<const uint8_t, uint64_t, row_major> queries,
-  raft::host_matrix_view<const uint64_t, uint64_t, row_major> neighbor_candidates,
-  raft::host_matrix_view<uint64_t, uint64_t, row_major> indices,
-  raft::host_matrix_view<float, uint64_t, row_major> distances,
-  distance::DistanceType metric);
+#define RAFT_MAKE_INSTANCE(T, IdxT)                                                        \
+  template auto build<T, IdxT>(raft::device_resources const& handle,                       \
+                               const index_params& params,                                 \
+                               raft::device_matrix_view<const T, IdxT, row_major> dataset) \
+    ->index<IdxT>;
 
-}  // namespace raft::neighbors
+RAFT_MAKE_INSTANCE(float, int64_t);
+
+#undef RAFT_MAKE_INSTANCE
+
+}  // namespace raft::neighbors::ivf_pq

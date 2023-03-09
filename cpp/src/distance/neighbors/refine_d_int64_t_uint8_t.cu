@@ -20,14 +20,14 @@
 namespace raft::runtime::neighbors {
 
 void refine(raft::device_resources const& handle,
-            raft::device_matrix_view<const int8_t, uint64_t, row_major> dataset,
-            raft::device_matrix_view<const int8_t, uint64_t, row_major> queries,
-            raft::device_matrix_view<const uint64_t, uint64_t, row_major> neighbor_candidates,
-            raft::device_matrix_view<uint64_t, uint64_t, row_major> indices,
-            raft::device_matrix_view<float, uint64_t, row_major> distances,
+            raft::device_matrix_view<const uint8_t, int64_t, row_major> dataset,
+            raft::device_matrix_view<const uint8_t, int64_t, row_major> queries,
+            raft::device_matrix_view<const int64_t, int64_t, row_major> neighbor_candidates,
+            raft::device_matrix_view<int64_t, int64_t, row_major> indices,
+            raft::device_matrix_view<float, int64_t, row_major> distances,
             distance::DistanceType metric)
 {
-  raft::neighbors::refine<uint64_t, int8_t, float, uint64_t>(
+  raft::neighbors::refine<int64_t, uint8_t, float, int64_t>(
     handle, dataset, queries, neighbor_candidates, indices, distances, metric);
 }
 

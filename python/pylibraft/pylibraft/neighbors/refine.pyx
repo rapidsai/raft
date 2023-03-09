@@ -21,7 +21,7 @@
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport int8_t, int64_t, uint8_t, uint64_t, uintptr_t
+from libc.stdint cimport int8_t, int64_t, uint8_t, uintptr_t
 from libcpp cimport bool, nullptr
 
 from pylibraft.distance.distance_type cimport DistanceType
@@ -70,56 +70,56 @@ cdef extern from "raft_runtime/neighbors/refine.hpp" \
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        device_matrix_view[float, uint64_t, row_major] dataset,
-        device_matrix_view[float, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        device_matrix_view[uint64_t, uint64_t, row_major] indices,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        device_matrix_view[float, int64_t, row_major] dataset,
+        device_matrix_view[float, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] candidates,
+        device_matrix_view[int64_t, int64_t, row_major] indices,
+        device_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        device_matrix_view[uint8_t, uint64_t, row_major] dataset,
-        device_matrix_view[uint8_t, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        device_matrix_view[uint64_t, uint64_t, row_major] indices,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        device_matrix_view[uint8_t, int64_t, row_major] dataset,
+        device_matrix_view[uint8_t, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] candidates,
+        device_matrix_view[int64_t, int64_t, row_major] indices,
+        device_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        device_matrix_view[int8_t, uint64_t, row_major] dataset,
-        device_matrix_view[int8_t, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        device_matrix_view[uint64_t, uint64_t, row_major] indices,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        device_matrix_view[int8_t, int64_t, row_major] dataset,
+        device_matrix_view[int8_t, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] candidates,
+        device_matrix_view[int64_t, int64_t, row_major] indices,
+        device_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        host_matrix_view[float, uint64_t, row_major] dataset,
-        host_matrix_view[float, uint64_t, row_major] queries,
-        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        host_matrix_view[uint64_t, uint64_t, row_major] indices,
-        host_matrix_view[float, uint64_t, row_major] distances,
+        host_matrix_view[float, int64_t, row_major] dataset,
+        host_matrix_view[float, int64_t, row_major] queries,
+        host_matrix_view[int64_t, int64_t, row_major] candidates,
+        host_matrix_view[int64_t, int64_t, row_major] indices,
+        host_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        host_matrix_view[uint8_t, uint64_t, row_major] dataset,
-        host_matrix_view[uint8_t, uint64_t, row_major] queries,
-        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        host_matrix_view[uint64_t, uint64_t, row_major] indices,
-        host_matrix_view[float, uint64_t, row_major] distances,
+        host_matrix_view[uint8_t, int64_t, row_major] dataset,
+        host_matrix_view[uint8_t, int64_t, row_major] queries,
+        host_matrix_view[int64_t, int64_t, row_major] candidates,
+        host_matrix_view[int64_t, int64_t, row_major] indices,
+        host_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
     cdef void c_refine "raft::runtime::neighbors::refine" (
         const device_resources& handle,
-        host_matrix_view[int8_t, uint64_t, row_major] dataset,
-        host_matrix_view[int8_t, uint64_t, row_major] queries,
-        host_matrix_view[uint64_t, uint64_t, row_major] candidates,
-        host_matrix_view[uint64_t, uint64_t, row_major] indices,
-        host_matrix_view[float, uint64_t, row_major] distances,
+        host_matrix_view[int8_t, int64_t, row_major] dataset,
+        host_matrix_view[int8_t, int64_t, row_major] queries,
+        host_matrix_view[int64_t, int64_t, row_major] candidates,
+        host_matrix_view[int64_t, int64_t, row_major] indices,
+        host_matrix_view[float, int64_t, row_major] distances,
         DistanceType metric) except +
 
 
@@ -134,35 +134,35 @@ def _get_array_params(array_interface, check_dtype=None):
     return (shape, dtype, data)
 
 
-cdef host_matrix_view[float, uint64_t, row_major] \
+cdef host_matrix_view[float, int64_t, row_major] \
         get_host_matrix_view_float(array) except *:
     shape, dtype, data = _get_array_params(
         array.__array_interface__, check_dtype=np.float32)
-    return make_host_matrix_view[float, uint64_t, row_major](
+    return make_host_matrix_view[float, int64_t, row_major](
         <float*><uintptr_t>data, shape[0], shape[1])
 
 
-cdef host_matrix_view[uint64_t, uint64_t, row_major] \
+cdef host_matrix_view[int64_t, int64_t, row_major] \
         get_host_matrix_view_uint64(array) except *:
     shape, dtype, data = _get_array_params(
         array.__array_interface__, check_dtype=np.uint64)
-    return make_host_matrix_view[uint64_t, uint64_t, row_major](
-        <uint64_t*><uintptr_t>data, shape[0], shape[1])
+    return make_host_matrix_view[int64_t, int64_t, row_major](
+        <int64_t*><uintptr_t>data, shape[0], shape[1])
 
 
-cdef host_matrix_view[uint8_t, uint64_t, row_major] \
+cdef host_matrix_view[uint8_t, int64_t, row_major] \
         get_host_matrix_view_uint8(array) except *:
     shape, dtype, data = _get_array_params(
         array.__array_interface__, check_dtype=np.uint8)
-    return make_host_matrix_view[uint8_t, uint64_t, row_major](
+    return make_host_matrix_view[uint8_t, int64_t, row_major](
         <uint8_t*><uintptr_t>data, shape[0], shape[1])
 
 
-cdef host_matrix_view[int8_t, uint64_t, row_major] \
+cdef host_matrix_view[int8_t, int64_t, row_major] \
         get_host_matrix_view_int8(array) except *:
     shape, dtype, data = _get_array_params(
         array.__array_interface__, check_dtype=np.int8)
-    return make_host_matrix_view[int8_t, uint64_t, row_major](
+    return make_host_matrix_view[int8_t, int64_t, row_major](
         <int8_t*><uintptr_t>data, shape[0], shape[1])
 
 
