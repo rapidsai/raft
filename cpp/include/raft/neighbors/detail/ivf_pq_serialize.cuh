@@ -89,10 +89,9 @@ void serialize(raft::device_resources const& handle_, std::ostream& os, const in
        handle_.get_stream());
   handle_.sync_stream();
   serialize_mdspan(handle_, os, sizes_host.view());
-  auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
+  auto list_store_spec = list_spec<uint32_t, IdxT>{index.pq_bits(), index.pq_dim(), true};
   for (uint32_t label = 0; label < index.n_lists(); label++) {
-    ivf::serialize_list<list_spec, IdxT, uint32_t>(
-      handle_, os, index.lists()[label], list_store_spec, sizes_host(label));
+    ivf::serialize_list(handle_, os, index.lists()[label], list_store_spec, sizes_host(label));
   }
 }
 
