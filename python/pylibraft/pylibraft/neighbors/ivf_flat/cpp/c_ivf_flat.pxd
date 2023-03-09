@@ -122,8 +122,7 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         device_matrix_view[float, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
         device_matrix_view[float, uint64_t, row_major] distances,
-        const search_params& params,
-        uint32_t k) except +
+        const search_params& params) except +
 
     cdef void search(
         const device_resources& handle,
@@ -131,8 +130,7 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         device_matrix_view[int8_t, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
         device_matrix_view[float, uint64_t, row_major] distances,
-        const search_params& params,
-        uint32_t k) except +
+        const search_params& params) except +
 
     cdef void search(
         const device_resources& handle,
@@ -140,8 +138,7 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         device_matrix_view[uint8_t, uint64_t, row_major] queries,
         device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
         device_matrix_view[float, uint64_t, row_major] distances,
-        const search_params& params,
-        uint32_t k) except +
+        const search_params& params) except +
 
     # cdef void save(const device_resources& handle,
     #                const string& filename,

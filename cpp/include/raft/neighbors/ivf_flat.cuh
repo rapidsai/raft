@@ -102,8 +102,8 @@ auto build(raft::device_resources const& handle,
  * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
- * @param[in] params configure the index building
  * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] params configure the index building
  *
  * @return the constructed ivf-flat index
  */
@@ -113,6 +113,52 @@ auto build(raft::device_resources const& handle,
            const index_params& params) -> index<value_t, idx_t>
 {
   return raft::spatial::knn::ivf_flat::detail::build(handle,
+                                                     params,
+                                                     dataset.data_handle(),
+                                                     static_cast<idx_t>(dataset.extent(0)),
+                                                     static_cast<idx_t>(dataset.extent(1)));
+}
+
+/**
+ * @brief Build the index from the dataset for efficient search.
+ *
+ * NB: Currently, the following distance metrics are supported:
+ * - L2Expanded
+ * - L2Unexpanded
+ * - InnerProduct
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_flat::index_params index_params;
+ *   // create and fill the index from a [N, D] dataset
+ *   ivf_flat::index<decltype(dataset::value_type), decltype(dataset::index_type)> *index_ptr;
+ *   ivf_flat::build(handle, dataset, index_params, index_ptr);
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
+ *   // search K nearest neighbours for each of the N queries
+ *   ivf_flat::search(handle, index, queries, out_inds, out_dists, search_params, k);
+ * @endcode
+ *
+ * @tparam value_t data element type
+ * @tparam idx_t type of the indices in the source dataset
+ * @tparam int_t precision / type of integral arguments
+ * @tparam matrix_idx_t matrix indexing type
+ *
+ * @param[in] handle
+ * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] params configure the index building
+ * @param[out] idx pointer to ivf_flat::index
+ *
+ */
+template <typename value_t, typename idx_t>
+void build(raft::device_resources const& handle,
+           raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
+           const index_params& params,
+           raft::neighbors::ivf_flat::index<value_t, idx_t>* idx)
+{
+  *idx = raft::spatial::knn::ivf_flat::detail::build(handle,
                                                      params,
                                                      dataset.data_handle(),
                                                      static_cast<idx_t>(dataset.extent(0)),
@@ -397,24 +443,21 @@ void search(raft::device_resources const& handle,
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
  * @param[in] params configure the search
- * @param[in] k the number of neighbors to find for each query.
  */
-template <typename value_t, typename idx_t, typename int_t>
+template <typename value_t, typename idx_t>
 void search(raft::device_resources const& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
             raft::device_matrix_view<float, idx_t, row_major> distances,
-            const search_params& params,
-            int_t k)
+            const search_params& params)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
-  RAFT_EXPECTS(
-    neighbors.extent(1) == distances.extent(1) && neighbors.extent(1) == static_cast<idx_t>(k),
-    "Number of columns in output neighbors and distances matrices must equal k");
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1) == neighbors.extent(1),
+               "Number of columns in output neighbors and distances matrices must be equal");
 
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
@@ -424,7 +467,7 @@ void search(raft::device_resources const& handle,
                 index,
                 queries.data_handle(),
                 static_cast<std::uint32_t>(queries.extent(0)),
-                static_cast<std::uint32_t>(k),
+                static_cast<std::uint32_t>(neighbors.extent(1)),
                 neighbors.data_handle(),
                 distances.data_handle(),
                 nullptr);

@@ -57,8 +57,7 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
               raft::device_matrix_view<const T, IdxT, row_major>, \
               raft::device_matrix_view<IdxT, IdxT, row_major>,    \
               raft::device_matrix_view<float, IdxT, row_major>,   \
-              raft::neighbors::ivf_flat::search_params const&,    \
-              uint32_t);
+              raft::neighbors::ivf_flat::search_params const&);
 
 RAFT_INST_SEARCH(float, uint64_t);
 RAFT_INST_SEARCH(int8_t, uint64_t);

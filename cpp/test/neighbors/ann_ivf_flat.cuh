@@ -202,8 +202,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                          search_queries_view,
                          indices_out_view,
                          dists_out_view,
-                         search_params,
-                         ps.k);
+                         search_params);
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);

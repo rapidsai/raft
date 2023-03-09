@@ -598,8 +598,7 @@ def search(SearchParams search_params,
                               get_dmv_float(queries, check_shape=True),
                               get_dmv_uint64(neighbors, check_shape=True),
                               get_dmv_float(distances, check_shape=True),
-                              params,
-                              <uint32_t> k)
+                              params)
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_flat.search(deref(handle_),
@@ -607,8 +606,7 @@ def search(SearchParams search_params,
                               get_dmv_int8(queries, check_shape=True),
                               get_dmv_uint64(neighbors, check_shape=True),
                               get_dmv_float(distances, check_shape=True),
-                              params,
-                              <uint32_t> k)
+                              params)
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_flat.search(deref(handle_),
@@ -616,8 +614,7 @@ def search(SearchParams search_params,
                               get_dmv_uint8(queries, check_shape=True),
                               get_dmv_uint64(neighbors, check_shape=True),
                               get_dmv_float(distances, check_shape=True),
-                              params,
-                              <uint32_t> k)
+                              params)
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 
