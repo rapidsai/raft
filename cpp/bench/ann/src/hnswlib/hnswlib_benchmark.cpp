@@ -24,7 +24,7 @@
 
 #include "../common/benchmark_util.hpp"
 
-#include "../common/ann.hpp"
+#include "../common/ann_types.hpp"
 #undef WARP_SIZE
 #include "hnswlib_wrapper.h"
 #define JSON_DIAGNOSTICS 1

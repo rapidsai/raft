@@ -31,7 +31,7 @@
 #include <utility>
 #include <vector>
 
-#include "../common/ann.hpp"
+#include "../common/ann_types.hpp"
 #include <hnswlib.h>
 
 namespace raft::bench::ann {

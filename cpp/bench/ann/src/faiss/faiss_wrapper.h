@@ -35,7 +35,7 @@
 #include <string>
 #include <type_traits>
 
-#include "../common/ann.hpp"
+#include "../common/ann_types.hpp"
 #include "../common/benchmark_util.hpp"
 #include <raft/util/cudart_utils.hpp>
 

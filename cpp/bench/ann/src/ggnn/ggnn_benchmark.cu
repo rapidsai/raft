@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "../common/ann.hpp"
+#include "../common/ann_types.hpp"
 #include "ggnn_wrapper.cuh"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>

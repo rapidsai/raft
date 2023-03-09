@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "../common/ann.hpp"
+#include "../common/ann_types.hpp"
 #undef WARP_SIZE
 #include "faiss_wrapper.h"
 #define JSON_DIAGNOSTICS 1

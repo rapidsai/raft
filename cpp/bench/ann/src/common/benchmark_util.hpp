@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "ann.hpp"
+#include "ann_types.hpp"
 #include <string>
 
 namespace raft::bench::ann {
