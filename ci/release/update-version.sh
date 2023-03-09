@@ -73,7 +73,6 @@ NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packagin
 # Dependency versions in pyproject.toml
 sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/pyproject.toml
 
-sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
 sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
 sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
 sed_runner "s/ucx-py.*\",/ucx-py==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
