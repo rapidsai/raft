@@ -132,7 +132,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                              DataType,
                              DataType,
                              uint8_t,
-                             threshold_final_op_>(x.data(),
+                             threshold_final_op_>(handle,
+                                                  x.data(),
                                                   y.data(),
                                                   dist.data(),
                                                   m,
@@ -141,7 +142,6 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                                                   workspace.data(),
                                                   workspace.size(),
                                                   threshold_op,
-                                                  stream,
                                                   isRowMajor);
     handle.sync_stream(stream);
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,9 +40,6 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-
-///@todo: enable once logging has been enabled in raft
-//#include "logger.hpp"
 
 namespace raft {
 
@@ -335,6 +332,32 @@ void print_vector(const char* variable_name, const T* ptr, size_t componentsCoun
 }
 /** @} */
 
+/**
+ * Returns the id of the device for which the pointer is located
+ * @param p pointer to check
+ * @return id of device for which pointer is located, otherwise -1.
+ */
+template <typename T>
+int get_device_for_address(const T* p)
+{
+  if (!p) { return -1; }
+
+  cudaPointerAttributes att;
+  cudaError_t err = cudaPointerGetAttributes(&att, p);
+  if (err == cudaErrorInvalidValue) {
+    // Make sure the current thread error status has been reset
+    err = cudaGetLastError();
+    return -1;
+  }
+
+  // memoryType is deprecated for CUDA 10.0+
+  if (att.type == cudaMemoryTypeDevice) {
+    return att.device;
+  } else {
+    return -1;
+  }
+}
+
 /** helper method to get max usable shared mem per block parameter */
 inline int getSharedMemPerBlock()
 {
@@ -379,7 +402,12 @@ std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t strea
 
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {
-    ss << std::setw(width) << arr_h[i];
+    typedef
+      typename std::conditional_t<std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>, int, T>
+        CastT;
+
+    auto val = static_cast<CastT>(arr_h[i]);
+    ss << std::setw(width) << val;
 
     if (i < size - 1) ss << ", ";
   }

@@ -23,14 +23,7 @@ import warnings
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport (
-    int8_t,
-    int64_t,
-    uint8_t,
-    uint32_t,
-    uint64_t,
-    uintptr_t,
-)
+from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
@@ -57,6 +50,13 @@ from rmm._lib.memory_resource cimport (
 )
 
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.common.cpp.mdspan cimport device_matrix_view
+from pylibraft.common.mdspan cimport (
+    get_dmv_float,
+    get_dmv_int8,
+    get_dmv_uint8,
+    get_dmv_uint64,
+)
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
@@ -132,7 +132,8 @@ cdef class IndexParams:
                  pq_dim=0,
                  codebook_kind="subspace",
                  force_random_rotation=False,
-                 add_data_on_build=True):
+                 add_data_on_build=True,
+                 conservative_memory_allocation=False):
         """"
         Parameters to build index for IVF-PQ nearest neighbor search
 
@@ -187,6 +188,13 @@ cdef class IndexParams:
             the index with the dataset if add_data_on_build == True, otherwise
             the index is left empty, and the extend method can be used
             to add new vectors to the index.
+        conservative_memory_allocation : bool, default = True
+            By default, the algorithm allocates more space than necessary for
+            individual clusters (`list_data`). This allows to amortize the cost
+            of memory allocation and reduce the number of data copies during
+            repeated calls to `extend` (extending the database).
+            To disable this behavior and use as little GPU memory for the
+            database as possible, set this flat to `True`.
 
         """
         self.params.n_lists = n_lists
@@ -204,6 +212,8 @@ cdef class IndexParams:
             raise ValueError("Incorrect codebook kind %s" % codebook_kind)
         self.params.force_random_rotation = force_random_rotation
         self.params.add_data_on_build = add_data_on_build
+        self.params.conservative_memory_allocation = \
+            conservative_memory_allocation
 
     @property
     def n_lists(self):
@@ -241,6 +251,10 @@ cdef class IndexParams:
     def add_data_on_build(self):
         return self.params.add_data_on_build
 
+    @property
+    def conservative_memory_allocation(self):
+        return self.params.conservative_memory_allocation
+
 
 cdef class Index:
     # We store a pointer to the index because it dose not have a trivial
@@ -265,7 +279,7 @@ cdef class Index:
             <uint32_t>4,
             <uint32_t>8,
             <uint32_t>0,
-            <uint32_t>0)
+            <bool>False)
 
     def __dealloc__(self):
         if self.index is not NULL:
@@ -316,6 +330,10 @@ cdef class Index:
     @property
     def codebook_kind(self):
         return self.index[0].codebook_kind()
+
+    @property
+    def conservative_memory_allocation(self):
+        return self.index[0].conservative_memory_allocation()
 
 
 @auto_sync_handle
@@ -377,7 +395,6 @@ def build(IndexParams index_params, dataset, handle=None):
     dataset_dt = dataset_cai.dtype
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
-    cdef uintptr_t dataset_ptr = dataset_cai.data
 
     cdef uint64_t n_rows = dataset_cai.shape[0]
     cdef uint32_t dim = dataset_cai.shape[1]
@@ -393,27 +410,21 @@ def build(IndexParams index_params, dataset, handle=None):
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <float*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_dmv_float(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <int8_t*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_dmv_int8(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     elif dataset_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
                            index_params.params,
-                           <uint8_t*> dataset_ptr,
-                           n_rows,
-                           dim,
+                           get_dmv_uint8(dataset_cai, check_shape=True),
                            idx.index)
         idx.trained = True
     else:
@@ -505,30 +516,24 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef uintptr_t vecs_ptr = vecs_cai.data
-    cdef uintptr_t idx_ptr = idx_cai.data
-
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <float*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_dmv_float(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <int8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_dmv_int8(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
-                            <uint8_t*>vecs_ptr,
-                            <uint64_t*> idx_ptr,
-                            <uint64_t> n_rows)
+                            get_dmv_uint8(vecs_cai, check_shape=True),
+                            get_dmv_uint64(idx_cai, check_shape=False))
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -705,7 +710,6 @@ def search(SearchParams search_params,
 
     cdef c_ivf_pq.search_params params = search_params.params
 
-    cdef uintptr_t queries_ptr = queries_cai.data
     cdef uintptr_t neighbors_ptr = neighbors_cai.data
     cdef uintptr_t distances_ptr = distances_cai.data
     # TODO(tfeher) pass mr_ptr arg
@@ -718,34 +722,28 @@ def search(SearchParams search_params,
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <float*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_dmv_float(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <int8_t*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_dmv_int8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
                             params,
                             deref(index.index),
-                            <uint8_t*>queries_ptr,
-                            <uint32_t> n_queries,
+                            get_dmv_uint8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            <uint64_t*> neighbors_ptr,
-                            <float*> distances_ptr,
-                            mr_ptr)
+                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_float(distances_cai, check_shape=True))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 
@@ -795,7 +793,7 @@ def save(filename, Index index, handle=None):
 
     cdef string c_filename = filename.encode('utf-8')
 
-    c_ivf_pq.save(deref(handle_), c_filename, deref(index.index))
+    c_ivf_pq.serialize(deref(handle_), c_filename, deref(index.index))
 
 
 @auto_sync_handle
@@ -852,7 +850,7 @@ def load(filename, handle=None):
     cdef string c_filename = filename.encode('utf-8')
     index = Index()
 
-    c_ivf_pq.load(deref(handle_), c_filename, index.index)
+    c_ivf_pq.deserialize(deref(handle_), c_filename, index.index)
     index.trained = True
 
     return index

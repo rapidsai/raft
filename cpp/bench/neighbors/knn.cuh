@@ -26,13 +26,12 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/specializations.cuh>
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
 #endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
@@ -180,8 +179,9 @@ struct ivf_pq_knn {
   {
     index_params.n_lists = 4096;
     index_params.metric  = raft::distance::DistanceType::L2Expanded;
-    index.emplace(raft::neighbors::ivf_pq::build(
-      handle, index_params, data, IdxT(ps.n_samples), uint32_t(ps.n_dims)));
+
+    auto data_view = raft::make_device_matrix_view<const ValT, IdxT>(data, ps.n_samples, ps.n_dims);
+    index.emplace(raft::neighbors::ivf_pq::build(handle, index_params, data_view));
   }
 
   void search(const raft::device_resources& handle,
@@ -190,8 +190,13 @@ struct ivf_pq_knn {
               IdxT* out_idxs)
   {
     search_params.n_probes = 20;
+
+    auto queries_view =
+      raft::make_device_matrix_view<const ValT, IdxT>(search_items, ps.n_queries, ps.n_dims);
+    auto idxs_view  = raft::make_device_matrix_view<IdxT, IdxT>(out_idxs, ps.n_queries, ps.k);
+    auto dists_view = raft::make_device_matrix_view<dist_t, IdxT>(out_dists, ps.n_queries, ps.k);
     raft::neighbors::ivf_pq::search(
-      handle, search_params, *index, search_items, ps.n_queries, ps.k, out_idxs, out_dists);
+      handle, search_params, *index, queries_view, ps.k, idxs_view, dists_view);
   }
 };
 

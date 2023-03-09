@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace matrix {
@@ -150,12 +150,12 @@ void gatherImpl(const InputIteratorT in,
   const int n_sm    = raft::getMultiProcessorCount();
   // The following empirical heuristics enforce that we keep a good balance between having enough
   // blocks and enough work per thread.
-  if (len < 32 * TPB * n_sm) {
+  if (len < static_cast<IndexT>(32 * TPB * n_sm)) {
     using Policy    = gather_policy<TPB, 1>;
     IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
     gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(
       in, D, len, map, stencil, out, pred_op, transform_op);
-  } else if (len < 32 * 4 * TPB * n_sm) {
+  } else if (len < static_cast<IndexT>(32 * 4 * TPB * n_sm)) {
     using Policy    = gather_policy<TPB, 4>;
     IndexT n_blocks = raft::ceildiv(map_length * D, static_cast<IndexT>(Policy::stride));
     gather_kernel<Policy><<<n_blocks, Policy::n_threads, 0, stream>>>(

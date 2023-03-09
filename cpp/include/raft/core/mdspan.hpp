@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ template <typename ElementType,
           bool is_host_accessible   = false,
           bool is_device_accessible = true,
           size_t... Extents>
-auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
+constexpr auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
 {
   using accessor_type = host_device_accessor<
     std::experimental::default_accessor<ElementType>,
@@ -214,7 +214,7 @@ auto make_strided_layout(Extents extents, Strides strides)
  * @return raft::extents
  */
 template <typename IndexType, typename... Extents, typename = ensure_integral_extents<Extents...>>
-auto make_extents(Extents... exts)
+constexpr auto make_extents(Extents... exts)
 {
   return extents<IndexType, ((void)exts, dynamic_extent)...>{exts...};
 }
@@ -302,6 +302,54 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
   } else {
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
+}
+
+/**
+ * @brief Const accessor specialization for default_accessor
+ *
+ * @tparam ElementType
+ * @param a
+ * @return std::experimental::default_accessor<std::add_const_t<ElementType>>
+ */
+template <class ElementType>
+std::experimental::default_accessor<std::add_const_t<ElementType>> accessor_of_const(
+  std::experimental::default_accessor<ElementType> a)
+{
+  return {a};
+}
+
+/**
+ * @brief Const accessor specialization for host_device_accessor
+ *
+ * @tparam ElementType the data type of the mdspan elements
+ * @tparam MemType the type of memory where the elements are stored.
+ * @param a host_device_accessor
+ * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>,
+ * MemType>
+ */
+template <class ElementType, memory_type MemType>
+host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType>
+accessor_of_const(host_device_accessor<std::experimental::default_accessor<ElementType>, MemType> a)
+{
+  return {a};
+}
+
+/**
+ * @brief Create a copy of the given mdspan with const element type
+ *
+ * @tparam ElementType the const-qualified data type of the mdspan elements
+ * @tparam Extents raft::extents for dimensions
+ * @tparam Layout policy for strides and layout ordering
+ * @tparam Accessor Accessor policy for the input and output
+ * @param mds raft::mdspan object
+ * @return raft::mdspan
+ */
+template <class ElementType, class Extents, class Layout, class Accessor>
+auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
+{
+  auto acc_c = accessor_of_const(mds.accessor());
+  return mdspan<std::add_const_t<ElementType>, Extents, Layout, decltype(acc_c)>{
+    mds.data_handle(), mds.mapping(), acc_c};
 }
 
 }  // namespace raft
