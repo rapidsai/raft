@@ -29,19 +29,6 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 setup(
     include_package_data=True,
-    package_data={
-        # Note: A dict comprehension with an explicit copy is necessary
-        # (rather than something simpler like a dict.fromkeys) because
-        # otherwise every package will refer to the same list and skbuild
-        # modifies it in place.
-        key: ["*.hpp", "*.pxd"]
-        for key in find_packages(
-            include=[
-                "raft_dask.common",
-                "raft_dask.common.includes",
-            ]
-        )
-    },
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["raft_dask", "raft_dask.*"]),
     zip_safe=False,
