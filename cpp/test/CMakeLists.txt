@@ -109,6 +109,7 @@ if(BUILD_TESTS)
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/temporary_device_buffer.cu
     test/test.cpp
   )
 

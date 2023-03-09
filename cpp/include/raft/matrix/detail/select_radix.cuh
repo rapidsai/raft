@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/logger.hpp>
