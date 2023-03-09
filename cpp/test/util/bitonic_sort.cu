@@ -54,7 +54,7 @@ __global__ void bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inp
   const int subwarp_id   = tid / warp_width;
   const int subwarp_lane = tid % warp_width;
   T local_arr[Capacity];  // NOLINT
-  // Split the data into chunks of size `warp_width * Capacity`, each thread poiting
+  // Split the data into chunks of size `warp_width * Capacity`, each thread pointing
   // to the beginning of its stride within the chunk.
   T* per_thread_arr = arr + subwarp_id * warp_width * Capacity + subwarp_lane;
 
