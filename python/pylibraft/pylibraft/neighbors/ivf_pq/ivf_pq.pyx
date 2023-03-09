@@ -449,7 +449,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     new_vectors : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     new_indices : array interface compliant matrix shape (n_samples, dim)
-        Supported dtype [uint64]
+        Supported dtype [int64]
     {handle_docstring}
 
     Returns
@@ -476,7 +476,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     >>> n_rows = 100
     >>> more_data = cp.random.random_sample((n_rows, n_features),
     ...                                     dtype=cp.float32)
-    >>> indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
+    >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
     >>> index = ivf_pq.extend(index, more_data, indices)
 
     >>> # Search using the built index
@@ -512,7 +512,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
                        exp_cols=index.dim)
 
     idx_cai = wrap_array(new_indices)
-    _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
+    _check_input_array(idx_cai, [np.dtype('int64')], exp_rows=n_rows)
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
@@ -695,10 +695,10 @@ def search(SearchParams search_params,
                        exp_cols=index.dim)
 
     if neighbors is None:
-        neighbors = device_ndarray.empty((n_queries, k), dtype='uint64')
+        neighbors = device_ndarray.empty((n_queries, k), dtype='int64')
 
     neighbors_cai = cai_wrapper(neighbors)
-    _check_input_array(neighbors_cai, [np.dtype('uint64')],
+    _check_input_array(neighbors_cai, [np.dtype('int64')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:

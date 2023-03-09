@@ -145,7 +145,7 @@ cdef host_matrix_view[float, int64_t, row_major] \
 cdef host_matrix_view[int64_t, int64_t, row_major] \
         get_host_matrix_view_int64_t(array) except *:
     shape, dtype, data = _get_array_params(
-        array.__array_interface__, check_dtype=np.int64_t)
+        array.__array_interface__, check_dtype=np.int64)
     return make_host_matrix_view[int64_t, int64_t, row_major](
         <int64_t*><uintptr_t>data, shape[0], shape[1])
 
@@ -191,15 +191,15 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
     queries : array interface compliant matrix, shape (n_queries, dim)
         Supported dtype [float, int8, uint8]
     candidates : array interface compliant matrix, shape (n_queries, k0)
-        dtype int64_t
+        dtype int64
     k : int
         Number of neighbors to search (k <= k0). Optional if indices or
         distances arrays are given (in which case their second dimension
         is k).
     indices :  Optional array interface compliant matrix shape
-                (n_queries, k), dtype int64_t. If supplied, neighbor
+                (n_queries, k), dtype int64. If supplied, neighbor
                 indices will be written here in-place. (default None)
-        Supported dtype int64_t
+        Supported dtype int64
     distances :  Optional array interface compliant matrix shape
                 (n_queries, k), dtype float. If supplied, neighbor
                 indices will be written here in-place. (default None)
@@ -278,7 +278,7 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
     n_queries = cai_wrapper(queries).shape[0]
 
     if indices is None:
-        indices = device_ndarray.empty((n_queries, k), dtype='int64_t')
+        indices = device_ndarray.empty((n_queries, k), dtype='int64')
 
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
@@ -338,7 +338,7 @@ def _refine_host(dataset, queries, candidates, k, indices, distances,
     n_queries = queries.__array_interface__["shape"][0]
 
     if indices is None:
-        indices = np.empty((n_queries, k), dtype='int64_t')
+        indices = np.empty((n_queries, k), dtype='int64')
 
     if distances is None:
         distances = np.empty((n_queries, k), dtype='float32')
