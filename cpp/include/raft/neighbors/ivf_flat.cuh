@@ -456,7 +456,7 @@ void search(raft::device_resources const& handle,
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1) == neighbors.extent(1),
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
                "Number of columns in output neighbors and distances matrices must be equal");
 
   RAFT_EXPECTS(queries.extent(1) == index.dim(),

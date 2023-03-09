@@ -40,7 +40,6 @@ from pylibraft.common import (
     DeviceResources,
     ai_wrapper,
     auto_convert_output,
-    cai_wrapper,
     device_ndarray,
 )
 from pylibraft.common.cai_wrapper import cai_wrapper
@@ -64,21 +63,18 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
+cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 from pylibraft.common.cpp.optional cimport optional
 
-from pylibraft.neighbors.ivf_pq import (
-    _check_input_array,
-    _get_metric,
-    _get_metric_string,
-)
+from pylibraft.neighbors.common import _check_input_array, _get_metric
 
-cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
     get_dmv_uint8,
     get_dmv_uint64,
 )
+from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
     index_params,
     search_params,
@@ -168,48 +164,127 @@ cdef class IndexParams:
 
 
 cdef class Index:
-    # We store a pointer to the index because it dose not have a trivial
-    # constructor.
-    cdef c_ivf_flat.index[float, uint64_t] * index_float
-    cdef c_ivf_flat.index[int8_t, uint64_t] * index_int8
-    cdef c_ivf_flat.index[uint8_t, uint64_t] * index_uint8
-
     cdef readonly bool trained
+    cdef str active_index_type
+
+    def __cinit__(self):
+        self.trained = False
+        self.active_index_type = None
+
+
+cdef class IndexFloat(Index):
+    cdef c_ivf_flat.index[float, uint64_t] * index
 
     def __cinit__(self, handle=None):
-        self.trained = False
         if handle is None:
             handle = DeviceResources()
         cdef device_resources* handle_ = \
             <device_resources*><size_t>handle.getHandle()
 
+        # this is to keep track of which index type is being used
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
-        self.index_float = new c_ivf_flat.index[float, uint64_t](
+        self.index = new c_ivf_flat.index[float, uint64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
             <uint32_t>8)
 
-        self.index_int8 = new c_ivf_flat.index[int8_t, uint64_t](
+    def __repr__(self):
+        m_str = "metric=" + _get_metric_string(self.index.metric())
+        attr_str = [
+            attr + "=" + str(getattr(self, attr))
+            for attr in ["size", "dim", "n_lists", "adaptive_centers"]
+        ]
+        attr_str = [m_str] + attr_str
+        return "Index(type=IVF-FLAT, " + (", ".join(attr_str)) + ")"
+
+    @property
+    def dim(self):
+        return self.index[0].dim()
+
+    @property
+    def size(self):
+        return self.index[0].size()
+
+    @property
+    def metric(self):
+        return self.index[0].metric()
+
+    @property
+    def n_lists(self):
+        return self.index[0].n_lists()
+
+    @property
+    def adaptive_centers(self):
+        return self.index[0].adaptive_centers()
+
+
+cdef class IndexInt8(Index):
+    cdef c_ivf_flat.index[int8_t, uint64_t] * index
+
+    def __cinit__(self, handle=None):
+        if handle is None:
+            handle = DeviceResources()
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        # this is to keep track of which index type is being used
+        # We create a placeholder object. The actual parameter values do
+        # not matter, it will be replaced with a built index object later.
+        self.index = new c_ivf_flat.index[int8_t, uint64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
             <uint32_t>8)
 
-        self.index_uint8 = new c_ivf_flat.index[uint8_t, uint64_t](
+    def __repr__(self):
+        m_str = "metric=" + _get_metric_string(self.index.metric())
+        attr_str = [
+            attr + "=" + str(getattr(self, attr))
+            for attr in ["size", "dim", "n_lists", "adaptive_centers"]
+        ]
+        attr_str = [m_str] + attr_str
+        return "Index(type=IVF-FLAT, " + (", ".join(attr_str)) + ")"
+
+    @property
+    def dim(self):
+        return self.index[0].dim()
+
+    @property
+    def size(self):
+        return self.index[0].size()
+
+    @property
+    def metric(self):
+        return self.index[0].metric()
+
+    @property
+    def n_lists(self):
+        return self.index[0].n_lists()
+
+    @property
+    def adaptive_centers(self):
+        return self.index[0].adaptive_centers()
+
+
+cdef class IndexUint8(Index):
+    cdef c_ivf_flat.index[uint8_t, uint64_t] * index
+
+    def __cinit__(self, handle=None):
+        if handle is None:
+            handle = DeviceResources()
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        # this is to keep track of which index type is being used
+        # We create a placeholder object. The actual parameter values do
+        # not matter, it will be replaced with a built index object later.
+        self.index = new c_ivf_flat.index[uint8_t, uint64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
             <uint32_t>8)
-
-    def __dealloc__(self):
-        if self.index_float is not NULL:
-            del self.index_float
-        if self.index_int8 is not NULL:
-            del self.index_int8
-        if self.index_uint8 is not NULL:
-            del self.index_uint8
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -306,31 +381,42 @@ def build(IndexParams index_params, dataset, handle=None):
     cdef device_resources* handle_ = \
         <device_resources*><size_t>handle.getHandle()
 
-    idx = Index()
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
 
     if dataset_dt == np.float32:
+        idx_float = IndexFloat(handle)
+        idx_float.active_index_type = "float32"
         with cuda_interruptible():
             c_ivf_flat.build(deref(handle_),
-                             get_dmv_float(dataset, check_shape=True),
+                             get_dmv_float(dataset_cai, check_shape=True),
                              index_params.params,
-                             idx.index_float)
+                             idx_float.index)
+        idx_float.trained = True
+        return idx_float
     elif dataset_dt == np.byte:
+        idx_int8 = IndexInt8(handle)
+        idx_int8.active_index_type = "byte"
         with cuda_interruptible():
             c_ivf_flat.build(deref(handle_),
-                             get_dmv_int8(dataset, check_shape=True),
+                             get_dmv_int8(dataset_cai, check_shape=True),
                              index_params.params,
-                             idx.index_int8)
+                             idx_int8.index)
+        idx_int8.trained = True
+        return idx_int8
     elif dataset_dt == np.ubyte:
+        idx_uint8 = IndexUint8(handle)
+        idx_uint8.active_index_type = "ubyte"
         with cuda_interruptible():
             c_ivf_flat.build(deref(handle_),
-                             get_dmv_uint8(dataset, check_shape=True),
+                             get_dmv_uint8(dataset_cai, check_shape=True),
                              index_params.params,
-                             idx.index_uint8)
+                             idx_uint8.index)
+        idx_uint8.trained = True
+        return idx_uint8
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
-
-    idx.trained = True
-    return idx
 
 
 @auto_sync_handle
@@ -404,8 +490,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     cdef uint64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
 
-    _check_input_array(vecs_cai, [np.dtype('float32'), np.dtype('byte'),
-                                  np.dtype('ubyte')],
+    _check_input_array(vecs_cai, [np.dtype(index.active_index_type)],
                        exp_cols=index.dim)
 
     idx_cai = cai_wrapper(new_indices)
@@ -413,40 +498,45 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_float
-    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_int8
-    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_uint8
+    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_opt
+
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
 
     if vecs_dt == np.float32:
-        if index.index_float[0].size() > 0:
-            new_indices_float = make_device_vector_view(
+        idx_float = index
+        if idx_float.index.size() > 0:
+            new_indices_opt = make_device_vector_view(
                 <uint64_t *><uintptr_t>idx_cai.data,
                 <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
-                              index.index_float,
-                              get_dmv_float(new_vectors, check_shape=True),
-                              new_indices_float)
+                              idx_float.index,
+                              get_dmv_float(vecs_cai, check_shape=True),
+                              new_indices_opt)
     elif vecs_dt == np.int8:
-        if index.index_int8[0].size() > 0:
-            new_indices_int8 = make_device_vector_view(
+        idx_int8 = index
+        if idx_int8.index[0].size() > 0:
+            new_indices_opt = make_device_vector_view(
                 <uint64_t *><uintptr_t>idx_cai.data,
                 <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
-                              index.index_int8,
-                              get_dmv_int8(new_vectors, check_shape=True),
-                              new_indices_int8)
+                              idx_int8.index,
+                              get_dmv_int8(vecs_cai, check_shape=True),
+                              new_indices_opt)
     elif vecs_dt == np.uint8:
-        if index.index_uint8[0].size() > 0:
-            new_indices_uint8 = make_device_vector_view(
+        idx_uint8 = index
+        if idx_uint8.index[0].size() > 0:
+            new_indices_opt = make_device_vector_view(
                 <uint64_t *><uintptr_t>idx_cai.data,
                 <uint64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
-                              index.index_uint8,
-                              get_dmv_uint8(new_vectors, check_shape=True),
-                              new_indices_uint8)
+                              idx_uint8.index,
+                              get_dmv_uint8(vecs_cai, check_shape=True),
+                              new_indices_opt)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -456,9 +546,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 cdef class SearchParams:
     cdef c_ivf_flat.search_params params
 
-    def __init__(self, *, n_probes=20,
-                 lut_dtype=np.float32,
-                 internal_distance_dtype=np.float32):
+    def __init__(self, *, n_probes=20):
         """
         IVF-FLAT search parameters
 
@@ -571,8 +659,7 @@ def search(SearchParams search_params,
     queries_dt = queries_cai.dtype
     cdef uint32_t n_queries = queries_cai.shape[0]
 
-    _check_input_array(queries_cai, [np.dtype('float32'), np.dtype('byte'),
-                                     np.dtype('ubyte')],
+    _check_input_array(queries_cai, [np.dtype(index.active_index_type)],
                        exp_cols=index.dim)
 
     if neighbors is None:
@@ -590,30 +677,36 @@ def search(SearchParams search_params,
                        exp_rows=n_queries, exp_cols=k)
 
     cdef c_ivf_flat.search_params params = search_params.params
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
 
     if queries_dt == np.float32:
+        idx_float = index
         with cuda_interruptible():
             c_ivf_flat.search(deref(handle_),
-                              deref(index.index_float),
-                              get_dmv_float(queries, check_shape=True),
-                              get_dmv_uint64(neighbors, check_shape=True),
-                              get_dmv_float(distances, check_shape=True),
+                              deref(idx_float.index),
+                              get_dmv_float(queries_cai, check_shape=True),
+                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_float(distances_cai, check_shape=True),
                               params)
     elif queries_dt == np.byte:
+        idx_int8 = index
         with cuda_interruptible():
             c_ivf_flat.search(deref(handle_),
-                              deref(index.index_int8),
-                              get_dmv_int8(queries, check_shape=True),
-                              get_dmv_uint64(neighbors, check_shape=True),
-                              get_dmv_float(distances, check_shape=True),
+                              deref(idx_int8.index),
+                              get_dmv_int8(queries_cai, check_shape=True),
+                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_float(distances_cai, check_shape=True),
                               params)
     elif queries_dt == np.ubyte:
+        idx_uint8 = index
         with cuda_interruptible():
             c_ivf_flat.search(deref(handle_),
-                              deref(index.index_uint8),
-                              get_dmv_uint8(queries, check_shape=True),
-                              get_dmv_uint64(neighbors, check_shape=True),
-                              get_dmv_float(distances, check_shape=True),
+                              deref(idx_uint8.index),
+                              get_dmv_uint8(queries_cai, check_shape=True),
+                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_float(distances_cai, check_shape=True),
                               params)
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
