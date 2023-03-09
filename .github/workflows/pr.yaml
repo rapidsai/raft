@@ -27,6 +27,8 @@ jobs:
   checks:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.04
+    with:
+      enable_check_generated_files: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -71,6 +73,7 @@ jobs:
       package-name: pylibraft
       package-dir: python/pylibraft
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+      uses-setup-env-vars: false
   wheel-tests-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
@@ -93,6 +96,7 @@ jobs:
       package-dir: python/raft-dask
       before-wheel: "RAPIDS_PY_WHEEL_NAME=pylibraft_cu11 rapids-download-wheels-from-s3 ./local-wheelhouse"
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
+      uses-setup-env-vars: false
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
