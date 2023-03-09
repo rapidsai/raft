@@ -157,9 +157,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       {
         ivf_flat::index_params index_params;
         ivf_flat::search_params search_params;
-        index_params.n_lists   = ps.nlist;
-        index_params.metric    = ps.metric;
-        search_params.n_probes = ps.nprobe;
+        index_params.n_lists          = ps.nlist;
+        index_params.metric           = ps.metric;
+        index_params.adaptive_centers = ps.adaptive_centers;
+        search_params.n_probes        = ps.nprobe;
 
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
@@ -221,16 +222,19 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         if (index_2.adaptive_centers()) {
           // The centers must be up-to-date with the corresponding data
           std::vector<uint32_t> list_sizes(index_2.n_lists());
+          std::vector<IdxT*> list_indices(index_2.n_lists());
           rmm::device_uvector<float> centroid(ps.dim, stream_);
           raft::copy(
             list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
+          raft::copy(
+            list_indices.data(), index_2.inds_ptrs().data_handle(), index_2.n_lists(), stream_);
           handle_.sync_stream(stream_);
           for (uint32_t l = 0; l < index_2.n_lists(); l++) {
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
             raft::spatial::knn::detail::utils::copy_selected<float>((IdxT)list_sizes[l],
                                                                     (IdxT)ps.dim,
                                                                     database.data(),
-                                                                    index_2.inds_ptrs()(l),
+                                                                    list_indices[l],
                                                                     (IdxT)ps.dim,
                                                                     cluster_data.data(),
                                                                     (IdxT)ps.dim,
