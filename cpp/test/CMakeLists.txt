@@ -259,9 +259,9 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     test/neighbors/knn.cu
     test/neighbors/fused_l2_knn.cu
     test/neighbors/haversine.cu
