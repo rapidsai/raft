@@ -42,9 +42,9 @@ sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cma
 sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/pylibraft/pylibraft/__init__.py
 sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/raft-dask/raft_dask/__init__.py
 
-# Python setup.py updates
-sed_runner "s/version=.*,/version=\"${NEXT_FULL_TAG}\",/g" python/pylibraft/pylibraft/__init__.py
-sed_runner "s/version=.*,/version=\"${NEXT_FULL_TAG}\",/g" python/raft-dask/raft_dask/__init__.py
+# Python pyproject.toml updates
+sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pylibraft/pyproject.toml
+sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/raft-dask/pyproject.toml
 
 # Docs update
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
@@ -70,14 +70,13 @@ done
 NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
 NEXT_UCX_PY_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_UCX_PY_SHORT_TAG}'))")
 
-# Wheel builds install intra-RAPIDS dependencies from same release
-sed_runner "s/{cuda_suffix}[^\"].*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/setup.py
-sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
-sed_runner "s/pylibraft{cuda_suffix}.*\",/pylibraft{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
-sed_runner "s/ucx-py{cuda_suffix}.*\",/ucx-py{cuda_suffix}==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/setup.py
-
 # Dependency versions in pyproject.toml
 sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pylibraft/pyproject.toml
+
+sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
+sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
+sed_runner "s/ucx-py.*\",/ucx-py==${NEXT_UCX_PY_SHORT_TAG_PEP440}.*\",/g" python/raft-dask/pyproject.toml
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
