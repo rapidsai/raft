@@ -15,24 +15,22 @@
  */
 
 #include <raft/neighbors/ivf_pq.cuh>
-#include <raft/neighbors/specializations/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 
 namespace raft::runtime::neighbors::ivf_pq {
 
-#define RAFT_SEARCH_INST(T, IdxT)                                            \
-  void search(raft::device_resources const& handle,                          \
-              const raft::neighbors::ivf_pq::search_params& params,          \
-              const raft::neighbors::ivf_pq::index<IdxT>& idx,               \
-              const T* queries,                                              \
-              uint32_t n_queries,                                            \
-              uint32_t k,                                                    \
-              IdxT* neighbors,                                               \
-              float* distances,                                              \
-              rmm::mr::device_memory_resource* mr)                           \
-  {                                                                          \
-    raft::neighbors::ivf_pq::search<T, IdxT>(                                \
-      handle, params, idx, queries, n_queries, k, neighbors, distances, mr); \
+#define RAFT_SEARCH_INST(T, IdxT)                                         \
+  void search(raft::device_resources const& handle,                       \
+              const raft::neighbors::ivf_pq::search_params& params,       \
+              const raft::neighbors::ivf_pq::index<IdxT>& idx,            \
+              raft::device_matrix_view<const T, IdxT, row_major> queries, \
+              uint32_t k,                                                 \
+              raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
+              raft::device_matrix_view<float, IdxT, row_major> distances) \
+  {                                                                       \
+    raft::neighbors::ivf_pq::search<T, IdxT>(                             \
+      handle, params, idx, queries, k, neighbors, distances);             \
   }
 
 RAFT_SEARCH_INST(int8_t, uint64_t);

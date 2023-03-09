@@ -24,6 +24,6 @@ void deserialize(raft::device_resources const& handle,
                  raft::neighbors::ivf_pq::index<uint64_t>* index)
 {
   if (!index) { RAFT_FAIL("Invalid index pointer"); }
-  *index = raft::spatial::knn::ivf_pq::detail::deserialize<uint64_t>(handle, filename);
+  *index = raft::neighbors::ivf_pq::deserialize<uint64_t>(handle, filename);
 };
 }  // namespace raft::runtime::neighbors::ivf_pq

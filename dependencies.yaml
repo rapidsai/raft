@@ -9,7 +9,7 @@ files:
       - build
       - cudatoolkit
       - develop
-      - doc
+      - docs
       - run
       - test_python
   test_cpp:
@@ -26,6 +26,12 @@ files:
     output: none
     includes:
       - checks
+      - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
       - py_version
 channels:
   - rapidsai
@@ -53,12 +59,12 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - gcc_linux-64=9
+              - gcc_linux-64=11.*
               - sysroot_linux-64==2.17
           - matrix:
               arch: aarch64
             packages:
-              - gcc_linux-aarch64=9
+              - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64==2.17
   checks:
     common:
@@ -131,17 +137,18 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
-  doc:
+  docs:
     common:
-      - output_types: [conda, requirements]
-        packages:
-          - breathe
-      - output_types: [requirements]
-        packages:
-          - sphinx_markdown_tables
       - output_types: [conda]
         packages:
+          - breathe
           - doxygen>=1.8.20
+          - graphviz
+          - ipython
+          - numpydoc
+          - pydata-sphinx-theme
+          - recommonmark
+          - sphinx-copybutton
           - sphinx-markdown-tables
   py_version:
     specific:

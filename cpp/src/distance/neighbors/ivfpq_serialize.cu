@@ -23,7 +23,7 @@ void serialize(raft::device_resources const& handle,
                const std::string& filename,
                const raft::neighbors::ivf_pq::index<uint64_t>& index)
 {
-  raft::spatial::knn::ivf_pq::detail::serialize(handle, filename, index);
+  raft::neighbors::ivf_pq::serialize(handle, filename, index);
 };
 
 }  // namespace raft::runtime::neighbors::ivf_pq

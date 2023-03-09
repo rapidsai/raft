@@ -78,8 +78,17 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
-    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
+    NAME
+    CLUSTER_TEST
+    PATH
+    test/cluster/kmeans.cu
+    test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu
+    test/cluster/linkage.cu
+    test/cluster/kmeans_find_k.cu
+    OPTIONAL
+    DIST
+    NN
   )
 
   ConfigureTest(
@@ -100,6 +109,7 @@ if(BUILD_TESTS)
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/temporary_device_buffer.cu
     test/test.cpp
   )
 
@@ -247,6 +257,8 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
