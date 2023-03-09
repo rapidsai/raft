@@ -90,7 +90,7 @@ class FusedL2NNEpilogueElementwise {
     DistanceOp_ dist_op_;
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
-    volatile int* mutexes_;
+    int* mutexes_;
     //
     // Methods
     //
@@ -99,7 +99,7 @@ class FusedL2NNEpilogueElementwise {
            CGReduceOp cg_reduce_op,
            ReduceOpT_ red_op,
            KVPReduceOpT_ pair_redop,
-           volatile int* mutexes)
+           int* mutexes)
       : cg_reduce_op(cg_reduce_op),
         dist_op_(dist_op),
         pair_redop_(pair_redop),
