@@ -29,23 +29,6 @@ def exclude_libcxx_symlink(cmake_manifest):
 
 setup(
     include_package_data=True,
-    package_data={
-        # Note: A dict comprehension with an explicit copy is necessary
-        # (rather than something simpler like a dict.fromkeys) because
-        # otherwise every package will refer to the same list and skbuild
-        # modifies it in place.
-        key: ["*.hpp", "*.pxd"]
-        for key in find_packages(
-            include=[
-                "pylibraft.distance",
-                "pylibraft.distance.includes",
-                "pylibraft.common",
-                "pylibraft.common.includes",
-                "pylibraft.random",
-                "pylibraft.random.includes",
-            ]
-        )
-    },
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["pylibraft", "pylibraft.*"]),
