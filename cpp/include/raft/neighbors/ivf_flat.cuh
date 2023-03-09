@@ -18,7 +18,7 @@
 
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
-#include <raft/neighbors/detail/ivf_flat_serialize.cuh>
+#include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 
 #include <raft/core/device_resources.hpp>
@@ -100,7 +100,6 @@ auto build(raft::device_resources const& handle,
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
  * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] params configure the index building
@@ -191,8 +190,6 @@ auto extend(raft::device_resources const& handle,
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
- * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] orig_index original index
@@ -278,8 +275,6 @@ void extend(raft::device_resources const& handle,
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
- * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[inout] index
@@ -389,7 +384,6 @@ void search(raft::device_resources const& handle,
  * @tparam value_t data element type
  * @tparam idx_t type of the indices
  * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] index ivf-flat constructed index
