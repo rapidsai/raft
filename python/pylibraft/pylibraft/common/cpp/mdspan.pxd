@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+from libc.stdint cimport int8_t, int64_t, uint8_t, uint64_t
 from libcpp.string cimport string
 
 from pylibraft.common.handle cimport device_resources
