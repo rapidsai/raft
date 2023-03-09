@@ -111,6 +111,7 @@ if(BUILD_TESTS)
     test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/temporary_device_buffer.cu
     test/test.cpp
   )
 
