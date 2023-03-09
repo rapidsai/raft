@@ -253,15 +253,6 @@ struct index : ann::index {
       inds_ptrs_{make_device_vector<IdxT*, uint32_t>(res, n_lists)},
       total_size_{0}
   {
-    switch (metric_) {
-      case raft::distance::DistanceType::L2Expanded:
-      case raft::distance::DistanceType::L2SqrtExpanded:
-      case raft::distance::DistanceType::L2Unexpanded:
-      case raft::distance::DistanceType::L2SqrtUnexpanded:
-        center_norms_ = make_device_vector<float, uint32_t>(res, n_lists);
-        break;
-      default: center_norms_ = std::nullopt;
-    }
     check_consistency();
   }
 
@@ -324,6 +315,19 @@ struct index : ann::index {
     }
     total_size_ = recompute_total_size;
     check_consistency();
+  }
+
+  void allocate_center_norms(raft::device_resources const& res)
+  {
+    switch (metric_) {
+      case raft::distance::DistanceType::L2Expanded:
+      case raft::distance::DistanceType::L2SqrtExpanded:
+      case raft::distance::DistanceType::L2Unexpanded:
+      case raft::distance::DistanceType::L2SqrtUnexpanded:
+        center_norms_ = make_device_vector<float, uint32_t>(res, n_lists());
+        break;
+      default: center_norms_ = std::nullopt;
+    }
   }
 
   /** Lists' data and indices. */

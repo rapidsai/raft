@@ -131,6 +131,7 @@ auto deserialize(raft::device_resources const& handle, const std::string& filena
   deserialize_mdspan(handle, infile, index_.centers());
   bool has_norms = deserialize_scalar<bool>(handle, infile);
   if (has_norms) {
+    index_.allocate_center_norms(handle);
     if (!index_.center_norms()) {
       RAFT_FAIL("Error inconsistent center norms");
     } else {

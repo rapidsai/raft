@@ -62,11 +62,13 @@ auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> i
        source.centers().data_handle(),
        source.centers().size(),
        stream);
-  if (source.center_norms().has_value())
-    copy(target.center_norms().value().data_handle(),
-         source.center_norms().value().data_handle(),
-         source.center_norms().value().size(),
+  if (source.center_norms().has_value()) {
+    target.allocate_center_norms(res);
+    copy(target.center_norms()->data_handle(),
+         source.center_norms()->data_handle(),
+         source.center_norms()->size(),
          stream);
+  }
   // Copy shared pointers
   target.lists() = source.lists();
 
@@ -219,9 +221,9 @@ void extend(raft::device_resources const& handle,
   }
 
   // Calculate and allocate new list data
+  std::vector<uint32_t> new_list_sizes(n_lists);
+  std::vector<uint32_t> old_list_sizes(n_lists);
   {
-    std::vector<uint32_t> new_list_sizes(n_lists);
-    std::vector<uint32_t> old_list_sizes(n_lists);
     copy(old_list_sizes.data(), old_list_sizes_dev.data_handle(), n_lists, stream);
     copy(new_list_sizes.data(), list_sizes_ptr, n_lists, stream);
     handle.sync_stream();
@@ -233,7 +235,6 @@ void extend(raft::device_resources const& handle,
   }
   // Update the pointers and the sizes
   index->recompute_internal_state(handle);
-
   // Copy the old sizes, so we can start from the current state of the index;
   // we'll rebuild the `list_sizes_ptr` in the following kernel, using it as an atomic counter.
   raft::copy(list_sizes_ptr, old_list_sizes_dev.data_handle(), n_lists, stream);
@@ -253,7 +254,19 @@ void extend(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Precompute the centers vector norms for L2Expanded distance
-  if (index->center_norms().has_value() && index->adaptive_centers()) {
+  if (!index->center_norms().has_value()) {
+    index->allocate_center_norms(handle);
+    if (index->center_norms().has_value()) {
+      raft::linalg::rowNorm(index->center_norms()->data_handle(),
+                            index->centers().data_handle(),
+                            dim,
+                            n_lists,
+                            raft::linalg::L2Norm,
+                            true,
+                            stream);
+      RAFT_LOG_TRACE_VEC(index->center_norms()->data_handle(), std::min<uint32_t>(dim, 20));
+    }
+  } else if (index->center_norms().has_value() && index->adaptive_centers()) {
     raft::linalg::rowNorm(index->center_norms()->data_handle(),
                           index->centers().data_handle(),
                           dim,
