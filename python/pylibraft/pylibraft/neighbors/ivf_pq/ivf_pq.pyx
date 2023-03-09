@@ -54,8 +54,8 @@ from pylibraft.common.cpp.mdspan cimport device_matrix_view
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
+    get_dmv_int64,
     get_dmv_uint8,
-    get_dmv_uint64,
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
@@ -521,19 +521,19 @@ def extend(Index index, new_vectors, new_indices, handle=None):
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_dmv_float(vecs_cai, check_shape=True),
-                            get_dmv_uint64(idx_cai, check_shape=False))
+                            get_dmv_int64(idx_cai, check_shape=False))
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_dmv_int8(vecs_cai, check_shape=True),
-                            get_dmv_uint64(idx_cai, check_shape=False))
+                            get_dmv_int64(idx_cai, check_shape=False))
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             index.index,
                             get_dmv_uint8(vecs_cai, check_shape=True),
-                            get_dmv_uint64(idx_cai, check_shape=False))
+                            get_dmv_int64(idx_cai, check_shape=False))
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -724,7 +724,7 @@ def search(SearchParams search_params,
                             deref(index.index),
                             get_dmv_float(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
         with cuda_interruptible():
@@ -733,7 +733,7 @@ def search(SearchParams search_params,
                             deref(index.index),
                             get_dmv_int8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
@@ -742,7 +742,7 @@ def search(SearchParams search_params,
                             deref(index.index),
                             get_dmv_uint8(queries_cai, check_shape=True),
                             <uint32_t> k,
-                            get_dmv_uint64(neighbors_cai, check_shape=True),
+                            get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)

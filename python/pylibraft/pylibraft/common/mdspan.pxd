@@ -35,5 +35,5 @@ cdef device_matrix_view[uint8_t, int64_t, row_major] get_dmv_uint8(
 cdef device_matrix_view[int8_t, int64_t, row_major] get_dmv_int8(
     array, check_shape) except *
 
-cdef device_matrix_view[int64_t, int64_t, row_major] get_dmv_uint64(
+cdef device_matrix_view[int64_t, int64_t, row_major] get_dmv_int64(
     array, check_shape) except *

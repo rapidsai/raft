@@ -54,7 +54,7 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
-    get_dmv_int64_t,
+    get_dmv_int64,
     get_dmv_uint8,
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
@@ -293,8 +293,8 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
             c_refine(deref(handle_),
                      get_dmv_float(dataset_cai, check_shape=True),
                      get_dmv_float(queries_cai, check_shape=True),
-                     get_dmv_int64_t(candidates_cai, check_shape=True),
-                     get_dmv_int64_t(indices_cai, check_shape=True),
+                     get_dmv_int64(candidates_cai, check_shape=True),
+                     get_dmv_int64(indices_cai, check_shape=True),
                      get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     elif dataset_cai.dtype == np.int8:
@@ -302,8 +302,8 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
             c_refine(deref(handle_),
                      get_dmv_int8(dataset_cai, check_shape=True),
                      get_dmv_int8(queries_cai, check_shape=True),
-                     get_dmv_int64_t(candidates_cai, check_shape=True),
-                     get_dmv_int64_t(indices_cai, check_shape=True),
+                     get_dmv_int64(candidates_cai, check_shape=True),
+                     get_dmv_int64(indices_cai, check_shape=True),
                      get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     elif dataset_cai.dtype == np.uint8:
@@ -311,8 +311,8 @@ def _refine_device(dataset, queries, candidates, k, indices, distances,
             c_refine(deref(handle_),
                      get_dmv_uint8(dataset_cai, check_shape=True),
                      get_dmv_uint8(queries_cai, check_shape=True),
-                     get_dmv_int64_t(candidates_cai, check_shape=True),
-                     get_dmv_int64_t(indices_cai, check_shape=True),
+                     get_dmv_int64(candidates_cai, check_shape=True),
+                     get_dmv_int64(indices_cai, check_shape=True),
                      get_dmv_float(distances_cai, check_shape=True),
                      c_metric)
     else:
