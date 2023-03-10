@@ -57,9 +57,9 @@ namespace raft::neighbors::ivf_pq {
     raft::device_matrix_view<const T, IdxT, row_major>,                                   \
     std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>>);
 
-RAFT_DECL_BUILD_EXTEND(float, uint64_t)
-RAFT_DECL_BUILD_EXTEND(int8_t, uint64_t)
-RAFT_DECL_BUILD_EXTEND(uint8_t, uint64_t)
+RAFT_DECL_BUILD_EXTEND(float, int64_t)
+RAFT_DECL_BUILD_EXTEND(int8_t, int64_t)
+RAFT_DECL_BUILD_EXTEND(uint8_t, int64_t)
 
 #undef RAFT_DECL_BUILD_EXTEND
 
@@ -71,9 +71,9 @@ RAFT_DECL_BUILD_EXTEND(uint8_t, uint64_t)
                                        raft::device_matrix_view<float, IdxT, row_major>,   \
                                        const search_params&);
 
-RAFT_DECL_SEARCH(float, uint64_t);
-RAFT_DECL_SEARCH(int8_t, uint64_t);
-RAFT_DECL_SEARCH(uint8_t, uint64_t);
+RAFT_DECL_SEARCH(float, int64_t);
+RAFT_DECL_SEARCH(int8_t, int64_t);
+RAFT_DECL_SEARCH(uint8_t, int64_t);
 
 #undef RAFT_DECL_SEARCH
 

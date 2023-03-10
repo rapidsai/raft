@@ -21,6 +21,7 @@
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>

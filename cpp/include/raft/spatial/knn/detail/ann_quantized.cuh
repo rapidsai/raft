@@ -29,6 +29,8 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 
+#include <raft/core/device_mdspan.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 
 #include <thrust/iterator/transform_iterator.h>
@@ -79,7 +81,7 @@ void approx_knn_build_index(raft::device_resources const& handle,
     params.pq_dim     = ivf_pq_pams->M;
     // TODO: handle ivf_pq_pams.usePrecomputedTables ?
 
-    auto index_view = raft::make_device_matrix_view<const T, IntType>(index_array, n, D);
+    auto index_view = raft::make_device_matrix_view<const T, int64_t>(index_array, n, D);
     index->ivf_pq   = std::make_unique<const neighbors::ivf_pq::index<int64_t>>(
       neighbors::ivf_pq::build(handle, index_view, params));
   } else {
