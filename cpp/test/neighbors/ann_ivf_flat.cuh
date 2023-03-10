@@ -186,11 +186,11 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
                            new_half_of_data_indices_view));
 
-        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT, row_major>(
           search_queries.data(), ps.num_queries, ps.dim);
-        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
+        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT, row_major>(
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
-        auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
+        auto dists_out_view = raft::make_device_matrix_view<T, IdxT, row_major>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
         raft::spatial::knn::ivf_flat::detail::serialize(handle_, "ivf_flat_index", index_2);
 
@@ -202,8 +202,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                          search_queries_view,
                          indices_out_view,
                          dists_out_view,
-                         search_params,
-                         ps.k);
+                         search_params);
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);

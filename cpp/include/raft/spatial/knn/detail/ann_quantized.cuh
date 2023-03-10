@@ -81,7 +81,7 @@ void approx_knn_build_index(raft::device_resources const& handle,
 
     auto index_view = raft::make_device_matrix_view<const T, IntType>(index_array, n, D);
     index->ivf_pq   = std::make_unique<const neighbors::ivf_pq::index<int64_t>>(
-      neighbors::ivf_pq::build(handle, params, index_view));
+      neighbors::ivf_pq::build(handle, index_view, params));
   } else {
     RAFT_FAIL("Unrecognized index type.");
   }
@@ -112,13 +112,8 @@ void approx_knn_search(raft::device_resources const& handle,
   } else if (index->ivf_pq) {
     neighbors::ivf_pq::search_params params;
     params.n_probes = index->nprobe;
-
-    auto query_view =
-      raft::make_device_matrix_view<const T, IntType>(query_array, n, index->ivf_pq->dim());
-    auto indices_view   = raft::make_device_matrix_view<IntType, IntType>(indices, n, k);
-    auto distances_view = raft::make_device_matrix_view<float, IntType>(distances, n, k);
     neighbors::ivf_pq::search(
-      handle, params, *index->ivf_pq, query_view, k, indices_view, distances_view);
+      handle, params, *index->ivf_pq, query_array, n, k, indices, distances);
   } else {
     RAFT_FAIL("The model is not trained");
   }

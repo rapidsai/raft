@@ -20,9 +20,13 @@ namespace raft::neighbors::ivf_pq {
 
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                                        \
   template auto build<T, IdxT>(raft::device_resources const& handle,                       \
-                               const index_params& params,                                 \
-                               raft::device_matrix_view<const T, IdxT, row_major> dataset) \
-    ->index<IdxT>;
+                               raft::device_matrix_view<const T, IdxT, row_major> dataset, \
+                               const index_params& params)                                 \
+    ->index<IdxT>;                                                                         \
+  template void build<T, IdxT>(raft::device_resources const& handle,                       \
+                               index<IdxT>* index,                                         \
+                               raft::device_matrix_view<const T, IdxT, row_major> dataset, \
+                               const index_params& params);
 
 RAFT_MAKE_INSTANCE(int8_t, uint64_t);
 

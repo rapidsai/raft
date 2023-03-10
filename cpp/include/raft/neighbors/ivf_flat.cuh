@@ -379,9 +379,9 @@ void search(raft::device_resources const& handle,
  *   ivf_flat::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
- *   ivf_flat::search(handle, index, queries1, out_inds1, out_dists1, search_params, K);
- *   ivf_flat::search(handle, index, queries2, out_inds2, out_dists2, search_params, K);
- *   ivf_flat::search(handle, index, queries3, out_inds3, out_dists3, search_params, K);
+ *   ivf_flat::search(handle, index, queries1, out_inds1, out_dists1, search_params);
+ *   ivf_flat::search(handle, index, queries2, out_inds2, out_dists2, search_params);
+ *   ivf_flat::search(handle, index, queries3, out_inds3, out_dists3, search_params);
  *   ...
  * @endcode
  *
@@ -397,37 +397,35 @@ void search(raft::device_resources const& handle,
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
  * @param[in] params configure the search
- * @param[in] k the number of neighbors to find for each query.
  */
-template <typename value_t, typename idx_t, typename int_t>
+template <typename value_t, typename idx_t>
 void search(raft::device_resources const& handle,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
             raft::device_matrix_view<float, idx_t, row_major> distances,
-            const search_params& params,
-            int_t k)
+            const search_params& params)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
-  RAFT_EXPECTS(
-    neighbors.extent(1) == distances.extent(1) && neighbors.extent(1) == static_cast<idx_t>(k),
-    "Number of columns in output neighbors and distances matrices must equal k");
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must equal k");
 
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
+  std::uint32_t k = neighbors.extent(1);
   return search(handle,
                 params,
                 index,
                 queries.data_handle(),
                 static_cast<std::uint32_t>(queries.extent(0)),
-                static_cast<std::uint32_t>(k),
+                k,
                 neighbors.data_handle(),
                 distances.data_handle(),
-                nullptr);
+                handle.get_workspace_resource());
 }
 
 /** @} */

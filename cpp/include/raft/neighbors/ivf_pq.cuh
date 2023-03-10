@@ -45,19 +45,48 @@ namespace raft::neighbors::ivf_pq {
  * @tparam IdxT type of the indices in the source dataset
  *
  * @param handle
- * @param params configure the index building
  * @param[in] dataset a device matrix view to a row-major matrix [n_rows, dim]
+ * @param params configure the index building
  *
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-inline auto build(raft::device_resources const& handle,
-                  const index_params& params,
-                  raft::device_matrix_view<const T, IdxT, row_major> dataset) -> index<IdxT>
+auto build(raft::device_resources const& handle,
+           raft::device_matrix_view<const T, IdxT, row_major> dataset,
+           const index_params& params) -> index<IdxT>
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
   return detail::build(handle, params, dataset.data_handle(), n_rows, dim);
+}
+
+/**
+ * @brief Build the index from the dataset for efficient search.
+ *
+ * NB: Currently, the following distance metrics are supported:
+ * - L2Expanded
+ * - L2Unexpanded
+ * - InnerProduct
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param handle
+ * @param[inout] index
+ * @param[in] dataset a device matrix view to a row-major matrix [n_rows, dim]
+ * @param params configure the index building
+ *
+ * @return the constructed ivf-pq index
+ */
+template <typename T, typename IdxT = uint32_t>
+void build(raft::device_resources const& handle,
+           index<IdxT>* index,
+           raft::device_matrix_view<const T, IdxT, row_major> dataset,
+           const index_params& params)
+{
+  IdxT n_rows = dataset.extent(0);
+  IdxT dim    = dataset.extent(1);
+  *index      = detail::build(handle, params, dataset.data_handle(), n_rows, dim);
 }
 
 /**
@@ -80,18 +109,26 @@ inline auto build(raft::device_resources const& handle,
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
-inline auto extend(raft::device_resources const& handle,
-                   const index<IdxT>& orig_index,
-                   raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-                   raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices) -> index<IdxT>
+auto extend(raft::device_resources const& handle,
+            const index<IdxT>& orig_index,
+            raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices =
+              std::nullopt) -> index<IdxT>
 {
-  IdxT n_rows = new_vectors.extent(0);
-  ASSERT(n_rows == new_indices.extent(0),
-         "new_vectors and new_indices have different number of rows");
   ASSERT(new_vectors.extent(1) == orig_index.dim(),
          "new_vectors should have the same dimension as the index");
-  return detail::extend(
-    handle, orig_index, new_vectors.data_handle(), new_indices.data_handle(), n_rows);
+
+  IdxT n_rows = new_vectors.extent(0);
+  if (new_indices.has_value()) {
+    ASSERT(n_rows == new_indices.value().extent(0),
+           "new_vectors and new_indices have different number of rows");
+  }
+
+  return detail::extend(handle,
+                        orig_index,
+                        new_vectors.data_handle(),
+                        new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+                        n_rows);
 }
 
 /**
@@ -108,12 +145,26 @@ inline auto extend(raft::device_resources const& handle,
  *    here to imply a continuous range `[0...n_rows)`.
  */
 template <typename T, typename IdxT>
-inline void extend(raft::device_resources const& handle,
-                   index<IdxT>* index,
-                   raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-                   raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices)
+void extend(
+  raft::device_resources const& handle,
+  index<IdxT>* index,
+  raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+  std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices = std::nullopt)
 {
-  *index = extend(handle, *index, new_vectors, new_indices);
+  ASSERT(new_vectors.extent(1) == index->dim(),
+         "new_vectors should have the same dimension as the index");
+
+  IdxT n_rows = new_vectors.extent(0);
+  if (new_indices.has_value()) {
+    ASSERT(n_rows == new_indices.value().extent(0),
+           "new_vectors and new_indices have different number of rows");
+  }
+
+  *index = extend(handle,
+                  *index,
+                  new_vectors.data_handle(),
+                  new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+                  n_rows);
 }
 
 /**
@@ -133,33 +184,38 @@ inline void extend(raft::device_resources const& handle,
  * @tparam IdxT type of the indices
  *
  * @param handle
- * @param params configure the search
  * @param index ivf-pq constructed index
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
- * @param k the number of neighbors to find for each query.
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
  * k]
+ * @param params configure the search
  */
 template <typename T, typename IdxT>
-inline void search(raft::device_resources const& handle,
-                   const search_params& params,
-                   const index<IdxT>& index,
-                   raft::device_matrix_view<const T, IdxT, row_major> queries,
-                   uint32_t k,
-                   raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-                   raft::device_matrix_view<float, IdxT, row_major> distances)
+void search(raft::device_resources const& handle,
+            const index<IdxT>& index,
+            raft::device_matrix_view<const T, IdxT, row_major> queries,
+            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::device_matrix_view<float, IdxT, row_major> distances,
+            const search_params& params)
 {
-  IdxT n_queries    = queries.extent(0);
-  bool check_n_rows = (n_queries == neighbors.extent(0)) && (n_queries == distances.extent(0));
-  ASSERT(check_n_rows,
-         "queries, neighbors and distances parameters have inconsistent number of rows");
+  RAFT_EXPECTS(
+    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
+    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
+
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must equal k");
+
+  RAFT_EXPECTS(queries.extent(1) == index.dim(),
+               "Number of query dimensions should equal number of dimensions in the index.");
+
+  std::uint32_t k = neighbors.extent(1);
   return detail::search(handle,
                         params,
                         index,
                         queries.data_handle(),
-                        n_queries,
+                        static_cast<std::uint32_t>(queries.extent(0)),
                         k,
                         neighbors.data_handle(),
                         distances.data_handle(),

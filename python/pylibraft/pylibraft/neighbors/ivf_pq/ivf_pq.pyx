@@ -409,23 +409,23 @@ def build(IndexParams index_params, dataset, handle=None):
     if dataset_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                           index_params.params,
+                           idx.index,
                            get_dmv_float(dataset_cai, check_shape=True),
-                           idx.index)
+                           index_params.params)
         idx.trained = True
     elif dataset_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                           index_params.params,
+                           idx.index,
                            get_dmv_int8(dataset_cai, check_shape=True),
-                           idx.index)
+                           index_params.params)
         idx.trained = True
     elif dataset_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.build(deref(handle_),
-                           index_params.params,
+                           idx.index,
                            get_dmv_uint8(dataset_cai, check_shape=True),
-                           idx.index)
+                           index_params.params)
         idx.trained = True
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
@@ -720,30 +720,27 @@ def search(SearchParams search_params,
     if queries_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                            params,
                             deref(index.index),
                             get_dmv_float(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_uint64(neighbors_cai, check_shape=True),
-                            get_dmv_float(distances_cai, check_shape=True))
+                            get_dmv_float(distances_cai, check_shape=True),
+                            params)
     elif queries_dt == np.byte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                            params,
                             deref(index.index),
                             get_dmv_int8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_uint64(neighbors_cai, check_shape=True),
-                            get_dmv_float(distances_cai, check_shape=True))
+                            get_dmv_float(distances_cai, check_shape=True),
+                            params)
     elif queries_dt == np.ubyte:
         with cuda_interruptible():
             c_ivf_pq.search(deref(handle_),
-                            params,
                             deref(index.index),
                             get_dmv_uint8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_uint64(neighbors_cai, check_shape=True),
-                            get_dmv_float(distances_cai, check_shape=True))
+                            get_dmv_float(distances_cai, check_shape=True),
+                            params)
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 

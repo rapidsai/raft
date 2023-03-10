@@ -18,17 +18,18 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_MAKE_INSTANCE(T, IdxT)                                                                \
-  template auto extend<T, IdxT>(raft::device_resources const& handle,                              \
-                                const index<IdxT>& orig_index,                                     \
-                                raft::device_matrix_view<const T, IdxT, row_major> new_vectors,    \
-                                raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices) \
-    ->index<IdxT>;                                                                                 \
-  template void extend<T, IdxT>(                                                                   \
-    raft::device_resources const& handle,                                                          \
-    index<IdxT>* index,                                                                            \
-    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                                \
-    raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices);
+#define RAFT_MAKE_INSTANCE(T, IdxT)                                                   \
+  template auto extend<T, IdxT>(                                                      \
+    raft::device_resources const& handle,                                             \
+    const index<IdxT>& orig_index,                                                    \
+    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices) \
+    ->index<IdxT>;                                                                    \
+  template void extend<T, IdxT>(                                                      \
+    raft::device_resources const& handle,                                             \
+    index<IdxT>* index,                                                               \
+    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices);
 
 RAFT_MAKE_INSTANCE(int8_t, uint64_t);
 
