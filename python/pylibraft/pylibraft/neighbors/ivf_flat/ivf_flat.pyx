@@ -23,14 +23,7 @@ import warnings
 import numpy as np
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport (
-    int8_t,
-    int64_t,
-    uint8_t,
-    uint32_t,
-    uint64_t,
-    uintptr_t,
-)
+from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
@@ -71,8 +64,8 @@ from pylibraft.neighbors.common import _check_input_array, _get_metric
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
+    get_dmv_int64,
     get_dmv_uint8,
-    get_dmv_uint64,
 )
 from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
@@ -173,7 +166,7 @@ cdef class Index:
 
 
 cdef class IndexFloat(Index):
-    cdef c_ivf_flat.index[float, uint64_t] * index
+    cdef c_ivf_flat.index[float, int64_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:
@@ -184,7 +177,7 @@ cdef class IndexFloat(Index):
         # this is to keep track of which index type is being used
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
-        self.index = new c_ivf_flat.index[float, uint64_t](
+        self.index = new c_ivf_flat.index[float, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
@@ -221,7 +214,7 @@ cdef class IndexFloat(Index):
 
 
 cdef class IndexInt8(Index):
-    cdef c_ivf_flat.index[int8_t, uint64_t] * index
+    cdef c_ivf_flat.index[int8_t, int64_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:
@@ -232,7 +225,7 @@ cdef class IndexInt8(Index):
         # this is to keep track of which index type is being used
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
-        self.index = new c_ivf_flat.index[int8_t, uint64_t](
+        self.index = new c_ivf_flat.index[int8_t, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
@@ -269,7 +262,7 @@ cdef class IndexInt8(Index):
 
 
 cdef class IndexUint8(Index):
-    cdef c_ivf_flat.index[uint8_t, uint64_t] * index
+    cdef c_ivf_flat.index[uint8_t, int64_t] * index
 
     def __cinit__(self, handle=None):
         if handle is None:
@@ -280,7 +273,7 @@ cdef class IndexUint8(Index):
         # this is to keep track of which index type is being used
         # We create a placeholder object. The actual parameter values do
         # not matter, it will be replaced with a built index object later.
-        self.index = new c_ivf_flat.index[uint8_t, uint64_t](
+        self.index = new c_ivf_flat.index[uint8_t, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
             <uint32_t>False,
@@ -373,7 +366,7 @@ def build(IndexParams index_params, dataset, handle=None):
     _check_input_array(dataset_cai, [np.dtype('float32'), np.dtype('byte'),
                                      np.dtype('ubyte')])
 
-    cdef uint64_t n_rows = dataset_cai.shape[0]
+    cdef int64_t n_rows = dataset_cai.shape[0]
     cdef uint32_t dim = dataset_cai.shape[1]
 
     if handle is None:
@@ -432,7 +425,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     new_vectors : CUDA array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     new_indices : CUDA array interface compliant matrix shape (n_samples, dim)
-        Supported dtype [uint64]
+        Supported dtype [int64]
     {handle_docstring}
 
     Returns
@@ -459,7 +452,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     >>> n_rows = 100
     >>> more_data = cp.random.random_sample((n_rows, n_features),
     ...                                     dtype=cp.float32)
-    >>> indices = index.size + cp.arange(n_rows, dtype=cp.uint64)
+    >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
     >>> index = ivf_flat.extend(index, more_data, indices)
 
     >>> # Search using the built index
@@ -487,18 +480,18 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
     vecs_cai = cai_wrapper(new_vectors)
     vecs_dt = vecs_cai.dtype
-    cdef uint64_t n_rows = vecs_cai.shape[0]
+    cdef int64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
 
     _check_input_array(vecs_cai, [np.dtype(index.active_index_type)],
                        exp_cols=index.dim)
 
     idx_cai = cai_wrapper(new_indices)
-    _check_input_array(idx_cai, [np.dtype('uint64')], exp_rows=n_rows)
+    _check_input_array(idx_cai, [np.dtype('int64')], exp_rows=n_rows)
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
-    cdef optional[device_vector_view[uint64_t, uint64_t]] new_indices_opt
+    cdef optional[device_vector_view[int64_t, int64_t]] new_indices_opt
 
     cdef IndexFloat idx_float
     cdef IndexInt8 idx_int8
@@ -508,8 +501,8 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         idx_float = index
         if idx_float.index.size() > 0:
             new_indices_opt = make_device_vector_view(
-                <uint64_t *><uintptr_t>idx_cai.data,
-                <uint64_t>idx_cai.shape[0])
+                <int64_t *><uintptr_t>idx_cai.data,
+                <int64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               idx_float.index,
@@ -519,8 +512,8 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         idx_int8 = index
         if idx_int8.index[0].size() > 0:
             new_indices_opt = make_device_vector_view(
-                <uint64_t *><uintptr_t>idx_cai.data,
-                <uint64_t>idx_cai.shape[0])
+                <int64_t *><uintptr_t>idx_cai.data,
+                <int64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               idx_int8.index,
@@ -530,8 +523,8 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         idx_uint8 = index
         if idx_uint8.index[0].size() > 0:
             new_indices_opt = make_device_vector_view(
-                <uint64_t *><uintptr_t>idx_cai.data,
-                <uint64_t>idx_cai.shape[0])
+                <int64_t *><uintptr_t>idx_cai.data,
+                <int64_t>idx_cai.shape[0])
         with cuda_interruptible():
             c_ivf_flat.extend(deref(handle_),
                               idx_uint8.index,
@@ -589,7 +582,7 @@ def search(SearchParams search_params,
     k : int
         The number of neighbors.
     neighbors : Optional CUDA array interface compliant matrix shape
-                (n_queries, k), dtype uint64_t. If supplied, neighbor
+                (n_queries, k), dtype int64_t. If supplied, neighbor
                 indices will be written here in-place. (default None)
     distances : Optional CUDA array interface compliant matrix shape
                 (n_queries, k) If supplied, the distances to the
@@ -663,10 +656,10 @@ def search(SearchParams search_params,
                        exp_cols=index.dim)
 
     if neighbors is None:
-        neighbors = device_ndarray.empty((n_queries, k), dtype='uint64')
+        neighbors = device_ndarray.empty((n_queries, k), dtype='int64')
 
     neighbors_cai = cai_wrapper(neighbors)
-    _check_input_array(neighbors_cai, [np.dtype('uint64')],
+    _check_input_array(neighbors_cai, [np.dtype('int64')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:
@@ -687,7 +680,7 @@ def search(SearchParams search_params,
             c_ivf_flat.search(deref(handle_),
                               deref(idx_float.index),
                               get_dmv_float(queries_cai, check_shape=True),
-                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_int64(neighbors_cai, check_shape=True),
                               get_dmv_float(distances_cai, check_shape=True),
                               params)
     elif queries_dt == np.byte:
@@ -696,7 +689,7 @@ def search(SearchParams search_params,
             c_ivf_flat.search(deref(handle_),
                               deref(idx_int8.index),
                               get_dmv_int8(queries_cai, check_shape=True),
-                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_int64(neighbors_cai, check_shape=True),
                               get_dmv_float(distances_cai, check_shape=True),
                               params)
     elif queries_dt == np.ubyte:
@@ -705,7 +698,7 @@ def search(SearchParams search_params,
             c_ivf_flat.search(deref(handle_),
                               deref(idx_uint8.index),
                               get_dmv_uint8(queries_cai, check_shape=True),
-                              get_dmv_uint64(neighbors_cai, check_shape=True),
+                              get_dmv_int64(neighbors_cai, check_shape=True),
                               get_dmv_float(distances_cai, check_shape=True),
                               params)
     else:

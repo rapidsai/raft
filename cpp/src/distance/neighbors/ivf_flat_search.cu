@@ -31,9 +31,9 @@ namespace raft::runtime::neighbors::ivf_flat {
       handle, index, queries, neighbors, distances, params);              \
   }
 
-RAFT_INST_SEARCH(float, uint64_t);
-RAFT_INST_SEARCH(int8_t, uint64_t);
-RAFT_INST_SEARCH(uint8_t, uint64_t);
+RAFT_INST_SEARCH(float, int64_t);
+RAFT_INST_SEARCH(int8_t, int64_t);
+RAFT_INST_SEARCH(uint8_t, int64_t);
 
 #undef RAFT_INST_SEARCH
 

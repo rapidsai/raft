@@ -23,14 +23,7 @@ import numpy as np
 import pylibraft.common.handle
 
 from cython.operator cimport dereference as deref
-from libc.stdint cimport (
-    int8_t,
-    int64_t,
-    uint8_t,
-    uint32_t,
-    uint64_t,
-    uintptr_t,
-)
+from libc.stdint cimport int8_t, int64_t, uint8_t, uint32_t, uintptr_t
 from libcpp cimport bool, nullptr
 from libcpp.string cimport string
 
@@ -84,58 +77,58 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         namespace "raft::runtime::neighbors::ivf_flat" nogil:
 
     cdef void build(const device_resources&,
-                    device_matrix_view[float, uint64_t, row_major] dataset,
+                    device_matrix_view[float, int64_t, row_major] dataset,
                     const index_params& params,
-                    index[float, uint64_t]* index) except +
+                    index[float, int64_t]* index) except +
 
     cdef void build(const device_resources& handle,
-                    device_matrix_view[int8_t, uint64_t, row_major] dataset,
+                    device_matrix_view[int8_t, int64_t, row_major] dataset,
                     const index_params& params,
-                    index[int8_t, uint64_t]* index) except +
+                    index[int8_t, int64_t]* index) except +
 
     cdef void build(const device_resources& handle,
-                    device_matrix_view[uint8_t, uint64_t, row_major] dataset,
+                    device_matrix_view[uint8_t, int64_t, row_major] dataset,
                     const index_params& params,
-                    index[uint8_t, uint64_t]* index) except +
+                    index[uint8_t, int64_t]* index) except +
 
     cdef void extend(
         const device_resources& handle,
-        index[float, uint64_t]* index,
-        device_matrix_view[float, uint64_t, row_major] new_vectors,
-        optional[device_vector_view[uint64_t, uint64_t]] new_indices) except +
+        index[float, int64_t]* index,
+        device_matrix_view[float, int64_t, row_major] new_vectors,
+        optional[device_vector_view[int64_t, int64_t]] new_indices) except +
 
     cdef void extend(
         const device_resources& handle,
-        index[int8_t, uint64_t]* index,
-        device_matrix_view[int8_t, uint64_t, row_major] new_vectors,
-        optional[device_vector_view[uint64_t, uint64_t]] new_indices) except +
+        index[int8_t, int64_t]* index,
+        device_matrix_view[int8_t, int64_t, row_major] new_vectors,
+        optional[device_vector_view[int64_t, int64_t]] new_indices) except +
 
     cdef void extend(
         const device_resources& handle,
-        index[uint8_t, uint64_t]* index,
-        device_matrix_view[uint8_t, uint64_t, row_major] new_vectors,
-        optional[device_vector_view[uint64_t, uint64_t]] new_indices) except +
+        index[uint8_t, int64_t]* index,
+        device_matrix_view[uint8_t, int64_t, row_major] new_vectors,
+        optional[device_vector_view[int64_t, int64_t]] new_indices) except +
 
     cdef void search(
         const device_resources& handle,
-        const index[float, uint64_t]& index,
-        device_matrix_view[float, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        const index[float, int64_t]& index,
+        device_matrix_view[float, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] neighbors,
+        device_matrix_view[float, int64_t, row_major] distances,
         const search_params& params) except +
 
     cdef void search(
         const device_resources& handle,
-        const index[int8_t, uint64_t]& index,
-        device_matrix_view[int8_t, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        const index[int8_t, int64_t]& index,
+        device_matrix_view[int8_t, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] neighbors,
+        device_matrix_view[float, int64_t, row_major] distances,
         const search_params& params) except +
 
     cdef void search(
         const device_resources& handle,
-        const index[uint8_t, uint64_t]& index,
-        device_matrix_view[uint8_t, uint64_t, row_major] queries,
-        device_matrix_view[uint64_t, uint64_t, row_major] neighbors,
-        device_matrix_view[float, uint64_t, row_major] distances,
+        const index[uint8_t, int64_t]& index,
+        device_matrix_view[uint8_t, int64_t, row_major] queries,
+        device_matrix_view[int64_t, int64_t, row_major] neighbors,
+        device_matrix_view[float, int64_t, row_major] distances,
         const search_params& params) except +

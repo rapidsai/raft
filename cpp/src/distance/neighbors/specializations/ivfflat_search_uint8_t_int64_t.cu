@@ -26,7 +26,7 @@ namespace raft::neighbors::ivf_flat {
                        raft::device_matrix_view<float, IdxT, row_major>,   \
                        raft::neighbors::ivf_flat::search_params const&);
 
-RAFT_MAKE_INSTANCE(uint8_t, uint64_t);
+RAFT_MAKE_INSTANCE(uint8_t, int64_t);
 
 #undef RAFT_MAKE_INSTANCE
 

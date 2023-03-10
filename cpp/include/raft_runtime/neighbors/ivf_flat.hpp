@@ -25,7 +25,7 @@ namespace raft::runtime::neighbors::ivf_flat {
 // constructor.
 #define RAFT_INST_BUILD_EXTEND(T, IdxT)                                              \
   auto build(raft::device_resources const& handle,                                   \
-             raft::device_matrix_view<const T, uint64_t, row_major> dataset,         \
+             raft::device_matrix_view<const T, IdxT, row_major> dataset,             \
              const raft::neighbors::ivf_flat::index_params& params)                  \
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
                                                                                      \
@@ -36,7 +36,7 @@ namespace raft::runtime::neighbors::ivf_flat {
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                                     \
                                                                                      \
   void build(raft::device_resources const& handle,                                   \
-             raft::device_matrix_view<const T, uint64_t, row_major> dataset,         \
+             raft::device_matrix_view<const T, IdxT, row_major> dataset,             \
              const raft::neighbors::ivf_flat::index_params& params,                  \
              raft::neighbors::ivf_flat::index<T, IdxT>* idx);                        \
                                                                                      \
@@ -45,9 +45,9 @@ namespace raft::runtime::neighbors::ivf_flat {
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices);
 
-RAFT_INST_BUILD_EXTEND(float, uint64_t)
-RAFT_INST_BUILD_EXTEND(int8_t, uint64_t)
-RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
+RAFT_INST_BUILD_EXTEND(float, int64_t)
+RAFT_INST_BUILD_EXTEND(int8_t, int64_t)
+RAFT_INST_BUILD_EXTEND(uint8_t, int64_t)
 
 #undef RAFT_INST_BUILD_EXTEND
 
@@ -59,9 +59,9 @@ RAFT_INST_BUILD_EXTEND(uint8_t, uint64_t)
               raft::device_matrix_view<float, IdxT, row_major>,   \
               raft::neighbors::ivf_flat::search_params const&);
 
-RAFT_INST_SEARCH(float, uint64_t);
-RAFT_INST_SEARCH(int8_t, uint64_t);
-RAFT_INST_SEARCH(uint8_t, uint64_t);
+RAFT_INST_SEARCH(float, int64_t);
+RAFT_INST_SEARCH(int8_t, int64_t);
+RAFT_INST_SEARCH(uint8_t, int64_t);
 
 #undef RAFT_INST_SEARCH
 

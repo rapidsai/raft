@@ -30,7 +30,7 @@ namespace raft::neighbors::ivf_flat {
                        raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
                        std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices);
 
-RAFT_MAKE_INSTANCE(int8_t, uint64_t);
+RAFT_MAKE_INSTANCE(int8_t, int64_t);
 
 #undef RAFT_MAKE_INSTANCE
 
