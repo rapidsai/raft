@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/ivf_pq.cuh>
+#include <raft/neighbors/ivf_pq.cuh>
 
 namespace raft::neighbors::ivf_pq {
 
