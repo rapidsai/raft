@@ -14,10 +14,17 @@
  * limitations under the License.
  */
 
-#include "../knn.cuh"
+#include <raft/neighbors/refine.cuh>
 
-namespace raft::bench::spatial {
+namespace raft::neighbors {
 
-KNN_REGISTER(uint8_t, uint32_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
+template void refine<int64_t, uint8_t, float, int64_t>(
+  raft::device_resources const& handle,
+  raft::device_matrix_view<const uint8_t, int64_t, row_major> dataset,
+  raft::device_matrix_view<const uint8_t, int64_t, row_major> queries,
+  raft::device_matrix_view<const int64_t, int64_t, row_major> neighbor_candidates,
+  raft::device_matrix_view<int64_t, int64_t, row_major> indices,
+  raft::device_matrix_view<float, int64_t, row_major> distances,
+  distance::DistanceType metric);
 
-}  // namespace raft::bench::spatial
+}  // namespace raft::neighbors

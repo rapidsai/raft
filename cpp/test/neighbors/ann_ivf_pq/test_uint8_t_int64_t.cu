@@ -14,21 +14,14 @@
  * limitations under the License.
  */
 
-#include "refine.cuh"
-#include <common/benchmark.hpp>
+#include "../ann_ivf_pq.cuh"
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#include <raft/neighbors/specializations/refine.cuh>
-#endif
+namespace raft::neighbors::ivf_pq {
 
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
+using f32_u08_i64 = ivf_pq_test<float, uint8_t, int64_t>;
 
-using namespace raft::neighbors;
+TEST_BUILD_SEARCH(f32_u08_i64)
+TEST_BUILD_EXTEND_SEARCH(f32_u08_i64)
+INSTANTIATE(f32_u08_i64, small_dims_per_cluster() + enum_variety());
 
-namespace raft::bench::neighbors {
-using refine_float_int64 = RefineAnn<float, float, uint64_t>;
-RAFT_BENCH_REGISTER(refine_float_int64, "", getInputs<uint64_t>());
-}  // namespace raft::bench::neighbors
+}  // namespace raft::neighbors::ivf_pq

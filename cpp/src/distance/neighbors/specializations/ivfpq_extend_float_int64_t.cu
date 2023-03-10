@@ -30,7 +30,7 @@ namespace raft::neighbors::ivf_pq {
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                                \
     raft::device_matrix_view<const IdxT, IdxT, row_major> new_indices);
 
-RAFT_MAKE_INSTANCE(float, uint64_t);
+RAFT_MAKE_INSTANCE(float, int64_t);
 
 #undef RAFT_MAKE_INSTANCE
 

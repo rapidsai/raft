@@ -14,18 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations/ivf_pq.cuh>
+#include "../knn.cuh"
 
-namespace raft::neighbors::ivf_pq {
+namespace raft::bench::spatial {
 
-#define RAFT_MAKE_INSTANCE(T, IdxT)                                                        \
-  template auto build<T, IdxT>(raft::device_resources const& handle,                       \
-                               const index_params& params,                                 \
-                               raft::device_matrix_view<const T, IdxT, row_major> dataset) \
-    ->index<IdxT>;
+KNN_REGISTER(float, int64_t, ivf_pq_knn, kInputs, kNoCopyOnly, kAllScopes);
 
-RAFT_MAKE_INSTANCE(uint8_t, uint64_t);
-
-#undef RAFT_MAKE_INSTANCE
-
-}  // namespace raft::neighbors::ivf_pq
+}  // namespace raft::bench::spatial

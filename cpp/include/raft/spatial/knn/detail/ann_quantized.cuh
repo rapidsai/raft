@@ -29,6 +29,8 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 
+#include <raft/core/device_mdspan.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 
 #include <thrust/iterator/transform_iterator.h>

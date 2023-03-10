@@ -27,7 +27,7 @@ namespace raft::neighbors::ivf_pq {
                                 raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
                                 raft::device_matrix_view<float, IdxT, row_major> distances);
 
-RAFT_MAKE_INSTANCE(uint8_t, uint64_t);
+RAFT_MAKE_INSTANCE(uint8_t, int64_t);
 
 #undef RAFT_MAKE_INSTANCE
 
