@@ -18,7 +18,7 @@
 
 #include <raft_internal/matrix/select_k.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
+#ifdef RAFT_DISTANCE_COMPILED
 #include <raft/matrix/specializations.cuh>
 #endif
 
@@ -131,7 +131,7 @@ struct io_computed {
     update_host(out_dists_.data(), out_dists_d.data(), out_dists_.size(), stream);
     update_host(out_ids_.data(), out_ids_d.data(), out_ids_.size(), stream);
 
-    uint32_terruptible::synchronize(stream);
+    interruptible::synchronize(stream);
 
     auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
     apply_permutation(out_dists_, p);
