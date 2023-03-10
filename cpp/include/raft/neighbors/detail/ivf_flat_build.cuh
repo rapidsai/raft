@@ -229,8 +229,11 @@ void extend(raft::device_resources const& handle,
     handle.sync_stream();
     auto& lists = index->lists();
     for (uint32_t label = 0; label < n_lists; label++) {
-      ivf::resize_list(
-        handle, lists[label], list_device_spec, new_list_sizes[label], old_list_sizes[label]);
+      ivf::resize_list(handle,
+                       lists[label],
+                       list_device_spec,
+                       new_list_sizes[label],
+                       Pow2<kIndexGroupSize>::roundUp(old_list_sizes[label]));
     }
   }
   // Update the pointers and the sizes
