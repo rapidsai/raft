@@ -19,6 +19,6 @@ sed -i "s/^name = \"pylibraft\"/name = \"pylibraft${CUDA_SUFFIX}\"/g" python/pyl
 sed -i "s/rmm/rmm${CUDA_SUFFIX}/g" python/pylibraft/pyproject.toml
 
 # raft-dask pyproject.toml cuda suffixes
-sed -i "s/^name = \"raft-dask\"/name = \"raft-dask${CUDA_SUFFIX}\"/g" python/raft_dask/pyproject.toml
-sed -i "s/pylibraft/pylibraft${CUDA_SUFFIX}/g" python/raft_dask/pyproject.toml
-sed -i "s/ucx-py/ucx-py${CUDA_SUFFIX}/g" python/raft_dask/pyproject.toml
+sed -i "s/^name = \"raft-dask\"/name = \"raft-dask${CUDA_SUFFIX}\"/g" python/raft-dask/pyproject.toml
+sed -i "s/pylibraft/pylibraft${CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
+sed -i "s/ucx-py/ucx-py${CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
