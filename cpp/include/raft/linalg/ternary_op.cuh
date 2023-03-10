@@ -19,11 +19,9 @@
 
 #pragma once
 
-#include "detail/ternary_op.cuh"
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/util/input_validation.hpp>
+#include <raft/linalg/map.cuh>
 
 namespace raft {
 namespace linalg {
@@ -50,7 +48,7 @@ void ternaryOp(out_t* out,
                Lambda op,
                cudaStream_t stream)
 {
-  detail::ternaryOp(out, in1, in2, in3, len, op, stream);
+  return detail::map<false>(stream, out, len, op, in1, in2, in3);
 }
 
 /**
@@ -80,33 +78,7 @@ template <typename InType,
 void ternary_op(
   raft::device_resources const& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
 {
-  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
-  RAFT_EXPECTS(raft::is_row_or_column_major(in1), "Input 1 must be contiguous");
-  RAFT_EXPECTS(raft::is_row_or_column_major(in2), "Input 2 must be contiguous");
-  RAFT_EXPECTS(raft::is_row_or_column_major(in3), "Input 3 must be contiguous");
-  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size() && in2.size() == in3.size(),
-               "Size mismatch between Output and Inputs");
-
-  using in_value_t  = typename InType::value_type;
-  using out_value_t = typename OutType::value_type;
-
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    ternaryOp<in_value_t, Lambda, out_value_t, std::uint32_t>(out.data_handle(),
-                                                              in1.data_handle(),
-                                                              in2.data_handle(),
-                                                              in3.data_handle(),
-                                                              out.size(),
-                                                              op,
-                                                              handle.get_stream());
-  } else {
-    ternaryOp<in_value_t, Lambda, out_value_t, std::uint64_t>(out.data_handle(),
-                                                              in1.data_handle(),
-                                                              in2.data_handle(),
-                                                              in3.data_handle(),
-                                                              out.size(),
-                                                              op,
-                                                              handle.get_stream());
-  }
+  return map(handle, out, op, in1, in2, in3);
 }
 
 /** @} */  // end of group ternary_op
