@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/matrix/specializations/detail/select_k.cuh>
+#include <raft/matrix/detail/select_k.cuh>
 
 namespace raft::matrix::detail {
 
@@ -30,6 +30,6 @@ namespace raft::matrix::detail {
                                   rmm::cuda_stream_view, \
                                   rmm::mr::device_memory_resource*);
 
-RAFT_INST(half, uint64_t);
+RAFT_INST(half, int64_t);
 
 }  // namespace raft::matrix::detail

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/matrix/specializations/detail/select_k.cuh>
+#include <raft/matrix/detail/select_k.cuh>
 
 namespace raft::matrix::detail {
 

@@ -18,6 +18,10 @@
 
 #include <raft_internal/matrix/select_k.cuh>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/matrix/specializations.cuh>
+#endif
+
 #include <raft/core/device_resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
@@ -34,7 +38,7 @@
 namespace raft::matrix {
 
 template <typename IdxT>
-auto gen_simple_ids(int batch_size, int len) -> std::vector<IdxT>
+auto gen_simple_ids(uint32_t batch_size, uint32_t len) -> std::vector<IdxT>
 {
   std::vector<IdxT> out(batch_size * len);
   auto s = rmm::cuda_stream_default;
@@ -127,7 +131,7 @@ struct io_computed {
     update_host(out_dists_.data(), out_dists_d.data(), out_dists_.size(), stream);
     update_host(out_ids_.data(), out_ids_d.data(), out_ids_.size(), stream);
 
-    interruptible::synchronize(stream);
+    uint32_terruptible::synchronize(stream);
 
     auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
     apply_permutation(out_dists_, p);
@@ -147,7 +151,7 @@ struct io_computed {
 
   auto topk_sort_permutation(const std::vector<KeyT>& vec,
                              const std::vector<IdxT>& inds,
-                             int k,
+                             uint32_t k,
                              bool select_min) -> std::vector<IdxT>
   {
     std::vector<IdxT> p(vec.size());
@@ -228,8 +232,8 @@ struct SelectK  // NOLINT
     auto& in_dists   = ref.get_in_dists();
     auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
-      auto ix_i = size_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
-      auto ix_j = size_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
+      auto ix_i = uint64_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
+      auto ix_j = uint64_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
       if (ix_i >= in_ids.size() || ix_j >= in_ids.size()) return false;
       auto dist_i = in_dists[ix_i];
       auto dist_j = in_dists[ix_j];
@@ -262,45 +266,45 @@ struct params_simple {
 };
 
 auto inputs_simple_f = testing::Values(
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {5, 5, 5, true, true},
     {5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 5.0,
      1.0, 4.0, 5.0, 3.0, 2.0, 4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0},
     {1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0,
      4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0},
     {4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 3, 0, 1, 4, 2, 4, 2, 1, 3, 0, 0, 2, 1, 4, 3}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {5, 5, 3, true, true},
     {5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 5.0,
      1.0, 4.0, 5.0, 3.0, 2.0, 4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0},
     {1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0},
     {4, 3, 2, 0, 1, 2, 3, 0, 1, 4, 2, 1, 0, 2, 1}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {5, 5, 5, true, false},
     {5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 5.0,
      1.0, 4.0, 5.0, 3.0, 2.0, 4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0},
     {1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0,
      4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.0, 2.0, 3.0, 4.0, 5.0},
     {4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 3, 0, 1, 4, 2, 4, 2, 1, 3, 0, 0, 2, 1, 4, 3}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {5, 5, 3, true, false},
     {5.0, 4.0, 3.0, 2.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 5.0,
      1.0, 4.0, 5.0, 3.0, 2.0, 4.0, 1.0, 1.0, 3.0, 2.0, 5.0, 4.0},
     {1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 1.0, 2.0, 3.0},
     {4, 3, 2, 0, 1, 2, 3, 0, 1, 4, 2, 1, 0, 2, 1}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {5, 7, 3, true, true},
     {5.0, 4.0, 3.0, 2.0, 1.3, 7.5, 19.0, 9.0, 2.0, 3.0, 3.0, 5.0, 6.0, 4.0, 2.0, 3.0, 5.0, 1.0,
      4.0, 1.0, 1.0, 5.0, 7.0, 2.5, 4.0,  7.0, 8.0, 8.0, 1.0, 3.0, 2.0, 5.0, 4.0, 1.1, 1.2},
     {1.3, 2.0, 3.0, 2.0, 3.0, 3.0, 1.0, 1.0, 1.0, 2.5, 4.0, 5.0, 1.0, 1.1, 1.2},
     {4, 3, 2, 1, 2, 3, 3, 5, 6, 2, 3, 0, 0, 5, 6}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {1, 7, 3, true, true}, {2.0, 3.0, 5.0, 1.0, 4.0, 1.0, 1.0}, {1.0, 1.0, 1.0}, {3, 5, 6}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {1, 7, 3, false, false}, {2.0, 3.0, 5.0, 1.0, 4.0, 1.0, 1.0}, {5.0, 4.0, 3.0}, {2, 4, 1}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {1, 7, 3, false, true}, {2.0, 3.0, 5.0, 9.0, 4.0, 9.0, 9.0}, {9.0, 9.0, 9.0}, {3, 5, 6}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {1, 130, 5, false, true},
     {19, 1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
      0,  1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
@@ -309,7 +313,7 @@ auto inputs_simple_f = testing::Values(
      5,  6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 4, 4, 2, 3, 2, 3, 2, 3, 2, 3, 2, 20},
     {20, 19, 18, 17, 16},
     {129, 0, 117, 116, 115}),
-  params_simple<float, int>::input_t(
+  params_simple<float, uint32_t>::input_t(
     {1, 130, 15, false, true},
     {19, 1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
      0,  1, 0, 1, 0, 1,  0,  1,  0,  1,  0,  1,  0,  1,  0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1,
@@ -319,7 +323,7 @@ auto inputs_simple_f = testing::Values(
     {20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6},
     {129, 0, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105}));
 
-using SimpleFloatInt = SelectK<float, int, params_simple>;
+using SimpleFloatInt = SelectK<float, uint32_t, params_simple>;
 TEST_P(SimpleFloatInt, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                // NOLINT
   SelectK,
@@ -414,7 +418,7 @@ auto inputs_random_largek = testing::Values(select::params{100, 100000, 1000, tr
                                             select::params{100, 100000, 1237, true});
 
 using ReferencedRandomFloatInt =
-  SelectK<float, int, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<float, uint32_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                          // NOLINT
   SelectK,
@@ -428,7 +432,7 @@ INSTANTIATE_TEST_CASE_P(                          // NOLINT
                                    select::Algo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleSizeT =
-  SelectK<double, size_t, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<double, uint64_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                             // NOLINT
   SelectK,
@@ -442,7 +446,7 @@ INSTANTIATE_TEST_CASE_P(                             // NOLINT
                                    select::Algo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleInt =
-  SelectK<double, int, with_ref<select::Algo::kRadix11bits>::params_random>;
+  SelectK<double, uint32_t, with_ref<select::Algo::kRadix11bits>::params_random>;
 TEST_P(ReferencedRandomDoubleInt, LargeSize) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                                 // NOLINT
   SelectK,
@@ -450,7 +454,7 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
   testing::Combine(inputs_random_largesize, testing::Values(select::Algo::kWarpAuto)));
 
 using ReferencedRandomFloatSizeT =
-  SelectK<float, size_t, with_ref<select::Algo::kRadix8bits>::params_random>;
+  SelectK<float, uint64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
                         ReferencedRandomFloatSizeT,
