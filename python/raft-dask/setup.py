@@ -14,13 +14,8 @@
 # limitations under the License.
 #
 
-import os
-
-import versioneer
 from setuptools import find_packages
 from skbuild import setup
-
-cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 
 install_requires = [
     "numpy",
@@ -28,9 +23,9 @@ install_requires = [
     "joblib>=0.11",
     "dask-cuda==23.4.*",
     "dask>=2023.1.1",
-    f"ucx-py{cuda_suffix}==0.31.*",
+    "ucx-py==0.31.*",
     "distributed>=2023.1.1",
-    f"pylibraft{cuda_suffix}==23.4.*",
+    "pylibraft==23.4.*",
 ]
 
 extras_require = {
@@ -50,24 +45,10 @@ def exclude_libcxx_symlink(cmake_manifest):
     )
 
 
-# Make versioneer produce PyPI-compatible nightly versions for wheels.
-if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
-    orig_get_versions = versioneer.get_versions
-
-    version_override = os.environ["RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE"]
-
-    def get_versions():
-        data = orig_get_versions()
-        data["version"] = version_override
-        return data
-
-    versioneer.get_versions = get_versions
-
-
 setup(
-    name=f"raft-dask{cuda_suffix}",
+    name="raft-dask",
     description="Reusable Accelerated Functions & Tools Dask Infrastructure",
-    version=versioneer.get_version(),
+    version="23.04.00",
     classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
@@ -95,6 +76,5 @@ setup(
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=find_packages(include=["raft_dask", "raft_dask.*"]),
     license="Apache 2.0",
-    cmdclass=versioneer.get_cmdclass(),
     zip_safe=False,
 )

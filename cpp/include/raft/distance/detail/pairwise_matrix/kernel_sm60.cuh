@@ -55,7 +55,8 @@ __global__ __launch_bounds__(Policy::Nthreads,
 
   extern __shared__ char smem[];
 
-  // Wrap operator back into lambdas. This is temporary and should be removed. (TODO)
+  // Wrap operator back into lambdas. This is temporary and should be removed.
+  // See: https://github.com/rapidsai/raft/issues/1323
   auto core_op = [distance_op] __device__(AccT & acc, DataT & x, DataT & y) {
     distance_op.core(acc, x, y);
   };

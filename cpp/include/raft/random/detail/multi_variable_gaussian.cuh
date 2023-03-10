@@ -32,7 +32,7 @@
 #include <stdio.h>
 #include <type_traits>
 
-// mvg.cuh takes in matrices that are colomn major (as in fortran)
+// mvg.cuh takes in matrices that are column major (as in fortran)
 #define IDX2C(i, j, ld) (j * ld + i)
 
 namespace raft::random {

@@ -125,11 +125,11 @@ if(BUILD_BENCH)
     bench/neighbors/knn/ivf_flat_float_int64_t.cu
     bench/neighbors/knn/ivf_flat_int8_t_int64_t.cu
     bench/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
-    bench/neighbors/knn/ivf_pq_float_uint64_t.cu
-    bench/neighbors/knn/ivf_pq_int8_t_uint64_t.cu
-    bench/neighbors/knn/ivf_pq_uint8_t_uint64_t.cu
-    bench/neighbors/refine_float_uint64_t.cu
-    bench/neighbors/refine_uint8_t_uint64_t.cu
+    bench/neighbors/knn/ivf_pq_float_int64_t.cu
+    bench/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+    bench/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
+    bench/neighbors/refine_float_int64_t.cu
+    bench/neighbors/refine_uint8_t_int64_t.cu
     bench/main.cpp
     OPTIONAL
     DIST
