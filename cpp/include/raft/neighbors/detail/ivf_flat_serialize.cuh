@@ -86,7 +86,11 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
 
   list_spec<uint32_t, T, IdxT> list_store_spec{index_.dim(), true};
   for (uint32_t label = 0; label < index_.n_lists(); label++) {
-    ivf::serialize_list(handle, os, index_.lists()[label], list_store_spec, sizes_host(label));
+    ivf::serialize_list(handle,
+                        os,
+                        index_.lists()[label],
+                        list_store_spec,
+                        Pow2<kIndexGroupSize>::roundUp(sizes_host(label)));
   }
   handle.sync_stream();
 }
