@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-#include "../ann_ivf_pq.cuh"
+#include <raft/neighbors/refine.cuh>
 
-namespace raft::neighbors::ivf_pq {
+namespace raft::neighbors {
 
-using f32_f32_u64 = ivf_pq_test<float, float, uint64_t>;
+template void refine<int64_t, float, float, int64_t>(
+  raft::device_resources const& handle,
+  raft::host_matrix_view<const float, int64_t, row_major> dataset,
+  raft::host_matrix_view<const float, int64_t, row_major> queries,
+  raft::host_matrix_view<const int64_t, int64_t, row_major> neighbor_candidates,
+  raft::host_matrix_view<int64_t, int64_t, row_major> indices,
+  raft::host_matrix_view<float, int64_t, row_major> distances,
+  distance::DistanceType metric);
 
-TEST_BUILD_EXTEND_SEARCH(f32_f32_u64)
-TEST_BUILD_SERIALIZE_SEARCH(f32_f32_u64)
-INSTANTIATE(f32_f32_u64, defaults() + small_dims() + big_dims_moderate_lut());
-
-}  // namespace raft::neighbors::ivf_pq
+}  // namespace raft::neighbors

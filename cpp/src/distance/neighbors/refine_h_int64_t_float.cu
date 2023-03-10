@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
@@ -20,14 +21,14 @@
 namespace raft::runtime::neighbors {
 
 void refine(raft::device_resources const& handle,
-            raft::host_matrix_view<const uint8_t, uint64_t, row_major> dataset,
-            raft::host_matrix_view<const uint8_t, uint64_t, row_major> queries,
-            raft::host_matrix_view<const uint64_t, uint64_t, row_major> neighbor_candidates,
-            raft::host_matrix_view<uint64_t, uint64_t, row_major> indices,
-            raft::host_matrix_view<float, uint64_t, row_major> distances,
+            raft::host_matrix_view<const float, int64_t, row_major> dataset,
+            raft::host_matrix_view<const float, int64_t, row_major> queries,
+            raft::host_matrix_view<const int64_t, int64_t, row_major> neighbor_candidates,
+            raft::host_matrix_view<int64_t, int64_t, row_major> indices,
+            raft::host_matrix_view<float, int64_t, row_major> distances,
             distance::DistanceType metric)
 {
-  raft::neighbors::refine<uint64_t, uint8_t, float, uint64_t>(
+  raft::neighbors::refine<int64_t, float, float, int64_t>(
     handle, dataset, queries, neighbor_candidates, indices, distances, metric);
 }
 

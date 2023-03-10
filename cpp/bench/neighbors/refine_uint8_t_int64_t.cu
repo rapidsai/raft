@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/refine.cuh>
+#include "refine.cuh"
+#include <common/benchmark.hpp>
 
-namespace raft::neighbors {
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#include <raft/neighbors/specializations/refine.cuh>
+#endif
 
-template void refine<uint64_t, float, float, uint64_t>(
-  raft::device_resources const& handle,
-  raft::host_matrix_view<const float, uint64_t, row_major> dataset,
-  raft::host_matrix_view<const float, uint64_t, row_major> queries,
-  raft::host_matrix_view<const uint64_t, uint64_t, row_major> neighbor_candidates,
-  raft::host_matrix_view<uint64_t, uint64_t, row_major> indices,
-  raft::host_matrix_view<float, uint64_t, row_major> distances,
-  distance::DistanceType metric);
+#if defined RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
 
-}  // namespace raft::neighbors
+using namespace raft::neighbors;
+
+namespace raft::bench::neighbors {
+using refine_uint8_int64 = RefineAnn<uint8_t, float, int64_t>;
+RAFT_BENCH_REGISTER(refine_uint8_int64, "", getInputs<int64_t>());
+}  // namespace raft::bench::neighbors
