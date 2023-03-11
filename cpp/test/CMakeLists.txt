@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL DIST NN)
+  set(options OPTIONAL DIST)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -34,7 +34,6 @@ function(ConfigureTest)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
-            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -88,7 +87,6 @@ if(BUILD_TESTS)
     test/cluster/kmeans_find_k.cu
     OPTIONAL
     DIST
-    NN
   )
 
   ConfigureTest(
@@ -244,12 +242,11 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL DIST
-    NN
   )
 
   ConfigureTest(
     NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST NN
+    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST
   )
 
   ConfigureTest(
@@ -275,7 +272,6 @@ if(BUILD_TESTS)
     test/neighbors/selection.cu
     OPTIONAL
     DIST
-    NN
   )
 
   ConfigureTest(
@@ -309,7 +305,6 @@ if(BUILD_TESTS)
     test/stats/v_measure.cu
     OPTIONAL
     DIST
-    NN
   )
 
   ConfigureTest(

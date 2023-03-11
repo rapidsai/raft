@@ -20,8 +20,8 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <raft/core/device_mdspan.hpp>

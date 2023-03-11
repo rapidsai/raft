@@ -32,13 +32,19 @@ namespace raft::runtime::neighbors::brute_force {
            raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, SEARCH_LAYOUT> search,            \
            raft::device_matrix_view<IDX_T, MATRIX_IDX_T, row_major> indices,                      \
            raft::device_matrix_view<DATA_T, MATRIX_IDX_T, row_major> distances,                   \
-           int k,                                                                                 \
            distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,          \
            std::optional<float> metric_arg       = std::make_optional<float>(2.0f),               \
            std::optional<IDX_T> global_id_offset = std::nullopt)                                  \
   {                                                                                               \
-    raft::neighbors::brute_force::knn(                                                            \
-      handle, index, search, indices, distances, k, metric, metric_arg, global_id_offset);        \
+    raft::neighbors::brute_force::knn(handle,                                                     \
+                                      index,                                                      \
+                                      search,                                                     \
+                                      indices,                                                    \
+                                      distances,                                                  \
+                                      static_cast<int>(indices.extent(1)),                        \
+                                      metric,                                                     \
+                                      metric_arg,                                                 \
+                                      global_id_offset);                                          \
   }
 
 RAFT_INST_BFKNN(int64_t, float, uint32_t, raft::row_major, raft::row_major);

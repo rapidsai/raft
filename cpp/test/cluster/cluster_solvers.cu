@@ -19,7 +19,7 @@
 #include <memory>
 #include <raft/core/device_resources.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED && defined RAFT_NN_COMPILED
+#if defined RAFT_DISTANCE_COMPILED
 #include <raft/spectral/specializations.cuh>
 #endif
 

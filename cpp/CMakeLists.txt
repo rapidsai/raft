@@ -64,15 +64,8 @@ endif()
 option(RAFT_COMPILE_LIBRARIES "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARIES_DEFAULT}
 )
-option(
-  RAFT_COMPILE_NN_LIBRARY "Enable building raft nearest neighbors shared library instantiations"
-  ${RAFT_COMPILE_LIBRARIES}
-)
 option(RAFT_COMPILE_DIST_LIBRARY "Enable building raft distant shared library instantiations"
        ${RAFT_COMPILE_LIBRARIES}
-)
-option(RAFT_ENABLE_NN_DEPENDENCIES "Search for raft::nn dependencies like faiss"
-       ${RAFT_COMPILE_NN_LIBRARY}
 )
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
@@ -89,16 +82,11 @@ if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
   set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
 
-option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
+# option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 
 include(CMakeDependentOption)
-cmake_dependent_option(
-  RAFT_USE_FAISS_STATIC
-  "Build and statically link the FAISS library for nearest neighbors search on GPU"
-  ON
-  RAFT_COMPILE_LIBRARIES
-  OFF
-)
+# cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
+# nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARIES OFF )
 
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
@@ -170,7 +158,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 if(RAFT_COMPILE_LIBRARIES)
   set(RAFT_COMPILE_DIST_LIBRARY ON)
-  set(RAFT_COMPILE_NN_LIBRARY ON)
 endif()
 
 if(RAFT_COMPILE_DIST_LIBRARY OR distance IN_LIST raft_FIND_COMPONENTS)
@@ -183,7 +170,7 @@ rapids_cpm_init()
 # thrust before rmm/cuco so we get the right version of thrust/cub
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_faiss.cmake)
+# include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_cutlass.cmake)
 
 if(RAFT_ENABLE_cuco_DEPENDENCY)
@@ -233,7 +220,7 @@ else()
   target_compile_definitions(raft INTERFACE RAFT_SYSTEM_LITTLE_ENDIAN=1)
 endif()
 
-if(RAFT_COMPILE_DIST_LIBRARY OR RAFT_COMPILE_NN_LIBRARY)
+if(RAFT_COMPILE_DIST_LIBRARY)
   file(
     WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
     [=[
@@ -379,6 +366,10 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/ivfpq_search_float_int64_t.cu
     src/distance/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
     src/distance/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/detail/brute_force_knn_impl_long_float_int.cu
+    src/distance/neighbors/specializations/detail/brute_force_knn_impl_long_float_uint.cu
+    src/distance/neighbors/specializations/detail/brute_force_knn_impl_uint_float_int.cu
+    src/distance/neighbors/specializations/detail/brute_force_knn_impl_uint_float_uint.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
@@ -404,6 +395,17 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/random/rmat_rectangular_generator_int64_double.cu
     src/distance/random/rmat_rectangular_generator_int_float.cu
     src/distance/random/rmat_rectangular_generator_int64_float.cu
+    src/distance/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+    src/distance/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+    src/distance/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+    src/distance/neighbors/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+    src/distance/neighbors/specializations/ball_cover_all_knn_query.cu
+    src/distance/neighbors/specializations/ball_cover_build_index.cu
+    src/distance/neighbors/specializations/ball_cover_knn_query.cu
+    src/distance/neighbors/specializations/fused_l2_knn_long_float_true.cu
+    src/distance/neighbors/specializations/fused_l2_knn_long_float_false.cu
+    src/distance/neighbors/specializations/fused_l2_knn_int_float_true.cu
+    src/distance/neighbors/specializations/fused_l2_knn_int_float_false.cu
   )
   set_target_properties(
     raft_distance_lib
@@ -441,71 +443,6 @@ endif()
 target_link_libraries(
   raft_distance INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_distance_lib>
                           nvidia::cutlass::cutlass
-)
-
-# ##################################################################################################
-# * raft_nn ------------------------------------------------------------------
-add_library(raft_nn INTERFACE)
-
-if(TARGET raft_nn AND (NOT TARGET raft::nn))
-  add_library(raft::nn ALIAS raft_nn)
-endif()
-
-set_target_properties(raft_nn PROPERTIES EXPORT_NAME nn)
-
-if(RAFT_COMPILE_NN_LIBRARY)
-  add_library(
-    raft_nn_lib
-    src/nn/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
-    src/nn/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
-    src/nn/specializations/ball_cover_all_knn_query.cu
-    src/nn/specializations/ball_cover_build_index.cu
-    src/nn/specializations/ball_cover_knn_query.cu
-    src/nn/specializations/fused_l2_knn_long_float_true.cu
-    src/nn/specializations/fused_l2_knn_long_float_false.cu
-    src/nn/specializations/fused_l2_knn_int_float_true.cu
-    src/nn/specializations/fused_l2_knn_int_float_false.cu
-    src/nn/specializations/brute_force_knn_long_float_int.cu
-    src/nn/specializations/brute_force_knn_long_float_uint.cu
-    src/nn/specializations/brute_force_knn_uint32_t_float_int.cu
-    src/nn/specializations/brute_force_knn_uint32_t_float_uint.cu
-  )
-  set_target_properties(
-    raft_nn_lib
-    PROPERTIES OUTPUT_NAME raft_nn
-               BUILD_RPATH "\$ORIGIN"
-               INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
-               CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
-               CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON
-               INTERFACE_POSITION_INDEPENDENT_CODE ON
-  )
-
-  target_link_libraries(
-    raft_nn_lib
-    PUBLIC faiss::faiss raft::raft
-    PRIVATE nvidia::cutlass::cutlass
-  )
-  target_compile_options(
-    raft_nn_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                        "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-  )
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(raft_nn_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
-  target_compile_definitions(raft_nn_lib INTERFACE "RAFT_NN_COMPILED")
-endif()
-
-if(TARGET raft_nn_lib AND (NOT TARGET raft::raft_nn_lib))
-  add_library(raft::raft_nn_lib ALIAS raft_nn_lib)
-endif()
-
-target_link_libraries(
-  raft_nn INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_nn_lib> nvidia::cutlass::cutlass
 )
 
 # ##################################################################################################
@@ -553,13 +490,6 @@ install(
   EXPORT raft-distance-exports
 )
 
-install(
-  TARGETS raft_nn
-  DESTINATION ${lib_dir}
-  COMPONENT raft
-  EXPORT raft-nn-exports
-)
-
 if(TARGET raft_distance_lib)
   install(
     TARGETS raft_distance_lib
@@ -571,15 +501,6 @@ if(TARGET raft_distance_lib)
     DIRECTORY include/raft_runtime
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT distance
-  )
-endif()
-
-if(TARGET raft_nn_lib)
-  install(
-    TARGETS raft_nn_lib
-    DESTINATION ${lib_dir}
-    COMPONENT nn
-    EXPORT raft-nn-lib-exports
   )
 endif()
 
@@ -614,15 +535,11 @@ install(
 
 include("${rapids-cmake-dir}/export/write_dependencies.cmake")
 
-set(raft_components distance nn distributed)
-set(raft_install_comp raft raft raft)
+set(raft_components distance distributed)
+set(raft_install_comp raft raft)
 if(TARGET raft_distance_lib)
   list(APPEND raft_components distance-lib)
   list(APPEND raft_install_comp distance)
-endif()
-if(TARGET raft_nn_lib)
-  list(APPEND raft_components nn-lib)
-  list(APPEND raft_install_comp nn)
 endif()
 
 foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
@@ -658,13 +575,11 @@ RAFT contains fundamental widely-used algorithms and primitives
 for data science and machine learning.
 
 Optional Components:
-  - nn
   - distance
   - distributed
 
 Imported Targets:
   - raft::raft
-  - raft::nn brought in by the `nn` optional component
   - raft::distance brought in by the `distance` optional component
   - raft::distributed brought in by the `distributed` optional component
 
@@ -692,31 +607,21 @@ string(
 if(distance IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
-
-if(nn IN_LIST raft_FIND_COMPONENTS)
-  enable_language(CUDA)
-
-  if(TARGET faiss AND (NOT TARGET faiss::faiss))
-      add_library(faiss::faiss ALIAS faiss)
-  elseif(TARGET faiss::faiss AND (NOT TARGET faiss))
-      add_library(faiss ALIAS faiss::faiss)
-  endif()
-endif()
 ]=]
 )
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 include(cmake/modules/raft_export.cmake)
 raft_export(
-  INSTALL raft COMPONENTS nn distance distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft nn
-  distance distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  INSTALL raft COMPONENTS distance distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft distance
+  distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------
 raft_export(
-  BUILD raft EXPORT_SET raft-exports COMPONENTS nn distance distributed GLOBAL_TARGETS raft
-  distance distributed nn DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  BUILD raft EXPORT_SET raft-exports COMPONENTS distance distributed GLOBAL_TARGETS raft distance
+  distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,7 +36,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -n                          - no install step
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-libs              - compile shared libraries for all components
-   --compile-nn                - compile shared library for nn component
    --compile-dist              - compile shared library for distance and current random components
                                  (eventually, this will be renamed to something more generic and
                                   the only option to be supported)
@@ -71,9 +70,7 @@ BUILD_TYPE=Release
 BUILD_BENCH=OFF
 BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
-COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
-ENABLE_NN_DEPENDENCIES=OFF
 INSTALL_TARGET=install
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
@@ -277,12 +274,6 @@ if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_LIBRARIES=ON
 fi
 
-if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-    ENABLE_NN_DEPENDENCIES=ON
-    COMPILE_NN_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
-fi
-
 if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
     COMPILE_DIST_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
@@ -292,16 +283,6 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
     CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
 
-    # Force compile nn library when needed test targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
-          $CMAKE_TARGET == *"SPARSE_DIST_TEST"* || \
-          $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
-          $CMAKE_TARGET == *"STATS_TEST"* ]]; then
-      echo "-- Enabling nearest neighbors lib for gtests"
-      ENABLE_NN_DEPENDENCIES=ON
-      COMPILE_NN_LIBRARY=ON
-    fi
 
     # Force compile distance library when needed test targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
@@ -319,14 +300,6 @@ fi
 if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
-
-    # Force compile nn library when needed benchmark targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_BENCH"*  ]]; then
-      echo "-- Enabling nearest neighbors lib for benchmarks"
-      ENABLE_NN_DEPENDENCIES=ON
-      COMPILE_NN_LIBRARY=ON
-    fi
 
     # Force compile distance library when needed benchmark targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
@@ -402,13 +375,11 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
-          -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
           -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_BENCH=${BUILD_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
           -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \

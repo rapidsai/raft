@@ -58,7 +58,6 @@ cdef extern from "raft_runtime/neighbors/brute_force.hpp" \
                   device_matrix_view[const float, uint32_t, row_major] search,
                   device_matrix_view[int64_t, uint32_t, row_major] indices,
                   device_matrix_view[float, uint32_t, row_major] distances,
-                  int k,
                   DistanceType metric,
                   optional[float] metric_arg,
                   optional[int64_t] global_id_offset) except +

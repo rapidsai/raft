@@ -22,7 +22,9 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_NN_COMPILED
+
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 

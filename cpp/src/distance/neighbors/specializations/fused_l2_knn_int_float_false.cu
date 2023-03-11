@@ -15,18 +15,16 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
-
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
 
-template void fusedL2Knn<long, float, true>(size_t D,
-                                            long* out_inds,
+template void fusedL2Knn<int, float, false>(size_t D,
+                                            int* out_inds,
                                             float* out_dists,
                                             const float* index,
                                             const float* query,
@@ -37,6 +35,7 @@ template void fusedL2Knn<long, float, true>(size_t D,
                                             bool rowMajorQuery,
                                             cudaStream_t stream,
                                             raft::distance::DistanceType metric);
+
 };  // namespace detail
 };  // namespace knn
 };  // namespace spatial

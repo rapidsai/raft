@@ -42,12 +42,6 @@ from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
 from pylibraft.common.interruptible import cuda_interruptible
 
-from pylibraft.distance.distance_type cimport DistanceType
-
-# TODO: Centralize this
-
-from pylibraft.neighbors.ivf_pq.ivf_pq import _get_metric
-
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
     host_matrix_view,
@@ -55,7 +49,30 @@ from pylibraft.common.cpp.mdspan cimport (
     make_host_matrix_view,
     row_major,
 )
+from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.neighbors.cpp.brute_force cimport knn as c_knn
+
+SUPPORTED_DISTANCES = {
+    "sqeuclidean": DistanceType.L2Expanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "inner_product": DistanceType.InnerProduct,
+    "jensen_shannon": DistanceType.JensenShannon,
+    "l2": DistanceType.L2Expanded,
+    "l1": DistanceType.L1,
+    "cityblock": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "canberra": DistanceType.Canberra,
+    "cosine": DistanceType.Cosine,
+    "correlations": DistanceType.Correlation,
+    "russelrao": DistanceType.RusselRaoExpanded
+}
+
+
+def _get_metric(metric):
+    if metric not in SUPPORTED_DISTANCES:
+        raise ValueError("metric %s is not supported" % metric)
+    return SUPPORTED_DISTANCES[metric]
 
 
 cdef device_matrix_view[float, uint32_t, row_major] \
@@ -132,24 +149,20 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import ivf_pq, refine
+    >>> from pylibraft.neighbors import brute_force_knn
 
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
+    >>>
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-    >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 40
-    >>> distances, neighbors = knn(dataset, queries, k)
+    >>> distances, neighbors = brute_force_knn(dataset, queries, k)
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
-
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
     """
 
     if handle is None:
@@ -212,7 +225,6 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
                   queries_view,
                   indices_view,
                   distances_view,
-                  k,
                   c_metric,
                   c_metric_arg,
                   c_global_offset)

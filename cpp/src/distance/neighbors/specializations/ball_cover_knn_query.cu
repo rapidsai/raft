@@ -15,31 +15,20 @@
  */
 
 #include <cstdint>
-#include <raft/spatial/knn/detail/ball_cover/registers.cuh>
+#include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/ball_cover_types.hpp>
+#include <raft/neighbors/specializations.cuh>
 
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
-
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
-
-template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t>(
+namespace raft::neighbors::ball_cover {
+template void knn_query<std::int64_t, float, std::uint32_t>(
   raft::device_resources const& handle,
-  const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
-  const float* query,
-  const std::uint32_t n_query_rows,
+  const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
   std::uint32_t k,
-  const std::int64_t* R_knn_inds,
-  const float* R_knn_dists,
-  DistFunc<float, std::uint32_t>& dfunc,
+  const float* query,
+  std::uint32_t n_query_pts,
   std::int64_t* inds,
   float* dists,
-  float weight,
-  std::uint32_t* dists_counter);
+  bool perform_post_filtering,
+  float weight);
 
-};  // namespace detail
-};  // namespace knn
-};  // namespace spatial
-};  // namespace raft
+};  // namespace raft::neighbors::ball_cover

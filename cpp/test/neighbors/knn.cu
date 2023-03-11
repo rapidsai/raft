@@ -20,8 +20,9 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
-#if defined RAFT_NN_COMPILED
-#include <raft/distance/specializations.cuh>
+
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 

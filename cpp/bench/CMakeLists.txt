@@ -17,7 +17,7 @@
 
 function(ConfigureBench)
 
-  set(options OPTIONAL DIST NN)
+  set(options OPTIONAL DIST)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -32,7 +32,6 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_DIST}>:raft::distance>
-            $<$<BOOL:${ConfigureBench_NN}>:raft::nn>
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
@@ -70,7 +69,7 @@ endfunction()
 if(BUILD_BENCH)
   ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/cluster/kmeans_balanced.cu bench/cluster/kmeans.cu bench/main.cpp
-    OPTIONAL DIST NN
+    OPTIONAL DIST
   )
 
   ConfigureBench(
@@ -133,6 +132,5 @@ if(BUILD_BENCH)
     bench/main.cpp
     OPTIONAL
     DIST
-    NN
   )
 endif()
