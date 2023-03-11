@@ -26,7 +26,6 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/neighbors/specializations.cuh>
-#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>

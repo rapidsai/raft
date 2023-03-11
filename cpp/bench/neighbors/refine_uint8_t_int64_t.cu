@@ -18,9 +18,7 @@
 #include <common/benchmark.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#include <raft/neighbors/specializations/refine.cuh>
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 using namespace raft::neighbors;

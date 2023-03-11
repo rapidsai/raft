@@ -25,7 +25,6 @@
 
 #ifdef RAFT_DISTANCE_COMPILED
 #include <raft/neighbors/specializations.cuh>
-#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>

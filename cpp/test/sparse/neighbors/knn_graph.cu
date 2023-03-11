@@ -23,7 +23,7 @@
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/neighbors/knn_graph.cuh>
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <iostream>
