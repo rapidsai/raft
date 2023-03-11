@@ -15,6 +15,7 @@
  */
 
 #include <raft/matrix/detail/select_k.cuh>
+#include <raft/matrix/specializations.cuh>
 
 namespace raft::matrix::detail {
 

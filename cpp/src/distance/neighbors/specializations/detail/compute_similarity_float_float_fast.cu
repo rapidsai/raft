@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/detail/ivf_pq_search.cuh>
-
 #include <cuda_fp16.h>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/neighbors/specializations.cuh>
 
 namespace raft::neighbors::ivf_pq::detail {
 

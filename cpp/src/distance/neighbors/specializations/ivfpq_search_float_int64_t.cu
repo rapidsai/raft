@@ -15,6 +15,7 @@
  */
 
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations.cuh>
 
 namespace raft::neighbors::ivf_pq {
 

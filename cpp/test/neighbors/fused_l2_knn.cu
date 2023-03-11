@@ -23,7 +23,7 @@
 #include <raft/spatial/knn/knn.cuh>
 
 #if defined RAFT_NN_COMPILED
-#include <raft/neighbors/specializations.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_buffer.hpp>
