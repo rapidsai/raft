@@ -37,7 +37,7 @@ option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
   find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
-  if(NOT TARGET raft::raft_distance_lib)
+  if(NOT TARGET raft::raft_lib)
     message(
       FATAL_ERROR
         "Building against a preexisting libraft library requires the distance components of that library to have been built!"
@@ -79,7 +79,7 @@ if(NOT raft_FOUND)
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft
   # library, we shouldn't need this
   set(cython_lib_dir pylibraft)
-  install(TARGETS raft_distance_lib DESTINATION ${cython_lib_dir})
+  install(TARGETS raft_lib DESTINATION ${cython_lib_dir})
 endif()
 
 rapids_cython_init()
