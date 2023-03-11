@@ -406,7 +406,7 @@ if(RAFT_COMPILE_LIBRARY)
   )
   set_target_properties(
     raft_lib
-    PROPERTIES OUTPUT_NAME raft_compiled
+    PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
                CXX_STANDARD 17
@@ -573,7 +573,6 @@ for data science and machine learning.
 
 Optional Components:
   - compiled
-  - distance
   - distributed
 
 Imported Targets:
