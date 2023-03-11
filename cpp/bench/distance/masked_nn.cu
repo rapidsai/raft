@@ -30,8 +30,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.hpp>
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
 #endif
 
 namespace raft::bench::distance::masked_nn {

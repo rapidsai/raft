@@ -24,8 +24,8 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/neighbors/specializations/ivf_pq.cuh>
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
 #endif
@@ -183,7 +183,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = true;
 
-    return ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+    auto index_view =
+      raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+    return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
   }
 
   auto build_2_extends()
@@ -203,17 +205,23 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = false;
 
-    auto index =
-      ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+    auto database_view =
+      raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+    auto index = ivf_pq::build<DataT, IdxT>(handle_, ipams, database_view);
 
-    ivf_pq::extend<DataT, IdxT>(handle_, &index, vecs_2, inds_2, size_2);
-    return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1, inds_1, size_1);
+    auto vecs_2_view = raft::make_device_matrix_view<DataT, IdxT>(vecs_2, size_2, ps.dim);
+    auto inds_2_view = raft::make_device_matrix_view<IdxT, IdxT>(inds_2, size_2, 1);
+    ivf_pq::extend<DataT, IdxT>(handle_, &index, vecs_2_view, inds_2_view);
+
+    auto vecs_1_view = raft::make_device_matrix_view<DataT, IdxT>(vecs_1, size_1, ps.dim);
+    auto inds_1_view = raft::make_device_matrix_view<IdxT, IdxT>(inds_1, size_1, 1);
+    return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1_view, inds_1_view);
   }
 
   auto build_serialize()
   {
-    ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
-    return ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
+    ivf_pq::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
+    return ivf_pq::deserialize<IdxT>(handle_, "ivf_pq_index");
   }
 
   template <typename BuildIndex>
@@ -228,14 +236,15 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     rmm::device_uvector<EvalT> distances_ivf_pq_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
 
-    ivf_pq::search<DataT, IdxT>(handle_,
-                                ps.search_params,
-                                index,
-                                search_queries.data(),
-                                ps.num_queries,
-                                ps.k,
-                                indices_ivf_pq_dev.data(),
-                                distances_ivf_pq_dev.data());
+    auto query_view =
+      raft::make_device_matrix_view<DataT, IdxT>(search_queries.data(), ps.num_queries, ps.dim);
+    auto inds_view =
+      raft::make_device_matrix_view<IdxT, IdxT>(indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
+    auto dists_view =
+      raft::make_device_matrix_view<EvalT, IdxT>(distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
+
+    ivf_pq::search<DataT, IdxT>(
+      handle_, ps.search_params, index, query_view, ps.k, inds_view, dists_view);
 
     update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);

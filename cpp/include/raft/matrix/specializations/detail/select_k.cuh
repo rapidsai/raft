@@ -35,8 +35,8 @@ namespace raft::matrix::detail {
                                          rmm::mr::device_memory_resource*);
 
 // Commonly used types
-RAFT_INST(float, uint64_t);
-RAFT_INST(half, uint64_t);
+RAFT_INST(float, int64_t);
+RAFT_INST(half, int64_t);
 
 // These instances are used in the ivf_pq::search parameterized by the internal_distance_dtype
 RAFT_INST(float, uint32_t);
