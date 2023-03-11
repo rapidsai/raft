@@ -192,7 +192,6 @@ RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https:
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` RAFT headers
-- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
 - `libraft-distance` (optional) contains shared libraries for distance primitives.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
@@ -204,7 +203,7 @@ mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
 
 You can also install the `libraft-*` conda packages individually using the `mamba` command above.
 
-After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS distance distributed)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### Pip
 
@@ -267,7 +266,6 @@ Several CMake targets can be made available by adding components in the table be
 | --- | --- | --- | --- |
 | n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
 | distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
 | distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
 
 ### Source
