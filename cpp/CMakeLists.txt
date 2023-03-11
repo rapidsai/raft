@@ -64,9 +64,6 @@ endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
-option(RAFT_COMPILE_LIBRARY "Enable building raft distant shared library instantiations"
-       ${RAFT_COMPILE_LIBRARY}
-)
 
 option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
 
