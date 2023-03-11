@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,6 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/detail/ivf_pq_search.cuh>
-#include <raft/neighbors/specializations.cuh>
+#pragma once
 
-#include <cuda_fp16.h>
-
-namespace raft::neighbors::ivf_pq::detail {
-
-template auto get_compute_similarity_kernel<half, fp_8bit<5, false>, false, true>(uint32_t,
-                                                                                  uint32_t)
-  -> compute_similarity_kernel_t<half, fp_8bit<5, false>>;
-
-}  // namespace raft::neighbors::ivf_pq::detail
+#include <raft/matrix/specializations/detail/select_k.cuh>

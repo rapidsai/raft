@@ -23,6 +23,10 @@
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
+#if defined RAFT_DISTANCE_COMPILED
+#include <raft/matrix/specializations.cuh>
+#endif
+
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
@@ -160,27 +164,27 @@ const std::vector<select::params> kInputs{
     RAFT_BENCH_REGISTER(SelectK, #KeyT "/" #IdxT "/" #A, kInputs); \
   }
 
-SELECTION_REGISTER(float, int, kPublicApi);             // NOLINT
-SELECTION_REGISTER(float, int, kRadix8bits);            // NOLINT
-SELECTION_REGISTER(float, int, kRadix11bits);           // NOLINT
-SELECTION_REGISTER(float, int, kRadix11bitsExtraPass);  // NOLINT
-SELECTION_REGISTER(float, int, kWarpAuto);              // NOLINT
-SELECTION_REGISTER(float, int, kWarpImmediate);         // NOLINT
-SELECTION_REGISTER(float, int, kWarpFiltered);          // NOLINT
-SELECTION_REGISTER(float, int, kWarpDistributed);       // NOLINT
-SELECTION_REGISTER(float, int, kWarpDistributedShm);    // NOLINT
+SELECTION_REGISTER(float, uint32_t, kPublicApi);             // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix8bits);            // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix11bits);           // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix11bitsExtraPass);  // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpAuto);              // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpImmediate);         // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpFiltered);          // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpDistributed);       // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpDistributedShm);    // NOLINT
 
-SELECTION_REGISTER(double, int, kRadix8bits);            // NOLINT
-SELECTION_REGISTER(double, int, kRadix11bits);           // NOLINT
-SELECTION_REGISTER(double, int, kRadix11bitsExtraPass);  // NOLINT
-SELECTION_REGISTER(double, int, kWarpAuto);              // NOLINT
+SELECTION_REGISTER(double, uint32_t, kRadix8bits);            // NOLINT
+SELECTION_REGISTER(double, uint32_t, kRadix11bits);           // NOLINT
+SELECTION_REGISTER(double, uint32_t, kRadix11bitsExtraPass);  // NOLINT
+SELECTION_REGISTER(double, uint32_t, kWarpAuto);              // NOLINT
 
-SELECTION_REGISTER(double, size_t, kRadix8bits);            // NOLINT
-SELECTION_REGISTER(double, size_t, kRadix11bits);           // NOLINT
-SELECTION_REGISTER(double, size_t, kRadix11bitsExtraPass);  // NOLINT
-SELECTION_REGISTER(double, size_t, kWarpImmediate);         // NOLINT
-SELECTION_REGISTER(double, size_t, kWarpFiltered);          // NOLINT
-SELECTION_REGISTER(double, size_t, kWarpDistributed);       // NOLINT
-SELECTION_REGISTER(double, size_t, kWarpDistributedShm);    // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix8bits);            // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix11bits);           // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix11bitsExtraPass);  // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpImmediate);         // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpFiltered);          // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpDistributed);       // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);    // NOLINT
 
 }  // namespace raft::matrix
