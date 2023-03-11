@@ -198,6 +198,8 @@ if(BUILD_TESTS)
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
+    OPTIONAL
+    DIST
   )
 
   ConfigureTest(

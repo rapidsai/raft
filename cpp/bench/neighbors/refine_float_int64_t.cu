@@ -18,7 +18,6 @@
 #include <common/benchmark.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
 #include <raft/neighbors/specializations/refine.cuh>
 #endif
 
