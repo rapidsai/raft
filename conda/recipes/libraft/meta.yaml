@@ -76,9 +76,9 @@ outputs:
       home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft-headers library
-  - name: libraft-distance
+  - name: libraft
     version: {{ version }}
-    script: build_libraft_distance.sh
+    script: build_libraft.sh
     build:
       script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
@@ -109,7 +109,7 @@ outputs:
     about:
       home: https://rapids.ai/
       license: Apache-2.0
-      summary: libraft-distance library
+      summary: libraft library
   - name: libraft-tests
     version: {{ version }}
     script: build_libraft_tests.sh
@@ -128,7 +128,7 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - {{ pin_subpackage('libraft-distance', exact=True) }}
+        - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - gmock {{ gtest_version }}
@@ -142,7 +142,7 @@ outputs:
         - libcusparse {{ libcusparse_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
       run:
-        - {{ pin_subpackage('libraft-distance', exact=True) }}
+        - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}

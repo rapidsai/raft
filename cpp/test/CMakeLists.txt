@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL DIST)
+  set(options OPTIONAL LIB)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -33,7 +33,7 @@ function(ConfigureTest)
     ${TEST_NAME}
     PRIVATE raft::raft
             raft_internal
-            $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
+            $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -86,7 +86,7 @@ if(BUILD_TESTS)
     test/cluster/linkage.cu
     test/cluster/kmeans_find_k.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(
@@ -136,7 +136,7 @@ if(BUILD_TESTS)
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -197,7 +197,7 @@ if(BUILD_TESTS)
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(
@@ -217,7 +217,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL DIST
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -241,12 +241,12 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL DIST
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL LIB
   )
 
   ConfigureTest(
     NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST
+    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -270,7 +270,7 @@ if(BUILD_TESTS)
     test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(
@@ -303,7 +303,7 @@ if(BUILD_TESTS)
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(

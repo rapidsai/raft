@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -35,16 +35,12 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    -n                          - no install step
    --uninstall                 - uninstall files for specified targets which were built and installed prior
-   --compile-libs              - compile shared libraries for all components
-   --compile-dist              - compile shared library for distance and current random components
-                                 (eventually, this will be renamed to something more generic and
-                                  the only option to be supported)
+   --compile-lib               - compile shared libraries for all components
    --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
    --allgpuarch                - build for all supported GPU architectures
-   --buildfaiss                - build faiss statically into raft
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
@@ -68,9 +64,7 @@ BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_BENCH=OFF
-BUILD_STATIC_FAISS=OFF
-COMPILE_LIBRARIES=OFF
-COMPILE_DIST_LIBRARY=OFF
+COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
@@ -270,13 +264,9 @@ if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 
-if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-    COMPILE_LIBRARIES=ON
-fi
-
-if hasArg --compile-dist || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-    COMPILE_DIST_LIBRARY=ON
-    CMAKE_TARGET="${CMAKE_TARGET};raft_distance_lib"
+if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
+    COMPILE_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
 fi
 
 if hasArg tests || (( ${NUMARGS} == 0 )); then
@@ -284,7 +274,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
 
 
-    # Force compile distance library when needed test targets are specified
+    # Force compile library when needed test targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
           $CMAKE_TARGET == *"DISTANCE_TEST"* || \
           $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
@@ -292,8 +282,8 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
           $CMAKE_TARGET == *"MATRIX_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_TEST" || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
-      echo "-- Enabling distance lib for gtests"
-      COMPILE_DIST_LIBRARY=ON
+      echo "-- Enabling compiled lib for gtests"
+      COMPILE_LIBRARY=ON
     fi
 fi
 
@@ -301,19 +291,16 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
     BUILD_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
 
-    # Force compile distance library when needed benchmark targets are specified
+    # Force compile library when needed benchmark targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
           $CMAKE_TARGET == *"MATRIX_BENCH"* || \
           $CMAKE_TARGET == *"NEIGHBORS_BENCH"* ]]; then
-      echo "-- Enabling distance lib for benchmarks"
-      COMPILE_DIST_LIBRARY=ON
+      echo "-- Enabling compiled lib for benchmarks"
+      COMPILE_LIBRARY=ON
     fi
 
 fi
 
-if hasArg --buildfaiss; then
-    BUILD_STATIC_FAISS=ON
-fi
 if hasArg --no-nvtx; then
     NVTX=OFF
 fi
@@ -374,14 +361,12 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
           -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_BENCH=${BUILD_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
+          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
