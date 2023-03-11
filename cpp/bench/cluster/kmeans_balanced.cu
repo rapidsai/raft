@@ -19,7 +19,7 @@
 #include <raft/random/rng.cuh>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
+#include <raft/cluster/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {

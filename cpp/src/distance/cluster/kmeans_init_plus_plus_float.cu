@@ -15,8 +15,8 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/cluster/specializations.cuh>
 #include <raft/core/device_resources.hpp>
-#include <raft/distance/specializations.cuh>
 
 namespace raft::runtime::cluster::kmeans {
 

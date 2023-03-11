@@ -19,7 +19,7 @@
 #include <raft/cluster/kmeans_types.hpp>
 
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
+#include <raft/cluster/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {
