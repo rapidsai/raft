@@ -15,6 +15,7 @@
  */
 
 #include <raft/neighbors/refine.cuh>
+#include <raft/neighbors/specializations.cuh>
 
 namespace raft::neighbors {
 template void refine<int64_t, int8_t, float, int64_t>(

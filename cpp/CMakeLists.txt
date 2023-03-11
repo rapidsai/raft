@@ -361,9 +361,9 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_float_int64.cu
     src/distance/matrix/specializations/detail/select_k_float_uint32_t.cu
-    src/distance/matrix/specializations/detail/select_k_float_uint64_t.cu
+    src/distance/matrix/specializations/detail/select_k_float_int64_t.cu
     src/distance/matrix/specializations/detail/select_k_half_uint32_t.cu
-    src/distance/matrix/specializations/detail/select_k_half_uint64_t.cu
+    src/distance/matrix/specializations/detail/select_k_half_int64_t.cu
     src/distance/neighbors/ivfpq_build.cu
     src/distance/neighbors/ivfpq_deserialize.cu
     src/distance/neighbors/ivfpq_serialize.cu
