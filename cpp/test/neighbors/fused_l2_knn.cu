@@ -26,6 +26,12 @@
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
+#include <raft/distance/distance.cuh>
+
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>
