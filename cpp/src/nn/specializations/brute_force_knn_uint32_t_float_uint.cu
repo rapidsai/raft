@@ -15,6 +15,7 @@
  */
 
 #include <cstdint>
+#include <raft/distance/specializations.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
 // TODO: Change this to proper specializations after FAISS is removed
