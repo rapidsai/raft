@@ -130,7 +130,6 @@ outputs:
       host:
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
-        - {{ pin_subpackage('libraft-nn', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
@@ -145,7 +144,6 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-distance', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
-        - {{ pin_subpackage('libraft-nn', exact=True) }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
     about:
