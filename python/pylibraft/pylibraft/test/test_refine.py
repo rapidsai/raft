@@ -57,10 +57,10 @@ def run_refine(
     )
     nn_skl.fit(dataset)
     skl_dist, candidates = nn_skl.kneighbors(queries)
-    candidates = candidates.astype(np.uint64)
+    candidates = candidates.astype(np.int64)
     candidates_device = device_ndarray(candidates)
 
-    out_idx = np.zeros((n_queries, k), dtype=np.uint64)
+    out_idx = np.zeros((n_queries, k), dtype=np.int64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
     out_idx_device = device_ndarray(out_idx) if inplace else None
     out_dist_device = device_ndarray(out_dist) if inplace else None
@@ -196,12 +196,12 @@ def test_input_assertions(params, memory_type):
     queries_device = device_ndarray(queries)
 
     candidates = np.random.randint(
-        0, 500, size=(n_queries, k0), dtype=np.uint64
+        0, 500, size=(n_queries, k0), dtype=np.int64
     )
     candidates_device = device_ndarray(candidates)
 
     if params["idx_shape"] is not None:
-        out_idx = np.zeros(params["idx_shape"], dtype=np.uint64)
+        out_idx = np.zeros(params["idx_shape"], dtype=np.int64)
         out_idx_device = device_ndarray(out_idx)
     else:
         out_idx_device = None

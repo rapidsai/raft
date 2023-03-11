@@ -25,9 +25,6 @@
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
 #if defined RAFT_DISTANCE_COMPILED
-#include <raft/matrix/specializations/detail/select_k.cuh>
-#endif
-#if defined RAFT_NN_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

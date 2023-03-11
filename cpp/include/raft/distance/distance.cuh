@@ -23,6 +23,7 @@
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
+#include <type_traits>
 
 #include <raft/core/device_mdspan.hpp>
 
@@ -101,9 +102,6 @@ void distance(raft::resources const& handle,
  * @param worksize number of bytes of the workspace
  * @param isRowMajor whether the matrices are row-major or col-major
  * @param metric_arg metric argument (used for Minkowski distance)
- *
- * @note if workspace is passed as nullptr, this will return in
- *  worksize, the number of bytes of workspace required
  */
 template <raft::distance::DistanceType distanceType,
           typename InType,
@@ -252,71 +250,63 @@ void pairwise_distance(raft::resources const& handle,
                        bool isRowMajor = true,
                        Type metric_arg = 2.0f)
 {
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  auto dispatch = [&](auto distance_type) {
+    auto worksize = getWorkspaceSize<distance_type(), Type, Type, Type, Index_>(x, y, m, n, k);
+    workspace.resize(worksize, stream);
+    detail::distance<distance_type(), Type, Type, Type, Index_>(
+      handle, x, y, dist, m, n, k, workspace.data(), worksize, isRowMajor, metric_arg);
+  };
+
   switch (metric) {
-    case raft::distance::DistanceType::L2Expanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2Expanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
+    case DistanceType::Canberra:
+      dispatch(std::integral_constant<DistanceType, DistanceType::Canberra>{});
       break;
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2SqrtExpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
+    case DistanceType::CorrelationExpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::CorrelationExpanded>{});
       break;
-    case raft::distance::DistanceType::CosineExpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CosineExpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
+    case DistanceType::CosineExpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::CosineExpanded>{});
       break;
-    case raft::distance::DistanceType::L1:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L1>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
+    case DistanceType::HammingUnexpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::HammingUnexpanded>{});
       break;
-    case raft::distance::DistanceType::L2Unexpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2Unexpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2SqrtUnexpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::L2SqrtUnexpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::Linf:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Linf>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::HellingerExpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::HellingerExpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::LpUnexpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::LpUnexpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor, metric_arg);
-      break;
-    case raft::distance::DistanceType::Canberra:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::Canberra>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::HammingUnexpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::HammingUnexpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::JensenShannon:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::JensenShannon>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::RusselRaoExpanded:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::RusselRaoExpanded>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::KLDivergence:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::KLDivergence>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
-      break;
-    case raft::distance::DistanceType::CorrelationExpanded:
-      detail::
-        pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::CorrelationExpanded>(
-          handle, x, y, dist, m, n, k, workspace, isRowMajor);
+    case DistanceType::HellingerExpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::HellingerExpanded>{});
       break;
     case raft::distance::DistanceType::InnerProduct:
-      detail::pairwise_distance_impl<Type, Index_, raft::distance::DistanceType::InnerProduct>(
-        handle, x, y, dist, m, n, k, workspace, isRowMajor);
+      dispatch(std::integral_constant<DistanceType, DistanceType::InnerProduct>{});
+      break;
+    case DistanceType::JensenShannon:
+      dispatch(std::integral_constant<DistanceType, DistanceType::JensenShannon>{});
+      break;
+    case DistanceType::KLDivergence:
+      dispatch(std::integral_constant<DistanceType, DistanceType::KLDivergence>{});
+      break;
+    case DistanceType::L1:
+      dispatch(std::integral_constant<DistanceType, DistanceType::L1>{});
+      break;
+    case DistanceType::L2Expanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::L2Expanded>{});
+      break;
+    case DistanceType::L2SqrtExpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::L2SqrtExpanded>{});
+      break;
+    case DistanceType::L2SqrtUnexpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::L2SqrtUnexpanded>{});
+      break;
+    case DistanceType::L2Unexpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::L2Unexpanded>{});
+      break;
+    case DistanceType::Linf:
+      dispatch(std::integral_constant<DistanceType, DistanceType::Linf>{});
+      break;
+    case DistanceType::LpUnexpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::LpUnexpanded>{});
+      break;
+    case DistanceType::RusselRaoExpanded:
+      dispatch(std::integral_constant<DistanceType, DistanceType::RusselRaoExpanded>{});
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
