@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ def repo_version_major_minor():
 def determine_merge_commit(current_branch="HEAD"):
     """
     When running outside of CI, this will estimate the target merge commit hash
-    of `current_branch` by finding a common ancester with the remote branch
+    of `current_branch` by finding a common ancestor with the remote branch
     'branch-{major}.{minor}' where {major} and {minor} are determined from the
     repo version.
 

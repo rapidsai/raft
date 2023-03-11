@@ -299,26 +299,24 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/cluster/update_centroids_double.cu
     src/distance/cluster/cluster_cost_float.cu
     src/distance/cluster/cluster_cost_double.cu
-    src/distance/neighbors/refine_d_uint64_t_float.cu
-    src/distance/neighbors/refine_d_uint64_t_int8_t.cu
-    src/distance/neighbors/refine_d_uint64_t_uint8_t.cu
-    src/distance/neighbors/refine_h_uint64_t_float.cu
-    src/distance/neighbors/refine_h_uint64_t_int8_t.cu
-    src/distance/neighbors/refine_h_uint64_t_uint8_t.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_float.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_int8_t.cu
-    src/distance/neighbors/specializations/refine_d_uint64_t_uint8_t.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_float.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_int8_t.cu
-    src/distance/neighbors/specializations/refine_h_uint64_t_uint8_t.cu
+    src/distance/neighbors/refine_d_int64_t_float.cu
+    src/distance/neighbors/refine_d_int64_t_int8_t.cu
+    src/distance/neighbors/refine_d_int64_t_uint8_t.cu
+    src/distance/neighbors/refine_h_int64_t_float.cu
+    src/distance/neighbors/refine_h_int64_t_int8_t.cu
+    src/distance/neighbors/refine_h_int64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_d_int64_t_float.cu
+    src/distance/neighbors/specializations/refine_d_int64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_d_int64_t_uint8_t.cu
+    src/distance/neighbors/specializations/refine_h_int64_t_float.cu
+    src/distance/neighbors/specializations/refine_h_int64_t_int8_t.cu
+    src/distance/neighbors/specializations/refine_h_int64_t_uint8_t.cu
     src/distance/cluster/kmeans_fit_float.cu
     src/distance/cluster/kmeans_fit_double.cu
     src/distance/cluster/kmeans_init_plus_plus_double.cu
     src/distance/cluster/kmeans_init_plus_plus_float.cu
     src/distance/distance/specializations/detail/canberra_double_double_double_int.cu
     src/distance/distance/specializations/detail/canberra_float_float_float_int.cu
-    src/distance/distance/specializations/detail/chebyshev_double_double_double_int.cu
-    src/distance/distance/specializations/detail/chebyshev_float_float_float_int.cu
     src/distance/distance/specializations/detail/correlation_double_double_double_int.cu
     src/distance/distance/specializations/detail/correlation_float_float_float_int.cu
     src/distance/distance/specializations/detail/cosine_double_double_double_int.cu
@@ -352,6 +350,8 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+    src/distance/distance/specializations/detail/l_inf_double_double_double_int.cu
+    src/distance/distance/specializations/detail/l_inf_float_float_float_int.cu
     src/distance/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/russel_rao_double_double_double_int.cu
@@ -361,24 +361,24 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/distance/specializations/fused_l2_nn_float_int64.cu
     src/distance/matrix/specializations/detail/select_k_float_uint32_t.cu
-    src/distance/matrix/specializations/detail/select_k_float_uint64_t.cu
+    src/distance/matrix/specializations/detail/select_k_float_int64_t.cu
     src/distance/matrix/specializations/detail/select_k_half_uint32_t.cu
-    src/distance/matrix/specializations/detail/select_k_half_uint64_t.cu
+    src/distance/matrix/specializations/detail/select_k_half_int64_t.cu
     src/distance/neighbors/ivfpq_build.cu
     src/distance/neighbors/ivfpq_deserialize.cu
     src/distance/neighbors/ivfpq_serialize.cu
-    src/distance/neighbors/ivfpq_search_float_uint64_t.cu
-    src/distance/neighbors/ivfpq_search_int8_t_uint64_t.cu
-    src/distance/neighbors/ivfpq_search_uint8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_build_float_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_build_int8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_build_uint8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_extend_float_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_extend_int8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_extend_uint8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_search_float_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_search_int8_t_uint64_t.cu
-    src/distance/neighbors/specializations/ivfpq_search_uint8_t_uint64_t.cu
+    src/distance/neighbors/ivfpq_search_float_int64_t.cu
+    src/distance/neighbors/ivfpq_search_int8_t_int64_t.cu
+    src/distance/neighbors/ivfpq_search_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_search_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
     src/distance/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu

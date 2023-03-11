@@ -25,11 +25,13 @@ import numpy as np
 from cpython.object cimport PyObject
 from cython.operator cimport dereference as deref
 from libc.stddef cimport size_t
-from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t, uintptr_t
+from libc.stdint cimport int8_t, int32_t, int64_t, uint8_t, uint32_t, uintptr_t
 
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
+    device_matrix_view,
     host_mdspan,
+    make_device_matrix_view,
     make_host_matrix_view,
     matrix_extent,
     ostream,
@@ -144,3 +146,47 @@ def run_roundtrip_test_for_mdspan(X, fortran_order=False):
     X2 = np.load(f)
     assert np.all(X.shape == X2.shape)
     assert np.all(X == X2)
+
+
+cdef device_matrix_view[float, int64_t, row_major] \
+        get_dmv_float(cai, check_shape) except *:
+    if cai.dtype != np.float32:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[float, int64_t, row_major](
+        <float*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[uint8_t, int64_t, row_major] \
+        get_dmv_uint8(cai, check_shape) except *:
+    if cai.dtype != np.uint8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint8_t, int64_t, row_major](
+        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[int8_t, int64_t, row_major] \
+        get_dmv_int8(cai, check_shape) except *:
+    if cai.dtype != np.int8:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[int8_t, int64_t, row_major](
+        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef device_matrix_view[int64_t, int64_t, row_major] \
+        get_dmv_int64(cai, check_shape) except *:
+    if cai.dtype != np.int64:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[int64_t, int64_t, row_major](
+        <int64_t*><uintptr_t>cai.data, shape[0], shape[1])

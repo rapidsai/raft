@@ -15,8 +15,10 @@
  */
 
 #include <cstdint>
-#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
 #include <raft/spatial/knn/detail/ball_cover/registers.cuh>
+
+// TODO: Change this to proper specializations after FAISS is removed
+#include <raft/spatial/knn/specializations.cuh>
 
 namespace raft {
 namespace spatial {
