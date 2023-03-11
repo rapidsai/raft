@@ -309,6 +309,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
           $CMAKE_TARGET == *"DISTANCE_TEST"* || \
           $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
           $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
+          $CMAKE_TARGET == *"MATRIX_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_TEST" || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling distance lib for gtests"
@@ -330,6 +331,7 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
 
     # Force compile distance library when needed benchmark targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
+          $CMAKE_TARGET == *"MATRIX_BENCH"* || \
           $CMAKE_TARGET == *"NEIGHBORS_BENCH"* ]]; then
       echo "-- Enabling distance lib for benchmarks"
       COMPILE_DIST_LIBRARY=ON

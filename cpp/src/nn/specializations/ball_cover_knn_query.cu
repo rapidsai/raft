@@ -22,9 +22,8 @@
 #include <raft/distance/specializations.cuh>
 #endif
 
-#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
-#include <raft/neighbors/specializations/knn.cuh>
+// TODO: Change this to proper specializations after FAISS is removed
+#include <raft/spatial/knn/specializations.cuh>
 
 #include <cstdint>
 
