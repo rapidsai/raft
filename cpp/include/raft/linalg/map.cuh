@@ -38,7 +38,7 @@ namespace raft::linalg {
  *  auto input = raft::make_device_vector<int>(res, n);
  *  ... fill input ..
  *  auto squares = raft::make_device_vector<int>(res, n);
- *  raft::linalg::map_offset(res, squares.view(), raft::sq_op(), input.view());
+ *  raft::linalg::map_offset(res, squares.view(), raft::sq_op{}, input.view());
  * @endcode
  *
  * @tparam OutType data-type of the result (device_mdspan)
@@ -55,9 +55,9 @@ template <typename OutType,
           typename... InTypes,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InTypes...>>
-void map(const raft::device_resources& res, OutType out, Func op, InTypes... ins)
+void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
 {
-  return detail::map<false>(res, out, op, ins...);
+  return detail::map<false>(res, out, f, ins...);
 }
 
 /**
@@ -66,7 +66,7 @@ void map(const raft::device_resources& res, OutType out, Func op, InTypes... ins
  * Usage example:
  * @code{.cpp}
  *  auto squares = raft::make_device_vector<int>(handle, n);
- *  raft::linalg::map_offset(handle, squares.view(), raft::sq_op());
+ *  raft::linalg::map_offset(res, squares.view(), raft::sq_op{});
  * @endcode
  *
  * @tparam OutType data-type of the result (device_mdspan)
@@ -83,9 +83,9 @@ template <typename OutType,
           typename... InTypes,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InTypes...>>
-void map_offset(const raft::device_resources& res, OutType out, Func op, InTypes... ins)
+void map_offset(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
 {
-  return detail::map<true>(res, out, op, ins...);
+  return detail::map<true>(res, out, f, ins...);
 }
 
 /** @} */  // end of map
