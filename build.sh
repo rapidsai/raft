@@ -374,6 +374,20 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
   fi
 fi
 
+# Build and (optionally) install the pylibraft Python package
+if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
+    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
+        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
+    fi
+
+    cd ${REPODIR}/python/pylibraft
+    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
+    if [[ ${INSTALL_TARGET} != "" ]]; then
+        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
+    fi
+fi
+
 # Build and (optionally) install the raft-dask Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
@@ -388,19 +402,6 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     fi
 fi
 
-# Build and (optionally) install the pylibraft Python package
-if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
-    # Append `-DFIND_RAFT_CPP=ON` to EXTRA_CMAKE_ARGS unless a user specified the option.
-    if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
-        EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
-    fi
-
-    cd ${REPODIR}/python/pylibraft
-    python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt -- -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} ${EXTRA_CMAKE_ARGS}
-    fi
-fi
 
 if hasArg docs; then
     set -x
