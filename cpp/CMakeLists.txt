@@ -189,7 +189,7 @@ target_link_libraries(
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
             CUDA::cusparse${_ctk_static_suffix}
-            raft::Thrust>
+            raft::Thrust
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
