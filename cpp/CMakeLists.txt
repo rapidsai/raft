@@ -65,18 +65,11 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-option(RAFT_ENABLE_thrust_DEPENDENCY "Enable Thrust dependency" ON)
-
 if(BUILD_TESTS OR BUILD_BENCH)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
   # to have different values for the `Threads::Threads` target. Setting this flag ensures
   # `Threads::Threads` is the same value in first run and subsequent runs.
   set(THREADS_PREFER_PTHREAD_FLAG ON)
-endif()
-
-if(BUILD_TESTS AND NOT RAFT_ENABLE_thrust_DEPENDENCY)
-  message(VERBOSE "RAFT: BUILD_TESTS is enabled, overriding RAFT_ENABLE_thrust_DEPENDENCY")
-  set(RAFT_ENABLE_thrust_DEPENDENCY ON)
 endif()
 
 # option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
@@ -157,25 +150,16 @@ if(RAFT_COMPILE_LIBRARY)
   set(RAFT_COMPILE_LIBRARY ON)
 endif()
 
-if(RAFT_COMPILE_LIBRARY OR compiled IN_LIST raft_FIND_COMPONENTS)
-  set(RAFT_ENABLE_cuco_DEPENDENCY ON)
-endif()
-
 # add third party dependencies using CPM
 rapids_cpm_init()
 
 # thrust before rmm/cuco so we get the right version of thrust/cub
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-# include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_cutlass.cmake)
 
-if(RAFT_ENABLE_cuco_DEPENDENCY)
-  include(${rapids-cmake-dir}/cpm/cuco.cmake)
-  rapids_cpm_cuco(
-    BUILD_EXPORT_SET raft-compiled-lib-exports INSTALL_EXPORT_SET raft-compiled-lib-exports
-  )
-endif()
+include(${rapids-cmake-dir}/cpm/cuco.cmake)
+rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
@@ -199,11 +183,13 @@ target_include_directories(
 target_link_libraries(
   raft
   INTERFACE rmm::rmm
+            cuco::cuco
+            nvidia::cutlass::cutlass
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
             CUDA::cusparse${_ctk_static_suffix}
-            $<$<BOOL:${RAFT_ENABLE_thrust_DEPENDENCY}>:raft::Thrust>
+            raft::Thrust>
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -417,11 +403,7 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(
-    raft_lib
-    PUBLIC raft::raft cuco::cuco
-    PRIVATE nvidia::cutlass::cutlass $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-  )
+  target_link_libraries(raft_lib PUBLIC raft::raft $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -437,10 +419,7 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
   add_library(raft::raft_lib ALIAS raft_lib)
 endif()
 
-target_link_libraries(
-  raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>
-                          nvidia::cutlass::cutlass
-)
+target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
@@ -585,17 +564,15 @@ Imported Targets:
 
 set(code_string ${nvtx_export_string})
 
-if(RAFT_ENABLE_thrust_DEPENDENCY)
-  string(
-    APPEND
-    code_string
-    [=[
-  if(NOT TARGET raft::Thrust)
-    thrust_create_target(raft::Thrust FROM_OPTIONS)
-  endif()
-  ]=]
-  )
+string(
+  APPEND
+  code_string
+  [=[
+if(NOT TARGET raft::Thrust)
+  thrust_create_target(raft::Thrust FROM_OPTIONS)
 endif()
+]=]
+)
 
 string(
   APPEND
