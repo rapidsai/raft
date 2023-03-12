@@ -28,6 +28,10 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 namespace raft::distance::masked_nn {
 
 // The adjacency pattern determines what distances get computed.
