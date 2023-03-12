@@ -23,7 +23,7 @@
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#ifdef RAFT_DISTANCE_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

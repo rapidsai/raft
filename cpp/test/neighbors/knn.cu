@@ -21,7 +21,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 
-#ifdef RAFT_DISTANCE_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

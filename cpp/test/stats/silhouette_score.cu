@@ -20,7 +20,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/stats/specializations.cuh>
 #endif
 

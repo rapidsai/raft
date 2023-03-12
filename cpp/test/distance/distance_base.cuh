@@ -22,7 +22,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
 #include <raft/random/rng.cuh>

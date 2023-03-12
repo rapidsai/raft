@@ -18,7 +18,7 @@
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/random/rng.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/cluster/specializations.cuh>
 #endif
 

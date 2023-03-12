@@ -20,7 +20,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

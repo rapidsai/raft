@@ -24,7 +24,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

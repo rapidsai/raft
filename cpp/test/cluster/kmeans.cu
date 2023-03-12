@@ -29,7 +29,7 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/cluster/specializations.cuh>
 #endif
 
