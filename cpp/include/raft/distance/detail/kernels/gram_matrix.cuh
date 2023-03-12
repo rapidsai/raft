@@ -48,7 +48,6 @@ class GramMatrixBase {
   GramMatrixBase(const raft::device_resources& handle) : handle(handle){};
 
   virtual ~GramMatrixBase(){};
-
   /** Convenience function to evaluate the Gram matrix for two vector sets.
    *  Vector sets are provided in Matrix format
    *
@@ -56,22 +55,22 @@ class GramMatrixBase {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out (dense) device matrix to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
-   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
+   * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
+   * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
    */
   virtual void operator()(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                           const raft::distance::matrix::detail::Matrix<math_t>& x2,
                           raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                           cudaStream_t stream,
-                          math_t* dot_x1 = nullptr,
-                          math_t* dot_x2 = nullptr)
+                          math_t* norm_x1 = nullptr,
+                          math_t* norm_x2 = nullptr)
   {
     ASSERT(x1.n_rows == out.n_rows,
            "GramMatrix input matrix dimensions for x1 and out do not match");
     ASSERT(x2.n_rows == out.n_cols,
            "GramMatrix input matrix dimensions for x2 and out do not match");
     ASSERT(x1.n_cols == x2.n_cols, "GramMatrix input matrix dimensions for x1 and x2 do not match");
-    evaluate(x1, x2, out, stream, dot_x1, dot_x2);
+    evaluate(x1, x2, out, stream, norm_x1, norm_x2);
   }
 
   /** Evaluate the Gram matrix for two vector sets using simple dot product.
@@ -80,15 +79,15 @@ class GramMatrixBase {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
-   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
    */
   virtual void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                         const raft::distance::matrix::detail::Matrix<math_t>& x2,
                         raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                         cudaStream_t stream,
-                        math_t* dot_x1,
-                        math_t* dot_x2)
+                        math_t* norm_x1,
+                        math_t* norm_x2)
   {
     linear(x1, x2, out, stream);
   }

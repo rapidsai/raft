@@ -102,26 +102,33 @@ __global__ void tanh_kernel(math_t* inout, int ld, int rows, int cols, math_t ga
 }
 
 /** Epiloge function for rbf kernel using expansion.
- * Calculates output_ij = exp(-gain * (norm_i + norm_j - 2*input_ij));
+ *
+ * Calculates output_ij = exp(-gain * (norm_x_i + norm_y_j - 2*input_ij));
+ *
+ * Intended usage
+ *   - input is the product of two matrices X and Y input_ij = \sum_k X_ik * Y_jk
+ *   - norm_x_i = l2_norm(x_i), where x_i is the i-th row of matrix X
+ *   - norm_y_j = l2_norm(y_j), where y_j is the j-th row of matrix Y
+ *
  * @param inout device vector in column major format, size [ld * cols]
  * @param ld leading dimension of the inout buffer
  * @param rows number of rows (rows <= ld)
  * @param cols number of columns
- * @param dot_rows dot product for row indices
- * @param dot_cols dot product for column indices
+ * @param norm_x l2-norm of X's rows
+ * @param norm_y l2-norm of Y's rows
  * @param gain
  */
 template <typename math_t>
 __global__ void rbf_kernel_expanded(
-  math_t* inout, int ld, int rows, int cols, math_t* dot_rows, math_t* dot_cols, math_t gain)
+  math_t* inout, int ld, int rows, int cols, math_t* norm_x, math_t* norm_y, math_t gain)
 {
   for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
        tidy += blockDim.y * gridDim.y) {
-    math_t norm_y = dot_cols[tidy];
+    math_t norm_y_val = norm_y[tidy];
     for (size_t tidx = threadIdx.x + blockIdx.x * blockDim.x; tidx < rows;
          tidx += blockDim.x * gridDim.x) {
       inout[tidx + tidy * ld] =
-        exp(-1.0 * gain * (dot_rows[tidx] + norm_y - inout[tidx + tidy * ld] * 2));
+        exp(-1.0 * gain * (norm_x[tidx] + norm_y_val - inout[tidx + tidy * ld] * 2));
     }
   }
 }
@@ -181,15 +188,15 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
-   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
    */
   void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                 const raft::distance::matrix::detail::Matrix<math_t>& x2,
                 raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                 cudaStream_t stream,
-                math_t* dot_x1,
-                math_t* dot_x2)
+                math_t* norm_x1,
+                math_t* norm_x2)
   {
     GramMatrixBase<math_t>::linear(x1, x2, out, stream);
     applyKernel(out.data, out.ld, out.n_rows, out.n_cols, out.is_row_major, stream);
@@ -247,15 +254,15 @@ class TanhKernel : public GramMatrixBase<math_t> {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
-   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
    */
   void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                 const raft::distance::matrix::detail::Matrix<math_t>& x2,
                 raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                 cudaStream_t stream,
-                math_t* dot_x1,
-                math_t* dot_x2)
+                math_t* norm_x1,
+                math_t* norm_x2)
   {
     GramMatrixBase<math_t>::linear(x1, x2, out, stream);
     applyKernel(out.data, out.ld, out.n_rows, out.n_cols, out.is_row_major, stream);
@@ -273,19 +280,19 @@ class RBFKernel : public GramMatrixBase<math_t> {
                               int ld,
                               int rows,
                               int cols,
-                              math_t* dot_x1,
-                              math_t* dot_x2,
+                              math_t* norm_x1,
+                              math_t* norm_x2,
                               bool is_row_major,
                               cudaStream_t stream)
   {
-    int n1         = is_row_major ? cols : rows;
-    int n2         = is_row_major ? rows : cols;
-    math_t* dot_n1 = is_row_major ? dot_x2 : dot_x1;
-    math_t* dot_n2 = is_row_major ? dot_x1 : dot_x2;
+    int n1          = is_row_major ? cols : rows;
+    int n2          = is_row_major ? rows : cols;
+    math_t* norm_n1 = is_row_major ? norm_x2 : norm_x1;
+    math_t* norm_n2 = is_row_major ? norm_x1 : norm_x2;
     rbf_kernel_expanded<<<dim3(raft::ceildiv(n1, 32), raft::ceildiv(n2, 4), 1),
                           dim3(32, 4, 1),
                           0,
-                          stream>>>(inout, ld, n1, n2, dot_n1, dot_n2, gain);
+                          stream>>>(inout, ld, n1, n2, norm_n1, norm_n2, gain);
   }
 
  public:
@@ -336,37 +343,37 @@ class RBFKernel : public GramMatrixBase<math_t> {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
-   * @param dot_x1 optional dot product of x1 for expanded computation within RBF.
-   * @param dot_x2 optional dot product of x2 for expanded computation within RBF.
+   * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
+   * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
    */
   void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                 const raft::distance::matrix::detail::Matrix<math_t>& x2,
                 raft::distance::matrix::detail::DenseMatrix<math_t>& out,
                 cudaStream_t stream,
-                math_t* dot_x1,
-                math_t* dot_x2)
+                math_t* norm_x1,
+                math_t* norm_x2)
   {
-    if (x1.isDense() && x2.isDense() && (dot_x1 == nullptr || dot_x2 == nullptr)) {
+    if (x1.isDense() && x2.isDense() && (norm_x1 == nullptr || norm_x2 == nullptr)) {
       auto x1_dense = x1.asDense();
       auto x2_dense = x2.asDense();
       distance_rbf(*x1_dense, *x2_dense, out, stream);
     } else {
-      rmm::device_uvector<math_t> tmp_dot_x1(0, stream);
-      rmm::device_uvector<math_t> tmp_dot_x2(0, stream);
-      if (dot_x1 == nullptr) {
-        tmp_dot_x1.reserve(x1.n_rows, stream);
-        dot_x1 = tmp_dot_x1.data();
-        matrixDot(x1, dot_x1, stream);
+      rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
+      rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
+      if (norm_x1 == nullptr) {
+        tmp_norm_x1.reserve(x1.n_rows, stream);
+        norm_x1 = tmp_norm_x1.data();
+        matrixDot(x1, norm_x1, stream);
       }
-      if (dot_x2 == nullptr) {
-        tmp_dot_x2.reserve(x2.n_rows, stream);
-        dot_x2 = tmp_dot_x2.data();
-        matrixDot(x2, dot_x2, stream);
+      if (norm_x2 == nullptr) {
+        tmp_norm_x2.reserve(x2.n_rows, stream);
+        norm_x2 = tmp_norm_x2.data();
+        matrixDot(x2, norm_x2, stream);
       }
       // compute L2expanded
       GramMatrixBase<math_t>::linear(x1, x2, out, stream);
       applyExpandedRbfKernel(
-        out.data, out.ld, out.n_rows, out.n_cols, dot_x1, dot_x2, out.is_row_major, stream);
+        out.data, out.ld, out.n_rows, out.n_cols, norm_x1, norm_x2, out.is_row_major, stream);
     }
   }
 
