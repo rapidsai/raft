@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -36,7 +36,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -n                          - no install step
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-lib               - compile shared libraries for all components
-   --minimal-deps              - disables dependencies like thrust so they can be overridden.
                                  can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
@@ -69,7 +68,6 @@ INSTALL_TARGET=install
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
-ENABLE_thrust_DEPENDENCY=ON
 
 CACHE_ARGS=""
 NVTX=ON
@@ -248,10 +246,6 @@ if hasArg -n; then
     INSTALL_TARGET=""
 fi
 
-if hasArg --minimal-deps; then
-    ENABLE_thrust_DEPENDENCY=OFF
-fi
-
 if hasArg -v; then
     VERBOSE_FLAG="-v"
     CMAKE_LOG_LEVEL="VERBOSE"
@@ -367,7 +361,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_BENCH=${BUILD_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
-          -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
