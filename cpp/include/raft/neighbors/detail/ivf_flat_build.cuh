@@ -391,7 +391,7 @@ inline void fill_refinement_index(raft::device_resources const& handle,
   // We do not fill centers and center norms, since we will not run coarse search.
 
   // Allocate new memory
-  auto lists = refinement_index->lists();
+  auto& lists = refinement_index->lists();
   list_spec<uint32_t, T, IdxT> list_device_spec{refinement_index->dim(), false};
   for (uint32_t label = 0; label < n_lists; label++) {
     ivf::resize_list(handle, lists[label], list_device_spec, n_candidates, uint32_t(0));
