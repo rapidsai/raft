@@ -98,7 +98,7 @@ struct SM_compute_arch {
 // compute architecture of the version of the kernel that the driver picks when
 // the kernel runs.
 struct SM_runtime {
-  friend SM_runtime kernel_runtime_arch();
+  friend SM_runtime kernel_runtime_arch(void*);
 
  private:
   const int _version;
@@ -111,9 +111,14 @@ struct SM_runtime {
 // Computes which compute architecture of a kernel will run
 //
 // Semantics are described above in the documentation of SM_runtime.
-inline SM_runtime kernel_runtime_arch()
+//
+// This function requires a pointer to the kernel that will run. Other methods
+// to determine the architecture (that do not require a pointer) can be error
+// prone. See:
+// // https://github.com/NVIDIA/cub/issues/545
+inline SM_runtime kernel_runtime_arch(void* kernel)
 {
-  auto kernel = detail::dummy_runtime_kernel;
+  // TODO: consider error handling...
   cudaFuncAttributes attributes;
   cudaFuncGetAttributes(&attributes, kernel);
 
@@ -130,6 +135,7 @@ struct SM_range {
 
  public:
   __host__ __device__ constexpr SM_range(SM_MIN min, SM_MAX max) : _min(min), _max(max) {}
+  __host__ __device__ constexpr SM_range() : _min(SM_MIN()), _max(SM_MAX()) {}
 
   template <typename SM_t>
   __host__ __device__ constexpr bool contains(SM_t current) const

@@ -27,8 +27,12 @@ namespace raft::distance::detail::ops {
  *
  *  c_ij = (k - (sum_k x_ik * y_kj)) / k
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct russel_rao_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   IdxT k;
   const float one_over_k;
 

@@ -24,8 +24,12 @@ namespace raft::distance::detail::ops {
 //
 // Fill in the TODO items.
 
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct template_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   TODO member;
 
   template_distance_op(TODO member_) noexcept : member(member_) {}
