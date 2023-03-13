@@ -195,7 +195,7 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   randomized_svdInputs<T> params;

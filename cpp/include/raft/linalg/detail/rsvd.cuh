@@ -33,7 +33,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void randomized_svd(const raft::handle_t& handle,
+void randomized_svd(const raft::device_resources& handle,
                     const math_t* in,
                     std::size_t n_rows,
                     std::size_t n_cols,

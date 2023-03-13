@@ -45,7 +45,7 @@ namespace linalg {
  * @param[in]  niters:  Number of iteration of power method. (2 is recommended)
  */
 template <typename math_t, typename idx_t>
-void randomized_svd(const raft::handle_t& handle,
+void randomized_svd(const raft::device_resources& handle,
                     raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
                     raft::device_vector_view<math_t, idx_t> S,
                     std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> U,
@@ -91,7 +91,7 @@ void randomized_svd(const raft::handle_t& handle,
  * Please see above for documentation of `randomized_svd`.
  */
 template <typename math_t, typename idx_t, typename opt_u_vec_t, typename opt_v_vec_t>
-void randomized_svd(const raft::handle_t& handle,
+void randomized_svd(const raft::device_resources& handle,
                     raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
                     raft::device_vector_view<math_t, idx_t> S,
                     opt_u_vec_t&& U,
