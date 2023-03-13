@@ -77,7 +77,7 @@ template <typename InType,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void binary_op(raft::device_resources const& handle, InType in1, InType in2, OutType out, Lambda op)
 {
-  return map(handle, out, op, in1, in2);
+  return map(handle, in1, in2, out, op);
 }
 
 /** @} */  // end of group binary_op

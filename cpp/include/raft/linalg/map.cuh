@@ -78,6 +78,85 @@ void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
 }
 
 /**
+ * @brief Map a function over one mdspan.
+ *
+ * @tparam InType1 data-type of the input (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *                 (InType1::value_type x) -> OutType::value_type
+ */
+template <typename InType1,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1>>
+void map(const raft::device_resources& res, InType1 in1, OutType out, Func f)
+{
+  return detail::map<false>(res, out, f, in1);
+}
+
+/**
+ * @brief Map a function over two mdspans.
+ *
+ * @tparam InType1 data-type of the input (device_mdspan)
+ * @tparam InType2 data-type of the input (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input (the same size as the output) (device_mdspan)
+ * @param[in] in2 the input (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *                 (InType1::value_type x1, InType2::value_type x2) -> OutType::value_type
+ */
+template <typename InType1,
+          typename InType2,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1, InType2>>
+void map(const raft::device_resources& res, InType1 in1, InType2 in2, OutType out, Func f)
+{
+  return detail::map<false>(res, out, f, in1, in2);
+}
+
+/**
+ * @brief Map a function over three mdspans.
+ *
+ * @tparam InType1 data-type of the input 1 (device_mdspan)
+ * @tparam InType2 data-type of the input 2 (device_mdspan)
+ * @tparam InType3 data-type of the input 3 (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input 1 (the same size as the output) (device_mdspan)
+ * @param[in] in2 the input 2 (the same size as the output) (device_mdspan)
+ * @param[in] in3 the input 3 (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *   (InType1::value_type x1, InType2::value_type x2, InType3::value_type x3) -> OutType::value_type
+ */
+template <typename InType1,
+          typename InType2,
+          typename InType3,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1, InType2, InType3>>
+void map(
+  const raft::device_resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
+{
+  return detail::map<false>(res, out, f, in1, in2, in3);
+}
+
+/**
  *  @brief Map a function over zero-based flat index (element offset) and zero or more inputs.
  *
  * The algorithm applied on `k` inputs can be described in a following pseudo-code:
@@ -120,6 +199,86 @@ template <typename OutType,
 void map_offset(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
 {
   return detail::map<true>(res, out, f, ins...);
+}
+
+/**
+ * @brief Map a function over zero-based flat index (element offset) and one mdspan.
+ *
+ * @tparam InType1 data-type of the input (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *                 (auto offset, InType1::value_type x) -> OutType::value_type
+ */
+template <typename InType1,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1>>
+void map_offset(const raft::device_resources& res, InType1 in1, OutType out, Func f)
+{
+  return detail::map<true>(res, out, f, in1);
+}
+
+/**
+ * @brief Map a function over zero-based flat index (element offset) and two mdspans.
+ *
+ * @tparam InType1 data-type of the input (device_mdspan)
+ * @tparam InType2 data-type of the input (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input (the same size as the output) (device_mdspan)
+ * @param[in] in2 the input (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *    (auto offset, InType1::value_type x1, InType2::value_type x2) -> OutType::value_type
+ */
+template <typename InType1,
+          typename InType2,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1, InType2>>
+void map_offset(const raft::device_resources& res, InType1 in1, InType2 in2, OutType out, Func f)
+{
+  return detail::map<true>(res, out, f, in1, in2);
+}
+
+/**
+ * @brief Map a function over zero-based flat index (element offset) and three mdspans.
+ *
+ * @tparam InType1 data-type of the input 1 (device_mdspan)
+ * @tparam InType2 data-type of the input 2 (device_mdspan)
+ * @tparam InType3 data-type of the input 3 (device_mdspan)
+ * @tparam OutType data-type of the result (device_mdspan)
+ * @tparam Func the device-lambda performing the actual operation
+ *
+ * @param[in] res raft::device_resources
+ * @param[in] in1 the input 1 (the same size as the output) (device_mdspan)
+ * @param[in] in2 the input 2 (the same size as the output) (device_mdspan)
+ * @param[in] in3 the input 3 (the same size as the output) (device_mdspan)
+ * @param[out] out the output of the map operation (device_mdspan)
+ * @param[in] f device lambda
+ *   (auto offset, InType1::value_type x1, InType2::value_type x2, InType3::value_type x3)
+ *      -> OutType::value_type
+ */
+template <typename InType1,
+          typename InType2,
+          typename InType3,
+          typename OutType,
+          typename Func,
+          typename = raft::enable_if_output_device_mdspan<OutType>,
+          typename = raft::enable_if_input_device_mdspan<InType1, InType2, InType3>>
+void map_offset(
+  const raft::device_resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
+{
+  return detail::map<true>(res, out, f, in1, in2, in3);
 }
 
 /** @} */  // end of map

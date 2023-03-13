@@ -99,7 +99,7 @@ template <typename InType,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void unary_op(raft::device_resources const& handle, InType in, OutType out, Lambda op)
 {
-  return map(handle, out, op, in);
+  return map(handle, in, out, op);
 }
 
 /**

@@ -78,7 +78,7 @@ template <typename InType,
 void ternary_op(
   raft::device_resources const& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
 {
-  return map(handle, out, op, in1, in2, in3);
+  return map(handle, in1, in2, in3, out, op);
 }
 
 /** @} */  // end of group ternary_op
