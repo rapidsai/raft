@@ -31,10 +31,26 @@ namespace raft::linalg {
  */
 
 /**
- * @brief Map a function over zero or more input mdspans.
+ * @brief Map a function over zero or more input mdspans of the same size.
+ *
+ * The algorithm applied on `k` inputs can be described in a following pseudo-code:
+ * @code
+ *  for (auto i: [0 ... out.size()]) {
+ *    out[i] = f(in_0[i], in_1[i], ..., in_k[i])
+ *  }
+ * @endcode
+ *
+ * _Performance note_: when possible, this function loads the argument arrays and stores the output
+ * array using vectorized cuda load/store instructions. The size of the vectorization depends on the
+ * size of the largest input/output element type and on the alignment of all pointers.
  *
  * Usage example:
  * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/operators.hpp>
+ *  #include <raft/linalg/map.cuh>
+ *
  *  auto input = raft::make_device_vector<int>(res, n);
  *  ... fill input ..
  *  auto squares = raft::make_device_vector<int>(res, n);
@@ -48,6 +64,7 @@ namespace raft::linalg {
  * @param[in] res raft::device_resources
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
+ *                 (InTypes::value_type xs...) -> OutType::value_type
  * @param[in] ins the inputs (each of the same size as the output) (device_mdspan)
  */
 template <typename OutType,
@@ -63,8 +80,24 @@ void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
 /**
  *  @brief Map a function over zero-based flat index (element offset) and zero or more inputs.
  *
+ * The algorithm applied on `k` inputs can be described in a following pseudo-code:
+ * @code
+ *  for (auto i: [0 ... out.size()]) {
+ *    out[i] = f(i, in_0[i], in_1[i], ..., in_k[i])
+ *  }
+ * @endcode
+ *
+ * _Performance note_: when possible, this function loads the argument arrays and stores the output
+ * array using vectorized cuda load/store instructions. The size of the vectorization depends on the
+ * size of the largest input/output element type and on the alignment of all pointers.
+ *
  * Usage example:
  * @code{.cpp}
+ *  #include <raft/core/device_mdarray.hpp>
+ *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/operators.hpp>
+ *  #include <raft/linalg/map.cuh>
+ *
  *  auto squares = raft::make_device_vector<int>(handle, n);
  *  raft::linalg::map_offset(res, squares.view(), raft::sq_op{});
  * @endcode
@@ -76,6 +109,7 @@ void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
  * @param[in] res raft::device_resources
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
+ *                 (auto offset, InTypes::value_type xs...) -> OutType::value_type
  * @param[in] ins the inputs (each of the same size as the output) (device_mdspan)
  */
 template <typename OutType,

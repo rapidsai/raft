@@ -176,6 +176,10 @@ void map_check_shape(OutType out, InType in)
  * @brief Map a function over a zero or more inputs and optionally a 0-based flat index
  * (element offset).
  *
+ * _Performance note_: when possible, this function loads the argument arrays and stores the output
+ * array using vectorized cuda load/store instructions. The size of the vectorization depends on the
+ * size of the largest input/output element type and on the alignment of all pointers.
+ *
  * @tparam PassOffset whether to pass an offset as a first argument to Func
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
@@ -183,7 +187,8 @@ void map_check_shape(OutType out, InType in)
  *
  * @param[in] res raft::device_resources
  * @param[out] out the output of the map operation (device_mdspan)
- * @param[in] f device lambda
+ * @param[in] f device lambda of type
+ *                 ([auto offset], InTypes::value_type xs...) -> OutType::value_type
  * @param[in] ins the inputs (each of the same size as the output) (device_mdspan)
  */
 template <bool PassOffset,
