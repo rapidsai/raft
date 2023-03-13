@@ -26,13 +26,10 @@
 
 #if defined RAFT_DISTANCE_COMPILED
 #include <raft/neighbors/specializations.cuh>
-
-// TODO: Legacy. Remove when FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #if defined RAFT_NN_COMPILED
-#include <raft/neighbors/specializations.cuh>
+// TODO: Legacy. Remove when FAISS is removed
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
