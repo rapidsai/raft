@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ void make_blobs(DataT* out,
  */
 template <typename DataT, typename IdxT, typename layout>
 void make_blobs(
-  raft::handle_t const& handle,
+  raft::device_resources const& handle,
   raft::device_matrix_view<DataT, IdxT, layout> out,
   raft::device_vector_view<IdxT, IdxT> labels,
   IdxT n_clusters                                                        = 5,

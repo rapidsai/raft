@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 
 #include <raft/spectral/cluster_solvers_deprecated.cuh>
 
@@ -30,7 +30,7 @@ TEST(Raft, ClusterSolvers)
   using index_type = int;
   using value_type = double;
 
-  handle_t h;
+  raft::device_resources h;
 
   index_type maxiter{100};
   value_type tol{1.0e-10};

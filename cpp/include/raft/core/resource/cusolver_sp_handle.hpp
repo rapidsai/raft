@@ -58,10 +58,15 @@ class cusolver_sp_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_cusolver_sp cuSolver SP handle resource functions
+ * @{
+ */
+
+/**
  * Load a cusolverSpres_t from raft res if it exists, otherwise
  * add it and return it.
- * @param res
- * @return
+ * @param[in] res the raft resources object
+ * @return cusolver sp handle
  */
 inline cusolverSpHandle_t get_cusolver_sp_handle(resources const& res)
 {
@@ -71,4 +76,9 @@ inline cusolverSpHandle_t get_cusolver_sp_handle(resources const& res)
   }
   return *res.get_resource<cusolverSpHandle_t>(resource_type::CUSOLVER_SP_HANDLE);
 };
+
+/**
+ * @}
+ */
+
 }  // namespace raft::resource

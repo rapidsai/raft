@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ namespace raft::linalg {
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_mult_skip_zero(const raft::handle_t& handle,
+void binary_mult_skip_zero(raft::device_resources const& handle,
                            raft::device_matrix_view<math_t, idx_t, layout_t> data,
                            raft::device_vector_view<const math_t, idx_t> vec,
                            Apply apply)
@@ -70,7 +70,7 @@ void binary_mult_skip_zero(const raft::handle_t& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_div(const raft::handle_t& handle,
+void binary_div(raft::device_resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)
@@ -105,7 +105,7 @@ void binary_div(const raft::handle_t& handle,
  * value if false
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_div_skip_zero(const raft::handle_t& handle,
+void binary_div_skip_zero(raft::device_resources const& handle,
                           raft::device_matrix_view<math_t, idx_t, layout_t> data,
                           raft::device_vector_view<const math_t, idx_t> vec,
                           Apply apply,
@@ -140,7 +140,7 @@ void binary_div_skip_zero(const raft::handle_t& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_add(const raft::handle_t& handle,
+void binary_add(raft::device_resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)
@@ -173,7 +173,7 @@ void binary_add(const raft::handle_t& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_sub(const raft::handle_t& handle,
+void binary_sub(raft::device_resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ class l2_sqrt_unexpanded_distances_t : public l2_unexpanded_distances_t<value_id
       this->config_->a_nrows * this->config_->b_nrows,
       [] __device__(value_t input) {
         int neg = input < 0 ? -1 : 1;
-        return sqrt(abs(input) * neg);
+        return raft::sqrt(abs(input) * neg);
       },
       this->config_->handle.get_stream());
   }
@@ -274,7 +274,7 @@ class jensen_shannon_unexpanded_distances_t : public distances_t<value_t> {
       out_dists,
       out_dists,
       config_->a_nrows * config_->b_nrows,
-      [=] __device__(value_t input) { return sqrt(0.5 * input); },
+      [=] __device__(value_t input) { return raft::sqrt(0.5 * input); },
       config_->handle.get_stream());
   }
 

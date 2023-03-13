@@ -72,7 +72,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  const raft::handle_t handle;
+  const raft::device_resources handle;
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;

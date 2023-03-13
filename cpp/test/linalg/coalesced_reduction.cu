@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +43,12 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void coalescedReductionLaunch(
-  const raft::handle_t& handle, T* dots, const T* data, int cols, int rows, bool inplace = false)
+void coalescedReductionLaunch(const raft::device_resources& handle,
+                              T* dots,
+                              const T* data,
+                              int cols,
+                              int rows,
+                              bool inplace = false)
 {
   auto dots_view = raft::make_device_vector_view(dots, rows);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
@@ -101,7 +105,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   coalescedReductionInputs<T> params;

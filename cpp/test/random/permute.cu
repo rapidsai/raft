@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;
@@ -158,7 +158,7 @@ class PermMdspanTest : public ::testing::TestWithParam<PermInputs<T>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/handle.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/logger.hpp>
@@ -59,7 +59,7 @@ namespace detail {
 
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(const raft::handle_t& handle,
+void initRandom(raft::device_resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 raft::device_matrix_view<DataT, IndexT> centroids)
@@ -85,7 +85,7 @@ void initRandom(const raft::handle_t& handle,
  * 5: end for
  */
 template <typename DataT, typename IndexT>
-void kmeansPlusPlus(const raft::handle_t& handle,
+void kmeansPlusPlus(raft::device_resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<DataT, IndexT> centroidsRawData,
@@ -282,7 +282,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
  * @param[inout] workspace
  */
 template <typename DataT, typename IndexT, typename LabelsIterator>
-void update_centroids(const raft::handle_t& handle,
+void update_centroids(raft::device_resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT, row_major> X,
                       raft::device_vector_view<const DataT, IndexT> sample_weights,
                       raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
@@ -356,7 +356,7 @@ void update_centroids(const raft::handle_t& handle,
 
 // TODO: Resizing is needed to use mdarray instead of rmm::device_uvector
 template <typename DataT, typename IndexT>
-void kmeans_fit_main(const raft::handle_t& handle,
+void kmeans_fit_main(raft::device_resources const& handle,
                      const KMeansParams& params,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<const DataT, IndexT> weight,
@@ -573,7 +573,7 @@ void kmeans_fit_main(const raft::handle_t& handle,
 
  */
 template <typename DataT, typename IndexT>
-void initScalableKMeansPlusPlus(const raft::handle_t& handle,
+void initScalableKMeansPlusPlus(raft::device_resources const& handle,
                                 const KMeansParams& params,
                                 raft::device_matrix_view<const DataT, IndexT> X,
                                 raft::device_matrix_view<DataT, IndexT> centroidsRawData,
@@ -816,7 +816,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void kmeans_fit(handle_t const& handle,
+void kmeans_fit(raft::device_resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT> X,
                 std::optional<raft::device_vector_view<const DataT>> sample_weight,
@@ -955,7 +955,7 @@ void kmeans_fit(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit(handle_t const& handle,
+void kmeans_fit(raft::device_resources const& handle,
                 const KMeansParams& params,
                 const DataT* X,
                 const DataT* sample_weight,
@@ -980,7 +980,7 @@ void kmeans_fit(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT>
-void kmeans_predict(handle_t const& handle,
+void kmeans_predict(raft::device_resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT> X,
                     std::optional<raft::device_vector_view<const DataT>> sample_weight,
@@ -1088,7 +1088,7 @@ void kmeans_predict(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_predict(handle_t const& handle,
+void kmeans_predict(raft::device_resources const& handle,
                     const KMeansParams& params,
                     const DataT* X,
                     const DataT* sample_weight,
@@ -1120,7 +1120,7 @@ void kmeans_predict(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(handle_t const& handle,
+void kmeans_fit_predict(raft::device_resources const& handle,
                         const KMeansParams& params,
                         raft::device_matrix_view<const DataT> X,
                         std::optional<raft::device_vector_view<const DataT>> sample_weight,
@@ -1147,7 +1147,7 @@ void kmeans_fit_predict(handle_t const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(handle_t const& handle,
+void kmeans_fit_predict(raft::device_resources const& handle,
                         const KMeansParams& params,
                         const DataT* X,
                         const DataT* sample_weight,
@@ -1187,7 +1187,7 @@ void kmeans_fit_predict(handle_t const& handle,
  * @param[out]    X_new         X transformed in the new space..
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(const raft::handle_t& handle,
+void kmeans_transform(raft::device_resources const& handle,
                       const KMeansParams& params,
                       raft::device_matrix_view<const DataT> X,
                       raft::device_matrix_view<const DataT> centroids,
@@ -1228,7 +1228,7 @@ void kmeans_transform(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(const raft::handle_t& handle,
+void kmeans_transform(raft::device_resources const& handle,
                       const KMeansParams& params,
                       const DataT* X,
                       const DataT* centroids,

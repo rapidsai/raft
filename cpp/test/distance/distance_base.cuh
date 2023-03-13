@@ -52,7 +52,7 @@ __global__ void naiveDistanceKernel(DataType* dist,
   }
   if (type == raft::distance::DistanceType::L2SqrtExpanded ||
       type == raft::distance::DistanceType::L2SqrtUnexpanded)
-    acc = raft::mySqrt(acc);
+    acc = raft::sqrt(acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -79,9 +79,9 @@ __global__ void naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
     auto b    = y[yidx];
     auto diff = (a > b) ? (a - b) : (b - a);
     if (type == raft::distance::DistanceType::Linf) {
-      acc = raft::myMax(acc, diff);
+      acc = raft::max(acc, diff);
     } else if (type == raft::distance::DistanceType::Canberra) {
-      const auto add = raft::myAbs(a) + raft::myAbs(b);
+      const auto add = raft::abs(a) + raft::abs(b);
       // deal with potential for 0 in denominator by
       // forcing 1/0 instead
       acc += ((add != 0) * diff / (add + (add == 0)));
@@ -119,7 +119,7 @@ __global__ void naiveCosineDistanceKernel(
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
   // Use 1.0 - (cosine similarity) to calc the distance
-  dist[outidx] = (DataType)1.0 - acc_ab / (raft::mySqrt(acc_a) * raft::mySqrt(acc_b));
+  dist[outidx] = (DataType)1.0 - acc_ab / (raft::sqrt(acc_a) * raft::sqrt(acc_b));
 }
 
 template <typename DataType>
@@ -137,7 +137,7 @@ __global__ void naiveHellingerDistanceKernel(
     int yidx = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a   = x[xidx];
     auto b   = y[yidx];
-    acc_ab += raft::mySqrt(a) * raft::mySqrt(b);
+    acc_ab += raft::sqrt(a) * raft::sqrt(b);
   }
 
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
@@ -145,7 +145,7 @@ __global__ void naiveHellingerDistanceKernel(
   // Adjust to replace NaN in sqrt with 0 if input to sqrt is negative
   acc_ab         = 1 - acc_ab;
   auto rectifier = (!signbit(acc_ab));
-  dist[outidx]   = raft::mySqrt(rectifier * acc_ab);
+  dist[outidx]   = raft::sqrt(rectifier * acc_ab);
 }
 
 template <typename DataType>
@@ -167,11 +167,11 @@ __global__ void naiveLpUnexpDistanceKernel(DataType* dist,
     int yidx  = isRowMajor ? i + nidx * k : i * n + nidx;
     auto a    = x[xidx];
     auto b    = y[yidx];
-    auto diff = raft::myAbs(a - b);
-    acc += raft::myPow(diff, p);
+    auto diff = raft::abs(a - b);
+    acc += raft::pow(diff, p);
   }
   auto one_over_p = 1 / p;
-  acc             = raft::myPow(acc, one_over_p);
+  acc             = raft::pow(acc, one_over_p);
   int outidx      = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx]    = acc;
 }
@@ -222,7 +222,7 @@ __global__ void naiveJensenShannonDistanceKernel(
 
     acc += (-a * (!p_zero * log(p + p_zero))) + (-b * (!q_zero * log(q + q_zero)));
   }
-  acc          = raft::mySqrt(0.5f * acc);
+  acc          = raft::sqrt(0.5f * acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -297,7 +297,7 @@ __global__ void naiveCorrelationDistanceKernel(
   auto Q_denom = k * a_sq_norm - (a_norm * a_norm);
   auto R_denom = k * b_sq_norm - (b_norm * b_norm);
 
-  acc = 1 - (numer / raft::mySqrt(Q_denom * R_denom));
+  acc = 1 - (numer / raft::sqrt(Q_denom * R_denom));
 
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -397,7 +397,7 @@ void distanceLauncher(DataType* x,
                       cudaStream_t stream,
                       DataType metric_arg = 2.0f)
 {
-  raft::handle_t handle(stream);
+  raft::device_resources handle(stream);
 
   auto x_v    = make_device_matrix_view<DataType, int, layout>(x, m, k);
   auto y_v    = make_device_matrix_view<DataType, int, layout>(y, n, k);
@@ -483,7 +483,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   cudaStream_t stream;
 
   DistanceInputs<DataType> params;
@@ -519,7 +519,7 @@ class BigMatrixDistanceTest : public ::testing::Test {
   }
 
  protected:
-  raft::handle_t handle;
+  raft::device_resources handle;
   int m = 48000;
   int n = 48000;
   int k = 1;

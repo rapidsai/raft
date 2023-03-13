@@ -67,7 +67,6 @@ inline rmm::mr::device_memory_resource* get_workspace_resource(resources const& 
  *
  * @param res raft resources object for managing resources
  * @param mr a valid rmm device_memory_resource
- * @return
  */
 inline void set_workspace_resource(resources const& res, rmm::mr::device_memory_resource* mr)
 {

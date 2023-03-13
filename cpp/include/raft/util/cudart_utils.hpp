@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,9 +41,6 @@
 #include <memory>
 #include <mutex>
 #include <type_traits>
-
-///@todo: enable once logging has been enabled in raft
-//#include "logger.hpp"
 
 namespace raft {
 
@@ -380,7 +377,12 @@ std::string arr2Str(const T* arr, int size, std::string name, cudaStream_t strea
 
   ss << name << " = [ ";
   for (int i = 0; i < size; i++) {
-    ss << std::setw(width) << arr_h[i];
+    typedef
+      typename std::conditional_t<std::is_same_v<T, int8_t> || std::is_same_v<T, uint8_t>, int, T>
+        CastT;
+
+    auto val = static_cast<CastT>(arr_h[i]);
+    ss << std::setw(width) << val;
 
     if (i < size - 1) ss << ", ";
   }

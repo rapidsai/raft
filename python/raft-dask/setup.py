@@ -26,11 +26,11 @@ install_requires = [
     "numpy",
     "numba>=0.49",
     "joblib>=0.11",
-    "dask-cuda>=23.2*",
-    "dask>=2022.12.0",
-    f"ucx-py{cuda_suffix}",
-    "distributed>=2022.12.0",
-    f"pylibraft{cuda_suffix}",
+    "dask-cuda==23.2.*",
+    "dask==2023.1.1",
+    f"ucx-py{cuda_suffix}==0.30.*",
+    "distributed==2023.1.1",
+    f"pylibraft{cuda_suffix}==23.2.*",
 ]
 
 extras_require = {
@@ -73,6 +73,7 @@ setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     author="NVIDIA Corporation",
     include_package_data=True,

@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.5"]
+      cuda: ["11.8"]
       arch: [x86_64]
     includes:
       - build
@@ -53,12 +53,12 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - gcc_linux-64=9.*
+              - gcc_linux-64=9
               - sysroot_linux-64==2.17
           - matrix:
               arch: aarch64
             packages:
-              - gcc_linux-aarch64=9.*
+              - gcc_linux-aarch64=9
               - sysroot_linux-aarch64==2.17
   checks:
     common:
@@ -77,6 +77,19 @@ dependencies:
     specific:
       - output_types: conda
         matrices:
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cudatoolkit=11.8
+              - cuda-profiler-api=11.8.86
+              - libcublas-dev=11.11.3.6
+              - libcublas=11.11.3.6
+              - libcurand-dev=10.3.0.86
+              - libcurand=10.3.0.86
+              - libcusolver-dev=11.4.1.48
+              - libcusolver=11.4.1.48
+              - libcusparse-dev=11.7.5.86
+              - libcusparse=11.7.5.86
           - matrix:
               cuda: "11.5"
             packages:
@@ -143,21 +156,25 @@ dependencies:
             packages:
               - python=3.9
           - matrix:
+              py: "3.10"
             packages:
-              - python>=3.8,<3.10
+              - python=3.10
+          - matrix:
+            packages:
+              - python>=3.8,<3.11
   run:
     common:
       - output_types: [conda]
         packages:
-          - rmm=23.02.*
-          - dask>=2022.12.0
-          - distributed>=2022.12.0
+          - rmm=23.02
+          - dask==2023.1.1
+          - distributed==2023.1.1
           - ucx>=1.13.0
-          - ucx-py=0.30.*
+          - ucx-py=0.30
           - ucx-proc=*=gpu
-          - libfaiss>=1.7.0=cuda*
+          - libfaiss>=1.7.1=cuda*
           - faiss-proc=*=cuda
-          - dask-cuda=23.02.*
+          - dask-cuda=23.02
   test_python:
     common:
       - output_types: [conda, requirements]

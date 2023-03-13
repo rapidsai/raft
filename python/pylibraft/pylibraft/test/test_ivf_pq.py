@@ -58,7 +58,7 @@ def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
     for i in range(queries.shape[0]):
         X = queries[np.newaxis, i, :]
         Y = dataset[out_idx[i, :], :]
-        if metric == "l2_expanded":
+        if metric == "sqeuclidean":
             dist[i, :] = pairwise_distances(X, Y, "sqeuclidean")
         elif metric == "euclidean":
             dist[i, :] = pairwise_distances(X, Y, "euclidean")
@@ -177,7 +177,7 @@ def run_ivf_pq_build_search_test(
 
     # Calculate reference values with sklearn
     skl_metric = {
-        "l2_expanded": "sqeuclidean",
+        "sqeuclidean": "sqeuclidean",
         "inner_product": "cosine",
         "euclidean": "euclidean",
     }[metric]
@@ -204,14 +204,14 @@ def test_ivf_pq_dtypes(
     n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
 ):
     # Note that inner_product tests use normalized input which we cannot
-    # represent in int8, therefore we test only l2_expanded metric here.
+    # represent in int8, therefore we test only sqeuclidean metric here.
     run_ivf_pq_build_search_test(
         n_rows=n_rows,
         n_cols=n_cols,
         n_queries=n_queries,
         k=10,
         n_lists=n_lists,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=dtype,
         inplace=inplace,
         array_type=array_type,
@@ -231,7 +231,7 @@ def test_ivf_pq_dtypes(
             },
             marks=pytest.mark.xfail(reason="empty dataset"),
         ),
-        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 10},
+        {"n_rows": 1, "n_cols": 10, "n_queries": 10, "k": 1, "n_lists": 1},
         {"n_rows": 10, "n_cols": 1, "n_queries": 10, "k": 10, "n_lists": 10},
         # {"n_rows": 999, "n_cols": 42, "n_queries": 453, "k": 137,
         #  "n_lists": 53},
@@ -246,14 +246,14 @@ def test_ivf_pq_n(params):
         n_queries=params["n_queries"],
         k=params["k"],
         n_lists=params["n_lists"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         compare=False,
     )
 
 
 @pytest.mark.parametrize(
-    "metric", ["l2_expanded", "inner_product", "euclidean"]
+    "metric", ["sqeuclidean", "inner_product", "euclidean"]
 )
 @pytest.mark.parametrize("dtype", [np.float32])
 @pytest.mark.parametrize("codebook_kind", ["subspace", "cluster"])
@@ -298,7 +298,7 @@ def test_ivf_pq_params(params):
         n_queries=1000,
         k=10,
         n_lists=params["n_lists"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         pq_bits=params["pq_bits"],
         pq_dim=params["pq_dims"],
@@ -344,7 +344,7 @@ def test_ivf_pq_search_params(params):
         k=params["k"],
         n_lists=100,
         n_probes=params["n_probes"],
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=np.float32,
         lut_dtype=params["lut"],
         internal_distance_dtype=params["idd"],
@@ -360,7 +360,7 @@ def test_extend(dtype, array_type):
         n_queries=100,
         k=10,
         n_lists=100,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         dtype=dtype,
         add_data_on_build=False,
         array_type=array_type,
@@ -375,7 +375,7 @@ def test_build_assertions():
             n_queries=100,
             k=10,
             n_lists=100,
-            metric="l2_expanded",
+            metric="sqeuclidean",
             dtype=np.float64,
         )
 
@@ -388,7 +388,7 @@ def test_build_assertions():
 
     index_params = ivf_pq.IndexParams(
         n_lists=50,
-        metric="l2_expanded",
+        metric="sqeuclidean",
         kmeans_n_iters=20,
         kmeans_trainset_fraction=1,
         add_data_on_build=False,
@@ -482,7 +482,7 @@ def test_search_inputs(params):
     out_dist_device = device_ndarray(out_dist)
 
     index_params = ivf_pq.IndexParams(
-        n_lists=50, metric="l2_expanded", add_data_on_build=True
+        n_lists=50, metric="sqeuclidean", add_data_on_build=True
     )
 
     dataset = generate_data((n_rows, n_cols), dtype)
@@ -511,7 +511,7 @@ def test_save_load():
     dataset = generate_data((n_rows, n_cols), dtype)
     dataset_device = device_ndarray(dataset)
 
-    build_params = ivf_pq.IndexParams(n_lists=100, metric="l2_expanded")
+    build_params = ivf_pq.IndexParams(n_lists=100, metric="sqeuclidean")
     index = ivf_pq.build(build_params, dataset_device)
 
     assert index.trained

@@ -23,6 +23,7 @@
 #include <utility>
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/math.hpp>
 
 namespace raft {
 
@@ -75,9 +76,9 @@ struct value_op {
 
 struct sqrt_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
-    return std::sqrt(in);
+    return raft::sqrt(in);
   }
 };
 
@@ -91,9 +92,9 @@ struct nz_op {
 
 struct abs_op {
   template <typename Type, typename... UnusedArgs>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& in, UnusedArgs...) const
   {
-    return std::abs(in);
+    return raft::abs(in);
   }
 };
 
@@ -138,37 +139,43 @@ struct div_op {
 };
 
 struct div_checkzero_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
-    if (b == Type{0}) { return Type{0}; }
+    if (b == T2{0}) { return T1{0} / T2{1}; }
     return a / b;
   }
 };
 
 struct pow_op {
   template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
   {
-    return std::pow(a, b);
+    return raft::pow(a, b);
+  }
+};
+
+struct mod_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a % b;
   }
 };
 
 struct min_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename... Args>
+  RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    if (a > b) { return b; }
-    return a;
+    return raft::min(std::forward<Args>(args)...);
   }
 };
 
 struct max_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename... Args>
+  RAFT_INLINE_FUNCTION auto operator()(Args&&... args) const
   {
-    if (b > a) { return b; }
-    return a;
+    return raft::max(std::forward<Args>(args)...);
   }
 };
 
@@ -190,17 +197,49 @@ struct argmax_op {
   }
 };
 
+struct greater_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a > b;
+  }
+};
+
+struct less_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a < b;
+  }
+};
+
+struct greater_or_equal_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a >= b;
+  }
+};
+
+struct less_or_equal_op {
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
+  {
+    return a <= b;
+  }
+};
+
 struct equal_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
     return a == b;
   }
 };
 
 struct notequal_op {
-  template <typename Type>
-  constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& a, const Type& b) const
+  template <typename T1, typename T2>
+  constexpr RAFT_INLINE_FUNCTION auto operator()(const T1& a, const T2& b) const
   {
     return a != b;
   }
@@ -270,6 +309,15 @@ using div_checkzero_const_op = plug_const_op<Type, div_checkzero_op>;
 
 template <typename Type>
 using pow_const_op = plug_const_op<Type, pow_op>;
+
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using mod_const_op = plug_const_op<Type, mod_op>;
+
+template <typename Type>
+using equal_const_op = plug_const_op<Type, equal_op>;
 
 /**
  * @brief Constructs an operator by composing a chain of operators.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ void meanAdd(Type* out,
  * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean_center(const raft::handle_t& handle,
+void mean_center(raft::device_resources const& handle,
                  raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                  raft::device_vector_view<const value_t, idx_t> mu,
                  raft::device_matrix_view<value_t, idx_t, layout_t> out,
@@ -133,7 +133,7 @@ void mean_center(const raft::handle_t& handle,
  * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean_add(const raft::handle_t& handle,
+void mean_add(raft::device_resources const& handle,
               raft::device_matrix_view<const value_t, idx_t, layout_t> data,
               raft::device_vector_view<const value_t, idx_t> mu,
               raft::device_matrix_view<value_t, idx_t, layout_t> out,
