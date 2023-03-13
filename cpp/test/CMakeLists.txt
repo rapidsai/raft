@@ -78,8 +78,17 @@ endfunction()
 
 if(BUILD_TESTS)
   ConfigureTest(
-    NAME CLUSTER_TEST PATH test/cluster/kmeans.cu test/cluster/kmeans_balanced.cu
-    test/cluster/cluster_solvers.cu test/cluster/linkage.cu OPTIONAL DIST NN
+    NAME
+    CLUSTER_TEST
+    PATH
+    test/cluster/kmeans.cu
+    test/cluster/kmeans_balanced.cu
+    test/cluster/cluster_solvers.cu
+    test/cluster/linkage.cu
+    test/cluster/kmeans_find_k.cu
+    OPTIONAL
+    DIST
+    NN
   )
 
   ConfigureTest(
@@ -100,6 +109,7 @@ if(BUILD_TESTS)
     test/core/memory_type.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/temporary_device_buffer.cu
     test/test.cpp
   )
 
@@ -109,19 +119,19 @@ if(BUILD_TESTS)
     PATH
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
-    test/distance/dist_chebyshev.cu
     test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
-    test/distance/dist_euc_exp.cu
-    test/distance/dist_euc_unexp.cu
-    test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
     test/distance/dist_inner_product.cu
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
-    test/distance/dist_minkowski.cu
+    test/distance/dist_l2_exp.cu
+    test/distance/dist_l2_unexp.cu
+    test/distance/dist_l2_sqrt_exp.cu
+    test/distance/dist_l_inf.cu
+    test/distance/dist_lp_unexp.cu
     test/distance/dist_russell_rao.cu
     test/distance/masked_nn.cu
     test/distance/masked_nn_compress_to_bits.cu
@@ -188,6 +198,8 @@ if(BUILD_TESTS)
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
+    OPTIONAL
+    DIST
   )
 
   ConfigureTest(
@@ -257,9 +269,9 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     test/neighbors/knn.cu
     test/neighbors/fused_l2_knn.cu
     test/neighbors/haversine.cu

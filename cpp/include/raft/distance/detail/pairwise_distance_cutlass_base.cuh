@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-
-#if (__CUDACC_VER_MAJOR__ < 12)
 
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
@@ -171,8 +169,8 @@ void cutlassDistanceKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};      // namespace detail
-};      // namespace distance
-};      // namespace raft
-#endif  //  (__CUDACC_VER_MAJOR__ < 12)
+};  // namespace detail
+};  // namespace distance
+};  // namespace raft
+
 #pragma GCC diagnostic pop

@@ -201,7 +201,7 @@ struct Linewise {
   }
 
   /**
-   * @brief Same as loadVec, but padds data with Ones
+   * @brief Same as loadVec, but pads data with Ones
    *
    * @tparam VecT Type of the vector to load
    * @param shm

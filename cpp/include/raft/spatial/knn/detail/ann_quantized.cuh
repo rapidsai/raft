@@ -29,6 +29,8 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 
+#include <raft/core/device_mdspan.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
 
 #include <thrust/iterator/transform_iterator.h>
@@ -78,8 +80,10 @@ void approx_knn_build_index(raft::device_resources const& handle,
     params.pq_bits    = ivf_pq_pams->n_bits;
     params.pq_dim     = ivf_pq_pams->M;
     // TODO: handle ivf_pq_pams.usePrecomputedTables ?
-    index->ivf_pq = std::make_unique<const neighbors::ivf_pq::index<int64_t>>(
-      neighbors::ivf_pq::build(handle, params, index_array, int64_t(n), D));
+
+    auto index_view = raft::make_device_matrix_view<const T, int64_t>(index_array, n, D);
+    index->ivf_pq   = std::make_unique<const neighbors::ivf_pq::index<int64_t>>(
+      neighbors::ivf_pq::build(handle, params, index_view));
   } else {
     RAFT_FAIL("Unrecognized index type.");
   }
@@ -110,8 +114,13 @@ void approx_knn_search(raft::device_resources const& handle,
   } else if (index->ivf_pq) {
     neighbors::ivf_pq::search_params params;
     params.n_probes = index->nprobe;
+
+    auto query_view =
+      raft::make_device_matrix_view<const T, int64_t>(query_array, n, index->ivf_pq->dim());
+    auto indices_view   = raft::make_device_matrix_view<int64_t, int64_t>(indices, n, k);
+    auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
     neighbors::ivf_pq::search(
-      handle, params, *index->ivf_pq, query_array, n, k, indices, distances);
+      handle, params, *index->ivf_pq, query_view, k, indices_view, distances_view);
   } else {
     RAFT_FAIL("The model is not trained");
   }

@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cudart_utils.hpp>
+#include <vector>
+
+#include <rmm/device_uvector.hpp>
 
 #include <gtest/gtest.h>
 
@@ -82,6 +86,16 @@ TEST(Raft, Utils)
   re_exp += "123$";
   EXPECT_TRUE(std::regex_match(msg, std::regex(re_exp))) << "message:'" << msg << "'" << std::endl
                                                          << "expected regex:'" << re_exp << "'";
+}
+
+TEST(Raft, GetDeviceForAddress)
+{
+  device_resources handle;
+  std::vector<int> h(1);
+  ASSERT_EQ(-1, raft::get_device_for_address(h.data()));
+
+  rmm::device_uvector<int> d(1, handle.get_stream());
+  ASSERT_EQ(0, raft::get_device_for_address(d.data()));
 }
 
 }  // namespace raft

@@ -15,9 +15,9 @@
  */
 
 #include "update_centroids.cuh"
+#include <raft/cluster/specializations.cuh>
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/distance/specializations.cuh>
 
 namespace raft::runtime::cluster::kmeans {
 
