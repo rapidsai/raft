@@ -37,15 +37,13 @@ void mapLaunch(OutType* out,
   raft::device_resources handle{stream};
   auto out_view = raft::make_device_vector_view(out, len);
   auto in1_view = raft::make_device_vector_view(in1, len);
-  auto in2_view = raft::make_device_vector_view(in2, len);
-  auto in3_view = raft::make_device_vector_view(in3, len);
   map(
     handle,
+    in1_view,
     out_view,
     [=] __device__(InType a, InType b, InType c) { return a + b + c + scalar; },
-    in1_view,
-    in2_view,
-    in3_view);
+    in2,
+    in3);
 }
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
