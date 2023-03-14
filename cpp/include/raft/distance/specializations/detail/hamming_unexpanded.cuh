@@ -18,36 +18,46 @@
 
 #include <raft/distance/detail/distance.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
-extern template void
-distance<raft::distance::DistanceType::HammingUnexpanded, float, float, float, int>(
-  raft::resources const& handle,
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  bool isRowMajor,
-  float metric_arg);
+namespace raft::distance::detail {
 
 extern template void
-distance<raft::distance::DistanceType::HammingUnexpanded, double, double, double, int>(
-  raft::resources const& handle,
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  bool isRowMajor,
-  double metric_arg);
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+pairwise_matrix_dispatch<ops::hamming_distance_op<float, float, int>,
+                         float,
+                         float,
+                         float,
+                         decltype(raft::identity_op()),
+                         int,
+                         raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>>(
+  ops::hamming_distance_op<float, float, int>,
+  int,
+  int,
+  int,
+  const float*,
+  const float*,
+  const float*,
+  const float*,
+  float*,
+  decltype(raft::identity_op()),
+  cudaStream_t,
+  bool);
+extern template void
+pairwise_matrix_dispatch<ops::hamming_distance_op<double, double, int>,
+                         double,
+                         double,
+                         double,
+                         decltype(raft::identity_op()),
+                         int,
+                         raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>>(
+  ops::hamming_distance_op<double, double, int>,
+  int,
+  int,
+  int,
+  const double*,
+  const double*,
+  const double*,
+  const double*,
+  double*,
+  decltype(raft::identity_op()),
+  cudaStream_t,
+  bool);
+}  // namespace raft::distance::detail

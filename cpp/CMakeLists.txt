@@ -344,10 +344,6 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_expanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/l2_expanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
     src/distance/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/distance/specializations/detail/l_inf_double_double_double_int.cu

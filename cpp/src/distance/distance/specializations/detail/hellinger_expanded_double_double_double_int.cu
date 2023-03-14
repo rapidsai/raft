@@ -14,27 +14,30 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/distance.cuh>
-#include <raft/distance/specializations.cuh>
+#include <raft/core/operators.hpp>  // raft::identity_op
+#include <raft/distance/detail/distance_ops/all_ops.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
+#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
+#include <raft/util/arch.cuh>  // raft::arch::SM_compat_range
 
-template void
-distance<raft::distance::DistanceType::HellingerExpanded, double, double, double, int>(
-  raft::resources const& handle,
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  std::size_t worksize,
-  bool isRowMajor,
-  double metric_arg);
+namespace raft::distance::detail {
 
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+template void pairwise_matrix_dispatch<ops::hellinger_distance_op<double, double, int>,
+                                       double,
+                                       double,
+                                       double,
+                                       decltype(raft::identity_op()),
+                                       int>(ops::hellinger_distance_op<double, double, int>,
+                                            int,
+                                            int,
+                                            int,
+                                            const double*,
+                                            const double*,
+                                            const double*,
+                                            const double*,
+                                            double*,
+                                            decltype(raft::identity_op()),
+                                            cudaStream_t,
+                                            bool);
+
+}  // namespace raft::distance::detail
