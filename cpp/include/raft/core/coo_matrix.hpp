@@ -78,16 +78,6 @@ class coordinate_structure_view
   view_type view() { return view_type(rows_, cols_, this->get_n_rows(), this->get_n_cols()); }
 
   /**
-   * Initialize sparsity when it was not known upon construction.
-   *
-   * Note: A view is sparsity-preserving so the sparsity cannot be mutated.
-   */
-  void initialize_sparsity(nnz_type)
-  {
-    RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
-  }
-
-  /**
    * Return span containing underlying rows array
    * @return span containing underlying rows array
    */
@@ -257,7 +247,7 @@ class coo_matrix
                   is_device,
                   ContainerPolicy>;
   static constexpr auto get_sparsity_type() { return sparsity_type; }
-  template <typename = std::enable_if_t<sparsity_type == SparsityType::OWNING>>
+  template <typename = std::enable_if<sparsity_type == SparsityType::OWNING>>
   coo_matrix(raft::resources const& handle,
              RowType n_rows,
              ColType n_cols,
@@ -265,7 +255,7 @@ class coo_matrix
     : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
 
   // Constructor that owns the data but not the structure
-  template <typename = std::enable_if_t<sparsity_type == SparsityType::PRESERVING>>
+  template <typename = std::enable_if<sparsity_type == SparsityType::PRESERVING>>
   coo_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
@@ -280,7 +270,7 @@ class coo_matrix
    * Please note this will resize the underlying memory buffers
    * @param nnz new sparsity to initialize.
    */
-  template <typename = std::enable_if_t<sparsity_type == SparsityType::OWNING>>
+  template <typename = std::enable_if<sparsity_type == SparsityType::OWNING>>
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);

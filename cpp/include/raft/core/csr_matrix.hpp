@@ -23,8 +23,7 @@
 namespace raft {
 
 template <typename IndptrType, typename IndicesType, typename NZType, int is_device>
-class compressed_structure_base
-  : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
+class compressed_structure_t : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
  public:
   /**
    * Constructor when sparsity is already known
@@ -32,7 +31,7 @@ class compressed_structure_base
    * @param n_cols total number of columns in matrix
    * @param nnz sparsity of matrix
    */
-  compressed_structure_base(IndptrType n_rows, IndicesType n_cols, NZType nnz)
+  compressed_structure_t(IndptrType n_rows, IndicesType n_cols, NZType nnz)
     : sparse_structure<IndptrType, IndicesType, NZType, is_device>(n_rows, n_cols, nnz){};
 
   /**
@@ -59,10 +58,9 @@ class compressed_structure_base
  */
 template <typename IndptrType, typename IndicesType, typename NZType, bool is_device>
 class compressed_structure_view
-  : public compressed_structure_base<IndptrType, IndicesType, NZType, is_device> {
+  : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
-  using sparse_structure_type =
-    compressed_structure_base<IndptrType, IndicesType, NZType, is_device>;
+  using sparse_structure_type = compressed_structure_t<IndptrType, IndicesType, NZType, is_device>;
   using view_type    = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_type  = typename sparse_structure_type::row_type;
   using indices_type = typename sparse_structure_type::col_type;
@@ -95,16 +93,6 @@ class compressed_structure_view
    */
   view_type view() { return view_type(indptr_, indices_, this->get_n_cols()); }
 
-  /**
-   * Initialize sparsity when it was not known upon construction.
-   *
-   * Note: A view is sparsity-preserving so the sparsity cannot be mutated.
-   */
-  void initialize_sparsity(NZType) override
-  {
-    RAFT_FAIL("The sparsity of structure-preserving sparse formats cannot be changed");
-  }
-
  protected:
   raft::span<indptr_type, is_device> indptr_;
   raft::span<indices_type, is_device> indices_;
@@ -128,14 +116,13 @@ template <typename IndptrType,
           template <typename T>
           typename ContainerPolicy>
 class compressed_structure
-  : public compressed_structure_base<IndptrType, IndicesType, NZType, is_device> {
+  : public compressed_structure_t<IndptrType, IndicesType, NZType, is_device> {
  public:
-  using sparse_structure_type =
-    compressed_structure_base<IndptrType, IndicesType, NZType, is_device>;
-  using indptr_type  = typename sparse_structure_type::row_type;
-  using indices_type = typename sparse_structure_type::col_type;
-  using nnz_type     = typename sparse_structure_type::nnz_type;
-  using view_type    = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
+  using sparse_structure_type = compressed_structure_t<IndptrType, IndicesType, NZType, is_device>;
+  using indptr_type           = typename sparse_structure_type::row_type;
+  using indices_type          = typename sparse_structure_type::col_type;
+  using nnz_type              = typename sparse_structure_type::nnz_type;
+  using view_type = compressed_structure_view<IndptrType, IndicesType, NZType, is_device>;
   using indptr_container_policy_type  = ContainerPolicy<IndptrType>;
   using indices_container_policy_type = ContainerPolicy<IndicesType>;
   using indptr_container_type         = typename indptr_container_policy_type::container_type;
