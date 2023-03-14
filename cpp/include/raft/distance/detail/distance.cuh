@@ -391,7 +391,7 @@ void distance_impl(raft::resources const& handle,
 
   // This op takes some shortcuts when x equals y. So its behavior changes based
   // on this.
-  ops::kl_divergence_op<DataT, AccT, DataT> kl_divergence{is_row_major, x == y};
+  ops::kl_divergence_op<DataT, AccT, IdxT> kl_divergence{is_row_major, x == y};
 
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
