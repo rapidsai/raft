@@ -15,7 +15,7 @@
 #define __device__
 #endif
 
-namespace raft::spatial::knn::detail::faiss_select::utils {
+namespace raft::neighbors::detail::faiss_select::utils {
 
 template <typename T>
 constexpr __host__ __device__ bool isPowerOf2(T v)
@@ -45,4 +45,4 @@ static_assert(nextHighestPowerOf2(1536000000u) == 2147483648u, "nextHighestPower
 static_assert(nextHighestPowerOf2((size_t)2147483648ULL) == (size_t)4294967296ULL,
               "nextHighestPowerOf2");
 
-}  // namespace raft::spatial::knn::detail::faiss_select::utils
+}  // namespace raft::neighbors::detail::faiss_select::utils

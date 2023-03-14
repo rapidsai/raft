@@ -30,9 +30,6 @@
 #include <raft/neighbors/specializations.cuh>
 #endif
 
-#include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
-
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>

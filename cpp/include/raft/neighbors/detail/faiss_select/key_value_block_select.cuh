@@ -7,14 +7,14 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/faiss_select/MergeNetworkUtils.cuh>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
 // TODO: Need to think further about the impact (and new boundaries created) on the registers
 // because this will change the max k that can be processed. One solution might be to break
 // up k into multiple batches for larger k.
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 
 // `Dir` true, produce largest values.
 // `Dir` false, produce smallest values.
@@ -221,4 +221,4 @@ struct KeyValueBlockSelect {
   int kMinus1;
 };
 
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select

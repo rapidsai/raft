@@ -30,11 +30,11 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
-#include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
@@ -164,8 +164,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   auto stream        = handle.get_stream();
   auto device_memory = handle.get_workspace_resource();
   auto total_mem     = device_memory->get_mem_info(stream).second;
-  raft::spatial::knn::detail::faiss_select::chooseTileSize(
-    m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
+  faiss_select::chooseTileSize(m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
 
   // for unittesting, its convenient to be able to put a max size on the tiles
   // so we can test the tiling logic without having to use huge inputs.
@@ -270,15 +269,15 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
           });
       }
 
-      detail::select_k<IndexType, ElementType>(temp_distances.data(),
-                                               nullptr,
-                                               current_query_size,
-                                               current_centroid_size,
-                                               distances + i * k,
-                                               indices + i * k,
-                                               select_min,
-                                               current_k,
-                                               stream);
+      select_k<IndexType, ElementType>(temp_distances.data(),
+                                       nullptr,
+                                       current_query_size,
+                                       current_centroid_size,
+                                       distances + i * k,
+                                       indices + i * k,
+                                       select_min,
+                                       current_k,
+                                       stream);
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -310,15 +309,15 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
     if (tile_cols != n) {
       // select the actual top-k items here from the temporary output
-      detail::select_k<IndexType, ElementType>(temp_out_distances.data(),
-                                               temp_out_indices.data(),
-                                               current_query_size,
-                                               temp_out_cols,
-                                               distances + i * k,
-                                               indices + i * k,
-                                               select_min,
-                                               k,
-                                               stream);
+      select_k<IndexType, ElementType>(temp_out_distances.data(),
+                                       temp_out_indices.data(),
+                                       current_query_size,
+                                       temp_out_cols,
+                                       distances + i * k,
+                                       indices + i * k,
+                                       select_min,
+                                       k,
+                                       stream);
     }
   }
 }

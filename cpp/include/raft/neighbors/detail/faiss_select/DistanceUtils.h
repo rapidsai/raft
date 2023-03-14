@@ -7,7 +7,7 @@
 
 #pragma once
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 // If the inner size (dim) of the vectors is small, we want a larger query tile
 // size, like 1024
 inline void chooseTileSize(size_t numQueries,
@@ -49,4 +49,4 @@ inline void chooseTileSize(size_t numQueries,
   // tileCols is the remainder size
   tileCols = std::min(targetUsage / preferredTileRows, numCentroids);
 }
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select

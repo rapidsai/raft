@@ -7,14 +7,14 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/faiss_select/Comparators.cuh>
-#include <raft/spatial/knn/detail/faiss_select/MergeNetworkBlock.cuh>
-#include <raft/spatial/knn/detail/faiss_select/MergeNetworkWarp.cuh>
+#include <raft/neighbors/detail/faiss_select/Comparators.cuh>
+#include <raft/neighbors/detail/faiss_select/MergeNetworkBlock.cuh>
+#include <raft/neighbors/detail/faiss_select/MergeNetworkWarp.cuh>
 
 #include <raft/core/kvp.hpp>
 #include <raft/util/cuda_utils.cuh>
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 
 // Specialization for block-wide monotonic merges producing a merge sort
 // since what we really want is a constexpr loop expansion
@@ -552,4 +552,4 @@ struct WarpSelect<K, V, Dir, Comp, 1, NumThreadQ, ThreadsPerBlock> {
   V threadV;
 };
 
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select
