@@ -425,6 +425,31 @@ void search(raft::device_resources const& handle,
                 nullptr);
 }
 
+/**
+ * @brief Reconstruction of the index
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] handle
+ * @param[in] idx
+ * @param[in] vector_ids a mdspan array containing the ids of vectors to be reconstructed [n_rows]
+ * @param[out] vector_out a mdspan array to hold the vectors to be reconstructed [n_rows,
+ * index.dim()]
+ */
+template <typename T, typename IdxT>
+void reconstruct_batch(raft::device_resources const& handle,
+                       const index<T, IdxT>& idx,
+                       device_mdspan<const IdxT, extent_1d<IdxT>, row_major> vector_ids,
+                       device_mdspan<T, extent_2d<IdxT>, row_major> vector_out)
+{
+  RAFT_EXPECTS(vector_ids.extent(0) == vector_out.extent(0),
+               "row index inputs and vectors outputs should have the same length");
+  RAFT_EXPECTS(vector_out.extent(1) == idx.dim(),
+               "vectors outputs should have the right dimension");
+  return raft::neighbors::ivf_flat::detail::reconstruct_batch(handle, idx, vector_ids, vector_out);
+}
+
 /** @} */
 
 }  // namespace raft::neighbors::ivf_flat
