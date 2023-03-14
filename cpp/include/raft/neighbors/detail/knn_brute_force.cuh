@@ -27,7 +27,9 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/transpose.cuh>
+#include <raft/matrix/init.cuh>
 #include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
 #include <raft/spatial/knn/detail/faiss_select/Select.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
@@ -208,11 +210,11 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   // if we have less than k items in the index, we should fill out the result
   // to indicate that we are missing items (and match behaviour in faiss)
   if (n < static_cast<size_t>(k)) {
-    thrust::fill(handle.get_thrust_policy(),
-                 distances,
-                 distances + m * k,
-                 std::numeric_limits<ElementType>::lowest());
-    thrust::fill(handle.get_thrust_policy(), indices, indices + m * k, -1);
+    raft::matrix::fill(handle,
+                       raft::make_device_matrix_view(distances, m, static_cast<size_t>(k)),
+                       std::numeric_limits<ElementType>::lowest());
+    raft::matrix::fill(
+      handle, raft::make_device_matrix_view(indices, m, static_cast<size_t>(k)), IndexType{-1});
   }
 
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
@@ -247,25 +249,22 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         auto row_norms = search_norms.data() + i;
         auto col_norms = index_norms.data() + j;
         auto dist      = temp_distances.data();
-        auto count     = thrust::make_counting_iterator<IndexType>(0);
 
-        thrust::for_each(handle.get_thrust_policy(),
-                         count,
-                         count + current_query_size * current_centroid_size,
-                         [=] __device__(IndexType i) {
-                           IndexType row = i / current_centroid_size,
-                                     col = i % current_centroid_size;
+        raft::linalg::map_offset(
+          handle,
+          raft::make_device_vector_view(dist, current_query_size * current_centroid_size),
+          [=] __device__(IndexType i) {
+            IndexType row = i / current_centroid_size, col = i % current_centroid_size;
 
-                           auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
 
-                           // due to numerical instability (especially around self-distance)
-                           // the distances here could be slightly negative, which will
-                           // cause NaN values in the subsequent sqrt. Clamp to 0
-                           dist[i] = val * (val >= 0.0001);
-                           if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
-                             dist[i] = sqrt(dist[i]);
-                           }
-                         });
+            // due to numerical instability (especially around self-distance)
+            // the distances here could be slightly negative, which will
+            // cause NaN values in the subsequent sqrt. Clamp to 0
+            val = val * (val >= 0.0001);
+            if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(dist[i]); }
+            return val;
+          });
       }
 
       detail::select_k<IndexType, ElementType>(temp_distances.data(),
