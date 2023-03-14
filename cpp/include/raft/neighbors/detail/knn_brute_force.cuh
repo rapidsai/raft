@@ -213,8 +213,11 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
     raft::matrix::fill(handle,
                        raft::make_device_matrix_view(distances, m, static_cast<size_t>(k)),
                        std::numeric_limits<ElementType>::lowest());
-    raft::matrix::fill(
-      handle, raft::make_device_matrix_view(indices, m, static_cast<size_t>(k)), IndexType{-1});
+
+    if constexpr (std::is_signed_v<IndexType>) {
+      raft::matrix::fill(
+        handle, raft::make_device_matrix_view(indices, m, static_cast<size_t>(k)), IndexType{-1});
+    }
   }
 
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
