@@ -265,7 +265,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
             // the distances here could be slightly negative, which will
             // cause NaN values in the subsequent sqrt. Clamp to 0
             val = val * (val >= 0.0001);
-            if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(dist[i]); }
+            if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(val); }
             return val;
           });
       }
