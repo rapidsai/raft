@@ -45,14 +45,10 @@ void pairwise_matrix_dispatch(OpT distance_op,
                               cudaStream_t stream,
                               bool is_row_major)
 {
-  // Create kernel parameter struct
-  pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params;
-  if (is_row_major) {
-    params = make_params(m, n, k, x, y, x_norm, y_norm, out, fin_op, is_row_major);
-  } else {
-    // Flip x and y
-    params = make_params(n, m, k, y, x, y_norm, x_norm, out, fin_op, is_row_major);
-  }
+  // Create kernel parameter struct. Flip x and y if column major.
+  pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params =
+    is_row_major ? make_params(m, n, k, x, y, x_norm, y_norm, out, fin_op, is_row_major)
+                 : make_params(n, m, k, y, x, y_norm, x_norm, out, fin_op, is_row_major);
 
   // On CUDA 12:
   // - always execute normal kernel
