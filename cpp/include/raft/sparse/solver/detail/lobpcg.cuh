@@ -69,10 +69,17 @@ struct isnan_test {
 template <typename value_t, typename index_t>
 void bmat(const raft::handle_t& handle,
           raft::device_matrix_view<value_t, index_t, col_major> out,
-          std::vector<raft::device_matrix_view<value_t, index_t, col_major>> ins,
+          const std::vector<raft::device_matrix_view<value_t, index_t, col_major>>& ins,
           index_t n_blocks)
 {
   RAFT_EXPECTS(n_blocks * n_blocks == ins.size(), "inconsistent number of blocks");
+  index_t n_rows = 0;
+  index_t n_cols = 0;
+  for (const auto& inView : ins) {
+    n_rows += inView.extent(0);
+    n_cols += inView.extent(1);
+  }
+  RAFT_EXPECTS(n_rows == out.extent(0) n_cols == out.extent(1), "input/output dimension mismatch");
   std::vector<index_t> cumulative_row(n_blocks);
   std::vector<index_t> cumulative_col(n_blocks);
   for (index_t i = 0; i < n_blocks; i++) {
@@ -144,21 +151,32 @@ void selectColsIf(const raft::handle_t& handle,
              stream);
 }
 
+/**
+ * Reverse if needed the eigenvalues/vectors and truncate the columns to fit eigVectorTrunc
+ */
 template <typename value_t, typename index_t>
-void truncEig(const raft::handle_t& handle,
-              raft::device_matrix_view<value_t, index_t, raft::col_major> eigVector,
-              raft::device_vector_view<value_t, index_t> eigLambda,
-              index_t size_x,
-              bool largest)
+void truncEig(
+  const raft::handle_t& handle,
+  raft::device_matrix_view<value_t, index_t, raft::col_major> eigVectorin,
+  std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> eigVectorTrunc,
+  raft::device_vector_view<value_t, index_t> eigLambda,
+  bool largest)
 {
   // The eigenvalues are already sorted in ascending order with syevd
+  auto nrows = eigVectorin.extent(0);
+  auto ncols = eigVectorin.extent(1);
   if (largest) {
-    auto nrows = eigVector.extent(0);
-    auto ncols = eigVector.extent(1);
-    raft::matrix::col_reverse(handle, eigVector);
+    raft::matrix::col_reverse(handle, eigVectorin);
     raft::matrix::col_reverse(
       handle, raft::make_device_matrix_view(eigLambda.data_handle(), 1, eigLambda.extent(0)));
   }
+  if (eigVectorTrunc.has_value() && ncols > eigVectorTrunc->extent(1))
+    raft::matrix::truncZeroOrigin(eigVectorin.data_handle(),
+                                  n_rows,
+                                  eigVectorTrunc->data_handle(),
+                                  nrows,
+                                  eigVectorTrunc->extent(1),
+                                  stream);
 }
 
 // C = A * B
@@ -248,9 +266,9 @@ void cho_solve(const raft::handle_t& handle,
 }
 
 template <typename value_t, typename index_t>
-int cholesky(const raft::handle_t& handle,
-             raft::device_matrix_view<value_t, index_t, raft::col_major> P,
-             bool lower = true)
+bool cholesky(const raft::handle_t& handle,
+              raft::device_matrix_view<value_t, index_t, raft::col_major> P,
+              bool lower = true)
 {
   auto thrust_exec_policy = handle.get_thrust_policy();
   auto stream             = handle.get_stream();
@@ -290,7 +308,7 @@ int cholesky(const raft::handle_t& handle,
                                           thrust::plus<int>());
 
   if (h_hasnan != 0)  // "lobpcg: error in cholesky, NaN in outputs"
-    return 1;
+    return false;
 
   raft::matrix::fill(handle, P, value_t(0));
   if (lower) {
@@ -298,7 +316,7 @@ int cholesky(const raft::handle_t& handle,
   } else {
     raft::matrix::upper_triangular(handle, raft::make_const_mdspan(P_copy.view()), P);
   }
-  return 0;
+  return true;
 }
 
 template <typename value_t, typename index_t>
@@ -399,24 +417,23 @@ void apply_constraints(const raft::handle_t& handle,
  * transformation
  */
 template <typename value_t, typename index_t>
-void eigh(
-  const raft::handle_t& handle,
-  raft::device_matrix_view<value_t, index_t, raft::col_major> A,
-  raft::device_matrix_view<value_t, index_t, raft::col_major> eigVecs,
-  raft::device_vector_view<value_t, index_t> eigVals,
-  std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> B_opt = std::nullopt)
+bool eigh(const raft::handle_t& handle,
+          raft::device_matrix_view<value_t, index_t, raft::col_major> A,
+          std::optional<raft::device_matrix_view<value_t, index_t, raft::col_major>> B_opt,
+          raft::device_matrix_view<value_t, index_t, raft::col_major> eigVecs,
+          raft::device_vector_view<value_t, index_t> eigVals)
 {
-  if (B_opt.has_value()) {
+  if (!B_opt.has_value()) {
     raft::linalg::eig_dc(handle, raft::make_const_mdspan(A), eigVecs, eigVals);
-    return;
+    return true;
   }
-  auto dim = A.extent(0);
-  auto RTi = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
-  auto Ri  = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
-  auto RT  = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
-  auto F   = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
-  auto B   = B_opt.value();
-  cholesky(handle, B, false);
+  auto dim         = A.extent(0);
+  auto RTi         = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto Ri          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto RT          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto F           = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto B           = B_opt.value();
+  bool cho_success = cholesky(handle, B, false);
 
   raft::linalg::transpose(handle, B, RT.view());
   inverse(handle, RT.view(), Ri.view());
@@ -430,6 +447,7 @@ void eigh(
 
   raft::linalg::eig_dc(handle, raft::make_const_mdspan(F.view()), Fvecs.view(), eigVals);
   raft::linalg::gemm(handle, Ri.view(), Fvecs.view(), eigVecs);
+  return cho_success
 }
 
 /**
@@ -444,9 +462,10 @@ void eigh(
  * @param[out] VBV_opt: optional dense matrix containing inverse matrix (shape v[1] * v[1])
  * @param[out] V_max_opt: optional vector containing normalization of V (shape v[1])
  * @param[in] bv_is_empty: True if BV is used as input
+ * @return success status
  */
 template <typename value_t, typename index_t>
-int b_orthonormalize(
+bool b_orthonormalize(
   const raft::handle_t& handle,
   raft::device_matrix_view<value_t, index_t, raft::col_major> V,
   raft::device_matrix_view<value_t, index_t, raft::col_major> BV,
@@ -516,14 +535,14 @@ int b_orthonormalize(
   raft::linalg::transpose(handle, V, VT.view());
 
   raft::linalg::gemm(handle, VT.view(), BV, VBV);
-  int result_status = cholesky(handle, VBV, false);
-  if (result_status != 0) { return result_status; }
+  bool cholesky_success = cholesky(handle, VBV, false);
+  if (!cholesky_success) { return cholesky_success; }
 
   inverse(handle, VBV, VBVBuffer.view());
   raft::copy(VBV.data_handle(), VBVBuffer.data_handle(), VBV.size(), stream);
   raft::linalg::gemm(handle, V, VBV, V);
   if (B_opt) raft::linalg::gemm(handle, BV, VBV, BV);
-  return 0;
+  return true;
 }
 
 template <typename value_t, typename index_t>
@@ -753,27 +772,27 @@ void lobpcg(
     if (iteration_number > 0) {
       auto invR = raft::make_device_matrix<value_t, index_t, raft::col_major>(
         handle, activePView.extent(1), activePView.extent(1));
-      auto normal       = raft::make_device_vector<value_t, index_t>(handle, activePView.extent(1));
-      int b_orth_status = 0;
+      auto normal = raft::make_device_vector<value_t, index_t>(handle, activePView.extent(1));
+      bool b_orth_success = true;
       if (B_opt.has_value()) {
         auto BP = raft::make_device_matrix<value_t, index_t, raft::col_major>(
           handle, activePView.extent(0), activePView.extent(1));
-        b_orth_status = b_orthonormalize(handle,
-                                         activePView,
-                                         BP.view(),
-                                         B_opt,
-                                         std::make_optional(invR.view()),
-                                         std::make_optional(normal.view()));
+        b_orth_success = b_orthonormalize(handle,
+                                          activePView,
+                                          BP.view(),
+                                          B_opt,
+                                          std::make_optional(invR.view()),
+                                          std::make_optional(normal.view()));
       } else {
-        b_orth_status = b_orthonormalize(handle,
-                                         activePView,
-                                         activeBPView,
-                                         B_opt,
-                                         std::make_optional(invR.view()),
-                                         std::make_optional(normal.view()),
-                                         false);
+        b_orth_success = b_orthonormalize(handle,
+                                          activePView,
+                                          activeBPView,
+                                          B_opt,
+                                          std::make_optional(invR.view()),
+                                          std::make_optional(normal.view()),
+                                          false);
       }
-      if (b_orth_status != 0) {
+      if (!b_orth_success) {
         restart = true;
       } else {
         raft::linalg::binary_div_skip_zero(handle,
@@ -880,22 +899,45 @@ void lobpcg(
       raft::matrix::eye(handle, gramRBR.view());
       raft::matrix::fill(handle, gramXBR.view(), value_t(0));
     }
-    if (!restart) {
-      auto gramA = raft::make_device_matrix<value_t, index_t, col_major>(handle, n, n);
-      auto gramB = raft::make_device_matrix<value_t, index_t, col_major>(handle, n, n);
-      auto gramXAP =
-        raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
-      auto gramRAP = raft::make_device_matrix<value_t, index_t, col_major>(
-        handle, currentBlockSize, currentBlockSize);
-      auto gramPAP = raft::make_device_matrix<value_t, index_t, col_major>(
-        handle, currentBlockSize, currentBlockSize);
-      auto gramXBP =
-        raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
-      auto gramRBP = raft::make_device_matrix<value_t, index_t, col_major>(
-        handle, currentBlockSize, currentBlockSize);
-      auto gramPBP = raft::make_device_matrix<value_t, index_t, col_major>(
-        handle, currentBlockSize, currentBlockSize);
+    auto gramDim = gramXAX.extent(1) + gramXAR.extent(1) + gramXAP.extent(1);
+    auto gramA   = raft::make_device_matrix<value_t, index_t, col_major>(handle, gramDim, gramDim);
+    auto gramB   = raft::make_device_matrix<value_t, index_t, col_major>(handle, gramDim, gramDim);
+    auto gramAView     = gramA.view();
+    auto gramBView     = gramB.view();
+    auto eigLambdaTemp = raft::make_device_vector_view<value_t, index_t>(handle, gramDim);
+    auto eigVectorTemp =
+      raft::make_device_matrix_view<value_t, index_t, raft::col_major>(handle, gramDim, gramDim);
+    auto eigLambdaTempView = eigLambdaTemp.view();
+    auto eigVectorTempView = eigVectorTemp.view();
+    auto gramXAP =
+      raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
+    auto gramRAP = raft::make_device_matrix<value_t, index_t, col_major>(
+      handle, currentBlockSize, currentBlockSize);
+    auto gramPAP = raft::make_device_matrix<value_t, index_t, col_major>(
+      handle, currentBlockSize, currentBlockSize);
+    auto gramXBP =
+      raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
+    auto gramRBP = raft::make_device_matrix<value_t, index_t, col_major>(
+      handle, currentBlockSize, currentBlockSize);
+    auto gramPBP = raft::make_device_matrix<value_t, index_t, col_major>(
+      handle, currentBlockSize, currentBlockSize);
+    // create transpose mat
+    auto gramXAPT = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramXAPT.extent(1), gramXAPT.extent(0));
+    auto gramXART = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramXART.extent(1), gramXART.extent(0));
+    auto gramRAPT = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramRAPT.extent(1), gramRAPT.extent(0));
+    auto gramXBPT = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramXBPT.extent(1), gramXBPT.extent(0));
+    auto gramXBRT = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramXBRT.extent(1), gramXBRT.extent(0));
+    auto gramRBPT = raft::make_device_matrix<math_t, idx_t, col_major>(
+      handle, gramRBPT.extent(1), gramRBPT.extent(0));
+    raft::linalg::transpose(handle, gramXAR.view(), gramXART.view());
+    raft::linalg::transpose(handle, gramXVR.view(), gramXBRT.view());
 
+    if (!restart) {
       raft::linalg::gemm(handle,
                          raft::make_device_matrix_view<value_t, index_t, row_major>(
                            X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
@@ -945,33 +987,60 @@ void lobpcg(
       } else {
         raft::matrix::eye(handle, gramPBP.view());
       }
-
-      // create transpose mat
-      auto gramXAPT = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramXAPT.extent(1), gramXAPT.extent(0));
-      auto gramXART = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramXART.extent(1), gramXART.extent(0));
-      auto gramRAPT = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramRAPT.extent(1), gramRAPT.extent(0));
-      auto gramXBPT = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramXBPT.extent(1), gramXBPT.extent(0));
-      auto gramXBRT = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramXBRT.extent(1), gramXBRT.extent(0));
-      auto gramRBPT = raft::make_device_matrix<math_t, idx_t, col_major>(
-        handle, gramRBPT.extent(1), gramRBPT.extent(0));
       raft::linalg::transpose(handle, gramXAP.view(), gramXAPT.view());
-      raft::linalg::transpose(handle, gramXAR.view(), gramXART.view());
       raft::linalg::transpose(handle, gramRAP.view(), gramRAPT.view());
       raft::linalg::transpose(handle, gramXBP.view(), gramXBPT.view());
-      raft::linalg::transpose(handle, gramXBR.view(), gramXBRT.view());
       raft::linalg::transpose(handle, gramRBP.view(), gramRBPT.view());
 
       std::vector<raft::device_matrix_view<math_t, idx_t, col_major>> A_blocks = {
         gramXAX, gramXAR, gramXAP, gramXART, gramRAR, gramRAP, gramXAPT, gramRAPT, gramPAP};
       std::vector<raft::device_matrix_view<math_t, idx_t, col_major>> B_blocks = {
         gramXBX, gramXBR, gramXBP, gramXBRT, gramRBR, gramRBP, gramXBPT, gramRBPT, gramPBP};
-      bmat(handle, gramA, A_blocks);
-      bmat(handle, gramB, B_blocks);
+      gramAView =
+        raft::make_device_matrix_view<value_t, index_t, col_major>(gramA.data_handle(), n, n);
+      gramBView =
+        raft::make_device_matrix_view<value_t, index_t, col_major>(gramB.data_handle(), n, n);
+
+      bmat(handle, gramAView, A_blocks);
+      bmat(handle, gramBView, B_blocks);
+
+      bool eig_sucess =
+        eigh(handle, gramA, std::make_optional(gramBView), eigVectorTempView, eigLambdaTempView);
+      if (!eig_sucess) restart = true;
+    }
+    if (restart) {
+      gramDim = gramXAX.extent(1) + gramXAR.extent(1);
+      std::vector<raft::device_matrix_view<math_t, idx_t, col_major>> A_blocks = {
+        gramXAX, gramXAR, gramXART, gramRAR};
+      std::vector<raft::device_matrix_view<math_t, idx_t, col_major>> B_blocks = {
+        gramXBX, gramXBR, gramXBRT, gramRBR};
+      gramAView = raft::make_device_matrix_view<value_t, index_t, col_major>(
+        gramA.data_handle(), gramDim, gramDim);
+      gramBView = raft::make_device_matrix_view<value_t, index_t, col_major>(
+        gramB.data_handle(), gramDim, gramDim);
+      eigLambdaTempView =
+        raft::make_device_vector_view<value_t, index_t>(eigLambdaTempView.data_handle(), gramDim);
+      eigVectorTempView = raft::make_device_matrix_view<value_t, index_t, col_major>(
+        eigVectorTempView.data_handle(), gramDim, gramDim);
+      bmat(handle, gramAView, A_blocks);
+      bmat(handle, gramBView, B_blocks);
+      bool eig_sucess = eigh(
+        handle, gramAView, std::make_optional(gramBView), eigVectorTempView, eigLambdaTempView);
+      ASSERT(eig_sucess, "lobpcg: eigh has failed in lobpcg iterations");
+    }
+    truncEig(
+      handle, eigVectorTempView, std::make_optional(eigVector.view()), eigLambdaTempView, largest);
+    raft::copy(eigLambda.data_handle(), eigLambdaTempView.data_handle(), size_x, stream);
+
+    // Verbosity print
+
+    // Compute Ritz vectors.
+    if (B_opt.has_value()) {
+      auto eigBlockVectorX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+      auto eigBlockVectorX = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
+      if (!restart) {
+        raft::matrix::truncZeroOrigin(eigVector.data_handle(), )
+      }
     }
   }
   return;
