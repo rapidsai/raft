@@ -265,7 +265,7 @@ class coo_matrix
     : sparse_matrix_type(handle, n_rows, n_cols, nnz){};
 
   // Constructor that owns the data but not the structure
-  template <typename = typename std::enable_if<sparsity_type == SparsityType::PRESERVING>>
+  template <typename = std::enable_if_t<sparsity_type == SparsityType::PRESERVING>>
   coo_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
