@@ -50,6 +50,55 @@ struct check_index_layout {
 template struct check_index_layout<sizeof(index<std::uint64_t>), 448>;
 
 /**
+ * Write the index to an output stream
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] os output stream
+ * @param[in] index IVF-PQ index
+ *
+ */
+template <typename IdxT>
+void serialize(raft::device_resources const& handle_, std::ostream& os, const index<IdxT>& index)
+{
+  RAFT_LOG_DEBUG("Size %zu, dim %d, pq_dim %d, pq_bits %d",
+                 static_cast<size_t>(index.size()),
+                 static_cast<int>(index.dim()),
+                 static_cast<int>(index.pq_dim()),
+                 static_cast<int>(index.pq_bits()));
+
+  serialize_scalar(handle_, os, kSerializationVersion);
+  serialize_scalar(handle_, os, index.size());
+  serialize_scalar(handle_, os, index.dim());
+  serialize_scalar(handle_, os, index.pq_bits());
+  serialize_scalar(handle_, os, index.pq_dim());
+  serialize_scalar(handle_, os, index.conservative_memory_allocation());
+
+  serialize_scalar(handle_, os, index.metric());
+  serialize_scalar(handle_, os, index.codebook_kind());
+  serialize_scalar(handle_, os, index.n_lists());
+
+  serialize_mdspan(handle_, os, index.pq_centers());
+  serialize_mdspan(handle_, os, index.centers());
+  serialize_mdspan(handle_, os, index.centers_rot());
+  serialize_mdspan(handle_, os, index.rotation_matrix());
+
+  auto sizes_host = make_host_mdarray<uint32_t, uint32_t, row_major>(index.list_sizes().extents());
+  copy(sizes_host.data_handle(),
+       index.list_sizes().data_handle(),
+       sizes_host.size(),
+       handle_.get_stream());
+  handle_.sync_stream();
+  serialize_mdspan(handle_, os, sizes_host.view());
+  auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
+  for (uint32_t label = 0; label < index.n_lists(); label++) {
+    ivf::serialize_list<list_spec, IdxT, uint32_t>(
+      handle_, os, index.lists()[label], list_store_spec, sizes_host(label));
+  }
+}
+
+/**
  * Save the index to file.
  *
  * Experimental, both the API and the serialization format are subject to change.
@@ -67,40 +116,7 @@ void serialize(raft::device_resources const& handle_,
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  RAFT_LOG_DEBUG("Size %zu, dim %d, pq_dim %d, pq_bits %d",
-                 static_cast<size_t>(index.size()),
-                 static_cast<int>(index.dim()),
-                 static_cast<int>(index.pq_dim()),
-                 static_cast<int>(index.pq_bits()));
-
-  serialize_scalar(handle_, of, kSerializationVersion);
-  serialize_scalar(handle_, of, index.size());
-  serialize_scalar(handle_, of, index.dim());
-  serialize_scalar(handle_, of, index.pq_bits());
-  serialize_scalar(handle_, of, index.pq_dim());
-  serialize_scalar(handle_, of, index.conservative_memory_allocation());
-
-  serialize_scalar(handle_, of, index.metric());
-  serialize_scalar(handle_, of, index.codebook_kind());
-  serialize_scalar(handle_, of, index.n_lists());
-
-  serialize_mdspan(handle_, of, index.pq_centers());
-  serialize_mdspan(handle_, of, index.centers());
-  serialize_mdspan(handle_, of, index.centers_rot());
-  serialize_mdspan(handle_, of, index.rotation_matrix());
-
-  auto sizes_host = make_host_mdarray<uint32_t, uint32_t, row_major>(index.list_sizes().extents());
-  copy(sizes_host.data_handle(),
-       index.list_sizes().data_handle(),
-       sizes_host.size(),
-       handle_.get_stream());
-  handle_.sync_stream();
-  serialize_mdspan(handle_, of, sizes_host.view());
-  auto list_store_spec = list_spec<uint32_t>{index.pq_bits(), index.pq_dim(), true};
-  for (uint32_t label = 0; label < index.n_lists(); label++) {
-    ivf::serialize_list<list_spec, IdxT, uint32_t>(
-      handle_, of, index.lists()[label], list_store_spec, sizes_host(label));
-  }
+  detail::serialize(handle_, of, index);
 
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -108,35 +124,30 @@ void serialize(raft::device_resources const& handle_,
 }
 
 /**
- * Load index from file.
+ * Load index from input stream
  *
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @param[in] handle the raft handle
- * @param[in] filename the name of the file that stores the index
- * @param[in] index IVF-PQ index
+ * @param[in] is input stream
  *
  */
 template <typename IdxT>
-auto deserialize(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
+auto deserialize(raft::device_resources const& handle_, std::istream& is) -> index<IdxT>
 {
-  std::ifstream infile(filename, std::ios::in | std::ios::binary);
-
-  if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
-
-  auto ver = deserialize_scalar<int>(handle_, infile);
+  auto ver = deserialize_scalar<int>(handle_, is);
   if (ver != kSerializationVersion) {
     RAFT_FAIL("serialization version mismatch %d vs. %d", ver, kSerializationVersion);
   }
-  auto n_rows  = deserialize_scalar<IdxT>(handle_, infile);
-  auto dim     = deserialize_scalar<std::uint32_t>(handle_, infile);
-  auto pq_bits = deserialize_scalar<std::uint32_t>(handle_, infile);
-  auto pq_dim  = deserialize_scalar<std::uint32_t>(handle_, infile);
-  auto cma     = deserialize_scalar<bool>(handle_, infile);
+  auto n_rows  = deserialize_scalar<IdxT>(handle_, is);
+  auto dim     = deserialize_scalar<std::uint32_t>(handle_, is);
+  auto pq_bits = deserialize_scalar<std::uint32_t>(handle_, is);
+  auto pq_dim  = deserialize_scalar<std::uint32_t>(handle_, is);
+  auto cma     = deserialize_scalar<bool>(handle_, is);
 
-  auto metric        = deserialize_scalar<raft::distance::DistanceType>(handle_, infile);
-  auto codebook_kind = deserialize_scalar<raft::neighbors::ivf_pq::codebook_gen>(handle_, infile);
-  auto n_lists       = deserialize_scalar<std::uint32_t>(handle_, infile);
+  auto metric        = deserialize_scalar<raft::distance::DistanceType>(handle_, is);
+  auto codebook_kind = deserialize_scalar<raft::neighbors::ivf_pq::codebook_gen>(handle_, is);
+  auto n_lists       = deserialize_scalar<std::uint32_t>(handle_, is);
 
   RAFT_LOG_DEBUG("n_rows %zu, dim %d, pq_dim %d, pq_bits %d, n_lists %d",
                  static_cast<std::size_t>(n_rows),
@@ -148,22 +159,44 @@ auto deserialize(raft::device_resources const& handle_, const std::string& filen
   auto index = raft::neighbors::ivf_pq::index<IdxT>(
     handle_, metric, codebook_kind, n_lists, dim, pq_bits, pq_dim, cma);
 
-  deserialize_mdspan(handle_, infile, index.pq_centers());
-  deserialize_mdspan(handle_, infile, index.centers());
-  deserialize_mdspan(handle_, infile, index.centers_rot());
-  deserialize_mdspan(handle_, infile, index.rotation_matrix());
-  deserialize_mdspan(handle_, infile, index.list_sizes());
+  deserialize_mdspan(handle_, is, index.pq_centers());
+  deserialize_mdspan(handle_, is, index.centers());
+  deserialize_mdspan(handle_, is, index.centers_rot());
+  deserialize_mdspan(handle_, is, index.rotation_matrix());
+  deserialize_mdspan(handle_, is, index.list_sizes());
   auto list_device_spec = list_spec<uint32_t>{pq_bits, pq_dim, cma};
   auto list_store_spec  = list_spec<uint32_t>{pq_bits, pq_dim, true};
   for (auto& list : index.lists()) {
     ivf::deserialize_list<list_spec, IdxT, uint32_t>(
-      handle_, infile, list, list_store_spec, list_device_spec);
+      handle_, is, list, list_store_spec, list_device_spec);
   }
 
   handle_.sync_stream();
-  infile.close();
 
   recompute_internal_state(handle_, index);
+
+  return index;
+}
+
+/**
+ * Load index from file.
+ *
+ * Experimental, both the API and the serialization format are subject to change.
+ *
+ * @param[in] handle the raft handle
+ * @param[in] filename the name of the file that stores the index
+ *
+ */
+template <typename IdxT>
+auto deserialize(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
+{
+  std::ifstream infile(filename, std::ios::in | std::ios::binary);
+
+  if (!infile) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
+
+  auto index = detail::deserialize<IdxT>(handle_, infile);
+
+  infile.close();
 
   return index;
 }

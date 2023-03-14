@@ -14,4 +14,18 @@ namespace *raft::neighbors::ivf_pq*
     :members:
     :content-only:
 
+Serializer Methods
+------------------
+``#include <raft/neighbors/ivf_pq_serialize.cuh>``
 
+.. doxygenfunction:: serialize(raft::device_resources const& handle, std::ostream& os, const index<IdxT>& index)
+    :project: RAFT
+
+.. doxygenfunction:: serialize(raft::device_resources const& handle, const std::string& filename, const index<IdxT>& index)
+    :project: RAFT
+
+.. doxygenfunction:: deserialize(raft::device_resources const& handle, std::istream& is)
+    :project: RAFT
+
+.. doxygenfunction:: deserialize(raft::device_resources const& handle, const std::string& filename)
+    :project: RAFT
