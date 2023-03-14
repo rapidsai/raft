@@ -257,7 +257,7 @@ class coo_matrix
                   is_device,
                   ContainerPolicy>;
   static constexpr auto get_sparsity_type() { return sparsity_type; }
-  template <typename = typename std::enable_if<sparsity_type == SparsityType::OWNING>>
+  template <typename = std::enable_if_t<sparsity_type == SparsityType::OWNING>>
   coo_matrix(raft::resources const& handle,
              RowType n_rows,
              ColType n_cols,
