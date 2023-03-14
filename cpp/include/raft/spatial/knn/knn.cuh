@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "detail/knn_brute_force_faiss.cuh"
 #include "detail/selection_faiss.cuh"
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
+#include <raft/neighbors/detail/knn_brute_force.cuh>
 
 namespace raft::spatial::knn {
 
@@ -61,7 +61,7 @@ inline void knn_merge_parts(value_t* in_keys,
                             cudaStream_t stream,
                             idx_t* translations)
 {
-  detail::knn_merge_parts(
+  raft::neighbors::detail::knn_merge_parts(
     in_keys, in_values, out_keys, out_values, n_samples, n_parts, k, stream, translations);
 }
 
@@ -212,20 +212,20 @@ void brute_force_knn(raft::device_resources const& handle,
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  detail::brute_force_knn_impl(handle,
-                               input,
-                               sizes,
-                               D,
-                               search_items,
-                               n,
-                               res_I,
-                               res_D,
-                               k,
-                               rowMajorIndex,
-                               rowMajorQuery,
-                               translations,
-                               metric,
-                               metric_arg);
+  raft::neighbors::detail::brute_force_knn_impl(handle,
+                                                input,
+                                                sizes,
+                                                D,
+                                                search_items,
+                                                n,
+                                                res_I,
+                                                res_D,
+                                                k,
+                                                rowMajorIndex,
+                                                rowMajorQuery,
+                                                translations,
+                                                metric,
+                                                metric_arg);
 }
 
 }  // namespace raft::spatial::knn

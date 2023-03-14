@@ -18,8 +18,8 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
-#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <raft/spatial/knn/detail/selection_faiss.cuh>
 
 namespace raft::neighbors::brute_force {
@@ -96,15 +96,15 @@ inline void knn_merge_parts(
                "Number of columns in output indices and distances matrices must be equal to k");
 
   auto n_parts = in_keys.extent(0) / n_samples;
-  spatial::knn::detail::knn_merge_parts(in_keys.data_handle(),
-                                        in_values.data_handle(),
-                                        out_keys.data_handle(),
-                                        out_values.data_handle(),
-                                        n_samples,
-                                        n_parts,
-                                        in_keys.extent(1),
-                                        handle.get_stream(),
-                                        translations.value_or(nullptr));
+  detail::knn_merge_parts(in_keys.data_handle(),
+                          in_values.data_handle(),
+                          out_keys.data_handle(),
+                          out_values.data_handle(),
+                          n_samples,
+                          n_parts,
+                          in_keys.extent(1),
+                          handle.get_stream(),
+                          translations.value_or(nullptr));
 }
 
 /**
@@ -181,21 +181,21 @@ void knn(raft::device_resources const& handle,
 
   std::vector<idx_t>* trans_arg = global_id_offset.has_value() ? &trans : nullptr;
 
-  raft::spatial::knn::detail::brute_force_knn_impl(handle,
-                                                   inputs,
-                                                   sizes,
-                                                   static_cast<value_int>(index[0].extent(1)),
-                                                   // TODO: This is unfortunate. Need to fix.
-                                                   const_cast<value_t*>(search.data_handle()),
-                                                   static_cast<value_int>(search.extent(0)),
-                                                   indices.data_handle(),
-                                                   distances.data_handle(),
-                                                   k,
-                                                   rowMajorIndex,
-                                                   rowMajorQuery,
-                                                   trans_arg,
-                                                   metric,
-                                                   metric_arg.value_or(2.0f));
+  raft::neighbors::detail::brute_force_knn_impl(handle,
+                                                inputs,
+                                                sizes,
+                                                static_cast<value_int>(index[0].extent(1)),
+                                                // TODO: This is unfortunate. Need to fix.
+                                                const_cast<value_t*>(search.data_handle()),
+                                                static_cast<value_int>(search.extent(0)),
+                                                indices.data_handle(),
+                                                distances.data_handle(),
+                                                k,
+                                                rowMajorIndex,
+                                                rowMajorQuery,
+                                                trans_arg,
+                                                metric,
+                                                metric_arg.value_or(2.0f));
 }
 
 /**

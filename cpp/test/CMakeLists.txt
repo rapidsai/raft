@@ -266,10 +266,11 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     test/neighbors/knn.cu
     test/neighbors/fused_l2_knn.cu
+    test/neighbors/tiled_knn.cu
     test/neighbors/haversine.cu
     test/neighbors/ball_cover.cu
-    test/neighbors/epsilon_neighborhood.cu
     test/neighbors/faiss_mr.cu
+    test/neighbors/epsilon_neighborhood.cu
     test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
