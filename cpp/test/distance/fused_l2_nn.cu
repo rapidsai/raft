@@ -182,22 +182,20 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
     int m = params.m;
     int n = params.n;
     int k = params.k;
-    MinAndDistanceReduceOp<int, DataT> redOp;
-    fusedL2NN<DataT, raft::KeyValuePair<int, DataT>, int>(
-      out,
-      x.data(),
-      y.data(),
-      xn.data(),
-      yn.data(),
-      m,
-      n,
-      k,
-      (void*)workspace.data(),
-      redOp,
-      raft::distance::KVPMinReduce<int, DataT>(),
-      Sqrt,
-      true,
-      stream);
+
+    const bool init_out_buffer = true;
+    fusedL2NNMinReduce<DataT, raft::KeyValuePair<int, DataT>, int>(out,
+                                                                   x.data(),
+                                                                   y.data(),
+                                                                   xn.data(),
+                                                                   yn.data(),
+                                                                   m,
+                                                                   n,
+                                                                   k,
+                                                                   (void*)workspace.data(),
+                                                                   Sqrt,
+                                                                   init_out_buffer,
+                                                                   stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 };

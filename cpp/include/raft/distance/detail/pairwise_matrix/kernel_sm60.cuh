@@ -43,36 +43,20 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
 
   extern __shared__ char smem[];
 
-  using AccT = typename OpT::AccT;
-
-  // Wrap operator back into lambdas. This is temporary and should be removed.
-  // See: https://github.com/rapidsai/raft/issues/1323
-  auto core_op = [distance_op] __device__(AccT & acc, DataT & x, DataT & y) {
-    distance_op.core(acc, x, y);
-  };
-  auto epilog_op = [distance_op] __device__(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                                            DataT * regxn,
-                                            DataT * regyn,
-                                            IdxT gridStrideX,
-                                            IdxT gridStrideY) {
-    // Use .template to disambiguate (See:
-    // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template epilog<Policy>(acc, regxn, regyn, gridStrideX, gridStrideY);
-  };
-
+  // The epilog is already provided by distance_op. Do not provide additional
+  // epilogs.
+  auto epilog_op = raft::void_op();
   // No support for row_epilog_op.
   auto row_epilog_op = raft::void_op();
 
   // Always write output
   constexpr bool write_out = true;
   constexpr bool use_norms = distance_op.use_norms;
-  PairwiseDistances<use_norms,
-                    DataT,
-                    AccT,
+  PairwiseDistances<DataT,
                     OutT,
                     IdxT,
                     Policy,
-                    decltype(core_op),
+                    decltype(distance_op),
                     decltype(epilog_op),
                     decltype(params.fin_op),
                     decltype(row_epilog_op),
@@ -90,7 +74,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
         params.y_norm,
         params.out,
         smem,
-        core_op,
+        distance_op,
         epilog_op,
         params.fin_op,
         row_epilog_op);
