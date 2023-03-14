@@ -259,7 +259,8 @@ class csr_matrix
                   ContainerPolicy>;
   using container_type = typename ContainerPolicy<ElementType>::container_type;
 
-  template <typename = typename std::enable_if<sparsity_type == SparsityType::OWNING>>
+  template <SparsityType sparsity_type_ = get_sparsity_type(),
+            typename = typename std::enable_if_t<sparsity_type_ == SparsityType::OWNING>>
   csr_matrix(raft::resources const& handle,
              IndptrType n_rows,
              IndicesType n_cols,
@@ -268,7 +269,8 @@ class csr_matrix
 
   // Constructor that owns the data but not the structure
 
-  template <typename = typename std::enable_if<sparsity_type == SparsityType::PRESERVING>>
+  template <SparsityType sparsity_type_ = get_sparsity_type(),
+            typename = typename std::enable_if_t<sparsity_type_ == SparsityType::PRESERVING>>
   csr_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
