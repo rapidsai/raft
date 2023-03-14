@@ -187,7 +187,7 @@ template <typename Policy,
           typename ReduceLambda,
           typename FinalLambda>
 __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
-  csrReductionKernel(Type* dots,
+  csrReductionKernel(Type* norm,
                      const IdxType* ia,
                      const Type* data,
                      IdxType N,
@@ -204,7 +204,7 @@ __global__ void __launch_bounds__(Policy::ThreadsPerBlock)
     acc = reduce_op(acc, main_op(data[j]));
   }
   acc = raft::logicalWarpReduce<Policy::LogicalWarpSize>(acc, reduce_op);
-  if (threadIdx.x == 0) { dots[i] = final_op(acc); }
+  if (threadIdx.x == 0) { norm[i] = final_op(acc); }
 }
 
 template <typename Policy,
@@ -213,7 +213,7 @@ template <typename Policy,
           typename MainLambda   = raft::identity_op,
           typename ReduceLambda = raft::add_op,
           typename FinalLambda  = raft::identity_op>
-void csrReduction(Type* dots,
+void csrReduction(Type* norm,
                   const IdxType* ia,
                   const Type* data,
                   IdxType N,
@@ -228,12 +228,12 @@ void csrReduction(Type* dots,
   dim3 threads(Policy::LogicalWarpSize, Policy::RowsPerBlock, 1);
   dim3 blocks(ceildiv<IdxType>(N, Policy::RowsPerBlock), 1, 1);
   csrReductionKernel<Policy>
-    <<<blocks, threads, 0, stream>>>(dots, ia, data, N, init, main_op, reduce_op, final_op);
+    <<<blocks, threads, 0, stream>>>(norm, ia, data, N, init, main_op, reduce_op, final_op);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename Type, typename IdxType, typename Lambda>
-void rowNormCsrCaller(Type* dots,
+void rowNormCsrCaller(Type* norm,
                       const IdxType* ia,
                       const Type* data,
                       IdxType nnz,
@@ -246,15 +246,15 @@ void rowNormCsrCaller(Type* dots,
   switch (type) {
     case raft::linalg::NormType::L1Norm:
       csrReduction<CsrReductionPolicy<32, 4>>(
-        dots, ia, data, N, (Type)0, stream, raft::abs_op(), raft::add_op(), fin_op);
+        norm, ia, data, N, (Type)0, stream, raft::abs_op(), raft::add_op(), fin_op);
       break;
     case raft::linalg::NormType::L2Norm:
       csrReduction<CsrReductionPolicy<32, 4>>(
-        dots, ia, data, N, (Type)0, stream, raft::sq_op(), raft::add_op(), fin_op);
+        norm, ia, data, N, (Type)0, stream, raft::sq_op(), raft::add_op(), fin_op);
       break;
     case raft::linalg::NormType::LinfNorm:
       csrReduction<CsrReductionPolicy<32, 4>>(
-        dots, ia, data, N, (Type)0, stream, raft::abs_op(), raft::max_op(), fin_op);
+        norm, ia, data, N, (Type)0, stream, raft::abs_op(), raft::max_op(), fin_op);
       break;
     default: THROW("Unsupported norm type: %d", type);
   };
