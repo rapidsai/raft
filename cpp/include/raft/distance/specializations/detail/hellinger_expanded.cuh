@@ -21,43 +21,22 @@
 namespace raft::distance::detail {
 
 extern template void
-pairwise_matrix_dispatch<ops::hellinger_distance_op<float, float, int>,
-                         float,
-                         float,
-                         float,
-                         decltype(raft::identity_op()),
-                         int,
-                         raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>>(
-  ops::hellinger_distance_op<float, float, int>,
-  int,
-  int,
-  int,
-  const float*,
-  const float*,
-  const float*,
-  const float*,
-  float*,
-  decltype(raft::identity_op()),
-  cudaStream_t,
-  bool);
+  pairwise_matrix_instantiation_point<ops::hellinger_distance_op<float, float, int>,
+                                      int,
+                                      float,
+                                      float,
+                                      decltype(raft::identity_op())>(
+    ops::hellinger_distance_op<float, float, int>,
+    pairwise_matrix_params<int, float, float, decltype(raft::identity_op())>,
+    cudaStream_t);
+
 extern template void
-pairwise_matrix_dispatch<ops::hellinger_distance_op<double, double, int>,
-                         double,
-                         double,
-                         double,
-                         decltype(raft::identity_op()),
-                         int,
-                         raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>>(
-  ops::hellinger_distance_op<double, double, int>,
-  int,
-  int,
-  int,
-  const double*,
-  const double*,
-  const double*,
-  const double*,
-  double*,
-  decltype(raft::identity_op()),
-  cudaStream_t,
-  bool);
+  pairwise_matrix_instantiation_point<ops::hellinger_distance_op<double, double, int>,
+                                      int,
+                                      double,
+                                      double,
+                                      decltype(raft::identity_op())>(
+    ops::hellinger_distance_op<double, double, int>,
+    pairwise_matrix_params<int, double, double, decltype(raft::identity_op())>,
+    cudaStream_t);
 }  // namespace raft::distance::detail

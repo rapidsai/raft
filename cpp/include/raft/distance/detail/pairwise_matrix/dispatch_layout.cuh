@@ -15,9 +15,10 @@
  */
 #pragma once
 
-#include "kernel_sm60.cuh"
-#include <algorithm>
-#include <type_traits>
+#include <algorithm>                                        // std::min
+#include <cstdint>                                          // size_t
+#include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
+#include <type_traits>                                      // std::integral_constant
 
 namespace raft::distance::detail {
 

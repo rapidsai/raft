@@ -15,9 +15,9 @@
  */
 #pragma once
 
-#include <algorithm>  // std::min
-#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch_layout.cuh>
+#include <algorithm>                                                 // std::min
+#include <raft/distance/detail/pairwise_distance_cutlass_base.cuh>   // cutlassDistanceKernel
+#include <raft/distance/detail/pairwise_matrix/dispatch_layout.cuh>  // dispatch_layout
 
 namespace raft::distance::detail {
 

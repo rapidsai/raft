@@ -14,30 +14,22 @@
  * limitations under the License.
  */
 
-#include <raft/core/operators.hpp>  // raft::identity_op
-#include <raft/distance/detail/distance_ops/all_ops.cuh>
+#include <raft/core/operators.hpp>                        // raft::identity_op
+#include <raft/distance/detail/distance_ops/all_ops.cuh>  // ops::*
 
-#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>  // pairwise_matrix_instantiation_point
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
 #include <raft/util/arch.cuh>  // raft::arch::SM_compat_range
 
 namespace raft::distance::detail {
 
-template void pairwise_matrix_dispatch<ops::hamming_distance_op<double, double, int>,
-                                       double,
-                                       double,
-                                       double,
-                                       decltype(raft::identity_op()),
-                                       int>(ops::hamming_distance_op<double, double, int>,
-                                            int,
-                                            int,
-                                            int,
-                                            const double*,
-                                            const double*,
-                                            const double*,
-                                            const double*,
-                                            double*,
-                                            decltype(raft::identity_op()),
-                                            cudaStream_t,
-                                            bool);
+template void pairwise_matrix_instantiation_point<ops::hamming_distance_op<double, double, int>,
+                                                  int,
+                                                  double,
+                                                  double,
+                                                  decltype(raft::identity_op())>(
+  ops::hamming_distance_op<double, double, int>,
+  pairwise_matrix_params<int, double, double, decltype(raft::identity_op())>,
+  cudaStream_t);
 
 }  // namespace raft::distance::detail

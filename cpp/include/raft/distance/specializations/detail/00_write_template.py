@@ -30,26 +30,15 @@ namespace raft::distance::detail {
 
 """
 
-extern_template = """extern template void
-pairwise_matrix_dispatch<OpT,
-                         DataT,
-                         AccT,
-                         OutT,
-                         FinopT,
-                         IdxT,
-                         SM_compat_t>(
-    OpT,
-    IdxT,
-    IdxT,
-    IdxT,
-    const DataT*,
-    const DataT*,
-    const DataT*,
-    const DataT*,
-    OutT*,
-    FinopT,
-    cudaStream_t ,
-    bool);
+extern_template = """
+extern template void pairwise_matrix_instantiation_point<OpT,
+                                                         IdxT,
+                                                         DataT,
+                                                         OutT,
+                                                         FinopT>(
+  OpT,
+  pairwise_matrix_params<IdxT, DataT, OutT, FinopT>,
+  cudaStream_t);
 """
 
 end_template = """}  // namespace raft::distance::detail

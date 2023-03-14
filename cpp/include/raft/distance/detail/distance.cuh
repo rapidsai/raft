@@ -16,25 +16,18 @@
 
 #pragma once
 
-#include <cuda_runtime_api.h>
-#include <type_traits>
-
+#include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/distance/detail/distance_ops/all_ops.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm80.cuh>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
-
-#include <raft/core/operators.hpp>
-
-#include <raft/distance/detail/distance_ops/all_ops.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
-
-#include <raft/distance/distance_types.hpp>
-#include <raft/linalg/gemm.cuh>
-#include <raft/util/arch.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
+#include <type_traits>
 
 namespace raft {
 namespace distance {
@@ -140,14 +133,14 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  AccT* norm_col_vec    = workspace;
-  AccT* norm_row_vec    = workspace;
-  AccT* sq_norm_col_vec = workspace;
-  AccT* sq_norm_row_vec = workspace;
+  AccT* x_norm    = workspace;
+  AccT* y_norm    = workspace;
+  AccT* sq_x_norm = workspace;
+  AccT* sq_y_norm = workspace;
   if (x != y) {
-    norm_row_vec += m;
+    y_norm += m;
 
-    raft::linalg::reduce(norm_col_vec,
+    raft::linalg::reduce(x_norm,
                          x,
                          k,
                          m,
@@ -158,7 +151,7 @@ void distance_impl(raft::resources const& handle,
                          false,
                          raft::identity_op(),
                          raft::add_op());
-    raft::linalg::reduce(norm_row_vec,
+    raft::linalg::reduce(y_norm,
                          y,
                          k,
                          n,
@@ -170,12 +163,12 @@ void distance_impl(raft::resources const& handle,
                          raft::identity_op(),
                          raft::add_op());
 
-    sq_norm_col_vec += (m + n);
-    sq_norm_row_vec = sq_norm_col_vec + m;
-    raft::linalg::rowNorm(sq_norm_col_vec, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
-    raft::linalg::rowNorm(sq_norm_row_vec, y, k, n, raft::linalg::L2Norm, is_row_major, stream);
+    sq_x_norm += (m + n);
+    sq_y_norm = sq_x_norm + m;
+    raft::linalg::rowNorm(sq_x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
+    raft::linalg::rowNorm(sq_y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream);
   } else {
-    raft::linalg::reduce(norm_col_vec,
+    raft::linalg::reduce(x_norm,
                          x,
                          k,
                          m,
@@ -186,15 +179,15 @@ void distance_impl(raft::resources const& handle,
                          false,
                          raft::identity_op(),
                          raft::add_op());
-    sq_norm_col_vec += m;
-    sq_norm_row_vec = sq_norm_col_vec;
-    raft::linalg::rowNorm(sq_norm_col_vec, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
+    sq_x_norm += m;
+    sq_y_norm = sq_x_norm;
+    raft::linalg::rowNorm(sq_x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
   }
 
   using OpT = ops::correlation_distance_op<DataT, AccT, IdxT>;
-  OpT corr_op(is_row_major, sq_norm_col_vec, sq_norm_row_vec, m, n, k);
+  OpT corr_op(is_row_major, sq_x_norm, sq_y_norm, m, n, k);
   pairwise_matrix_dispatch<decltype(corr_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    corr_op, m, n, k, x, y, norm_col_vec, norm_row_vec, out, fin_op, stream, is_row_major);
+    corr_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -223,22 +216,22 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  DataT* norm_A = workspace;
-  DataT* norm_B = workspace;
+  DataT* x_norm = workspace;
+  DataT* y_norm = workspace;
   if (x != y) {
-    norm_B += m;
+    y_norm += m;
     raft::linalg::rowNorm(
-      norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
     raft::linalg::rowNorm(
-      norm_B, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
   } else {
     raft::linalg::rowNorm(
-      norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
   }
 
   ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
   pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -389,10 +382,6 @@ void distance_impl(raft::resources const& handle,
     return (!x_zero) * raft::exp(input);
   };
 
-  // This op takes some shortcuts when x equals y. So its behavior changes based
-  // on this.
-  ops::kl_divergence_op<DataT, AccT, IdxT> kl_divergence{is_row_major, x == y};
-
   if (x != y) {
     raft::linalg::unaryOp<DataT, decltype(unaryOp_lambda), IdxT>(
       (DataT*)y, y, n * k, unaryOp_lambda, stream);
@@ -401,8 +390,12 @@ void distance_impl(raft::resources const& handle,
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
 
-  pairwise_matrix_dispatch<decltype(kl_divergence), DataT, AccT, OutT, FinOpT, IdxT>(
-    kl_divergence, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+  // This op takes some shortcuts when x equals y. So its behavior changes based
+  // on this.
+  ops::kl_divergence_op<DataT, AccT, IdxT> distance_op{is_row_major, x == y};
+
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 
   if (x != y) {
     // Now reverse previous log (x) back to x using (e ^ log(x))
@@ -464,22 +457,22 @@ void distance_impl_l2_expanded(  // NOTE: different name
          "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
-  DataT* norm_A = workspace;
-  DataT* norm_B = workspace;
+  DataT* x_norm = workspace;
+  DataT* y_norm = workspace;
   if (x != y) {
-    norm_B += m;
+    y_norm += m;
     raft::linalg::rowNorm(
-      norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
     raft::linalg::rowNorm(
-      norm_B, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
   } else {
     raft::linalg::rowNorm(
-      norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
   }
 
   ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};
   pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -543,13 +536,13 @@ void distance_impl(raft::resources const& handle,
   ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
 
   // The unexpanded L2 does not require the norms of a and b to be calculated.
-  const DataT* norm_A = nullptr;
-  const DataT* norm_B = nullptr;
+  const DataT* x_norm = nullptr;
+  const DataT* y_norm = nullptr;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
   pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+    l2_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -571,13 +564,13 @@ void distance_impl(raft::resources const& handle,
   ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
 
   // The unexpanded L2 does not require the norms of a and b to be calculated.
-  const DataT* norm_A = nullptr;
-  const DataT* norm_B = nullptr;
+  const DataT* x_norm = nullptr;
+  const DataT* y_norm = nullptr;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
   pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
+    l2_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>

@@ -15,41 +15,55 @@
  */
 #pragma once
 
-#include <raft/distance/detail/distance_ops/cutlass.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch_layout.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
-#include <raft/distance/detail/pairwise_matrix/dispatch_sm80.cuh>
-#include <raft/distance/detail/pairwise_matrix/params.cuh>
-#include <raft/linalg/contractions.cuh>
-#include <raft/util/arch.cuh>
-#include <type_traits>
+/* This file has two responsibilities:
+ *
+ * 1. Dispatch to the correct implementation of a kernel based on the
+ *    architecture of the device on which the kernel will be launched. For
+ *    instance, the cosine distance has a CUTLASS-based implementation that can
+ *    be used on SM80+ and the normal implementation that is used on older
+ *    architectures.
+ *
+ * 2. Provide concise function templates that can be instantiated in
+ *    src/distance/distance/specializations/detail/. Previously,
+ *    raft::distance::detail::distance was instantiated. The function
+ *    necessarily required a large set of include files, which slowed down the
+ *    build. The raft::distance::detail::pairwise_matrix_arch_dispatch functions
+ *    do not require as large an include files set, which speeds up the build.
+ */
+
+#include <raft/distance/detail/distance_ops/cutlass.cuh>           // ops::has_cutlass_op
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>  // dispatch_sm60
+#include <raft/distance/detail/pairwise_matrix/params.cuh>         // pairwise_matrix_params
+
+// NOTE: to minimize compile times, we do not include dispatch_sm80.cuh.
+// Including dispatch_sm80.cuh can slow down compile times (due to CUTLASS).
+// Therefore, it is the including file's responsibility to include the correct
+// dispatch_smXX.cuh headers, as is done in raft/distance/detail/distance.cuh
+// and the specializations in src/distance/distance/specializations/detail/.
 
 namespace raft::distance::detail {
 
+// This forward-declaration ensures that we do not need to include
+// dispatch_sm80.cuh if we are not calling it in practice. This makes compiling
+// all the non-CUTLASS based distance specializations faster. For CUTLASS-based
+// distances, dispatch_sm80.cuh has to be included by the file including this
+// file.
 template <typename OpT,
+          typename IdxT,
           typename DataT,
-          typename AccT,
           typename OutT,
           typename FinOpT,
-          typename IdxT = int>
-void pairwise_matrix_dispatch(OpT distance_op,
-                              IdxT m,
-                              IdxT n,
-                              IdxT k,
-                              const DataT* x,
-                              const DataT* y,
-                              const DataT* x_norm,
-                              const DataT* y_norm,
-                              OutT* out,
-                              FinOpT fin_op,
-                              cudaStream_t stream,
-                              bool is_row_major)
-{
-  // Create kernel parameter struct. Flip x and y if column major.
-  pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params =
-    is_row_major ? make_params(m, n, k, x, y, x_norm, y_norm, out, fin_op, is_row_major)
-                 : make_params(n, m, k, y, x, y_norm, x_norm, out, fin_op, is_row_major);
+          typename SM_compat_t>
+void pairwise_matrix_sm80_dispatch(OpT,
+                                   pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>,
+                                   SM_compat_t,
+                                   cudaStream_t);
 
+template <typename OpT, typename IdxT, typename DataT, typename OutT, typename FinOpT>
+void pairwise_matrix_instantiation_point(OpT distance_op,
+                                         pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params,
+                                         cudaStream_t stream)
+{
   // On CUDA 12:
   // - always execute normal kernel
   //
@@ -85,6 +99,33 @@ void pairwise_matrix_dispatch(OpT distance_op,
       sm60_wrapper.launch(distance_op, params, stream);
     }
   }
+}
+
+template <typename OpT,
+          typename DataT,
+          typename AccT,
+          typename OutT,
+          typename FinOpT,
+          typename IdxT = int>
+void pairwise_matrix_dispatch(OpT distance_op,
+                              IdxT m,
+                              IdxT n,
+                              IdxT k,
+                              const DataT* x,
+                              const DataT* y,
+                              const DataT* x_norm,
+                              const DataT* y_norm,
+                              OutT* out,
+                              FinOpT fin_op,
+                              cudaStream_t stream,
+                              bool is_row_major)
+{
+  // Create kernel parameter struct. Flip x and y if column major.
+  pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params =
+    is_row_major ? make_params(m, n, k, x, y, x_norm, y_norm, out, fin_op, is_row_major)
+                 : make_params(n, m, k, y, x, y_norm, x_norm, out, fin_op, is_row_major);
+
+  pairwise_matrix_instantiation_point(distance_op, params, stream);
 }
 
 };  // namespace raft::distance::detail

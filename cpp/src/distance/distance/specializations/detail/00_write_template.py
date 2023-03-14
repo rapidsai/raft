@@ -19,33 +19,22 @@ template = """/*
  */
 
 #include <raft/core/operators.hpp> // raft::identity_op
-#include <raft/distance/detail/distance_ops/all_ops.cuh>
+#include <raft/distance/detail/distance_ops/all_ops.cuh> // ops::*
 
-#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch.cuh> // pairwise_matrix_instantiation_point
+INCLUDE_SM_HEADERS
 #include <raft/util/arch.cuh> // raft::arch::SM_compat_range
 
 namespace raft::distance::detail {
 
-template void
-pairwise_matrix_dispatch<OpT,
-                         DataT,
-                         AccT,
-                         OutT,
-                         FinopT,
-                         IdxT>(
-    OpT,
-    IdxT,
-    IdxT,
-    IdxT,
-    const DataT*,
-    const DataT*,
-    const DataT*,
-    const DataT*,
-    OutT*,
-    FinopT,
-    cudaStream_t ,
-    bool);
-
+template void pairwise_matrix_instantiation_point<OpT,
+                                                  IdxT,
+                                                  DataT,
+                                                  OutT,
+                                                  FinopT>(
+  OpT,
+  pairwise_matrix_params<IdxT, DataT, OutT, FinopT>,
+  cudaStream_t);
 
 }  // namespace raft::distance::detail
 """
@@ -63,81 +52,75 @@ data_type_instances = [
         OutT="double",
         IdxT="int",
     ),
-
 ]
-
-
-
 
 op_instances = [
     dict(
         path_prefix="canberra",
         OpT="ops::canberra_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="correlation",
         OpT="ops::correlation_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="cosine",
         OpT="ops::cosine_distance_op<DataT, AccT, IdxT>",
-        # cosine uses CUTLASS for SM80+
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_80>",
+        archs = [60, 80],
     ),
     dict(
         path_prefix="hamming_unexpanded",
         OpT="ops::hamming_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="hellinger_expanded",
         OpT="ops::hellinger_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     # inner product is handled by cublas.
     dict(
         path_prefix="jensen_shannon",
         OpT="ops::jensen_shannon_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="kl_divergence",
         OpT="ops::kl_divergence_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="l1",
         OpT="ops::l1_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="l2_expanded",
         OpT="ops::l2_exp_distance_op<DataT, AccT, IdxT>",
-        # L2 expanded uses CUTLASS for SM80+
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_80>",
+        archs = [60, 80],
     ),
     dict(
         path_prefix="l2_unexpanded",
         OpT="ops::l2_unexp_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="l_inf",
         OpT="ops::l_inf_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="lp_unexpanded",
         OpT="ops::lp_unexp_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
+        archs = [60],
     ),
     dict(
         path_prefix="russel_rao",
         OpT="ops::russel_rao_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
-    ),
+        archs = [60],
+     ),
 ]
 
 def fill_in(s, template):
@@ -145,7 +128,21 @@ def fill_in(s, template):
         s = s.replace(k, v)
     return s
 
+def fill_include_sm_headers(op_instance):
+    include_headers ="\n".join([
+        f"#include <raft/distance/detail/pairwise_matrix/dispatch_sm{arch}.cuh>"
+        for arch in op_instance["archs"]
+    ])
+
+    return {
+        "path_prefix": op_instance["path_prefix"],
+        "OpT": op_instance["OpT"],
+        "INCLUDE_SM_HEADERS": include_headers
+    }
+
 for op_instance in op_instances:
+    op_instance = fill_include_sm_headers(op_instance)
+
     for data_type_instance in data_type_instances:
         op_data_instance = {
             k : fill_in(v, data_type_instance)
