@@ -47,7 +47,6 @@ namespace raft::neighbors::ivf_pq {
  * @param[in] os output stream
  * @param[in] index IVF-PQ index
  *
- * @return raft::neighbors::ivf_pq::index<IdxT>
  */
 template <typename IdxT>
 void serialize(raft::device_resources const& handle, std::ostream& os, const index<IdxT>& index)
@@ -77,7 +76,6 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  * @param[in] filename the file name for saving the index
  * @param[in] index IVF-PQ index
  *
- * @return raft::neighbors::ivf_pq::index<IdxT>
  */
 template <typename IdxT>
 void serialize(raft::device_resources const& handle,

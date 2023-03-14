@@ -52,9 +52,9 @@ namespace raft::neighbors::ivf_pq {
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-auto build(raft::device_resources const& handle,
-           const index_params& params,
-           raft::device_matrix_view<const T, IdxT, row_major> dataset) -> index<IdxT>
+index<IdxT> build(raft::device_resources const& handle,
+                  const index_params& params,
+                  raft::device_matrix_view<const T, IdxT, row_major> dataset)
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
@@ -284,7 +284,6 @@ auto extend(raft::device_resources const& handle,
  * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
  *    If the original index is empty (`index.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param[inout] idx
  * @param n_rows the number of samples
  */
 template <typename T, typename IdxT>

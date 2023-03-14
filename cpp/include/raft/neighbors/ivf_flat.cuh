@@ -66,9 +66,9 @@ namespace detail = raft::spatial::knn::ivf_flat::detail;
  * @return the constructed ivf-flat index
  */
 template <typename T, typename IdxT>
-auto build(raft::device_resources const& handle,
-           const index_params& params,
-           raft::device_matrix_view<const T, IdxT, row_major> dataset) -> index<T, IdxT>
+index<T, IdxT> build(raft::device_resources const& handle,
+                     const index_params& params,
+                     raft::device_matrix_view<const T, IdxT, row_major> dataset)
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
@@ -232,7 +232,7 @@ void search(raft::device_resources const& handle,
                         handle.get_workspace_resource());
 }
 
-/** @} */
+/** @} */  // end group ivf_flat
 
 /**
  * @brief Build the index from the dataset for efficient search.
@@ -275,8 +275,6 @@ auto build(raft::device_resources const& handle,
 {
   return detail::build(handle, params, dataset, n_rows, dim);
 }
-
-/** @} */  // end group ivf_flat
 
 /**
  * @brief Build a new index containing the data of the original plus new extra vectors.
