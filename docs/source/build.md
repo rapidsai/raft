@@ -57,14 +57,14 @@ The recommended way to build and install RAFT is to use the `build.sh` script in
 
 ### Header-only C++
 
-`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like `FAISS`, which will need to be explicitly enabled in `build.sh`.
+`build.sh` uses [rapids-cmake](https://github.com/rapidsai/rapids-cmake), which will automatically download any dependencies which are not already installed. It's important to note that while all the headers will be installed and available, some parts of the RAFT API depend on libraries like CUTLASS, which will need to be explicitly enabled in `build.sh`.
 
 The following example will download the needed dependencies and install the RAFT headers into `$INSTALL_PREFIX/include/raft`. 
 ```bash
 ./build.sh libraft
 
 ```
-The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build, with the exception of building FAISS statically into the shared libraries.
+The `-n` flag can be passed to just have the build download the needed dependencies. Since RAFT is primarily used at build-time, the dependencies will never be installed by the RAFT build.
 ```bash
 ./build.sh libraft -n
 ```
@@ -151,17 +151,21 @@ make -j<parallel_level> install
 
 RAFT's cmake has the following configurable flags available:.
 
-| Flag                   | Possible Values | Default Value | Behavior                                                               |
-|------------------------| -- | --- |------------------------------------------------------------------------|
-| BUILD_TESTS            | ON, OFF | ON | Compile Googletests                                                    |
-| BUILD_BENCH            | ON, OFF | OFF | Compile benchmarks                                                     |
-| raft_FIND_COMPONENTS   | compiled, distributed | | Configures optional components as a space-separated list           |
-| RAFT_COMPILE_LIBRARY   | ON, OFF | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles `libraft` shared library (these are required for Googletests) |
-| DETECT_CONDA_ENV       | ON, OFF | ON | Enable detection of conda environment for dependencies                 |
-| RAFT_NVTX              | ON, OFF | OFF | Enable NVTX Markers                                                    |
-| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`   |
-| CUDA_ENABLE_LINEINFO   | ON, OFF | OFF | Enable the -lineinfo option for nvcc                                   |
-| CUDA_STATIC_RUNTIME    | ON, OFF | OFF | Statically link the CUDA runtime                                       |
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
+| BUILD_TESTS | ON, OFF | ON | Compile Googletests |
+| BUILD_BENCH | ON, OFF | OFF | Compile benchmarks |
+| raft_FIND_COMPONENTS | nn distance | | Configures the optional components as a space-separated list |
+| RAFT_COMPILE_LIBRARIES | ON, OFF | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_NN_LIBRARY | ON, OFF | OFF | Compiles the `libraft-nn` shared library |
+| RAFT_COMPILE_DIST_LIBRARY | ON, OFF | OFF | Compiles the `libraft-distance` shared library |
+| DETECT_CONDA_ENV | ON, OFF | ON | Enable detection of conda environment for dependencies |
+| RAFT_NVTX | ON, OFF | OFF | Enable NVTX Markers |
+| CUDA_ENABLE_KERNELINFO | ON, OFF | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
+| CUDA_ENABLE_LINEINFO  | ON, OFF | OFF | Enable the -lineinfo option for nvcc |
+| CUDA_STATIC_RUNTIME | ON, OFF | OFF | Statically link the CUDA runtime |
+
+Currently, shared libraries are provided for the `libraft-nn` and `libraft-distance` components.
 
 ### Python
 
@@ -263,7 +267,7 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 ### Using C++ pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS compiled distributed)` to enable the shared library and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as NCCL for the `distributed` component).
+Use `find_package(raft COMPONENTS compiled distributed)` to enable the shared library and transitively pass dependencies through separate targets for each component. In this example, the `raft::compiled` and `raft::distributed` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as NCCL for the `distributed` component).
 
 The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 

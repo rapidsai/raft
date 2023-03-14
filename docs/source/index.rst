@@ -1,5 +1,5 @@
-RAPIDS RAFT
-===========
+RAPIDS RAFT: Reusable Accelerated Functions and Tools
+=====================================================
 
 RAFT contains fundamental widely-used algorithms and primitives for scientific computing, data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 

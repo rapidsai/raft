@@ -72,7 +72,6 @@ if(BUILD_TESTS OR BUILD_BENCH)
   set(THREADS_PREFER_PTHREAD_FLAG ON)
 endif()
 
-# option(RAFT_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for

@@ -23,7 +23,7 @@ function(ConfigureTest)
 
   cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-  set(TEST_NAME ${ConfigureTest_NAME})
+  set(TEST_NAME ${ConfigureTest_NAME})f
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
