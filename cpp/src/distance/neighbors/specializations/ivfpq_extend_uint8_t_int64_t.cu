@@ -22,15 +22,15 @@ namespace raft::neighbors::ivf_pq {
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                                   \
   template auto extend<T, IdxT>(                                                      \
     raft::device_resources const& handle,                                             \
-    const index<IdxT>& orig_index,                                                    \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices) \
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices, \
+    const index<IdxT>& idx)                                                           \
     ->index<IdxT>;                                                                    \
   template void extend<T, IdxT>(                                                      \
     raft::device_resources const& handle,                                             \
-    index<IdxT>* index,                                                               \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices);
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices, \
+    index<IdxT>* idx);
 
 RAFT_MAKE_INSTANCE(uint8_t, int64_t);
 

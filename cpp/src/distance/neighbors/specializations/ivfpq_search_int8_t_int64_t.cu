@@ -21,11 +21,11 @@ namespace raft::neighbors::ivf_pq {
 
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                                         \
   template void search<T, IdxT>(raft::device_resources const& handle,                       \
-                                const index<IdxT>& index,                                   \
+                                const search_params& params,                                \
+                                const index<IdxT>& idx,                                     \
                                 raft::device_matrix_view<const T, IdxT, row_major> queries, \
                                 raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
-                                raft::device_matrix_view<float, IdxT, row_major> distances, \
-                                const search_params& params);
+                                raft::device_matrix_view<float, IdxT, row_major> distances);
 
 RAFT_MAKE_INSTANCE(int8_t, int64_t);
 
