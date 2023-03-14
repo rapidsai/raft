@@ -47,7 +47,7 @@ cdef _get_metric_string(DistanceType metric):
 
 def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
     if cai.dtype not in exp_dt:
-        raise TypeError("dtype %s not supported" % cai["typestr"])
+        raise TypeError("dtype %s not supported" % cai.dtype)
 
     if not cai.c_contiguous:
         raise ValueError("Row major input is expected")

@@ -21,14 +21,14 @@ namespace raft::runtime::neighbors::ivf_flat {
 
 #define RAFT_INST_SEARCH(T, IdxT)                                         \
   void search(raft::device_resources const& handle,                       \
+              raft::neighbors::ivf_flat::search_params const& params,     \
               const raft::neighbors::ivf_flat::index<T, IdxT>& index,     \
               raft::device_matrix_view<const T, IdxT, row_major> queries, \
               raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
-              raft::device_matrix_view<float, IdxT, row_major> distances, \
-              raft::neighbors::ivf_flat::search_params const& params)     \
+              raft::device_matrix_view<float, IdxT, row_major> distances) \
   {                                                                       \
     raft::neighbors::ivf_flat::search<T, IdxT>(                           \
-      handle, index, queries, neighbors, distances, params);              \
+      handle, params, index, queries, neighbors, distances);              \
   }
 
 RAFT_INST_SEARCH(float, int64_t);

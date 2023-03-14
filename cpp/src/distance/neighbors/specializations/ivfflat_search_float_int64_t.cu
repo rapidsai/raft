@@ -20,11 +20,11 @@ namespace raft::neighbors::ivf_flat {
 
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                        \
   template void search(raft::device_resources const&,                      \
+                       raft::neighbors::ivf_flat::search_params const&,    \
                        const raft::neighbors::ivf_flat::index<T, IdxT>&,   \
                        raft::device_matrix_view<const T, IdxT, row_major>, \
                        raft::device_matrix_view<IdxT, IdxT, row_major>,    \
-                       raft::device_matrix_view<float, IdxT, row_major>,   \
-                       raft::neighbors::ivf_flat::search_params const&);
+                       raft::device_matrix_view<float, IdxT, row_major>);
 
 RAFT_MAKE_INSTANCE(float, int64_t);
 

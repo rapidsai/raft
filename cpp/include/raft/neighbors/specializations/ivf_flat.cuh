@@ -22,34 +22,29 @@ namespace raft::neighbors::ivf_flat {
 
 #define RAFT_INST(T, IdxT)                                                                   \
   extern template auto build(raft::device_resources const& handle,                           \
-                             raft::device_matrix_view<const T, uint64_t, row_major> dataset, \
-                             const index_params& params)                                     \
+                             const index_params& params,                                     \
+                             raft::device_matrix_view<const T, uint64_t, row_major> dataset) \
     ->index<T, IdxT>;                                                                        \
                                                                                              \
   extern template auto extend(                                                               \
     raft::device_resources const& handle,                                                    \
-    const index<T, IdxT>& orig_index,                                                        \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                          \
-    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices)                   \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,                   \
+    const index<T, IdxT>& orig_index)                                                        \
     ->index<T, IdxT>;                                                                        \
-                                                                                             \
-  extern template void build(raft::device_resources const& handle,                           \
-                             raft::device_matrix_view<const T, uint64_t, row_major> dataset, \
-                             const index_params& params,                                     \
-                             index<T, IdxT>* idx);                                           \
                                                                                              \
   extern template void extend(                                                               \
     raft::device_resources const& handle,                                                    \
-    index<T, IdxT>* idx,                                                                     \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                          \
-    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices);                  \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,                   \
+    raft::neighbors::ivf_flat::index<T, IdxT>* idx);                                         \
                                                                                              \
   extern template void search(raft::device_resources const&,                                 \
-                              const index<T, IdxT>&,                                         \
+                              raft::neighbors::ivf_flat::search_params const&,               \
+                              const raft::neighbors::ivf_flat::index<T, IdxT>&,              \
                               raft::device_matrix_view<const T, IdxT, row_major>,            \
                               raft::device_matrix_view<IdxT, IdxT, row_major>,               \
-                              raft::device_matrix_view<float, IdxT, row_major>,              \
-                              search_params const&);
+                              raft::device_matrix_view<float, IdxT, row_major>);
 
 RAFT_INST(float, uint64_t);
 RAFT_INST(int8_t, uint64_t);

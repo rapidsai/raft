@@ -20,15 +20,16 @@ namespace raft::neighbors::ivf_flat {
 
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                                           \
   template auto extend(raft::device_resources const& handle,                                  \
-                       const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index,           \
                        raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
-                       std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices) \
+                       std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
+                       const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index)           \
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                                              \
                                                                                               \
   template void extend(raft::device_resources const& handle,                                  \
-                       raft::neighbors::ivf_flat::index<T, IdxT>* idx,                        \
                        raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
-                       std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices);
+                       std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
+                       raft::neighbors::ivf_flat::index<T, IdxT>* idx);
+
 RAFT_MAKE_INSTANCE(uint8_t, int64_t);
 
 #undef RAFT_MAKE_INSTANCE

@@ -20,14 +20,9 @@ namespace raft::neighbors::ivf_flat {
 
 #define RAFT_MAKE_INSTANCE(T, IdxT)                                               \
   template auto build(raft::device_resources const& handle,                       \
-                      raft::device_matrix_view<const T, IdxT, row_major> dataset, \
-                      const index_params& params)                                 \
-    ->index<T, IdxT>;                                                             \
-                                                                                  \
-  template void build(raft::device_resources const& handle,                       \
-                      raft::device_matrix_view<const T, IdxT, row_major> dataset, \
                       const index_params& params,                                 \
-                      index<T, IdxT>* idx);
+                      raft::device_matrix_view<const T, IdxT, row_major> dataset) \
+    ->index<T, IdxT>;
 
 RAFT_MAKE_INSTANCE(int8_t, int64_t);
 

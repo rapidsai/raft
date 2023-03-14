@@ -116,8 +116,8 @@ def run_ivf_flat_build_search_test(
     if not add_data_on_build:
         dataset_1 = dataset[: n_rows // 2, :]
         dataset_2 = dataset[n_rows // 2 :, :]
-        indices_1 = np.arange(n_rows // 2, dtype=np.uint64)
-        indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.uint64)
+        indices_1 = np.arange(n_rows // 2, dtype=np.int64)
+        indices_2 = np.arange(n_rows // 2, n_rows, dtype=np.int64)
         if array_type == "device":
             dataset_1_device = device_ndarray(dataset_1)
             dataset_2_device = device_ndarray(dataset_2)
@@ -132,7 +132,7 @@ def run_ivf_flat_build_search_test(
     assert index.size >= n_rows
 
     queries = generate_data((n_queries, n_cols), dtype)
-    out_idx = np.zeros((n_queries, k), dtype=np.uint64)
+    out_idx = np.zeros((n_queries, k), dtype=np.int64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
 
     queries_device = device_ndarray(queries)
@@ -358,7 +358,7 @@ def test_build_assertions():
     index = ivf_flat.Index()
 
     queries = generate_data((n_queries, n_cols), np.float32)
-    out_idx = np.zeros((n_queries, k), dtype=np.uint64)
+    out_idx = np.zeros((n_queries, k), dtype=np.int64)
     out_dist = np.zeros((n_queries, k), dtype=np.float32)
 
     queries_device = device_ndarray(queries)
@@ -381,7 +381,7 @@ def test_build_assertions():
     index = ivf_flat.build(index_params, dataset_device)
     assert index.trained
 
-    indices = np.arange(n_rows + 1, dtype=np.uint64)
+    indices = np.arange(n_rows + 1, dtype=np.int64)
     indices_device = device_ndarray(indices)
 
     with pytest.raises(ValueError):
@@ -424,7 +424,7 @@ def test_search_inputs(params):
     ).astype(q_dt, order=q_order)
     queries_device = device_ndarray(queries)
 
-    idx_dt = params.get("idx_dt", np.uint64)
+    idx_dt = params.get("idx_dt", np.int64)
     idx_order = params.get("idx_order", "C")
     out_idx = np.zeros(
         (params.get("idx_rows", n_queries), params.get("idx_cols", k)),
