@@ -21,6 +21,7 @@
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::spatial::knn {
 

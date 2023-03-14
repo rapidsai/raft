@@ -128,15 +128,15 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       temp_dist = temp_row_major_dist.data();
     }
 
-    raft::spatial::knn::detail::select_k<int, T>(temp_dist,
-                                                 nullptr,
-                                                 num_queries,
-                                                 num_db_vecs,
-                                                 ref_distances_.data(),
-                                                 ref_indices_.data(),
-                                                 raft::distance::is_min_close(metric),
-                                                 k_,
-                                                 stream_);
+    raft::neighbors::detail::select_k<int, T>(temp_dist,
+                                              nullptr,
+                                              num_queries,
+                                              num_db_vecs,
+                                              ref_distances_.data(),
+                                              ref_indices_.data(),
+                                              raft::distance::is_min_close(metric),
+                                              k_,
+                                              stream_);
 
     if ((params_.row_tiles == 0) && (params_.col_tiles == 0)) {
       std::vector<T*> input{database.data()};
