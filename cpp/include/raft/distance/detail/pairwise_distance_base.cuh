@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/operators.hpp>
-#include <raft/linalg/contractions.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
+#include <raft/linalg/contractions.cuh>       // raft::linalg::Contractions_NT
+#include <raft/util/cuda_dev_essentials.cuh>  // ceildiv
+#include <raft/util/cuda_rt_essentials.hpp>   // RAFT_CUDA_TRY
 
-#include <cstddef>
+#include <cstddef>  // size_t
 
 namespace raft {
 namespace distance {
@@ -272,7 +271,11 @@ struct PairwiseDistances : public BaseClass {
 template <typename P, typename IdxT, typename T>
 dim3 launchConfigGenerator(IdxT m, IdxT n, std::size_t sMemSize, T func)
 {
-  const auto numSMs  = raft::getMultiProcessorCount();
+  int devId;
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
+  int numSMs;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, devId));
+
   int numBlocksPerSm = 0;
   dim3 grid;
 

@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include <cstddef>
-#include <raft/core/operators.hpp>
-#include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/distance/detail/pairwise_matrix/params.cuh>
-#include <raft/util/arch.cuh>
+#include <cassert>                                          // assert
+#include <raft/core/operators.hpp>                          // raft::void_op
+#include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
+#include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
+#include <raft/util/arch.cuh>                               // raft::arch::SM_compute_arch
 
 namespace raft::distance::detail {
 
@@ -95,31 +95,6 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
         params.fin_op,
         row_epilog_op);
   obj.run();
-}
-
-template <typename Policy,
-          bool row_major,
-          typename SM_compat_t,
-          typename OpT,
-          typename IdxT,
-          typename DataT,
-          typename OutT,
-          typename FinOpT>
-void pairwise_matrix(OpT distance_op,
-                     pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params,
-                     cudaStream_t stream)
-{
-  dim3 blk(Policy::Nthreads);
-  // Use .template to disambiguate (See:
-  // https://en.cppreference.com/w/cpp/language/dependent_name)
-  size_t smem_size = distance_op.template shared_mem_size<Policy>();
-  // Obtain function pointer to kernel
-  auto kernel =
-    pairwise_matrix_kernel<Policy, row_major, SM_compat_t, OpT, IdxT, DataT, OutT, FinOpT>;
-  dim3 grid = launchConfigGenerator<Policy>(params.m, params.n, smem_size, kernel);
-
-  kernel<<<grid, blk, smem_size, stream>>>(distance_op, params);
-  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 // The type of a pointer to the pairwise matrix kernel. The following template

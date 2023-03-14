@@ -17,9 +17,9 @@
 
 #include <algorithm>                                        // std::min
 #include <cstdint>                                          // size_t
+#include <raft/core/error.hpp>                              // RAFT_EXPECTS
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
 #include <type_traits>                                      // std::integral_constant
-
 namespace raft::distance::detail {
 
 /**

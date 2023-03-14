@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
 
