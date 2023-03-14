@@ -115,10 +115,9 @@ struct SM_runtime {
 // This function requires a pointer to the kernel that will run. Other methods
 // to determine the architecture (that do not require a pointer) can be error
 // prone. See:
-// // https://github.com/NVIDIA/cub/issues/545
+// https://github.com/NVIDIA/cub/issues/545
 inline SM_runtime kernel_runtime_arch(void* kernel)
 {
-  // TODO: consider error handling...
   cudaFuncAttributes attributes;
   cudaFuncGetAttributes(&attributes, kernel);
 
