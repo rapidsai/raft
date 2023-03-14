@@ -166,7 +166,7 @@ class coordinate_structure : public coordinate_structure_t<RowType, ColType, NZT
    */
   view_type view()
   {
-    if (this->get_nnz() > 0) {
+    if (this->get_nnz() == 0) {
       RAFT_LOG_WARN(
         "Cannot create coordinate_structure.view() because it has not been initialized "
         "(sparsity is 0)");
