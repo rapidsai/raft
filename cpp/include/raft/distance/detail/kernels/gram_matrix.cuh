@@ -42,10 +42,14 @@ namespace raft::distance::kernels::detail {
  */
 template <typename math_t>
 class GramMatrixBase {
-  const raft::device_resources& handle;
+ protected:
+  cublasHandle_t cublas_handle;
+  bool legacy_interface;
 
  public:
-  GramMatrixBase(const raft::device_resources& handle) : handle(handle){};
+  GramMatrixBase() : legacy_interface(false){};
+  [[deprecated]] GramMatrixBase(cublasHandle_t cublas_handle)
+    : cublas_handle(cublas_handle), legacy_interface(true){};
 
   virtual ~GramMatrixBase(){};
   /** Convenience function to evaluate the Gram matrix for two vector sets.
@@ -54,14 +58,14 @@ class GramMatrixBase {
    * @param [in] x1 device matrix, size [n1*n_cols]
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out (dense) device matrix to store the Gram matrix, size [n1*n2]
-   * @param [in] stream cuda stream
+   * @param [in] handle raft handle
    * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
    * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
    */
   virtual void operator()(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                           const raft::distance::matrix::detail::Matrix<math_t>& x2,
                           raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                          cudaStream_t stream,
+                          const raft::device_resources& handle,
                           math_t* norm_x1 = nullptr,
                           math_t* norm_x2 = nullptr)
   {
@@ -70,7 +74,7 @@ class GramMatrixBase {
     ASSERT(x2.n_rows == out.n_cols,
            "GramMatrix input matrix dimensions for x2 and out do not match");
     ASSERT(x1.n_cols == x2.n_cols, "GramMatrix input matrix dimensions for x1 and x2 do not match");
-    evaluate(x1, x2, out, stream, norm_x1, norm_x2);
+    evaluate(x1, x2, out, handle, norm_x1, norm_x2);
   }
 
   /** Evaluate the Gram matrix for two vector sets using simple dot product.
@@ -78,18 +82,18 @@ class GramMatrixBase {
    * @param [in] x1 device matrix, size [n1*n_cols]
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] stream cuda stream
+   * @param [in] handle raft handle
    * @param norm_x1 unused.
    * @param norm_x2 unused.
    */
   virtual void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
                         const raft::distance::matrix::detail::Matrix<math_t>& x2,
                         raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                        cudaStream_t stream,
+                        const raft::device_resources& handle,
                         math_t* norm_x1,
                         math_t* norm_x2)
   {
-    linear(x1, x2, out, stream);
+    linear(x1, x2, out, handle);
   }
 
   // private:
@@ -107,11 +111,13 @@ class GramMatrixBase {
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
    * @param [in] stream cuda stream
+   + @param [in] handle raft handle
    */
   void linear(const raft::distance::matrix::detail::DenseMatrix<math_t>& x1,
               const raft::distance::matrix::detail::DenseMatrix<math_t>& x2,
               raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-              cudaStream_t stream)
+              cudaStream_t stream,
+              cublasHandle_t cublas_handle)
   {
     ASSERT(x1.is_row_major == x2.is_row_major,
            "GramMatrix leading dimensions for x1 and x2 do not match");
@@ -122,7 +128,7 @@ class GramMatrixBase {
     math_t beta  = 0.0;
     if (out.is_row_major) {
       // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
                                                        CUBLAS_OP_T,
                                                        CUBLAS_OP_N,
                                                        out.n_cols,
@@ -139,7 +145,7 @@ class GramMatrixBase {
                                                        stream));
     } else {
       // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
                                                        CUBLAS_OP_N,
                                                        CUBLAS_OP_T,
                                                        out.n_rows,
@@ -160,7 +166,8 @@ class GramMatrixBase {
   void linear(const raft::distance::matrix::detail::CsrMatrix<math_t>& x1,
               const raft::distance::matrix::detail::DenseMatrix<math_t>& x2,
               raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-              cudaStream_t stream)
+              cudaStream_t stream,
+              const cusparseHandle_t& cusparse_handle)
   {
     math_t alpha = 1.0;
     math_t beta  = 0.0;
@@ -194,7 +201,7 @@ class GramMatrixBase {
     auto opX2 = CUSPARSE_OPERATION_TRANSPOSE;
 
     size_t bufferSize;
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(cusparse_handle,
                                                                     opX1,
                                                                     opX2,
                                                                     &alpha,
@@ -210,7 +217,7 @@ class GramMatrixBase {
 
     rmm::device_uvector<math_t> tmp(bufferSize, stream);
 
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(handle.get_cusparse_handle(),
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(cusparse_handle,
                                                          opX1,
                                                          opX2,
                                                          &alpha,
@@ -231,7 +238,7 @@ class GramMatrixBase {
   void linear(const raft::distance::matrix::detail::CsrMatrix<math_t>& x1,
               const raft::distance::matrix::detail::CsrMatrix<math_t>& x2,
               raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-              cudaStream_t stream)
+              const raft::device_resources& handle)
   {
     int minor_out = out.is_row_major ? out.n_cols : out.n_rows;
     ASSERT(out.ld == minor_out, "Sparse linear Kernel distance does not support ld_out parameter");
@@ -279,29 +286,100 @@ class GramMatrixBase {
    * @param [in] x1 device matrix, size [n1*n_cols]
    * @param [in] x2 device matrix, size [n2*n_cols]
    * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
-   * @param [in] stream cuda stream
+   * @param [in] handle raft handle
    */
   void linear(const raft::distance::matrix::detail::Matrix<math_t>& x1,
               const raft::distance::matrix::detail::Matrix<math_t>& x2,
               raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-              cudaStream_t stream)
+              const raft::device_resources& handle)
   {
     // dispatch
     if (x1.isDense()) {
       ASSERT(x2.isDense(), "GramMatrix input matrix does not allow Dense*Csr");
       auto x1_dense = x1.asDense();
       auto x2_dense = x2.asDense();
-      linear(*x1_dense, *x2_dense, out, stream);
+      linear(*x1_dense, *x2_dense, out, handle.get_stream(), handle.get_cublas_handle());
     } else {
       auto x1_csr = x1.asCsr();
       if (x2.isDense()) {
         auto x2_dense = x2.asDense();
-        linear(*x1_csr, *x2_dense, out, stream);
+        linear(*x1_csr, *x2_dense, out, handle.get_stream(), handle.get_cusparse_handle());
       } else {
         auto x2_csr = x2.asCsr();
-        linear(*x1_csr, *x2_csr, out, stream);
+        linear(*x1_csr, *x2_csr, out, handle);
       }
     }
   }
+
+  /** Evaluate the Gram matrix for two vector sets using simple dot product.
+   *
+   * @param [in] x1 device array of vectors, size [n1*n_cols]
+   * @param [in] n1 number vectors in x1
+   * @param [in] n_cols number of columns (features) in x1 and x2
+   * @param [in] x2 device array of vectors, size [n2*n_cols]
+   * @param [in] n2 number vectors in x2
+   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
+   * @param [in] is_row_major whether the input and output matrices are in row
+   *        major format
+   * @param [in] stream cuda stream
+   * @param ld1 leading dimension of x1 (usually it is n1)
+   * @param ld2 leading dimension of x2 (usually it is n2)
+   * @param ld_out leading dimension of out (usually it is n1)
+   */
+  [[deprecated]] virtual void evaluate(const math_t* x1,
+                                       int n1,
+                                       int n_cols,
+                                       const math_t* x2,
+                                       int n2,
+                                       math_t* out,
+                                       bool is_row_major,
+                                       cudaStream_t stream,
+                                       int ld1,
+                                       int ld2,
+                                       int ld_out)
+  {
+    ASSERT(legacy_interface, "Legacy interface can only be used with legacy ctor.");
+    raft::distance::matrix::detail::DenseMatrix dense1(
+      const_cast<math_t*>(x1), n1, n_cols, is_row_major, ld1);
+    raft::distance::matrix::detail::DenseMatrix dense2(
+      const_cast<math_t*>(x2), n2, n_cols, is_row_major, ld2);
+    raft::distance::matrix::detail::DenseMatrix dense_out(out, n1, n2, is_row_major, ld_out);
+    linear(dense1, dense2, dense_out, stream, cublas_handle);
+  }
+
+  /** Convenience function to evaluate the Gram matrix for two vector sets.
+   *
+   * @param [in] x1 device array of vectors, size [n1*n_cols]
+   * @param [in] n1 number vectors in x1
+   * @param [in] n_cols number of columns (features) in x1 and x2
+   * @param [in] x2 device array of vectors, size [n2*n_cols]
+   * @param [in] n2 number vectors in x2
+   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
+   * @param [in] is_row_major whether the input and output matrices are in row
+   *        major format
+   * @param [in] stream cuda stream
+   * @param ld1 leading dimension of x1
+   * @param ld2 leading dimension of x2
+   * @param ld_out leading dimension of out
+   */
+  [[deprecated]] void operator()(const math_t* x1,
+                                 int n1,
+                                 int n_cols,
+                                 const math_t* x2,
+                                 int n2,
+                                 math_t* out,
+                                 bool is_row_major,
+                                 cudaStream_t stream,
+                                 int ld1    = 0,
+                                 int ld2    = 0,
+                                 int ld_out = 0)
+  {
+    ASSERT(legacy_interface, "Legacy interface can only be used with legacy ctor.");
+    if (ld1 <= 0) { ld1 = is_row_major ? n_cols : n1; }
+    if (ld2 <= 0) { ld2 = is_row_major ? n_cols : n2; }
+    if (ld_out <= 0) { ld_out = is_row_major ? n2 : n1; }
+    evaluate(x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
+  }
 };
+
 };  // end namespace raft::distance::kernels::detail

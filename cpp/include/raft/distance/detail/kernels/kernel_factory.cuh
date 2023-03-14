@@ -26,7 +26,23 @@ namespace raft::distance::kernels::detail {
 template <typename math_t>
 class KernelFactory {
  public:
-  static GramMatrixBase<math_t>* create(KernelParams params, const raft::device_resources& handle)
+  static GramMatrixBase<math_t>* create(KernelParams params)
+  {
+    GramMatrixBase<math_t>* res;
+    // KernelParams is not templated, we convert the parameters to math_t here:
+    math_t coef0 = params.coef0;
+    math_t gamma = params.gamma;
+    switch (params.kernel) {
+      case LINEAR: res = new GramMatrixBase<math_t>(); break;
+      case POLYNOMIAL: res = new PolynomialKernel<math_t, int>(params.degree, gamma, coef0); break;
+      case TANH: res = new TanhKernel<math_t>(gamma, coef0); break;
+      case RBF: res = new RBFKernel<math_t>(gamma); break;
+      default: throw raft::exception("Kernel not implemented");
+    }
+    return res;
+  }
+
+  [[deprecated]] static GramMatrixBase<math_t>* create(KernelParams params, cublasHandle_t handle)
   {
     GramMatrixBase<math_t>* res;
     // KernelParams is not templated, we convert the parameters to math_t here:
