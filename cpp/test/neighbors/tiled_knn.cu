@@ -22,6 +22,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
+#include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
 #if defined RAFT_NN_COMPILED
@@ -30,6 +31,7 @@
 #endif
 
 #include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
+#include <raft/spatial/knn/detail/selection_faiss.cuh>
 
 #include <rmm/device_buffer.hpp>
 
@@ -72,17 +74,30 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       ref_indices_(params_.num_queries * params_.k, stream_),
       ref_distances_(params_.num_queries * params_.k, stream_)
   {
-    RAFT_CUDA_TRY(cudaMemsetAsync(database.data(), 0, database.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(search_queries.data(), 0, search_queries.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(raft_indices_.data(), 0, raft_indices_.size() * sizeof(int), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(raft_distances_.data(), 0, raft_distances_.size() * sizeof(T), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(ref_indices_.data(), 0, ref_indices_.size() * sizeof(int), stream_));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(ref_distances_.data(), 0, ref_distances_.size() * sizeof(T), stream_));
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(database.data(), params_.num_db_vecs, params_.dim),
+      T{0.0});
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(search_queries.data(), params_.num_queries, params_.dim),
+      T{0.0});
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(raft_indices_.data(), params_.num_queries, params_.k),
+      0);
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(raft_distances_.data(), params_.num_queries, params_.k),
+      T{0.0});
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(ref_indices_.data(), params_.num_queries, params_.k),
+      0);
+    raft::matrix::fill(
+      handle_,
+      raft::make_device_matrix_view(ref_distances_.data(), params_.num_queries, params_.k),
+      T{0.0});
   }
 
  protected:
@@ -116,34 +131,33 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       temp_dist = temp_row_major_dist.data();
     }
 
-    using namespace raft::spatial;
-    knn::select_k<int, T>(temp_dist,
-                          nullptr,
-                          num_queries,
-                          num_db_vecs,
-                          ref_distances_.data(),
-                          ref_indices_.data(),
-                          raft::distance::is_min_close(metric),
-                          k_,
-                          stream_);
+    raft::spatial::knn::detail::select_k<int, T>(temp_dist,
+                                                 nullptr,
+                                                 num_queries,
+                                                 num_db_vecs,
+                                                 ref_distances_.data(),
+                                                 ref_indices_.data(),
+                                                 raft::distance::is_min_close(metric),
+                                                 k_,
+                                                 stream_);
 
     if ((params_.row_tiles == 0) && (params_.col_tiles == 0)) {
       std::vector<T*> input{database.data()};
       std::vector<size_t> sizes{static_cast<size_t>(num_db_vecs)};
-      raft::spatial::knn::brute_force_knn<int, T, size_t>(handle_,
-                                                          input,
-                                                          sizes,
-                                                          dim,
-                                                          const_cast<T*>(search_queries.data()),
-                                                          num_queries,
-                                                          raft_indices_.data(),
-                                                          raft_distances_.data(),
-                                                          k_,
-                                                          params_.row_major,
-                                                          params_.row_major,
-                                                          nullptr,
-                                                          metric,
-                                                          metric_arg);
+      neighbors::detail::brute_force_knn_impl<size_t, int, T>(handle_,
+                                                              input,
+                                                              sizes,
+                                                              dim,
+                                                              const_cast<T*>(search_queries.data()),
+                                                              num_queries,
+                                                              raft_indices_.data(),
+                                                              raft_distances_.data(),
+                                                              k_,
+                                                              params_.row_major,
+                                                              params_.row_major,
+                                                              nullptr,
+                                                              metric,
+                                                              metric_arg);
     } else {
       neighbors::detail::tiled_brute_force_knn(handle_,
                                                search_queries.data(),
@@ -161,14 +175,14 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
     }
 
     // verify.
-    ASSERT_TRUE(knn::devArrMatchKnnPair(ref_indices_.data(),
-                                        raft_indices_.data(),
-                                        ref_distances_.data(),
-                                        raft_distances_.data(),
-                                        num_queries,
-                                        k_,
-                                        float(0.001),
-                                        stream_));
+    ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(ref_indices_.data(),
+                                                       raft_indices_.data(),
+                                                       ref_distances_.data(),
+                                                       raft_distances_.data(),
+                                                       num_queries,
+                                                       k_,
+                                                       float(0.001),
+                                                       stream_));
   }
 
   void SetUp() override
@@ -228,8 +242,8 @@ const std::vector<TiledKNNInputs> random_inputs = {
   {4, 12, 32, 6, 4, 8, raft::distance::DistanceType::L2Expanded, true},
   // Test where passing column_tiles < K
   {1, 40, 32, 30, 1, 8, raft::distance::DistanceType::L2Expanded, true},
-  // Passing tile sizes of 0 means to use the public api (instead of the
-  // detail api). Note that we can only test col_major in the public api
+  // Passing tile sizes of 0 means to use brute_force_knn_impl (instead of the
+  // tiled_brute_force_knn api).
   {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded, true},
   {1000, 500000, 128, 128, 0, 0, raft::distance::DistanceType::L2Expanded, false},
   {1000, 5000, 128, 128, 0, 0, raft::distance::DistanceType::LpUnexpanded, true},
