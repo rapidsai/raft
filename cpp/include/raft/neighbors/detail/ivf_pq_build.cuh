@@ -557,41 +557,99 @@ void train_per_cluster(raft::device_resources const& handle,
   transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
+struct reconstruct_vectors {
+  codebook_gen codebook_kind;
+  uint32_t cluster_ix;
+  uint32_t pq_len;
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers;
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> centers_rot;
+  device_mdspan<float, extent_3d<uint32_t>, row_major> out_vectors;
+
+  /**
+   * Create the functor to be passed to `run_on_list`.
+   *
+   * @param[out] out_vectors the destination for the decoded vectors.
+   * @param[in] pq_centers the codebook
+   * @param[in] centers_rot
+   * @param[in] codebook_kind
+   * @param[in] cluster_ix label/id of the cluster.
+   */
+  __device__ inline reconstruct_vectors(
+    device_matrix_view<float, uint32_t, row_major> out_vectors,
+    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+    device_matrix_view<const float, uint32_t, row_major> centers_rot,
+    codebook_gen codebook_kind,
+    uint32_t cluster_ix)
+    : codebook_kind{codebook_kind},
+      cluster_ix{cluster_ix},
+      pq_len{pq_centers.extent(1)},
+      pq_centers{pq_centers},
+      centers_rot{reinterpret_vectors(centers_rot, pq_centers)},
+      out_vectors{reinterpret_vectors(out_vectors, pq_centers)}
+  {
+  }
+
+  /**
+   * Decode j-th component of the i-th vector by its code and write it into a chunk of the output
+   * vectors (pq_len elements).
+   */
+  __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    uint32_t partition_ix;
+    switch (codebook_kind) {
+      case codebook_gen::PER_CLUSTER: {
+        partition_ix = cluster_ix;
+      } break;
+      case codebook_gen::PER_SUBSPACE: {
+        partition_ix = j;
+      } break;
+      default: __builtin_unreachable();
+    }
+    for (uint32_t k = 0; k < pq_len; k++) {
+      out_vectors(i, j, k) = pq_centers(partition_ix, k, code) + centers_rot(cluster_ix, j, k);
+    }
+  }
+
+ private:
+  template <typename T>
+  static __device__ auto reinterpret_vectors(
+    device_matrix_view<T, uint32_t, row_major> out_vectors,
+    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers)
+    -> device_mdspan<T, extent_3d<uint32_t>, row_major>
+  {
+    const uint32_t pq_len = pq_centers.extent(1);
+    const uint32_t pq_dim = out_vectors.extent(1) / pq_len;
+    using layout_t        = typename decltype(out_vectors)::layout_type;
+    using accessor_t      = typename decltype(out_vectors)::accessor_type;
+    return mdspan<T, extent_3d<uint32_t>, layout_t, accessor_t>(
+      out_vectors.data_handle(), extent_3d<uint32_t>{out_vectors.extent(0), pq_dim, pq_len});
+  }
+};
+
 /**
- * Decode a lvl-2 pq-encoded vector in the given list (cluster).
- * One vector per thread.
- * NB: this function only decodes the PQ (second level) encoding; to get the approximation of the
- * original vector, you need to add the cluster centroid and apply the inverse matrix transform to
- * the result of this function.
+ * Process a single vector in a list.
  *
  * @tparam PqBits
+ * @tparam Action tells how to process a single vectors (e.g. reconstruct or just unpack)
  *
- * @param[out] out_vector the destination for the decoded vector (one-per-thread).
  * @param[in] in_list_data the encoded cluster data.
- * @param[in] pq_centers the codebook
- * @param[in] codebook_kind
  * @param[in] in_ix in-cluster index of the vector to be decoded (one-per-thread).
- * @param[in] cluster_ix label/id of the cluster (one-per-thread).
+ * @param[in] out_ix the output index passed to the action
+ * @param[in] pq_dim
+ * @param action a callable action to be invoked on each PQ code (component of the encoding)
+ *    type: void (uint8_t code, uint32_t out_ix, uint32_t j), where j = [0..pq_dim).
  */
-template <uint32_t PqBits>
-__device__ void reconstruct_vector(
-  device_vector_view<float, uint32_t, row_major> out_vector,
+template <uint32_t PqBits, typename Action>
+__device__ void run_on_vector(
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
-  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
-  codebook_gen codebook_kind,
   uint32_t in_ix,
-  uint32_t cluster_ix)
+  uint32_t out_ix,
+  uint32_t pq_dim,
+  Action action)
 {
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(in_ix);
   const uint32_t ingroup_ix = group_align::mod(in_ix);
-  const uint32_t pq_len     = pq_centers.extent(1);
-  const uint32_t pq_dim     = out_vector.extent(0) / pq_len;
-
-  using layout_t            = typename decltype(out_vector)::layout_type;
-  using accessor_t          = typename decltype(out_vector)::accessor_type;
-  auto reinterpreted_vector = mdspan<float, extent_2d<uint32_t>, layout_t, accessor_t>(
-    out_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
 
   pq_vec_t code_chunk;
   bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
@@ -602,22 +660,32 @@ __device__ void reconstruct_vector(
     // read the codes, one/pq_dim at a time
 #pragma unroll
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
-      uint32_t partition_ix;
-      switch (codebook_kind) {
-        case codebook_gen::PER_CLUSTER: {
-          partition_ix = cluster_ix;
-        } break;
-        case codebook_gen::PER_SUBSPACE: {
-          partition_ix = j;
-        } break;
-        default: __builtin_unreachable();
-      }
-      uint8_t code = code_view[k];
       // read a piece of the reconstructed vector
-      for (uint32_t l = 0; l < pq_len; l++) {
-        reinterpreted_vector(j, l) = pq_centers(partition_ix, l, code);
-      }
+      action(code_view[k], out_ix, j);
     }
+  }
+}
+
+/** Process the given indices or a block of a single list (cluster). */
+template <uint32_t PqBits, typename Action>
+__device__ void run_on_list(device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
+                            device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
+                            std::variant<uint32_t, const uint32_t*> offset_or_indices,
+                            uint32_t len,
+                            uint32_t cluster_ix,
+                            uint32_t pq_dim,
+                            Action action)
+{
+  auto pq_extents =
+    list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(list_sizes[cluster_ix]);
+  auto pq_dataset =
+    make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
+
+  for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
+    const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
+                              ? std::get<uint32_t>(offset_or_indices) + ix
+                              : std::get<const uint32_t*>(offset_or_indices)[ix];
+    run_on_vector<PqBits>(pq_dataset, src_ix, ix, pq_dim, action);
   }
 }
 
@@ -632,29 +700,16 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   uint32_t cluster_ix,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
-  const auto out_dim = out_vectors.extent(1);
-  using layout_t     = typename decltype(out_vectors)::layout_type;
-  using accessor_t   = typename decltype(out_vectors)::accessor_type;
-
-  const uint32_t pq_dim = out_dim / pq_centers.extent(1);
-  auto pq_extents =
-    list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(list_sizes[cluster_ix]);
-  auto pq_dataset =
-    make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
-
-  for (uint32_t ix = threadIdx.x + BlockSize * blockIdx.x; ix < out_vectors.extent(0);
-       ix += BlockSize) {
-    auto one_vector = mdspan<float, extent_1d<uint32_t>, layout_t, accessor_t>(
-      &out_vectors(ix, 0), extent_1d<uint32_t>{out_vectors.extent(1)});
-    const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
-                              ? std::get<uint32_t>(offset_or_indices) + ix
-                              : std::get<const uint32_t*>(offset_or_indices)[ix];
-    reconstruct_vector<PqBits>(
-      one_vector, pq_dataset, pq_centers, codebook_kind, src_ix, cluster_ix);
-    for (uint32_t j = 0; j < out_dim; j++) {
-      one_vector(j) += centers_rot(cluster_ix, j);
-    }
-  }
+  const uint32_t pq_dim = out_vectors.extent(1) / pq_centers.extent(1);
+  auto reconstruct_action =
+    reconstruct_vectors{out_vectors, pq_centers, centers_rot, codebook_kind, cluster_ix};
+  run_on_list<PqBits>(data_ptrs,
+                      list_sizes,
+                      offset_or_indices,
+                      out_vectors.extent(0),
+                      cluster_ix,
+                      pq_dim,
+                      reconstruct_action);
 }
 
 /** Decode the list data; see the public interface for the api and usage. */
