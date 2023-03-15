@@ -223,6 +223,10 @@ target_link_libraries(
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_options(
+  raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
+                 --expt-relaxed-constexpr>
+)
 
 # Endian detection
 include(TestBigEndian)
