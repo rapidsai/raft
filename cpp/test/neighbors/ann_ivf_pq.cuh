@@ -24,8 +24,8 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/neighbors/specializations/ivf_pq.cuh>
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
 #endif

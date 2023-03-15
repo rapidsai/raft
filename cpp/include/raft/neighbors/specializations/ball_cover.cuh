@@ -18,6 +18,7 @@
 
 #include <raft/neighbors/ball_cover.cuh>
 #include <raft/neighbors/ball_cover_types.hpp>
+#include <raft/neighbors/specializations/detail/ball_cover_lowdim.hpp>
 
 #include <cstdint>
 

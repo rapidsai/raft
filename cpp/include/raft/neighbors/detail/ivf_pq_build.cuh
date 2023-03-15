@@ -664,7 +664,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   const uint32_t pq_len     = pq_centers.extent(1);
   const uint32_t pq_dim     = new_vectors.extent(1) / pq_len;
 
-  auto pq_extents = list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
+  auto pq_extents = list_spec<uint32_t, IdxT>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
   auto pq_extents_vectorized =
     make_extents<uint32_t>(pq_extents.extent(0), pq_extents.extent(1), pq_extents.extent(2));
   auto pq_dataset = make_mdspan<pq_vec_t, uint32_t, row_major, false, true>(
@@ -899,14 +899,15 @@ void extend(raft::device_resources const& handle,
     &managed_memory_upstream, 1024 * 1024);
 
   // The spec defines how the clusters look like
-  auto spec = list_spec{index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
+  auto spec = list_spec<uint32_t, IdxT>{
+    index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
   // Try to allocate an index with the same parameters and the projected new size
   // (which can be slightly larger than index->size() + n_rows, due to padding).
   // If this fails, the index would be too big to fit in the device anyway.
   std::optional<list_data<IdxT, size_t>> placeholder_list(
     std::in_place_t{},
     handle,
-    list_spec<size_t>(spec),
+    list_spec<size_t, IdxT>{spec},
     n_rows + (kIndexGroupSize - 1) * std::min<IdxT>(n_clusters, n_rows));
 
   // Available device memory
