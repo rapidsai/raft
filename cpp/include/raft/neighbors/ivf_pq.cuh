@@ -45,8 +45,8 @@ namespace raft::neighbors::ivf_pq {
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param params configure the index building
+ * @param[in] handle
+ * @param[in] params configure the index building
  * @param[in] dataset a device matrix view to a row-major matrix [n_rows, dim]
  *
  * @return the constructed ivf-pq index
@@ -67,12 +67,12 @@ index<IdxT> build(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param[inout] idx
- * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, index.dim()]
+ * @param[in] handle
+ * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, idx.dim()]
  * @param[in] new_indices a device matrix view to a vector of indices [n_rows].
- *    If the original index is empty (`index.size() == 0`), you can pass `nullptr`
+ *    If the original index is empty (`idx.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
+ * @param[inout] idx
  */
 template <typename T, typename IdxT>
 index<IdxT> extend(raft::device_resources const& handle,
@@ -102,12 +102,12 @@ index<IdxT> extend(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param[inout] idx
- * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, index.dim()]
+ * @param[in] handle
+ * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, idx.dim()]
  * @param[in] new_indices a device matrix view to a vector of indices [n_rows].
- *    If the original index is empty (`index.size() == 0`), you can pass `nullptr`
+ *    If the original index is empty (`idx.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
+ * @param[inout] idx
  */
 template <typename T, typename IdxT>
 void extend(raft::device_resources const& handle,
@@ -147,9 +147,9 @@ void extend(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
- * @param handle
- * @param params configure the search
- * @param idx ivf-pq constructed index
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] idx ivf-pq constructed index
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
@@ -212,11 +212,11 @@ void search(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param params configure the index building
+ * @param[in] handle
+ * @param[in] params configure the index building
  * @param[in] dataset a device/host pointer to a row-major matrix [n_rows, dim]
- * @param n_rows the number of samples
- * @param dim the dimensionality of the data
+ * @param[in] n_rows the number of samples
+ * @param[in] dim the dimensionality of the data
  *
  * @return the constructed ivf-pq index
  */
@@ -252,13 +252,13 @@ auto build(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
- * @param idx original index
- * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] handle
+ * @param[inout] idx original index
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, idx.dim()]
  * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
- *    If the original index is empty (`index.size() == 0`), you can pass `nullptr`
+ *    If the original index is empty (`idx.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param n_rows the number of samples
+ * @param[in] n_rows the number of samples
  *
  * @return the constructed extended ivf-pq index
  */
@@ -278,13 +278,13 @@ auto extend(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param handle
+ * @param[in] handle
  * @param[inout] idx
- * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_vectors a device/host pointer to a row-major matrix [n_rows, idx.dim()]
  * @param[in] new_indices a device/host pointer to a vector of indices [n_rows].
- *    If the original index is empty (`index.size() == 0`), you can pass `nullptr`
+ *    If the original index is empty (`idx.size() == 0`), you can pass `nullptr`
  *    here to imply a continuous range `[0...n_rows)`.
- * @param n_rows the number of samples
+ * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
 void extend(raft::device_resources const& handle,
@@ -326,17 +326,17 @@ void extend(raft::device_resources const& handle,
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
- * @param handle
- * @param params configure the search
- * @param idx ivf-pq constructed index
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] idx ivf-pq constructed index
  * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
- * @param n_queries the batch size
- * @param k the number of neighbors to find for each query.
+ * @param[in] n_queries the batch size
+ * @param[in] k the number of neighbors to find for each query.
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param mr an optional memory resource to use across the searches (you can provide a large enough
- *           memory pool here to avoid memory allocations within search).
+ * @param[in] mr an optional memory resource to use across the searches (you can provide a large
+ * enough memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
 void search(raft::device_resources const& handle,
