@@ -54,15 +54,16 @@ cdef extern from "raft/neighbors/ivf_flat_types.hpp" \
         uint32_t n_lists
         uint32_t kmeans_n_iters
         double kmeans_trainset_fraction
-        bool add_data_on_build
         bool adaptive_centers
+        bool conservative_memory_allocation
 
     cdef cppclass index[T, IdxT](ann_index):
         index(const device_resources& handle,
               DistanceType metric,
               uint32_t n_lists,
+              uint32_t dim,
               bool adaptive_centers,
-              uint32_t dim)
+              bool conservative_memory_allocation)
         IdxT size()
         uint32_t dim()
         DistanceType metric()

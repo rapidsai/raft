@@ -180,8 +180,9 @@ cdef class IndexFloat(Index):
         self.index = new c_ivf_flat.index[float, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
-            <uint32_t>False,
-            <uint32_t>8)
+            <uint32_t>4,
+            <bool>False,
+            <bool>False)
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -228,8 +229,9 @@ cdef class IndexInt8(Index):
         self.index = new c_ivf_flat.index[int8_t, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
-            <uint32_t>False,
-            <uint32_t>8)
+            <uint32_t>4,
+            <bool>False,
+            <bool>False)
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -276,8 +278,9 @@ cdef class IndexUint8(Index):
         self.index = new c_ivf_flat.index[uint8_t, int64_t](
             deref(handle_), _get_metric("sqeuclidean"),
             <uint32_t>1,
-            <uint32_t>False,
-            <uint32_t>8)
+            <uint32_t>4,
+            <bool>False,
+            <bool>False)
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())

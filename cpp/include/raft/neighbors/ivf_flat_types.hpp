@@ -237,9 +237,9 @@ struct index : ann::index {
   index(raft::device_resources const& res,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
+        uint32_t dim,
         bool adaptive_centers,
-        bool conservative_memory_allocation,
-        uint32_t dim)
+        bool conservative_memory_allocation)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
@@ -261,9 +261,9 @@ struct index : ann::index {
     : index(res,
             params.metric,
             params.n_lists,
+            dim,
             params.adaptive_centers,
-            params.conservative_memory_allocation,
-            dim)
+            params.conservative_memory_allocation)
   {
   }
 
