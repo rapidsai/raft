@@ -8,10 +8,10 @@
 #pragma once
 
 #include <cuda.h>
-#include <raft/spatial/knn/detail/faiss_select/MergeNetworkUtils.cuh>
-#include <raft/spatial/knn/detail/faiss_select/StaticUtils.h>
+#include <raft/neighbors/detail/faiss_select/MergeNetworkUtils.cuh>
+#include <raft/neighbors/detail/faiss_select/StaticUtils.h>
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 
 // Merge pairs of lists smaller than blockDim.x (NumThreads)
 template <int NumThreads,
@@ -274,4 +274,4 @@ inline __device__ void blockMerge(K* listK, V* listV)
   BlockMerge<NumThreads, K, V, N, L, Dir, Comp, kSmallerThanBlock, FullMerge>::merge(listK, listV);
 }
 
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select

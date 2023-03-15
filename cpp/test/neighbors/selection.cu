@@ -118,7 +118,7 @@ struct SelectInOutComputed {
         }
         break;
       case knn::SelectKAlgo::FAISS:
-        if (spec.k > raft::spatial::knn::detail::kFaissMaxK<IdxT, KeyT>()) {
+        if (spec.k > raft::neighbors::detail::kFaissMaxK<IdxT, KeyT>()) {
           not_supported = true;
           return;
         }

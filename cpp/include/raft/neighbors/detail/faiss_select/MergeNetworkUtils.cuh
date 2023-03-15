@@ -7,7 +7,7 @@
 
 #pragma once
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 
 template <typename T>
 inline __device__ void swap(bool swap, T& x, T& y)
@@ -22,4 +22,4 @@ inline __device__ void assign(bool assign, T& x, T y)
 {
   x = assign ? y : x;
 }
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select
