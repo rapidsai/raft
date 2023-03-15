@@ -205,22 +205,39 @@ struct PairwiseDistances : public BaseClass {
     }
   }
 
-  DI void accumulate()
+  DI void accumulate_reg_tile(DataT (&reg_x)[P::AccRowsPerTh][P::Veclen],
+                              DataT (&reg_y)[P::AccColsPerTh][P::Veclen])
   {
 #pragma unroll
-    for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
-      this->ldsXY(ki);
+    for (int v = 0; v < P::Veclen; ++v) {
 #pragma unroll
       for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
         for (int j = 0; j < P::AccColsPerTh; ++j) {
-#pragma unroll
-          for (int v = 0; v < P::Veclen; ++v) {
-            distance_op.core(acc[i][j], this->regx[i][v], this->regy[j][v]);
-          }
+          distance_op.core(acc[i][j], reg_x[i][v], reg_y[j][v]);
         }
       }
     }
+  }
+
+  DI void accumulate()
+  {
+    // We have a separate ldsXY and accumulate_reg_tile outside the loop body,
+    // so that these separated calls can be interspersed with preceding and
+    // following instructions, thereby hiding latency.
+    this->ldsXY(0);
+
+    // If expensive inner loop, do not unroll loop.
+    constexpr int num_iterations = P::Kblk / P::Veclen - 1;
+    constexpr int unroll_count   = decltype(distance_op)::expensive_inner_loop ? 1 : num_iterations;
+#pragma unroll unroll_count
+    for (int ki = P::Veclen; ki < P::Kblk; ki += P::Veclen) {
+      accumulate_reg_tile(this->regx, this->regy);
+      this->ldsXY(ki);
+    }
+
+    // Accumulate last loaded tile.
+    accumulate_reg_tile(this->regx, this->regy);
   }
 
   DI void load_norms(IdxT tile_idx_m,
