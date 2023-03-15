@@ -68,7 +68,7 @@ auto build(raft::device_resources const& handle,
            IdxT n_rows,
            uint32_t dim) -> index<T, IdxT>
 {
-  return detail::build(handle, params, dataset, n_rows, dim);
+  return raft::neighbors::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -113,11 +113,11 @@ auto build(raft::device_resources const& handle,
            raft::device_matrix_view<const value_t, idx_t, row_major> dataset)
   -> index<value_t, idx_t>
 {
-  return detail::build(handle,
-                       params,
-                       dataset.data_handle(),
-                       static_cast<idx_t>(dataset.extent(0)),
-                       static_cast<idx_t>(dataset.extent(1)));
+  return raft::neighbors::ivf_flat::detail::build(handle,
+                                                  params,
+                                                  dataset.data_handle(),
+                                                  static_cast<idx_t>(dataset.extent(0)),
+                                                  static_cast<idx_t>(dataset.extent(1)));
 }
 
 /**
@@ -159,11 +159,11 @@ void build(raft::device_resources const& handle,
            raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
            raft::neighbors::ivf_flat::index<value_t, idx_t>& idx)
 {
-  idx = detail::build(handle,
-                      params,
-                      dataset.data_handle(),
-                      static_cast<idx_t>(dataset.extent(0)),
-                      static_cast<idx_t>(dataset.extent(1)));
+  idx = raft::neighbors::ivf_flat::detail::build(handle,
+                                                 params,
+                                                 dataset.data_handle(),
+                                                 static_cast<idx_t>(dataset.extent(0)),
+                                                 static_cast<idx_t>(dataset.extent(1)));
 }
 
 /** @} */
@@ -207,7 +207,8 @@ auto extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows) -> index<T, IdxT>
 {
-  return detail::extend(handle, orig_index, new_vectors, new_indices, n_rows);
+  return raft::neighbors::ivf_flat::detail::extend(
+    handle, orig_index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -295,7 +296,7 @@ void extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows)
 {
-  detail::extend(handle, index, new_vectors, new_indices, n_rows);
+  raft::neighbors::ivf_flat::detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -397,7 +398,8 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return detail::search(handle, params, index, queries, n_queries, k, neighbors, distances, mr);
+  return raft::neighbors::ivf_flat::detail::search(
+    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
 /**
