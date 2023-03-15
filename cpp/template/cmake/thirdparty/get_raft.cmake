@@ -16,9 +16,18 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAPIDS_VERSION}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG COMPONENTS COMPILE_LIBRARIES ENABLE_NN_DEPENDENCIES)
+    set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARY ENABLE_MNMG_DEPENDENCIES)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
+
+    set(RAFT_COMPONENTS "")
+    if(PKG_COMPILE_LIBRARY)
+        string(APPEND RAFT_COMPONENTS " compiled")
+    endif()
+
+    if(PKG_ENABLE_MNMG_DEPENDENCIES)
+        string(APPEND RAFT_COMPONENTS " distributed")
+    endif()
 
     #-----------------------------------------------------
     # Invoke CPM find_package()
@@ -27,7 +36,7 @@ function(find_and_configure_raft)
             GLOBAL_TARGETS      raft::raft
             BUILD_EXPORT_SET    faiss-exports
             INSTALL_EXPORT_SET  faiss-exports
-            COMPONENTS          ${PKG_COMPONENTS}
+            COMPONENTS          ${RAFT_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
@@ -35,19 +44,16 @@ function(find_and_configure_raft)
             OPTIONS
             "BUILD_TESTS OFF"
             "BUILD_BENCH OFF"
-            "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
-            "RAFT_USE_FAISS_STATIC OFF" # Turn this on to build FAISS into your binary
-            "RAFT_ENABLE_NN_DEPENDENCIES ${PKG_ENABLE_NN_DEPENDENCIES}"
+            "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
             )
 endfunction()
 
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION ${RAFT_VERSION}.00
-        FORK                    ${RAFT_FORK}
-        PINNED_TAG              ${RAFT_PINNED_TAG}
-        COMPONENTS              "nn distance"
-        COMPILE_LIBRARIES       ON
-        ENABLE_NN_DEPENDENCIES  ON
+find_and_configure_raft(VERSION  ${RAFT_VERSION}.00
+        FORK                     ${RAFT_FORK}
+        PINNED_TAG               ${RAFT_PINNED_TAG}
+        COMPILE_LIBRARY          ON
+        ENABLE_MNMG_DEPENDENCIES OFF
 )
