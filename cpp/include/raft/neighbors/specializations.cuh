@@ -16,12 +16,7 @@
 
 #pragma once
 
-<<<<<<< HEAD
-#include <raft/neighbors/specializations/ball_cover.cuh>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
 #include <raft/neighbors/specializations/ivf_flat.cuh>
-=======
->>>>>>> upstream/branch-23.04
 #include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft/neighbors/specializations/refine.cuh>
 
