@@ -254,21 +254,23 @@ void reconstruct_list_data(raft::device_resources const& res,
 }
 
 /**
- * @brief Decode `n_take` consecutive records of a single list (cluster) in the compressed index
- * starting at given offset `n_skip`.
+ * @brief Decode a series of records of a single list (cluster) in the compressed index
+ * by their in-list offsets.
  *
  * Usage example:
  * @code{.cpp}
  *   // We will reconstruct the fourth cluster
  *   uint32_t label = 3;
- *   // Get the list size
- *   uint32_t list_size = 0;
- *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1, res.get_stream());
+ *   // Create the selection vector
+ *   auto selected_indices = raft::make_device_vector<uint32_t>(res, 4);
+ *   ... fill the indices ...
  *   res.sync_stream();
  *   // allocate the buffer for the output
- *   auto decoded_vectors = raft::make_device_matrix<float>(res, list_size, index.dim());
+ *   auto decoded_vectors = raft::make_device_matrix<float>(
+ *                             res, selected_indices.size(), index.dim());
  *   // decode the whole list
- *   ivf_pq::reconstruct_list_data(res, index, decoded_vectors.view(), label, 0);
+ *   ivf_pq::reconstruct_list_data(
+ *       res, index, selected_indices.view(), decoded_vectors.view(), label);
  * @endcode
  *
  * @tparam T data element type
