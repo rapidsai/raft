@@ -20,7 +20,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
 
 namespace raft::neighbors::brute_force {
 

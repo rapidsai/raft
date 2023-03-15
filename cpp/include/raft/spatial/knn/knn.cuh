@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include "detail/selection_faiss.cuh"
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::spatial::knn {
 
@@ -148,7 +147,7 @@ template <typename idx_t = int, typename value_t = float>
 
   switch (algo) {
     case SelectKAlgo::FAISS:
-      detail::select_k(
+      neighbors::detail::select_k(
         in_keys, in_values, n_inputs, input_len, out_keys, out_values, select_min, k, stream);
       break;
 
