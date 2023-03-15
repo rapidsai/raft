@@ -213,7 +213,7 @@ auto build(raft::device_resources const& handle,
 
 /**
  * @brief Decode `n_take` consecutive records of a single list (cluster) in the compressed index
- * starting at given offset `n_skip`.
+ * starting at given `offset`.
  *
  * Usage example:
  * @code{.cpp}
@@ -240,7 +240,7 @@ auto build(raft::device_resources const& handle,
  *   it must be smaller than the list size.
  * @param[in] label
  *   The id of the list (cluster) to decode.
- * @param[in] n_skip
+ * @param[in] offset
  *   How many records in the list to skip.
  */
 template <typename T, typename IdxT>
@@ -248,9 +248,51 @@ void reconstruct_list_data(raft::device_resources const& res,
                            const index<IdxT>& index,
                            device_matrix_view<T, uint32_t, row_major> out_vectors,
                            uint32_t label,
-                           uint32_t n_skip)
+                           uint32_t offset)
 {
-  return detail::reconstruct_list_data(res, index, out_vectors, label, n_skip);
+  return detail::reconstruct_list_data(res, index, out_vectors, label, offset);
+}
+
+/**
+ * @brief Decode `n_take` consecutive records of a single list (cluster) in the compressed index
+ * starting at given offset `n_skip`.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // We will reconstruct the fourth cluster
+ *   uint32_t label = 3;
+ *   // Get the list size
+ *   uint32_t list_size = 0;
+ *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1, res.get_stream());
+ *   res.sync_stream();
+ *   // allocate the buffer for the output
+ *   auto decoded_vectors = raft::make_device_matrix<float>(res, list_size, index.dim());
+ *   // decode the whole list
+ *   ivf_pq::reconstruct_list_data(res, index, decoded_vectors.view(), label, 0);
+ * @endcode
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res
+ * @param[in] index
+ * @param[in] in_cluster_indices
+ *   The offsets of the selected indices within the cluster.
+ * @param[out] out_vectors
+ *   the destination buffer [n_take, index.dim()].
+ *   The length `n_take` defines how many records to reconstruct,
+ *   it must be smaller than the list size.
+ * @param[in] label
+ *   The id of the list (cluster) to decode.
+ */
+template <typename T, typename IdxT>
+void reconstruct_list_data(raft::device_resources const& res,
+                           const index<IdxT>& index,
+                           device_vector_view<const uint32_t> in_cluster_indices,
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label)
+{
+  return detail::reconstruct_list_data(res, index, out_vectors, label, in_cluster_indices);
 }
 
 /**

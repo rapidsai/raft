@@ -625,19 +625,20 @@ template <uint32_t BlockSize, uint32_t PqBits>
 __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   device_matrix_view<float, uint32_t, row_major> out_vectors,
   device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
+  device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
   device_matrix_view<const float, uint32_t, row_major> centers_rot,
   codebook_gen codebook_kind,
   uint32_t cluster_ix,
-  uint32_t n_skip)
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   const auto out_dim = out_vectors.extent(1);
   using layout_t     = typename decltype(out_vectors)::layout_type;
   using accessor_t   = typename decltype(out_vectors)::accessor_type;
 
   const uint32_t pq_dim = out_dim / pq_centers.extent(1);
-  auto pq_extents       = list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(
-    out_vectors.extent(0) + n_skip + 1);
+  auto pq_extents =
+    list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(list_sizes[cluster_ix]);
   auto pq_dataset =
     make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
 
@@ -645,8 +646,11 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
        ix += BlockSize) {
     auto one_vector = mdspan<float, extent_1d<uint32_t>, layout_t, accessor_t>(
       &out_vectors(ix, 0), extent_1d<uint32_t>{out_vectors.extent(1)});
+    const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
+                              ? std::get<uint32_t>(offset_or_indices) + ix
+                              : std::get<const uint32_t*>(offset_or_indices)[ix];
     reconstruct_vector<PqBits>(
-      one_vector, pq_dataset, pq_centers, codebook_kind, ix + n_skip, cluster_ix);
+      one_vector, pq_dataset, pq_centers, codebook_kind, src_ix, cluster_ix);
     for (uint32_t j = 0; j < out_dim; j++) {
       one_vector(j) += centers_rot(cluster_ix, j);
     }
@@ -659,14 +663,17 @@ void reconstruct_list_data(raft::device_resources const& res,
                            const index<IdxT>& index,
                            device_matrix_view<T, uint32_t, row_major> out_vectors,
                            uint32_t label,
-                           uint32_t n_skip)
+                           std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   auto n_rows = out_vectors.extent(0);
   if (n_rows == 0) { return; }
-  // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
-  // to avoid an extra device-host data copy and the stream sync.
-  RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
-               "n_skip + output size must be not bigger than the cluster size.");
+  if (std::holds_alternative<uint32_t>(offset_or_indices)) {
+    auto n_skip = std::get<uint32_t>(offset_or_indices);
+    // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
+    // to avoid an extra device-host data copy and the stream sync.
+    RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
+                 "offset + output size must be not bigger than the cluster size.");
+  }
 
   auto tmp = make_device_mdarray<float>(
     res, res.get_workspace_resource(), make_extents<uint32_t>(n_rows, index.rot_dim()));
@@ -686,11 +693,12 @@ void reconstruct_list_data(raft::device_resources const& res,
   }(index.pq_bits());
   kernel<<<blocks, threads, 0, res.get_stream()>>>(tmp.view(),
                                                    index.data_ptrs(),
+                                                   index.list_sizes(),
                                                    index.pq_centers(),
                                                    index.centers_rot(),
                                                    index.codebook_kind(),
                                                    label,
-                                                   n_skip);
+                                                   offset_or_indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   float* out_float_ptr = nullptr;
@@ -721,11 +729,10 @@ void reconstruct_list_data(raft::device_resources const& res,
                res.get_stream());
   // Transform the data to the original type, if necessary
   if constexpr (!std::is_same_v<T, float>) {
-    linalg::map_k(out_vectors.data_handle(),
-                  out_float_buf.size(),
-                  utils::mapping<T>{},
-                  res.get_stream(),
-                  out_float_ptr);
+    linalg::map(res,
+                out_vectors,
+                utils::mapping<T>{},
+                make_device_matrix_view<const float>(out_float_ptr, n_rows, index.dim()));
   }
 }
 
