@@ -576,7 +576,7 @@ void train_per_cluster(raft::device_resources const& handle,
 template <uint32_t PqBits>
 __device__ void reconstruct_vector(
   device_vector_view<float, uint32_t, row_major> out_vector,
-  device_mdspan<const uint8_t, list_spec<uint32_t>::list_extents, row_major> in_list_data,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
   codebook_gen codebook_kind,
   uint32_t in_ix,
@@ -636,8 +636,8 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   using accessor_t   = typename decltype(out_vectors)::accessor_type;
 
   const uint32_t pq_dim = out_dim / pq_centers.extent(1);
-  auto pq_extents =
-    list_spec<uint32_t>{PqBits, pq_dim, true}.make_list_extents(out_vectors.extent(0) + n_skip + 1);
+  auto pq_extents       = list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(
+    out_vectors.extent(0) + n_skip + 1);
   auto pq_dataset =
     make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
 
@@ -814,7 +814,7 @@ __device__ auto compute_pq_code(
  */
 template <uint32_t BlockSize, uint32_t PqBits>
 __device__ auto compute_and_write_pq_code(
-  device_mdspan<uint8_t, list_spec<uint32_t>::list_extents, row_major> out_list_data,
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
   device_vector_view<const float, uint32_t, row_major> in_vector,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
   codebook_gen codebook_kind,
