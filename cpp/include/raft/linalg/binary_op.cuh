@@ -18,12 +18,9 @@
 
 #pragma once
 
-#include "detail/binary_op.cuh"
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/input_validation.hpp>
+#include <raft/linalg/map.cuh>
 
 namespace raft {
 namespace linalg {
@@ -52,7 +49,7 @@ template <typename InType,
 void binaryOp(
   OutType* out, const InType* in1, const InType* in2, IdxType len, Lambda op, cudaStream_t stream)
 {
-  detail::binaryOp(out, in1, in2, len, op, stream);
+  return detail::map<false>(stream, out, len, op, in1, in2);
 }
 
 /**
@@ -80,22 +77,7 @@ template <typename InType,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void binary_op(raft::device_resources const& handle, InType in1, InType in2, OutType out, Lambda op)
 {
-  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
-  RAFT_EXPECTS(raft::is_row_or_column_major(in1), "Input 1 must be contiguous");
-  RAFT_EXPECTS(raft::is_row_or_column_major(in2), "Input 2 must be contiguous");
-  RAFT_EXPECTS(out.size() == in1.size() && in1.size() == in2.size(),
-               "Size mismatch between Output and Inputs");
-
-  using in_value_t  = typename InType::value_type;
-  using out_value_t = typename OutType::value_type;
-
-  if (out.size() <= std::numeric_limits<std::uint32_t>::max()) {
-    binaryOp<in_value_t, Lambda, out_value_t, std::uint32_t>(
-      out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
-  } else {
-    binaryOp<in_value_t, Lambda, out_value_t, std::uint64_t>(
-      out.data_handle(), in1.data_handle(), in2.data_handle(), out.size(), op, handle.get_stream());
-  }
+  return map(handle, in1, in2, out, op);
 }
 
 /** @} */  // end of group binary_op

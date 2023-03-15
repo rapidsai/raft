@@ -23,6 +23,46 @@ requires = [
     "ninja",
 ]
 
+[project]
+name = "raft-dask"
+version = "23.04.00"
+description = "Reusable Accelerated Functions & Tools Dask Infrastructure"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [
+    { name = "NVIDIA Corporation" },
+]
+license = { text = "Apache 2.0" }
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "numba>=0.49",
+    "joblib>=0.11",
+    "dask-cuda==23.4.*",
+    "dask>=2023.1.1",
+    "ucx-py==0.31.*",
+    "distributed>=2023.1.1",
+    "pylibraft==23.4.*",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "dask[distributed,dataframe]",
+]
+
+[project.urls]
+Homepage = "https://github.com/rapidsai/raft"
+Documentation = "https://docs.rapids.ai/api/raft/stable/"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+
 [tool.isort]
 line_length = 79
 multi_line_output = 3
