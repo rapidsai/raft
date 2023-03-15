@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,11 @@
 function(find_and_configure_rmm)
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
     rapids_cpm_rmm(BUILD_EXPORT_SET raft-exports
-                   INSTALL_EXPORT_SET  raft-exports)
+                   INSTALL_EXPORT_SET  raft-exports
+            CPM_ARGS
+                OPTIONS
+                    RMM_SPDLOG_COMPILED ON
+            )
 endfunction()
 
 find_and_configure_rmm()
