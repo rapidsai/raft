@@ -71,7 +71,9 @@ inline cublasHandle_t get_cublas_handle(resources const& res)
     cudaStream_t stream = get_cuda_stream(res);
     res.add_resource_factory(std::make_shared<cublas_resource_factory>(stream));
   }
-  return *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_HANDLE);
+  auto ret = *res.get_resource<cublasHandle_t>(resource_type::CUBLAS_HANDLE);
+  cublasSetStream(ret, get_cuda_stream(res));
+  return ret;
 };
 
 /**
