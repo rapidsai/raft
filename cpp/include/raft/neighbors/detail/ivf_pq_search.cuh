@@ -42,10 +42,10 @@
 #include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cub/cub.cuh>
-#include <thrust/fill.h>
-#include <thrust/sequence.h>
 
 #include <cuda_fp16.h>
+
+#include <optional>
 
 namespace raft::neighbors::ivf_pq::detail {
 
@@ -1311,13 +1311,13 @@ void ivfpq_search_worker(raft::device_resources const& handle,
     // of a cluster by processing the cluster at the same time as much as
     // possible.
     index_list_sorted_buf.resize(n_queries * n_probes, stream);
-    rmm::device_uvector<uint32_t> index_list_buf(n_queries * n_probes, stream, mr);
+    auto index_list_buf =
+      make_device_mdarray<uint32_t>(handle, mr, make_extents<uint32_t>(n_queries * n_probes));
     rmm::device_uvector<uint32_t> cluster_labels_out(n_queries * n_probes, stream, mr);
-    auto index_list   = index_list_buf.data();
+    auto index_list   = index_list_buf.data_handle();
     index_list_sorted = index_list_sorted_buf.data();
-    thrust::sequence(handle.get_thrust_policy(),
-                     thrust::device_pointer_cast(index_list),
-                     thrust::device_pointer_cast(index_list + n_queries * n_probes));
+
+    linalg::map_offset(handle, index_list_buf.view(), identity_op{});
 
     int begin_bit             = 0;
     int end_bit               = sizeof(uint32_t) * 8;
@@ -1376,13 +1376,15 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                                                                   topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
-  rmm::device_uvector<float> query_kths(0, stream, mr);
+  std::optional<device_vector<float>> query_kths_buf{std::nullopt};
+  float* query_kths = nullptr;
   if (manage_local_topk) {
-    query_kths.resize(n_queries, stream);
-    thrust::fill_n(handle.get_thrust_policy(),
-                   query_kths.data(),
-                   n_queries,
-                   float(dummy_block_sort_t<ScoreT, IdxT>::queue_t::kDummy));
+    query_kths_buf.emplace(
+      make_device_mdarray<float>(handle, mr, make_extents<uint32_t>(n_queries)));
+    linalg::map(handle,
+                query_kths_buf->view(),
+                raft::const_op<float>{dummy_block_sort_t<ScoreT, IdxT>::queue_t::kDummy});
+    query_kths = query_kths_buf->data_handle();
   }
   search_instance(stream,
                   index.size(),
@@ -1401,7 +1403,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                   chunk_index.data(),
                   query,
                   index_list_sorted,
-                  query_kths.data(),
+                  query_kths,
                   device_lut.data(),
                   distances_buf.data(),
                   neighbors_ptr);

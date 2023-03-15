@@ -58,6 +58,15 @@ struct AnnIvfFlatInputs {
   bool adaptive_centers;
 };
 
+template <typename IdxT>
+::std::ostream& operator<<(::std::ostream& os, const AnnIvfFlatInputs<IdxT>& p)
+{
+  os << "{ " << p.num_queries << ", " << p.num_db_vecs << ", " << p.dim << ", " << p.k << ", "
+     << p.nprobe << ", " << p.nlist << ", " << static_cast<int>(p.metric) << ", "
+     << p.adaptive_centers << '}' << std::endl;
+  return os;
+}
+
 template <typename T, typename DataT, typename IdxT>
 class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
  public:
@@ -143,20 +152,21 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                   0.001,
                                   min_recall));
       {
-        // new interface
-        raft::spatial::knn::ivf_flat::index_params index_params;
-        raft::spatial::knn::ivf_flat::search_params search_params;
-        index_params.n_lists   = ps.nlist;
-        index_params.metric    = ps.metric;
-        search_params.n_probes = ps.nprobe;
+        ivf_flat::index_params index_params;
+        ivf_flat::search_params search_params;
+        index_params.n_lists          = ps.nlist;
+        index_params.metric           = ps.metric;
+        index_params.adaptive_centers = ps.adaptive_centers;
+        search_params.n_probes        = ps.nprobe;
 
         index_params.add_data_on_build        = false;
         index_params.kmeans_trainset_fraction = 0.5;
+        index_params.metric_arg               = 0;
 
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        index<DataT, IdxT> idx = ivf_flat::build(handle_, index_params, database_view);
+        auto index = ivf_flat::build(handle_, database_view, index_params);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),
@@ -169,8 +179,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
 
-        const std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
-        index<DataT, IdxT> idx_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
+        auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
 
         auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
@@ -179,57 +188,58 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::extend(handle_,
+                         &index_2,
                          new_half_of_data_view,
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
-                           new_half_of_data_indices_view),
-                         &idx_2);
+                           new_half_of_data_indices_view));
 
-        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT, row_major>(
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.num_queries, ps.dim);
-        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT, row_major>(
+        auto indices_out_view = raft::make_device_matrix_view<IdxT, IdxT>(
           indices_ivfflat_dev.data(), ps.num_queries, ps.k);
-        auto dists_out_view = raft::make_device_matrix_view<T, IdxT, row_major>(
+        auto dists_out_view = raft::make_device_matrix_view<T, IdxT>(
           distances_ivfflat_dev.data(), ps.num_queries, ps.k);
-        raft::spatial::knn::ivf_flat::detail::serialize(handle_, "ivf_flat_index", idx_2);
+        ivf_flat::detail::serialize(handle_, "ivf_flat_index", index_2);
 
-        auto index_loaded =
-          raft::spatial::knn::ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
+        auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
 
         ivf_flat::search(handle_,
-                         search_params,
                          index_loaded,
                          search_queries_view,
                          indices_out_view,
-                         dists_out_view);
+                         dists_out_view,
+                         search_params,
+                         ps.k);
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
         handle_.sync_stream(stream_);
 
         // Test the centroid invariants
-        if (idx_2.adaptive_centers()) {
+        if (index_2.adaptive_centers()) {
           // The centers must be up-to-date with the corresponding data
-          std::vector<uint32_t> list_sizes(idx_2.n_lists());
-          std::vector<IdxT> list_offsets(idx_2.n_lists());
+          std::vector<uint32_t> list_sizes(index_2.n_lists());
+          std::vector<IdxT*> list_indices(index_2.n_lists());
           rmm::device_uvector<float> centroid(ps.dim, stream_);
-          raft::copy(list_sizes.data(), idx_2.list_sizes().data_handle(), idx_2.n_lists(), stream_);
           raft::copy(
-            list_offsets.data(), idx_2.list_offsets().data_handle(), idx_2.n_lists(), stream_);
+            list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
+          raft::copy(
+            list_indices.data(), index_2.inds_ptrs().data_handle(), index_2.n_lists(), stream_);
           handle_.sync_stream(stream_);
-          for (uint32_t l = 0; l < idx_2.n_lists(); l++) {
+          for (uint32_t l = 0; l < index_2.n_lists(); l++) {
+            if (list_sizes[l] == 0) continue;
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
-            raft::spatial::knn::detail::utils::copy_selected<float>(
-              (IdxT)list_sizes[l],
-              (IdxT)ps.dim,
-              database.data(),
-              idx_2.indices().data_handle() + list_offsets[l],
-              (IdxT)ps.dim,
-              cluster_data.data(),
-              (IdxT)ps.dim,
-              stream_);
+            raft::spatial::knn::detail::utils::copy_selected<float>((IdxT)list_sizes[l],
+                                                                    (IdxT)ps.dim,
+                                                                    database.data(),
+                                                                    list_indices[l],
+                                                                    (IdxT)ps.dim,
+                                                                    cluster_data.data(),
+                                                                    (IdxT)ps.dim,
+                                                                    stream_);
             raft::stats::mean<float, uint32_t>(
               centroid.data(), cluster_data.data(), ps.dim, list_sizes[l], false, true, stream_);
-            ASSERT_TRUE(raft::devArrMatch(idx_2.centers().data_handle() + ps.dim * l,
+            ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle() + ps.dim * l,
                                           centroid.data(),
                                           ps.dim,
                                           raft::CompareApprox<float>(0.001),
@@ -237,9 +247,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           }
         } else {
           // The centers must be immutable
-          ASSERT_TRUE(raft::devArrMatch(idx_2.centers().data_handle(),
-                                        idx.centers().data_handle(),
-                                        idx_2.centers().size(),
+          ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle(),
+                                        index.centers().data_handle(),
+                                        index_2.centers().size(),
                                         raft::Compare<float>(),
                                         stream_));
         }
