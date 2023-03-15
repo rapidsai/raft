@@ -392,7 +392,8 @@ void brute_force_knn_impl(
           rmm::device_uvector<value_t> index_row_major(0, stream);
           if (!rowMajorIndex) {
             index_row_major.resize(sizes[i] * D, stream);
-            raft::linalg::transpose(handle, index, index_row_major.data(), sizes[i], D, stream);
+            raft::linalg::transpose(
+              stream_pool_handle, index, index_row_major.data(), sizes[i], D, stream);
             index = index_row_major.data();
           }
 
