@@ -15,6 +15,7 @@
  */
 
 #include <raft/distance/detail/distance.cuh>
+#include <raft/distance/specializations.cuh>
 
 namespace raft {
 namespace distance {

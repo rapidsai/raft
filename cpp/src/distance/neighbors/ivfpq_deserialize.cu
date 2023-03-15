@@ -15,15 +15,17 @@
  */
 
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/specializations.cuh>
+
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 
 namespace raft::runtime::neighbors::ivf_pq {
 
 void deserialize(raft::device_resources const& handle,
                  const std::string& filename,
-                 raft::neighbors::ivf_pq::index<uint64_t>* index)
+                 raft::neighbors::ivf_pq::index<int64_t>* index)
 {
   if (!index) { RAFT_FAIL("Invalid index pointer"); }
-  *index = raft::neighbors::ivf_pq::deserialize<uint64_t>(handle, filename);
+  *index = raft::neighbors::ivf_pq::deserialize<int64_t>(handle, filename);
 };
 }  // namespace raft::runtime::neighbors::ivf_pq
