@@ -46,7 +46,7 @@ RAFT relies heavily on RMM which eases the burden of configuring different alloc
 
 ### Multi-dimensional Arrays
 
-The APIs in RAFT currently accept raw pointers to device memory and we are in the process of simplifying the APIs with the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
+The APIs in RAFT accept the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
 
 The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
 
@@ -192,8 +192,7 @@ RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https:
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` RAFT headers
-- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
-- `libraft-distance` (optional) contains shared libraries for distance primitives.
+- `libraft` (optional) shared library of pre-compiled template specializations and runtime APIs.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
@@ -202,9 +201,9 @@ Use the following command to install all of the RAFT packages with conda (replac
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
 ```
 
-You can also install the `libraft-*` conda packages individually using the `mamba` command above.
+You can also install the conda packages individually using the `mamba` command above.
 
-After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+After installing RAFT, `find_package(raft COMPONENTS compiled distributed)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
 ### Pip
 
@@ -263,12 +262,11 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 
 Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
-| Component | Target | Description | Base Dependencies |
-| --- | --- | --- | --- |
-| n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
-| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
-| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
+| Component   | Target              | Description                                               | Base Dependencies                     |
+|-------------|---------------------|-----------------------------------------------------------|---------------------------------------|
+| n/a         | `raft::raft`        | Full RAFT header library                                  | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
+| compiled    | `raft::compiled`    | Pre-compiled template specializations and runtime library | raft::raft                            |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                       | raft::raft, UCX, NCCL                 |
 
 ### Source
 
@@ -279,7 +277,7 @@ mamba env create --name raft_dev_env -f conda/environments/all_cuda-118_arch-x86
 mamba activate raft_dev_env
 ```
 ```
-./build.sh raft-dask pylibraft libraft tests bench --compile-libs
+./build.sh raft-dask pylibraft libraft tests bench --compile-lib
 ```
 
 The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.

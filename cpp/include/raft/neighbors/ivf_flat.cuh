@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/detail/ivf_flat_search.cuh>
+#include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/spatial/knn/detail/ivf_flat_build.cuh>
-#include <raft/spatial/knn/detail/ivf_flat_search.cuh>
 
 #include <raft/core/device_resources.hpp>
 
@@ -67,7 +68,7 @@ auto build(raft::device_resources const& handle,
            IdxT n_rows,
            uint32_t dim) -> index<T, IdxT>
 {
-  return raft::spatial::knn::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
+  return raft::neighbors::ivf_flat::detail::build(handle, params, dataset, n_rows, dim);
 }
 
 /**
@@ -99,7 +100,6 @@ auto build(raft::device_resources const& handle,
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
  * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] params configure the index building
@@ -112,11 +112,11 @@ auto build(raft::device_resources const& handle,
            raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
            const index_params& params) -> index<value_t, idx_t>
 {
-  return raft::spatial::knn::ivf_flat::detail::build(handle,
-                                                     params,
-                                                     dataset.data_handle(),
-                                                     static_cast<idx_t>(dataset.extent(0)),
-                                                     static_cast<idx_t>(dataset.extent(1)));
+  return raft::neighbors::ivf_flat::detail::build(handle,
+                                                  params,
+                                                  dataset.data_handle(),
+                                                  static_cast<idx_t>(dataset.extent(0)),
+                                                  static_cast<idx_t>(dataset.extent(1)));
 }
 
 /** @} */
@@ -160,7 +160,7 @@ auto extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows) -> index<T, IdxT>
 {
-  return raft::spatial::knn::ivf_flat::detail::extend(
+  return raft::neighbors::ivf_flat::detail::extend(
     handle, orig_index, new_vectors, new_indices, n_rows);
 }
 
@@ -190,8 +190,6 @@ auto extend(raft::device_resources const& handle,
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
- * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] orig_index original index
@@ -252,7 +250,7 @@ void extend(raft::device_resources const& handle,
             const IdxT* new_indices,
             IdxT n_rows)
 {
-  *index = extend(handle, *index, new_vectors, new_indices, n_rows);
+  raft::neighbors::ivf_flat::detail::extend(handle, index, new_vectors, new_indices, n_rows);
 }
 
 /**
@@ -277,8 +275,6 @@ void extend(raft::device_resources const& handle,
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
- * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[inout] index
@@ -293,11 +289,11 @@ void extend(raft::device_resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
             std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
 {
-  *index = extend(handle,
-                  *index,
-                  new_vectors.data_handle(),
-                  new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
-                  static_cast<idx_t>(new_vectors.extent(0)));
+  extend(handle,
+         index,
+         new_vectors.data_handle(),
+         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+         static_cast<idx_t>(new_vectors.extent(0)));
 }
 
 /** @} */
@@ -355,7 +351,7 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::spatial::knn::ivf_flat::detail::search(
+  return raft::neighbors::ivf_flat::detail::search(
     handle, params, index, queries, n_queries, k, neighbors, distances, mr);
 }
 
@@ -388,7 +384,6 @@ void search(raft::device_resources const& handle,
  * @tparam value_t data element type
  * @tparam idx_t type of the indices
  * @tparam int_t precision / type of integral arguments
- * @tparam matrix_idx_t matrix indexing type
  *
  * @param[in] handle
  * @param[in] index ivf-flat constructed index

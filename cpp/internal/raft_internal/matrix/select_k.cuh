@@ -20,8 +20,8 @@
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/matrix/specializations/detail/select_k.cuh>
+#ifdef RAFT_COMPILED
+#include <raft/matrix/specializations.cuh>
 #endif
 
 #include <raft/core/device_resources.hpp>

@@ -29,8 +29,8 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
+#if defined RAFT_COMPILED
+#include <raft/cluster/specializations.cuh>
 #endif
 
 namespace raft {

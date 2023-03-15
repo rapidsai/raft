@@ -1,0 +1,7 @@
+# Cython files
+recursive-include raft-dask *.pxd
+recursive-include raft-dask *.pyx
+
+# Build files. Don't use a recursive include on '.' in case the repo is dirty
+include . CMakeLists.txt
+recursive-include raft-dask CMakeLists.txt

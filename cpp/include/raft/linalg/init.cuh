@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@
 
 #pragma once
 
-#include "detail/init.hpp"
+#include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft {
-namespace linalg {
+namespace raft::linalg {
 
 /**
  * @brief Like Python range.
@@ -37,7 +36,8 @@ namespace linalg {
 template <typename T>
 void range(T* out, int start, int end, cudaStream_t stream)
 {
-  detail::range(out, start, end, stream);
+  return detail::map<true>(
+    stream, out, end - start, compose_op{cast_op<T>{}, add_const_op<int>{start}});
 }
 
 /**
@@ -52,7 +52,7 @@ void range(T* out, int start, int end, cudaStream_t stream)
 template <typename T, int TPB = 256>
 void range(T* out, int n, cudaStream_t stream)
 {
-  detail::range(out, n, stream);
+  return detail::map<true>(stream, out, n, cast_op<T>{});
 }
 
 /**
@@ -68,7 +68,6 @@ void zero(T* out, int n, cudaStream_t stream)
   RAFT_CUDA_TRY(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
 }
 
-}  // namespace linalg
-}  // namespace raft
+}  // namespace raft::linalg
 
 #endif
