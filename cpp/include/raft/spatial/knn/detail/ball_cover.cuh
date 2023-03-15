@@ -22,14 +22,13 @@
 #include "ball_cover/common.cuh"
 #include "ball_cover/registers.cuh"
 #include "haversine_distance.cuh"
-#include "selection_faiss.cuh"
 
 #include <cstdint>
 #include <limits.h>
 
 #include <raft/util/cuda_utils.cuh>
 
-#include <raft/spatial/knn/detail/faiss_select/key_value_block_select.cuh>
+#include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 
 #include <raft/matrix/matrix.cuh>
 #include <raft/neighbors/brute_force.cuh>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,115 +27,21 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/matrix/init.cuh>
+#include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/knn_merge_parts.cuh>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
 namespace raft::neighbors::detail {
 using namespace raft::spatial::knn::detail;
 using namespace raft::spatial::knn;
-
-template <typename value_idx = std::int64_t,
-          typename value_t   = float,
-          int warp_q,
-          int thread_q,
-          int tpb>
-__global__ void knn_merge_parts_kernel(value_t* inK,
-                                       value_idx* inV,
-                                       value_t* outK,
-                                       value_idx* outV,
-                                       size_t n_samples,
-                                       int n_parts,
-                                       value_t initK,
-                                       value_idx initV,
-                                       int k,
-                                       value_idx* translations)
-{
-  constexpr int kNumWarps = tpb / WarpSize;
-
-  __shared__ value_t smemK[kNumWarps * warp_q];
-  __shared__ value_idx smemV[kNumWarps * warp_q];
-
-  /**
-   * Uses shared memory
-   */
-  faiss_select::
-    BlockSelect<value_t, value_idx, false, faiss_select::Comparator<value_t>, warp_q, thread_q, tpb>
-      heap(initK, initV, smemK, smemV, k);
-
-  // Grid is exactly sized to rows available
-  int row     = blockIdx.x;
-  int total_k = k * n_parts;
-
-  int i = threadIdx.x;
-
-  // Get starting pointers for cols in current thread
-  int part       = i / k;
-  size_t row_idx = (row * k) + (part * n_samples * k);
-
-  int col = i % k;
-
-  value_t* inKStart   = inK + (row_idx + col);
-  value_idx* inVStart = inV + (row_idx + col);
-
-  int limit             = Pow2<WarpSize>::roundDown(total_k);
-  value_idx translation = 0;
-
-  for (; i < limit; i += tpb) {
-    translation = translations[part];
-    heap.add(*inKStart, (*inVStart) + translation);
-
-    part    = (i + tpb) / k;
-    row_idx = (row * k) + (part * n_samples * k);
-
-    col = (i + tpb) % k;
-
-    inKStart = inK + (row_idx + col);
-    inVStart = inV + (row_idx + col);
-  }
-
-  // Handle last remainder fraction of a warp of elements
-  if (i < total_k) {
-    translation = translations[part];
-    heap.addThreadQ(*inKStart, (*inVStart) + translation);
-  }
-
-  heap.reduce();
-
-  for (int i = threadIdx.x; i < k; i += tpb) {
-    outK[row * k + i] = smemK[i];
-    outV[row * k + i] = smemV[i];
-  }
-}
-
-template <typename value_idx = std::int64_t, typename value_t = float, int warp_q, int thread_q>
-inline void knn_merge_parts_impl(value_t* inK,
-                                 value_idx* inV,
-                                 value_t* outK,
-                                 value_idx* outV,
-                                 size_t n_samples,
-                                 int n_parts,
-                                 int k,
-                                 cudaStream_t stream,
-                                 value_idx* translations)
-{
-  auto grid = dim3(n_samples);
-
-  constexpr int n_threads = (warp_q <= 1024) ? 128 : 64;
-  auto block              = dim3(n_threads);
-
-  auto kInit = std::numeric_limits<value_t>::max();
-  auto vInit = -1;
-  knn_merge_parts_kernel<value_idx, value_t, warp_q, thread_q, n_threads>
-    <<<grid, block, 0, stream>>>(
-      inK, inV, outK, outV, n_samples, n_parts, kInit, vInit, k, translations);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-}
 
 /**
  * Calculates brute force knn, using a fixed memory budget
@@ -162,8 +68,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   auto stream        = handle.get_stream();
   auto device_memory = handle.get_workspace_resource();
   auto total_mem     = device_memory->get_mem_info(stream).second;
-  raft::spatial::knn::detail::faiss_select::chooseTileSize(
-    m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
+  faiss_select::chooseTileSize(m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
 
   // for unittesting, its convenient to be able to put a max size on the tiles
   // so we can test the tiling logic without having to use huge inputs.
@@ -208,11 +113,14 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   // if we have less than k items in the index, we should fill out the result
   // to indicate that we are missing items (and match behaviour in faiss)
   if (n < static_cast<size_t>(k)) {
-    thrust::fill(handle.get_thrust_policy(),
-                 distances,
-                 distances + m * k,
-                 std::numeric_limits<ElementType>::lowest());
-    thrust::fill(handle.get_thrust_policy(), indices, indices + m * k, -1);
+    raft::matrix::fill(handle,
+                       raft::make_device_matrix_view(distances, m, static_cast<size_t>(k)),
+                       std::numeric_limits<ElementType>::lowest());
+
+    if constexpr (std::is_signed_v<IndexType>) {
+      raft::matrix::fill(
+        handle, raft::make_device_matrix_view(indices, m, static_cast<size_t>(k)), IndexType{-1});
+    }
   }
 
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
@@ -247,36 +155,33 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         auto row_norms = search_norms.data() + i;
         auto col_norms = index_norms.data() + j;
         auto dist      = temp_distances.data();
-        auto count     = thrust::make_counting_iterator<IndexType>(0);
 
-        thrust::for_each(handle.get_thrust_policy(),
-                         count,
-                         count + current_query_size * current_centroid_size,
-                         [=] __device__(IndexType i) {
-                           IndexType row = i / current_centroid_size,
-                                     col = i % current_centroid_size;
+        raft::linalg::map_offset(
+          handle,
+          raft::make_device_vector_view(dist, current_query_size * current_centroid_size),
+          [=] __device__(IndexType i) {
+            IndexType row = i / current_centroid_size, col = i % current_centroid_size;
 
-                           auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
 
-                           // due to numerical instability (especially around self-distance)
-                           // the distances here could be slightly negative, which will
-                           // cause NaN values in the subsequent sqrt. Clamp to 0
-                           dist[i] = val * (val >= 0.0001);
-                           if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
-                             dist[i] = sqrt(dist[i]);
-                           }
-                         });
+            // due to numerical instability (especially around self-distance)
+            // the distances here could be slightly negative, which will
+            // cause NaN values in the subsequent sqrt. Clamp to 0
+            val = val * (val >= 0.0001);
+            if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(val); }
+            return val;
+          });
       }
 
-      detail::select_k<IndexType, ElementType>(temp_distances.data(),
-                                               nullptr,
-                                               current_query_size,
-                                               current_centroid_size,
-                                               distances + i * k,
-                                               indices + i * k,
-                                               select_min,
-                                               current_k,
-                                               stream);
+      select_k<IndexType, ElementType>(temp_distances.data(),
+                                       nullptr,
+                                       current_query_size,
+                                       current_centroid_size,
+                                       distances + i * k,
+                                       indices + i * k,
+                                       select_min,
+                                       current_k,
+                                       stream);
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -308,65 +213,17 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
     if (tile_cols != n) {
       // select the actual top-k items here from the temporary output
-      detail::select_k<IndexType, ElementType>(temp_out_distances.data(),
-                                               temp_out_indices.data(),
-                                               current_query_size,
-                                               temp_out_cols,
-                                               distances + i * k,
-                                               indices + i * k,
-                                               select_min,
-                                               k,
-                                               stream);
+      select_k<IndexType, ElementType>(temp_out_distances.data(),
+                                       temp_out_indices.data(),
+                                       current_query_size,
+                                       temp_out_cols,
+                                       distances + i * k,
+                                       indices + i * k,
+                                       select_min,
+                                       k,
+                                       stream);
     }
   }
-}
-
-/**
- * @brief Merge knn distances and index matrix, which have been partitioned
- * by row, into a single matrix with only the k-nearest neighbors.
- *
- * @param inK partitioned knn distance matrix
- * @param inV partitioned knn index matrix
- * @param outK merged knn distance matrix
- * @param outV merged knn index matrix
- * @param n_samples number of samples per partition
- * @param n_parts number of partitions
- * @param k number of neighbors per partition (also number of merged neighbors)
- * @param stream CUDA stream to use
- * @param translations mapping of index offsets for each partition
- */
-template <typename value_idx = std::int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t* inK,
-                            value_idx* inV,
-                            value_t* outK,
-                            value_idx* outV,
-                            size_t n_samples,
-                            int n_parts,
-                            int k,
-                            cudaStream_t stream,
-                            value_idx* translations)
-{
-  if (k == 1)
-    knn_merge_parts_impl<value_idx, value_t, 1, 1>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 32)
-    knn_merge_parts_impl<value_idx, value_t, 32, 2>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 64)
-    knn_merge_parts_impl<value_idx, value_t, 64, 3>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 128)
-    knn_merge_parts_impl<value_idx, value_t, 128, 3>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 256)
-    knn_merge_parts_impl<value_idx, value_t, 256, 4>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 512)
-    knn_merge_parts_impl<value_idx, value_t, 512, 8>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
-  else if (k <= 1024)
-    knn_merge_parts_impl<value_idx, value_t, 1024, 8>(
-      inK, inV, outK, outV, n_samples, n_parts, k, stream, translations);
 }
 
 /**
