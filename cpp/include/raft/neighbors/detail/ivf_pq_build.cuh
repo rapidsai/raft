@@ -664,7 +664,7 @@ __launch_bounds__(BlockSize) __global__ void unpack_list_data_kernel(
                       unpack_action);
 }
 
-/** Decode the list data; see the public interface for the api and usage. */
+/** Unpack the list data; see the public interface for the api and usage. */
 template <typename IdxT>
 void unpack_list_data(raft::device_resources const& res,
                       const index<IdxT>& index,
