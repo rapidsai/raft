@@ -342,11 +342,6 @@ void brute_force_knn_impl(
       total_size += size;
     }
     index_row_major.resize(total_size * D, userStream);
-    auto index = index_row_major.data();
-    for (size_t i = 0; i < input.size(); i++) {
-      raft::linalg::transpose(handle, input[i], index, sizes[i], D, userStream);
-      index += sizes[i] * D;
-    }
   }
 
   // Make other streams from pool wait on main stream
@@ -400,15 +395,16 @@ void brute_force_knn_impl(
           haversine_knn(out_i_ptr, out_d_ptr, input[i], search_items, sizes[i], n, k, stream);
           break;
         default:
+          // Create a new handle with the current stream from the stream pool
+          raft::device_resources stream_pool_handle(handle);
+          raft::resource::set_cuda_stream(stream_pool_handle, stream);
+
           auto index = input[i];
           if (!rowMajorIndex) {
             index = index_row_major.data() + total_rows_processed * D;
             total_rows_processed += sizes[i];
+            raft::linalg::transpose(handle, input[i], index, sizes[i], D, stream);
           }
-
-          // Create a new handle with the current stream from the stream pool
-          raft::device_resources stream_pool_handle(handle);
-          raft::resource::set_cuda_stream(stream_pool_handle, stream);
 
           // cosine/correlation are handled by metric processor, use IP distance
           // for brute force knn call.
