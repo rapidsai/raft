@@ -19,6 +19,7 @@
 #include "ann_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>

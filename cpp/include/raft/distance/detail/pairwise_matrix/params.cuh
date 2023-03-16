@@ -37,8 +37,8 @@ struct pairwise_matrix_params {
   [[nodiscard]] pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> flip_x_and_y()
   {
     // Flip m, n; ldx, ldy; x, y; x_norm, y_norm.
-    return pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> {
-       n, m, k, ldy, ldx, ld_out, y, x, y_norm, x_norm, out, fin_op, is_row_major};
+    return pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>{
+      n, m, k, ldy, ldx, ld_out, y, x, y_norm, x_norm, out, fin_op, is_row_major};
   }
 };
 
