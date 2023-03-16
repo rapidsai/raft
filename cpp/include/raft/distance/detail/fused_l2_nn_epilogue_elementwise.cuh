@@ -91,6 +91,7 @@ class FusedL2NNEpilogueElementwise {
     KVPReduceOpT_ pair_redop_;
     ReduceOpT_ red_op_;
     int* mutexes_;
+    using CGReduceT = CGReduceOp_;
     //
     // Methods
     //

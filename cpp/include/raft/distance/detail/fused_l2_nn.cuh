@@ -278,6 +278,8 @@ struct kvp_cg_min_reduce_op {
 
   __host__ __device__ kvp_cg_min_reduce_op() noexcept {};
 
+  using AccTypeT = AccType;
+  using IndexT = Index;
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
   __host__ __device__ AccType operator()(AccType a, AccType b) const { return a < b ? a : b; }
