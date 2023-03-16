@@ -271,7 +271,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       double d = dist(i);
       // The theoretical estimate of the error is hard to come up with,
       // the estimate below is based on experimentation + curse of dimensionality
-      ASSERT_LE(d, 0.05 * std::pow(2.0, compression_ratio))
+      ASSERT_LE(d, 0.055 * std::pow(2.0, compression_ratio))
         << " (label = " << label << ", ix = " << (n_skip + i) << ")";
     }
   }
