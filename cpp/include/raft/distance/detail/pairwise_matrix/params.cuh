@@ -32,30 +32,14 @@ struct pairwise_matrix_params {
   OutT* out;
   FinOpT fin_op;
   bool is_row_major;
-};
 
-template <typename IdxT, typename DataT, typename OutT, typename FinOpT>
-pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> make_params(IdxT m,
-                                                              IdxT n,
-                                                              IdxT k,
-                                                              const DataT* x,
-                                                              const DataT* y,
-                                                              const DataT* x_norm,
-                                                              const DataT* y_norm,
-                                                              OutT* out,
-                                                              FinOpT fin_op,
-                                                              bool is_row_major)
-{
-  // Determine leading dimensions.
-  IdxT ldx, ldy, ld_out;
-  if (is_row_major) {
-    ldx = k, ldy = k, ld_out = n;
-  } else {
-    ldx = m, ldy = n, ld_out = m;
+  //
+  [[nodiscard]] pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> flip_x_and_y()
+  {
+    // Flip m, n; ldx, ldy; x, y; x_norm, y_norm.
+    return pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> {
+       n, m, k, ldy, ldx, ld_out, y, x, y_norm, x_norm, out, fin_op, is_row_major};
   }
-
-  return pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>{
-    m, n, k, ldx, ldy, ld_out, x, y, x_norm, y_norm, out, fin_op, is_row_major};
-}
+};
 
 }  // namespace raft::distance::detail
