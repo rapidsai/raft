@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import uuid
 import warnings
 from collections import OrderedDict
 
-from pylibraft.common.handle import Handle
-
 from dask.distributed import default_client, get_worker
+
+from pylibraft.common.handle import Handle
 
 from .comms_utils import (
     inject_comms_on_handle,
