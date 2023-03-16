@@ -192,7 +192,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                          new_half_of_data_view,
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
                            new_half_of_data_indices_view),
-                         index_2);
+                         &index_2);
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.num_queries, ps.dim);

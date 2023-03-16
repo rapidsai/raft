@@ -115,7 +115,7 @@ const std::vector<RefineInputs<int64_t>> inputs =
     {static_cast<int64_t>(1), static_cast<int64_t>(10), static_cast<int64_t>(33)},
     {static_cast<int64_t>(33)},
     {raft::distance::DistanceType::L2Expanded, raft::distance::DistanceType::InnerProduct},
-    {true});
+    {false, true});
 
 typedef RefineTest<float, float, std::int64_t> RefineTestF;
 TEST_P(RefineTestF, AnnRefine) { this->testRefine(); }
