@@ -54,12 +54,13 @@ cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 
 from pylibraft.neighbors.common import _check_input_array, _get_metric
 
-from pylibraft.common.cpp.mdspan cimport device_matrix_view
+from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
     get_dmv_int64,
     get_dmv_uint8,
+    make_optional_view_int64,
 )
 from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
@@ -486,21 +487,21 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_float(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_int8(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_uint8(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -690,7 +691,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_float(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
@@ -699,7 +699,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_int8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
@@ -708,7 +707,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_uint8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     else:

@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,10 @@
  */
 #pragma once
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <vector>
 
-namespace raft::detail {
+namespace raft {
 
 /**
  * @brief A container policy for host mdarray.
@@ -43,15 +44,10 @@ class host_vector_policy {
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
  public:
-  auto create(size_t n) -> container_type { return container_type(n); }
+  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n); }
 
   constexpr host_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) =
     default;
-  explicit constexpr host_vector_policy(rmm::cuda_stream_view) noexcept(
-    std::is_nothrow_default_constructible_v<ElementType>)
-    : host_vector_policy()
-  {
-  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -66,4 +62,4 @@ class host_vector_policy {
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
-}  // namespace raft::detail
+}  // namespace raft

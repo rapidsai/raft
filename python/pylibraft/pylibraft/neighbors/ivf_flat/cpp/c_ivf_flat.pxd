@@ -61,9 +61,9 @@ cdef extern from "raft/neighbors/ivf_flat_types.hpp" \
         index(const device_resources& handle,
               DistanceType metric,
               uint32_t n_lists,
-              uint32_t dim,
               bool adaptive_centers,
-              bool conservative_memory_allocation)
+              bool conservative_memory_allocation,
+              uint32_t dim)
         IdxT size()
         uint32_t dim()
         DistanceType metric()

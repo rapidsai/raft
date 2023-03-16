@@ -19,6 +19,7 @@
 #include "ann_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -237,9 +238,9 @@ struct index : ann::index {
   index(raft::device_resources const& res,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
-        uint32_t dim,
         bool adaptive_centers,
-        bool conservative_memory_allocation)
+        bool conservative_memory_allocation,
+        uint32_t dim)
     : ann::index(),
       veclen_(calculate_veclen(dim)),
       metric_(metric),
@@ -261,9 +262,9 @@ struct index : ann::index {
     : index(res,
             params.metric,
             params.n_lists,
-            dim,
             params.adaptive_centers,
-            params.conservative_memory_allocation)
+            params.conservative_memory_allocation,
+            dim)
   {
   }
 
