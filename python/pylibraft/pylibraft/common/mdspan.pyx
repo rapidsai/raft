@@ -40,6 +40,7 @@ from pylibraft.common.cpp.mdspan cimport (
     serialize_mdspan,
 )
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.optional cimport make_optional, optional
 
 from pylibraft.common import DeviceResources
 
@@ -190,3 +191,8 @@ cdef device_matrix_view[int64_t, int64_t, row_major] \
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
     return make_device_matrix_view[int64_t, int64_t, row_major](
         <int64_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef optional[device_matrix_view[int64_t, int64_t, row_major]] \
+        create_optional(device_matrix_view[int64_t, int64_t, row_major]& dmv) except *:  # noqa: E501
+    return make_optional[device_matrix_view[int64_t, int64_t, row_major]](dmv)

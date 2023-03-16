@@ -24,6 +24,7 @@ from libcpp.string cimport string
 
 from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.optional cimport make_optional, optional
 
 
 cdef device_matrix_view[float, int64_t, row_major] get_dmv_float(
@@ -37,3 +38,6 @@ cdef device_matrix_view[int8_t, int64_t, row_major] get_dmv_int8(
 
 cdef device_matrix_view[int64_t, int64_t, row_major] get_dmv_int64(
     array, check_shape) except *
+
+cdef optional[device_matrix_view[int64_t, int64_t, row_major]] create_optional(
+    device_matrix_view[int64_t, int64_t, row_major]& dmv) except *
