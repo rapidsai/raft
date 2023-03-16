@@ -52,11 +52,11 @@ from rmm._lib.memory_resource cimport (
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.mdspan cimport (
-    create_optional,
     get_dmv_float,
     get_dmv_int8,
     get_dmv_int64,
     get_dmv_uint8,
+    make_optional_view_int64,
 )
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
@@ -521,19 +521,19 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_float(vecs_cai, check_shape=True),
-                            create_optional(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
                             index.index)
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_int8(vecs_cai, check_shape=True),
-                            create_optional(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
                             index.index)
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_uint8(vecs_cai, check_shape=True),
-                            create_optional(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
                             index.index)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)

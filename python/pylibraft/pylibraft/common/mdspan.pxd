@@ -39,5 +39,5 @@ cdef device_matrix_view[int8_t, int64_t, row_major] get_dmv_int8(
 cdef device_matrix_view[int64_t, int64_t, row_major] get_dmv_int64(
     array, check_shape) except *
 
-cdef optional[device_matrix_view[int64_t, int64_t, row_major]] create_optional(
+cdef optional[device_matrix_view[int64_t, int64_t, row_major]] make_optional_view_int64(  # noqa: E501
     device_matrix_view[int64_t, int64_t, row_major]& dmv) except *

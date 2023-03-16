@@ -194,5 +194,5 @@ cdef device_matrix_view[int64_t, int64_t, row_major] \
 
 
 cdef optional[device_matrix_view[int64_t, int64_t, row_major]] \
-        create_optional(device_matrix_view[int64_t, int64_t, row_major]& dmv) except *:  # noqa: E501
+        make_optional_view_int64(device_matrix_view[int64_t, int64_t, row_major]& dmv) except *:  # noqa: E501
     return make_optional[device_matrix_view[int64_t, int64_t, row_major]](dmv)
