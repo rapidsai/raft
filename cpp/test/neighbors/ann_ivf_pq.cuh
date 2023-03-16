@@ -276,10 +276,31 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     }
   }
 
+  void check_packing(index<IdxT>* index, uint32_t label)
+  {
+    auto rec_list = index->lists()[label];
+    auto n_rows   = rec_list->size.load();
+
+    if (n_rows == 0) { return; }
+
+    auto codes   = make_device_matrix<uint8_t>(handle_, n_rows, index->pq_dim());
+    auto indices = make_device_vector<IdxT>(handle_, n_rows);
+    copy(indices.data_handle(), rec_list->indices.data_handle(), n_rows, stream_);
+
+    ivf_pq::unpack_list_data(handle_, *index, codes.view(), label, 0);
+    ivf_pq::erase_list(handle_, index, label);
+    // NB: passing the type parameter because const->non-const implicit conversion of the mdspans
+    // breaks type inference
+    ivf_pq::extend_list_with_codes<IdxT>(handle_, index, codes.view(), indices.view(), label);
+  }
+
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
     auto index = build_index();
+
+    // Dump and re-write codes for one label
+    check_packing(&index, 0);
 
     double compression_ratio =
       static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());

@@ -447,6 +447,66 @@ void extend(raft::device_resources const& handle,
 }
 
 /**
+ * @brief Extend one list of the index in-place, by the list label, skipping the classification and
+ * encoding steps.
+ *
+ * @tparam IdxT
+ *
+ * @param[in] res
+ * @param[inout] index
+ * @param[in] new_codes flat PQ codes, one code per byte [n_rows, index.pq_dim()]
+ * @param[in] new_indices source indices [n_rows]
+ * @param[in] label the id of the target list (cluster).
+ */
+template <typename IdxT>
+void extend_list_with_codes(raft::device_resources const& res,
+                            index<IdxT>* index,
+                            device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+                            device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                            uint32_t label)
+{
+  detail::extend_list_with_codes(res, index, new_codes, new_indices, label);
+}
+
+/**
+ * @brief Extend one list of the index in-place, by the list label, skipping the classification
+ * step.
+ *
+ * @tparam T
+ * @tparam IdxT
+ *
+ * @param[in] res
+ * @param[inout] index
+ * @param[in] new_vectors data to encode [n_rows, index.dim()]
+ * @param[in] new_indices source indices [n_rows]
+ * @param[in] label the id of the target list (cluster).
+ *
+ */
+template <typename T, typename IdxT>
+void extend_list(raft::device_resources const& res,
+                 index<IdxT>* index,
+                 device_matrix_view<const T, uint32_t, row_major> new_vectors,
+                 device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                 uint32_t label)
+{
+  detail::extend_list(res, index, new_vectors, new_vectors, label);
+}
+
+/**
+ * @brief Remove all data from a single list (cluster) in the index.
+ *
+ * @tparam IdxT
+ * @param[in] res
+ * @param[inout] index
+ * @param[in] label the id of the target list (cluster).
+ */
+template <typename IdxT>
+void erase_list(raft::device_resources const& res, index<IdxT>* index, uint32_t label)
+{
+  detail::erase_list(res, index, label);
+}
+
+/**
  * @brief Search ANN using the constructed index.
  *
  * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.

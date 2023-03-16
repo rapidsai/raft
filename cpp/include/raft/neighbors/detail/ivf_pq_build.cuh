@@ -1123,6 +1123,31 @@ void process_and_fill_codes(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
+ *
+ * @tparam IdxT
+ *
+ * @param[in] res
+ * @param[inout] index
+ * @param[in] codes flat PQ codes, one code per byte [n_rows, index.pq_dim()]
+ * @param[in] label
+ *   The id of the list (cluster) to decode.
+ * @param[in] offset how many records in the list to skip.
+ *
+ */
+template <typename IdxT>
+void pack_list_data(raft::device_resources const& res,
+                    index<IdxT>* index,
+                    device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+                    uint32_t label,
+                    uint32_t offset)
+{
+  /** TODO: implementation is missing */
+}
+
 /** Update the state of the dependent index members. */
 template <typename IdxT>
 void recompute_internal_state(const raft::device_resources& res, index<IdxT>& index)
@@ -1174,6 +1199,80 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
   for (uint32_t label = 0; label < sorted_sizes_host.size(); label++) {
     accum_sorted_sizes(label + 1) = accum_sorted_sizes(label) + sorted_sizes_host[label];
   }
+}
+
+/**
+ * Extend one list of the index in-place, by the list label, skipping the classification and
+ * encoding steps.
+ * See the public interface for the api and usage.
+ */
+template <typename IdxT>
+void extend_list_with_codes(raft::device_resources const& res,
+                            index<IdxT>* index,
+                            device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+                            device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                            uint32_t label)
+{
+  uint32_t n_rows = new_indices.extent(0);
+  uint32_t offset;
+  // Allocate the lists to fit the new data
+  copy(&offset, index->list_sizes().data_handle() + label, 1, res.get_stream());
+  res.sync_stream();
+  uint32_t new_size = offset + n_rows;
+  copy(index->list_sizes().data_handle() + label, &new_size, 1, res.get_stream());
+  auto spec = list_spec<uint32_t, IdxT>{
+    index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
+  auto& list = index->lists()[label];
+  ivf::resize_list(res, list, spec, new_size, offset);
+  copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
+
+  pack_list_data(res, index, new_codes, label, offset);
+
+  // Update the pointers and the sizes
+  recompute_internal_state(res, *index);
+}
+
+/**
+ * Extend one list of the index in-place, by the list label, skipping the classification step.
+ * See the public interface for the api and usage.
+ */
+template <typename T, typename IdxT>
+void extend_list(raft::device_resources const& res,
+                 index<IdxT>* index,
+                 device_matrix_view<const T, uint32_t, row_major> new_vectors,
+                 device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                 uint32_t label)
+{
+  uint32_t n_rows = new_indices.extent(0);
+  uint32_t offset;
+  // Allocate the lists to fit the new data
+  copy(&offset, index->list_sizes().data_handle() + label, 1, res.get_stream());
+  res.sync_stream();
+  uint32_t new_size = offset + n_rows;
+  copy(index->list_sizes().data_handle() + label, &new_size, 1, res.get_stream());
+  auto spec = list_spec<uint32_t, IdxT>{
+    index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
+  auto& list = index->lists()[label];
+  ivf::resize_list(res, list, spec, new_size, offset);
+  copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
+
+  /** TODO: implementation is missing */
+
+  // Update the pointers and the sizes
+  recompute_internal_state(res, *index);
+}
+
+/**
+ * Remove all data from a single list.
+ * See the public interface for the api and usage.
+ */
+template <typename IdxT>
+void erase_list(raft::device_resources const& res, index<IdxT>* index, uint32_t label)
+{
+  uint32_t zero = 0;
+  copy(index->list_sizes().data_handle() + label, &zero, 1, res.get_stream());
+  index->lists()[label].reset();
+  recompute_internal_state(res, *index);
 }
 
 /** Copy the state of an index into a new index, but share the list data among the two. */
