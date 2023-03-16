@@ -345,7 +345,7 @@ void brute_force_knn_impl(
     auto index = index_row_major.data();
     for (size_t i = 0; i < input.size(); i++) {
       raft::linalg::transpose(handle, input[i], index, sizes[i], D, userStream);
-      index += sizes[i];
+      index += sizes[i] * D;
     }
   }
 
@@ -402,7 +402,7 @@ void brute_force_knn_impl(
         default:
           auto index = input[i];
           if (!rowMajorIndex) {
-            index = index_row_major.data() + total_rows_processed;
+            index = index_row_major.data() + total_rows_processed * D;
             total_rows_processed += sizes[i];
           }
 
