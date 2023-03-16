@@ -30,7 +30,7 @@ struct ArgminParams {
 
 template <typename T, typename OutT, typename IdxT>
 struct Argmin : public fixture {
-  Argmin(const ArgminParams<IdxT>& p) : params(p) {}
+  Argmin(const ArgminParams<IdxT>& p) : params(p), matrix(this->handle), indices(this->handle) {}
 
   void allocate_data(const ::benchmark::State& state) override
   {

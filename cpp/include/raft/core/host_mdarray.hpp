@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@
 
 #include <cstdint>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 
-#include <raft/core/detail/host_mdarray.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/mdarray.hpp>
 
 namespace raft {
@@ -33,7 +34,7 @@ namespace raft {
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
-          typename ContainerPolicy = detail::host_vector_policy<ElementType>>
+          typename ContainerPolicy = host_vector_policy<ElementType>>
 using host_mdarray = mdarray<ElementType, Extents, LayoutPolicy, host_accessor<ContainerPolicy>>;
 
 /**
@@ -71,7 +72,33 @@ using host_matrix = host_mdarray<ElementType, matrix_extent<IndexType>, LayoutPo
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] res raft handle for managing expensive resources
+ * @param[in] exts dimensionality of the array (series of integers)
+ * @return raft::host_mdarray
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous,
+          size_t... Extents>
+auto make_host_mdarray(raft::resources& res, extents<IndexType, Extents...> exts)
+{
+  using mdarray_t = host_mdarray<ElementType, decltype(exts), LayoutPolicy>;
+
+  typename mdarray_t::mapping_type layout{exts};
+  typename mdarray_t::container_policy_type policy;
+
+  return mdarray_t{res, layout, policy};
+}
+
+/**
+ * @brief Create a host mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
  * @param exts dimensionality of the array (series of integers)
+ * Note: This function is deprecated and will be removed in a future version. Please use version
+ * that accepts raft::resources.
+ *
  * @return raft::host_mdarray
  */
 template <typename ElementType,
@@ -85,7 +112,27 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
   typename mdarray_t::mapping_type layout{exts};
   typename mdarray_t::container_policy_type policy;
 
-  return mdarray_t{layout, policy};
+  raft::resources res;
+  return mdarray_t{res, layout, policy};
+}
+
+/**
+ * @brief Create a 2-dim c-contiguous host mdarray.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] res raft handle for managing expensive resources
+ * @param[in] n_rows number or rows in matrix
+ * @param[in] n_cols number of columns in matrix
+ * @return raft::host_matrix
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous>
+auto make_host_matrix(raft::resources& res, IndexType n_rows, IndexType n_cols)
+{
+  return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(
+    res, make_extents<IndexType>(n_rows, n_cols));
 }
 
 /**
@@ -95,6 +142,9 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
  * @tparam LayoutPolicy policy for strides and layout ordering
  * @param[in] n_rows number or rows in matrix
  * @param[in] n_cols number of columns in matrix
+ * Note: This function is deprecated and will be removed in a future version. Please use version
+ * that accepts raft::resources.
+ *
  * @return raft::host_matrix
  */
 template <typename ElementType,
@@ -111,7 +161,33 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
  *
  * @tparam ElementType the data type of the scalar element
  * @tparam IndexType the index type of the extents
+ * @param[in] res raft handle for managing expensive resources
  * @param[in] v scalar type to wrap
+ * @return raft::host_scalar
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+auto make_host_scalar(raft::resources& res, ElementType const& v)
+{
+  // FIXME(jiamingy): We can optimize this by using std::array as container policy, which
+  // requires some more compile time dispatching. This is enabled in the ref impl but
+  // hasn't been ported here yet.
+  scalar_extent<IndexType> extents;
+  using policy_t = typename host_scalar<ElementType>::container_policy_type;
+  policy_t policy;
+  auto scalar = host_scalar<ElementType>{res, extents, policy};
+  scalar(0)   = v;
+  return scalar;
+}
+
+/**
+ * @brief Create a host scalar from v.
+ *
+ * @tparam ElementType the data type of the scalar element
+ * @tparam IndexType the index type of the extents
+ * @param[in] v scalar type to wrap
+ * Note: This function is deprecated and will be removed in a future version. Please use version
+ * that accepts raft::resources.
+ *
  * @return raft::host_scalar
  */
 template <typename ElementType, typename IndexType = std::uint32_t>
@@ -123,7 +199,8 @@ auto make_host_scalar(ElementType const& v)
   scalar_extent<IndexType> extents;
   using policy_t = typename host_scalar<ElementType>::container_policy_type;
   policy_t policy;
-  auto scalar = host_scalar<ElementType>{extents, policy};
+  raft::resources handle;
+  auto scalar = host_scalar<ElementType>{handle, extents, policy};
   scalar(0)   = v;
   return scalar;
 }
@@ -133,7 +210,27 @@ auto make_host_scalar(ElementType const& v)
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] res raft handle for managing expensive resources
  * @param[in] n number of elements in vector
+ * @return raft::host_vector
+ */
+template <typename ElementType,
+          typename IndexType    = std::uint32_t,
+          typename LayoutPolicy = layout_c_contiguous>
+auto make_host_vector(raft::resources& res, IndexType n)
+{
+  return make_host_mdarray<ElementType, IndexType, LayoutPolicy>(res, make_extents<IndexType>(n));
+}
+
+/**
+ * @brief Create a 1-dim host mdarray.
+ * @tparam ElementType the data type of the vector elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] n number of elements in vector
+ *
+ * Note: This function is deprecated and will be removed in a future version. Please use version
+ * that accepts raft::resources.
  * @return raft::host_vector
  */
 template <typename ElementType,

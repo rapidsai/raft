@@ -14,3 +14,11 @@ namespace *raft::distance*
     :members:
     :content-only:
 
+``#include <raft/distance/fused_l2_nn.cuh>``
+namespace *raft::distance*
+
+.. doxygengroup:: masked_l2_nn
+    :project: RAFT
+    :members:
+    :content-only:
+

@@ -172,7 +172,10 @@ struct BlobsParams {
 template <typename T, typename IndexT = int>
 class BlobsFixture : public fixture {
  public:
-  BlobsFixture(const DatasetParams dp, const BlobsParams bp) : data_params(dp), blobs_params(bp) {}
+  BlobsFixture(const DatasetParams dp, const BlobsParams bp)
+    : data_params(dp), blobs_params(bp), X(this->handle)
+  {
+  }
 
   virtual void run_benchmark(::benchmark::State& state) = 0;
 
