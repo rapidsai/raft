@@ -557,75 +557,6 @@ void train_per_cluster(raft::device_resources const& handle,
   transpose_pq_centers(handle, index, pq_centers_tmp.data());
 }
 
-struct reconstruct_vectors {
-  codebook_gen codebook_kind;
-  uint32_t cluster_ix;
-  uint32_t pq_len;
-  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers;
-  device_mdspan<const float, extent_3d<uint32_t>, row_major> centers_rot;
-  device_mdspan<float, extent_3d<uint32_t>, row_major> out_vectors;
-
-  /**
-   * Create the functor to be passed to `run_on_list`.
-   *
-   * @param[out] out_vectors the destination for the decoded vectors.
-   * @param[in] pq_centers the codebook
-   * @param[in] centers_rot
-   * @param[in] codebook_kind
-   * @param[in] cluster_ix label/id of the cluster.
-   */
-  __device__ inline reconstruct_vectors(
-    device_matrix_view<float, uint32_t, row_major> out_vectors,
-    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
-    device_matrix_view<const float, uint32_t, row_major> centers_rot,
-    codebook_gen codebook_kind,
-    uint32_t cluster_ix)
-    : codebook_kind{codebook_kind},
-      cluster_ix{cluster_ix},
-      pq_len{pq_centers.extent(1)},
-      pq_centers{pq_centers},
-      centers_rot{reinterpret_vectors(centers_rot, pq_centers)},
-      out_vectors{reinterpret_vectors(out_vectors, pq_centers)}
-  {
-  }
-
-  /**
-   * Decode j-th component of the i-th vector by its code and write it into a chunk of the output
-   * vectors (pq_len elements).
-   */
-  __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
-  {
-    uint32_t partition_ix;
-    switch (codebook_kind) {
-      case codebook_gen::PER_CLUSTER: {
-        partition_ix = cluster_ix;
-      } break;
-      case codebook_gen::PER_SUBSPACE: {
-        partition_ix = j;
-      } break;
-      default: __builtin_unreachable();
-    }
-    for (uint32_t k = 0; k < pq_len; k++) {
-      out_vectors(i, j, k) = pq_centers(partition_ix, k, code) + centers_rot(cluster_ix, j, k);
-    }
-  }
-
- private:
-  template <typename T>
-  static __device__ auto reinterpret_vectors(
-    device_matrix_view<T, uint32_t, row_major> out_vectors,
-    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers)
-    -> device_mdspan<T, extent_3d<uint32_t>, row_major>
-  {
-    const uint32_t pq_len = pq_centers.extent(1);
-    const uint32_t pq_dim = out_vectors.extent(1) / pq_len;
-    using layout_t        = typename decltype(out_vectors)::layout_type;
-    using accessor_t      = typename decltype(out_vectors)::accessor_type;
-    return mdspan<T, extent_3d<uint32_t>, layout_t, accessor_t>(
-      out_vectors.data_handle(), extent_3d<uint32_t>{out_vectors.extent(0), pq_dim, pq_len});
-  }
-};
-
 /**
  * Process a single vector in a list.
  *
@@ -688,6 +619,156 @@ __device__ void run_on_list(device_vector_view<const uint8_t* const, uint32_t, r
     run_on_vector<PqBits>(pq_dataset, src_ix, ix, pq_dim, action);
   }
 }
+
+/**
+ * A consumer for the `run_on_list` and `run_on_vec` that just flattens PQ codes
+ * one-per-byte. That is, independent of the code width (pq_bits), one code uses
+ * the whole byte, hence one vectors uses pq_dim bytes.
+ */
+struct unpack_codes {
+  device_matrix_view<uint8_t, uint32_t, row_major> out_codes;
+
+  /**
+   * Create a callable to be passed to `run_on_list`.
+   *
+   * @param[out] out_codes the destination for the read codes.
+   */
+  __device__ inline unpack_codes(device_matrix_view<uint8_t, uint32_t, row_major> out_codes)
+    : out_codes{out_codes}
+  {
+  }
+
+  /**  Write j-th component (code) of the i-th vector into the output array. */
+  __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    out_codes(i, j) = code;
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) __global__ void unpack_list_data_kernel(
+  device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
+  device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
+  device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
+  uint32_t cluster_ix,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  const uint32_t pq_dim = out_codes.extent(1);
+  auto unpack_action    = unpack_codes{out_codes};
+  run_on_list<PqBits>(data_ptrs,
+                      list_sizes,
+                      offset_or_indices,
+                      out_codes.extent(0),
+                      cluster_ix,
+                      pq_dim,
+                      unpack_action);
+}
+
+/** Decode the list data; see the public interface for the api and usage. */
+template <typename IdxT>
+void unpack_list_data(raft::device_resources const& res,
+                      const index<IdxT>& index,
+                      device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
+                      uint32_t label,
+                      std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  auto n_rows = out_codes.extent(0);
+  if (n_rows == 0) { return; }
+  if (std::holds_alternative<uint32_t>(offset_or_indices)) {
+    auto n_skip = std::get<uint32_t>(offset_or_indices);
+    // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
+    // to avoid an extra device-host data copy and the stream sync.
+    RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
+                 "offset + output size must be not bigger than the cluster size.");
+  }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [](uint32_t pq_bits) {
+    switch (pq_bits) {
+      case 4: return unpack_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }(index.pq_bits());
+  kernel<<<blocks, threads, 0, res.get_stream()>>>(
+    out_codes, index.data_ptrs(), index.list_sizes(), label, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/** A consumer for the `run_on_list` and `run_on_vec` that approximates the original input data. */
+struct reconstruct_vectors {
+  codebook_gen codebook_kind;
+  uint32_t cluster_ix;
+  uint32_t pq_len;
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers;
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> centers_rot;
+  device_mdspan<float, extent_3d<uint32_t>, row_major> out_vectors;
+
+  /**
+   * Create a callable to be passed to `run_on_list`.
+   *
+   * @param[out] out_vectors the destination for the decoded vectors.
+   * @param[in] pq_centers the codebook
+   * @param[in] centers_rot
+   * @param[in] codebook_kind
+   * @param[in] cluster_ix label/id of the cluster.
+   */
+  __device__ inline reconstruct_vectors(
+    device_matrix_view<float, uint32_t, row_major> out_vectors,
+    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+    device_matrix_view<const float, uint32_t, row_major> centers_rot,
+    codebook_gen codebook_kind,
+    uint32_t cluster_ix)
+    : codebook_kind{codebook_kind},
+      cluster_ix{cluster_ix},
+      pq_len{pq_centers.extent(1)},
+      pq_centers{pq_centers},
+      centers_rot{reinterpret_vectors(centers_rot, pq_centers)},
+      out_vectors{reinterpret_vectors(out_vectors, pq_centers)}
+  {
+  }
+
+  /**
+   * Decode j-th component of the i-th vector by its code and write it into a chunk of the output
+   * vectors (pq_len elements).
+   */
+  __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    uint32_t partition_ix;
+    switch (codebook_kind) {
+      case codebook_gen::PER_CLUSTER: {
+        partition_ix = cluster_ix;
+      } break;
+      case codebook_gen::PER_SUBSPACE: {
+        partition_ix = j;
+      } break;
+      default: __builtin_unreachable();
+    }
+    for (uint32_t k = 0; k < pq_len; k++) {
+      out_vectors(i, j, k) = pq_centers(partition_ix, k, code) + centers_rot(cluster_ix, j, k);
+    }
+  }
+
+ private:
+  template <typename T>
+  static __device__ auto reinterpret_vectors(
+    device_matrix_view<T, uint32_t, row_major> out_vectors,
+    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers)
+    -> device_mdspan<T, extent_3d<uint32_t>, row_major>
+  {
+    const uint32_t pq_len = pq_centers.extent(1);
+    const uint32_t pq_dim = out_vectors.extent(1) / pq_len;
+    using layout_t        = typename decltype(out_vectors)::layout_type;
+    using accessor_t      = typename decltype(out_vectors)::accessor_type;
+    return mdspan<T, extent_3d<uint32_t>, layout_t, accessor_t>(
+      out_vectors.data_handle(), extent_3d<uint32_t>{out_vectors.extent(0), pq_dim, pq_len});
+  }
+};
 
 template <uint32_t BlockSize, uint32_t PqBits>
 __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
