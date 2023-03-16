@@ -212,6 +212,89 @@ auto build(raft::device_resources const& handle,
 }
 
 /**
+ * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
+ * starting at given `offset`, one code per byte (independently of pq_bits).
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // We will unpack the fourth cluster
+ *   uint32_t label = 3;
+ *   // Get the list size
+ *   uint32_t list_size = 0;
+ *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1, res.get_stream());
+ *   res.sync_stream();
+ *   // allocate the buffer for the output
+ *   auto codes = raft::make_device_matrix<float>(res, list_size, index.pq_dim());
+ *   // unpack the whole list
+ *   ivf_pq::unpack_list_data(res, index, codes.view(), label, 0);
+ * @endcode
+ *
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res
+ * @param[in] index
+ * @param[out] out_codes
+ *   the destination buffer [n_take, index.pq_dim()].
+ *   The length `n_take` defines how many records to unpack,
+ *   it must be smaller than the list size.
+ * @param[in] label
+ *   The id of the list (cluster) to decode.
+ * @param[in] offset
+ *   How many records in the list to skip.
+ */
+template <typename IdxT>
+void unpack_list_data(raft::device_resources const& res,
+                      const index<IdxT>& index,
+                      device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
+                      uint32_t label,
+                      uint32_t offset)
+{
+  return detail::unpack_list_data(res, index, out_codes, label, offset);
+}
+
+/**
+ * @brief Unpack a series of records of a single list (cluster) in the compressed index
+ * by their in-list offsets, one code per byte (independently of pq_bits).
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // We will unpack the fourth cluster
+ *   uint32_t label = 3;
+ *   // Create the selection vector
+ *   auto selected_indices = raft::make_device_vector<uint32_t>(res, 4);
+ *   ... fill the indices ...
+ *   res.sync_stream();
+ *   // allocate the buffer for the output
+ *   auto codes = raft::make_device_matrix<float>(res, selected_indices.size(), index.pq_dim());
+ *   // decode the whole list
+ *   ivf_pq::unpack_list_data(
+ *       res, index, selected_indices.view(), codes.view(), label);
+ * @endcode
+ *
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res
+ * @param[in] index
+ * @param[in] in_cluster_indices
+ *   The offsets of the selected indices within the cluster.
+ * @param[out] out_codes
+ *   the destination buffer [n_take, index.pq_dim()].
+ *   The length `n_take` defines how many records to unpack,
+ *   it must be smaller than the list size.
+ * @param[in] label
+ *   The id of the list (cluster) to decode.
+ */
+template <typename IdxT>
+void unpack_list_data(raft::device_resources const& res,
+                      const index<IdxT>& index,
+                      device_vector_view<const uint32_t> in_cluster_indices,
+                      device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
+                      uint32_t label)
+{
+  return detail::unpack_list_data(res, index, out_codes, label, in_cluster_indices);
+}
+
+/**
  * @brief Decode `n_take` consecutive records of a single list (cluster) in the compressed index
  * starting at given `offset`.
  *
