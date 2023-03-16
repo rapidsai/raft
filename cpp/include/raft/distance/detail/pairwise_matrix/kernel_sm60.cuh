@@ -19,7 +19,7 @@
 #include <raft/core/operators.hpp>                          // raft::void_op
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
-#include <raft/util/arch.cuh>                               // raft::arch::SM_compute_arch
+#include <raft/util/arch.cuh>                               // raft::util::arch::SM_compute_arch
 
 namespace raft::distance::detail {
 
@@ -36,7 +36,7 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
 {
   // Early exit to minimize the size of the kernel when it is not supposed to be compiled.
   constexpr SM_compat_t sm_compat_range{};
-  if constexpr (!sm_compat_range.contains(raft::arch::SM_compute_arch())) {
+  if constexpr (!sm_compat_range.contains(raft::util::arch::SM_compute_arch())) {
     assert(false);
     return;
   }

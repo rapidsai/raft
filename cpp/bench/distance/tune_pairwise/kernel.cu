@@ -17,14 +17,15 @@
 #include "kernel.cuh"
 #include <raft/distance/detail/pairwise_matrix/kernel_sm60.cuh>  // pairwise_matrix_sm60_wrapper
 #include <raft/linalg/contractions.cuh>                          // raft::linalg::Policy4x4
-#include <raft/util/arch.cuh>                                    // raft::arch::SM_compute_arch
+#include <raft/util/arch.cuh>  // raft::util::arch::SM_compute_arch
 
 namespace raft::bench::distance::tune {
 
-constexpr int vec_len = 1;
-using Policy          = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
-constexpr auto sm_compat_range =
-  raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_future());
+namespace arch = raft::util::arch;
+
+constexpr int vec_len          = 1;
+using Policy                   = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
+constexpr auto sm_compat_range = arch:: ::SM_range(arch:: ::SM_min(), arch:: ::SM_future());
 
 void launch_kernel(OpT distance_op, pairwise_matrix_params params, dim3 grid, cudaStream_t stream)
 {

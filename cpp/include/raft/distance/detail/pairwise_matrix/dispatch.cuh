@@ -34,6 +34,7 @@
 #include <raft/distance/detail/distance_ops/cutlass.cuh>           // ops::has_cutlass_op
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>  // dispatch_sm60
 #include <raft/distance/detail/pairwise_matrix/params.cuh>         // pairwise_matrix_params
+#include <raft/util/arch.cuh>                                      // raft::util::arch::SM_*
 
 // NOTE: to minimize compile times, we do not include dispatch_sm80.cuh.
 // Including dispatch_sm80.cuh can slow down compile times (due to CUTLASS).
@@ -70,17 +71,18 @@ void pairwise_matrix_instantiation_point(OpT distance_op,
   // On CUDA 11 and below:
   // - execute CUTLASS-based kernel on SM_80 and above
   // - execute normal kernel below SM_80
+  namespace arch = raft::util::arch;
 
   constexpr bool is_ctk_12              = __CUDACC_VER_MAJOR__ == 12;
   constexpr bool cutlass_op_unavailable = !ops::has_cutlass_op<OpT>();
 
   if constexpr (is_ctk_12 || cutlass_op_unavailable) {
     // Always execute legacy kernels on CUDA 12
-    auto any_range = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_future());
+    auto any_range = arch::SM_range(arch::SM_min(), arch::SM_future());
     pairwise_matrix_sm60_dispatch(distance_op, params, any_range, stream);
   } else {
-    auto cutlass_range = raft::arch::SM_range(raft::arch::SM_80(), raft::arch::SM_future());
-    auto legacy_range  = raft::arch::SM_range(raft::arch::SM_min(), raft::arch::SM_80());
+    auto cutlass_range = arch::SM_range(arch::SM_80(), arch::SM_future());
+    auto legacy_range  = arch::SM_range(arch::SM_min(), arch::SM_80());
 
     // Get pointer to SM60 kernel to determine the runtime architecture of the
     // current system. Other methods to determine the architecture (that do not
@@ -88,7 +90,7 @@ void pairwise_matrix_instantiation_point(OpT distance_op,
     // https://github.com/NVIDIA/cub/issues/545
     auto sm60_wrapper = pairwise_matrix_sm60_get_wrapper(distance_op, params, legacy_range);
     void* kernel_ptr  = reinterpret_cast<void*>(sm60_wrapper.kernel_ptr);
-    auto runtime_arch = raft::arch::kernel_runtime_arch(kernel_ptr);
+    auto runtime_arch = arch::kernel_runtime_arch(kernel_ptr);
 
     if (cutlass_range.contains(runtime_arch)) {
       // If device is SM_80 or later, use CUTLASS-based kernel.
@@ -121,16 +123,14 @@ void pairwise_matrix_dispatch(OpT distance_op,
                               bool is_row_major)
 {
   // Create kernel parameter struct. Flip x and y if column major.
-  IdxT ldx = is_row_major ? k : m;
-  IdxT ldy = is_row_major ? k : n;
+  IdxT ldx    = is_row_major ? k : m;
+  IdxT ldy    = is_row_major ? k : n;
   IdxT ld_out = is_row_major ? n : m;
 
   pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params{
     m, n, k, ldx, ldy, ld_out, x, y, x_norm, y_norm, out, fin_op, is_row_major};
 
-  if (!params.is_row_major) {
-    params = params.flip_x_and_y();
-  }
+  if (!params.is_row_major) { params = params.flip_x_and_y(); }
   pairwise_matrix_instantiation_point(distance_op, params, stream);
 }
 

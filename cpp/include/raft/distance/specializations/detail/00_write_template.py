@@ -66,70 +66,57 @@ op_instances = [
     dict(
         path_prefix="canberra",
         OpT="ops::canberra_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="correlation",
         OpT="ops::correlation_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="cosine",
         OpT="ops::cosine_distance_op<DataT, AccT, IdxT>",
         # cosine uses CUTLASS for SM80+
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_80>",
     ),
     dict(
         path_prefix="hamming_unexpanded",
         OpT="ops::hamming_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="hellinger_expanded",
         OpT="ops::hellinger_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     # inner product is handled by cublas.
     dict(
         path_prefix="jensen_shannon",
         OpT="ops::jensen_shannon_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="kl_divergence",
         OpT="ops::kl_divergence_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="l1",
         OpT="ops::l1_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="l2_expanded",
         OpT="ops::l2_exp_distance_op<DataT, AccT, IdxT>",
         # L2 expanded uses CUTLASS for SM80+
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_80>",
     ),
     dict(
         path_prefix="l2_unexpanded",
         OpT="ops::l2_unexp_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="l_inf",
         OpT="ops::l_inf_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="lp_unexpanded",
         OpT="ops::lp_unexp_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
     dict(
         path_prefix="russel_rao",
         OpT="ops::russel_rao_distance_op<DataT, AccT, IdxT>",
-        SM_compat_t="raft::arch::SM_range<raft::arch::SM_min, raft::arch::SM_future>",
     ),
 ]
 

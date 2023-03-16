@@ -20,10 +20,8 @@ template = """/*
 
 #include <raft/core/operators.hpp> // raft::identity_op
 #include <raft/distance/detail/distance_ops/all_ops.cuh> // ops::*
-
 #include <raft/distance/detail/pairwise_matrix/dispatch.cuh> // pairwise_matrix_instantiation_point
 INCLUDE_SM_HEADERS
-#include <raft/util/arch.cuh> // raft::arch::SM_compat_range
 
 namespace raft::distance::detail {
 
