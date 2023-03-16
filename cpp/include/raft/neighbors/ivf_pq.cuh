@@ -268,7 +268,7 @@ void unpack_list_data(raft::device_resources const& res,
                       uint32_t label,
                       uint32_t offset)
 {
-  return detail::unpack_list_data(res, index, out_codes, label, offset);
+  return detail::unpack_list_data<IdxT>(res, index, out_codes, label, offset);
 }
 
 /**
@@ -310,7 +310,7 @@ void unpack_list_data(raft::device_resources const& res,
                       device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
                       uint32_t label)
 {
-  return detail::unpack_list_data(res, index, out_codes, label, in_cluster_indices);
+  return detail::unpack_list_data<IdxT>(res, index, out_codes, label, in_cluster_indices);
 }
 
 /**

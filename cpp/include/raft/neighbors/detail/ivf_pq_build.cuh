@@ -597,31 +597,71 @@ __device__ void run_on_vector(
   }
 }
 
+template <uint32_t PqBits, typename Action>
+__device__ void write_vector(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
+  uint32_t out_ix,
+  uint32_t in_ix,
+  uint32_t pq_dim,
+  Action action)
+{
+  using group_align         = Pow2<kIndexGroupSize>;
+  const uint32_t group_ix   = group_align::div(out_ix);
+  const uint32_t ingroup_ix = group_align::mod(out_ix);
+
+  pq_vec_t code_chunk;
+  bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
+  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
+    // clear the chunk
+    code_chunk = pq_vec_t{};
+    // write the codes, one/pq_dim at a time
+#pragma unroll
+    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
+      // write a single code
+      code_view[k] = action(in_ix, j);
+    }
+    // write the chunk to the list
+    *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code_chunk;
+  }
+}
+
 /** Process the given indices or a block of a single list (cluster). */
 template <uint32_t PqBits, typename Action>
-__device__ void run_on_list(device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
-                            device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
-                            std::variant<uint32_t, const uint32_t*> offset_or_indices,
-                            uint32_t len,
-                            uint32_t cluster_ix,
-                            uint32_t pq_dim,
-                            Action action)
+__device__ void run_on_list(
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t len,
+  uint32_t pq_dim,
+  Action action)
 {
-  auto pq_extents =
-    list_spec<uint32_t, uint32_t>{PqBits, pq_dim, true}.make_list_extents(list_sizes[cluster_ix]);
-  auto pq_dataset =
-    make_mdspan<const uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
-
   for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
     const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
                               ? std::get<uint32_t>(offset_or_indices) + ix
                               : std::get<const uint32_t*>(offset_or_indices)[ix];
-    run_on_vector<PqBits>(pq_dataset, src_ix, ix, pq_dim, action);
+    run_on_vector<PqBits>(in_list_data, src_ix, ix, pq_dim, action);
+  }
+}
+
+/** Process the given indices or a block of a single list (cluster). */
+template <uint32_t PqBits, typename Action>
+__device__ void write_list(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t len,
+  uint32_t pq_dim,
+  Action action)
+{
+  for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
+    const uint32_t dst_ix = std::holds_alternative<uint32_t>(offset_or_indices)
+                              ? std::get<uint32_t>(offset_or_indices) + ix
+                              : std::get<const uint32_t*>(offset_or_indices)[ix];
+    write_vector<PqBits>(out_list_data, dst_ix, ix, pq_dim, action);
   }
 }
 
 /**
- * A consumer for the `run_on_list` and `run_on_vec` that just flattens PQ codes
+ * A consumer for the `run_on_list` and `run_on_vector` that just flattens PQ codes
  * one-per-byte. That is, independent of the code width (pq_bits), one code uses
  * the whole byte, hence one vectors uses pq_dim bytes.
  */
@@ -648,20 +688,48 @@ struct unpack_codes {
 template <uint32_t BlockSize, uint32_t PqBits>
 __launch_bounds__(BlockSize) __global__ void unpack_list_data_kernel(
   device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
-  device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
-  device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
-  uint32_t cluster_ix,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   const uint32_t pq_dim = out_codes.extent(1);
   auto unpack_action    = unpack_codes{out_codes};
-  run_on_list<PqBits>(data_ptrs,
-                      list_sizes,
-                      offset_or_indices,
-                      out_codes.extent(0),
-                      cluster_ix,
-                      pq_dim,
-                      unpack_action);
+  run_on_list<PqBits>(in_list_data, offset_or_indices, out_codes.extent(0), pq_dim, unpack_action);
+}
+
+/**
+ * Unpack flat PQ codes from an existing list by the given offset.
+ *
+ * @param[out] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] list_data the packed ivf::list data.
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void unpack_list_data(
+  device_matrix_view<uint8_t, uint32_t, row_major> codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  auto n_rows = codes.extent(0);
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return unpack_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(codes, list_data, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /** Unpack the list data; see the public interface for the api and usage. */
@@ -672,35 +740,15 @@ void unpack_list_data(raft::device_resources const& res,
                       uint32_t label,
                       std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
-  auto n_rows = out_codes.extent(0);
-  if (n_rows == 0) { return; }
-  if (std::holds_alternative<uint32_t>(offset_or_indices)) {
-    auto n_skip = std::get<uint32_t>(offset_or_indices);
-    // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
-    // to avoid an extra device-host data copy and the stream sync.
-    RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
-                 "offset + output size must be not bigger than the cluster size.");
-  }
-
-  constexpr uint32_t kBlockSize = 256;
-  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
-  dim3 threads(kBlockSize, 1, 1);
-  auto kernel = [](uint32_t pq_bits) {
-    switch (pq_bits) {
-      case 4: return unpack_list_data_kernel<kBlockSize, 4>;
-      case 5: return unpack_list_data_kernel<kBlockSize, 5>;
-      case 6: return unpack_list_data_kernel<kBlockSize, 6>;
-      case 7: return unpack_list_data_kernel<kBlockSize, 7>;
-      case 8: return unpack_list_data_kernel<kBlockSize, 8>;
-      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
-    }
-  }(index.pq_bits());
-  kernel<<<blocks, threads, 0, res.get_stream()>>>(
-    out_codes, index.data_ptrs(), index.list_sizes(), label, offset_or_indices);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  unpack_list_data(out_codes,
+                   index.lists()[label]->data.view(),
+                   offset_or_indices,
+                   index.pq_bits(),
+                   res.get_stream());
 }
 
-/** A consumer for the `run_on_list` and `run_on_vec` that approximates the original input data. */
+/** A consumer for the `run_on_list` and `run_on_vector` that approximates the original input data.
+ */
 struct reconstruct_vectors {
   codebook_gen codebook_kind;
   uint32_t cluster_ix;
@@ -773,8 +821,7 @@ struct reconstruct_vectors {
 template <uint32_t BlockSize, uint32_t PqBits>
 __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   device_matrix_view<float, uint32_t, row_major> out_vectors,
-  device_vector_view<const uint8_t* const, uint32_t, row_major> data_ptrs,
-  device_vector_view<const uint32_t, uint32_t, row_major> list_sizes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
   device_matrix_view<const float, uint32_t, row_major> centers_rot,
   codebook_gen codebook_kind,
@@ -784,13 +831,8 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
   const uint32_t pq_dim = out_vectors.extent(1) / pq_centers.extent(1);
   auto reconstruct_action =
     reconstruct_vectors{out_vectors, pq_centers, centers_rot, codebook_kind, cluster_ix};
-  run_on_list<PqBits>(data_ptrs,
-                      list_sizes,
-                      offset_or_indices,
-                      out_vectors.extent(0),
-                      cluster_ix,
-                      pq_dim,
-                      reconstruct_action);
+  run_on_list<PqBits>(
+    in_list_data, offset_or_indices, out_vectors.extent(0), pq_dim, reconstruct_action);
 }
 
 /** Decode the list data; see the public interface for the api and usage. */
@@ -803,11 +845,12 @@ void reconstruct_list_data(raft::device_resources const& res,
 {
   auto n_rows = out_vectors.extent(0);
   if (n_rows == 0) { return; }
+  auto& list = index.lists()[label];
   if (std::holds_alternative<uint32_t>(offset_or_indices)) {
     auto n_skip = std::get<uint32_t>(offset_or_indices);
     // sic! I'm using the upper bound `list.size` instead of exact `list_sizes(label)`
     // to avoid an extra device-host data copy and the stream sync.
-    RAFT_EXPECTS(n_skip + n_rows <= index.lists()[label]->size.load(),
+    RAFT_EXPECTS(n_skip + n_rows <= list->size.load(),
                  "offset + output size must be not bigger than the cluster size.");
   }
 
@@ -828,8 +871,7 @@ void reconstruct_list_data(raft::device_resources const& res,
     }
   }(index.pq_bits());
   kernel<<<blocks, threads, 0, res.get_stream()>>>(tmp.view(),
-                                                   index.data_ptrs(),
-                                                   index.list_sizes(),
+                                                   list->data.view(),
                                                    index.pq_centers(),
                                                    index.centers_rot(),
                                                    index.codebook_kind(),
@@ -938,6 +980,90 @@ __device__ auto compute_pq_code(
     }
   }
   return code;
+}
+
+/**
+ * A producer for the `write_list` and `write_vector` reads the codes byte-by-byte. That is,
+ * independent of the code width (pq_bits), one code uses the whole byte, hence one vectors uses
+ * pq_dim bytes.
+ */
+struct pass_codes {
+  device_matrix_view<const uint8_t, uint32_t, row_major> codes;
+
+  /**
+   * Create a callable to be passed to `run_on_list`.
+   *
+   * @param[in] codes the source codes.
+   */
+  __device__ inline pass_codes(device_matrix_view<const uint8_t, uint32_t, row_major> codes)
+    : codes{codes}
+  {
+  }
+
+  /** Read j-th component (code) of the i-th vector from the source. */
+  __device__ inline auto operator()(uint32_t i, uint32_t j) const -> uint8_t { return codes(i, j); }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) __global__ void pack_list_data_kernel(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  device_matrix_view<const uint8_t, uint32_t, row_major> codes,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  write_list<PqBits>(
+    list_data, offset_or_indices, codes.extent(0), codes.extent(1), pass_codes{codes});
+}
+
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
+ *
+ * @param[out] list_data the packed ivf::list data.
+ * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void pack_list_data(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  device_matrix_view<const uint8_t, uint32_t, row_major> codes,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  auto n_rows = codes.extent(0);
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return pack_list_data_kernel<kBlockSize, 4>;
+      case 5: return pack_list_data_kernel<kBlockSize, 5>;
+      case 6: return pack_list_data_kernel<kBlockSize, 6>;
+      case 7: return pack_list_data_kernel<kBlockSize, 7>;
+      case 8: return pack_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(list_data, codes, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename IdxT>
+void pack_list_data(raft::device_resources const& res,
+                    index<IdxT>* index,
+                    device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+                    uint32_t label,
+                    std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  pack_list_data(index->lists()[label]->data.view(),
+                 new_codes,
+                 offset_or_indices,
+                 index->pq_bits(),
+                 res.get_stream());
 }
 
 /**
@@ -1123,31 +1249,6 @@ void process_and_fill_codes(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-/**
- * Write flat PQ codes into an existing list by the given offset.
- *
- * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
- *
- * @tparam IdxT
- *
- * @param[in] res
- * @param[inout] index
- * @param[in] codes flat PQ codes, one code per byte [n_rows, index.pq_dim()]
- * @param[in] label
- *   The id of the list (cluster) to decode.
- * @param[in] offset how many records in the list to skip.
- *
- */
-template <typename IdxT>
-void pack_list_data(raft::device_resources const& res,
-                    index<IdxT>* index,
-                    device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
-                    uint32_t label,
-                    uint32_t offset)
-{
-  /** TODO: implementation is missing */
-}
-
 /** Update the state of the dependent index members. */
 template <typename IdxT>
 void recompute_internal_state(const raft::device_resources& res, index<IdxT>& index)
@@ -1226,7 +1327,7 @@ void extend_list_with_codes(raft::device_resources const& res,
   ivf::resize_list(res, list, spec, new_size, offset);
   copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
 
-  pack_list_data(res, index, new_codes, label, offset);
+  pack_list_data<IdxT>(res, index, new_codes, label, offset);
 
   // Update the pointers and the sizes
   recompute_internal_state(res, *index);
