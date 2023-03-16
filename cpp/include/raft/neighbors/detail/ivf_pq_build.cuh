@@ -561,7 +561,7 @@ void train_per_cluster(raft::device_resources const& handle,
  * Process a single vector in a list.
  *
  * @tparam PqBits
- * @tparam Action tells how to process a single vectors (e.g. reconstruct or just unpack)
+ * @tparam Action tells how to process a single vector (e.g. reconstruct or just unpack)
  *
  * @param[in] in_list_data the encoded cluster data.
  * @param[in] in_ix in-cluster index of the vector to be decoded (one-per-thread).
@@ -597,7 +597,21 @@ __device__ void run_on_vector(
   }
 }
 
-template <uint32_t PqBits, typename Action>
+/**
+ * Process a single vector in a list.
+ *
+ * @tparam PqBits
+ * @tparam SubWarpSize how many threads work on the same ix (only the first thread writes data).
+ * @tparam Action tells how to process a single vector (e.g. encode or just pack)
+ *
+ * @param[in] out_list_data the encoded cluster data.
+ * @param[in] out_ix in-cluster index of the vector to be processed (one-per-SubWarpSize threads).
+ * @param[in] in_ix the input index passed to the action (one-per-SubWarpSize threads).
+ * @param[in] pq_dim
+ * @param action a callable action to be invoked on each PQ code (component of the encoding)
+ *    type: (uint32_t in_ix, uint32_t j) -> uint8_t, where j = [0..pq_dim).
+ */
+template <uint32_t PqBits, uint32_t SubWarpSize, typename Action>
 __device__ void write_vector(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
   uint32_t out_ix,
@@ -605,6 +619,8 @@ __device__ void write_vector(
   uint32_t pq_dim,
   Action action)
 {
+  const uint32_t lane_id = Pow2<SubWarpSize>::mod(threadIdx.x);
+
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(out_ix);
   const uint32_t ingroup_ix = group_align::mod(out_ix);
@@ -614,15 +630,18 @@ __device__ void write_vector(
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // clear the chunk
-    code_chunk = pq_vec_t{};
+    if (lane_id == 0) { code_chunk = pq_vec_t{}; }
     // write the codes, one/pq_dim at a time
 #pragma unroll
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
       // write a single code
-      code_view[k] = action(in_ix, j);
+      uint8_t code = action(in_ix, j);
+      if (lane_id == 0) { code_view[k] = code; }
     }
     // write the chunk to the list
-    *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code_chunk;
+    if (lane_id == 0) {
+      *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code_chunk;
+    }
   }
 }
 
@@ -644,7 +663,7 @@ __device__ void run_on_list(
 }
 
 /** Process the given indices or a block of a single list (cluster). */
-template <uint32_t PqBits, typename Action>
+template <uint32_t PqBits, uint32_t SubWarpSize, typename Action>
 __device__ void write_list(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
   std::variant<uint32_t, const uint32_t*> offset_or_indices,
@@ -652,11 +671,14 @@ __device__ void write_list(
   uint32_t pq_dim,
   Action action)
 {
-  for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
+  using subwarp_align = Pow2<SubWarpSize>;
+  uint32_t stride     = subwarp_align::div(blockDim.x);
+  uint32_t ix         = subwarp_align::div(threadIdx.x + blockDim.x * blockIdx.x);
+  for (; ix < len; ix += stride) {
     const uint32_t dst_ix = std::holds_alternative<uint32_t>(offset_or_indices)
                               ? std::get<uint32_t>(offset_or_indices) + ix
                               : std::get<const uint32_t*>(offset_or_indices)[ix];
-    write_vector<PqBits>(out_list_data, dst_ix, ix, pq_dim, action);
+    write_vector<PqBits, SubWarpSize>(out_list_data, dst_ix, ix, pq_dim, action);
   }
 }
 
@@ -919,7 +941,7 @@ void reconstruct_list_data(raft::device_resources const& res,
  *
  * @tparam SubWarpSize
  *   how many threads work on a single vector;
- *   bouded by either WarpSize or pq_book_size.
+ *   bounded by either WarpSize or pq_book_size.
  *
  * @param pq_centers
  *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
@@ -1010,7 +1032,7 @@ __launch_bounds__(BlockSize) __global__ void pack_list_data_kernel(
   device_matrix_view<const uint8_t, uint32_t, row_major> codes,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
-  write_list<PqBits>(
+  write_list<PqBits, 1>(
     list_data, offset_or_indices, codes.extent(0), codes.extent(1), pass_codes{codes});
 }
 
@@ -1066,67 +1088,6 @@ void pack_list_data(raft::device_resources const& res,
                  res.get_stream());
 }
 
-/**
- * Compute a PQ code for a single input vector per subwarp and write it into the
- * appropriate cluster.
- * Subwarp size here is the minimum between WarpSize and the codebook size.
- *
- * @tparam BlockSize
- * @tparam PqBits
- *
- * @param[out] out_list_data an array of pointers to the database clusers.
- * @param[in] in_vector input unencoded data, one-per-subwarp
- * @param[in] pq_centers codebook
- * @param[in] codebook_kind
- * @param[in] out_ix in-cluster output index (where to write the encoded data), one-per-subwarp.
- * @param[in] cluster_ix label/id of the cluster to fill, one-per-subwarp.
- */
-template <uint32_t BlockSize, uint32_t PqBits>
-__device__ auto compute_and_write_pq_code(
-  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
-  device_vector_view<const float, uint32_t, row_major> in_vector,
-  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
-  codebook_gen codebook_kind,
-  uint32_t out_ix,
-  uint32_t cluster_ix)
-{
-  constexpr uint32_t kSubWarpSize = std::min<uint32_t>(WarpSize, 1u << PqBits);
-  using subwarp_align             = Pow2<kSubWarpSize>;
-  const uint32_t lane_id          = subwarp_align::mod(threadIdx.x);
-
-  using group_align         = Pow2<kIndexGroupSize>;
-  const uint32_t group_ix   = group_align::div(out_ix);
-  const uint32_t ingroup_ix = group_align::mod(out_ix);
-  const uint32_t pq_len     = pq_centers.extent(1);
-  const uint32_t pq_dim     = in_vector.extent(0) / pq_len;
-
-  using layout_t            = typename decltype(in_vector)::layout_type;
-  using accessor_t          = typename decltype(in_vector)::accessor_type;
-  auto reinterpreted_vector = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
-    in_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
-
-  __shared__ pq_vec_t codes[subwarp_align::div(BlockSize)];
-  pq_vec_t& code = codes[subwarp_align::div(threadIdx.x)];
-  bitfield_view_t<PqBits> out{reinterpret_cast<uint8_t*>(&code)};
-  constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
-  for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
-    // clear the chunk for writing
-    if (lane_id == 0) { code = pq_vec_t{}; }
-    // fill-in the values, one/pq_dim at a time
-#pragma unroll
-    for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
-      // find the label
-      auto l = compute_pq_code<kSubWarpSize>(
-        pq_centers, reinterpreted_vector, codebook_kind, j, cluster_ix);
-      if (lane_id == 0) { out[k] = l; }
-    }
-    // write the chunk into the dataset
-    if (lane_id == 0) {
-      *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code;
-    }
-  }
-}
-
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
 __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   device_matrix_view<const float, IdxT, row_major> new_vectors,
@@ -1171,9 +1132,23 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   auto pq_extents = list_spec<uint32_t, IdxT>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
   auto pq_dataset =
     make_mdspan<uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
+
   // 3. compute and write the vector
-  compute_and_write_pq_code<BlockSize, PqBits>(
-    pq_dataset, one_vector, pq_centers, codebook_kind, out_ix, cluster_ix);
+  const uint32_t pq_len     = pq_centers.extent(1);
+  auto reinterpreted_vector = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
+    one_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
+
+  write_vector<PqBits, kSubWarpSize>(
+    pq_dataset,
+    out_ix,
+    0,
+    pq_dim,
+    [pq_centers, reinterpreted_vector, codebook_kind, cluster_ix] __device__(
+      uint32_t, uint32_t j) -> uint8_t {
+      // find the label
+      return compute_pq_code<kSubWarpSize>(
+        pq_centers, reinterpreted_vector, codebook_kind, j, cluster_ix);
+    });
 }
 
 /**
