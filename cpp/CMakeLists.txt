@@ -368,6 +368,17 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/matrix/specializations/detail/select_k_float_int64_t.cu
     src/distance/matrix/specializations/detail/select_k_half_uint32_t.cu
     src/distance/matrix/specializations/detail/select_k_half_int64_t.cu
+    src/distance/neighbors/ivf_flat_search.cu
+    src/distance/neighbors/ivf_flat_build.cu
+    src/distance/neighbors/specializations/ivfflat_build_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_build_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_build_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_extend_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_search_float_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
+    src/distance/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
     src/distance/neighbors/ivfpq_build.cu
     src/distance/neighbors/ivfpq_deserialize.cu
     src/distance/neighbors/ivfpq_serialize.cu

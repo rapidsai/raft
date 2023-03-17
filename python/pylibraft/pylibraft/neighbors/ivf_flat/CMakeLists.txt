@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -13,15 +13,12 @@
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_sources common.pyx refine.pyx)
+set(cython_sources ivf_flat.pyx)
 set(linked_libraries raft::raft raft::distance)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX neighbors_
+  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX neighbors_ivfflat_
 )
-
-add_subdirectory(ivf_flat)
-add_subdirectory(ivf_pq)
