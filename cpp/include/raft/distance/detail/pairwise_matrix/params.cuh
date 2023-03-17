@@ -33,12 +33,14 @@ struct pairwise_matrix_params {
   FinOpT fin_op;
   bool is_row_major;
 
-  //
-  [[nodiscard]] pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> flip_x_and_y()
+  /// @brief: Flips the x and y input and corresponding sizes
+  void flip_x_and_y()
   {
     // Flip m, n; ldx, ldy; x, y; x_norm, y_norm.
-    return pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>{
-      n, m, k, ldy, ldx, ld_out, y, x, y_norm, x_norm, out, fin_op, is_row_major};
+    std::swap(m, n);
+    std::swap(ldx, ldy);
+    std::swap(x, y);
+    std::swap(x_norm, y_norm);
   }
 };
 
