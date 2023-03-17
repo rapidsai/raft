@@ -116,6 +116,33 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
   return os;
 }
 
+template <typename T>
+void compare_vectors_l2(
+  const raft::device_resources& res, T a, T b, uint32_t label, double compression_ratio, double eps)
+{
+  auto n_rows = a.extent(0);
+  auto dim    = a.extent(1);
+  rmm::mr::managed_memory_resource managed_memory;
+  auto dist = make_device_mdarray<double>(res, &managed_memory, make_extents<uint32_t>(n_rows));
+  linalg::map_offset(res, dist.view(), [a, b, dim] __device__(uint32_t i) {
+    spatial::knn::detail::utils::mapping<float> f{};
+    double d = 0.0f;
+    for (uint32_t j = 0; j < dim; j++) {
+      double t = f(a(i, j)) - f(b(i, j));
+      d += t * t;
+    }
+    return sqrt(d / double(dim));
+  });
+  res.sync_stream();
+  for (uint32_t i = 0; i < n_rows; i++) {
+    double d = dist(i);
+    // The theoretical estimate of the error is hard to come up with,
+    // the estimate below is based on experimentation + curse of dimensionality
+    ASSERT_LE(d, eps * std::pow(2.0, compression_ratio))
+      << " (label = " << label << ", ix = " << i << ", eps = " << eps << ")";
+  }
+}
+
 template <typename IdxT>
 auto min_output_size(const raft::device_resources& handle,
                      const ivf_pq::index<IdxT>& index,
@@ -178,7 +205,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     handle_.sync_stream(stream_);
   }
 
-  index<IdxT> build_only()
+  auto build_only()
   {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = true;
@@ -188,7 +215,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
   }
 
-  index<IdxT> build_2_extends()
+  auto build_2_extends()
   {
     auto db_indices = make_device_vector<IdxT>(handle_, ps.num_db_vecs);
     linalg::map_offset(handle_, db_indices.view(), identity_op{});
@@ -219,7 +246,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return idx;
   }
 
-  index<IdxT> build_serialize()
+  auto build_serialize()
   {
     ivf_pq::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
     return ivf_pq::deserialize<IdxT>(handle_, "ivf_pq_index");
@@ -241,10 +268,6 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto rec_data  = make_device_matrix<DataT>(handle_, n_take, dim);
     auto orig_data = make_device_matrix<DataT>(handle_, n_take, dim);
 
-    rmm::mr::managed_memory_resource managed_memory;
-    auto dist =
-      make_device_mdarray<double>(handle_, &managed_memory, make_extents<uint32_t>(n_take));
-
     ivf_pq::reconstruct_list_data(handle_, index, rec_data.view(), label, n_skip);
 
     matrix::gather(database.data(),
@@ -255,26 +278,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                    orig_data.data_handle(),
                    stream_);
 
-    auto rec_data_view  = rec_data.view();
-    auto orig_data_view = orig_data.view();
-    linalg::map_offset(
-      handle_, dist.view(), [rec_data_view, orig_data_view, dim] __device__(uint32_t i) {
-        spatial::knn::detail::utils::mapping<float> f{};
-        double d = 0.0f;
-        for (uint32_t j = 0; j < dim; j++) {
-          double t = f(rec_data_view(i, j)) - f(orig_data_view(i, j));
-          d += t * t;
-        }
-        return sqrt(d / double(dim));
-      });
-    handle_.sync_stream();
-    for (uint32_t i = 0; i < n_take; i++) {
-      double d = dist(i);
-      // The theoretical estimate of the error is hard to come up with,
-      // the estimate below is based on experimentation + curse of dimensionality
-      ASSERT_LE(d, 0.055 * std::pow(2.0, compression_ratio))
-        << " (label = " << label << ", ix = " << (n_skip + i) << ")";
-    }
+    compare_vectors_l2(handle_, rec_data.view(), orig_data.view(), label, compression_ratio, 0.055);
   }
 
   void check_reconstruct_extend(index<IdxT>* index, double compression_ratio, uint32_t label)
@@ -285,36 +289,28 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto n_rows   = old_list->size.load();
     if (n_rows == 0) { return; }
 
-    auto vectors = make_device_matrix<DataT>(handle_, n_rows, index->dim());
-    auto indices = make_device_vector<IdxT>(handle_, n_rows);
+    auto vectors_1 = make_device_matrix<EvalT>(handle_, n_rows, index->dim());
+    auto indices   = make_device_vector<IdxT>(handle_, n_rows);
     copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
 
-    ivf_pq::reconstruct_list_data(handle_, *index, vectors.view(), label, 0);
+    ivf_pq::reconstruct_list_data(handle_, *index, vectors_1.view(), label, 0);
     ivf_pq::erase_list(handle_, index, label);
     // NB: passing the type parameter because const->non-const implicit conversion of the mdspans
     // breaks type inference
-    ivf_pq::extend_list<DataT, IdxT>(handle_, index, vectors.view(), indices.view(), label);
+    ivf_pq::extend_list<EvalT, IdxT>(handle_, index, vectors_1.view(), indices.view(), label);
 
     auto& new_list = index->lists()[label];
     ASSERT_NE(old_list.get(), new_list.get())
       << "The old list should have been shared and retained after ivf_pq index has erased the "
          "corresponding cluster.";
 
-    auto n_codes = old_list->data.size();
-    rmm::mr::managed_memory_resource managed_memory;
-    rmm::device_scalar<int> errs(stream_, &managed_memory);
-    linalg::mapReduce(errs.data(),
-                      n_codes,
-                      0,
-                      compose_op{cast_op<int>{}, notequal_op{}},
-                      add_op{},
-                      stream_,
-                      old_list->data.data_handle(),
-                      new_list->data.data_handle());
-    auto err_value = errs.value(stream_);
-    auto err_rate  = double(err_value) / double(n_codes);
-    ASSERT_LE(err_rate, 0.01 * std::pow(2.0, compression_ratio))
-      << " (label = " << label << ", errors = " << err_value << ", size = " << n_codes << ")";
+    auto vectors_2 = make_device_matrix<EvalT>(handle_, n_rows, index->dim());
+    ivf_pq::reconstruct_list_data(handle_, *index, vectors_2.view(), label, 0);
+    // The code search is unstable, and there's high chance of repeating values of the lvl-2 codes.
+    // Hence, encoding-decoding chain often leads to altering both the PQ codes and the
+    // reconstructed data.
+    compare_vectors_l2(
+      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.025);
   }
 
   void check_packing(index<IdxT>* index, uint32_t label)
@@ -349,15 +345,23 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     double compression_ratio =
       static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
 
-    // Reconstruct and re-write vectors for one label
-    check_reconstruct_extend(&index, compression_ratio, uint32_t(rand()) % index.n_lists());
-
-    // Dump and re-write codes for one label
-    check_packing(&index, uint32_t(rand()) % index.n_lists());
-
-    // check a small subset of data in a randomly chosen cluster to see if the data reconstruction
-    // works well.
-    check_reconstruction(index, compression_ratio, uint32_t(rand()) % index.n_lists(), 100, 7);
+    for (uint32_t label = 0; label < index.n_lists(); label++) {
+      switch (label % 3) {
+        case 0: {
+          // Reconstruct and re-write vectors for one label
+          check_reconstruct_extend(&index, compression_ratio, label);
+        } break;
+        case 1: {
+          // Dump and re-write codes for one label
+          check_packing(&index, label);
+        } break;
+        default: {
+          // check a small subset of data in a randomly chosen cluster to see if the data
+          // reconstruction works well.
+          check_reconstruction(index, compression_ratio, label, 100, 7);
+        }
+      }
+    }
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
