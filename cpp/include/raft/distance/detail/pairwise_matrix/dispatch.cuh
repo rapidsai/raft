@@ -53,7 +53,7 @@ void pairwise_matrix_dispatch(OpT distance_op,
   pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params{
     m, n, k, ldx, ldy, ld_out, x, y, x_norm, y_norm, out, fin_op, is_row_major};
 
-  if (!params.is_row_major) { params = params.flip_x_and_y(); }
+  if (!params.is_row_major) { params.flip_x_and_y(); }
 
   // On CUDA 12:
   // - always execute normal kernel
