@@ -165,21 +165,21 @@ template <typename T, typename IndexType>
   matrix_extent<size_t> exts{in.extent(1), in.extent(0)};
   using policy_type =
     typename raft::device_matrix<T, IndexType, layout_stride>::container_policy_type;
-  policy_type policy(handle.get_stream());
+  policy_type policy{};
 
   RAFT_EXPECTS(in.stride(0) == 1 || in.stride(1) == 1, "Unsupported matrix layout.");
   if (in.stride(1) == 1) {
     // row-major submatrix
     std::array<size_t, 2> strides{in.extent(0), 1};
     auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
-    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
+    raft::device_matrix<T, IndexType, layout_stride> out{handle, layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
     return out;
   } else {
     // col-major submatrix
     std::array<size_t, 2> strides{1, in.extent(1)};
     auto layout = layout_stride::mapping<matrix_extent<size_t>>{exts, strides};
-    raft::device_matrix<T, IndexType, layout_stride> out{layout, policy};
+    raft::device_matrix<T, IndexType, layout_stride> out{handle, layout, policy};
     ::raft::linalg::transpose(handle, in, out.view());
     return out;
   }

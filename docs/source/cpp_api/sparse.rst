@@ -1,7 +1,7 @@
 Sparse
 ======
 
-This page provides C++ class references for the publicly-exposed elements of the sparse package.
+Core to RAFT's computational patterns for sparse data is its vocabulary of sparse types.
 
 .. role:: py(code)
    :language: c++
@@ -12,6 +12,7 @@ This page provides C++ class references for the publicly-exposed elements of the
    :maxdepth: 2
    :caption: Contents:
 
+   sparse_types.rst
    sparse_distance.rst
    sparse_linalg.rst
    sparse_matrix.rst

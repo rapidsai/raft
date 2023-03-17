@@ -24,37 +24,54 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_INST(T, IdxT)                                                   \
-  extern template auto build<T, IdxT>(raft::device_resources const& handle,  \
-                                      const index_params& params,            \
-                                      const T* dataset,                      \
-                                      IdxT n_rows,                           \
-                                      uint32_t dim)                          \
-    ->index<IdxT>;                                                           \
-  extern template auto extend<T, IdxT>(raft::device_resources const& handle, \
-                                       const index<IdxT>& orig_index,        \
-                                       const T* new_vectors,                 \
-                                       const IdxT* new_indices,              \
-                                       IdxT n_rows)                          \
-    ->index<IdxT>;                                                           \
-  extern template void extend<T, IdxT>(raft::device_resources const& handle, \
-                                       index<IdxT>* index,                   \
-                                       const T* new_vectors,                 \
-                                       const IdxT* new_indices,              \
-                                       IdxT n_rows);                         \
-  extern template void search<T, IdxT>(raft::device_resources const&,        \
-                                       const search_params&,                 \
-                                       const index<IdxT>&,                   \
-                                       const T*,                             \
-                                       uint32_t,                             \
-                                       uint32_t,                             \
-                                       IdxT*,                                \
-                                       float*,                               \
-                                       rmm::mr::device_memory_resource*);
-RAFT_INST(float, int64_t);
-RAFT_INST(int8_t, int64_t);
-RAFT_INST(uint8_t, int64_t);
+#ifdef RAFT_DECL_BUILD_EXTEND
+#undef RAFT_DECL_BUILD_EXTEND
+#endif
 
-#undef RAFT_INST
+#ifdef RAFT_DECL_SEARCH
+#undef RAFT_DECL_SEARCH
+#endif
+
+// We define overloads for build and extend with void return type. This is used in the Cython
+// wrappers, where exception handling is not compatible with return type that has nontrivial
+// constructor.
+#define RAFT_DECL_BUILD_EXTEND(T, IdxT)                                          \
+  extern template auto build(raft::device_resources const&,                      \
+                             const raft::neighbors::ivf_pq::index_params&,       \
+                             raft::device_matrix_view<const T, IdxT, row_major>) \
+    ->raft::neighbors::ivf_pq::index<IdxT>;                                      \
+                                                                                 \
+  extern template auto extend(                                                   \
+    raft::device_resources const&,                                               \
+    raft::device_matrix_view<const T, IdxT, row_major>,                          \
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>>,        \
+    const raft::neighbors::ivf_pq::index<IdxT>&)                                 \
+    ->raft::neighbors::ivf_pq::index<IdxT>;                                      \
+                                                                                 \
+  extern template void extend(                                                   \
+    raft::device_resources const&,                                               \
+    raft::device_matrix_view<const T, IdxT, row_major>,                          \
+    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>>,        \
+    raft::neighbors::ivf_pq::index<IdxT>*);
+
+RAFT_DECL_BUILD_EXTEND(float, int64_t)
+RAFT_DECL_BUILD_EXTEND(int8_t, int64_t)
+RAFT_DECL_BUILD_EXTEND(uint8_t, int64_t)
+
+#undef RAFT_DECL_BUILD_EXTEND
+
+#define RAFT_DECL_SEARCH(T, IdxT)                                                 \
+  extern template void search(raft::device_resources const&,                      \
+                              const raft::neighbors::ivf_pq::search_params&,      \
+                              const raft::neighbors::ivf_pq::index<IdxT>&,        \
+                              raft::device_matrix_view<const T, IdxT, row_major>, \
+                              raft::device_matrix_view<IdxT, IdxT, row_major>,    \
+                              raft::device_matrix_view<float, IdxT, row_major>);
+
+RAFT_DECL_SEARCH(float, int64_t);
+RAFT_DECL_SEARCH(int8_t, int64_t);
+RAFT_DECL_SEARCH(uint8_t, int64_t);
+
+#undef RAFT_DECL_SEARCH
 
 }  // namespace raft::neighbors::ivf_pq

@@ -37,7 +37,10 @@ inline auto operator<<(std::ostream& os, const GatherParams<IdxT>& p) -> std::os
 
 template <typename T, typename MapT, typename IdxT, bool Conditional = false>
 struct Gather : public fixture {
-  Gather(const GatherParams<IdxT>& p) : params(p) {}
+  Gather(const GatherParams<IdxT>& p)
+    : params(p), matrix(this->handle), map(this->handle), out(this->handle), stencil(this->handle)
+  {
+  }
 
   void allocate_data(const ::benchmark::State& state) override
   {

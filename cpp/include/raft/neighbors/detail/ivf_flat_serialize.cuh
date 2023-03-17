@@ -42,7 +42,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-template struct check_index_layout<sizeof(index<double, std::uint64_t>), 368>;
+template struct check_index_layout<sizeof(index<double, std::uint64_t>), 296>;
 
 /**
  * Save the index to file.

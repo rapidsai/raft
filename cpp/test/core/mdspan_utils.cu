@@ -15,7 +15,10 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
 
 namespace raft {
@@ -76,6 +79,7 @@ TEST(MDSpan, TemplateAsserts) { test_template_asserts(); }
 
 void test_host_flatten()
 {
+  raft::device_resources handle;
   // flatten 3d host mdspan
   {
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
@@ -84,7 +88,7 @@ void test_host_flatten()
     three_d_extents extents{3, 3, 3};
     typename three_d_mdarray::mapping_type layout{extents};
     typename three_d_mdarray::container_policy_type policy;
-    three_d_mdarray mda{layout, policy};
+    three_d_mdarray mda{handle, layout, policy};
 
     auto flat_view = flatten(mda);
 
@@ -98,7 +102,7 @@ void test_host_flatten()
 
   // flatten host vector
   {
-    auto hv        = make_host_vector<int>(27);
+    auto hv        = make_host_vector<int>(handle, 27);
     auto flat_view = flatten(hv.view());
 
     ASSERT_EQ(hv.extents().rank(), flat_view.extents().rank());
@@ -107,7 +111,7 @@ void test_host_flatten()
 
   // flatten host scalar
   {
-    auto hs        = make_host_scalar<int>(27);
+    auto hs        = make_host_scalar<int>(handle, 27);
     auto flat_view = flatten(hs.view());
 
     ASSERT_EQ(flat_view.extent(0), 1);
@@ -118,16 +122,17 @@ TEST(MDArray, HostFlatten) { test_host_flatten(); }
 
 void test_device_flatten()
 {
-  raft::device_resources handle{};
+  raft::device_resources handle;
   // flatten 3d device mdspan
   {
+    raft::device_resources handle;
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = device_mdarray<int, three_d_extents>;
 
     three_d_extents extents{3, 3, 3};
     typename three_d_mdarray::mapping_type layout{extents};
-    typename three_d_mdarray::container_policy_type policy{handle.get_stream()};
-    three_d_mdarray mda{layout, policy};
+    typename three_d_mdarray::container_policy_type policy{};
+    three_d_mdarray mda{handle, layout, policy};
 
     auto flat_view = flatten(mda);
 
@@ -161,6 +166,7 @@ TEST(MDArray, DeviceFlatten) { test_device_flatten(); }
 
 void test_reshape()
 {
+  raft::device_resources handle;
   // reshape 3d host array to vector
   {
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
@@ -169,7 +175,7 @@ void test_reshape()
     three_d_extents extents{3, 3, 3};
     typename three_d_mdarray::mapping_type layout{extents};
     typename three_d_mdarray::container_policy_type policy;
-    three_d_mdarray mda{layout, policy};
+    three_d_mdarray mda{handle, layout, policy};
 
     auto flat_view = reshape(mda, raft::extents<int, dynamic_extent>{27});
 
@@ -179,15 +185,15 @@ void test_reshape()
 
   // reshape 4d device array to 2d
   {
-    raft::device_resources handle{};
+    raft::device_resources handle;
     using four_d_extents =
       extents<int, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
     using four_d_mdarray = device_mdarray<int, four_d_extents>;
 
     four_d_extents extents{2, 2, 2, 2};
     typename four_d_mdarray::mapping_type layout{extents};
-    typename four_d_mdarray::container_policy_type policy{handle.get_stream()};
-    four_d_mdarray mda{layout, policy};
+    typename four_d_mdarray::container_policy_type policy{};
+    four_d_mdarray mda{handle, layout, policy};
 
     auto matrix = reshape(mda, raft::extents<int, dynamic_extent, dynamic_extent>{4, 4});
 
@@ -203,7 +209,7 @@ void test_reshape()
 
     typename two_d_mdarray::mapping_type layout{two_d_extents{}};
     typename two_d_mdarray::container_policy_type policy;
-    two_d_mdarray mda{layout, policy};
+    two_d_mdarray mda{handle, layout, policy};
 
     auto vector = reshape(mda, extents<int, 25>{});
 
@@ -218,12 +224,13 @@ void test_const_mdspan()
 {
   // 3d host array
   {
+    raft::device_resources handle;
     using two_d_extents = extents<int, 5, 5>;
     using two_d_mdarray = host_mdarray<float, two_d_extents>;
 
     typename two_d_mdarray::mapping_type layout{two_d_extents{}};
     typename two_d_mdarray::container_policy_type policy;
-    two_d_mdarray mda{layout, policy};
+    two_d_mdarray mda{handle, layout, policy};
 
     auto const_mda = make_const_mdspan(mda.view());
 
