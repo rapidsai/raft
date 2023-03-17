@@ -379,6 +379,7 @@ if(RAFT_COMPILE_DIST_LIBRARY)
     src/distance/neighbors/specializations/ivfflat_search_float_int64_t.cu
     src/distance/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
     src/distance/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
+    src/distance/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/neighbors/ivfpq_build.cu
     src/distance/neighbors/ivfpq_deserialize.cu
     src/distance/neighbors/ivfpq_serialize.cu
