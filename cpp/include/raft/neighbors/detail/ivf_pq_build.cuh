@@ -1210,8 +1210,9 @@ void encode_list_data(raft::device_resources const& res,
                                       label,
                                       mr);
 
-  constexpr uint32_t kBlockSize = 256;
-  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  constexpr uint32_t kBlockSize  = 256;
+  const uint32_t threads_per_vec = std::min<uint32_t>(WarpSize, index->pq_book_size());
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize / threads_per_vec), 1, 1);
   dim3 threads(kBlockSize, 1, 1);
   auto kernel = [](uint32_t pq_bits) {
     switch (pq_bits) {
