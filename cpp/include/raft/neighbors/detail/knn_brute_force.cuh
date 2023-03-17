@@ -334,9 +334,20 @@ void brute_force_knn_impl(
     search = search_row_major.data();
   }
 
+  // transpose into a temporary buffer if necessary
+  rmm::device_uvector<value_t> index_row_major(0, userStream);
+  if (!rowMajorIndex) {
+    size_t total_size = 0;
+    for (auto size : sizes) {
+      total_size += size;
+    }
+    index_row_major.resize(total_size * D, userStream);
+  }
+
   // Make other streams from pool wait on main stream
   handle.wait_stream_pool_on_stream();
 
+  size_t total_rows_processed = 0;
   for (size_t i = 0; i < input.size(); i++) {
     value_t* out_d_ptr = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
@@ -389,11 +400,10 @@ void brute_force_knn_impl(
           raft::resource::set_cuda_stream(stream_pool_handle, stream);
 
           auto index = input[i];
-          rmm::device_uvector<value_t> index_row_major(0, stream);
           if (!rowMajorIndex) {
-            index_row_major.resize(sizes[i] * D, stream);
-            raft::linalg::transpose(handle, index, index_row_major.data(), sizes[i], D, stream);
-            index = index_row_major.data();
+            index = index_row_major.data() + total_rows_processed * D;
+            total_rows_processed += sizes[i];
+            raft::linalg::transpose(handle, input[i], index, sizes[i], D, stream);
           }
 
           // cosine/correlation are handled by metric processor, use IP distance

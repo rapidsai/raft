@@ -72,7 +72,6 @@ if(BUILD_TESTS OR BUILD_BENCH)
   set(THREADS_PREFER_PTHREAD_FLAG ON)
 endif()
 
-
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
 # nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARY OFF )
@@ -192,6 +191,10 @@ target_link_libraries(
 )
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
+target_compile_options(
+  raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
+                 --expt-relaxed-constexpr>
+)
 
 # Endian detection
 include(TestBigEndian)
@@ -388,6 +391,57 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/fused_l2_knn_long_float_false.cu
     src/neighbors/specializations/fused_l2_knn_int_float_true.cu
     src/neighbors/specializations/fused_l2_knn_int_float_false.cu
+    src/neighbors/ivf_flat_search.cu
+    src/neighbors/ivf_flat_build.cu
+    src/neighbors/specializations/ivfflat_build_float_int64_t.cu
+    src/neighbors/specializations/ivfflat_build_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfflat_build_uint8_t_int64_t.cu
+    src/neighbors/specializations/ivfflat_extend_float_int64_t.cu
+    src/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
+    src/neighbors/specializations/ivfflat_search_float_int64_t.cu
+    src/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
+    src/neighbors/ivfpq_build.cu
+    src/neighbors/ivfpq_deserialize.cu
+    src/neighbors/ivfpq_serialize.cu
+    src/neighbors/ivfpq_search_float_int64_t.cu
+    src/neighbors/ivfpq_search_int8_t_int64_t.cu
+    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_build_float_int64_t.cu
+    src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_extend_float_int64_t.cu
+    src/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_search_float_int64_t.cu
+    src/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
+    src/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
+    src/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8s_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8u_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_float_half_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_float_half_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_float_half_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8s_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8u_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_smem_lut.cu
+    src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
+    src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
+    src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
+    src/random/rmat_rectangular_generator_int_double.cu
+    src/random/rmat_rectangular_generator_int64_double.cu
+    src/random/rmat_rectangular_generator_int_float.cu
+    src/random/rmat_rectangular_generator_int64_float.cu
   )
   set_target_properties(
     raft_lib

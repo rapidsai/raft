@@ -41,7 +41,7 @@ template <template <typename, typename...> typename SpecT,
 list<SpecT, SizeT, SpecExtraArgs...>::list(raft::device_resources const& res,
                                            const spec_type& spec,
                                            size_type n_rows)
-  : size{n_rows}
+  : size{n_rows}, data{res}, indices{res}
 {
   auto capacity = round_up_safe<SizeT>(n_rows, spec.align_max);
   if (n_rows < spec.align_max) {
