@@ -46,7 +46,19 @@ template <typename DataT, typename DistanceT, typename IdxT>
 class RefineHelper {
  public:
   RefineHelper(const raft::device_resources& handle, RefineInputs<IdxT> params)
-    : handle_(handle), stream_(handle.get_stream()), p(params)
+    : handle_(handle),
+      stream_(handle.get_stream()),
+      p(params),
+      dataset(handle),
+      queries(handle),
+      refined_distances(handle),
+      refined_indices(handle),
+      candidates(handle),
+      dataset_host(handle),
+      queries_host(handle),
+      candidates_host(handle),
+      refined_distances_host(handle),
+      refined_indices_host(handle)
   {
     raft::random::Rng r(1234ULL);
 

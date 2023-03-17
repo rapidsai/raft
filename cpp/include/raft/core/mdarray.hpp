@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,8 +169,9 @@ class mdarray
   using const_view_type = view_type_impl<element_type const>;
 
  public:
-  constexpr mdarray() noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : cp_{rmm::cuda_stream_default}, c_{cp_.create(0)} {};
+  constexpr mdarray(raft::resources const& handle) noexcept(
+    std::is_nothrow_default_constructible_v<container_type>)
+    : cp_{}, c_{cp_.create(handle, 0)} {};
   constexpr mdarray(mdarray const&) noexcept(std::is_nothrow_copy_constructible_v<container_type>) =
     default;
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
@@ -203,12 +204,16 @@ class mdarray
    * @brief The only constructor that can create storage, this is to make sure CUDA stream is being
    * used.
    */
-  RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(mapping_type const& m, container_policy_type const& cp)
-    : cp_(cp), map_(m), c_(cp_.create(map_.required_span_size()))
+  RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
+                                      mapping_type const& m,
+                                      container_policy_type const& cp)
+    : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
-  RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(mapping_type const& m, container_policy_type& cp)
-    : cp_(cp), map_(m), c_(cp_.create(map_.required_span_size()))
+  RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
+                                      mapping_type const& m,
+                                      container_policy_type& cp)
+    : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
 

@@ -23,7 +23,7 @@ function(ConfigureTest)
 
   cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-  set(TEST_NAME ${ConfigureTest_NAME})f
+  set(TEST_NAME ${ConfigureTest_NAME})
 
   add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
@@ -107,6 +107,8 @@ if(BUILD_TESTS)
     test/core/mdspan_utils.cu
     test/core/numpy_serializer.cu
     test/core/memory_type.cpp
+    test/core/sparse_matrix.cu
+    test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
     test/core/temporary_device_buffer.cu
