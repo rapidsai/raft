@@ -33,7 +33,7 @@ struct pairwise_matrix_params {
   FinOpT fin_op;
   bool is_row_major;
 
-  /// @brief: Flips the x and y input and corrresponding sizes
+  /// @brief: Flips the x and y input and corresponding sizes
   void flip_x_and_y()
   {
     // Flip m, n; ldx, ldy; x, y; x_norm, y_norm.
