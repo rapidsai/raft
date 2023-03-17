@@ -403,7 +403,7 @@ void reconstruct_list_data(raft::device_resources const& res,
  * @brief Build a new index containing the data of the original plus new extra vectors.
  *
  * Implementation note:
- *    The new data is clustered according to existing kmeans clusters, then the cluster
+ *    The new data is clustered according to existing kmeans clusters, the cluster
  *    centers are unchanged.
  *
  * Usage example:
@@ -508,7 +508,7 @@ void extend_list(raft::device_resources const& res,
                  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
                  uint32_t label)
 {
-  detail::extend_list(res, index, new_vectors, new_vectors, label);
+  detail::extend_list(res, index, new_vectors, new_indices, label);
 }
 
 /**

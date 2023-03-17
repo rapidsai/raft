@@ -22,6 +22,8 @@
 
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/map_reduce.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
@@ -39,8 +41,6 @@
 #include <gtest/gtest.h>
 
 #include <cub/cub.cuh>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -190,17 +190,15 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
   index<IdxT> build_2_extends()
   {
-    rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
-    thrust::sequence(handle_.get_thrust_policy(),
-                     thrust::device_pointer_cast(db_indices.data()),
-                     thrust::device_pointer_cast(db_indices.data() + ps.num_db_vecs));
+    auto db_indices = make_device_vector<IdxT>(handle_, ps.num_db_vecs);
+    linalg::map_offset(handle_, db_indices.view(), identity_op{});
     handle_.sync_stream(stream_);
     auto size_1 = IdxT(ps.num_db_vecs) / 2;
     auto size_2 = IdxT(ps.num_db_vecs) - size_1;
     auto vecs_1 = database.data();
     auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
-    auto inds_1 = db_indices.data();
-    auto inds_2 = db_indices.data() + size_t(size_1);
+    auto inds_1 = db_indices.data_handle();
+    auto inds_2 = db_indices.data_handle() + size_t(size_1);
 
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = false;
@@ -233,10 +231,10 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                             uint32_t n_take,
                             uint32_t n_skip)
   {
-    auto rec_list = index.lists()[label];
-    auto dim      = index.dim();
-    n_take        = std::min<uint32_t>(n_take, rec_list->size.load());
-    n_skip        = std::min<uint32_t>(n_skip, rec_list->size.load() - n_take);
+    auto& rec_list = index.lists()[label];
+    auto dim       = index.dim();
+    n_take         = std::min<uint32_t>(n_take, rec_list->size.load());
+    n_skip         = std::min<uint32_t>(n_skip, rec_list->size.load() - n_take);
 
     if (n_take == 0) { return; }
 
@@ -279,22 +277,68 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     }
   }
 
+  void check_reconstruct_extend(index<IdxT>* index, double compression_ratio, uint32_t label)
+  {
+    // NB: this is not reference, the list is retained; the index will have to create a new list on
+    // `erase_list` op.
+    auto old_list = index->lists()[label];
+    auto n_rows   = old_list->size.load();
+    if (n_rows == 0) { return; }
+
+    auto vectors = make_device_matrix<DataT>(handle_, n_rows, index->dim());
+    auto indices = make_device_vector<IdxT>(handle_, n_rows);
+    copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
+
+    ivf_pq::reconstruct_list_data(handle_, *index, vectors.view(), label, 0);
+    ivf_pq::erase_list(handle_, index, label);
+    // NB: passing the type parameter because const->non-const implicit conversion of the mdspans
+    // breaks type inference
+    ivf_pq::extend_list<DataT, IdxT>(handle_, index, vectors.view(), indices.view(), label);
+
+    auto& new_list = index->lists()[label];
+    ASSERT_NE(old_list.get(), new_list.get())
+      << "The old list should have been shared and retained after ivf_pq index has erased the "
+         "corresponding cluster.";
+
+    auto n_codes = old_list->data.size();
+    rmm::mr::managed_memory_resource managed_memory;
+    rmm::device_scalar<int> errs(stream_, &managed_memory);
+    linalg::mapReduce(errs.data(),
+                      n_codes,
+                      0,
+                      compose_op{cast_op<int>{}, notequal_op{}},
+                      add_op{},
+                      stream_,
+                      old_list->data.data_handle(),
+                      new_list->data.data_handle());
+    auto err_value = errs.value(stream_);
+    auto err_rate  = double(err_value) / double(n_codes);
+    ASSERT_LE(err_rate, 0.01 * std::pow(2.0, compression_ratio))
+      << " (label = " << label << ", errors = " << err_value << ", size = " << n_codes << ")";
+  }
+
   void check_packing(index<IdxT>* index, uint32_t label)
   {
-    auto rec_list = index->lists()[label];
-    auto n_rows   = rec_list->size.load();
+    auto old_list = index->lists()[label];
+    auto n_rows   = old_list->size.load();
 
     if (n_rows == 0) { return; }
 
     auto codes   = make_device_matrix<uint8_t>(handle_, n_rows, index->pq_dim());
     auto indices = make_device_vector<IdxT>(handle_, n_rows);
-    copy(indices.data_handle(), rec_list->indices.data_handle(), n_rows, stream_);
+    copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
 
     ivf_pq::unpack_list_data(handle_, *index, codes.view(), label, 0);
     ivf_pq::erase_list(handle_, index, label);
-    // NB: passing the type parameter because const->non-const implicit conversion of the mdspans
-    // breaks type inference
     ivf_pq::extend_list_with_codes<IdxT>(handle_, index, codes.view(), indices.view(), label);
+
+    auto& new_list = index->lists()[label];
+    ASSERT_NE(old_list.get(), new_list.get())
+      << "The old list should have been shared and retained after ivf_pq index has erased the "
+         "corresponding cluster.";
+
+    ASSERT_TRUE(devArrMatch(
+      old_list->data.data_handle(), new_list->data.data_handle(), n_rows, Compare<uint8_t>{}));
   }
 
   template <typename BuildIndex>
@@ -302,11 +346,14 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
     index<IdxT> index = build_index();
 
-    // Dump and re-write codes for one label
-    check_packing(&index, 0);
-
     double compression_ratio =
       static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
+
+    // Reconstruct and re-write vectors for one label
+    check_reconstruct_extend(&index, compression_ratio, uint32_t(rand()) % index.n_lists());
+
+    // Dump and re-write codes for one label
+    check_packing(&index, uint32_t(rand()) % index.n_lists());
 
     // check a small subset of data in a randomly chosen cluster to see if the data reconstruction
     // works well.

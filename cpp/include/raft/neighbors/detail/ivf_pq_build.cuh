@@ -276,7 +276,7 @@ void flat_compute_residuals(
   device_matrix_view<const float, uint32_t, row_major> rotation_matrix,  // [rot_dim, dim]
   device_matrix_view<const float, uint32_t, row_major> centers,          // [n_lists, dim_ext]
   const T* dataset,                                                      // [n_rows, dim]
-  const uint32_t* labels,                                                // [n_rows]
+  std::variant<uint32_t, const uint32_t*> labels,                        // [n_rows]
   rmm::mr::device_memory_resource* device_memory)
 {
   auto stream  = handle.get_stream();
@@ -287,7 +287,9 @@ void flat_compute_residuals(
   linalg::map_offset(handle, tmp_view, [centers, dataset, labels, dim] __device__(size_t i) {
     auto row_ix = i / dim;
     auto el_ix  = i % dim;
-    auto label  = labels[row_ix];
+    auto label  = std::holds_alternative<uint32_t>(labels)
+                    ? std::get<uint32_t>(labels)
+                    : std::get<const uint32_t*>(labels)[row_ix];
     return utils::mapping<float>{}(dataset[i]) - centers(label, el_ix);
   });
 
@@ -558,6 +560,32 @@ void train_per_cluster(raft::device_resources const& handle,
 }
 
 /**
+ * A helper function: given the dataset in the rotated space
+ *  [n_rows, rot_dim] = [n_rows, pq_dim * pq_len],
+ * reinterpret the last dimension as two: [n_rows, pq_dim, pq_len]
+ *
+ * @tparam T
+ * @tparam IdxT
+ *
+ * @param vectors input data [n_rows, rot_dim]
+ * @param pq_centers codebook (used to infer the structure - pq_len)
+ * @return reinterpreted vectors [n_rows, pq_dim, pq_len]
+ */
+template <typename T, typename IdxT>
+static __device__ auto reinterpret_vectors(
+  device_matrix_view<T, IdxT, row_major> vectors,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers)
+  -> device_mdspan<T, extent_3d<IdxT>, row_major>
+{
+  const uint32_t pq_len = pq_centers.extent(1);
+  const uint32_t pq_dim = vectors.extent(1) / pq_len;
+  using layout_t        = typename decltype(vectors)::layout_type;
+  using accessor_t      = typename decltype(vectors)::accessor_type;
+  return mdspan<T, extent_3d<IdxT>, layout_t, accessor_t>(
+    vectors.data_handle(), extent_3d<IdxT>{vectors.extent(0), pq_dim, pq_len});
+}
+
+/**
  * Process a single vector in a list.
  *
  * @tparam PqBits
@@ -602,6 +630,7 @@ __device__ void run_on_vector(
  *
  * @tparam PqBits
  * @tparam SubWarpSize how many threads work on the same ix (only the first thread writes data).
+ * @tparam IdxT type of the index passed to the action
  * @tparam Action tells how to process a single vector (e.g. encode or just pack)
  *
  * @param[in] out_list_data the encoded cluster data.
@@ -611,11 +640,11 @@ __device__ void run_on_vector(
  * @param action a callable action to be invoked on each PQ code (component of the encoding)
  *    type: (uint32_t in_ix, uint32_t j) -> uint8_t, where j = [0..pq_dim).
  */
-template <uint32_t PqBits, uint32_t SubWarpSize, typename Action>
+template <uint32_t PqBits, uint32_t SubWarpSize, typename IdxT, typename Action>
 __device__ void write_vector(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
   uint32_t out_ix,
-  uint32_t in_ix,
+  IdxT in_ix,
   uint32_t pq_dim,
   Action action)
 {
@@ -823,21 +852,6 @@ struct reconstruct_vectors {
       out_vectors(i, j, k) = pq_centers(partition_ix, k, code) + centers_rot(cluster_ix, j, k);
     }
   }
-
- private:
-  template <typename T>
-  static __device__ auto reinterpret_vectors(
-    device_matrix_view<T, uint32_t, row_major> out_vectors,
-    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers)
-    -> device_mdspan<T, extent_3d<uint32_t>, row_major>
-  {
-    const uint32_t pq_len = pq_centers.extent(1);
-    const uint32_t pq_dim = out_vectors.extent(1) / pq_len;
-    using layout_t        = typename decltype(out_vectors)::layout_type;
-    using accessor_t      = typename decltype(out_vectors)::accessor_type;
-    return mdspan<T, extent_3d<uint32_t>, layout_t, accessor_t>(
-      out_vectors.data_handle(), extent_3d<uint32_t>{out_vectors.extent(0), pq_dim, pq_len});
-  }
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
@@ -937,74 +951,6 @@ void reconstruct_list_data(raft::device_resources const& res,
 }
 
 /**
- * Compute the code: find the closest cluster in each pq_dim-subspace.
- *
- * @tparam SubWarpSize
- *   how many threads work on a single vector;
- *   bounded by either WarpSize or pq_book_size.
- *
- * @param pq_centers
- *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
- *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
- * @param new_vector a single input of length rot_dim, reinterpreted as [pq_dim, pq_len].
- *   the input must be already transformed to floats, rotated, and the level 1 cluster
- *   center must be already substructed (i.e. this is the residual of a single input vector).
- * @param codebook_kind
- * @param j index along pq_dim "dimension"
- * @param cluster_ix is used for PER_CLUSTER codebooks.
- */
-template <uint32_t SubWarpSize>
-__device__ auto compute_pq_code(
-  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
-  device_mdspan<const float, extent_2d<uint32_t>, row_major> new_vector,
-  codebook_gen codebook_kind,
-  uint32_t j,
-  uint32_t cluster_ix) -> uint8_t
-{
-  using subwarp_align = Pow2<SubWarpSize>;
-  uint32_t lane_id    = subwarp_align::mod(laneId());
-  uint32_t partition_ix;
-  switch (codebook_kind) {
-    case codebook_gen::PER_CLUSTER: {
-      partition_ix = cluster_ix;
-    } break;
-    case codebook_gen::PER_SUBSPACE: {
-      partition_ix = j;
-    } break;
-    default: __builtin_unreachable();
-  }
-
-  const uint32_t pq_book_size = pq_centers.extent(2);
-  const uint32_t pq_len       = pq_centers.extent(1);
-  float min_dist              = std::numeric_limits<float>::infinity();
-  uint8_t code                = 0;
-  // calculate the distance for each PQ cluster, find the minimum for each thread
-  for (uint32_t i = lane_id; i < pq_book_size; i += subwarp_align::Value) {
-    // NB: the L2 quantifiers on residuals are always trained on L2 metric.
-    float d = 0.0f;
-    for (uint32_t k = 0; k < pq_len; k++) {
-      auto t = new_vector(j, k) - pq_centers(partition_ix, k, i);
-      d += t * t;
-    }
-    if (d < min_dist) {
-      min_dist = d;
-      code     = uint8_t(i);
-    }
-  }
-  // reduce among threads
-#pragma unroll
-  for (uint32_t stride = SubWarpSize >> 1; stride > 0; stride >>= 1) {
-    const auto other_dist = shfl_xor(min_dist, stride, SubWarpSize);
-    const auto other_code = shfl_xor(code, stride, SubWarpSize);
-    if (other_dist < min_dist) {
-      min_dist = other_dist;
-      code     = other_code;
-    }
-  }
-  return code;
-}
-
-/**
  * A producer for the `write_list` and `write_vector` reads the codes byte-by-byte. That is,
  * independent of the code width (pq_bits), one code uses the whole byte, hence one vectors uses
  * pq_dim bytes.
@@ -1088,6 +1034,96 @@ void pack_list_data(raft::device_resources const& res,
                  res.get_stream());
 }
 
+/**
+ *
+ * A producer for the `write_list` and `write_vector` that encodes level-1 input vector residuals
+ * into lvl-2 PQ codes.
+ * Computing a PQ code means finding the closest cluster in a pq_dim-subspace.
+ *
+ * @tparam SubWarpSize
+ *   how many threads work on a single vector;
+ *   bounded by either WarpSize or pq_book_size.
+ *
+ * @param pq_centers
+ *   - codebook_gen::PER_SUBSPACE: [pq_dim , pq_len, pq_book_size]
+ *   - codebook_gen::PER_CLUSTER:  [n_lists, pq_len, pq_book_size]
+ * @param new_vector a single input of length rot_dim, reinterpreted as [pq_dim, pq_len].
+ *   the input must be already transformed to floats, rotated, and the level 1 cluster
+ *   center must be already substructed (i.e. this is the residual of a single input vector).
+ * @param codebook_kind
+ * @param j index along pq_dim "dimension"
+ * @param cluster_ix is used for PER_CLUSTER codebooks.
+ */
+/**
+ */
+template <uint32_t SubWarpSize, typename IdxT>
+struct encode_vectors {
+  codebook_gen codebook_kind;
+  uint32_t cluster_ix;
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers;
+  device_mdspan<const float, extent_3d<IdxT>, row_major> in_vectors;
+
+  __device__ inline encode_vectors(
+    device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+    device_matrix_view<const float, IdxT, row_major> in_vectors,
+    codebook_gen codebook_kind,
+    uint32_t cluster_ix)
+    : codebook_kind{codebook_kind},
+      cluster_ix{cluster_ix},
+      pq_centers{pq_centers},
+      in_vectors{reinterpret_vectors(in_vectors, pq_centers)}
+  {
+  }
+
+  /**
+   * Decode j-th component of the i-th vector by its code and write it into a chunk of the output
+   * vectors (pq_len elements).
+   */
+  __device__ inline auto operator()(IdxT i, uint32_t j) -> uint8_t
+  {
+    uint32_t lane_id = Pow2<SubWarpSize>::mod(laneId());
+    uint32_t partition_ix;
+    switch (codebook_kind) {
+      case codebook_gen::PER_CLUSTER: {
+        partition_ix = cluster_ix;
+      } break;
+      case codebook_gen::PER_SUBSPACE: {
+        partition_ix = j;
+      } break;
+      default: __builtin_unreachable();
+    }
+
+    const uint32_t pq_book_size = pq_centers.extent(2);
+    const uint32_t pq_len       = pq_centers.extent(1);
+    float min_dist              = std::numeric_limits<float>::infinity();
+    uint8_t code                = 0;
+    // calculate the distance for each PQ cluster, find the minimum for each thread
+    for (uint32_t l = lane_id; l < pq_book_size; l += SubWarpSize) {
+      // NB: the L2 quantifiers on residuals are always trained on L2 metric.
+      float d = 0.0f;
+      for (uint32_t k = 0; k < pq_len; k++) {
+        auto t = in_vectors(i, j, k) - pq_centers(partition_ix, k, l);
+        d += t * t;
+      }
+      if (d < min_dist) {
+        min_dist = d;
+        code     = uint8_t(l);
+      }
+    }
+    // reduce among threads
+#pragma unroll
+    for (uint32_t stride = SubWarpSize >> 1; stride > 0; stride >>= 1) {
+      const auto other_dist = shfl_xor(min_dist, stride, SubWarpSize);
+      const auto other_code = shfl_xor(code, stride, SubWarpSize);
+      if (other_dist < min_dist) {
+        min_dist = other_dist;
+        code     = other_code;
+      }
+    }
+    return code;
+  }
+};
+
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
 __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   device_matrix_view<const float, IdxT, row_major> new_vectors,
@@ -1121,34 +1157,79 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
   }
 
   // write the codes (one record per subwarp):
-  // 1. select input row
-  using layout_t    = typename decltype(new_vectors)::layout_type;
-  using accessor_t  = typename decltype(new_vectors)::accessor_type;
-  const auto in_dim = new_vectors.extent(1);
-  auto one_vector =
-    mdspan<const float, extent_1d<uint32_t>, layout_t, accessor_t>(&new_vectors(row_ix, 0), in_dim);
-  // 2. select output cluster
-  const uint32_t pq_dim = in_dim / pq_centers.extent(1);
+  const uint32_t pq_dim = new_vectors.extent(1) / pq_centers.extent(1);
   auto pq_extents = list_spec<uint32_t, IdxT>{PqBits, pq_dim, true}.make_list_extents(out_ix + 1);
   auto pq_dataset =
     make_mdspan<uint8_t, uint32_t, row_major, false, true>(data_ptrs[cluster_ix], pq_extents);
-
-  // 3. compute and write the vector
-  const uint32_t pq_len     = pq_centers.extent(1);
-  auto reinterpreted_vector = mdspan<const float, extent_2d<uint32_t>, layout_t, accessor_t>(
-    one_vector.data_handle(), extent_2d<uint32_t>{pq_dim, pq_len});
-
   write_vector<PqBits, kSubWarpSize>(
     pq_dataset,
     out_ix,
-    0,
+    row_ix,
     pq_dim,
-    [pq_centers, reinterpreted_vector, codebook_kind, cluster_ix] __device__(
-      uint32_t, uint32_t j) -> uint8_t {
-      // find the label
-      return compute_pq_code<kSubWarpSize>(
-        pq_centers, reinterpreted_vector, codebook_kind, j, cluster_ix);
-    });
+    encode_vectors<kSubWarpSize, IdxT>{pq_centers, new_vectors, codebook_kind, cluster_ix});
+}
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) __global__ void encode_list_data_kernel(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  device_matrix_view<const float, uint32_t, row_major> new_vectors,
+  device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
+  codebook_gen codebook_kind,
+  uint32_t cluster_ix,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  constexpr uint32_t kSubWarpSize = std::min<uint32_t>(WarpSize, 1u << PqBits);
+  const uint32_t pq_dim           = new_vectors.extent(1) / pq_centers.extent(1);
+  auto encode_action =
+    encode_vectors<kSubWarpSize, uint32_t>{pq_centers, new_vectors, codebook_kind, cluster_ix};
+  write_list<PqBits, kSubWarpSize>(
+    list_data, offset_or_indices, new_vectors.extent(0), pq_dim, encode_action);
+}
+
+template <typename T, typename IdxT>
+void encode_list_data(raft::device_resources const& res,
+                      index<IdxT>* index,
+                      device_matrix_view<const T, uint32_t, row_major> new_vectors,
+                      uint32_t label,
+                      std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  auto n_rows = new_vectors.extent(0);
+  if (n_rows == 0) { return; }
+
+  auto mr = res.get_workspace_resource();
+
+  auto new_vectors_residual =
+    make_device_mdarray<float>(res, mr, make_extents<uint32_t>(n_rows, index->rot_dim()));
+
+  flat_compute_residuals<T, uint32_t>(res,
+                                      new_vectors_residual.data_handle(),
+                                      n_rows,
+                                      index->rotation_matrix(),
+                                      index->centers(),
+                                      new_vectors.data_handle(),
+                                      label,
+                                      mr);
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [](uint32_t pq_bits) {
+    switch (pq_bits) {
+      case 4: return encode_list_data_kernel<kBlockSize, 4>;
+      case 5: return encode_list_data_kernel<kBlockSize, 5>;
+      case 6: return encode_list_data_kernel<kBlockSize, 6>;
+      case 7: return encode_list_data_kernel<kBlockSize, 7>;
+      case 8: return encode_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }(index->pq_bits());
+  kernel<<<blocks, threads, 0, res.get_stream()>>>(index->lists()[label]->data.view(),
+                                                   new_vectors_residual.view(),
+                                                   index->pq_centers(),
+                                                   index->codebook_kind(),
+                                                   label,
+                                                   offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /**
@@ -1190,14 +1271,14 @@ void process_and_fill_codes(raft::device_resources const& handle,
   auto new_vectors_residual =
     make_device_mdarray<float>(handle, mr, make_extents<IdxT>(n_rows, index.rot_dim()));
 
-  flat_compute_residuals(handle,
-                         new_vectors_residual.data_handle(),
-                         n_rows,
-                         index.rotation_matrix(),
-                         index.centers(),
-                         new_vectors,
-                         new_labels,
-                         mr);
+  flat_compute_residuals<T, IdxT>(handle,
+                                  new_vectors_residual.data_handle(),
+                                  n_rows,
+                                  index.rotation_matrix(),
+                                  index.centers(),
+                                  new_vectors,
+                                  new_labels,
+                                  mr);
 
   constexpr uint32_t kBlockSize  = 256;
   const uint32_t threads_per_vec = std::min<uint32_t>(WarpSize, index.pq_book_size());
@@ -1278,16 +1359,16 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
 }
 
 /**
- * Extend one list of the index in-place, by the list label, skipping the classification and
- * encoding steps.
- * See the public interface for the api and usage.
+ * Helper function: allocate enough space in the list, compute the offset, at which to start
+ * writing, and fill-in indices.
+ *
+ * @return offset for writing the data
  */
 template <typename IdxT>
-void extend_list_with_codes(raft::device_resources const& res,
-                            index<IdxT>* index,
-                            device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
-                            device_vector_view<const IdxT, uint32_t, row_major> new_indices,
-                            uint32_t label)
+auto extend_list_prepare(raft::device_resources const& res,
+                         index<IdxT>* index,
+                         device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                         uint32_t label) -> uint32_t
 {
   uint32_t n_rows = new_indices.extent(0);
   uint32_t offset;
@@ -1301,9 +1382,25 @@ void extend_list_with_codes(raft::device_resources const& res,
   auto& list = index->lists()[label];
   ivf::resize_list(res, list, spec, new_size, offset);
   copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
+  return offset;
+}
 
+/**
+ * Extend one list of the index in-place, by the list label, skipping the classification and
+ * encoding steps.
+ * See the public interface for the api and usage.
+ */
+template <typename IdxT>
+void extend_list_with_codes(raft::device_resources const& res,
+                            index<IdxT>* index,
+                            device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+                            device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+                            uint32_t label)
+{
+  // Allocate memory and write indices
+  auto offset = extend_list_prepare(res, index, new_indices, label);
+  // Pack the data
   pack_list_data<IdxT>(res, index, new_codes, label, offset);
-
   // Update the pointers and the sizes
   recompute_internal_state(res, *index);
 }
@@ -1319,21 +1416,10 @@ void extend_list(raft::device_resources const& res,
                  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
                  uint32_t label)
 {
-  uint32_t n_rows = new_indices.extent(0);
-  uint32_t offset;
-  // Allocate the lists to fit the new data
-  copy(&offset, index->list_sizes().data_handle() + label, 1, res.get_stream());
-  res.sync_stream();
-  uint32_t new_size = offset + n_rows;
-  copy(index->list_sizes().data_handle() + label, &new_size, 1, res.get_stream());
-  auto spec = list_spec<uint32_t, IdxT>{
-    index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
-  auto& list = index->lists()[label];
-  ivf::resize_list(res, list, spec, new_size, offset);
-  copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
-
-  /** TODO: implementation is missing */
-
+  // Allocate memory and write indices
+  auto offset = extend_list_prepare(res, index, new_indices, label);
+  // Encode the data
+  encode_list_data<T, IdxT>(res, index, new_vectors, label, offset);
   // Update the pointers and the sizes
   recompute_internal_state(res, *index);
 }
