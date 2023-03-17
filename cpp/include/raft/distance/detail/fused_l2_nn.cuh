@@ -18,7 +18,7 @@
 
 #include <limits>
 #include <raft/core/kvp.hpp>
-#include <raft/distance/detail/euclidean.cuh>
+#include <raft/distance/detail/distance_ops/l2_exp.cuh>
 #include <raft/distance/detail/fused_l2_nn_cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
@@ -327,7 +327,7 @@ void fusedL2NNImpl(OutT* min,
   const auto deviceVersion = getComputeCapability();
 
   if (deviceVersion.first >= 8) {
-    using L2Op                  = L2ExpandedOp<DataT, DataT>;
+    using L2Op                  = raft::distance::detail::ops::l2_exp_cutlass_op<DataT, DataT>;
     using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
     kvp_cg_min_reduce_op_ cg_reduce_op;
     L2Op L2_dist_op(sqrt);
