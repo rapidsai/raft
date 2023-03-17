@@ -92,10 +92,7 @@ void transpose_row_major_impl(
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
 
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-  RAFT_CUBLAS_TRY(cublasSetStream(cublas_h, stream));
-
-  CUBLAS_TRY(cublasgeam(cublas_h,
+  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,
                         out_n_cols,
@@ -117,14 +114,12 @@ void transpose_col_major_impl(
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
-  auto out_n_rows         = in.extent(1);
-  auto out_n_cols         = in.extent(0);
-  T constexpr kOne        = 1;
-  T constexpr kZero       = 0;
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-  RAFT_CUBLAS_TRY(cublasSetStream(cublas_h, stream));
+  auto out_n_rows   = in.extent(1);
+  auto out_n_cols   = in.extent(0);
+  T constexpr kOne  = 1;
+  T constexpr kZero = 0;
 
-  CUBLAS_TRY(cublasgeam(cublas_h,
+  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,
                         out_n_rows,
