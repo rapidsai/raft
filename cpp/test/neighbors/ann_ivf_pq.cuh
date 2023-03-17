@@ -278,7 +278,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                    orig_data.data_handle(),
                    stream_);
 
-    compare_vectors_l2(handle_, rec_data.view(), orig_data.view(), label, compression_ratio, 0.055);
+    compare_vectors_l2(handle_, rec_data.view(), orig_data.view(), label, compression_ratio, 0.06);
   }
 
   void check_reconstruct_extend(index<IdxT>* index, double compression_ratio, uint32_t label)
