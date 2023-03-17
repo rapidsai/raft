@@ -103,10 +103,7 @@ _RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool greater)
 
 /**
  * Map a Func over the input data, using vectorized load instructions if possible.
- *
- * NB: in future, we should move this to cpp/include/raft/linalg/detail/unary_op.cuh, which
- *     currently does not support the second lambda argument (index of an element)
- *
+ * *
  * @tparam T element type
  * @tparam IdxT indexing type
  * @tparam Func void (T x, IdxT idx)

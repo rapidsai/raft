@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <cub/cub.cuh>
 
 #include <raft/core/operators.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -106,12 +106,12 @@ void getOvrlabels(
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     y_out,
-    y,
     n,
     [idx, y_unique] __device__(value_t y) { return y == y_unique[idx] ? +1 : -1; },
-    stream);
+    y);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

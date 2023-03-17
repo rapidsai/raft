@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <rmm/device_uvector.hpp>
@@ -74,8 +74,8 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
 
   void postprocess(math_t* data)
   {
-    raft::linalg::unaryOp(
-      data, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; }, stream_);
+    raft::linalg::detail::map<false>(
+      stream_, data, k_ * n_rows_, [] __device__(math_t in) { return 1 - in; }, data);
   }
 
   void set_num_queries(int k) override { k_ = k; }
@@ -107,11 +107,11 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
                          true,
                          cosine::stream_);
 
-    raft::linalg::unaryOp(means_.data(),
-                          means_.data(),
-                          cosine::n_rows_,
-                          raft::mul_const_op<math_t>(normalizer_const),
-                          cosine::stream_);
+    raft::linalg::detail::map<false>(cosine::stream_,
+                                     means_.data(),
+                                     cosine::n_rows_,
+                                     raft::mul_const_op<math_t>(normalizer_const),
+                                     means_.data());
 
     raft::stats::meanCenter(data,
                             data,

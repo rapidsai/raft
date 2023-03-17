@@ -21,6 +21,7 @@
 
 #include "processing.cuh"
 #include <raft/core/operators.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -137,8 +138,8 @@ void approx_knn_search(raft::device_resources const& handle,
      */
     float p = 0.5;  // standard l2
     if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
-    raft::linalg::unaryOp<float>(
-      distances, distances, n * k, raft::pow_const_op<float>(p), handle.get_stream());
+    raft::linalg::detail::map<false>(
+      handle.get_stream(), distances, n * k, raft::pow_const_op<float>(p), distances);
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->postprocess(distances); }
 }

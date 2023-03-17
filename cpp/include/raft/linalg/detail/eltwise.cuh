@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 
 namespace raft {
 namespace linalg {
@@ -27,13 +27,13 @@ namespace detail {
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarAdd(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::add_const_op<InType>(scalar), stream);
+  raft::linalg::detail::map<false>(stream, out, len, raft::add_const_op<InType>(scalar), in);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>
 void scalarMultiply(OutType* out, const InType* in, InType scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::mul_const_op<InType>(scalar), stream);
+  raft::linalg::detail::map<false>(stream, out, len, raft::mul_const_op<InType>(scalar), in);
 }
 
 template <typename InType, typename IdxType, typename OutType = InType>

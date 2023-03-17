@@ -18,7 +18,7 @@
 
 #include <cub/cub.cuh>
 #include <raft/core/operators.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <type_traits>
 
@@ -123,7 +123,7 @@ void stridedReduction(OutType* dots,
 {
   ///@todo: this extra should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
-  if (!inplace) raft::linalg::unaryOp(dots, dots, D, raft::const_op(init), stream);
+  if (!inplace) raft::linalg::detail::map<false>(stream, dots, D, raft::const_op(init), dots);
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);
@@ -147,7 +147,7 @@ void stridedReduction(OutType* dots,
   /// for atomics in stridedKernel (redesign for this is already underway)
   // Perform final op on output data
   if (!std::is_same<FinalLambda, raft::identity_op>::value)
-    raft::linalg::unaryOp(dots, dots, D, final_op, stream);
+    raft::linalg::detail::map<false>(stream, dots, D, final_op, dots);
 }
 
 };  // end namespace detail

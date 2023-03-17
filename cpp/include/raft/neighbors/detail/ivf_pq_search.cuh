@@ -29,7 +29,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -410,30 +409,32 @@ void postprocess_distances(float* out,        // [n_queries, topk]
   switch (metric) {
     case distance::DistanceType::L2Unexpanded:
     case distance::DistanceType::L2Expanded: {
-      linalg::unaryOp(out,
-                      in,
-                      len,
-                      raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
-                                       raft::cast_op<float>{}),
-                      stream);
+      linalg::detail::map<false>(
+        stream,
+        out,
+        len,
+        raft::compose_op(raft::mul_const_op<float>{scaling_factor * scaling_factor},
+                         raft::cast_op<float>{}),
+        in);
     } break;
     case distance::DistanceType::L2SqrtUnexpanded:
     case distance::DistanceType::L2SqrtExpanded: {
-      linalg::unaryOp(
+      linalg::detail::map<false>(
+        stream,
         out,
-        in,
         len,
         raft::compose_op{
           raft::mul_const_op<float>{scaling_factor}, raft::sqrt_op{}, raft::cast_op<float>{}},
-        stream);
+        in);
     } break;
     case distance::DistanceType::InnerProduct: {
-      linalg::unaryOp(out,
-                      in,
-                      len,
-                      raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
-                                       raft::cast_op<float>{}),
-                      stream);
+      linalg::detail::map<false>(
+        stream,
+        out,
+        len,
+        raft::compose_op(raft::mul_const_op<float>{-scaling_factor * scaling_factor},
+                         raft::cast_op<float>{}),
+        in);
     } break;
     default: RAFT_FAIL("Unexpected metric.");
   }

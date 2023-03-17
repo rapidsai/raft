@@ -23,8 +23,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
@@ -1120,8 +1120,8 @@ void search_impl(raft::device_resources const& handle,
   if constexpr (std::is_same_v<T, float>) {
     converted_queries_ptr = const_cast<float*>(queries);
   } else {
-    linalg::unaryOp(
-      converted_queries_ptr, queries, n_queries * index.dim(), utils::mapping<float>{}, stream);
+    linalg::detail::map<false>(
+      stream, converted_queries_ptr, n_queries * index.dim(), utils::mapping<float>{}, queries);
   }
 
   float alpha = 1.0f;

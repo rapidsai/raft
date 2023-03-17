@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/linalg/map.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_pool.hpp>
@@ -374,12 +375,12 @@ void brute_force_knn_impl(
      */
     float p = 0.5;  // standard l2
     if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
-    raft::linalg::unaryOp<float>(
-      res_D,
+    raft::linalg::detail::map<false>(
+      userStream,
       res_D,
       n * k,
       [p] __device__(float input) { return powf(fabsf(input), p); },
-      userStream);
+      res_D);
   }
 
   query_metric_processor->revert(search_items);

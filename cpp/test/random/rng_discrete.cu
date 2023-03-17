@@ -19,7 +19,7 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <raft/linalg/add.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -98,12 +98,12 @@ template <typename IdxT>
 void normalize_count(
   float* histogram, const IdxT* count, float scale, IdxT len, const cudaStream_t& stream)
 {
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     histogram,
-    count,
     len,
     [scale] __device__(const IdxT& cnt) { return static_cast<float>(cnt) / scale; },
-    stream);
+    count);
 }
 
 template <typename OutT, typename WeightT, typename IdxT>

@@ -23,8 +23,8 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/random/random_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -54,12 +54,12 @@ enum Filler : unsigned char {
 template <typename T>
 void epsilonToZero(T* eig, T epsilon, int size, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(
-    eig,
+  raft::linalg::detail::map<false>(
+    stream,
     eig,
     size,
     [epsilon] __device__(T in) { return (in < epsilon && in > -epsilon) ? T(0.0) : in; },
-    stream);
+    eig);
 }
 
 /**

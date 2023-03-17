@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <raft/linalg/unary_op.cuh>
+
+#include <raft/linalg/map.cuh>
 #include <raft/stats/stats_types.hpp>
 
 #include <cmath>
@@ -60,12 +61,12 @@ void information_criterion(ScalarT* d_ic,
     case BIC: ic_base = std::log(T) * N; break;
   }
   /* Compute information criterion from log-likelihood and base term */
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     d_ic,
-    d_loglikelihood,
     batch_size,
     [=] __device__(ScalarT loglike) { return ic_base - (ScalarT)2.0 * loglike; },
-    stream);
+    d_loglikelihood);
 }
 
 }  // namespace detail

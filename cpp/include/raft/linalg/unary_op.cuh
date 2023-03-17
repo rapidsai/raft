@@ -13,13 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * This file is deprecated and will be removed in a future release.
+ * Please use versions in individual header files instead.
+ */
+
 #ifndef __UNARY_OP_H
 #define __UNARY_OP_H
 
 #pragma once
 
+#pragma message(__FILE__                                                  \
+                " is deprecated and will be removed in a future release." \
+                " Please use raft/linalg/map.cuh.")
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/linalg/map.cuh>
 
 namespace raft {
@@ -27,6 +38,9 @@ namespace linalg {
 
 /**
  * @brief perform element-wise unary operation in the input array
+ *
+ * @note This operation is deprecated. Please use `map` in `raft/linalg/map.cuh` instead.
+ *
  * @tparam InType input data-type
  * @tparam Lambda Device lambda performing the actual operation, with the signature
  *         `OutType func(const InType& val);`
@@ -44,7 +58,8 @@ template <typename InType,
           typename IdxType = int,
           typename OutType = InType,
           int TPB          = 256>
-void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
+[[deprecated("Use function `linalg::map` from raft/linalg/map.cuh")]] void unaryOp(
+  OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_t stream)
 {
   return detail::map<false>(stream, out, len, op, in);
 }
@@ -52,12 +67,11 @@ void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_
 /**
  * @brief Perform an element-wise unary operation into the output array
  *
- * Compared to `unaryOp()`, this method does not do any reads from any inputs
+ * @note This operation is deprecated. Please use `map_offset` in `raft/linalg/map.cuh` instead.
  *
  * @tparam OutType output data-type
  * @tparam Lambda  Device lambda performing the actual operation, with the signature
- *                 `void func(OutType* outLocationOffset, IdxType idx);`
- *                 where outLocationOffset will be out + idx.
+ *                 `void func(OutType* p, IdxType idx);`
  * @tparam IdxType Integer type used to for addressing
  * @tparam TPB     threads-per-block in the final kernel launched
  *
@@ -67,10 +81,14 @@ void unaryOp(OutType* out, const InType* in, IdxType len, Lambda op, cudaStream_
  * @param[in]  stream cuda stream where to launch work
  */
 template <typename OutType, typename Lambda, typename IdxType = int, int TPB = 256>
-void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
+[[deprecated("Use function `linalg::map_offset` from raft/linalg/map.cuh")]] void writeOnlyUnaryOp(
+  OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 {
-  return detail::map<true>(stream, out, len, [op] __device__(IdxType offset) {
-    OutType r;
+  RAFT_LOG_WARN(
+    "Using the deprecated function raft::linalg::writeOnlyUnaryOp with dangerous semantics. "
+    "Please replace it with raft::linalg::map_offset from raft/linalg/map.cuh");
+  return detail::map<true>(stream, out, len, [out, op] __device__(IdxType offset) {
+    OutType& r = out[offset];
     op(&r, offset);
     return r;
   });
@@ -83,6 +101,9 @@ void writeOnlyUnaryOp(OutType* out, IdxType len, Lambda op, cudaStream_t stream)
 
 /**
  * @brief Perform an element-wise unary operation into the output array
+ *
+ * @note This operation is deprecated. Please use `map` in `raft/linalg/map.cuh` instead.
+ *
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda Device lambda performing the actual operation, with the signature
  *                `out_value_t func(const in_value_t& val);`
@@ -97,7 +118,8 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void unary_op(raft::device_resources const& handle, InType in, OutType out, Lambda op)
+[[deprecated("Use function `linalg::map` from raft/linalg/map.cuh")]] void unary_op(
+  raft::device_resources const& handle, InType in, OutType out, Lambda op)
 {
   return map(handle, in, out, op);
 }
@@ -105,7 +127,7 @@ void unary_op(raft::device_resources const& handle, InType in, OutType out, Lamb
 /**
  * @brief Perform an element-wise unary operation on the input index into the output array
  *
- * @note This operation is deprecated. Please use map_offset in `raft/linalg/map.cuh` instead.
+ * @note This operation is deprecated. Please use `map_offset` in `raft/linalg/map.cuh` instead.
  *
  * @tparam OutType Output Type raft::device_mdspan
  * @tparam Lambda  Device lambda performing the actual operation, with the signature
@@ -117,7 +139,8 @@ void unary_op(raft::device_resources const& handle, InType in, OutType out, Lamb
 template <typename OutType,
           typename Lambda,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void write_only_unary_op(const raft::device_resources& handle, OutType out, Lambda op)
+[[deprecated("Use function `linalg::map_offset` from raft/linalg/map.cuh")]] void
+write_only_unary_op(const raft::device_resources& handle, OutType out, Lambda op)
 {
   return writeOnlyUnaryOp(out.data_handle(), out.size(), op, handle.get_stream());
 }

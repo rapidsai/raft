@@ -23,7 +23,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -104,16 +104,16 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
 
     // Convert blobs dataset to DataT if necessary
     if constexpr (!std::is_same_v<DataT, MathT>) {
-      raft::linalg::unaryOp(
-        X.data_handle(), blobs.data(), p.n_rows * p.n_cols, op.reverse_op, stream);
+      raft::linalg::detail::map<false>(
+        stream, X.data_handle(), p.n_rows * p.n_cols, op.reverse_op, blobs.data());
     }
 
     d_labels.resize(p.n_rows, stream);
     d_labels_ref.resize(p.n_rows, stream);
     d_centroids.resize(p.n_clusters * p.n_cols, stream);
 
-    raft::linalg::unaryOp(
-      d_labels_ref.data(), blob_labels.data_handle(), p.n_rows, raft::cast_op<LabelT>(), stream);
+    raft::linalg::detail::map<false>(
+      stream, d_labels_ref.data(), p.n_rows, raft::cast_op<LabelT>(), blob_labels.data_handle());
 
     auto X_view =
       raft::make_device_matrix_view<const DataT, IdxT>(X.data_handle(), X.extent(0), X.extent(1));

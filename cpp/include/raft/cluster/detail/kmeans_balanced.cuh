@@ -34,7 +34,6 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/argmin.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -335,7 +334,7 @@ void compute_norm(const raft::device_resources& handle,
   } else {
     mapped_dataset.resize(n_rows * dim, stream);
 
-    linalg::unaryOp(mapped_dataset.data(), dataset, n_rows * dim, mapping_op, stream);
+    linalg::detail::map<false>(stream, mapped_dataset.data(), n_rows * dim, mapping_op, dataset);
 
     dataset_ptr = (const MathT*)mapped_dataset.data();
   }
@@ -399,8 +398,8 @@ void predict(const raft::device_resources& handle,
     if constexpr (std::is_same_v<T, MathT>) {
       cur_dataset_ptr = const_cast<MathT*>(dataset + offset * dim);
     } else {
-      linalg::unaryOp(
-        cur_dataset_ptr, dataset + offset * dim, minibatch_size * dim, mapping_op, stream);
+      linalg::detail::map<false>(
+        stream, cur_dataset_ptr, minibatch_size * dim, mapping_op, dataset + offset * dim);
     }
 
     // Compute the norm now if it hasn't been pre-computed.

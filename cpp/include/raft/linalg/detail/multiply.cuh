@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/operators.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 
 namespace raft {
 namespace linalg {
@@ -27,7 +27,7 @@ template <typename math_t, typename IdxType = int>
 void multiplyScalar(
   math_t* out, const math_t* in, const math_t scalar, IdxType len, cudaStream_t stream)
 {
-  raft::linalg::unaryOp(out, in, len, raft::mul_const_op<math_t>{scalar}, stream);
+  raft::linalg::detail::map<false>(stream, out, len, raft::mul_const_op<math_t>{scalar}, in);
 }
 
 };  // end namespace detail

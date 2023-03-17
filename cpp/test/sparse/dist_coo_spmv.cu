@@ -19,7 +19,7 @@
 #include <raft/core/operators.cuh>
 #include <raft/core/operators.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -163,12 +163,11 @@ class SparseDistanceCOOSPMVTest
           raft::add_op(),
           raft::atomic_add_op());
         value_t p = value_t{1} / params.input_configuration.metric_arg;
-        raft::linalg::unaryOp<value_t>(out_dists.data(),
-                                       out_dists.data(),
-                                       dist_config.a_nrows * dist_config.b_nrows,
-                                       raft::pow_const_op<value_t>{p},
-                                       dist_config.handle.get_stream());
-
+        raft::linalg::detail::map<false>(dist_config.handle.get_stream(),
+                                         out_dists.data(),
+                                         dist_config.a_nrows * dist_config.b_nrows,
+                                         raft::pow_const_op<value_t>{p},
+                                         out_dists.data());
       } break;
       default: throw raft::exception("Unknown distance");
     }

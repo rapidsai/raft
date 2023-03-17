@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <cusparse_v2.h>
 
 #include <raft/core/operators.hpp>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -71,11 +71,11 @@ void csr_row_slice_indptr(value_idx start_row,
   // we add another 1 to stop row.
   raft::copy_async(indptr_out, indptr + start_row, (stop_row + 2) - start_row, stream);
 
-  raft::linalg::unaryOp<value_idx>(indptr_out,
+  raft::linalg::detail::map<false>(stream,
                                    indptr_out,
                                    (stop_row + 2) - start_row,
                                    raft::sub_const_op<value_idx>(s_offset),
-                                   stream);
+                                   indptr_out);
 }
 
 /**

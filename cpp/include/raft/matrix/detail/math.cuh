@@ -21,9 +21,9 @@
 #include <cub/cub.cuh>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -78,9 +78,9 @@ void seqRoot(math_t* in,
   auto d_src  = in;
   auto d_dest = out;
 
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     d_dest,
-    d_src,
     len,
     [=] __device__(math_t a) {
       if (set_neg_zero) {
@@ -93,7 +93,7 @@ void seqRoot(math_t* in,
         return raft::sqrt(a * scalar);
       }
     },
-    stream);
+    d_src);
 }
 
 template <typename math_t, typename IdxType = int>
@@ -121,9 +121,9 @@ template <typename math_t, typename IdxType = int>
 void setSmallValuesZero(
   math_t* out, const math_t* in, IdxType len, cudaStream_t stream, math_t thres = 1e-15)
 {
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     out,
-    in,
     len,
     [=] __device__(math_t a) {
       if (a <= thres && -a <= thres) {
@@ -132,7 +132,7 @@ void setSmallValuesZero(
         return a;
       }
     },
-    stream);
+    in);
 }
 
 template <typename math_t, typename IdxType = int>
@@ -153,12 +153,12 @@ void reciprocal(const math_t* in,
   auto d_src  = in;
   auto d_dest = out;
 
-  raft::linalg::unaryOp(
+  raft::linalg::detail::map<false>(
+    stream,
     d_dest,
-    d_src,
     len,
     [=] __device__(math_t a) { return setzero && (abs(a) <= thres) ? math_t{0} : scalar / a; },
-    stream);
+    d_src);
 }
 
 template <typename math_t, typename IdxType = int>
@@ -189,7 +189,7 @@ void reciprocal(math_t* in, math_t* out, IdxType len, cudaStream_t stream)
 template <typename math_t>
 void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_t stream = 0)
 {
-  raft::linalg::unaryOp(out, in, len, raft::const_op(scalar), stream);
+  raft::linalg::detail::map<false>(stream, out, len, raft::const_op(scalar), in);
 }
 
 template <typename math_t, typename IdxType = int>
@@ -202,8 +202,8 @@ void ratio(
   rmm::device_scalar<math_t> d_sum(stream);
   auto* d_sum_ptr = d_sum.data();
   raft::linalg::mapThenSumReduce(d_sum_ptr, len, raft::identity_op{}, stream, src);
-  raft::linalg::unaryOp(
-    d_dest, d_src, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); }, stream);
+  raft::linalg::detail::map<false>(
+    stream, d_dest, len, [=] __device__(math_t a) { return a / (*d_sum_ptr); }, d_src);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>

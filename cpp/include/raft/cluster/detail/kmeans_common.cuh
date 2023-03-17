@@ -38,8 +38,8 @@
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
+#include <raft/linalg/map.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
@@ -159,12 +159,9 @@ void checkWeight(raft::device_resources const& handle,
       "sum up to %d samples",
       n_samples);
 
-    auto scale = static_cast<DataT>(n_samples) / wt_sum;
-    raft::linalg::unaryOp(weight.data_handle(),
-                          weight.data_handle(),
-                          n_samples,
-                          raft::mul_const_op<DataT>{scale},
-                          stream);
+    auto scale     = static_cast<DataT>(n_samples) / wt_sum;
+    auto weight_in = static_cast<raft::device_vector_view<const DataT, IndexT>>(weight);
+    raft::linalg::map(handle, weight, raft::mul_const_op<DataT>{scale}, weight_in);
   }
 }
 
