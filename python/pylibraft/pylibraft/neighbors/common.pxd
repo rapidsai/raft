@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
-from setuptools import find_packages
-from skbuild import setup
-
-
-def exclude_libcxx_symlink(cmake_manifest):
-    return list(
-        filter(
-            lambda name: not ("include/rapids/libcxx/include" in name),
-            cmake_manifest,
-        )
-    )
+from pylibraft.distance.distance_type cimport DistanceType
 
 
-packages = find_packages(include=["raft_dask*"])
-setup(
-    cmake_process_manifest_hook=exclude_libcxx_symlink,
-    packages=packages,
-    package_data={key: ["*.pxd"] for key in packages},
-    zip_safe=False,
-)
+cdef _get_metric_string(DistanceType metric)
