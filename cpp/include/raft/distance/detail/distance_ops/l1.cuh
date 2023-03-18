@@ -26,8 +26,12 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = sum_k abs(x_ik  - y_kj)
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct l1_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   // Do not load norms of data, the computation of L1 distance does not use them.
   static constexpr bool use_norms = false;
   // Whether the core function requires so many instructions that it makes sense

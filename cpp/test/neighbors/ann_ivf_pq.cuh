@@ -178,7 +178,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     handle_.sync_stream(stream_);
   }
 
-  auto build_only()
+  index<IdxT> build_only()
   {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = true;
@@ -188,7 +188,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
   }
 
-  auto build_2_extends()
+  index<IdxT> build_2_extends()
   {
     rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
     thrust::sequence(handle_.get_thrust_policy(),
@@ -207,18 +207,21 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
     auto database_view =
       raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
-    auto index = ivf_pq::build<DataT, IdxT>(handle_, ipams, database_view);
+    auto idx = ivf_pq::build<DataT, IdxT>(handle_, ipams, database_view);
 
     auto vecs_2_view = raft::make_device_matrix_view<DataT, IdxT>(vecs_2, size_2, ps.dim);
     auto inds_2_view = raft::make_device_matrix_view<IdxT, IdxT>(inds_2, size_2, 1);
-    ivf_pq::extend<DataT, IdxT>(handle_, &index, vecs_2_view, inds_2_view);
+    ivf_pq::extend<DataT, IdxT>(handle_, vecs_2_view, inds_2_view, &idx);
 
-    auto vecs_1_view = raft::make_device_matrix_view<DataT, IdxT>(vecs_1, size_1, ps.dim);
-    auto inds_1_view = raft::make_device_matrix_view<IdxT, IdxT>(inds_1, size_1, 1);
-    return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1_view, inds_1_view);
+    auto vecs_1_view =
+      raft::make_device_matrix_view<DataT, IdxT, row_major>(vecs_1, size_1, ps.dim);
+    auto inds_1_view =
+      raft::make_device_matrix_view<const IdxT, IdxT, row_major>(inds_1, size_1, 1);
+    ivf_pq::extend<DataT, IdxT>(handle_, vecs_1_view, inds_1_view, &idx);
+    return idx;
   }
 
-  auto build_serialize()
+  index<IdxT> build_serialize()
   {
     ivf_pq::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
     return ivf_pq::deserialize<IdxT>(handle_, "ivf_pq_index");
@@ -227,7 +230,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
-    auto index = build_index();
+    index<IdxT> index = build_index();
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -244,7 +247,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       raft::make_device_matrix_view<EvalT, IdxT>(distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
 
     ivf_pq::search<DataT, IdxT>(
-      handle_, ps.search_params, index, query_view, ps.k, inds_view, dists_view);
+      handle_, ps.search_params, index, query_view, inds_view, dists_view);
 
     update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);

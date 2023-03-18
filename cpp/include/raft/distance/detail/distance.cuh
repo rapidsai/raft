@@ -27,24 +27,12 @@
 
 #include <raft/core/operators.hpp>
 
-#include <raft/distance/detail/distance_ops/canberra.cuh>
-#include <raft/distance/detail/distance_ops/correlation.cuh>
-#include <raft/distance/detail/distance_ops/cosine.cuh>
-#include <raft/distance/detail/distance_ops/hamming.cuh>
-#include <raft/distance/detail/distance_ops/hellinger.cuh>
-#include <raft/distance/detail/distance_ops/jensen_shannon.cuh>
-#include <raft/distance/detail/distance_ops/kl_divergence.cuh>
-#include <raft/distance/detail/distance_ops/l1.cuh>
-#include <raft/distance/detail/distance_ops/l2_exp.cuh>
-#include <raft/distance/detail/distance_ops/l2_unexp.cuh>
-#include <raft/distance/detail/distance_ops/l_inf.cuh>
-#include <raft/distance/detail/distance_ops/lp_unexp.cuh>
-#include <raft/distance/detail/distance_ops/russel_rao.cuh>
-
+#include <raft/distance/detail/distance_ops/all_ops.cuh>
 #include <raft/distance/detail/pairwise_matrix/dispatch.cuh>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
+#include <raft/util/arch.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 
@@ -126,7 +114,7 @@ void distance_impl(raft::resources const& handle,
   const DataT* y_norm = nullptr;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -205,7 +193,7 @@ void distance_impl(raft::resources const& handle,
 
   using OpT = ops::correlation_distance_op<DataT, AccT, IdxT>;
   OpT corr_op(is_row_major, sq_norm_col_vec, sq_norm_row_vec, m, n, k);
-  distance_matrix_dispatch<decltype(corr_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(corr_op), DataT, AccT, OutT, FinOpT, IdxT>(
     corr_op, m, n, k, x, y, norm_col_vec, norm_row_vec, out, fin_op, stream, is_row_major);
 }
 
@@ -248,34 +236,9 @@ void distance_impl(raft::resources const& handle,
       norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
   }
 
-  // On CUDA 12:
-  // - always execute normal kernel
-  //
-  // On CUDA 11 and below:
-  // - execute CUTLASS-based kernel on SM_80 and above
-  // - execute normal kernel otherwise.
-
-  if constexpr (__CUDACC_VER_MAJOR__ == 12) {
-    // Always execute legacy kernels on CUDA 12
-    ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
-    distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-      distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-  } else {
-    const auto deviceVersion = getComputeCapability();
-    if (deviceVersion.first >= 8) {
-      // If device is SM_80 or later, use CUTLASS-based kernel.
-      using Op = ops::cosine_cutlass_op<DataT, AccT>;
-      Op distance_op{};
-
-      distance_matrix_cutlass_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-    } else {
-      // Else use "legacy" cosine kernel
-      ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
-      distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-    }
-  }
+  ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -300,7 +263,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -362,7 +325,7 @@ void distance_impl(raft::resources const& handle,
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 
   // Finally revert sqrt of x and y
@@ -394,7 +357,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -438,7 +401,7 @@ void distance_impl(raft::resources const& handle,
   const DataT* x_norm = nullptr;
   const DataT* y_norm = nullptr;
 
-  distance_matrix_dispatch<decltype(kl_divergence), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(kl_divergence), DataT, AccT, OutT, FinOpT, IdxT>(
     kl_divergence, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 
   if (x != y) {
@@ -469,7 +432,7 @@ void distance_impl(raft::resources const& handle,
   const DataT* y_norm = nullptr;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -514,34 +477,9 @@ void distance_impl_l2_expanded(  // NOTE: different name
       norm_A, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
   }
 
-  // On CUDA 12:
-  // - always execute normal kernel
-  //
-  // On CUDA 11 and below:
-  // - execute CUTLASS-based kernel on SM_80 and above
-  // - execute normal kernel otherwise.
-
-  if constexpr (__CUDACC_VER_MAJOR__ == 12) {
-    // Always execute legacy kernels on CUDA 12
-    ops::l2_exp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
-    distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-      l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-  } else {
-    const auto deviceVersion = getComputeCapability();
-    if (deviceVersion.first >= 8) {
-      // If device is SM_80 or later, use CUTLASS-based kernel.
-      using L2Op = ops::l2_exp_cutlass_op<DataT, AccT>;
-      L2Op l2_op(perform_sqrt);
-
-      distance_matrix_cutlass_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-    } else {
-      // Else use "legacy" L2
-      ops::l2_exp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
-      distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-        l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
-    }
-  }
+  ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+    distance_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -610,7 +548,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
     l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
@@ -638,7 +576,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
     l2_op, m, n, k, x, y, norm_A, norm_B, out, fin_op, stream, is_row_major);
 }
 
@@ -664,7 +602,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -690,7 +628,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 
@@ -716,7 +654,7 @@ void distance_impl(raft::resources const& handle,
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
-  distance_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
     distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
 }
 

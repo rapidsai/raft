@@ -20,6 +20,7 @@
 #include <raft/neighbors/ivf_list_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -161,9 +162,10 @@ constexpr static uint32_t kIndexGroupVecLen = 16;
 template <typename IdxT>
 constexpr static IdxT kOutOfBoundsRecord = std::numeric_limits<IdxT>::max();
 
-template <typename SizeT = uint32_t>
+template <typename SizeT, typename IdxT>
 struct list_spec {
   using value_type = uint8_t;
+  using index_type = IdxT;
   /** PQ-encoded data stored in the interleaved format:
    *
    *    [ ceildiv(list_size, kIndexGroupSize)
@@ -190,7 +192,7 @@ struct list_spec {
 
   // Allow casting between different size-types (for safer size and offset calculations)
   template <typename OtherSizeT>
-  constexpr explicit list_spec(const list_spec<OtherSizeT>& other_spec)
+  constexpr explicit list_spec(const list_spec<OtherSizeT, IdxT>& other_spec)
     : pq_bits{other_spec.pq_bits},
       pq_dim{other_spec.pq_dim},
       align_min{other_spec.align_min},
@@ -211,7 +213,7 @@ struct list_spec {
 };
 
 template <typename IdxT, typename SizeT = uint32_t>
-using list_data = ivf::list<list_spec, IdxT, SizeT>;
+using list_data = ivf::list<list_spec, SizeT, IdxT>;
 
 /**
  * @brief IVF-PQ index.

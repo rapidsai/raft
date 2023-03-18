@@ -15,10 +15,8 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/knn.cuh>
-
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
 
 namespace raft {
 namespace spatial {
