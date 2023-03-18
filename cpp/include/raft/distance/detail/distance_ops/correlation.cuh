@@ -28,8 +28,12 @@ namespace raft::distance::detail::ops {
  *           /
  *           (|| x - mean(x) ||_2 || y - mean(y) ||_2)
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct correlation_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   const DataT* x2n;
   const DataT* y2n;
   IdxT m;

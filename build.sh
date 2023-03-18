@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --buildfaiss --minimal-deps"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-libs --compile-nn --compile-dist --allgpuarch --no-nvtx --show_depr_warn -h --minimal-deps"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -45,7 +45,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
    --allgpuarch                - build for all supported GPU architectures
-   --buildfaiss                - build faiss statically into raft
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
@@ -69,11 +68,9 @@ BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_BENCH=OFF
-BUILD_STATIC_FAISS=OFF
 COMPILE_LIBRARIES=OFF
 COMPILE_NN_LIBRARY=OFF
 COMPILE_DIST_LIBRARY=OFF
-ENABLE_NN_DEPENDENCIES=OFF
 INSTALL_TARGET=install
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
@@ -278,7 +275,6 @@ if hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
 fi
 
 if hasArg --compile-nn || hasArg --compile-libs || (( ${NUMARGS} == 0 )); then
-    ENABLE_NN_DEPENDENCIES=ON
     COMPILE_NN_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_nn_lib"
 fi
@@ -299,7 +295,6 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
           $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling nearest neighbors lib for gtests"
-      ENABLE_NN_DEPENDENCIES=ON
       COMPILE_NN_LIBRARY=ON
     fi
 
@@ -324,7 +319,6 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
     if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
           $CMAKE_TARGET == *"NEIGHBORS_BENCH"*  ]]; then
       echo "-- Enabling nearest neighbors lib for benchmarks"
-      ENABLE_NN_DEPENDENCIES=ON
       COMPILE_NN_LIBRARY=ON
     fi
 
@@ -338,9 +332,6 @@ if hasArg bench || (( ${NUMARGS} == 0 )); then
 
 fi
 
-if hasArg --buildfaiss; then
-    BUILD_STATIC_FAISS=ON
-fi
 if hasArg --no-nvtx; then
     NVTX=OFF
 fi
@@ -402,7 +393,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
-          -DRAFT_ENABLE_NN_DEPENDENCIES=${ENABLE_NN_DEPENDENCIES} \
           -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
@@ -410,7 +400,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           -DRAFT_COMPILE_NN_LIBRARY=${COMPILE_NN_LIBRARY} \
           -DRAFT_COMPILE_DIST_LIBRARY=${COMPILE_DIST_LIBRARY} \
-          -DRAFT_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DRAFT_ENABLE_thrust_DEPENDENCY=${ENABLE_thrust_DEPENDENCY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
