@@ -265,12 +265,12 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
 
 Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
-| Component | Target | Description | Base Dependencies |
-| --- | --- | --- | --- |
+| Component | Target | Description | Base Dependencies                                                |
+| --- | --- | --- |------------------------------------------------------------------|
 | n/a | `raft::raft` | Full RAFT header library | CUDA toolkit library, RMM, Thrust (optional), NVTools (optional) |
-| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)  |
-| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft, FAISS (optional) |
-| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL |
+| distance | `raft::distance` | Pre-compiled template specializations for raft::distance | raft::raft, cuCollections (optional)                             |
+| nn | `raft::nn` | Pre-compiled template specializations for raft::neighbors | raft::raft                                                       |
+| distributed | `raft::distributed` | No specializations | raft::raft, UCX, NCCL                                            |
 
 ### Source
 
