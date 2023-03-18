@@ -120,7 +120,7 @@ void approx_knn_search(raft::device_resources const& handle,
     auto indices_view   = raft::make_device_matrix_view<int64_t, int64_t>(indices, n, k);
     auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
     neighbors::ivf_pq::search(
-      handle, params, *index->ivf_pq, query_view, k, indices_view, distances_view);
+      handle, params, *index->ivf_pq, query_view, indices_view, distances_view);
   } else {
     RAFT_FAIL("The model is not trained");
   }

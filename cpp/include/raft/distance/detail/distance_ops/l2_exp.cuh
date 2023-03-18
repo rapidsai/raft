@@ -20,6 +20,26 @@
 
 namespace raft::distance::detail::ops {
 
+// Epilogue operator for CUTLASS based kernel
+template <typename DataT, typename AccT>
+struct l2_exp_cutlass_op {
+  bool sqrt;
+
+  __device__ l2_exp_cutlass_op() noexcept : sqrt(false) {}
+  __device__ l2_exp_cutlass_op(bool isSqrt) noexcept : sqrt(isSqrt) {}
+  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  {
+    AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
+    // outVal could be negative due to numerical instability, especially when
+    // calculating self distance.
+    // clamp to 0 to avoid potential NaN in sqrt
+    outVal = outVal * (outVal > DataT(0.0));
+    return sqrt ? raft::sqrt(outVal) : outVal;
+  }
+
+  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+};
+
 /**
  * @brief the expanded euclidean distance matrix calculation
  *
@@ -28,8 +48,12 @@ namespace raft::distance::detail::ops {
  * c_ij = - 2 sum_k x_ik * y_kj + ||x_i.||_2 + ||y_.j||_2
  *
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct l2_exp_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   bool sqrt;
 
   l2_exp_distance_op(bool sqrt_) noexcept : sqrt(sqrt_) {}
@@ -62,6 +86,8 @@ struct l2_exp_distance_op {
 #pragma unroll
       for (int j = 0; j < Policy::AccColsPerTh; ++j) {
         DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
+        // val could be negative due to numerical instability, especially when
+        // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
         acc[i][j] = val * (val > DataT(0.0));
       }
     }
@@ -75,26 +101,8 @@ struct l2_exp_distance_op {
       }
     }
   }
-};
 
-// Epilogue operator for CUTLASS based kernel
-template <typename DataT, typename AccT>
-struct l2_exp_cutlass_op {
-  bool sqrt;
-
-  __device__ l2_exp_cutlass_op() noexcept : sqrt(false) {}
-  __device__ l2_exp_cutlass_op(bool isSqrt) noexcept : sqrt(isSqrt) {}
-  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
-  {
-    AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    // outVal could be negative due to numerical instability, especially when
-    // calculating self distance.
-    // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (outVal > DataT(0.0));
-    return sqrt ? raft::sqrt(outVal) : outVal;
-  }
-
-  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+  l2_exp_cutlass_op<DataT, AccT> get_cutlass_op() { return l2_exp_cutlass_op<DataT, AccT>(sqrt); }
 };
 
 }  // namespace raft::distance::detail::ops

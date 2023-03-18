@@ -337,7 +337,6 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         # force local raft clone in build directory
         # even if it's already installed.
         CLONE_ON_PIN     ON
-        
         COMPILE_LIBRARY          NO
 )
 ```

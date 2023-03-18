@@ -49,40 +49,24 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
+cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
-from pylibraft.common.cpp.mdspan cimport device_matrix_view
+
+from pylibraft.neighbors.common import _check_input_array, _get_metric
+
+from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
     get_dmv_int64,
     get_dmv_uint8,
+    make_optional_view_int64,
 )
+from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,
 )
-
-
-def _get_metric(metric):
-    SUPPORTED_DISTANCES = {
-        "sqeuclidean": DistanceType.L2Expanded,
-        "euclidean": DistanceType.L2SqrtExpanded,
-        "inner_product": DistanceType.InnerProduct
-    }
-    if metric not in SUPPORTED_DISTANCES:
-        if metric == "l2_expanded":
-            warnings.warn("Using l2_expanded as a metric name is deprecated,"
-                          " use sqeuclidean instead", FutureWarning)
-            return DistanceType.L2Expanded
-
-        raise ValueError("metric %s is not supported" % metric)
-    return SUPPORTED_DISTANCES[metric]
-
-
-cdef _get_metric_string(DistanceType metric):
-    return {DistanceType.L2Expanded : "sqeuclidean",
-            DistanceType.InnerProduct: "inner_product",
-            DistanceType.L2SqrtExpanded: "euclidean"}[metric]
 
 
 cdef _get_codebook_string(c_ivf_pq.codebook_gen codebook):
@@ -102,22 +86,6 @@ cdef _get_dtype_string(dtype):
     return str({c_ivf_pq.cudaDataType_t.CUDA_R_32F: np.float32,
                 c_ivf_pq.cudaDataType_t.CUDA_R_16F: np.float16,
                 c_ivf_pq.cudaDataType_t.CUDA_R_8U: np.uint8}[dtype])
-
-
-def _check_input_array(cai, exp_dt, exp_rows=None, exp_cols=None):
-    if cai.dtype not in exp_dt:
-        raise TypeError("dtype %s not supported" % cai["typestr"])
-
-    if not cai.c_contiguous:
-        raise ValueError("Row major input is expected")
-
-    if exp_cols is not None and cai.shape[1] != exp_cols:
-        raise ValueError("Incorrect number of columns, expected {} got {}"
-                         .format(exp_cols, cai.shape[1]))
-
-    if exp_rows is not None and cai.shape[0] != exp_rows:
-        raise ValueError("Incorrect number of rows, expected {} , got {}"
-                         .format(exp_rows, cai.shape[0]))
 
 
 cdef class IndexParams:
@@ -519,21 +487,21 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_float(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_int8(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
-                            index.index,
                             get_dmv_uint8(vecs_cai, check_shape=True),
-                            get_dmv_int64(idx_cai, check_shape=False))
+                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            index.index)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)
 
@@ -723,7 +691,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_float(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
@@ -732,7 +699,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_int8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
@@ -741,7 +707,6 @@ def search(SearchParams search_params,
                             params,
                             deref(index.index),
                             get_dmv_uint8(queries_cai, check_shape=True),
-                            <uint32_t> k,
                             get_dmv_int64(neighbors_cai, check_shape=True),
                             get_dmv_float(distances_cai, check_shape=True))
     else:

@@ -32,7 +32,7 @@ struct KMeansBalancedBenchParams {
 
 template <typename T, typename IndexT = int>
 struct KMeansBalanced : public fixture {
-  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p) {}
+  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p), X(handle), centroids(handle) {}
 
   void run_benchmark(::benchmark::State& state) override
   {
