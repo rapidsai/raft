@@ -25,7 +25,7 @@ namespace arch = raft::util::arch;
 
 constexpr int vec_len          = 1;
 using Policy                   = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
-constexpr auto sm_compat_range = arch:: ::SM_range(arch:: ::SM_min(), arch:: ::SM_future());
+constexpr auto sm_compat_range = arch::SM_range(arch::SM_min(), arch::SM_future());
 
 void launch_kernel(OpT distance_op, pairwise_matrix_params params, dim3 grid, cudaStream_t stream)
 {
