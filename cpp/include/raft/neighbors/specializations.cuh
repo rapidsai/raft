@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/neighbors/specializations/ivf_flat.cuh>
 #include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft/neighbors/specializations/refine.cuh>
 

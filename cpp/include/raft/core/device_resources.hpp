@@ -69,7 +69,6 @@ class device_resources : public resources {
   }
 
   device_resources(const device_resources& handle) : resources{handle} {}
-
   device_resources(device_resources&&) = delete;
   device_resources& operator=(device_resources&&) = delete;
 

@@ -20,6 +20,17 @@
 
 namespace raft::distance::detail::ops {
 
+// Epilogue operator for CUTLASS based kernel
+template <typename DataT, typename AccT>
+struct cosine_cutlass_op {
+  __device__ cosine_cutlass_op() noexcept {}
+  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
+  {
+    return static_cast<AccT>(1.0) - (AccT)(accVal / (aNorm * bNorm));
+  }
+  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+};
+
 /**
  * @brief the expanded cosine distance matrix calculation
  *
@@ -27,8 +38,12 @@ namespace raft::distance::detail::ops {
  *
  * d(x, y) = 1 - (x ⋅ y) / ( ||x||_2 ||y||_2)
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct cosine_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   // Load norms of input data
   static constexpr bool use_norms = true;
   // Whether the core function requires so many instructions that it makes sense
@@ -60,16 +75,8 @@ struct cosine_distance_op {
       }
     }
   }
-};
 
-template <typename DataT, typename AccT>
-struct cosine_cutlass_op {
-  __device__ cosine_cutlass_op() noexcept {}
-  __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
-  {
-    return static_cast<AccT>(1.0) - (AccT)(accVal / (aNorm * bNorm));
-  }
-  __device__ AccT operator()(DataT aData) const noexcept { return aData; }
+  cosine_cutlass_op<DataT, AccT> get_cutlass_op() { return cosine_cutlass_op<DataT, AccT>(); }
 };
 
 }  // namespace raft::distance::detail::ops

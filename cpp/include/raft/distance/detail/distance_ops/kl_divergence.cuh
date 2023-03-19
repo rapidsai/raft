@@ -26,8 +26,12 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = 0.5 * sum(x * log (x / y));
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct kl_divergence_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   const bool is_row_major;
   const bool x_equal_y;
 
