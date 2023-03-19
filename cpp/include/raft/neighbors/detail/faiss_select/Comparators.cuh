@@ -10,7 +10,7 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
 
-namespace raft::spatial::knn::detail::faiss_select {
+namespace raft::neighbors::detail::faiss_select {
 
 template <typename T>
 struct Comparator {
@@ -26,4 +26,4 @@ struct Comparator<half> {
   __device__ static inline bool gt(half a, half b) { return __hgt(a, b); }
 };
 
-}  // namespace raft::spatial::knn::detail::faiss_select
+}  // namespace raft::neighbors::detail::faiss_select
