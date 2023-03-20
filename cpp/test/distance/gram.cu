@@ -23,7 +23,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/random/rng.cuh>
@@ -32,8 +31,6 @@
 #include <rmm/device_uvector.hpp>
 
 namespace raft::distance::kernels {
-
-using namespace raft::distance::matrix::detail;
 
 struct GramMatrixInputs {
   int n1;      // feature vectors in matrix 1
@@ -111,16 +108,15 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   void runTest()
   {
     std::unique_ptr<GramMatrixBase<math_t>> kernel =
-      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel, handle));
+      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel));
 
-    DenseMatrix<math_t> x1_dense(
+    auto x1_span = raft::make_device_matrix_view<const math_t, int>(
       x1.data(), params.n1, params.n_cols, params.is_row_major, params.ld1);
-    DenseMatrix<math_t> x2_dense(
+    auto x2_span = raft::make_device_matrix_view<const math_t, int>(
       x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
-    DenseMatrix<math_t> gram_dense(
+    auto out_span = raft::make_device_matrix_view<math_t, int>(
       gram.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
-
-    (*kernel)(x1_dense, x2_dense, gram_dense, stream);
+    (*kernel)(x1_span, x2_span, out_span, handle);
 
     naiveGramMatrixKernel(params.n1,
                           params.n2,

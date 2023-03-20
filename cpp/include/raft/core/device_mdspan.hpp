@@ -260,6 +260,36 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
 }
 
 /**
+ * @brief Create a 2-dim mdspan instance for device pointer with a strided layout
+ *        that is restricted to stride 1 in the trailing dimension. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @param[in] ptr on device to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ * @param[in] is_row_major whether the data is in row major format (column major otherwise)
+ * @param[in] ld leading dimension / stride of data
+ */
+template <typename ElementType, typename IndexType = std::uint32_t>
+auto make_device_matrix_view(
+  ElementType* ptr, IndexType n_rows, IndexType n_cols, bool is_row_major, IndexType ld)
+{
+  IndexType stride0 = is_row_major ? (ld > 0 ? ld : n_cols) : 1;
+  IndexType stride1 = is_row_major ? 1 : (ld > 0 ? ld : n_rows);
+
+  assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
+
+  matrix_extent<IndexType> extents{n_rows, n_cols};
+  std::array<IndexType, 2> strides{stride0, stride1};
+  using mapping_type  = typename layout_stride::template mapping<matrix_extent<IndexType>>;
+  mapping_type layout = {extents, strides};
+
+  return device_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
+}
+
+/**
  * @brief Create a 1-dim mdspan instance for device pointer.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents

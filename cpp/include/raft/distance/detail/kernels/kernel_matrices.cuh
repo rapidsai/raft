@@ -188,22 +188,79 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
    * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
    * in the x2 set, and < , > denotes dot product.
    *
-   * @param [in] x1 device matrix, size [n1*n_cols]
-   * @param [in] x2 device matrix, size [n2*n_cols]
-   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
+   * @param [in] x1 dense device matrix view, size [n1*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
    * @param [in] handle raft handle
    * @param norm_x1 unused.
    * @param norm_x2 unused.
    */
-  void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
-                const raft::distance::matrix::detail::Matrix<math_t>& x2,
-                raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                const raft::device_resources& handle,
+  void evaluate(dense_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
                 math_t* norm_x1,
                 math_t* norm_x2)
   {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
     GramMatrixBase<math_t>::linear(x1, x2, out, handle);
-    applyKernel(out.data, out.ld, out.n_rows, out.n_cols, out.is_row_major, handle.get_stream());
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
+  }
+
+  /** Evaluate kernel matrix using polynomial kernel.
+   *
+   * output[i,k] = (gain*<x1_i, x2_k> + offset)^exponent,
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and < , > denotes dot product.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
+  {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
+  }
+
+  /** Evaluate kernel matrix using polynomial kernel.
+   *
+   * output[i,k] = (gain*<x1_i, x2_k> + offset)^exponent,
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and < , > denotes dot product.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 csr device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                csr_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
+  {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
   }
 
   /** Evaluate the Gram matrix using the legacy interface.
@@ -235,13 +292,8 @@ class PolynomialKernel : public GramMatrixBase<math_t> {
   {
     ASSERT(GramMatrixBase<math_t>::legacy_interface,
            "Legacy interface can only be used with legacy ctor.");
-    raft::distance::matrix::detail::DenseMatrix dense1(
-      const_cast<math_t*>(x1), n1, n_cols, is_row_major, ld1);
-    raft::distance::matrix::detail::DenseMatrix dense2(
-      const_cast<math_t*>(x2), n2, n_cols, is_row_major, ld2);
-    raft::distance::matrix::detail::DenseMatrix dense_out(out, n1, n2, is_row_major, ld_out);
     GramMatrixBase<math_t>::linear(
-      dense1, dense2, dense_out, stream, GramMatrixBase<math_t>::cublas_handle);
+      x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
     applyKernel(out, ld_out, n1, n2, is_row_major, stream);
   }
 };
@@ -294,22 +346,79 @@ class TanhKernel : public GramMatrixBase<math_t> {
    * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
    * in the x2 set, and < , > denotes dot product.
    *
-   * @param [in] x1 device matrix, size [n1*n_cols]
-   * @param [in] x2 device matrix, size [n2*n_cols]
-   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
+   * @param [in] x1 dense device matrix view, size [n1*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
    * @param [in] handle raft handle
    * @param norm_x1 unused.
    * @param norm_x2 unused.
    */
-  void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
-                const raft::distance::matrix::detail::Matrix<math_t>& x2,
-                raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                const raft::device_resources& handle,
+  void evaluate(dense_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
                 math_t* norm_x1,
                 math_t* norm_x2)
   {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
     GramMatrixBase<math_t>::linear(x1, x2, out, handle);
-    applyKernel(out.data, out.ld, out.n_rows, out.n_cols, out.is_row_major, handle.get_stream());
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
+  }
+
+  /** Evaluate kernel matrix using tanh kernel.
+   *
+   * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent,
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and < , > denotes dot product.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
+  {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
+  }
+
+  /** Evaluate kernel matrix using tanh kernel.
+   *
+   * output_[i + k*n1] = (gain*<x1_i, x2_k> + offset)^exponent,
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and < , > denotes dot product.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 csr device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 unused.
+   * @param norm_x2 unused.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                csr_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
+  {
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(
+      out.data_handle(), ld_out, out.extent(0), out.extent(1), is_row_major, handle.get_stream());
   }
 
   /** Evaluate the Gram matrix using the legacy interface.
@@ -341,13 +450,8 @@ class TanhKernel : public GramMatrixBase<math_t> {
   {
     ASSERT(GramMatrixBase<math_t>::legacy_interface,
            "Legacy interface can only be used with legacy ctor.");
-    raft::distance::matrix::detail::DenseMatrix dense1(
-      const_cast<math_t*>(x1), n1, n_cols, is_row_major, ld1);
-    raft::distance::matrix::detail::DenseMatrix dense2(
-      const_cast<math_t*>(x2), n2, n_cols, is_row_major, ld2);
-    raft::distance::matrix::detail::DenseMatrix dense_out(out, n1, n2, is_row_major, ld_out);
     GramMatrixBase<math_t>::linear(
-      dense1, dense2, dense_out, stream, GramMatrixBase<math_t>::cublas_handle);
+      x1, n1, n_cols, x2, n2, out, is_row_major, stream, ld1, ld2, ld_out);
     applyKernel(out, ld_out, n1, n2, is_row_major, stream);
   }
 };
@@ -359,14 +463,14 @@ template <typename math_t>
 class RBFKernel : public GramMatrixBase<math_t> {
   math_t gain;
 
-  void applyExpandedRbfKernel(math_t* inout,
-                              int ld,
-                              int rows,
-                              int cols,
-                              math_t* norm_x1,
-                              math_t* norm_x2,
-                              bool is_row_major,
-                              cudaStream_t stream)
+  void applyKernel(math_t* inout,
+                   int ld,
+                   int rows,
+                   int cols,
+                   math_t* norm_x1,
+                   math_t* norm_x2,
+                   bool is_row_major,
+                   cudaStream_t stream)
   {
     int n1          = is_row_major ? cols : rows;
     int n2          = is_row_major ? rows : cols;
@@ -394,28 +498,33 @@ class RBFKernel : public GramMatrixBase<math_t> {
   {
   }
 
-  void matrixRowNormL2(const raft::distance::matrix::detail::Matrix<math_t>& matrix,
+  void matrixRowNormL2(dense_input_matrix_view_t<math_t> matrix,
                        math_t* target,
                        cudaStream_t stream)
   {
-    auto norm = raft::linalg::NormType::L2Norm;
-    if (matrix.isDense()) {
-      auto dense_matrix = matrix.asDense();
-      int minor         = dense_matrix->is_row_major ? matrix.n_cols : matrix.n_rows;
-      ASSERT(dense_matrix->ld == minor,
-             "RBF Kernel lazy rowNorm compute does not support ld parameter");
-      raft::linalg::rowNorm(target,
-                            dense_matrix->data,
-                            matrix.n_cols,
-                            matrix.n_rows,
-                            norm,
-                            dense_matrix->is_row_major,
-                            stream);
-    } else {
-      auto csr_matrix = matrix.asCsr();
-      raft::sparse::linalg::rowNormCsr(
-        target, csr_matrix->indptr, csr_matrix->data, csr_matrix->nnz, matrix.n_rows, norm, stream);
-    }
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(matrix);
+    int minor         = is_row_major ? matrix.extent(1) : matrix.extent(0);
+    int ld            = is_row_major ? matrix.stride(0) : matrix.stride(1);
+    ASSERT(ld == minor, "RBF Kernel lazy rowNorm compute does not support ld parameter");
+    raft::linalg::rowNorm(target,
+                          matrix.data_handle(),
+                          matrix.extent(1),
+                          matrix.extent(0),
+                          raft::linalg::NormType::L2Norm,
+                          is_row_major,
+                          stream);
+  }
+
+  void matrixRowNormL2(csr_input_matrix_view_t<math_t> matrix, math_t* target, cudaStream_t stream)
+  {
+    auto matrix_structure = matrix.get_structure();
+    raft::sparse::linalg::rowNormCsr(target,
+                                     matrix_structure.get_indptr().data(),
+                                     matrix.get_elements().data(),
+                                     matrix_structure.get_nnz(),
+                                     matrix_structure.get_n_rows(),
+                                     raft::linalg::NormType::L2Norm,
+                                     stream);
   }
 
   /** Evaluate kernel matrix using RBF kernel.
@@ -424,82 +533,148 @@ class RBFKernel : public GramMatrixBase<math_t> {
    * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
    * in the x2 set, and | | euclidean distance.
    *
-   * @param [in] x1 device matrix, size [n1*n_cols]
-   * @param [in] x2 device matrix, size [n2*n_cols]
-   * @param [out] out device buffer to store the Gram matrix, size [n1*n2]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
    * @param [in] handle raft handle
    * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
    * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
    */
-  void evaluate(const raft::distance::matrix::detail::Matrix<math_t>& x1,
-                const raft::distance::matrix::detail::Matrix<math_t>& x2,
-                raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                const raft::device_resources& handle,
+  void evaluate(dense_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
                 math_t* norm_x1,
                 math_t* norm_x2)
   {
     cudaStream_t stream = handle.get_stream();
-    if (x1.isDense() && x2.isDense() && (norm_x1 == nullptr || norm_x2 == nullptr)) {
-      auto x1_dense = x1.asDense();
-      auto x2_dense = x2.asDense();
-      distance_rbf(*x1_dense, *x2_dense, out, stream);
-    } else {
-      rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
-      rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
-      if (norm_x1 == nullptr) {
-        tmp_norm_x1.reserve(x1.n_rows, stream);
-        norm_x1 = tmp_norm_x1.data();
-        matrixRowNormL2(x1, norm_x1, stream);
-      }
-      if (norm_x2 == nullptr) {
-        tmp_norm_x2.reserve(x2.n_rows, stream);
-        norm_x2 = tmp_norm_x2.data();
-        matrixRowNormL2(x2, norm_x2, stream);
-      }
-      // compute L2expanded
-      GramMatrixBase<math_t>::linear(x1, x2, out, handle);
-      applyExpandedRbfKernel(
-        out.data, out.ld, out.n_rows, out.n_cols, norm_x1, norm_x2, out.is_row_major, stream);
+
+    // lazy compute norms if not given
+    rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
+    rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
+    if (norm_x1 == nullptr) {
+      tmp_norm_x1.reserve(x1.extent(0), stream);
+      norm_x1 = tmp_norm_x1.data();
+      matrixRowNormL2(x1, norm_x1, stream);
     }
+    if (norm_x2 == nullptr) {
+      tmp_norm_x2.reserve(x2.extent(0), stream);
+      norm_x2 = tmp_norm_x2.data();
+      matrixRowNormL2(x2, norm_x2, stream);
+    }
+
+    // compute L2expanded
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(out.data_handle(),
+                ld_out,
+                out.extent(0),
+                out.extent(1),
+                norm_x1,
+                norm_x2,
+                is_row_major,
+                handle.get_stream());
   }
 
-  /** Customize distance function withe RBF epilogue */
-  void distance_rbf(const raft::distance::matrix::detail::DenseMatrix<math_t>& x1,
-                    const raft::distance::matrix::detail::DenseMatrix<math_t>& x2,
-                    raft::distance::matrix::detail::DenseMatrix<math_t>& out,
-                    cudaStream_t stream)
+  /** Evaluate kernel matrix using RBF kernel.
+   *
+   * output_[i + k*n1] = exp(-gain*|x1_i - x2_k|^2),
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and | | euclidean distance.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 dense device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
+   * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                dense_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
   {
-    int minor1    = x1.is_row_major ? x1.n_cols : x1.n_rows;
-    int minor2    = x2.is_row_major ? x2.n_cols : x2.n_rows;
-    int minor_out = out.is_row_major ? out.n_cols : out.n_rows;
-    ASSERT(x1.ld == minor1, "RBF Kernel distance does not support ld1 parameter");
-    ASSERT(x2.ld == minor2, "RBF Kernel distance does not support ld2 parameter");
-    ASSERT(out.ld == minor_out, "RBF Kernel distance does not support ld_out parameter");
-    ASSERT(x1.is_row_major == x2.is_row_major,
-           "GramMatrix leading dimensions for x1 and x2 do not match");
-    ASSERT(x2.is_row_major == out.is_row_major,
-           "GramMatrix leading dimensions for x2 and out do not match");
+    cudaStream_t stream = handle.get_stream();
 
-    math_t gain   = this->gain;
-    using index_t = int64_t;
+    // lazy compute norms if not given
+    rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
+    rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
+    if (norm_x1 == nullptr) {
+      tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
+      norm_x1 = tmp_norm_x1.data();
+      matrixRowNormL2(x1, norm_x1, stream);
+    }
+    if (norm_x2 == nullptr) {
+      tmp_norm_x2.reserve(x2.extent(0), stream);
+      norm_x2 = tmp_norm_x2.data();
+      matrixRowNormL2(x2, norm_x2, stream);
+    }
 
-    auto fin_op = [gain] __device__(math_t d_val, index_t idx) { return exp(-gain * d_val); };
-    raft::distance::distance<raft::distance::DistanceType::L2Unexpanded,
-                             math_t,
-                             math_t,
-                             math_t,
-                             decltype(fin_op),
-                             index_t>(device_resources(stream),
-                                      const_cast<math_t*>(x1.data),
-                                      const_cast<math_t*>(x2.data),
-                                      out.data,
-                                      out.n_rows,
-                                      out.n_cols,
-                                      x1.n_cols,
-                                      NULL,
-                                      0,
-                                      fin_op,
-                                      out.is_row_major);
+    // compute L2expanded
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(out.data_handle(),
+                ld_out,
+                out.extent(0),
+                out.extent(1),
+                norm_x1,
+                norm_x2,
+                is_row_major,
+                handle.get_stream());
+  }
+
+  /** Evaluate kernel matrix using RBF kernel.
+   *
+   * output_[i + k*n1] = exp(-gain*|x1_i - x2_k|^2),
+   * where x1_i is the i-th vector from the x1 set, and x2_k is k-th vector
+   * in the x2 set, and | | euclidean distance.
+   *
+   * @param [in] x1 csr device matrix view, size [n1*n_cols]
+   * @param [in] x2 csr device matrix view, size [n2*n_cols]
+   * @param [out] out dense device matrix view for the Gram matrix, size [n1*n2]
+   * @param [in] handle raft handle
+   * @param norm_x1 optional L2-norm of x1's rows for computation within RBF.
+   * @param norm_x2 optional L2-norm of x2's rows for computation within RBF.
+   */
+  void evaluate(csr_input_matrix_view_t<math_t> x1,
+                csr_input_matrix_view_t<math_t> x2,
+                dense_output_matrix_view_t<math_t> out,
+                raft::device_resources const& handle,
+                math_t* norm_x1,
+                math_t* norm_x2)
+  {
+    cudaStream_t stream = handle.get_stream();
+
+    // lazy compute norms if not given
+    rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
+    rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
+    if (norm_x1 == nullptr) {
+      tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
+      norm_x1 = tmp_norm_x1.data();
+      matrixRowNormL2(x1, norm_x1, stream);
+    }
+    if (norm_x2 == nullptr) {
+      tmp_norm_x2.reserve(x2.get_structure().get_n_rows(), stream);
+      norm_x2 = tmp_norm_x2.data();
+      matrixRowNormL2(x2, norm_x2, stream);
+    }
+
+    // compute L2expanded
+    bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(out);
+    int ld_out        = is_row_major ? out.stride(0) : out.stride(1);
+    GramMatrixBase<math_t>::linear(x1, x2, out, handle);
+    applyKernel(out.data_handle(),
+                ld_out,
+                out.extent(0),
+                out.extent(1),
+                norm_x1,
+                norm_x2,
+                is_row_major,
+                handle.get_stream());
   }
 
   /** Evaluate the Gram matrix using the legacy interface.
@@ -531,12 +706,33 @@ class RBFKernel : public GramMatrixBase<math_t> {
   {
     ASSERT(GramMatrixBase<math_t>::legacy_interface,
            "Legacy interface can only be used with legacy ctor.");
-    raft::distance::matrix::detail::DenseMatrix dense1(
-      const_cast<math_t*>(x1), n1, n_cols, is_row_major, ld1);
-    raft::distance::matrix::detail::DenseMatrix dense2(
-      const_cast<math_t*>(x2), n2, n_cols, is_row_major, ld2);
-    raft::distance::matrix::detail::DenseMatrix dense_out(out, n1, n2, is_row_major, ld_out);
-    distance_rbf(dense1, dense2, dense_out, stream);
+    int minor1    = is_row_major ? n_cols : n1;
+    int minor2    = is_row_major ? n_cols : n2;
+    int minor_out = is_row_major ? n2 : n1;
+    ASSERT(ld1 == minor1, "RBF Kernel distance does not support ld1 parameter");
+    ASSERT(ld2 == minor2, "RBF Kernel distance does not support ld2 parameter");
+    ASSERT(ld_out == minor_out, "RBF Kernel distance does not support ld_out parameter");
+
+    math_t gain   = this->gain;
+    using index_t = int64_t;
+
+    auto fin_op = [gain] __device__(math_t d_val, index_t idx) { return exp(-gain * d_val); };
+    raft::distance::distance<raft::distance::DistanceType::L2Unexpanded,
+                             math_t,
+                             math_t,
+                             math_t,
+                             decltype(fin_op),
+                             index_t>(device_resources(stream),
+                                      const_cast<math_t*>(x1),
+                                      const_cast<math_t*>(x2),
+                                      out,
+                                      n1,
+                                      n2,
+                                      n_cols,
+                                      NULL,
+                                      0,
+                                      fin_op,
+                                      is_row_major);
   }
 };
 

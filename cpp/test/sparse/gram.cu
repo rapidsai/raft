@@ -23,7 +23,6 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/random/rng.cuh>
@@ -34,8 +33,6 @@
 #include <rmm/device_uvector.hpp>
 
 namespace raft::distance::kernels {
-
-using namespace raft::distance::matrix::detail;
 
 /**
  * Structure to describe structure of the input matrices:
@@ -213,55 +210,57 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   void runTest()
   {
     std::unique_ptr<GramMatrixBase<math_t>> kernel =
-      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel, handle));
+      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel));
 
-    Matrix<math_t>* x1_matrix = nullptr;
-    Matrix<math_t>* x2_matrix = nullptr;
+    auto x1_span = raft::make_device_matrix_view<const math_t, int>(
+      x1.data(), params.n1, params.n_cols, params.is_row_major, params.ld1);
+    auto x2_span = raft::make_device_matrix_view<const math_t, int>(
+      x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
+    auto out_span = raft::make_device_matrix_view<math_t, int>(
+      gram.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
 
-    if (params.sparse_input != SparseType::DENSE) {
+    if (params.sparse_input == SparseType::DENSE) {
+      (*kernel)(x1_span, x2_span, out_span, handle);
+    } else {
       x1_csr_indptr.reserve(params.n1 + 1, stream);
       x1_csr_indices.reserve(params.n1 * params.n_cols, stream);
       x1_csr_data.reserve(params.n1 * params.n_cols, stream);
-      int nnz   = prepareCsr(x1.data(),
-                           params.n1,
-                           params.ld1,
-                           x1_csr_indptr.data(),
-                           x1_csr_indices.data(),
-                           x1_csr_data.data());
-      x1_matrix = new CsrMatrix<math_t>(x1_csr_indptr.data(),
-                                        x1_csr_indices.data(),
-                                        x1_csr_data.data(),
-                                        nnz,
-                                        params.n1,
-                                        params.n_cols);
-    } else {
-      x1_matrix = new DenseMatrix<math_t>(
-        x1.data(), params.n1, params.n_cols, params.is_row_major, params.ld1);
-    }
+      int x1_nnz = prepareCsr(x1.data(),
+                              params.n1,
+                              params.ld1,
+                              x1_csr_indptr.data(),
+                              x1_csr_indices.data(),
+                              x1_csr_data.data());
 
-    if (params.sparse_input == SparseType::CSR) {
-      x2_csr_indptr.reserve(params.n2 + 1, stream);
-      x2_csr_indices.reserve(params.n2 * params.n_cols, stream);
-      x2_csr_data.reserve(params.n2 * params.n_cols, stream);
-      int nnz   = prepareCsr(x2.data(),
-                           params.n2,
-                           params.ld2,
-                           x2_csr_indptr.data(),
-                           x2_csr_indices.data(),
-                           x2_csr_data.data());
-      x2_matrix = new CsrMatrix<math_t>(x2_csr_indptr.data(),
-                                        x2_csr_indices.data(),
-                                        x2_csr_data.data(),
-                                        nnz,
-                                        params.n2,
-                                        params.n_cols);
-    } else {
-      x2_matrix = new DenseMatrix<math_t>(
-        x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
-    }
+      auto x1_csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+        x1_csr_indptr.data(), x1_csr_indices.data(), params.n1, params.n_cols, x1_nnz);
 
-    DenseMatrix<math_t> gram_dense(
-      gram.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
+      auto x1_csr = raft::device_csr_matrix_view<const math_t, int, int, int>(
+        raft::device_span<const math_t>(x1_csr_data.data(), x1_csr_structure.get_nnz()),
+        x1_csr_structure);
+
+      if (params.sparse_input == SparseType::MIX) {
+        (*kernel)(x1_csr, x2_span, out_span, handle);
+      } else {
+        x2_csr_indptr.reserve(params.n2 + 1, stream);
+        x2_csr_indices.reserve(params.n2 * params.n_cols, stream);
+        x2_csr_data.reserve(params.n2 * params.n_cols, stream);
+        int x2_nnz = prepareCsr(x2.data(),
+                                params.n2,
+                                params.ld2,
+                                x2_csr_indptr.data(),
+                                x2_csr_indices.data(),
+                                x2_csr_data.data());
+
+        auto x2_csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+          x2_csr_indptr.data(), x2_csr_indices.data(), params.n2, params.n_cols, x2_nnz);
+        auto x2_csr = raft::device_csr_matrix_view<const math_t, int, int, int>(
+          raft::device_span<const math_t>(x2_csr_data.data(), x2_csr_structure.get_nnz()),
+          x2_csr_structure);
+
+        (*kernel)(x1_csr, x2_csr, out_span, handle);
+      }
+    }
 
     naiveGramMatrixKernel(params.n1,
                           params.n2,
@@ -277,14 +276,10 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                           stream,
                           handle);
 
-    (*kernel)(*x1_matrix, *x2_matrix, gram_dense, stream);
     handle.sync_stream(stream);
 
     ASSERT_TRUE(raft::devArrMatchHost(
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
-
-    delete x1_matrix;
-    delete x2_matrix;
   }
 
   raft::device_resources handle;
