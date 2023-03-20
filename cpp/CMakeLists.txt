@@ -144,10 +144,6 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # ##################################################################################################
 # * Requirements -------------------------------------------------------------
 
-if(RAFT_COMPILE_LIBRARY)
-  set(RAFT_COMPILE_LIBRARY ON)
-endif()
-
 # add third party dependencies using CPM
 rapids_cpm_init()
 
