@@ -19,13 +19,12 @@
 #include "common.cuh"
 
 #include "../../ball_cover_types.hpp"
-#include "../faiss_select/key_value_block_select.cuh"
 #include "../haversine_distance.cuh"
-#include "../selection_faiss.cuh"
 
 #include <cstdint>
 #include <limits.h>
 
+#include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <thrust/fill.h>
@@ -180,19 +179,14 @@ __global__ void compute_final_dists_registers(const value_t* X_index,
     local_x_ptr[j] = x_ptr[j];
   }
 
-  faiss_select::KeyValueBlockSelect<value_t,
-                                    value_idx,
-                                    false,
-                                    faiss_select::Comparator<value_t>,
-                                    warp_q,
-                                    thread_q,
-                                    tpb>
-    heap(std::numeric_limits<value_t>::max(),
-         std::numeric_limits<value_t>::max(),
-         -1,
-         shared_memK,
-         shared_memV,
-         k);
+  using namespace raft::neighbors::detail::faiss_select;
+  KeyValueBlockSelect<value_t, value_idx, false, Comparator<value_t>, warp_q, thread_q, tpb> heap(
+    std::numeric_limits<value_t>::max(),
+    std::numeric_limits<value_t>::max(),
+    -1,
+    shared_memK,
+    shared_memV,
+    k);
 
   const value_int n_k = Pow2<WarpSize>::roundDown(k);
   value_int i         = threadIdx.x;
@@ -349,19 +343,14 @@ __global__ void block_rbc_kernel_registers(const value_t* X_index,
   }
 
   // Each warp works on 1 R
-  faiss_select::KeyValueBlockSelect<value_t,
-                                    value_idx,
-                                    false,
-                                    faiss_select::Comparator<value_t>,
-                                    warp_q,
-                                    thread_q,
-                                    tpb>
-    heap(std::numeric_limits<value_t>::max(),
-         std::numeric_limits<value_t>::max(),
-         -1,
-         shared_memK,
-         shared_memV,
-         k);
+  using namespace raft::neighbors::detail::faiss_select;
+  KeyValueBlockSelect<value_t, value_idx, false, Comparator<value_t>, warp_q, thread_q, tpb> heap(
+    std::numeric_limits<value_t>::max(),
+    std::numeric_limits<value_t>::max(),
+    -1,
+    shared_memK,
+    shared_memV,
+    k);
 
   value_t min_R_dist         = R_knn_dists[blockIdx.x * k + (k - 1)];
   value_int n_dists_computed = 0;

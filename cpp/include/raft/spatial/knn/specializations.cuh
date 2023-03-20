@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __KNN_SPECIALIZATIONS_H
-#define __KNN_SPECIALIZATIONS_H
-
 #pragma once
 
 #include <raft/neighbors/specializations/ball_cover.cuh>
+#include <raft/neighbors/specializations/brute_force.cuh>
 #include <raft/neighbors/specializations/fused_l2_knn.cuh>
-#include <raft/neighbors/specializations/knn.cuh>
-
-#endif

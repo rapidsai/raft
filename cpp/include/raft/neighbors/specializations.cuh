@@ -16,6 +16,11 @@
 
 #pragma once
 
+#include <raft/neighbors/specializations/ball_cover.cuh>
+#include <raft/neighbors/specializations/brute_force.cuh>
+#include <raft/neighbors/specializations/fused_l2_knn.cuh>
+
+#include <raft/neighbors/specializations/ivf_flat.cuh>
 #include <raft/neighbors/specializations/ivf_pq.cuh>
 #include <raft/neighbors/specializations/refine.cuh>
 
