@@ -21,13 +21,20 @@
 
 namespace raft::bench::distance::tune {
 
-namespace arch = raft::util::arch;
+// Distance op
+using OpT                  = raft::distance::detail::ops::lp_unexp_distance_op<DataT, AccT, IdxT>;
+constexpr float metric_arg = 2.0;
+OpT distance_op{metric_arg};
 
-constexpr int vec_len          = 1;
-using Policy                   = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
+// Kernel policy
+constexpr int vec_len = 1;
+using Policy          = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
+
+// Architecture
+namespace arch                 = raft::util::arch;
 constexpr auto sm_compat_range = arch::SM_range(arch::SM_min(), arch::SM_future());
 
-void launch_kernel(OpT distance_op, pairwise_matrix_params params, dim3 grid, cudaStream_t stream)
+void launch_kernel(pairwise_matrix_params params, dim3 grid, cudaStream_t stream)
 {
   dim3 block(Policy::Nthreads);
   // Use .template to disambiguate (See:
@@ -65,11 +72,10 @@ void* get_kernel_ptr()
                                                                DataT,
                                                                OutT,
                                                                FinOpT>;
-
   return reinterpret_cast<void*>(kernel);
 }
 
-int get_max_occupancy(OpT distance_op)
+int get_max_occupancy()
 {
   void* kernel_ptr = get_kernel_ptr();
   int max_occupancy;

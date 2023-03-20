@@ -28,24 +28,17 @@ using AccT               = float;
 using OutT               = DataT;
 using IdxT               = int;
 
-// Distance op
-// C++17 inline variable. Used by both tuned_kernel.cu and tune_pairwise.cu
-// See: https://open-std.org/JTC1/SC22/WG21/docs/papers/2016/p0386r0.pdf
-using OpT                  = raft::distance::detail::ops::lp_unexp_distance_op<DataT, AccT, IdxT>;
-constexpr float metric_arg = 2.0;
-inline const OpT distance_op{metric_arg};
 using FinOpT = raft::identity_op;
 
 using pairwise_matrix_params =
   raft::distance::detail::pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>;
 
 // Launches kernel
-void launch_kernel(OpT, pairwise_matrix_params, dim3, cudaStream_t);
+void launch_kernel(pairwise_matrix_params, dim3, cudaStream_t);
 
 // Describes the block size that is decided by the policy
 void get_block_size(int& m, int& n, int& k);
 
-void* get_kernel_ptr();
-int get_max_occupancy(OpT);
+int get_max_occupancy();
 
 }  // namespace raft::bench::distance::tune

@@ -85,7 +85,7 @@ struct throughput_bench : public fixture {
     // Determine number of blocks that will be launched. This informs the size
     // of the inputs as well as the grid size.
     const int num_sms       = raft::getMultiProcessorCount();
-    const int max_occupancy = get_max_occupancy(distance_op);
+    const int max_occupancy = get_max_occupancy();
     const int occupancy     = std::min(p.occupancy, max_occupancy);
     const int num_blocks    = occupancy * num_sms;
     dim3 grid(num_blocks);
@@ -119,7 +119,7 @@ struct throughput_bench : public fixture {
       IdxT(m), IdxT(n), IdxT(k), ldx, ldy, ld_out, x, y, x_norm, y_norm, out, fin_op, row_major};
 
     // Run benchmark
-    loop_on_state(state, [&]() { launch_kernel(distance_op, kparams, grid, stream); });
+    loop_on_state(state, [&]() { launch_kernel(kparams, grid, stream); });
 
     // Report metrics. We don't report flop/s because we do not know for each
     // distance operation how many flops it costs. For L2_unexp and l1, we can
