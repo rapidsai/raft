@@ -46,9 +46,9 @@ namespace raft::neighbors::ivf_flat {
                               raft::device_matrix_view<IdxT, IdxT, row_major>,               \
                               raft::device_matrix_view<float, IdxT, row_major>);
 
-RAFT_INST(float, uint64_t);
-RAFT_INST(int8_t, uint64_t);
-RAFT_INST(uint8_t, uint64_t);
+RAFT_INST(float, int64_t);
+RAFT_INST(int8_t, int64_t);
+RAFT_INST(uint8_t, int64_t);
 
 #undef RAFT_INST
 }  // namespace raft::neighbors::ivf_flat
