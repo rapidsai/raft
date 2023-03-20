@@ -182,8 +182,7 @@ void search(raft::device_resources const& handle,
                         static_cast<std::uint32_t>(queries.extent(0)),
                         k,
                         neighbors.data_handle(),
-                        distances.data_handle(),
-                        handle.get_workspace_resource());
+                        distances.data_handle());
 }
 
 /** @} */  // end group ivf_pq
@@ -349,7 +348,8 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, mr);
+  if (mr != nullptr) { raft::resource::set_workspace_resource(handle, mr); }
+  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances);
 }
 
 }  // namespace raft::neighbors::ivf_pq

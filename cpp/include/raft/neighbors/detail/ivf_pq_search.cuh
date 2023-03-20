@@ -1262,10 +1262,10 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                          IdxT* neighbors,                    // [n_queries, topK]
                          float* distances,                   // [n_queries, topK]
                          float scaling_factor,
-                         double preferred_shmem_carveout,
-                         rmm::mr::device_memory_resource* mr)
+                         double preferred_shmem_carveout)
 {
   auto stream = handle.get_stream();
+  auto mr     = handle.get_workspace_resource();
 
   bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
   auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
@@ -1554,8 +1554,7 @@ inline void search(raft::device_resources const& handle,
                    uint32_t n_queries,
                    uint32_t k,
                    IdxT* neighbors,
-                   float* distances,
-                   rmm::mr::device_memory_resource* mr = nullptr)
+                   float* distances)
 {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
@@ -1601,11 +1600,7 @@ inline void search(raft::device_resources const& handle,
     max_samples = ms;
   }
 
-  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq::search: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  auto mr = handle.get_workspace_resource();
 
   // Maximum number of query vectors to search at the same time.
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
@@ -1669,8 +1664,7 @@ inline void search(raft::device_resources const& handle,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
                       utils::config<T>::kDivisor / utils::config<float>::kDivisor,
-                      params.preferred_shmem_carveout,
-                      mr);
+                      params.preferred_shmem_carveout);
     }
   }
 }

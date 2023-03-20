@@ -21,6 +21,7 @@
 
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/limiting_resource_adaptor.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cstddef>
 #include <optional>
@@ -31,7 +32,16 @@ class limited_memory_resource : public resource {
   limited_memory_resource(rmm::mr::device_memory_resource* mr,
                           std::optional<std::size_t> allocation_limit,
                           std::optional<std::size_t> alignment)
-    : mr_(make_adaptor(mr, allocation_limit, alignment))
+    : limited_memory_resource(mr, get_alloc_limit(allocation_limit), alignment)
+  {
+  }
+
+  template <class Deleter>
+  limited_memory_resource(rmm::mr::device_memory_resource* mr,
+                          Deleter d,
+                          std::optional<std::size_t> allocation_limit,
+                          std::optional<std::size_t> alignment)
+    : limited_memory_resource(mr, d, get_alloc_limit(allocation_limit), alignment)
   {
   }
 
@@ -40,27 +50,59 @@ class limited_memory_resource : public resource {
   ~limited_memory_resource() override = default;
 
  private:
+  std::shared_ptr<rmm::mr::device_memory_resource> upstream_;
   rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource> mr_;
 
-  static inline auto get_device_mem()
+  limited_memory_resource(rmm::mr::device_memory_resource* mr,
+                          std::size_t allocation_limit,
+                          std::optional<std::size_t> alignment)
+    : upstream_{get_upstream(mr, allocation_limit)},
+      mr_(make_adaptor(upstream_, allocation_limit, alignment))
   {
+  }
+
+  template <class Deleter>
+  limited_memory_resource(rmm::mr::device_memory_resource* mr,
+                          Deleter d,
+                          std::size_t allocation_limit,
+                          std::optional<std::size_t> alignment)
+    : upstream_{get_upstream(mr, allocation_limit), d},
+      mr_{make_adaptor(upstream_, allocation_limit, alignment)}
+  {
+  }
+
+  static inline auto get_upstream(rmm::mr::device_memory_resource* mr, std::size_t allocation_limit)
+    -> rmm::mr::device_memory_resource*
+  {
+    if (mr != nullptr) { return mr; }
+    // Create a pool memory resource by default
+    constexpr std::size_t kOneGb = 1024lu * 1024lu * 1024lu;
+    auto min_size                = std::min<std::size_t>(kOneGb, allocation_limit / 2);
+    auto max_size                = allocation_limit * 3lu / 2lu;
+    return new rmm::mr::pool_memory_resource(
+      rmm::mr::get_current_device_resource(), min_size, max_size);
+  }
+
+  static inline auto get_alloc_limit(std::optional<std::size_t> limit) -> std::size_t
+  {
+    if (limit.has_value()) { return limit.value(); }
+    // Allow a fraction of available memory by default.
     std::size_t free_size{};
     std::size_t total_size{};
     RAFT_CUDA_TRY(cudaMemGetInfo(&free_size, &total_size));
-    return total_size;
+    return free_size / 2;
   }
 
-  static inline auto make_adaptor(rmm::mr::device_memory_resource* mr,
-                                  std::optional<std::size_t> allocation_limit,
+  static inline auto make_adaptor(std::shared_ptr<rmm::mr::device_memory_resource> upstream,
+                                  std::size_t limit,
                                   std::optional<std::size_t> alignment)
     -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>
   {
-    if (mr == nullptr) { mr = rmm::mr::get_current_device_resource(); }
-    auto limit = allocation_limit.value_or(get_device_mem());
+    auto p = upstream.get();
     if (alignment.has_value()) {
-      return rmm::mr::limiting_resource_adaptor(mr, limit, alignment.value());
+      return rmm::mr::limiting_resource_adaptor(p, limit, alignment.value());
     } else {
-      return rmm::mr::limiting_resource_adaptor(mr, limit);
+      return rmm::mr::limiting_resource_adaptor(p, limit);
     }
   }
 };
