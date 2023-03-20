@@ -4,8 +4,7 @@
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` RAFT headers
-- `libraft-nn` (optional) contains shared libraries for the nearest neighbors primitives.
-- `libraft-distance` (optional) contains shared libraries for distance primitives.
+- `libraft` (optional) shared library containing pre-compiled template specializations and runtime API.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
@@ -14,7 +13,7 @@ Use the following command to install all of the RAFT packages with conda (replac
 mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
 ```
 
-You can also install the `libraft-*` conda packages individually using the `mamba` command above.
+You can also install the conda packages individually using the `mamba` command above.
 
 After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
 
@@ -42,11 +41,10 @@ In addition to the libraries included with cudatoolkit 11.0+, there are some oth
 #### Required
 - [RMM](https://github.com/rapidsai/rmm) corresponding to RAFT version.
 - [Thrust](https://github.com/NVIDIA/thrust) v1.17 / [CUB](https://github.com/NVIDIA/cub)
+- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
+- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
 
 #### Optional
-- [cuCollections](https://github.com/NVIDIA/cuCollections) - Used in `raft::sparse::distance` API.
-- [Libcu++](https://github.com/NVIDIA/libcudacxx) v1.7.0 - Used by cuCollections
-- [CUTLASS](https://github.com/NVIDIA/cutlass)  v2.9.1 - Used in `raft::distance` API.
 - [NCCL](https://github.com/NVIDIA/nccl) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [UCX](https://github.com/openucx/ucx) - Used in `raft::comms` API and needed to build `raft-dask`.
 - [Googletest](https://github.com/google/googletest) - Needed to build tests
@@ -79,19 +77,14 @@ Once installed, `libraft` headers (and dependencies which were downloaded and in
 
 ### C++ Shared Libraries (optional)
 
-For larger projects which make heavy use of the pairwise distances or nearest neighbors APIs, shared libraries can be built to speed up compile times. These shared libraries can also significantly improve re-compile times both while developing RAFT and developing against the APIs. Build all of the available shared libraries by passing `--compile-libs` flag to `build.sh`:
+A shared library can be built for speeding up compile times. The shared library also contains a runtime API that allows you to invoke RAFT APIs directly from C++ source files (without `nvcc`). The shared library can also significantly improve re-compile times both while developing RAFT and using its APIs to develop applications. Pass the `--compile-lib` flag to `build.sh` to build the library:
 ```bash
-./build.sh libraft --compile-libs
+./build.sh libraft --compile-lib
 ```
 
-Individual shared libraries have their own flags and multiple can be used (though currently only the `nn` and `distance` packages contain shared libraries):
-```bash
-./build.sh libraft --compile-nn --compile-dist
-```
+In above example the shared library is installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
 
-In above example the shared libraries are installed by default into `$INSTALL_PREFIX/lib`. To disable this, pass `-n` flag.
-
-Once installed, the shared libraries, headers (and any dependencies downloaded and installed via `rapids-cmake`) can be uninstalled using `build.sh`:
+Once installed, the shared library, headers (and any dependencies downloaded and installed via `rapids-cmake`) can be uninstalled using `build.sh`:
 ```bash
 ./build.sh libraft --uninstall
 ```
@@ -152,7 +145,7 @@ Use `CMAKE_INSTALL_PREFIX` to install RAFT into a specific location. The snippet
 cd cpp
 mkdir build
 cd build
-cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARIES=ON -DRAFT_ENABLE_NN_DEPENDENCIES=ON  -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
+cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARY=ON -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ../
 make -j<parallel_level> install
 ```
 
@@ -187,9 +180,9 @@ The Python APIs can be built and installed using the `build.sh` script:
 
 ```bash
 # to build pylibraft
-./build.sh libraft pylibraft --compile-libs
+./build.sh libraft pylibraft --compile-lib
 # to build raft-dask
-./build.sh libraft raft-dask --compile-libs
+./build.sh libraft pylibraft raft-dask --compile-lib
 ```
 
 `setup.py` can also be used to build the Python APIs manually:
@@ -225,7 +218,7 @@ The documentation requires that the C++ headers and python packages have been bu
 The following will build the docs along with the C++ and Python packages:
 
 ```
-./build.sh libraft pylibraft raft-dask docs --compile-libs
+./build.sh libraft pylibraft raft-dask docs --compile-lib
 ```
 
 
@@ -274,11 +267,11 @@ If RAFT has already been installed, such as by using the `build.sh` script, use 
 
 ### Using C++ pre-compiled shared libraries
 
-Use `find_package(raft COMPONENTS nn distance)` to enable the shared libraries and transitively pass dependencies through separate targets for each component. In this example, the `raft::distance` and `raft::nn` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as CUTLASS for the `distance` package).
+Use `find_package(raft COMPONENTS compiled distributed)` to enable the shared library and transitively pass dependencies through separate targets for each component. In this example, the `raft::compiled` and `raft::distributed` targets will be available for configuring linking paths in addition to `raft::raft`. These targets will also pass through any transitive dependencies (such as NCCL for the `distributed` component).
 
 The pre-compiled libraries contain template specializations for commonly used types, such as single- and double-precision floating-point. In order to use the symbols in the pre-compiled libraries, the compiler needs to be told not to instantiate templates that are already contained in the shared libraries. By convention, these header files are named `specializations.cuh` and located in the base directory for the packages that contain specializations.
 
-The following example tells the compiler to ignore the pre-compiled templates for the `libraft-distance` API so any symbols already compiled into pre-compiled shared library will be used instead:
+The following example tells the compiler to ignore the pre-compiled templates for the `raft::distance` API so any symbols already compiled into the `libraft` shared library will be used instead:
 ```c++
 #include <raft/distance/distance.cuh>
 #include <raft/distance/specializations.cuh>
@@ -299,10 +292,7 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
 function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG
-          COMPILE_LIBRARIES CLONE_ON_PIN
-          USE_NN_LIBRARY USE_DISTANCE_LIBRARY
-          ENABLE_thrust_DEPENDENCY)
+  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARY CLONE_ON_PIN)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
@@ -313,18 +303,6 @@ function(find_and_configure_raft)
     message("Pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
     set(CPM_DOWNLOAD_raft ON)
     set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_PREFIX}/include/raft;${CMAKE_IGNORE_PATH})
-  endif()
-
-  #-----------------------------------------------------
-  # Add components
-  #-----------------------------------------------------
-
-  if(PKG_USE_NN_LIBRARY)
-    string(APPEND RAFT_COMPONENTS " nn")
-  endif()
-
-  if(PKG_USE_DISTANCE_LIBRARY)
-    string(APPEND RAFT_COMPONENTS " distance")
   endif()
 
   #-----------------------------------------------------
@@ -339,12 +317,11 @@ function(find_and_configure_raft)
           GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
           GIT_TAG        ${PKG_PINNED_TAG}
           SOURCE_SUBDIR  cpp
-          FIND_PACKAGE_ARGUMENTS "COMPONENTS ${RAFT_COMPONENTS}"
+          FIND_PACKAGE_ARGUMENTS "COMPONENTS compiled distributed"
           OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
-          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
-          "RAFT_ENABLE_thrust_DEPENDENCY ${PKG_ENABLE_thrust_DEPENDENCY}"
+          "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
   )
 
 endfunction()
@@ -360,15 +337,9 @@ find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
         # force local raft clone in build directory
         # even if it's already installed.
         CLONE_ON_PIN     ON
-
-        COMPILE_LIBRARIES        NO
-        USE_NN_LIBRARY           NO
-        USE_DISTANCE_LIBRARY     NO
-        ENABLE_thrust_DEPENDENCY YES
+        COMPILE_LIBRARY          NO
 )
 ```
-
-If using the nearest neighbors APIs without the shared libraries, set `ENABLE_NN_DEPENDENCIES=ON` and keep `USE_NN_LIBRARY=OFF`
 
 ## Uninstall
 
