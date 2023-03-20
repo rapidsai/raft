@@ -1244,26 +1244,6 @@ void search_impl(raft::device_resources const& handle,
   }
 }
 
-/**
- * Whether minimal distance corresponds to similar elements (using the given metric).
- */
-inline bool is_min_close(distance::DistanceType metric)
-{
-  bool select_min;
-  switch (metric) {
-    case raft::distance::DistanceType::InnerProduct:
-    case raft::distance::DistanceType::CosineExpanded:
-    case raft::distance::DistanceType::CorrelationExpanded:
-      // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
-      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
-      // {perform_k_selection})
-      select_min = false;
-      break;
-    default: select_min = true;
-  }
-  return select_min;
-}
-
 /** See raft::neighbors::ivf_flat::search docs */
 template <typename T, typename IdxT>
 inline void search(raft::device_resources const& handle,
@@ -1295,7 +1275,7 @@ inline void search(raft::device_resources const& handle,
                                      n_queries,
                                      k,
                                      n_probes,
-                                     is_min_close(index.metric()),
+                                     raft::distance::is_min_close(index.metric()),
                                      neighbors,
                                      distances,
                                      mr);
