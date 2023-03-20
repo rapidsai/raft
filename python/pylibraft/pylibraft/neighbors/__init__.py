@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# from .brute_force import knn as brute_force_knn
 from .refine import refine
 
 __all__ = ["common", "refine"]
