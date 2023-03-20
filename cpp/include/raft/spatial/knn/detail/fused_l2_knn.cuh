@@ -17,7 +17,7 @@
 #include <cub/cub.cuh>
 #include <limits>
 #include <raft/linalg/norm.cuh>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 // TODO: Need to hide the PairwiseDistance class impl and expose to public API
 #include "processing.cuh"
 #include <raft/core/operators.hpp>
@@ -219,9 +219,8 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
   constexpr auto identity = std::numeric_limits<AccT>::max();
   constexpr auto keyMax   = std::numeric_limits<uint32_t>::max();
   constexpr auto Dir      = false;
-  typedef faiss_select::
-    WarpSelect<AccT, uint32_t, Dir, faiss_select::Comparator<AccT>, NumWarpQ, NumThreadQ, 32>
-      myWarpSelect;
+  using namespace raft::neighbors::detail::faiss_select;
+  typedef WarpSelect<AccT, uint32_t, Dir, Comparator<AccT>, NumWarpQ, NumThreadQ, 32> myWarpSelect;
 
   auto rowEpilog_lambda =
     [m, n, &distance_op, numOfNN, out_dists, out_inds, mutexes] __device__(IdxT gridStrideY) {

@@ -48,7 +48,6 @@ namespace raft::neighbors::ivf_flat {
  * @param[in] os output stream
  * @param[in] index IVF-Flat index
  *
- * @return raft::neighbors::ivf_flat::index<T, IdxT>
  */
 template <typename T, typename IdxT>
 void serialize(raft::device_resources const& handle, std::ostream& os, const index<T, IdxT>& index)
@@ -79,7 +78,6 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  * @param[in] filename the file name for saving the index
  * @param[in] index IVF-Flat index
  *
- * @return raft::neighbors::ivf_flat::index<T, IdxT>
  */
 template <typename T, typename IdxT>
 void serialize(raft::device_resources const& handle,
