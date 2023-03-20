@@ -570,8 +570,8 @@ class BigMatrixDistanceTest : public ::testing::Test {
                            raft::distance::DistanceType metric,
                            bool isRowMajor,
                            float metric_arg);
-    bool row_major   = true;
-    float metric_arg = 0.0f;
+    constexpr bool row_major   = true;
+    constexpr float metric_arg = 0.0f;
 #if defined RAFT_DISTANCE_COMPILED
     raft::runtime::distance::pairwise_distance(
       handle, x.data(), x.data(), dist.data(), m, n, k, distanceType, row_major, metric_arg);

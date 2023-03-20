@@ -138,7 +138,7 @@ for op_instance in op_instances:
             instance = {
                 **op_data_instance,
                 **data_type_instance,
-                "FinopT": "decltype(raft::identity_op())",
+                "FinopT": "raft::identity_op",
             }
 
             text = fill_in(extern_template, instance)

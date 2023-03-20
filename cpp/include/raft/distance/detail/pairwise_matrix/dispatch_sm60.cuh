@@ -35,7 +35,11 @@ pairwise_matrix_sm60_wrapper<OpT, IdxT, DataT, OutT, FinOpT> pairwise_matrix_sm6
 {
   int vec_len = determine_vec_len(params);
 
-  return dispatch_layout(params.is_row_major, vec_len, [&](auto row_major, auto vec_len_aligned) {
+  // f takes compile-time constants row_major and vec_len aligned and returns
+  // the corresponding kernel wrapper. The wrapper contains the launch
+  // parameters of the kernel: a pointer to the kernel function, grid size,
+  // block size, and shared memory size.
+  auto f = [&](auto row_major, auto vec_len_aligned) {
     // row_major and vec_len are std::integral_constants of type bool and int
     // respectively.
 
@@ -46,15 +50,19 @@ pairwise_matrix_sm60_wrapper<OpT, IdxT, DataT, OutT, FinOpT> pairwise_matrix_sm6
     // Prevent double, vec_len=4 combination (this is not supported)
     constexpr int vec_len = std::min(vec_len_op, static_cast<int>(16 / sizeof(DataT)));
 
-    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::Policy RowPolicy;
-    typedef typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy ColPolicy;
-    typedef typename std::conditional<row_major(), RowPolicy, ColPolicy>::type Policy;
+    using RowPolicy = typename raft::linalg::Policy4x4<DataT, vec_len>::Policy;
+    using ColPolicy = typename raft::linalg::Policy4x4<DataT, vec_len>::ColPolicy;
+    using Policy    = typename std::conditional<row_major(), RowPolicy, ColPolicy>::type;
 
     auto wrapper =
       make_pairwise_matrix_sm60_wrapper<Policy, row_major()>(distance_op, params, sm_compat_range);
 
     return wrapper;
-  });
+  };
+
+  // Dispatch_layout calls f with appropriate compile time constants based on
+  // the runtime values of params.is_row_major and vec_len.
+  return dispatch_layout(params.is_row_major, vec_len, f);
 }
 
 template <typename OpT,

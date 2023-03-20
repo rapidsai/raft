@@ -48,9 +48,6 @@ struct SM_generic {
  public:
   __host__ __device__ constexpr int value() const { return n; }
 };
-
-// A dummy kernel that is used to determine the runtime architecture.
-__global__ inline void dummy_runtime_kernel() {}
 }  // namespace detail
 
 // A list of architectures that RAPIDS explicitly builds for (SM60, ..., SM90)

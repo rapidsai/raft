@@ -102,7 +102,10 @@ struct l2_exp_distance_op {
     }
   }
 
-  l2_exp_cutlass_op<DataT, AccT> get_cutlass_op() { return l2_exp_cutlass_op<DataT, AccT>(sqrt); }
+  constexpr l2_exp_cutlass_op<DataT, AccT> get_cutlass_op()
+  {
+    return l2_exp_cutlass_op<DataT, AccT>(sqrt);
+  }
 };
 
 }  // namespace raft::distance::detail::ops

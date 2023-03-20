@@ -24,18 +24,17 @@ extern template void pairwise_matrix_instantiation_point<ops::l2_exp_distance_op
                                                          int,
                                                          float,
                                                          float,
-                                                         decltype(raft::identity_op())>(
+                                                         raft::identity_op>(
   ops::l2_exp_distance_op<float, float, int>,
-  pairwise_matrix_params<int, float, float, decltype(raft::identity_op())>,
+  pairwise_matrix_params<int, float, float, raft::identity_op>,
   cudaStream_t);
 
-extern template void
-  pairwise_matrix_instantiation_point<ops::l2_exp_distance_op<double, double, int>,
-                                      int,
-                                      double,
-                                      double,
-                                      decltype(raft::identity_op())>(
-    ops::l2_exp_distance_op<double, double, int>,
-    pairwise_matrix_params<int, double, double, decltype(raft::identity_op())>,
-    cudaStream_t);
+extern template void pairwise_matrix_instantiation_point<
+  ops::l2_exp_distance_op<double, double, int>,
+  int,
+  double,
+  double,
+  raft::identity_op>(ops::l2_exp_distance_op<double, double, int>,
+                     pairwise_matrix_params<int, double, double, raft::identity_op>,
+                     cudaStream_t);
 }  // namespace raft::distance::detail

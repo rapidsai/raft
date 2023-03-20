@@ -34,7 +34,9 @@ void pairwise_matrix_sm80_dispatch(OpT distance_op,
 {
   int vec_len = determine_vec_len(params);
 
-  dispatch_layout(params.is_row_major, vec_len, [&](auto row_major, auto vec_len_aligned) {
+  // f takes compile-time constants row_major and vec_len aligned and runs the
+  // corresponding cutlass launch code.
+  auto f = [&](auto row_major, auto vec_len_aligned) {
     // row_major and vec_len are std::integral_constants of type bool and int
     // respectively.
 
@@ -56,7 +58,11 @@ void pairwise_matrix_sm80_dispatch(OpT distance_op,
                                                                                       params.fin_op,
                                                                                       distance_op,
                                                                                       stream);
-  });
+  };
+
+  // Dispatch_layout calls f with appropriate compile time constants based on
+  // the runtime values of params.is_row_major and vec_len.
+  dispatch_layout(params.is_row_major, vec_len, f);
 }
 
 };  // namespace raft::distance::detail
