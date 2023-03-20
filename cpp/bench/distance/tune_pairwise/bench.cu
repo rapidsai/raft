@@ -109,21 +109,25 @@ struct throughput_bench : public fixture {
     auto out    = out_vec.data();
     FinOpT fin_op{};
 
-    auto make_params = raft::distance::detail::make_params<IdxT, DataT, OutT, FinOpT>;
-    pairwise_matrix_params kparams =
-      row_major ? make_params(m, n, k, x, y, x_norm, y_norm, out, fin_op, row_major)
-                : make_params(n, m, k, y, x, y_norm, x_norm, out, fin_op, row_major);
+    // Create kernel parameter struct. Flip x and y if column major.
+    IdxT ldx    = row_major ? k : m;
+    IdxT ldy    = row_major ? k : n;
+    IdxT ld_out = row_major ? n : m;
+
+    // Template parameters of pairwise_matrix_params are defined in kernel.cuh
+    pairwise_matrix_params kparams{
+      IdxT(m), IdxT(n), IdxT(k), ldx, ldy, ld_out, x, y, x_norm, y_norm, out, fin_op, row_major};
 
     // Run benchmark
     loop_on_state(state, [&]() { launch_kernel(distance_op, kparams, grid, stream); });
 
     // Report metrics. We don't report flop/s because we do not know for each
     // distance operation how many flops it costs. For L2_unexp and l1, we can
-    // double this number to get the flop/s. For l2 expanded, dist/s should
+    // double this number to get the flop/s. For l2 expanded, core_ops/s should
     // equal flop/s (modulo the sqrt and subtracting from the norm).
-    size_t num_dists  = m * n * k;
-    size_t read_elts  = n * k + m * k;
-    size_t write_elts = m * n;
+    size_t num_core_ops = m * n * k;
+    size_t read_elts    = n * k + m * k;
+    size_t write_elts   = m * n;
 
     state.counters["m"]         = benchmark::Counter(m);
     state.counters["n"]         = benchmark::Counter(n);
@@ -132,8 +136,9 @@ struct throughput_bench : public fixture {
     state.counters["# waves"]   = benchmark::Counter(p.num_waves);
     state.counters["# k iters"] = benchmark::Counter(p.num_k_iters);
 
-    state.counters["dist/s"] = benchmark::Counter(
-      num_dists, benchmark::Counter::kIsIterationInvariantRate, benchmark::Counter::OneK::kIs1000);
+    state.counters["core_ops/s"] = benchmark::Counter(num_core_ops,
+                                                      benchmark::Counter::kIsIterationInvariantRate,
+                                                      benchmark::Counter::OneK::kIs1000);
 
     state.counters["BW"] = benchmark::Counter(write_elts * sizeof(OutT) + read_elts * sizeof(DataT),
                                               benchmark::Counter::kIsIterationInvariantRate,
