@@ -16,25 +16,16 @@
 
 #include <raft/neighbors/ball_cover.cuh>
 #include <raft/neighbors/ball_cover_types.hpp>
-
-// Ignore upstream specializations to avoid unnecessary recompiling
-#ifdef RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
+#include <raft/neighbors/specializations.cuh>
 
 #include <cstdint>
 
 namespace raft::neighbors::ball_cover {
-template void all_knn_query<std::int64_t, float, std::uint32_t>(
+template class BallCoverIndex<int, float, std::uint32_t, std::uint32_t>;
+template class BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>;
+
+template void build_index<std::int64_t, float, std::uint32_t, std::uint32_t>(
   raft::device_resources const& handle,
-  BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
-  std::uint32_t k,
-  std::int64_t* inds,
-  float* dists,
-  bool perform_post_filtering,
-  float weight);
+  BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index);
 
 };  // namespace raft::neighbors::ball_cover
