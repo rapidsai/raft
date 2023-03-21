@@ -22,8 +22,9 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+
+#ifdef RAFT_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>

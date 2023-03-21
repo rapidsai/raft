@@ -31,7 +31,7 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  libraft-distance libraft-headers pylibraft raft-dask
+  libraft libraft-headers pylibraft raft-dask
 
 rapids-logger "Check GPU usage"
 nvidia-smi
