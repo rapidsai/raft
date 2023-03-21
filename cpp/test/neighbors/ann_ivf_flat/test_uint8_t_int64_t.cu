@@ -18,7 +18,7 @@
 
 #include "../ann_ivf_flat.cuh"
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

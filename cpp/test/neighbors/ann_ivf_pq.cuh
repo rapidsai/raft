@@ -27,7 +27,7 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
-#ifdef RAFT_DISTANCE_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
