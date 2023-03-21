@@ -27,11 +27,6 @@ project(test_raft LANGUAGES CXX CUDA)
 rapids_cpm_init()
 include(cmake/thirdparty/get_raft.cmake)
 
-# ----------- compile flags ------------------- #
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda --expt-relaxed-constexpr")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -std=c++17")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++17")
-
 # -------------- compile tasks ----------------- #
-add_executable(test_brute_force src/test_brute_force.cu)
-target_link_libraries(test_brute_force PRIVATE raft::raft raft::distance raft::nn)
+add_executable(test_raft src/test_distance.cu)
+target_link_libraries(test_raft PRIVATE raft::raft raft::compiled)

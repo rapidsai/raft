@@ -16,7 +16,7 @@ set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAPIDS_VERSION}")
 
 function(find_and_configure_raft)
-    set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARY ENABLE_MNMG_DEPENDENCIES)
+    set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARY ENABLE_NVTX ENABLE_MNMG_DEPENDENCIES)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
@@ -34,8 +34,8 @@ function(find_and_configure_raft)
     #-----------------------------------------------------
     rapids_cpm_find(raft ${PKG_VERSION}
             GLOBAL_TARGETS      raft::raft
-            BUILD_EXPORT_SET    faiss-exports
-            INSTALL_EXPORT_SET  faiss-exports
+            BUILD_EXPORT_SET    raft-template-exports
+            INSTALL_EXPORT_SET  raft-template-exports
             COMPONENTS          ${RAFT_COMPONENTS}
             CPM_ARGS
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
@@ -44,6 +44,7 @@ function(find_and_configure_raft)
             OPTIONS
             "BUILD_TESTS OFF"
             "BUILD_BENCH OFF"
+            "RAFT_NVTX   ${ENABLE_NVTX}"
             "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
             )
 endfunction()
@@ -56,4 +57,5 @@ find_and_configure_raft(VERSION  ${RAFT_VERSION}.00
         PINNED_TAG               ${RAFT_PINNED_TAG}
         COMPILE_LIBRARY          ON
         ENABLE_MNMG_DEPENDENCIES OFF
+        ENABLE_NVTX              OFF
 )
