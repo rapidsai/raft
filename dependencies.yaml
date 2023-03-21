@@ -173,8 +173,8 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - dask>=2023.1.1
-          - distributed>=2023.1.1
+          - dask<=2023.3.1
+          - distributed>=2023.3.1
           - ucx>=1.13.0
           - ucx-py=0.31.*
           - ucx-proc=*=gpu
