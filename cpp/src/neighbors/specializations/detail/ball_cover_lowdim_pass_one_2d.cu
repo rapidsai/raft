@@ -15,17 +15,15 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/detail/ball_cover/registers.cuh>
-
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
 
 namespace raft {
 namespace spatial {
 namespace knn {
 namespace detail {
 
-template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
+template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t>(
   raft::device_resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
@@ -37,7 +35,8 @@ template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
   std::int64_t* inds,
   float* dists,
   float weight,
-  std::uint32_t* post_dists_counter);
+  std::uint32_t* dists_counter);
+
 };  // namespace detail
 };  // namespace knn
 };  // namespace spatial

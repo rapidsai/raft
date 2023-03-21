@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>  // common::nvtx::range
 
+#include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
 #include <raft/core/device_resources.hpp>    // raft::device_resources
 #include <raft/core/operators.hpp>           // raft::sqrt
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
@@ -28,7 +29,7 @@
 // headers. This way, a small change in one of the kernel internals does not
 // trigger a rebuild of the test files (it of course still triggers a rebuild of
 // the raft specializations)
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft_runtime/distance/pairwise_distance.hpp>
 #else
 #include <raft/distance/distance.cuh>
@@ -448,7 +449,7 @@ void distanceLauncher(raft::device_resources const& handle,
                       DataType threshold,
                       DataType metric_arg = 2.0f)
 {
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
   // TODO: Implement and use mdspan-based
   // raft::runtime::distance::pairwise_distance here.
   //
@@ -572,7 +573,7 @@ class BigMatrixDistanceTest : public ::testing::Test {
                            float metric_arg);
     constexpr bool row_major   = true;
     constexpr float metric_arg = 0.0f;
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
     raft::runtime::distance::pairwise_distance(
       handle, x.data(), x.data(), dist.data(), m, n, k, distanceType, row_major, metric_arg);
 #else
