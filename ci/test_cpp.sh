@@ -26,7 +26,7 @@ rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  libraft-headers libraft-distance libraft-nn libraft-tests
+  libraft-headers libraft libraft-tests
 
 rapids-logger "Check GPU usage"
 nvidia-smi
