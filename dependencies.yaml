@@ -49,6 +49,14 @@ files:
       table: project
     includes:
       - run_pylibraft
+  py_test_pylibraft:
+    output: pyproject
+    pyproject_dir: python/pylibraft
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -211,7 +219,7 @@ dependencies:
           - dask-cuda=23.04
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - cupy
           - pytest
