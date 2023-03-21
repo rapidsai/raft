@@ -42,8 +42,8 @@ struct template_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
-  constexpr size_t shared_mem_size()
+  template <typename Policy>
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + TODO;
   }
@@ -59,6 +59,10 @@ struct template_distance_op {
   {
     TODO;
   }
+
+  // If exist, returns a cutlass op that performs the same operation.
+  // See cosine and l2_exp distance ops for an example.
+  constexpr l2_exp_cutlass_op<DataT, AccT> get_cutlass_op() const { TODO; }
 };
 
 }  // namespace raft::distance::detail::ops

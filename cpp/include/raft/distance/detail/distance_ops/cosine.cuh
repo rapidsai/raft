@@ -53,7 +53,7 @@ struct cosine_distance_op {
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size()
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
@@ -76,7 +76,7 @@ struct cosine_distance_op {
     }
   }
 
-  constexpr cosine_cutlass_op<DataT, AccT> get_cutlass_op()
+  constexpr cosine_cutlass_op<DataT, AccT> get_cutlass_op() const
   {
     return cosine_cutlass_op<DataT, AccT>();
   }

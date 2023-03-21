@@ -54,7 +54,7 @@ struct l2_exp_distance_op {
   using AccT  = AccType;
   using IdxT  = IdxType;
 
-  bool sqrt;
+  const bool sqrt;
 
   l2_exp_distance_op(bool sqrt_) noexcept : sqrt(sqrt_) {}
 
@@ -67,7 +67,7 @@ struct l2_exp_distance_op {
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size()
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + ((Policy::Mblk + Policy::Nblk) * sizeof(DataT));
   }
@@ -102,7 +102,7 @@ struct l2_exp_distance_op {
     }
   }
 
-  constexpr l2_exp_cutlass_op<DataT, AccT> get_cutlass_op()
+  constexpr l2_exp_cutlass_op<DataT, AccT> get_cutlass_op() const
   {
     return l2_exp_cutlass_op<DataT, AccT>(sqrt);
   }

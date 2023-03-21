@@ -37,9 +37,7 @@ constexpr auto sm_compat_range = arch::SM_range(arch::SM_min(), arch::SM_future(
 void launch_kernel(pairwise_matrix_params params, dim3 grid, cudaStream_t stream)
 {
   dim3 block(Policy::Nthreads);
-  // Use .template to disambiguate (See:
-  // https://en.cppreference.com/w/cpp/language/dependent_name)
-  int smem_size = distance_op.template shared_mem_size<Policy>();
+  int smem_size = OpT::shared_mem_size<Policy>();
 
   // Obtain function pointer to kernel
   auto kernel = raft::distance::detail::pairwise_matrix_kernel<Policy,
@@ -79,9 +77,7 @@ int get_max_occupancy()
 {
   void* kernel_ptr = get_kernel_ptr();
   int max_occupancy;
-  // Use .template to disambiguate (See:
-  // https://en.cppreference.com/w/cpp/language/dependent_name)
-  int smem_size = distance_op.template shared_mem_size<Policy>();
+  int smem_size = OpT::shared_mem_size<Policy>();
 
   RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
     &max_occupancy, kernel_ptr, Policy::Nthreads, smem_size));

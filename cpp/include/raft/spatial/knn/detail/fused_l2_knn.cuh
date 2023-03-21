@@ -226,7 +226,9 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
     [m, n, &distance_op, numOfNN, out_dists, out_inds, mutexes] __device__(IdxT gridStrideY) {
       if (gridDim.x == 1) { return; }
 
-      int smem_offset = distance_op.template shared_mem_size<Policy>();
+      // Use ::template to disambiguate (See:
+      // https://en.cppreference.com/w/cpp/language/dependent_name)
+      int smem_offset = OpT::template shared_mem_size<Policy>();
       Pair* shDumpKV  = (Pair*)(&smem[smem_offset]);
 
       const int lid     = threadIdx.x % warpSize;
@@ -345,7 +347,9 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x
       DataT * regyn,
       IdxT gridStrideX,
       IdxT gridStrideY) {
-      int smem_offset = distance_op.template shared_mem_size<Policy>();
+      // Use ::template to disambiguate (See:
+      // https://en.cppreference.com/w/cpp/language/dependent_name)
+      int smem_offset = OpT::template shared_mem_size<Policy>();
       Pair* shDumpKV  = (Pair*)(&smem[smem_offset]);
 
       constexpr uint32_t mask = 0xffffffffu;

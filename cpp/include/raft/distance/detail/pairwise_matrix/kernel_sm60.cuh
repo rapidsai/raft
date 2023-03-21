@@ -140,9 +140,9 @@ pairwise_matrix_sm60_wrapper<OpT, IdxT, DataT, OutT, FinOpT> make_pairwise_matri
   SM_compat_t sm_compat_range)
 {
   dim3 block(Policy::Nthreads);
-  // Use .template to disambiguate (See:
+  // Use ::template to disambiguate (See:
   // https://en.cppreference.com/w/cpp/language/dependent_name)
-  int smem_size = distance_op.template shared_mem_size<Policy>();
+  int smem_size = OpT::template shared_mem_size<Policy>();
   // Obtain function pointer to kernel
   auto kernel =
     pairwise_matrix_kernel<Policy, row_major, SM_compat_t, OpT, IdxT, DataT, OutT, FinOpT>;
