@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-#include <raft/core/device_mdspan.hpp>
+#include <cstdint>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/random/make_blobs.cuh>
+
+#ifdef RAFT_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
 
 int main()
 {
@@ -26,9 +31,9 @@ int main()
   int n_samples  = 5000;
   int n_features = 50;
 
-  auto input  = raft::make_device_matrix(handle, n_samples, n_features);
-  auto labels = raft::make_device_vector(handle, labels, n_samples);
-  auto output = raft::make_device_matrix(handle, output, n_samples, n_samples);
+  auto input  = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
+  auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+  auto output = raft::make_device_matrix<float, int>(handle, n_samples, n_samples);
 
   raft::random::make_blobs(handle, input.view(), labels.view());
 

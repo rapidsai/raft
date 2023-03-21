@@ -28,5 +28,5 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_raft.cmake)
 
 # -------------- compile tasks ----------------- #
-add_executable(test_raft src/test_distance.cu)
-target_link_libraries(test_raft PRIVATE raft::raft raft::compiled)
+add_executable(TEST_RAFT src/test_distance.cu)
+target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled)
