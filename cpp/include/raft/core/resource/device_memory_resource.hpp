@@ -29,19 +29,10 @@
 namespace raft::resource {
 class limited_memory_resource : public resource {
  public:
-  limited_memory_resource(rmm::mr::device_memory_resource* mr,
-                          std::optional<std::size_t> allocation_limit,
+  limited_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
+                          std::size_t allocation_limit,
                           std::optional<std::size_t> alignment)
-    : limited_memory_resource(mr, get_alloc_limit(allocation_limit), alignment)
-  {
-  }
-
-  template <class Deleter>
-  limited_memory_resource(rmm::mr::device_memory_resource* mr,
-                          Deleter d,
-                          std::optional<std::size_t> allocation_limit,
-                          std::optional<std::size_t> alignment)
-    : limited_memory_resource(mr, d, get_alloc_limit(allocation_limit), alignment)
+    : upstream_(mr), mr_(make_adaptor(mr, allocation_limit, alignment))
   {
   }
 
@@ -52,46 +43,6 @@ class limited_memory_resource : public resource {
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> upstream_;
   rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource> mr_;
-
-  limited_memory_resource(rmm::mr::device_memory_resource* mr,
-                          std::size_t allocation_limit,
-                          std::optional<std::size_t> alignment)
-    : upstream_{get_upstream(mr, allocation_limit)},
-      mr_(make_adaptor(upstream_, allocation_limit, alignment))
-  {
-  }
-
-  template <class Deleter>
-  limited_memory_resource(rmm::mr::device_memory_resource* mr,
-                          Deleter d,
-                          std::size_t allocation_limit,
-                          std::optional<std::size_t> alignment)
-    : upstream_{get_upstream(mr, allocation_limit), d},
-      mr_{make_adaptor(upstream_, allocation_limit, alignment)}
-  {
-  }
-
-  static inline auto get_upstream(rmm::mr::device_memory_resource* mr, std::size_t allocation_limit)
-    -> rmm::mr::device_memory_resource*
-  {
-    if (mr != nullptr) { return mr; }
-    // Create a pool memory resource by default
-    constexpr std::size_t kOneGb = 1024lu * 1024lu * 1024lu;
-    auto min_size                = std::min<std::size_t>(kOneGb, allocation_limit / 2);
-    auto max_size                = allocation_limit * 3lu / 2lu;
-    return new rmm::mr::pool_memory_resource(
-      rmm::mr::get_current_device_resource(), min_size, max_size);
-  }
-
-  static inline auto get_alloc_limit(std::optional<std::size_t> limit) -> std::size_t
-  {
-    if (limit.has_value()) { return limit.value(); }
-    // Allow a fraction of available memory by default.
-    std::size_t free_size{};
-    std::size_t total_size{};
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_size, &total_size));
-    return free_size / 2;
-  }
 
   static inline auto make_adaptor(std::shared_ptr<rmm::mr::device_memory_resource> upstream,
                                   std::size_t limit,
@@ -113,12 +64,16 @@ class limited_memory_resource : public resource {
  */
 class workspace_resource_factory : public resource_factory {
  public:
-  workspace_resource_factory(rmm::mr::device_memory_resource* mr,
-                             std::optional<std::size_t> allocation_limit,
-                             std::optional<std::size_t> alignment)
-    : mr_(mr), allocation_limit_(allocation_limit), alignment_(alignment)
+  explicit workspace_resource_factory(
+    std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr},
+    std::optional<std::size_t> allocation_limit         = std::nullopt,
+    std::optional<std::size_t> alignment                = std::nullopt)
+    : allocation_limit_(allocation_limit.value_or(default_allocation_limit())),
+      alignment_(alignment),
+      mr_(mr ? mr : default_memory_resource(allocation_limit_))
   {
   }
+
   auto get_resource_type() -> resource_type override { return resource_type::WORKSPACE_RESOURCE; }
   auto make_resource() -> resource* override
   {
@@ -126,9 +81,30 @@ class workspace_resource_factory : public resource_factory {
   }
 
  private:
-  rmm::mr::device_memory_resource* mr_;
-  std::optional<std::size_t> allocation_limit_;
+  std::size_t allocation_limit_;
   std::optional<std::size_t> alignment_;
+  std::shared_ptr<rmm::mr::device_memory_resource> mr_;
+
+  // Create a pool memory resource by default
+  static inline auto default_memory_resource(std::size_t limit)
+    -> std::shared_ptr<rmm::mr::device_memory_resource>
+  {
+    constexpr std::size_t kOneGb = 1024lu * 1024lu * 1024lu;
+    auto min_size                = std::min<std::size_t>(kOneGb, limit / 2);
+    auto max_size                = limit * 3lu / 2lu;
+    auto upstream                = rmm::mr::get_current_device_resource();
+    return std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
+      upstream, min_size, max_size);
+  }
+
+  // Allow a fraction of available memory by default.
+  static inline auto default_allocation_limit() -> std::size_t
+  {
+    std::size_t free_size{};
+    std::size_t total_size{};
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_size, &total_size));
+    return free_size / 2;
+  }
 };
 
 /**
@@ -141,8 +117,7 @@ inline auto get_workspace_resource(resources const& res)
   -> rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*
 {
   if (!res.has_resource_factory(resource_type::WORKSPACE_RESOURCE)) {
-    res.add_resource_factory(
-      std::make_shared<workspace_resource_factory>(nullptr, std::nullopt, std::nullopt));
+    res.add_resource_factory(std::make_shared<workspace_resource_factory>());
   }
   return res.get_resource<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>>(
     resource_type::WORKSPACE_RESOURCE);
@@ -155,11 +130,32 @@ inline auto get_workspace_resource(resources const& res)
  * @param mr a valid rmm device_memory_resource
  */
 inline void set_workspace_resource(resources const& res,
-                                   rmm::mr::device_memory_resource* mr         = nullptr,
+                                   std::shared_ptr<rmm::mr::device_memory_resource> mr = {nullptr},
                                    std::optional<std::size_t> allocation_limit = std::nullopt,
                                    std::optional<std::size_t> alignment        = std::nullopt)
 {
   res.add_resource_factory(
     std::make_shared<workspace_resource_factory>(mr, allocation_limit, alignment));
 };
+
+inline void set_workspace_resource(resources const& res,
+                                   rmm::mr::device_memory_resource* mr,
+                                   std::optional<std::size_t> allocation_limit = std::nullopt,
+                                   std::optional<std::size_t> alignment        = std::nullopt)
+{
+  set_workspace_resource(
+    res, std::shared_ptr<rmm::mr::device_memory_resource>{mr}, allocation_limit, alignment);
+};
+
+template <class Deleter>
+inline void set_workspace_resource(resources const& res,
+                                   rmm::mr::device_memory_resource* mr,
+                                   Deleter d,
+                                   std::optional<std::size_t> allocation_limit = std::nullopt,
+                                   std::optional<std::size_t> alignment        = std::nullopt)
+{
+  set_workspace_resource(
+    res, std::shared_ptr<rmm::mr::device_memory_resource>{mr, d}, allocation_limit, alignment);
+};
+
 }  // namespace raft::resource

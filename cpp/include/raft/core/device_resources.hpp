@@ -66,8 +66,7 @@ class device_resources : public resources {
     : resources{handle}
   {
     // replace the resource factory for the workspace_resources
-    resources::add_resource_factory(std::make_shared<resource::workspace_resource_factory>(
-      workspace_resource, allocation_limit, std::nullopt));
+    resource::set_workspace_resource(*this, workspace_resource, allocation_limit);
   }
 
   device_resources(const device_resources& handle) : resources{handle} {}
@@ -82,6 +81,8 @@ class device_resources : public resources {
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    * @param[in] workspace_resource an optional resource used by some functions for allocating
    *            temporary workspaces.
+   *            NB: the function takes the ownership of the resource; the semantics is the same
+   *            as if the pointer was passed to std::shared_ptr constructor.
    */
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
                    std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},
@@ -94,8 +95,7 @@ class device_resources : public resources {
       std::make_shared<resource::cuda_stream_resource_factory>(stream_view));
     resources::add_resource_factory(
       std::make_shared<resource::cuda_stream_pool_resource_factory>(stream_pool));
-    resources::add_resource_factory(std::make_shared<resource::workspace_resource_factory>(
-      workspace_resource, allocation_limit, std::nullopt));
+    resource::set_workspace_resource(*this, workspace_resource, allocation_limit);
   }
 
   /** Destroys all held-up resources */
