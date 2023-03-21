@@ -80,9 +80,9 @@ raft::device_resources handle;
 int n_samples = 5000;
 int n_features = 50;
 
-auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
-auto labels = raft::make_device_vector<int>(handle, n_samples);
-auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
+auto input = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
+auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+auto output = raft::make_device_matrix<float, int>(handle, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input.view(), labels.view());
 
@@ -217,52 +217,11 @@ pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
 
 ### CMake & CPM
 
-RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM.
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it easy to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM. Please refer to [these instructions](https://github.com/rapidsai/rapids-cmake#installation) to install and use rapids-cmake in your project.
 
-After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
+You can find an [example RAFT](cpp/template/README.md) project template in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing cmake project.
 
-```cmake
-
-set(RAFT_VERSION "22.12")
-set(RAFT_FORK "rapidsai")
-set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
-
-function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
-  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                            "${multiValueArgs}" ${ARGN} )
-
-  #-----------------------------------------------------
-  # Invoke CPM find_package()
-  #-----------------------------------------------------
-
-  rapids_cpm_find(raft ${PKG_VERSION}
-          GLOBAL_TARGETS      raft::raft
-          BUILD_EXPORT_SET    projname-exports
-          INSTALL_EXPORT_SET  projname-exports
-          CPM_ARGS
-          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-          GIT_TAG        ${PKG_PINNED_TAG}
-          SOURCE_SUBDIR  cpp
-          OPTIONS
-          "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
-          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
-  )
-
-endfunction()
-
-# Change pinned tag here to test a commit in CI
-# To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             ${RAFT_FORK}
-        PINNED_TAG       ${RAFT_PINNED_TAG}
-        COMPILE_LIBRARIES      NO
-)
-```
-
-Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
+Additional cmake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
 | Component   | Target              | Description                                               | Base Dependencies                     |
 |-------------|---------------------|-----------------------------------------------------------|---------------------------------------|

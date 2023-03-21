@@ -13,6 +13,8 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
+# ------------- configure rapids-cmake --------------#
+
 include(cmake/thirdparty/fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -20,9 +22,13 @@ include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
+# ------------- configure project --------------#
+
 rapids_cuda_init_architectures(test_raft)
 
 project(test_raft LANGUAGES CXX CUDA)
+
+# ------------- configure raft -----------------#
 
 rapids_cpm_init()
 include(cmake/thirdparty/get_raft.cmake)
