@@ -23,9 +23,12 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/operators.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+
+#include <memory>
 
 namespace raft::neighbors::ivf_pq {
 
@@ -348,7 +351,7 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  if (mr != nullptr) { raft::resource::set_workspace_resource(handle, mr); }
+  if (mr != nullptr) { resource::set_workspace_resource(handle, mr); }
   return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances);
 }
 

@@ -81,8 +81,8 @@ class device_resources : public resources {
    * @param[in] stream_pool the stream pool used (which has default of nullptr if unspecified)
    * @param[in] workspace_resource an optional resource used by some functions for allocating
    *            temporary workspaces.
-   *            NB: the function takes the ownership of the resource; the semantics is the same
-   *            as if the pointer was passed to std::shared_ptr constructor.
+   * @param[in] allocation_limit the total amount of memory in bytes available to the temporary
+   *            workspace resources.
    */
   device_resources(rmm::cuda_stream_view stream_view                  = rmm::cuda_stream_per_thread,
                    std::shared_ptr<rmm::cuda_stream_pool> stream_pool = {nullptr},

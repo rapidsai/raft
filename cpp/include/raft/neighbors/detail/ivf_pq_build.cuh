@@ -442,9 +442,6 @@ void train_per_subset(raft::device_resources const& handle,
                  index.pq_len(),
                  stream);
 
-    // clone the handle and attached the device memory resource to it
-    const device_resources new_handle(handle, device_memory);
-
     // train PQ codebook for this subspace
     auto sub_trainset_view =
       raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), n_rows, index.pq_len());
@@ -458,7 +455,7 @@ void train_per_subset(raft::device_resources const& handle,
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
-    raft::cluster::kmeans_balanced::helpers::build_clusters(new_handle,
+    raft::cluster::kmeans_balanced::helpers::build_clusters(handle,
                                                             kmeans_params,
                                                             sub_trainset_view,
                                                             centers_tmp_view,
@@ -523,9 +520,6 @@ void train_per_cluster(raft::device_resources const& handle,
                      indices + cluster_offsets[l],
                      device_memory);
 
-    // clone the handle and attached the device memory resource to it
-    const device_resources new_handle(handle, device_memory);
-
     // limit the cluster size to bound the training time.
     // [sic] we interpret the data as pq_len-dimensional
     size_t big_enough     = 256ul * std::max<size_t>(index.pq_book_size(), index.pq_dim());
@@ -546,7 +540,7 @@ void train_per_cluster(raft::device_resources const& handle,
     raft::cluster::kmeans_balanced_params kmeans_params;
     kmeans_params.n_iters = kmeans_n_iters;
     kmeans_params.metric  = raft::distance::DistanceType::L2Expanded;
-    raft::cluster::kmeans_balanced::helpers::build_clusters(new_handle,
+    raft::cluster::kmeans_balanced::helpers::build_clusters(handle,
                                                             kmeans_params,
                                                             rot_vectors_view,
                                                             centers_tmp_view,
