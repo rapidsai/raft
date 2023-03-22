@@ -422,7 +422,13 @@ def _func_ucp_listener_port():
 
 
 async def _func_init_all(
-    sessionId, uniqueId, comms_p2p, worker_info, verbose, streams_per_handle, dask_worker=None
+    sessionId,
+    uniqueId,
+    comms_p2p,
+    worker_info,
+    verbose,
+    streams_per_handle,
+    dask_worker=None,
 ):
     raft_comm_state = get_raft_comm_state(
         sessionId=sessionId, state_object=dask_worker
@@ -445,11 +451,15 @@ async def _func_init_all(
 
     if comms_p2p:
         if verbose:
-            dask_worker.log_event(topic="info", msg="Initializing UCX Endpoints")
+            dask_worker.log_event(
+                topic="info", msg="Initializing UCX Endpoints"
+            )
 
         if verbose:
             start = time.time()
-        await _func_ucp_create_endpoints(sessionId, worker_info, dask_worker=dask_worker)
+        await _func_ucp_create_endpoints(
+            sessionId, worker_info, dask_worker=dask_worker
+        )
 
         if verbose:
             elapsed = time.time() - start
@@ -465,7 +475,9 @@ async def _func_init_all(
             dask_worker.log_event(topic="info", msg="Done building handle.")
 
     else:
-        _func_build_handle(sessionId, streams_per_handle, verbose, dask_worker=dask_worker)
+        _func_build_handle(
+            sessionId, streams_per_handle, verbose, dask_worker=dask_worker
+        )
 
 
 def _func_init_nccl(sessionId, uniqueId, dask_worker=None):
@@ -501,7 +513,9 @@ def _func_init_nccl(sessionId, uniqueId, dask_worker=None):
         raise
 
 
-def _func_build_handle_p2p(sessionId, streams_per_handle, verbose, dask_worker=None):
+def _func_build_handle_p2p(
+    sessionId, streams_per_handle, verbose, dask_worker=None
+):
     """
     Builds a handle_t on the current worker given the initialized comms
 
@@ -543,7 +557,9 @@ def _func_build_handle_p2p(sessionId, streams_per_handle, verbose, dask_worker=N
     raft_comm_state["handle"] = handle
 
 
-def _func_build_handle(sessionId, streams_per_handle, verbose, dask_worker=None):
+def _func_build_handle(
+    sessionId, streams_per_handle, verbose, dask_worker=None
+):
     """
     Builds a handle_t on the current worker given the initialized comms
 
@@ -577,7 +593,9 @@ def _func_build_handle(sessionId, streams_per_handle, verbose, dask_worker=None)
     raft_comm_state["handle"] = handle
 
 
-def _func_store_initial_state(nworkers, sessionId, uniqueId, wid, dask_worker=None):
+def _func_store_initial_state(
+    nworkers, sessionId, uniqueId, wid, dask_worker=None
+):
     raft_comm_state = get_raft_comm_state(
         sessionId=sessionId, state_object=dask_worker
     )
@@ -617,9 +635,13 @@ async def _func_ucp_create_endpoints(sessionId, worker_info, dask_worker):
     raft_comm_state["ucp_eps"] = eps
 
 
-async def _func_destroy_all(sessionId, comms_p2p, verbose=False, dask_worker=None):
+async def _func_destroy_all(
+    sessionId, comms_p2p, verbose=False, dask_worker=None
+):
     if verbose:
-        dask_worker.log_event(topic="info", msg="Destroying NCCL session state.")
+        dask_worker.log_event(
+            topic="info", msg="Destroying NCCL session state."
+        )
 
     raft_comm_state = get_raft_comm_state(
         sessionId=sessionId, state_object=dask_worker
@@ -628,7 +650,9 @@ async def _func_destroy_all(sessionId, comms_p2p, verbose=False, dask_worker=Non
         raft_comm_state["nccl"].destroy()
         del raft_comm_state["nccl"]
         if verbose:
-            dask_worker.log_event(topic="info", msg="NCCL session state destroyed.")
+            dask_worker.log_event(
+                topic="info", msg="NCCL session state destroyed."
+            )
     else:
         if verbose:
             dask_worker.log_event(
