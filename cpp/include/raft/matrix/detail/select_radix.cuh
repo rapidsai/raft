@@ -32,6 +32,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
 
 namespace raft::matrix::detail::select::radix {
 

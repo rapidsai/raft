@@ -31,6 +31,7 @@ from rmm._lib.memory_resource cimport device_memory_resource
 
 from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.optional cimport optional
 from pylibraft.distance.distance_type cimport DistanceType
 
 
@@ -124,28 +125,27 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
 
     cdef void extend(
         const device_resources& handle,
-        index[int64_t]* index,
         device_matrix_view[float, int64_t, row_major] new_vectors,
-        device_matrix_view[int64_t, int64_t, row_major] new_indices) except +
+        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        index[int64_t]* index) except +
 
     cdef void extend(
         const device_resources& handle,
-        index[int64_t]* index,
         device_matrix_view[int8_t, int64_t, row_major] new_vectors,
-        device_matrix_view[int64_t, int64_t, row_major] new_indices) except +
+        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        index[int64_t]* index) except +
 
     cdef void extend(
         const device_resources& handle,
-        index[int64_t]* index,
         device_matrix_view[uint8_t, int64_t, row_major] new_vectors,
-        device_matrix_view[int64_t, int64_t, row_major] new_indices) except +
+        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        index[int64_t]* index) except +
 
     cdef void search(
         const device_resources& handle,
         const search_params& params,
         const index[int64_t]& index,
         device_matrix_view[float, int64_t, row_major] queries,
-        uint32_t k,
         device_matrix_view[int64_t, int64_t, row_major] neighbors,
         device_matrix_view[float, int64_t, row_major] distances) except +
 
@@ -154,7 +154,6 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
         const search_params& params,
         const index[int64_t]& index,
         device_matrix_view[int8_t, int64_t, row_major] queries,
-        uint32_t k,
         device_matrix_view[int64_t, int64_t, row_major] neighbors,
         device_matrix_view[float, int64_t, row_major] distances) except +
 
@@ -163,7 +162,6 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
         const search_params& params,
         const index[int64_t]& index,
         device_matrix_view[uint8_t, int64_t, row_major] queries,
-        uint32_t k,
         device_matrix_view[int64_t, int64_t, row_major] neighbors,
         device_matrix_view[float, int64_t, row_major] distances) except +
 

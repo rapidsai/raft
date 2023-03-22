@@ -27,9 +27,10 @@ def exclude_libcxx_symlink(cmake_manifest):
     )
 
 
+packages = find_packages(include=["raft_dask*"])
 setup(
-    include_package_data=True,
     cmake_process_manifest_hook=exclude_libcxx_symlink,
-    packages=find_packages(include=["raft_dask", "raft_dask.*"]),
+    packages=packages,
+    package_data={key: ["*.pxd"] for key in packages},
     zip_safe=False,
 )
