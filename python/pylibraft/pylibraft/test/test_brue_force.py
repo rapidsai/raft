@@ -74,9 +74,17 @@ def test_knn(
     s2 = Stream()
     handle = DeviceResources(stream=s2)
     ret_distances, ret_indices = knn(
-        index_device, queries_device, k, metric=metric, handle=handle
+        index_device,
+        queries_device,
+        k,
+        indices=indices_device,
+        distances=distances_device,
+        metric=metric,
+        handle=handle,
     )
     handle.sync()
+
+    pw_dists = cdist(queries, index, metric=metric)
 
     indices_device = ret_indices if not inplace else indices_device
     distances_device = ret_distances if not inplace else distances_device
@@ -86,8 +94,14 @@ def test_knn(
 
     actual_distances[actual_distances <= 1e-5] = 0.0
 
-    print(str(actual_indices))
+    argsort = np.argsort(pw_dists, axis=1)
 
-    print(str(actual_distances))
-
-    # assert np.allclose(expected, actual, rtol=1e-4)
+    for i in range(pw_dists.shape[0]):
+        expected_indices = argsort[i]
+        cpu_ordered = pw_dists[i, expected_indices]
+        np.testing.assert_allclose(
+            cpu_ordered[:k], actual_distances[i], atol=1e-4, rtol=1e-4
+        )
+        np.testing.assert_allclose(
+            expected_indices, actual_indices[i], atol=1e-1, rtol=1e-1
+        )
