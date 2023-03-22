@@ -24,13 +24,8 @@
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
-#endif
-
-#if defined RAFT_NN_COMPILED
-// TODO: Legacy. Remove when FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
