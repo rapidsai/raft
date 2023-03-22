@@ -417,8 +417,8 @@ def _func_set_worker_as_nccl_root(sessionId, verbose, dask_worker=None):
     return nccl_uid
 
 
-def _func_ucp_listener_port():
-    return get_ucx().listener_port()
+def _func_ucp_listener_port(dask_worker=None):
+    return get_ucx(dask_worker=dask_worker).listener_port()
 
 
 async def _func_init_all(
@@ -469,7 +469,7 @@ async def _func_init_all(
             )
             dask_worker.log_event(topic="info", msg=msg)
 
-        _func_build_handle_p2p(sessionId, streams_per_handle, verbose)
+        _func_build_handle_p2p(sessionId, streams_per_handle, verbose, dask_worker=dask_worker)
 
         if verbose:
             dask_worker.log_event(topic="info", msg="Done building handle.")
@@ -624,7 +624,7 @@ async def _func_ucp_create_endpoints(sessionId, worker_info, dask_worker):
     for k in worker_info:
         ip, port = parse_host_port(k)
 
-        ep = await get_ucx().get_endpoint(ip, worker_info[k]["port"])
+        ep = await get_ucx(dask_worker=dask_worker).get_endpoint(ip, worker_info[k]["port"])
 
         eps[worker_info[k]["rank"]] = ep
         count += 1
