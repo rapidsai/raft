@@ -47,7 +47,9 @@ using namespace raft::spatial::knn;
  * Calculates brute force knn, using a fixed memory budget
  * by tiling over both the rows and columns of pairwise_distances
  */
-template <typename ElementType = float, typename IndexType = int64_t>
+template <typename ElementType    = float,
+          typename IndexType      = int64_t,
+          typename PostDistanceOp = raft::identity_op>
 void tiled_brute_force_knn(const raft::device_resources& handle,
                            const ElementType* search,  // size (m ,d)
                            const ElementType* index,   // size (n ,d)
@@ -58,9 +60,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                            ElementType* distances,  // size (m, k)
                            IndexType* indices,      // size (m, k)
                            raft::distance::DistanceType metric,
-                           float metric_arg         = 0.0,
-                           size_t max_row_tile_size = 0,
-                           size_t max_col_tile_size = 0)
+                           float metric_arg                = 0.0,
+                           size_t max_row_tile_size        = 0,
+                           size_t max_col_tile_size        = 0,
+                           PostDistanceOp post_distance_op = raft::identity_op())
 {
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
@@ -172,6 +175,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
             return val;
           });
       }
+
+      post_distance_op(temp_distances.data(), i, j, current_query_size, current_centroid_size);
 
       select_k<IndexType, ElementType>(temp_distances.data(),
                                        nullptr,
