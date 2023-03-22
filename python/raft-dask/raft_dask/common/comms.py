@@ -469,7 +469,9 @@ async def _func_init_all(
             )
             dask_worker.log_event(topic="info", msg=msg)
 
-        _func_build_handle_p2p(sessionId, streams_per_handle, verbose, dask_worker=dask_worker)
+        _func_build_handle_p2p(
+            sessionId, streams_per_handle, verbose, dask_worker=dask_worker
+        )
 
         if verbose:
             dask_worker.log_event(topic="info", msg="Done building handle.")
@@ -624,7 +626,9 @@ async def _func_ucp_create_endpoints(sessionId, worker_info, dask_worker):
     for k in worker_info:
         ip, port = parse_host_port(k)
 
-        ep = await get_ucx(dask_worker=dask_worker).get_endpoint(ip, worker_info[k]["port"])
+        ep = await get_ucx(dask_worker=dask_worker).get_endpoint(
+            ip, worker_info[k]["port"]
+        )
 
         eps[worker_info[k]["rank"]] = ep
         count += 1
