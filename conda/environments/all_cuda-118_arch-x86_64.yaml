@@ -36,7 +36,7 @@ dependencies:
 - libcusparse=11.7.5.86
 - ninja
 - numba>=0.49
-- numpy
+- numpy>=1.21
 - numpydoc
 - pydata-sphinx-theme
 - pytest
