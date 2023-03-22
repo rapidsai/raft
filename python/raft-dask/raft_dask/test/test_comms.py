@@ -114,11 +114,9 @@ def func_check_uid_on_scheduler(sessionId, uniqueId, dask_scheduler):
     )
 
 
-def func_check_uid_on_worker(sessionId, uniqueId):
-    from dask.distributed import get_worker
-
+def func_check_uid_on_worker(sessionId, uniqueId, dask_worker=None):
     return func_check_uid(
-        sessionId=sessionId, uniqueId=uniqueId, state_object=get_worker()
+        sessionId=sessionId, uniqueId=uniqueId, state_object=dask_worker
     )
 
 
