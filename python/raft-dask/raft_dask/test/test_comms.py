@@ -17,7 +17,7 @@ from collections import OrderedDict
 
 import pytest
 
-from dask.distributed import Client, wait
+from dask.distributed import Client, get_worker, wait
 
 try:
     from raft_dask.common import (
@@ -60,32 +60,32 @@ def test_comms_init_no_p2p(cluster):
 
 
 def func_test_collective(func, sessionId, root):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return func(handle, root)
 
 
 def func_test_send_recv(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comms_send_recv(handle, n_trials)
 
 
 def func_test_device_send_or_recv(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comms_device_send_or_recv(handle, n_trials)
 
 
 def func_test_device_sendrecv(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comms_device_sendrecv(handle, n_trials)
 
 
 def func_test_device_multicast_sendrecv(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comms_device_multicast_sendrecv(handle, n_trials)
 
 
 def func_test_comm_split(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comm_split(handle, n_trials)
 
 
@@ -125,7 +125,7 @@ def test_handles(cluster):
     client = Client(cluster)
 
     def _has_handle(sessionId):
-        return local_handle(sessionId) is not None
+        return local_handle(sessionId, dask_worker=get_worker()) is not None
 
     try:
         cb = Comms(verbose=True)
