@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -96,6 +96,7 @@ DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.common))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.distance))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.brute_force))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.random))
 
 

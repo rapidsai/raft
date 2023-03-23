@@ -112,7 +112,7 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import ivf_pq, refine
+    >>> from pylibraft.neighbors.brute_force import knn
 
     >>> n_samples = 50000
     >>> n_features = 50
@@ -127,9 +127,6 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     >>> distances, neighbors = knn(dataset, queries, k)
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
-
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
     """
 
     if handle is None:
