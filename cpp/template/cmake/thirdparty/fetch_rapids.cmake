@@ -11,6 +11,7 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 
+# Use this variable to update RAPIDS and RAFT versions
 set(RAPIDS_VERSION "23.04")
 
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
