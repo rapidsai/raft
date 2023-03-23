@@ -358,6 +358,12 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
+    # get the current count before the compile starts
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v sccache)" ]]; then
+        # zero the sccache statistics
+        sccache --zero-stats
+    fi
+
     mkdir -p ${LIBRAFT_BUILD_DIR}
     cd ${LIBRAFT_BUILD_DIR}
     cmake -S ${REPODIR}/cpp -B ${LIBRAFT_BUILD_DIR} \
@@ -373,6 +379,18 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
+
+  compile_start=$(date +%s)
+  if [[ ${CMAKE_TARGET} != "" ]]; then
+      echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
+      if [[ ${INSTALL_TARGET} != "" ]]; then
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
+      else
+        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
+      fi
+  fi
+  compile_end=$(date +%s)
+  compile_total=$(( compile_end - compile_start ))
 
   if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
       if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
@@ -402,15 +420,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
       echo "$MSG" > "${MSG_OUTFILE}"
       PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
       cp ${LIBRAFT_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
-  fi
-
-  if [[ ${CMAKE_TARGET} != "" ]]; then
-      echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
-      if [[ ${INSTALL_TARGET} != "" ]]; then
-        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET} ${INSTALL_TARGET}
-      else
-        cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
-      fi
   fi
 fi
 
