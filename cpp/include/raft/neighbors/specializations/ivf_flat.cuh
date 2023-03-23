@@ -20,6 +20,13 @@
 
 namespace raft::neighbors::ivf_flat {
 
+// greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
+// function is used in both raft::neighbors::ivf_flat::search and
+// raft::neighbors::detail::refine_device. To prevent a duplicate instantiation
+// of this function (which defines ~270 kernels) in the refine specializations,
+// an extern template definition is provided here. Please check related function
+// calls after editing template definition below. Search for
+// `greppable-id-specializations-ivf-flat-search` to find them.
 #define RAFT_INST(T, IdxT)                                                               \
   extern template auto build(raft::device_resources const& handle,                       \
                              const index_params& params,                                 \
