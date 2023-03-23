@@ -265,7 +265,7 @@ When the needed [build dependencies](#build-dependencies) are already satisfied,
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-23.04
+  GIT_TAG           branch-23.06
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -297,7 +297,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "23.04")
+set(RAFT_VERSION "23.06")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
