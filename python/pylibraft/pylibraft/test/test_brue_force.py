@@ -28,13 +28,13 @@ from pylibraft.neighbors.brute_force import knn
 @pytest.mark.parametrize(
     "metric",
     [
-        # "euclidean",
-        # "cityblock",
-        # "chebyshev",
-        # "canberra",
-        # "correlation",
-        # "russellrao",
-        # "cosine",
+        "euclidean",
+        "cityblock",
+        "chebyshev",
+        "canberra",
+        "correlation",
+        "russellrao",
+        "cosine",
         "sqeuclidean",
         # "inner_product",
     ],
@@ -103,5 +103,8 @@ def test_knn(
             cpu_ordered[:k], actual_distances[i], atol=1e-4, rtol=1e-4
         )
         np.testing.assert_allclose(
-            expected_indices[:k], actual_indices[i], atol=1e-1, rtol=1e-1
+            np.sort(expected_indices[:k]),
+            np.sort(actual_indices[i]),
+            atol=1e-1,
+            rtol=1e-1,
         )
