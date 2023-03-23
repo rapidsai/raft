@@ -18,7 +18,7 @@
 #include <cassert>
 #include <memory>
 #include <raft/distance/detail/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <stdexcept>
 #include <string>

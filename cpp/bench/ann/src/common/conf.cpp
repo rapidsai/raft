@@ -66,6 +66,21 @@ void Configuration::parse_dataset_(const nlohmann::json& conf)
     dataset_conf_.subset_first_row = conf.at("subset_first_row");
   }
   if (conf.contains("subset_size")) { dataset_conf_.subset_size = conf.at("subset_size"); }
+
+  if (conf.contains("dtype")) {
+    dataset_conf_.dtype = conf.at("dtype");
+  } else {
+    auto filename = dataset_conf_.base_file;
+    if (!filename.compare(filename.size() - 4, 4, "fbin")) {
+      dataset_conf_.dtype = "float";
+    } else if (!filename.compare(filename.size() - 5, 5, "u8bin")) {
+      dataset_conf_.dtype = "uint8";
+    } else if (!filename.compare(filename.size() - 5, 5, "i8bin")) {
+      dataset_conf_.dtype = "int8";
+    } else {
+      log_error("Could not determine data type of the dataset");
+    }
+  }
 }
 
 void Configuration::parse_index_(const nlohmann::json& index_conf,

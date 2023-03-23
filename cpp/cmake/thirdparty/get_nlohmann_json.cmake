@@ -21,8 +21,8 @@ function(find_and_configure_nlohmann_json)
 
     rapids_cpm_find(nlohmann_json ${PKG_VERSION}
             GLOBAL_TARGETS      nlohmann_json::nlohmann_json
-            BUILD_EXPORT_SET    cuann_bench-exports
-            INSTALL_EXPORT_SET  cuann_bench-exports
+            BUILD_EXPORT_SET    raft-bench-ann-exports
+            INSTALL_EXPORT_SET  raft-bench-ann-exports
             CPM_ARGS
             GIT_REPOSITORY         https://github.com/${PKG_FORK}/json.git
             GIT_TAG                ${PKG_PINNED_TAG}

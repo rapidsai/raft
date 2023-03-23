@@ -45,9 +45,6 @@ using std::vector;
 
 namespace raft::bench::ann {
 
-// supported types: float, half (very few implementations support it), uint8_t, int8_t
-using data_t = float;
-
 inline bool check_file_exist(const std::vector<string>& files)
 {
   bool ret = true;
@@ -485,6 +482,52 @@ inline const std::string usage(const string& argv0)
          "       for example, -i \"hnsw1,hnsw2,faiss\" or -i \"hnsw*,faiss\"";
 }
 
+template <typename T>
+inline int dispatch_benchmark(Configuration& conf,
+                              std::string& index_patterns,
+                              bool force_overwrite,
+                              bool only_check,
+                              bool build_mode,
+                              bool search_mode)
+{
+  try {
+    auto dataset_conf = conf.get_dataset_conf();
+
+    BinDataset<T> dataset(dataset_conf.name,
+                          dataset_conf.base_file,
+                          dataset_conf.subset_first_row,
+                          dataset_conf.subset_size,
+                          dataset_conf.query_file,
+                          dataset_conf.distance);
+
+    vector<Configuration::Index> indices = conf.get_indices(index_patterns);
+    if (!check(indices, build_mode, force_overwrite)) { return -1; }
+
+    std::string message = "will ";
+    message += build_mode ? "build:" : "search:";
+    for (const auto& index : indices) {
+      message += "\n  " + index.name;
+    }
+    log_info("%s", message.c_str());
+
+    if (only_check) {
+      log_info("%s", "all check passed, quit due to option -c");
+      return 0;
+    }
+
+    if (build_mode) {
+      build(&dataset, indices);
+    } else if (search_mode) {
+      search(&dataset, indices);
+    }
+  } catch (const std::exception& e) {
+    log_error("exception occurred: %s", e.what());
+    return -1;
+  }
+
+  return 0;
+}
+
 inline int run_main(int argc, char** argv)
 {
   bool force_overwrite = false;
@@ -523,37 +566,23 @@ inline int run_main(int argc, char** argv)
 
   try {
     Configuration conf(conf_stream);
+    std::string dtype = conf.get_dataset_conf().dtype;
 
-    auto dataset_conf = conf.get_dataset_conf();
-    BinDataset<data_t> dataset(dataset_conf.name,
-                               dataset_conf.base_file,
-                               dataset_conf.subset_first_row,
-                               dataset_conf.subset_size,
-                               dataset_conf.query_file,
-                               dataset_conf.distance);
-
-    vector<Configuration::Index> indices = conf.get_indices(index_patterns);
-    if (!check(indices, build_mode, force_overwrite)) { return -1; }
-
-    std::string message = "will ";
-    message += build_mode ? "build:" : "search:";
-    for (const auto& index : indices) {
-      message += "\n  " + index.name;
-    }
-    log_info("%s", message.c_str());
-
-    if (only_check) {
-      log_info("%s", "all check passed, quit due to option -c");
-      return 0;
+    if (dtype == "float") {
+      dispatch_benchmark<float>(
+        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
+    } else if (dtype == "uint8") {
+      dispatch_benchmark<std::uint8_t>(
+        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
+    } else if (dtype == "int8") {
+      dispatch_benchmark<std::int8_t>(
+        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
+    } else {
+      log_error("datatype %s not supported", dtype);
     }
 
-    if (build_mode) {
-      build(&dataset, indices);
-    } else if (search_mode) {
-      search(&dataset, indices);
-    }
   } catch (const std::exception& e) {
-    log_error("exception occurs: %s", e.what());
+    log_error("exception occurred: %s", e.what());
     return -1;
   }
 

@@ -23,11 +23,10 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/detail/distance.cuh>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/spatial/knn/detail/ivf_flat_build.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -119,14 +118,14 @@ void RaftIvfFlatGpu<T, IdxT>::set_search_param(const AnnSearchParam& param)
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::save(const std::string& file) const
 {
-  raft::spatial::knn::ivf_flat::detail::serialize(handle_, file, *index_);
+  raft::neighbors::ivf_flat::serialize(handle_, file, *index_);
   return;
 }
 
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::load(const std::string& file)
 {
-  index_ = raft::spatial::knn::ivf_flat::detail::deserialize<T, IdxT>(handle_, file);
+  index_ = raft::neighbors::ivf_flat::deserialize<T, IdxT>(handle_, file);
   return;
 }
 

@@ -56,19 +56,19 @@ if(RAFT_ANN_BENCH_USE_FAISS)
   include(cmake/thirdparty/get_faiss.cmake)
 endif()
 
-function(ConfigureCuannBench)
+function(ConfigureAnnBench)
 
   set(oneValueArgs NAME)
   set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
 
   cmake_parse_arguments(
-    ConfigureCuannBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
+    ConfigureAnnBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
   )
 
-  set(BENCH_NAME ${ConfigureCuannBench_NAME}_ANN_BENCH)
+  set(BENCH_NAME ${ConfigureAnnBench_NAME}_ANN_BENCH)
 
   add_executable(
-    ${BENCH_NAME} ${ConfigureCuannBench_PATH} bench/ann/src/common/conf.cpp
+    ${BENCH_NAME} ${ConfigureAnnBench_PATH} bench/ann/src/common/conf.cpp
                   bench/ann/src/common/util.cpp
   )
   target_link_libraries(
@@ -76,7 +76,7 @@ function(ConfigureCuannBench)
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
             $<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>
-            ${ConfigureCuannBench_LINKS}
+            ${ConfigureAnnBench_LINKS}
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
@@ -94,25 +94,25 @@ function(ConfigureCuannBench)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  set(${ConfigureCuannBench_CXXFLAGS} ${RAFT_CXX_FLAGS} ${ConfigureCuannBench_CXXFLAGS})
+  set(${ConfigureAnnBench_CXXFLAGS} ${RAFT_CXX_FLAGS} ${ConfigureAnnBench_CXXFLAGS})
 
   target_compile_options(
-    ${BENCH_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${ConfigureCuannBench_CXXFLAGS}>"
+    ${BENCH_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${ConfigureAnnBench_CXXFLAGS}>"
                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  if(RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME})
+  if(RAFT_ANN_BENCH_USE_${ConfigureAnnBench_NAME})
     target_compile_definitions(
       ${BENCH_NAME}
       PUBLIC
-        RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME}=RAFT_ANN_BENCH_USE_${ConfigureCuannBench_NAME}
+        RAFT_ANN_BENCH_USE_${ConfigureAnnBench_NAME}=RAFT_ANN_BENCH_USE_${ConfigureAnnBench_NAME}
     )
   endif()
 
   target_include_directories(
     ${BENCH_NAME}
     PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>"
-    PRIVATE ${ConfigureCuannBench_INCLUDES}
+    PRIVATE ${ConfigureAnnBench_INCLUDES}
   )
 
   install(
@@ -124,14 +124,14 @@ function(ConfigureCuannBench)
 endfunction()
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
-  ConfigureCuannBench(
+  ConfigureAnnBench(
     NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS -mavx
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_RAFT)
-  ConfigureCuannBench(
+  ConfigureAnnBench(
     NAME
     RAFT_IVF_PQ
     PATH
@@ -139,20 +139,19 @@ if(RAFT_ANN_BENCH_USE_RAFT)
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft/raft_ivf_pq.cu>
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft/raft_ivf_flat.cu>
     LINKS
-    raft::distance
-    raft::nn
+    raft::compiled
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  ConfigureCuannBench(
+  ConfigureAnnBench(
     NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
   include(cmake/thirdparty/get_glog.cmake)
-  ConfigureCuannBench(
+  ConfigureAnnBench(
     NAME GGNN PATH bench/ann/src/ggnn/ggnn_benchmark.cu INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/ggnn-src/include LINKS glog::glog
   )

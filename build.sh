@@ -315,13 +315,7 @@ fi
 if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     BUILD_ANN_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
-
-    # Force compile nn library when needed benchmark targets are specified
-    if [[ $CMAKE_TARGET == *"_RAFT_"* ]]; then
-      ENABLE_NN_DEPENDENCIES=ON
-      COMPILE_DIST_LIBRARY=ON
-      COMPILE_NN_LIBRARY=ON
-    fi
+    COMPILE_LIBRARY=ON
 fi
 
 if hasArg --no-nvtx; then

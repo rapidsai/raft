@@ -22,6 +22,10 @@
 #include <type_traits>
 #include <utility>
 
+#ifdef RAFT_COMPILED
+#include <raft/neighbors/specializations.cuh>
+#endif
+
 #include "../common/ann_types.hpp"
 #include "../common/benchmark_util.hpp"
 #undef WARP_SIZE
@@ -30,13 +34,15 @@
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
 #include "raft_ivf_flat_wrapper.h"
-extern template class raft::bench::ann::RaftIvfFlatGpu<float, uint64_t>;
-extern template class raft::bench::ann::RaftIvfFlatGpu<uint8_t, uint64_t>;
+extern template class raft::bench::ann::RaftIvfFlatGpu<float, int64_t>;
+extern template class raft::bench::ann::RaftIvfFlatGpu<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftIvfFlatGpu<int8_t, int64_t>;
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
 #include "raft_ivf_pq_wrapper.h"
-extern template class raft::bench::ann::RaftIvfPQ<float, uint64_t>;
-extern template class raft::bench::ann::RaftIvfPQ<uint8_t, uint64_t>;
+extern template class raft::bench::ann::RaftIvfPQ<float, int64_t>;
+extern template class raft::bench::ann::RaftIvfPQ<uint8_t, int64_t>;
+extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 #endif
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
@@ -162,17 +168,17 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
   if (algo == "raft_ivf_flat") {
-    typename raft::bench::ann::RaftIvfFlatGpu<T, uint64_t>::BuildParam param;
-    parse_build_param<T, uint64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, uint64_t>>(metric, dim, param);
+    typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::BuildParam param;
+    parse_build_param<T, int64_t>(conf, param);
+    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(metric, dim, param);
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   if (algo == "raft_ivf_pq") {
-    typename raft::bench::ann::RaftIvfPQ<T, uint64_t>::BuildParam param;
-    parse_build_param<T, uint64_t>(conf, param);
+    typename raft::bench::ann::RaftIvfPQ<T, int64_t>::BuildParam param;
+    parse_build_param<T, int64_t>(conf, param);
     ann =
-      std::make_unique<raft::bench::ann::RaftIvfPQ<T, uint64_t>>(metric, dim, param, refine_ratio);
+      std::make_unique<raft::bench::ann::RaftIvfPQ<T, int64_t>>(metric, dim, param, refine_ratio);
   }
 #endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
@@ -194,15 +200,15 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
   if (algo == "raft_ivf_flat") {
     auto param =
-      std::make_unique<typename raft::bench::ann::RaftIvfFlatGpu<T, uint64_t>::SearchParam>();
-    parse_search_param<T, uint64_t>(conf, *param);
+      std::make_unique<typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::SearchParam>();
+    parse_search_param<T, int64_t>(conf, *param);
     return param;
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   if (algo == "raft_ivf_pq") {
-    auto param = std::make_unique<typename raft::bench::ann::RaftIvfPQ<T, uint64_t>::SearchParam>();
-    parse_search_param<T, uint64_t>(conf, *param);
+    auto param = std::make_unique<typename raft::bench::ann::RaftIvfPQ<T, int64_t>::SearchParam>();
+    parse_search_param<T, int64_t>(conf, *param);
     return param;
   }
 #endif

@@ -149,6 +149,9 @@ dependencies:
           - hnswlib
           - nlohmann_json
           - glog
+          - h5py
+          - libfaiss>=1.7.1
+          - faiss-proc=*=cuda
 
   cudatoolkit:
     specific:

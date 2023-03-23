@@ -81,6 +81,8 @@ if(BUILD_PRIMS_BENCH)
     NAME
     DISTANCE
     PATH
+    bench/prims/distance/tune_pairwise/bench.cu
+    bench/prims/distance/tune_pairwise/kernel.cu
     bench/prims/distance/distance_cosine.cu
     bench/prims/distance/distance_exp_l2.cu
     bench/prims/distance/distance_l1.cu

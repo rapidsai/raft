@@ -52,6 +52,9 @@ class Configuration {
     size_t subset_size{0};
     std::string query_file;
     std::string distance;
+
+    // data type of input dataset, possible values ["float", "int8", "uint8"]
+    std::string dtype;
   };
 
   Configuration(std::istream& conf_stream);
