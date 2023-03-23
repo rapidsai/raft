@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --build-metrics --incl_cache_stats -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -42,6 +42,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
+   --build_metrics               - generate build metrics report for libcudf
+   --incl_cache_stats            - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
@@ -65,6 +67,8 @@ BUILD_TYPE=Release
 BUILD_BENCH=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
+BUILD_REPORT_METRICS=OFF
+BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
@@ -303,7 +307,13 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
+if hasArg --build_metrics; then
+    BUILD_REPORT_METRICS=ON
+fi
 
+if hasArg --incl_cache_stats; then
+    BUILD_REPORT_INCL_CACHE_STATS=ON
+fi
 
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
@@ -363,6 +373,36 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
+
+  if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
+      if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
+          echo "Downloading rapids-build-metrics-reporter.py"
+          curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
+      fi
+
+      echo "Formatting build metrics"
+      MSG=""
+      # get some sccache stats after the compile
+      if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v sccache)" ]]; then
+          COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
+          CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
+          HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
+          MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+      fi
+      MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
+      MSG="${MSG}<br/>parallel build time: $compile_total seconds"
+      if [[ -f "${LIBRAFT_BUILD_DIR}/libraft.so" ]]; then
+          LIBRAFT_FS=$(ls -lh ${LIBRAFT_BUILD_DIR}/libraft.so | awk '{print $5}')
+          MSG="${MSG}<br/>libraft.so size: $LIBRAFT_FS"
+      fi
+      BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBRAFT_BUILD_DIR}"}
+      echo "Metrics output dir: [$BMR_DIR]"
+      mkdir -p ${BMR_DIR}
+      MSG_OUTFILE="$(mktemp)"
+      echo "$MSG" > "${MSG_OUTFILE}"
+      PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
+      cp ${LIBRAFT_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
+  fi
 
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
