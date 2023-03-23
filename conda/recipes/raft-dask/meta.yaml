@@ -54,7 +54,7 @@ requirements:
     - pylibraft {{ version }}
     - python x.x
     - rmm ={{ minor_version }}
-    - ucx >={{ ucx_version }}
+    - ucx {{ ucx_version }}
     - ucx-proc=*=gpu
     - ucx-py {{ ucx_py_version }}
 
