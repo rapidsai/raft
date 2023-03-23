@@ -25,7 +25,7 @@ files:
       - cudatoolkit
       - py_version
       - test_python_common
-      - test_python_pylibraft
+      - test_pylibraft
   checks:
     output: none
     includes:
