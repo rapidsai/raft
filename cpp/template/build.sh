@@ -7,6 +7,8 @@
 # Abort script on first error
 set -e
 
+PARALLEL_LEVEL=${PARALLEL_LEVEL:=`nproc`}
+
 BUILD_TYPE=Release
 BUILD_DIR=build/
 
@@ -36,4 +38,4 @@ cmake \
  ${EXTRA_CMAKE_ARGS} \
  ../
 
-cmake  --build . -j12
+cmake  --build . -j${PARALLEL_LEVEL}
