@@ -18,8 +18,8 @@
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/random/rng.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
+#if defined RAFT_COMPILED
+#include <raft/cluster/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {
@@ -32,7 +32,7 @@ struct KMeansBalancedBenchParams {
 
 template <typename T, typename IndexT = int>
 struct KMeansBalanced : public fixture {
-  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p) {}
+  KMeansBalanced(const KMeansBalancedBenchParams& p) : params(p), X(handle), centroids(handle) {}
 
   void run_benchmark(::benchmark::State& state) override
   {

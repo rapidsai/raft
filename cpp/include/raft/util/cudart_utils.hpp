@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/error.hpp>
+#include <raft/util/cuda_rt_essentials.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -32,42 +33,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-
-namespace raft {
-
-/**
- * @brief Exception thrown when a CUDA error is encountered.
- */
-struct cuda_error : public raft::exception {
-  explicit cuda_error(char const* const message) : raft::exception(message) {}
-  explicit cuda_error(std::string const& message) : raft::exception(message) {}
-};
-
-}  // namespace raft
-
-/**
- * @brief Error checking macro for CUDA runtime API functions.
- *
- * Invokes a CUDA runtime API function call, if the call does not return
- * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
- * exception detailing the CUDA error that occurred
- *
- */
-#define RAFT_CUDA_TRY(call)                        \
-  do {                                             \
-    cudaError_t const status = call;               \
-    if (status != cudaSuccess) {                   \
-      cudaGetLastError();                          \
-      std::string msg{};                           \
-      SET_ERROR_MSG(msg,                           \
-                    "CUDA error encountered at: ", \
-                    "call='%s', Reason=%s:%s",     \
-                    #call,                         \
-                    cudaGetErrorName(status),      \
-                    cudaGetErrorString(status));   \
-      throw raft::cuda_error(msg);                 \
-    }                                              \
-  } while (0)
+#include <string>
 
 /**
  * @brief Debug macro to check for CUDA errors

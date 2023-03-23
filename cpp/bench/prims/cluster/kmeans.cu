@@ -18,8 +18,8 @@
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
+#if defined RAFT_COMPILED
+#include <raft/cluster/specializations.cuh>
 #endif
 
 namespace raft::bench::cluster {
@@ -38,7 +38,13 @@ inline auto operator<<(std::ostream& os, const KMeansBenchParams& p) -> std::ost
 
 template <typename T, typename IndexT = int>
 struct KMeans : public BlobsFixture<T, IndexT> {
-  KMeans(const KMeansBenchParams& p) : BlobsFixture<T, IndexT>(p.data, p.blobs), params(p) {}
+  KMeans(const KMeansBenchParams& p)
+    : BlobsFixture<T, IndexT>(p.data, p.blobs),
+      params(p),
+      centroids(this->handle),
+      labels(this->handle)
+  {
+  }
 
   void run_benchmark(::benchmark::State& state) override
   {

@@ -36,20 +36,46 @@ constexpr static IdxT kInvalidRecord = (std::is_signed_v<IdxT> ? IdxT{0}
                                        1;
 
 /** The data for a single IVF list. */
-template <template <typename> typename SpecT, typename IdxT, typename SizeT = uint32_t>
+template <template <typename, typename...> typename SpecT,
+          typename SizeT,
+          typename... SpecExtraArgs>
 struct list {
-  using value_type   = typename SpecT<SizeT>::value_type;
-  using list_extents = typename SpecT<SizeT>::list_extents;
+  using size_type    = SizeT;
+  using spec_type    = SpecT<size_type, SpecExtraArgs...>;
+  using value_type   = typename spec_type::value_type;
+  using index_type   = typename spec_type::index_type;
+  using list_extents = typename spec_type::list_extents;
 
   /** Possibly encoded data; it's layout is defined by `SpecT`. */
   device_mdarray<value_type, list_extents, row_major> data;
   /** Source indices. */
-  device_mdarray<IdxT, extent_1d<SizeT>, row_major> indices;
+  device_mdarray<index_type, extent_1d<size_type>, row_major> indices;
   /** The actual size of the content. */
-  std::atomic<SizeT> size;
+  std::atomic<size_type> size;
 
   /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
-  list(raft::device_resources const& res, const SpecT<SizeT>& spec, SizeT n_rows);
+  list(raft::device_resources const& res, const spec_type& spec, size_type n_rows);
 };
+
+template <typename ListT, class T = void>
+struct enable_if_valid_list {
+};
+
+template <class T,
+          template <typename, typename...>
+          typename SpecT,
+          typename SizeT,
+          typename... SpecExtraArgs>
+struct enable_if_valid_list<list<SpecT, SizeT, SpecExtraArgs...>, T> {
+  using type = T;
+};
+
+/**
+ * Designed after `std::enable_if_t`, this trait is helpful in the instance resolution;
+ * plug this in the return type of a function that has an instance of `ivf::list` as
+ * a template parameter.
+ */
+template <typename ListT, class T = void>
+using enable_if_valid_list_t = typename enable_if_valid_list<ListT, T>::type;
 
 }  // namespace raft::neighbors::ivf

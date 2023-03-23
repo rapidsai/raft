@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL DIST NN)
+  set(options OPTIONAL LIB)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -33,8 +33,7 @@ function(ConfigureTest)
     ${TEST_NAME}
     PRIVATE raft::raft
             raft_internal
-            $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
-            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
+            $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -87,8 +86,7 @@ if(BUILD_TESTS)
     test/cluster/linkage.cu
     test/cluster/kmeans_find_k.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(
@@ -107,8 +105,11 @@ if(BUILD_TESTS)
     test/core/mdspan_utils.cu
     test/core/numpy_serializer.cu
     test/core/memory_type.cpp
+    test/core/sparse_matrix.cu
+    test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/temporary_device_buffer.cu
     test/test.cpp
   )
 
@@ -118,26 +119,26 @@ if(BUILD_TESTS)
     PATH
     test/distance/dist_adj.cu
     test/distance/dist_canberra.cu
-    test/distance/dist_chebyshev.cu
     test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
-    test/distance/dist_euc_exp.cu
-    test/distance/dist_euc_unexp.cu
-    test/distance/dist_eucsqrt_exp.cu
     test/distance/dist_hamming.cu
     test/distance/dist_hellinger.cu
     test/distance/dist_inner_product.cu
     test/distance/dist_jensen_shannon.cu
     test/distance/dist_kl_divergence.cu
     test/distance/dist_l1.cu
-    test/distance/dist_minkowski.cu
+    test/distance/dist_l2_exp.cu
+    test/distance/dist_l2_unexp.cu
+    test/distance/dist_l2_sqrt_exp.cu
+    test/distance/dist_l_inf.cu
+    test/distance/dist_lp_unexp.cu
     test/distance/dist_russell_rao.cu
     test/distance/masked_nn.cu
     test/distance/masked_nn_compress_to_bits.cu
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -197,6 +198,8 @@ if(BUILD_TESTS)
     test/matrix/slice.cu
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
+    OPTIONAL
+    LIB
   )
 
   ConfigureTest(
@@ -216,7 +219,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL DIST
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -240,13 +243,12 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL DIST
-    NN
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL LIB
   )
 
   ConfigureTest(
     NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST NN
+    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -258,20 +260,19 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
-    test/neighbors/ann_ivf_pq/test_float_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_int8_t_uint64_t.cu
-    test/neighbors/ann_ivf_pq/test_uint8_t_uint64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     test/neighbors/knn.cu
     test/neighbors/fused_l2_knn.cu
+    test/neighbors/tiled_knn.cu
     test/neighbors/haversine.cu
     test/neighbors/ball_cover.cu
     test/neighbors/epsilon_neighborhood.cu
-    test/neighbors/faiss_mr.cu
     test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(
@@ -304,8 +305,7 @@ if(BUILD_TESTS)
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(

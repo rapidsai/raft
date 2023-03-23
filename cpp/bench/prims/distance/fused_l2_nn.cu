@@ -17,7 +17,7 @@
 #include <common/benchmark.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
 #include <rmm/device_uvector.hpp>
@@ -36,7 +36,16 @@ inline auto operator<<(std::ostream& os, const fusedl2nn_inputs& p) -> std::ostr
 
 template <typename DataT, typename IdxT, typename OutT>
 struct fusedl2nn : public fixture {
-  fusedl2nn(const fusedl2nn_inputs& p) : params(p) {}
+  fusedl2nn(const fusedl2nn_inputs& p)
+    : params(p),
+      workspace(this->handle),
+      x(this->handle),
+      y(this->handle),
+      x_norm(this->handle),
+      y_norm(this->handle),
+      out(this->handle)
+  {
+  }
 
   void allocate_data(const ::benchmark::State& state) override
   {
