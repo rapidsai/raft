@@ -73,6 +73,11 @@ if(BUILD_BENCH)
   )
 
   ConfigureBench(
+    NAME TUNE_DISTANCE PATH bench/distance/tune_pairwise/kernel.cu
+    bench/distance/tune_pairwise/bench.cu bench/main.cpp
+  )
+
+  ConfigureBench(
     NAME
     DISTANCE_BENCH
     PATH
