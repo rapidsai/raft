@@ -103,5 +103,5 @@ def test_knn(
             cpu_ordered[:k], actual_distances[i], atol=1e-4, rtol=1e-4
         )
         np.testing.assert_allclose(
-            expected_indices, actual_indices[i], atol=1e-1, rtol=1e-1
+            expected_indices, actual_indices[i, :k], atol=1e-1, rtol=1e-1
         )
