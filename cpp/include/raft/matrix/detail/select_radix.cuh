@@ -275,7 +275,12 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
           out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
         } else {
           if (out_buf) {
-            IdxT pos         = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
+
+#if CUDART_VERSION < 12000 && CUDART_VERSION > 11000
+            // Avoiding potential compiler bug in CUDA 11
+            volatile
+#endif
+              IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
             out_buf[pos]     = value;
             out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
           }
