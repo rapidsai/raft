@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <raft/util/cuda_utils.cuh>
+#include <raft/core/operators.hpp>            // raft::log
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
 
@@ -26,8 +27,12 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = 0.5 * sum(x * log (x / y));
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct kl_divergence_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   const bool is_row_major;
   const bool x_equal_y;
 
@@ -45,7 +50,7 @@ struct kl_divergence_op {
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size()
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }

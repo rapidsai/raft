@@ -36,7 +36,7 @@
 
 #include <thrust/sequence.h>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 
@@ -166,7 +166,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        auto index = ivf_flat::build(handle_, database_view, index_params);
+        auto idx = ivf_flat::build(handle_, index_params, database_view);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
         thrust::sequence(handle_.get_thrust_policy(),
@@ -179,7 +179,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), half_of_data, ps.dim);
 
-        auto index_2 = ivf_flat::extend(handle_, index, half_of_data_view);
+        const std::optional<raft::device_vector_view<const IdxT, IdxT>> no_opt = std::nullopt;
+        index<DataT, IdxT> index_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
 
         auto new_half_of_data_view = raft::make_device_matrix_view<const DataT, IdxT>(
           database.data() + half_of_data * ps.dim, IdxT(ps.num_db_vecs) - half_of_data, ps.dim);
@@ -188,10 +189,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           vector_indices.data() + half_of_data, IdxT(ps.num_db_vecs) - half_of_data);
 
         ivf_flat::extend(handle_,
-                         &index_2,
                          new_half_of_data_view,
                          std::make_optional<raft::device_vector_view<const IdxT, IdxT>>(
-                           new_half_of_data_indices_view));
+                           new_half_of_data_indices_view),
+                         &index_2);
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.num_queries, ps.dim);
@@ -204,12 +205,11 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
 
         ivf_flat::search(handle_,
+                         search_params,
                          index_loaded,
                          search_queries_view,
                          indices_out_view,
-                         dists_out_view,
-                         search_params,
-                         ps.k);
+                         dists_out_view);
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
@@ -248,7 +248,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         } else {
           // The centers must be immutable
           ASSERT_TRUE(raft::devArrMatch(index_2.centers().data_handle(),
-                                        index.centers().data_handle(),
+                                        idx.centers().data_handle(),
                                         index_2.centers().size(),
                                         raft::Compare<float>(),
                                         stream_));
