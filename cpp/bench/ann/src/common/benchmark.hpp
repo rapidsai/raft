@@ -569,13 +569,13 @@ inline int run_main(int argc, char** argv)
     std::string dtype = conf.get_dataset_conf().dtype;
 
     if (dtype == "float") {
-      dispatch_benchmark<float>(
+      return dispatch_benchmark<float>(
         conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
     } else if (dtype == "uint8") {
-      dispatch_benchmark<std::uint8_t>(
+      return dispatch_benchmark<std::uint8_t>(
         conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
     } else if (dtype == "int8") {
-      dispatch_benchmark<std::int8_t>(
+      return dispatch_benchmark<std::int8_t>(
         conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
     } else {
       log_error("datatype %s not supported", dtype);
@@ -586,6 +586,6 @@ inline int run_main(int argc, char** argv)
     return -1;
   }
 
-  return 0;
+  return -1;
 }
 };  // namespace raft::bench::ann
