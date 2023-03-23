@@ -15,25 +15,27 @@
  */
 #pragma once
 
-namespace raft::arch {
+#include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 
-/* raft::arch provides the following facilities:
+namespace raft::util::arch {
+
+/* raft::util::arch provides the following facilities:
  *
- * - raft::arch::SM_XX : hardcoded compile-time constants for various compute
- *   architectures. The values raft::arch::SM_min and raft::arch::SM_future
+ * - raft::util::arch::SM_XX : hardcoded compile-time constants for various compute
+ *   architectures. The values raft::util::arch::SM_min and raft::util::arch::SM_future
  *   represent architectures that are always smaller and larger (respectively)
  *   than any architecture that can be encountered in practice.
  *
- * - raft::arch::SM_compute_arch : a compile-time value for the *current*
+ * - raft::util::arch::SM_compute_arch : a compile-time value for the *current*
  *   compute architecture that a kernel is compiled with. It can only be used
  *   inside kernels with a template argument.
  *
- * - raft::arch::kernel_runtime_arch : a function that computes at *run-time*
+ * - raft::util::arch::kernel_runtime_arch : a function that computes at *run-time*
  *   which version of a kernel will launch (i.e., it will return the compute
  *   architecture of the version of the kernel that will be launched by the
  *   driver).
  *
- * - raft::arch::SM_range : a compile-time value to represent an open interval
+ * - raft::util::arch::SM_range : a compile-time value to represent an open interval
  *   of compute architectures. This can be used to check if the current
  *   compile-time architecture is in a specified compatibility range.
  */
@@ -46,9 +48,6 @@ struct SM_generic {
  public:
   __host__ __device__ constexpr int value() const { return n; }
 };
-
-// A dummy kernel that is used to determine the runtime architecture.
-__global__ inline void dummy_runtime_kernel() {}
 }  // namespace detail
 
 // A list of architectures that RAPIDS explicitly builds for (SM60, ..., SM90)
@@ -119,7 +118,7 @@ struct SM_runtime {
 inline SM_runtime kernel_runtime_arch(void* kernel)
 {
   cudaFuncAttributes attributes;
-  cudaFuncGetAttributes(&attributes, kernel);
+  RAFT_CUDA_TRY(cudaFuncGetAttributes(&attributes, kernel));
 
   return SM_runtime(10 * attributes.ptxVersion);
 }
@@ -143,4 +142,4 @@ struct SM_range {
   }
 };
 
-}  // namespace raft::arch
+}  // namespace raft::util::arch
