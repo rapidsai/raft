@@ -34,8 +34,9 @@ requirements:
     - cuda-python >=11.7.1,<12.0
     - cudatoolkit ={{ cuda_version }}
     - cython >=0.29,<0.30
-    - libraft-distance {{ version }}
+    - libraft {{ version }}
     - libraft-headers {{ version }}
+    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
     - scikit-build >=0.13.1
@@ -43,7 +44,7 @@ requirements:
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
-    - libraft-distance {{ version }}
+    - libraft {{ version }}
     - libraft-headers {{ version }}
     - python x.x
 

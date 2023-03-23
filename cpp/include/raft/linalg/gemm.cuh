@@ -19,9 +19,9 @@
 #pragma once
 
 #include "detail/gemm.hpp"
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/util/input_validation.hpp>

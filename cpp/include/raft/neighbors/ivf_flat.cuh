@@ -109,14 +109,61 @@ auto build(raft::device_resources const& handle,
  */
 template <typename value_t, typename idx_t>
 auto build(raft::device_resources const& handle,
-           raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
-           const index_params& params) -> index<value_t, idx_t>
+           const index_params& params,
+           raft::device_matrix_view<const value_t, idx_t, row_major> dataset)
+  -> index<value_t, idx_t>
 {
   return raft::neighbors::ivf_flat::detail::build(handle,
                                                   params,
                                                   dataset.data_handle(),
                                                   static_cast<idx_t>(dataset.extent(0)),
                                                   static_cast<idx_t>(dataset.extent(1)));
+}
+
+/**
+ * @brief Build the index from the dataset for efficient search.
+ *
+ * NB: Currently, the following distance metrics are supported:
+ * - L2Expanded
+ * - L2Unexpanded
+ * - InnerProduct
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_flat::index_params index_params;
+ *   // create and fill the index from a [N, D] dataset
+ *   ivf_flat::index<decltype(dataset::value_type), decltype(dataset::index_type)> index;
+ *   ivf_flat::build(handle, dataset, index_params, index);
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
+ *   // search K nearest neighbours for each of the N queries
+ *   ivf_flat::search(handle, index, queries, out_inds, out_dists, search_params, k);
+ * @endcode
+ *
+ * @tparam value_t data element type
+ * @tparam idx_t type of the indices in the source dataset
+ * @tparam int_t precision / type of integral arguments
+ * @tparam matrix_idx_t matrix indexing type
+ *
+ * @param[in] handle
+ * @param[in] params configure the index building
+ * @param[in] dataset raft::device_matrix_view to a row-major matrix [n_rows, dim]
+ * @param[out] idx reference to ivf_flat::index
+ *
+ */
+template <typename value_t, typename idx_t>
+void build(raft::device_resources const& handle,
+           const index_params& params,
+           raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
+           raft::neighbors::ivf_flat::index<value_t, idx_t>& idx)
+{
+  idx = raft::neighbors::ivf_flat::detail::build(handle,
+                                                 params,
+                                                 dataset.data_handle(),
+                                                 static_cast<idx_t>(dataset.extent(0)),
+                                                 static_cast<idx_t>(dataset.extent(1)));
 }
 
 /** @} */
@@ -192,20 +239,19 @@ auto extend(raft::device_resources const& handle,
  * @tparam idx_t type of the indices in the source dataset
  *
  * @param[in] handle
- * @param[in] orig_index original index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
- *    If the original index is empty (`orig_index.size() == 0`), you can pass `nullptr`
+ * @param[in] new_vectors raft::device_matrix_view to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices optional raft::device_matrix_view to a vector of indices [n_rows].
+ *    If the original index is empty (`orig_index.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
+ * @param[in] orig_index original index
  *
  * @return the constructed extended ivf-flat index
  */
 template <typename value_t, typename idx_t>
 auto extend(raft::device_resources const& handle,
-            const index<value_t, idx_t>& orig_index,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
-            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
-  -> index<value_t, idx_t>
+            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices,
+            const index<value_t, idx_t>& orig_index) -> index<value_t, idx_t>
 {
   return extend<value_t, idx_t>(
     handle,
@@ -270,24 +316,25 @@ void extend(raft::device_resources const& handle,
  *   // train the index from a [N, D] dataset
  *   auto index_empty = ivf_flat::build(handle, dataset, index_params, dataset);
  *   // fill the index with the data
- *   ivf_flat::extend(handle, index_empty, dataset);
+ *   std::optional<raft::device_vector_view<const idx_t, idx_t>> no_op = std::nullopt;
+ *   ivf_flat::extend(handle, dataset, no_opt, &index_empty);
  * @endcode
  *
  * @tparam value_t data element type
  * @tparam idx_t type of the indices in the source dataset
  *
  * @param[in] handle
- * @param[inout] index
- * @param[in] new_vectors a device pointer to a row-major matrix [n_rows, index.dim()]
- * @param[in] new_indices a device pointer to a vector of indices [n_rows].
+ * @param[in] new_vectors raft::device_matrix_view to a row-major matrix [n_rows, index.dim()]
+ * @param[in] new_indices optional raft::device_matrix_view to a vector of indices [n_rows].
  *    If the original index is empty (`orig_index.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
+ * @param[inout] index pointer to index, to be overwritten in-place
  */
 template <typename value_t, typename idx_t>
 void extend(raft::device_resources const& handle,
-            index<value_t, idx_t>* index,
             raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
-            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices = std::nullopt)
+            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices,
+            index<value_t, idx_t>* index)
 {
   extend(handle,
          index,
@@ -386,30 +433,27 @@ void search(raft::device_resources const& handle,
  * @tparam int_t precision / type of integral arguments
  *
  * @param[in] handle
+ * @param[in] params configure the search
  * @param[in] index ivf-flat constructed index
  * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param[in] params configure the search
- * @param[in] k the number of neighbors to find for each query.
  */
-template <typename value_t, typename idx_t, typename int_t>
+template <typename value_t, typename idx_t>
 void search(raft::device_resources const& handle,
+            const search_params& params,
             const index<value_t, idx_t>& index,
             raft::device_matrix_view<const value_t, idx_t, row_major> queries,
             raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
-            raft::device_matrix_view<float, idx_t, row_major> distances,
-            const search_params& params,
-            int_t k)
+            raft::device_matrix_view<float, idx_t, row_major> distances)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
     "Number of rows in output neighbors and distances matrices must equal the number of queries.");
 
-  RAFT_EXPECTS(
-    neighbors.extent(1) == distances.extent(1) && neighbors.extent(1) == static_cast<idx_t>(k),
-    "Number of columns in output neighbors and distances matrices must equal k");
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must be equal");
 
   RAFT_EXPECTS(queries.extent(1) == index.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
@@ -419,7 +463,7 @@ void search(raft::device_resources const& handle,
                 index,
                 queries.data_handle(),
                 static_cast<std::uint32_t>(queries.extent(0)),
-                static_cast<std::uint32_t>(k),
+                static_cast<std::uint32_t>(neighbors.extent(1)),
                 neighbors.data_handle(),
                 distances.data_handle(),
                 nullptr);

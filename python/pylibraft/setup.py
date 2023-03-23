@@ -27,10 +27,11 @@ def exclude_libcxx_symlink(cmake_manifest):
     )
 
 
+packages = find_packages(include=["pylibraft*"])
 setup(
-    include_package_data=True,
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
-    packages=find_packages(include=["pylibraft", "pylibraft.*"]),
+    packages=packages,
+    package_data={key: ["*.pxd"] for key in packages},
     zip_safe=False,
 )
