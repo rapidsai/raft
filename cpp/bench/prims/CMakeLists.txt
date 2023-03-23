@@ -15,26 +15,23 @@
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
-function(ConfigurePrimsBench)
+function(ConfigureBench)
 
-  set(options OPTIONAL DIST NN)
+  set(options OPTIONAL LIB)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
-  cmake_parse_arguments(
-    ConfigurePrimsBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
-  )
+  cmake_parse_arguments(ConfigureBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-  set(BENCH_NAME ${ConfigurePrimsBench_NAME}_PRIMS_BENCH)
+  set(BENCH_NAME ${ConfigureBench_NAME})
 
-  add_executable(${BENCH_NAME} ${ConfigurePrimsBench_PATH})
+  add_executable(${BENCH_NAME} ${ConfigureBench_PATH})
 
   target_link_libraries(
     ${BENCH_NAME}
     PRIVATE raft::raft
             raft_internal
-            $<$<BOOL:${ConfigurePrimsBench_DIST}>:raft::distance>
-            $<$<BOOL:${ConfigurePrimsBench_NN}>:raft::nn>
+            $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
@@ -58,9 +55,7 @@ function(ConfigurePrimsBench)
                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  target_include_directories(
-    ${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench/prims>"
-  )
+  target_include_directories(${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>")
 
   install(
     TARGETS ${BENCH_NAME}
@@ -71,18 +66,21 @@ function(ConfigurePrimsBench)
 
 endfunction()
 
-if(BUILD_PRIMS_BENCH)
-  ConfigurePrimsBench(
-    NAME CLUSTER PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
-    bench/prims/main.cpp OPTIONAL DIST NN
+if(BUILD_BENCH)
+  ConfigureBench(
+    NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
+    bench/prims/main.cpp OPTIONAL LIB
   )
 
-  ConfigurePrimsBench(
+  ConfigureBench(
+    NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
+    bench/prims/distance/tune_pairwise/bench.cu bench/prims/main.cpp
+  )
+
+  ConfigureBench(
     NAME
-    DISTANCE
+    DISTANCE_BENCH
     PATH
-    bench/prims/distance/tune_pairwise/bench.cu
-    bench/prims/distance/tune_pairwise/kernel.cu
     bench/prims/distance/distance_cosine.cu
     bench/prims/distance/distance_exp_l2.cu
     bench/prims/distance/distance_l1.cu
@@ -92,12 +90,12 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/distance/kernels.cu
     bench/prims/main.cpp
     OPTIONAL
-    DIST
+    LIB
   )
 
-  ConfigurePrimsBench(
+  ConfigureBench(
     NAME
-    LINALG
+    LINALG_BENCH
     PATH
     bench/prims/linalg/add.cu
     bench/prims/linalg/map_then_reduce.cu
@@ -110,35 +108,34 @@ if(BUILD_PRIMS_BENCH)
     bench/prims/main.cpp
   )
 
-  ConfigurePrimsBench(
-    NAME MATRIX PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu bench/prims/main.cpp
+  ConfigureBench(
+    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
+    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB
   )
 
-  ConfigurePrimsBench(
-    NAME RANDOM PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
+  ConfigureBench(
+    NAME RANDOM_BENCH PATH bench/prims/random/make_blobs.cu bench/prims/random/permute.cu
     bench/prims/random/rng.cu bench/prims/main.cpp
   )
 
-  ConfigurePrimsBench(NAME SPARSE PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
+  ConfigureBench(NAME SPARSE_BENCH PATH bench/prims/sparse/convert_csr.cu bench/prims/main.cpp)
 
-  ConfigurePrimsBench(
+  ConfigureBench(
     NAME
-    NEIGHBORS
+    NEIGHBORS_BENCH
     PATH
     bench/prims/neighbors/knn/brute_force_float_int64_t.cu
     bench/prims/neighbors/knn/brute_force_float_uint32_t.cu
     bench/prims/neighbors/knn/ivf_flat_float_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_int8_t_int64_t.cu
     bench/prims/neighbors/knn/ivf_flat_uint8_t_int64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_float_uint64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_int8_t_uint64_t.cu
-    bench/prims/neighbors/knn/ivf_pq_uint8_t_uint64_t.cu
-    bench/prims/neighbors/refine_float_uint64_t.cu
-    bench/prims/neighbors/refine_uint8_t_uint64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_float_int64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_int8_t_int64_t.cu
+    bench/prims/neighbors/knn/ivf_pq_uint8_t_int64_t.cu
+    bench/prims/neighbors/refine_float_int64_t.cu
+    bench/prims/neighbors/refine_uint8_t_int64_t.cu
     bench/prims/main.cpp
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 endif()
