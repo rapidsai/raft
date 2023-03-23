@@ -47,7 +47,7 @@ from pylibraft.distance.distance_type cimport DistanceType
 
 # TODO: Centralize this
 
-from pylibraft.neighbors.ivf_pq.ivf_pq import _get_metric
+from pylibraft.distance.pairwise_distance import DISTANCE_TYPES
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
@@ -155,7 +155,7 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    cdef DistanceType c_metric = _get_metric(metric)
+    cdef DistanceType c_metric = DISTANCE_TYPES[metric]
 
     distances_cai = cai_wrapper(distances)
     indices_cai = cai_wrapper(indices)

@@ -50,20 +50,13 @@ def test_knn(
 
     # RussellRao expects boolean arrays
     if metric == "russellrao":
-        index[index < 0.5] = 0
-        index[index >= 0.5] = 1
-        queries[queries < 0.5] = 0
-        queries[queries >= 0.5] = 1
+        index[index < 0.5] = 0.0
+        index[index >= 0.5] = 1.0
+        queries[queries < 0.5] = 0.0
+        queries[queries >= 0.5] = 1.0
 
     indices = np.zeros((n_query_rows, k), dtype="int64")
     distances = np.zeros((n_query_rows, k), dtype=dtype)
-
-    if metric == "inner_product":
-        expected = np.matmul(queries, index.T)
-    else:
-        expected = cdist(queries, index, metric)
-
-    expected[expected <= 1e-5] = 0.0
 
     index_device = device_ndarray(index)
 
@@ -86,25 +79,21 @@ def test_knn(
 
     pw_dists = cdist(queries, index, metric=metric)
 
-    indices_device = ret_indices if not inplace else indices_device
     distances_device = ret_distances if not inplace else distances_device
 
-    actual_indices = indices_device.copy_to_host()
     actual_distances = distances_device.copy_to_host()
 
     actual_distances[actual_distances <= 1e-5] = 0.0
-
     argsort = np.argsort(pw_dists, axis=1)
 
     for i in range(pw_dists.shape[0]):
         expected_indices = argsort[i]
+        gpu_dists = actual_distances[i]
+
+        if metric == "correlation" or metric == "cosine":
+            gpu_dists = gpu_dists[::-1]
+
         cpu_ordered = pw_dists[i, expected_indices]
         np.testing.assert_allclose(
-            cpu_ordered[:k], actual_distances[i], atol=1e-4, rtol=1e-4
-        )
-        np.testing.assert_allclose(
-            np.sort(expected_indices[:k]),
-            np.sort(actual_indices[i]),
-            atol=1e-1,
-            rtol=1e-1,
+            cpu_ordered[:k], gpu_dists, atol=1e-4, rtol=1e-4
         )

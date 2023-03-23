@@ -22,13 +22,15 @@ import warnings
 
 from pylibraft.distance.distance_type cimport DistanceType
 
+SUPPORTED_DISTANCES = {
+    "sqeuclidean": DistanceType.L2Expanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "inner_product": DistanceType.InnerProduct,
+
+}
+
 
 def _get_metric(metric):
-    SUPPORTED_DISTANCES = {
-        "sqeuclidean": DistanceType.L2Expanded,
-        "euclidean": DistanceType.L2SqrtExpanded,
-        "inner_product": DistanceType.InnerProduct
-    }
     if metric not in SUPPORTED_DISTANCES:
         if metric == "l2_expanded":
             warnings.warn("Using l2_expanded as a metric name is deprecated,"
