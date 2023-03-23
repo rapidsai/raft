@@ -33,14 +33,21 @@ from pylibraft.common import (
     device_ndarray,
 )
 
-from libc.stdint cimport int64_t, uint32_t, uintptr_t
+from libc.stdint cimport int64_t, uintptr_t
 
 from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.mdspan cimport get_dmv_float, get_dmv_int64
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
 from pylibraft.common.interruptible import cuda_interruptible
+
+from pylibraft.distance.distance_type cimport DistanceType
+
+# TODO: Centralize this
+
+from pylibraft.distance.pairwise_distance import DISTANCE_TYPES
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
@@ -49,51 +56,7 @@ from pylibraft.common.cpp.mdspan cimport (
     make_host_matrix_view,
     row_major,
 )
-from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.neighbors.cpp.brute_force cimport knn as c_knn
-
-SUPPORTED_DISTANCES = {
-    "sqeuclidean": DistanceType.L2Expanded,
-    "euclidean": DistanceType.L2SqrtExpanded,
-    "inner_product": DistanceType.InnerProduct,
-    "jensen_shannon": DistanceType.JensenShannon,
-    "l2": DistanceType.L2Expanded,
-    "l1": DistanceType.L1,
-    "cityblock": DistanceType.L1,
-    "minkowski": DistanceType.LpUnexpanded,
-    "chebyshev": DistanceType.Linf,
-    "canberra": DistanceType.Canberra,
-    "cosine": DistanceType.Cosine,
-    "correlations": DistanceType.Correlation,
-    "russelrao": DistanceType.RusselRaoExpanded
-}
-
-
-def _get_metric(metric):
-    if metric not in SUPPORTED_DISTANCES:
-        raise ValueError("metric %s is not supported" % metric)
-    return SUPPORTED_DISTANCES[metric]
-
-
-cdef device_matrix_view[float, uint32_t, row_major] \
-        make_device_matrix_view_float(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.float32:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[float, uint32_t, row_major](
-        <float*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
-
-cdef device_matrix_view[int64_t, uint32_t, row_major] \
-        make_device_matrix_view_int64(array) except *:
-    cai = cai_wrapper(array)
-    if cai.dtype != np.int64:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    return make_device_matrix_view[int64_t, uint32_t, row_major](
-        <int64_t*><uintptr_t>cai.data, cai.shape[0], cai.shape[1])
 
 
 def _get_array_params(array_interface, check_dtype=None):
@@ -149,18 +112,19 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import brute_force_knn
+    >>> from pylibraft.neighbors.brute_force import knn
 
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-    >>>
+
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
+    >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 40
-    >>> distances, neighbors = brute_force_knn(dataset, queries, k)
+    >>> distances, neighbors = knn(dataset, queries, k)
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
     """
@@ -170,16 +134,6 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
 
     dataset_cai = cai_wrapper(dataset)
     queries_cai = cai_wrapper(queries)
-
-    cdef device_matrix_view[const float, uint32_t, row_major] dataset_view = \
-        make_device_matrix_view[float, uint32_t, row_major](
-            <const float*><uintptr_t>dataset_cai.data, dataset_cai.shape[0],
-            dataset_cai.shape[1])(dataset)
-
-    cdef device_matrix_view[const float, uint32_t, row_major] queries_view = \
-        make_device_matrix_view[float, uint32_t, row_major](
-            <const float*><uintptr_t>queries_cai.data, queries_cai.shape[0],
-            queries_cai.shape[1])(dataset)
 
     if k is None:
         if indices is not None:
@@ -193,38 +147,29 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     n_queries = cai_wrapper(queries).shape[0]
 
     if indices is None:
-        indices = device_ndarray.empty((n_queries, k), dtype='int64_t')
+        indices = device_ndarray.empty((n_queries, k), dtype='int64')
 
     if distances is None:
         distances = device_ndarray.empty((n_queries, k), dtype='float32')
 
-    cdef device_matrix_view[float, uint32_t, row_major] distances_view = \
-        make_device_matrix_view_float(queries)
+    cdef DistanceType c_metric = DISTANCE_TYPES[metric]
 
-    cdef device_matrix_view[int64_t, uint32_t, row_major] indices_view = \
-        make_device_matrix_view_int64(queries)
+    distances_cai = cai_wrapper(distances)
+    indices_cai = cai_wrapper(indices)
 
-    cdef DistanceType c_metric = _get_metric(metric)
-
-    dataset_cai = cai_wrapper(dataset)
-
-    cdef optional[float] c_metric_arg = metric_arg
-    cdef optional[int64_t] c_global_offset = global_id_offset
+    cdef optional[float] c_metric_arg = <float>metric_arg
+    cdef optional[int64_t] c_global_offset = <int64_t>global_id_offset
 
     cdef device_resources* handle_ = \
         <device_resources*><size_t>handle.getHandle()
 
-    cdef vector[device_matrix_view[const float, uint32_t, row_major]] \
-        dataset_vec
-    dataset_vec.push_back(dataset_view)
-
     if dataset_cai.dtype == np.float32:
         with cuda_interruptible():
             c_knn(deref(handle_),
-                  dataset_vec,
-                  queries_view,
-                  indices_view,
-                  distances_view,
+                  get_dmv_float(dataset_cai, check_shape=True),
+                  get_dmv_float(queries_cai, check_shape=True),
+                  get_dmv_int64(indices_cai, check_shape=True),
+                  get_dmv_float(distances_cai, check_shape=True),
                   c_metric,
                   c_metric_arg,
                   c_global_offset)

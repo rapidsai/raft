@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from pylibraft.neighbors import brute_force
+
 from .refine import refine
 
-__all__ = ["common", "refine"]
+__all__ = ["common", "refine", "brute_force"]
