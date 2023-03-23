@@ -278,10 +278,11 @@ dependencies:
           - ucx>=1.13.0
           - ucx-py=0.32.*
           - ucx-proc=*=gpu
-      - output_types: pyproject
-        packages:
-          - pylibraft==23.6.*
-  test_python_common:
+          - rmm=23.06
+          - libfaiss>=1.7.1=cuda*
+          - faiss-proc=*=cuda
+          - dask-cuda=23.06
+  test_python:
     common:
       - output_types: [conda, requirements]
         packages:
