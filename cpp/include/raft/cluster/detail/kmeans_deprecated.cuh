@@ -383,7 +383,7 @@ static int chooseNewCentroid(raft::device_resources const& handle,
                          thrust::device_pointer_cast(dists),
                          thrust::device_pointer_cast(dists + n),
                          thrust::device_pointer_cast(distsCumSum));
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
   CUDA_TRY(cudaMemcpyAsync(
     &distsSum, distsCumSum + n - 1, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
 
@@ -606,7 +606,7 @@ static int assignCentroids(raft::device_resources const& handle,
   gridDim.y  = 1;
   gridDim.z  = 1;
   minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Compute residual sum of squares
   *residual_host = thrust::reduce(
