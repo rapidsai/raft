@@ -14,29 +14,30 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ball_cover.cuh>
-#include <raft/neighbors/ball_cover_types.hpp>
-
-// Ignore upstream specializations to avoid unnecessary recompiling
-#ifdef RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
-// TODO: Change this to proper specializations after FAISS is removed
-#include <raft/spatial/knn/specializations.cuh>
-
 #include <cstdint>
+#include <raft/neighbors/specializations.cuh>
+#include <raft/spatial/knn/detail/ball_cover/registers.cuh>
 
-namespace raft::neighbors::ball_cover {
-template void knn_query<std::int64_t, float, std::uint32_t>(
+namespace raft {
+namespace spatial {
+namespace knn {
+namespace detail {
+
+template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>(
   raft::device_resources const& handle,
-  const BallCoverIndex<std::int64_t, float, std::uint32_t, std::uint32_t>& index,
-  std::uint32_t k,
+  const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
-  std::uint32_t n_query_pts,
+  const std::uint32_t n_query_rows,
+  std::uint32_t k,
+  const std::int64_t* R_knn_inds,
+  const float* R_knn_dists,
+  DistFunc<float, std::uint32_t>& dfunc,
   std::int64_t* inds,
   float* dists,
-  bool perform_post_filtering,
-  float weight);
+  float weight,
+  std::uint32_t* dists_counter);
 
-};  // namespace raft::neighbors::ball_cover
+};  // namespace detail
+};  // namespace knn
+};  // namespace spatial
+};  // namespace raft
