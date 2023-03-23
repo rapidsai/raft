@@ -18,7 +18,7 @@
 #include <cub/cub.cuh>
 
 #include <raft/distance/distance_types.hpp>
-#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/distance/masked_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/sparse/convert/csr.cuh>
@@ -27,7 +27,7 @@
 #include <raft/sparse/op/reduce.cuh>
 
 #include <raft/util/cudart_utils.hpp>
-
+#include <raft/util/fast_int_div.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -167,6 +167,20 @@ struct LookupColorOp {
   }
 };
 
+template <typename value_idx, typename value_t>
+__global__ void copy_sorted_kernel(const value_t* X,
+                                   value_t* X_cpy,
+                                   value_idx* src_indices,
+                                   size_t n_rows,
+                                   raft::util::FastIntDiv n_cols)
+{
+  value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
+  if (tid >= n_rows * n_cols.d) return;
+  value_idx row = tid / n_cols;
+  value_idx col = tid % n_cols;
+  X_cpy[tid] = X[src_indices[row] * n_cols.d + col];
+}
+
 /**
  * Compute the cross-component 1-nearest neighbors for each row in X using
  * the given array of components
@@ -181,39 +195,104 @@ struct LookupColorOp {
  * @param[in] n_cols number of columns in original dense data
  * @param[in] stream cuda stream for which to order cuda operations
  */
-template <typename value_idx, typename value_t, typename red_op>
-void perform_1nn(raft::KeyValuePair<value_idx, value_t>* kvp,
+template <typename value_idx, typename value_t>
+void perform_1nn(raft::device_resources const& handle,
+                 raft::KeyValuePair<value_idx, value_t>* kvp,
                  value_idx* nn_colors,
                  value_idx* colors,
+                 value_idx* src_indices,
                  const value_t* X,
                  size_t n_rows,
-                 size_t n_cols,
-                 cudaStream_t stream,
-                 red_op reduction_op)
+                 size_t n_cols)
 {
-  rmm::device_uvector<int> workspace(n_rows, stream);
-  rmm::device_uvector<value_t> x_norm(n_rows, stream);
+  auto stream = handle.get_stream();
 
-  raft::linalg::rowNorm(x_norm.data(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
+  raft::print_device_vector("colors_before_sort", colors, n_rows, std::cout);
+  raft::print_device_vector("X_before_sort", X, 30, std::cout);
+  raft::print_device_vector("src_indices_before_sort", src_indices, n_rows, std::cout);
+  // Sort data points by color
+  thrust::sort_by_key(handle.get_thrust_policy(), colors, colors + n_rows, thrust::make_zip_iterator(thrust::make_tuple(src_indices)));
 
-  raft::distance::fusedL2NN<value_t, raft::KeyValuePair<value_idx, value_t>, value_idx>(
-    kvp,
-    X,
-    X,
-    x_norm.data(),
-    x_norm.data(),
-    n_rows,
-    n_rows,
-    n_cols,
-    workspace.data(),
-    reduction_op,
-    reduction_op,
-    true,
-    true,
-    stream);
+  auto X_cpy = raft::make_device_matrix<value_t, value_idx>(handle, n_rows, n_cols);
+  copy_sorted_kernel<<<raft::ceildiv(n_rows * n_cols, (size_t)256), 256, 0, stream>>>(X,
+                                   X_cpy.data_handle(),
+                                   src_indices,
+                                   n_rows,
+                                   raft::util::FastIntDiv(n_cols));
+  
+  raft::print_device_vector("colors_after_sort", colors, n_rows, std::cout);
+  raft::print_device_vector("X_after_sort", X, 30, std::cout);
+  raft::print_device_vector("src_indices_after_sort", src_indices, n_rows, std::cout);
+  auto x_norm = raft::make_device_vector<value_t, value_idx>(handle, n_rows);
+  // rmm::device_uvector<value_t> x_norm(n_rows, stream);
 
+  raft::linalg::rowNorm(x_norm.data_handle(), X_cpy.data_handle(), n_cols, n_rows, raft::linalg::L2Norm, true, stream);
+
+    // auto x_norm_view = raft::make_device_vector_view<const value_t, value_idx>(x_norm.data(), n_rows);
+    value_idx n_components = get_n_components(colors, n_rows, stream);
+    auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx> (handle, n_components + 1);
+    raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
+    RAFT_LOG_INFO("n_comps %d", n_components);
+
+    raft::print_device_vector("colors", colors, n_rows, std::cout);
+    raft::print_device_vector("colors_csr", colors_group_idxs.data_handle(), n_components + 1, std::cout);
+    // auto colors_group_idxs_view = raft::make_device_vector_view<const value_idx, value_idx>(colors_group_idxs.data(), n_components);
+    auto adj = raft::make_device_matrix<bool, value_idx> (handle, n_rows, n_components);
+    // rmm::device_uvector<bool>adj(adj_size, stream);
+    auto adj_iterator = thrust::make_counting_iterator<value_idx>(0);
+    auto mask_op = [colors, n_components = raft::util::FastIntDiv(n_components), adj = adj.data_handle()] __device__(value_idx idx) {
+      value_idx row = idx / n_components;
+      value_idx col = idx % n_components;
+      return colors[row] != col;
+    };
+    thrust::transform(handle.get_thrust_policy(),
+                      adj_iterator,
+                      adj_iterator + n_rows * n_components,
+                      adj.data_handle(),
+                      mask_op);
+    handle.sync_stream(stream);
+    raft::print_device_vector("adj", adj.data_handle(), 30, std::cout);
+    // auto adj_view = raft::make_device_matrix_view<const bool, value_idx>(adj.data(), n_rows, n_components);
+    auto kvp_view = raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
+    using DataT      = value_t;
+  using IdxT       = value_idx;
+  using OutT       = raft::KeyValuePair<IdxT, DataT>;
+  using RedOpT     = raft::distance::MinAndDistanceReduceOp<int, DataT>;
+  using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
+  using ParamT     = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
+    ParamT params{
+  /** Reduction operator in the epilogue */
+        RedOpT{},
+
+  /** Reduction operation on key value pairs */
+  PairRedOpT{},
+  /** Whether the output `minDist` should contain L2-sqrt */
+  true,
+  /** Whether to initialize the output buffer before the main kernel launch */
+  false
+};
+    raft::distance::masked_l2_nn<DataT, OutT, IdxT, RedOpT, PairRedOpT>(handle,
+                  params,
+                  raft::make_const_mdspan(X_cpy.view()),
+                  raft::make_const_mdspan(X_cpy.view()),
+                  raft::make_const_mdspan(x_norm.view()),
+                raft::make_const_mdspan(x_norm.view()),
+                  raft::make_const_mdspan(adj.view()),
+                  raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
+                  kvp_view);
+
+  handle.sync_stream(stream);
+  RAFT_LOG_INFO("Done until masked l2 distance");
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
+  auto fetch_neighbor_indices_op = [kvp, src_indices]__device__ (auto t) {
+    thrust::get<0>(t).key = src_indices[thrust::get<0>(t).key];
+  };
+  auto kvp_iterator = thrust::make_zip_iterator(thrust::make_tuple(kvp));
+  thrust::for_each(rmm::exec_policy(stream), kvp_iterator, kvp_iterator + n_rows, fetch_neighbor_indices_op);
+
+  handle.sync_stream(stream);
+  RAFT_LOG_INFO("Done until fetching neighbor indices");
 }
 
 /**
@@ -236,13 +315,9 @@ void sort_by_color(value_idx* colors,
                    size_t n_rows,
                    cudaStream_t stream)
 {
-  thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, src_indices);
-
   auto keys = thrust::make_zip_iterator(
     thrust::make_tuple(colors, nn_colors, (KeyValuePair<value_idx, value_t>*)kvp));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
-
   // get all the colors in contiguous locations so we can map them to warps.
   thrust::sort_by_key(rmm::exec_policy(stream), keys, keys + n_rows, vals, TupleComp());
 }
@@ -341,8 +416,6 @@ void connect_components(
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, true);
 
-  value_idx n_components = get_n_components(colors.data(), n_rows, stream);
-
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -351,14 +424,17 @@ void connect_components(
   rmm::device_uvector<raft::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
-  perform_1nn(temp_inds_dists.data(),
-              nn_colors.data(),
+  thrust::counting_iterator<value_idx> arg_sort_iter(0);
+  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, src_indices);
+
+  perform_1nn(handle,
+               temp_inds_dists.data(),
+               nn_colors.data(),
               colors.data(),
-              X,
-              n_rows,
-              n_cols,
-              stream,
-              reduction_op);
+               src_indices.data(),
+               X,
+               n_rows,
+               n_cols);
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -376,10 +452,15 @@ void connect_components(
   raft::sparse::op::compute_duplicates_mask(
     out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
 
+    raft::print_device_vector("colors", colors.data(), n_rows, std::cout);
+    raft::print_device_vector("nn_colors", nn_colors.data(), n_rows, std::cout);
+    raft::print_device_vector("out_index", out_index.data(), n_rows, std::cout);
+
   thrust::exclusive_scan(handle.get_thrust_policy(),
                          out_index.data(),
                          out_index.data() + out_index.size(),
                          out_index.data());
+  raft::print_device_vector("out_index", out_index.data(), n_rows, std::cout);
 
   // compute final size
   value_idx size = 0;
