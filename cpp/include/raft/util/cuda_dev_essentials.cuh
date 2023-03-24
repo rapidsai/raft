@@ -88,4 +88,41 @@ DI int laneId()
   return id;
 }
 
+/** Device function to apply the input lambda across threads in the grid */
+template <int ItemsPerThread, typename L>
+DI void forEach(int num, L lambda)
+{
+  int idx              = (blockDim.x * blockIdx.x) + threadIdx.x;
+  const int numThreads = blockDim.x * gridDim.x;
+#pragma unroll
+  for (int itr = 0; itr < ItemsPerThread; ++itr, idx += numThreads) {
+    if (idx < num) lambda(idx, itr);
+  }
+}
+
+/** number of threads per warp */
+static const int WarpSize = 32;
+
+/** get the laneId of the current thread */
+DI int laneId()
+{
+  int id;
+  asm("mov.s32 %0, %%laneid;" : "=r"(id));
+  return id;
+}
+
+/**
+ * @brief Swap two values
+ * @tparam T the datatype of the values
+ * @param a first input
+ * @param b second input
+ */
+template <typename T>
+HDI void swapVals(T& a, T& b)
+{
+  T tmp = a;
+  a     = b;
+  b     = tmp;
+}
+
 }  // namespace raft
