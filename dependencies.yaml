@@ -21,9 +21,10 @@ files:
       cuda: ["11.8"]
       arch: [x86_64]
     includes:
-      - nn_bench
       - build
+      - develop
       - cudatoolkit
+      - nn_bench
   test_cpp:
     output: none
     includes:

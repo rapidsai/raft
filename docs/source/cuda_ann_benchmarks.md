@@ -6,7 +6,7 @@ This project provides a benchmark program for various ANN search implementations
 
 ### Dependencies
 
-TODO: Need to fill in a conda environment file and direct users to it
+
 
 ### compiling benchmark
 
