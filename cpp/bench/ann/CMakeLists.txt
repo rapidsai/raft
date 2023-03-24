@@ -24,6 +24,8 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchm
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 
+find_package(Threads REQUIRED)
+
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
    OR RAFT_ANN_BENCH_USE_FAISS_IVFPQ
