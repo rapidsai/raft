@@ -216,7 +216,6 @@ outputs:
         - libcusparse {{ libcusparse_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
         - glog {{ glog_version }}
-        - hnswlib {{ hnswlib_version }}
         - nlohmann_json {{ nlohmann_json_version }}
         - libfaiss>=1.7.1
         - faiss-proc=*=cuda
@@ -227,7 +226,6 @@ outputs:
         - faiss-proc=*=cuda
         - libfaiss {{ faiss_version }}
         - h5py {{ h5py_version }}
-        - hnswlib {{ hnswlib_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
