@@ -151,10 +151,10 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - hnswlib
-          - nlohmann_json
-          - glog
-          - h5py
+          - hnswlib>=0.7.0
+          - nlohmann_json>=3.11.2
+          - glog>=0.6.0
+          - h5py>=3.8.0
           - libfaiss>=1.7.1
           - faiss-proc=*=cuda
 

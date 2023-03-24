@@ -119,7 +119,7 @@ function(ConfigureAnnBench)
 
   install(
     TARGETS ${BENCH_NAME}
-    COMPONENT testing
+    COMPONENT ann_bench
     DESTINATION bin/ann
     EXCLUDE_FROM_ALL
   )

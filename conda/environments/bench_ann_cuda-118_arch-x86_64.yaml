@@ -17,9 +17,9 @@ dependencies:
 - cython>=0.29,<0.30
 - faiss-proc=*=cuda
 - gcc_linux-64=11.*
-- glog
-- h5py
-- hnswlib
+- glog>=0.6.0
+- h5py>=3.8.0
+- hnswlib>=0.7.0
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
 - libcurand-dev=10.3.0.86
@@ -31,7 +31,7 @@ dependencies:
 - libfaiss>=1.7.1
 - nccl>=2.9.9
 - ninja
-- nlohmann_json
+- nlohmann_json>=3.11.2
 - scikit-build>=0.13.1
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-118_arch-x86_64
