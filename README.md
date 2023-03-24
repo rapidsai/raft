@@ -35,11 +35,15 @@ While not exhaustive, the following general categories help summarize the accele
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
 
-All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+RAFT is a C++ header-only template library with an optional shared library that 
+1) can speed up compile times for common template types, and 
+2) provides host-accessible "runtime" APIs, which don't require a CUDA compiler to use
 
-In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible "runtime" APIs.
+In addition being a C++ library, RAFT also provides 2 Python libraries:
+- `pylibraft` - lightweight Python wrappers around RAFT's host-accessible "runtime" APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
+
+![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
 
 ## Getting started
 
