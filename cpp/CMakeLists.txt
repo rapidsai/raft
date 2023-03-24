@@ -59,14 +59,20 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
+if(BUILD_TESTS
+   OR BUILD_PRIMS_BENCH
+   OR BUILD_ANN_BENCH
+)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
+if(BUILD_TESTS
+   OR BUILD_PRIMS_BENCH
+   OR BUILD_ANN_BENCH
+)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
   # to have different values for the `Threads::Threads` target. Setting this flag ensures
   # `Threads::Threads` is the same value in first run and subsequent runs.
