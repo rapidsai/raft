@@ -1123,7 +1123,7 @@ void select_k(const T* in,
               rmm::cuda_stream_view stream,
               rmm::mr::device_memory_resource* mr = nullptr)
 {
-  if (static_cast<IdxT>(k) == len) {
+  if (k == len) {
     RAFT_CUDA_TRY(
       cudaMemcpyAsync(out, in, sizeof(T) * batch_size * len, cudaMemcpyDeviceToDevice, stream));
     if (in_idx) {
