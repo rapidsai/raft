@@ -144,7 +144,8 @@ template <typename idx_t,
           typename value_int,
           typename matrix_idx,
           typename index_layout,
-          typename search_layout>
+          typename search_layout,
+          typename epilogue_op = raft::identity_op>
 void knn(raft::device_resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
@@ -153,7 +154,8 @@ void knn(raft::device_resources const& handle,
          value_int k,
          distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,
          std::optional<float> metric_arg       = std::make_optional<float>(2.0f),
-         std::optional<idx_t> global_id_offset = std::nullopt)
+         std::optional<idx_t> global_id_offset = std::nullopt,
+         epilogue_op distance_epilogue         = raft::identity_op())
 {
   RAFT_EXPECTS(index[0].extent(1) == search.extent(1),
                "Number of dimensions for both index and search matrices must be equal");
@@ -194,7 +196,8 @@ void knn(raft::device_resources const& handle,
                                                 rowMajorQuery,
                                                 trans_arg,
                                                 metric,
-                                                metric_arg.value_or(2.0f));
+                                                metric_arg.value_or(2.0f),
+                                                distance_epilogue);
 }
 
 /**
