@@ -188,7 +188,7 @@ outputs:
       summary: libraft template
   - name: libraft-ann-bench
     version: {{ version }}
-    script: build_libraft_tests.sh
+    script: build_libraft_ann_bench.sh
     build:
       script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}

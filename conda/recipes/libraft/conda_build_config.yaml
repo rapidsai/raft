@@ -26,7 +26,7 @@ faiss_version:
   - ">=1.7.1"
 
 hnswlib_version:
-  - ">=0.7.0"
+  - "=0.7.0"
 
 h5py_version:
   - ">=3.8.0"
