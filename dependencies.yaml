@@ -15,6 +15,15 @@ files:
       - run_pylibraft
       - test_python_common
       - test_pylibraft
+  bench_ann:
+    output: conda
+    matrix:
+      cuda: ["11.8"]
+      arch: [x86_64]
+    includes:
+      - nn_bench
+      - build
+      - cudatoolkit
   test_cpp:
     output: none
     includes:
@@ -26,11 +35,6 @@ files:
       - py_version
       - test_python_common
       - test_pylibraft
-  bench_ann:
-    output: none
-    includes:
-      - cudatoolkit
-      - nn_bench
   checks:
     output: none
     includes:
