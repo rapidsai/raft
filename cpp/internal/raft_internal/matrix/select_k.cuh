@@ -33,7 +33,8 @@ struct params {
   size_t len;
   int k;
   bool select_min;
-  bool use_index_input = true;
+  bool use_index_input       = true;
+  bool use_same_leading_bits = false;
 };
 
 inline auto operator<<(std::ostream& os, const params& ss) -> std::ostream&
@@ -42,7 +43,8 @@ inline auto operator<<(std::ostream& os, const params& ss) -> std::ostream&
   os << ", len: " << ss.len;
   os << ", k: " << ss.k;
   os << (ss.select_min ? ", asc" : ", dsc");
-  os << (ss.use_index_input ? "}" : ", no-input-index}");
+  os << (ss.use_index_input ? "" : ", no-input-index");
+  os << (ss.use_same_leading_bits ? ", same-leading-bits}" : "}");
   return os;
 }
 
@@ -50,6 +52,7 @@ enum class Algo {
   kPublicApi,
   kRadix8bits,
   kRadix11bits,
+  kRadix11bitsExtraPass,
   kWarpAuto,
   kWarpImmediate,
   kWarpFiltered,
@@ -63,6 +66,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kPublicApi: return os << "kPublicApi";
     case Algo::kRadix8bits: return os << "kRadix8bits";
     case Algo::kRadix11bits: return os << "kRadix11bits";
+    case Algo::kRadix11bitsExtraPass: return os << "kRadix11bitsExtraPass";
     case Algo::kWarpAuto: return os << "kWarpAuto";
     case Algo::kWarpImmediate: return os << "kWarpImmediate";
     case Algo::kWarpFiltered: return os << "kWarpFiltered";
@@ -103,11 +107,38 @@ void select_k_impl(const device_resources& handle,
       }
     }
     case Algo::kRadix8bits:
-      return detail::select::radix::select_k<T, IdxT, 8, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      return detail::select::radix::select_k<T, IdxT, 8, 512>(in,
+                                                              in_idx,
+                                                              batch_size,
+                                                              len,
+                                                              k,
+                                                              out,
+                                                              out_idx,
+                                                              select_min,
+                                                              true,  // fused_last_filter
+                                                              stream);
     case Algo::kRadix11bits:
-      return detail::select::radix::select_k<T, IdxT, 11, 512>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+      return detail::select::radix::select_k<T, IdxT, 11, 512>(in,
+                                                               in_idx,
+                                                               batch_size,
+                                                               len,
+                                                               k,
+                                                               out,
+                                                               out_idx,
+                                                               select_min,
+                                                               true,  // fused_last_filter
+                                                               stream);
+    case Algo::kRadix11bitsExtraPass:
+      return detail::select::radix::select_k<T, IdxT, 11, 512>(in,
+                                                               in_idx,
+                                                               batch_size,
+                                                               len,
+                                                               k,
+                                                               out,
+                                                               out_idx,
+                                                               select_min,
+                                                               false,  // fused_last_filter
+                                                               stream);
     case Algo::kWarpAuto:
       return detail::select::warpsort::select_k<T, IdxT>(
         in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
