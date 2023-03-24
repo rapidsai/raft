@@ -100,17 +100,6 @@ DI void forEach(int num, L lambda)
   }
 }
 
-/** number of threads per warp */
-static const int WarpSize = 32;
-
-/** get the laneId of the current thread */
-DI int laneId()
-{
-  int id;
-  asm("mov.s32 %0, %%laneid;" : "=r"(id));
-  return id;
-}
-
 /**
  * @brief Swap two values
  * @tparam T the datatype of the values
