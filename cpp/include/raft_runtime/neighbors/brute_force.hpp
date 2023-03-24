@@ -21,18 +21,17 @@
 
 namespace raft::runtime::neighbors::brute_force {
 
-#define RAFT_INST_BFKNN(IDX_T, DATA_T, MATRIX_IDX_T, INDEX_LAYOUT, SEARCH_LAYOUT)                 \
-  void knn(raft::device_resources const& handle,                                                  \
-           std::vector<raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, INDEX_LAYOUT>> index, \
-           raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, SEARCH_LAYOUT> search,            \
-           raft::device_matrix_view<IDX_T, MATRIX_IDX_T, row_major> indices,                      \
-           raft::device_matrix_view<DATA_T, MATRIX_IDX_T, row_major> distances,                   \
-           int k,                                                                                 \
-           distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,          \
-           std::optional<float> metric_arg       = std::make_optional<float>(2.0f),               \
+#define RAFT_INST_BFKNN(IDX_T, DATA_T, MATRIX_IDX_T, INDEX_LAYOUT, SEARCH_LAYOUT)        \
+  void knn(raft::device_resources const& handle,                                         \
+           raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, INDEX_LAYOUT> index,     \
+           raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, SEARCH_LAYOUT> search,   \
+           raft::device_matrix_view<IDX_T, MATRIX_IDX_T, row_major> indices,             \
+           raft::device_matrix_view<DATA_T, MATRIX_IDX_T, row_major> distances,          \
+           distance::DistanceType metric         = distance::DistanceType::L2Unexpanded, \
+           std::optional<float> metric_arg       = std::make_optional<float>(2.0f),      \
            std::optional<IDX_T> global_id_offset = std::nullopt);
 
-RAFT_INST_BFKNN(int64_t, float, uint32_t, raft::row_major, raft::row_major);
+RAFT_INST_BFKNN(int64_t, float, int64_t, raft::row_major, raft::row_major);
 
 #undef RAFT_INST_BFKNN
 

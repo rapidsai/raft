@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this scripts resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -30,6 +30,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    tests            - build the tests
    bench-prims      - build micro-benchmarks for primitives
    bench-ann        - build end-to-end ann benchmarks
+   template         - build the example RAFT application template
 
  and <flag> is:
    -v                          - verbose build mode
@@ -376,13 +377,13 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
@@ -430,4 +431,13 @@ if hasArg docs; then
     doxygen Doxyfile
     cd ${SPHINX_BUILD_DIR}
     sphinx-build -b html source _html
+fi
+
+################################################################################
+# Initiate build for example RAFT application template (if needed)
+
+if hasArg template; then
+    pushd cpp/template
+    ./build.sh
+    popd
 fi

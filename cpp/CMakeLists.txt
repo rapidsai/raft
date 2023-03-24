@@ -311,6 +311,7 @@ if(RAFT_COMPILE_LIBRARY)
     # These are somehow missing a kernel definition which is causing a compile error.
     # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
     # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
+    src/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
