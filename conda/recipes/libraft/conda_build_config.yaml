@@ -28,6 +28,9 @@ faiss_version:
 hnswlib_version:
   - ">=0.7.0"
 
+h5py_version:
+  - ">=3.8.0"
+
 nlohmann_json_version:
   - ">=3.11.2"
 
