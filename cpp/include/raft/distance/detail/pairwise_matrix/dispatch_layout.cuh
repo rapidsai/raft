@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include "kernel_sm60.cuh"
-#include <algorithm>
-#include <type_traits>
-
+#include <algorithm>                                        // std::min
+#include <cstdint>                                          // size_t
+#include <raft/core/error.hpp>                              // RAFT_EXPECTS
+#include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
+#include <type_traits>                                      // std::integral_constant
 namespace raft::distance::detail {
 
 /**
@@ -99,15 +100,15 @@ auto dispatch_layout(bool row_major, int vec_len, F&& f)
 {
   if (row_major) {
     switch (vec_len) {
-      case 4: return f(std::bool_constant<true>(), vec_len_constant<4>());
-      case 2: return f(std::bool_constant<true>(), vec_len_constant<2>());
-      default: return f(std::bool_constant<true>(), vec_len_constant<1>());
+      case 4: return f(std::true_type(), vec_len_constant<4>());
+      case 2: return f(std::true_type(), vec_len_constant<2>());
+      default: return f(std::true_type(), vec_len_constant<1>());
     }
   } else {
     switch (vec_len) {
-      case 4: return f(std::bool_constant<false>(), vec_len_constant<4>());
-      case 2: return f(std::bool_constant<false>(), vec_len_constant<2>());
-      default: return f(std::bool_constant<false>(), vec_len_constant<1>());
+      case 4: return f(std::false_type(), vec_len_constant<4>());
+      case 2: return f(std::false_type(), vec_len_constant<2>());
+      default: return f(std::false_type(), vec_len_constant<1>());
     }
   }
 }
