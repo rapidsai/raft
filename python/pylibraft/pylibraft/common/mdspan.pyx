@@ -159,7 +159,6 @@ cdef device_matrix_view[float, int64_t, row_major] \
     return make_device_matrix_view[float, int64_t, row_major](
         <float*><uintptr_t>cai.data, shape[0], shape[1])
 
-
 cdef device_matrix_view[uint8_t, int64_t, row_major] \
         get_dmv_uint8(cai, check_shape) except *:
     if cai.dtype != np.uint8:
