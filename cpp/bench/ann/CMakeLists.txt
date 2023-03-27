@@ -128,7 +128,7 @@ endfunction()
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
     NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
-    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS -mavx
+    ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS "${HNSW_CXX_FLAGS}"
   )
 endif()
 

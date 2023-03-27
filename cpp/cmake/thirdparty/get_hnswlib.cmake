@@ -27,6 +27,17 @@ function(find_and_configure_hnswlib)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
 
     endif ()
+
+    include(cmake/modules/FindAVX.cmake)
+
+    set(HNSW_CXX_FLAGS "")
+    if(CXX_AVX_FOUND)
+        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX_FLAGS}")
+    elseif(CXX_AVX2_FOUND)
+        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX2_FLAGS}")
+    elseif(CXX_AVX512_FOUND)
+        set(HNSW_CXX_FLAGS "${HNSW_CXX_FLAGS} ${CXX_AVX512_FLAGS}")
+    endif()
 endfunction()
 
 # Change pinned tag here to test a commit in CI
