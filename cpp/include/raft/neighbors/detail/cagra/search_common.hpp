@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
+#include <cuda.h>
 
-#include <raft/neighbors/specializations/ball_cover.cuh>
-#include <raft/neighbors/specializations/brute_force.cuh>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
+namespace raft::neighbors::experimental::cagra::detail {
 
-// #include <raft/neighbors/specializations/cagra.cuh>
-#include <raft/neighbors/specializations/ivf_flat.cuh>
-#include <raft/neighbors/specializations/ivf_pq.cuh>
-#include <raft/neighbors/specializations/refine.cuh>
+enum search_algo_t {
+  SINGLE_CTA,  // for large batch
+  MULTI_CTA,   // for small batch
+  MULTI_KERNEL,
+};
 
-#include <raft/cluster/specializations.cuh>
-#include <raft/distance/specializations.cuh>
-#include <raft/matrix/specializations.cuh>
+struct search_common {
+  search_algo_t _algo;
+  unsigned _team_size;
+  unsigned _max_dataset_dim;
+  cudaDataType_t _dtype;  // CUDA_R_32F, CUDA_R_16F, CUDA_R_8I, or CUDA_R_8U
+  unsigned _topk;
+  unsigned _max_queries;
+  unsigned _dataset_dim;
+};
+
+}  // namespace raft::neighbors::experimental::cagra::detail
