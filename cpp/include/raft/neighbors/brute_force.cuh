@@ -145,7 +145,6 @@ inline void knn_merge_parts(
  */
 template <typename idx_t,
           typename value_t,
-          typename value_int,
           typename matrix_idx,
           typename index_layout,
           typename search_layout,
@@ -155,7 +154,6 @@ void knn(raft::device_resources const& handle,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
          raft::device_matrix_view<value_t, matrix_idx, row_major> distances,
-         value_int k,
          distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,
          std::optional<float> metric_arg       = std::make_optional<float>(2.0f),
          std::optional<idx_t> global_id_offset = std::nullopt,
@@ -167,15 +165,14 @@ void knn(raft::device_resources const& handle,
   RAFT_EXPECTS(indices.extent(0) == distances.extent(0) && distances.extent(0) == search.extent(0),
                "Number of rows in output indices and distances matrices must equal number of rows "
                "in search matrix.");
-  RAFT_EXPECTS(
-    indices.extent(1) == distances.extent(1) && distances.extent(1) == static_cast<matrix_idx>(k),
-    "Number of columns in output indices and distances matrices must be equal to k");
+  RAFT_EXPECTS(indices.extent(1) == distances.extent(1) && distances.extent(1),
+               "Number of columns in output indices and distances matrices must the same");
 
   bool rowMajorIndex = std::is_same_v<index_layout, layout_c_contiguous>;
   bool rowMajorQuery = std::is_same_v<search_layout, layout_c_contiguous>;
 
   std::vector<value_t*> inputs;
-  std::vector<value_int> sizes;
+  std::vector<matrix_idx> sizes;
   for (std::size_t i = 0; i < index.size(); ++i) {
     inputs.push_back(const_cast<value_t*>(index[i].data_handle()));
     sizes.push_back(index[i].extent(0));
@@ -189,13 +186,13 @@ void knn(raft::device_resources const& handle,
   raft::neighbors::detail::brute_force_knn_impl(handle,
                                                 inputs,
                                                 sizes,
-                                                static_cast<value_int>(index[0].extent(1)),
+                                                index[0].extent(1),
                                                 // TODO: This is unfortunate. Need to fix.
                                                 const_cast<value_t*>(search.data_handle()),
-                                                static_cast<value_int>(search.extent(0)),
+                                                search.extent(0),
                                                 indices.data_handle(),
                                                 distances.data_handle(),
-                                                k,
+                                                indices.extent(1),
                                                 rowMajorIndex,
                                                 rowMajorQuery,
                                                 trans_arg,
