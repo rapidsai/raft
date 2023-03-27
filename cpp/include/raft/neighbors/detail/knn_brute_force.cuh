@@ -60,7 +60,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                            ElementType* distances,  // size (m, k)
                            IndexType* indices,      // size (m, k)
                            raft::distance::DistanceType metric,
-                           float metric_arg                   = 0.0,
+                           float metric_arg                   = 2.0,
                            size_t max_row_tile_size           = 0,
                            size_t max_col_tile_size           = 0,
                            DistanceEpilogue distance_epilogue = raft::identity_op())

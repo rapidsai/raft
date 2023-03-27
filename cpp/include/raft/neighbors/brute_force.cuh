@@ -138,7 +138,10 @@ inline void knn_merge_parts(
  * 					 is ignored if the metric_type is not Minkowski.
  * @param[in] global_id_offset: optional starting global id mapping for the local partition
  *                              (assumes the index contains contiguous ids in the global id space)
- * @param[in] distance_epilogue: optional epilogue function to run after computing distances
+ * @param[in] distance_epilogue: optional epilogue function to run after computing distances. This
+                                 function takes a triple of the (value, rowid, colid) for each
+                                 element in the pairwise distances and returns a transformed value
+                                 back.
  */
 template <typename idx_t,
           typename value_t,
