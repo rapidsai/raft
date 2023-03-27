@@ -155,17 +155,18 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                     metric_arg);
       if (metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
-        auto row_norms = search_norms.data() + i;
-        auto col_norms = index_norms.data() + j;
+        auto row_norms = search_norms.data();
+        auto col_norms = index_norms.data();
         auto dist      = temp_distances.data();
 
         raft::linalg::map_offset(
           handle,
           raft::make_device_vector_view(dist, current_query_size * current_centroid_size),
-          [=] __device__(IndexType i) {
-            IndexType row = i / current_centroid_size, col = i % current_centroid_size;
+          [=] __device__(IndexType idx) {
+            IndexType row = i + (idx / current_centroid_size);
+            IndexType col = j + (idx % current_centroid_size);
 
-            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[idx];
 
             // due to numerical instability (especially around self-distance)
             // the distances here could be slightly negative, which will
@@ -183,9 +184,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
             handle,
             raft::make_device_vector_view(temp_distances.data(),
                                           current_query_size * current_centroid_size),
-            [=] __device__(size_t i) {
-              return distance_epilogue(
-                distances_ptr[i], i / current_centroid_size, i % current_centroid_size);
+            [=] __device__(size_t idx) {
+              IndexType row = i + (idx / current_centroid_size);
+              IndexType col = j + (idx % current_centroid_size);
+              return distance_epilogue(distances_ptr[idx], row, col);
             });
         }
       }
