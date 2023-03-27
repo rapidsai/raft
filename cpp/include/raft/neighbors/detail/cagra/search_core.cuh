@@ -15,9 +15,6 @@
  */
 #pragma once
 
-#include <cassert>
-#include <iostream>
-
 #include "fragment.hpp"
 #include "hashmap.hpp"
 #include "search_common.hpp"
@@ -58,9 +55,9 @@ void create_plan(void** plan,
     mc_itopk_size        = 32;
     mc_num_parents       = 1;
     mc_num_cta_per_query = max(num_parents, itopk_size / 32);
-    printf("# mc_itopk_size: %u\n", mc_itopk_size);
-    printf("# mc_num_parents: %u\n", mc_num_parents);
-    printf("# mc_num_cta_per_query: %u\n", mc_num_cta_per_query);
+    RAFT_LOG_DEBUG("# mc_itopk_size: %u\n", mc_itopk_size);
+    RAFT_LOG_DEBUG("# mc_num_parents: %u\n", mc_num_parents);
+    RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u\n", mc_num_cta_per_query);
   }
 
   // Determine hash size (bit length)
@@ -90,10 +87,10 @@ void create_plan(void** plan,
         hash_bitlen = 0;
         break;
       } else {
-        fprintf(stderr,
-                "[CAGRA Error]\n"
-                "small-hash cannot be used because the required hash size exceeds the limit (%u)\n",
-                hashmap::get_size(max_bitlen));
+        RAFT_LOG_DEBUG(
+          "[CAGRA Error]\n"
+          "small-hash cannot be used because the required hash size exceeds the limit (%u)\n",
+          hashmap::get_size(max_bitlen));
         exit(-1);
       }
     }
@@ -130,34 +127,33 @@ void create_plan(void** plan,
     while (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) {
       hash_bitlen += 1;
     }
-    // unsigned max_bitlen = 20;  // 1M
-    assert(hash_bitlen <= 20);
+    RAFT_EXPECTS(hash_bitlen <= 20, "hash_bitlen cannot be largen than 20 (1M)");
   }
 
-  std::printf("# topK = %lu\n", topk);
-  std::printf("# internal topK = %lu\n", itopk_size);
-  std::printf("# parent size = %lu\n", num_parents);
-  std::printf("# min_iterations = %lu\n", min_iterations);
-  std::printf("# max_iterations = %lu\n", max_iterations);
-  std::printf("# max_queries = %lu\n", max_queries);
-  std::printf("# team size = %u\n", TEAM_SIZE);
-  std::printf("# hashmap mode = %s%s-%u\n",
-              (small_hash_bitlen > 0 ? "small-" : ""),
-              "hash",
-              hashmap::get_size(hash_bitlen));
+  RAFT_LOG_DEBUG("# topK = %lu\n", topk);
+  RAFT_LOG_DEBUG("# internal topK = %lu\n", itopk_size);
+  RAFT_LOG_DEBUG("# parent size = %lu\n", num_parents);
+  RAFT_LOG_DEBUG("# min_iterations = %lu\n", min_iterations);
+  RAFT_LOG_DEBUG("# max_iterations = %lu\n", max_iterations);
+  RAFT_LOG_DEBUG("# max_queries = %lu\n", max_queries);
+  RAFT_LOG_DEBUG("# team size = %u\n", TEAM_SIZE);
+  RAFT_LOG_DEBUG("# hashmap mode = %s%s-%u\n",
+                 (small_hash_bitlen > 0 ? "small-" : ""),
+                 "hash",
+                 hashmap::get_size(hash_bitlen));
   if (small_hash_bitlen > 0) {
-    std::printf("# small_hash_reset_interval = %lu\n", small_hash_reset_interval);
+    RAFT_LOG_DEBUG("# small_hash_reset_interval = %lu\n", small_hash_reset_interval);
   }
   size_t hashmap_size = sizeof(std::uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
-  printf("# hashmap size: %lu", hashmap_size);
+  RAFT_LOG_DEBUG("# hashmap size: %lu", hashmap_size);
   if (hashmap_size >= 1024 * 1024 * 1024) {
-    printf(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));
+    RAFT_LOG_DEBUG(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));
   } else if (hashmap_size >= 1024 * 1024) {
-    printf(" (%.2f MiB)", (double)hashmap_size / (1024 * 1024));
+    RAFT_LOG_DEBUG(" (%.2f MiB)", (double)hashmap_size / (1024 * 1024));
   } else if (hashmap_size >= 1024) {
-    printf(" (%.2f KiB)", (double)hashmap_size / (1024));
+    RAFT_LOG_DEBUG(" (%.2f KiB)", (double)hashmap_size / (1024));
   }
-  printf("\n");
+  RAFT_LOG_DEBUG("\n");
   std::fflush(stdout);
 
   // Create plan

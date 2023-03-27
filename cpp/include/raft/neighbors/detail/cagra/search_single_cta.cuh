@@ -418,7 +418,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
     }
     __syncthreads();
     // if ((blockIdx.x == 0) && (threadIdx.x == 0)) {
-    //     printf( "work_buf: %u, %u, %u\n", work_buf[0], work_buf[1], work_buf[2] );
+    //     RAFT_LOG_DEBUG( "work_buf: %u, %u, %u\n", work_buf[0], work_buf[1], work_buf[2] );
     // }
 
     // Warp-0 merges 1st half of itopk, warp-1 does 2nd half.
@@ -767,7 +767,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   }
 #ifdef _CLK_BREAKDOWN
   if ((threadIdx.x == 0 || threadIdx.x == BLOCK_SIZE - 1) && ((query_id * 3) % gridDim.y < 3)) {
-    printf(
+    RAFT_LOG_DEBUG(
       "query, %d, thread, %d"
       ", init, %d"
       ", 1st_distance, %lu"
@@ -995,9 +995,9 @@ struct search : search_common {
     constexpr unsigned max_itopk = 512;
     assert(itopk_size <= max_itopk);
 
-    printf("# num_itopk_candidates: %u\n", num_itopk_candidates);
-    printf("# num_itopk: %u\n", itopk_size);
-    // printf( "# max_itopk: %u\n", max_itopk );
+    RAFT_LOG_DEBUG("# num_itopk_candidates: %u\n", num_itopk_candidates);
+    RAFT_LOG_DEBUG("# num_itopk: %u\n", itopk_size);
+    // RAFT_LOG_DEBUG( "# max_itopk: %u\n", max_itopk );
 
     //
     // Determine the thread block size
@@ -1052,14 +1052,14 @@ struct search : search_common {
       // is small, that is, number of queries is low.
       cudaDeviceProp deviceProp;
       RAFT_CUDA_TRY(cudaGetDeviceProperties(&deviceProp, 0));
-      printf("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
+      RAFT_LOG_DEBUG("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
              (graph_degree * num_parents * TEAM_SIZE >= block_size * 2) &&
              (max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
         block_size *= 2;
       }
     }
-    printf("# thread_block_size: %u\n", block_size);
+    RAFT_LOG_DEBUG("# thread_block_size: %u\n", block_size);
     assert(block_size >= min_block_size);
     assert(block_size <= max_block_size);
 
@@ -1072,16 +1072,16 @@ struct search : search_common {
         load_bit_length /= 2;
       }
     }
-    printf("# load_bit_length: %u  (%u loads per vector)\n",
-           load_bit_length,
-           total_bit_length / load_bit_length);
+    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)\n",
+                   load_bit_length,
+                   total_bit_length / load_bit_length);
     assert(total_bit_length % load_bit_length == 0);
     assert(load_bit_length >= 64);
 
     if (num_itopk_candidates <= 256) {
-      printf("# bitonic-sort based topk routine is used\n");
+      RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used\n");
     } else {
-      printf("# radix-sort based topk routine is used\n");
+      RAFT_LOG_DEBUG("# radix-sort based topk routine is used\n");
       smem_size = base_smem_size;
       if (itopk_size <= 256) {
         constexpr unsigned MAX_ITOPK = 256;
@@ -1109,9 +1109,9 @@ struct search : search_common {
         }
       }
     }
-    printf("# smem_size: %u\n", smem_size);
-    // printf( "# hash_bitlen: %u\n", hash_bitlen );
-    // printf( "# small_hash_bitlen: %u\n", small_hash_bitlen );
+    RAFT_LOG_DEBUG("# smem_size: %u\n", smem_size);
+    // RAFT_LOG_DEBUG( "# hash_bitlen: %u\n", hash_bitlen );
+    // RAFT_LOG_DEBUG( "# small_hash_bitlen: %u\n", small_hash_bitlen );
 
     SET_KERNEL;
     RAFT_CUDA_TRY(
@@ -1123,7 +1123,7 @@ struct search : search_common {
       hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
       RAFT_CUDA_TRY(cudaMalloc(&hashmap_ptr, hashmap_size));
     }
-    printf("# hashmap_size: %lu\n", hashmap_size);
+    RAFT_LOG_DEBUG("# hashmap_size: %lu\n", hashmap_size);
   }
 
   ~search()

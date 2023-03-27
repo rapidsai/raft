@@ -168,19 +168,19 @@ void search_main(raft::device_resources const& handle,
       search_mode = "multi-kernel";
     }
   }
-  printf("# search_mode = %s\n", search_mode.c_str());
+  RAFT_LOG_DEBUG("# search_mode = %s\n", search_mode.c_str());
 
   // Load dataset and queries from file
   size_t dataset_size   = index.dataset().extent(0);
   void* dev_dataset_ptr = (void*)index.dataset().data_handle();
   void* dev_query_ptr   = (void*)queries.data_handle();
 
-  std::printf("# dataset size = %lu, dim = %lu\n",
-              static_cast<size_t>(index.dataset().extent(0)),
-              static_cast<size_t>(index.dataset().extent(1)));
-  std::printf("# query size = %lu, dim = %lu\n",
-              static_cast<size_t>(queries.extent(0)),
-              static_cast<size_t>(queries.extent(1)));
+  RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
+                 static_cast<size_t>(index.dataset().extent(0)),
+                 static_cast<size_t>(index.dataset().extent(1)));
+  RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
+                 static_cast<size_t>(queries.extent(0)),
+                 static_cast<size_t>(queries.extent(1)));
   // assert(index.dataset_.extent(0) == graph_size);
   assert(queries.extent(1) == index.dataset().extent(1));
 

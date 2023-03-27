@@ -44,27 +44,40 @@ struct index_params : ann::index_params {
 };
 
 // TODO set reasonable defaults
-struct search_params : ann::search_params {
-  /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
-  size_t team_size = 0;
-  /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
-  std::string search_mode = "auto";
-  /** Number of search results for each query. */
-  size_t topk = 10;
+struct search_params_base : ann::search_params {
   /** Number of intermediate search results retained during the search. */
   size_t itopk_size = 64;
-  /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
+
+  /** Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t num_parents = 1;
+
   /** Lower limit of search iterations. */
   size_t min_iterations = 0;
-  /** Upper limit of search iterations. */
+
+  /** Upper limit of search iterations. Auto selection when 0.*/
   size_t max_iterations = 0;
+
+  /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
+  std::string search_mode = "auto";
+
+  /** Number of threads used to calculate a single distance.
+   *  - value 0: select team size automatically,
+   *  - other valid values: 4, 8, 16, or 32. */
+  size_t team_size = 0;
+
+  /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
+  size_t load_bit_length = 0;
+};
+struct search_params : search_params_base {
+  // Parameters for fine tuning search.
+
+  /** Number of search results for each query. */
+  size_t topk = 10;
 
   /** Maximum number of queries to search at the same time. So called batch size. */
   size_t max_queries = 1;
-  /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
-  size_t load_bit_length = 0;
+
   /** Thread block size. 0, 64, 128, 256, 512, 1024. Auto selection when 0. */
   size_t thread_block_size = 0;
   /** Hashmap type. "auto", "hash", or "small-hash". Auto selection when "auto". */
