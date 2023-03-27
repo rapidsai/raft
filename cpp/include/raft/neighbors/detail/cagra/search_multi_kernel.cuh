@@ -24,9 +24,9 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
-#include "search_common.hpp"
 #include "topk_for_cagra/topk.h"  //todo replace with raft kernel
 #include "utils.hpp"
+#include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
@@ -570,11 +570,11 @@ struct search : search_common {
     topk_workspace_size = _cuann_find_topk_bufferSize(
       itopk_size, max_queries, result_buffer_size, utils::get_cuda_data_type<DATA_T>());
     RAFT_CUDA_TRY(cudaMalloc(&topk_workspace, sizeof(uint32_t) * topk_workspace_size));
-    printf("# topk_workspace_size: %lu\n", topk_workspace_size);
+    RAFT_LOG_DEBUG("# topk_workspace_size: %lu\n", topk_workspace_size);
 
     size_t hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
     RAFT_CUDA_TRY(cudaMalloc(&hashmap_ptr, hashmap_size));
-    // printf("# hashmap_size: %lu\n", hashmap_size);
+    // RAFT_LOG_DEBUG("# hashmap_size: %lu\n", hashmap_size);
 
     RAFT_CUDA_TRY(cudaMalloc(&dev_terminate_flag, sizeof(uint32_t)));
     RAFT_CUDA_TRY(cudaMallocHost(&host_terminate_flag, sizeof(uint32_t)));

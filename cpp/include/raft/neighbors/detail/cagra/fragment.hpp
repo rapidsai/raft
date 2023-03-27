@@ -47,8 +47,7 @@ struct load_unit_t<1> {
 
 // One dataset or query vector is distributed within a warp and stored as `fragment`.
 template <int DIM, class T, unsigned TEAM_SIZE, class ENABLED>
-struct fragment_base {
-};
+struct fragment_base {};
 template <int DIM, class T, unsigned TEAM_SIZE = warp_size>
 struct fragment
   : fragment_base<DIM,
@@ -200,9 +199,8 @@ CAGRA_DEVICE void print_fragment(const device::fragment<DIM, T, TEAM_SIZE>& a)
   for (unsigned i = 0; i < TEAM_SIZE; i++) {
     if ((threadIdx.x % TEAM_SIZE) == i) {
       for (unsigned j = 0; j < a.num_elements; j++) {
-        printf("%+e ", static_cast<float>(a.x[j]));
+        RAFT_LOG_DEBUG("%+e ", static_cast<float>(a.x[j]));
       }
-      std::printf("\n");
     }
     __syncwarp();
   }

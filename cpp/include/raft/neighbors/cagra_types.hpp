@@ -43,6 +43,17 @@ struct index_params : ann::index_params {
   size_t graph_degree              = 64;   // Degree of output graph.
 };
 
+enum search_algo_t {
+  SINGLE_CTA,  // for large batch
+  MULTI_CTA,   // for small batch
+  MULTI_KERNEL,
+};
+
+struct search_common {
+  unsigned _max_dataset_dim;
+  unsigned _dataset_dim;
+};
+
 // TODO set reasonable defaults
 struct search_params_base : ann::search_params {
   /** Number of intermediate search results retained during the search. */
@@ -68,6 +79,8 @@ struct search_params_base : ann::search_params {
 
   /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
   size_t load_bit_length = 0;
+  // private?
+  search_algo_t algo;
 };
 struct search_params : search_params_base {
   // Parameters for fine tuning search.
@@ -150,11 +163,11 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&) = delete;
-  index(index&&)      = default;
+  index(const index&)                    = delete;
+  index(index&&)                         = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index& = default;
-  ~index()                          = default;
+  auto operator=(index&&) -> index&      = default;
+  ~index()                               = default;
 
   /** Construct an empty index. */
   index(raft::device_resources const& res)

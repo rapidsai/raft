@@ -25,9 +25,9 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
-#include "search_common.hpp"
 #include "topk_for_cagra/topk.h"  // TODO replace with raft topk
 #include "utils.hpp"
+#include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
@@ -293,7 +293,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
 #ifdef _CLK_BREAKDOWN
   if ((threadIdx.x == 0 || threadIdx.x == BLOCK_SIZE - 1) && (blockIdx.x == 0) &&
       ((query_id * 3) % gridDim.y < 3)) {
-    printf(
+    RAFT_LOG_DEBUG(
       "query, %d, thread, %d"
       ", init, %d"
       ", 1st_distance, %lu"
@@ -487,7 +487,7 @@ struct search : search_common {
     smem_size = sizeof(float) * MAX_DATASET_DIM +
                 (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
                 sizeof(uint32_t) * num_parents + sizeof(uint32_t);
-    printf("# smem_size: %u\n", smem_size);
+    RAFT_LOG_DEBUG("# smem_size: %u\n", smem_size);
 
     //
     // Determine the thread block size
@@ -511,7 +511,7 @@ struct search : search_common {
       // CTAs (= num_cta_per_query * max_queries) is small.
       cudaDeviceProp deviceProp;
       RAFT_CUDA_TRY(cudaGetDeviceProperties(&deviceProp, 0));
-      printf("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
+      RAFT_LOG_DEBUG("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
              (graph_degree * num_parents * TEAM_SIZE >= block_size * 2) &&
              (num_cta_per_query * max_queries <=
@@ -519,7 +519,7 @@ struct search : search_common {
         block_size *= 2;
       }
     }
-    printf("# thread_block_size: %u\n", block_size);
+    RAFT_LOG_DEBUG("# thread_block_size: %u\n", block_size);
     assert(block_size >= min_block_size);
     assert(block_size <= max_block_size);
 
@@ -534,9 +534,9 @@ struct search : search_common {
         load_bit_length /= 2;
       }
     }
-    printf("# load_bit_length: %u  (%u loads per vector)\n",
-           load_bit_length,
-           total_bit_length / load_bit_length);
+    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)\n",
+                   load_bit_length,
+                   total_bit_length / load_bit_length);
     assert(total_bit_length % load_bit_length == 0);
     assert(load_bit_length >= 64);
 
@@ -555,7 +555,7 @@ struct search : search_common {
 
     size_t hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
     RAFT_CUDA_TRY(cudaMalloc(&hashmap_ptr, hashmap_size));
-    // printf("# hashmap_size: %lu\n", hashmap_size);
+    // RAFT_LOG_DEBUG("# hashmap_size: %lu\n", hashmap_size);
 
     topk_workspace_size = _cuann_find_topk_bufferSize(
       topk, max_queries, num_intermediate_results, utils::get_cuda_data_type<DATA_T>());
@@ -563,7 +563,7 @@ struct search : search_common {
     if (topk_workspace_size > 0) {
       RAFT_CUDA_TRY(cudaMalloc(&topk_workspace, sizeof(std::uint32_t) * topk_workspace_size));
     }
-    printf("# topk_workspace_size: %lu\n", topk_workspace_size);
+    RAFT_LOG_DEBUG("# topk_workspace_size: %lu\n", topk_workspace_size);
   }
 
   ~search()

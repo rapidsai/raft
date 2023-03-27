@@ -310,7 +310,7 @@ T*** mgpu_alloc(int n_gpus, uint32_t chunk, uint32_t nelems)
   T** arrays;                                      // [n_gpus][chunk, nelems]
   arrays       = (T**)malloc(sizeof(T*) * n_gpus); /* h1 */
   size_t bsize = sizeof(T) * chunk * nelems;
-  // fprintf(stderr, "[%s, %s, %d] n_gpus: %d, chunk: %u, nelems: %u, bsize: %lu (%lu MiB)\n",
+  // RAFT_LOG_DEBUG("[%s, %s, %d] n_gpus: %d, chunk: %u, nelems: %u, bsize: %lu (%lu MiB)\n",
   //         __FILE__, __func__, __LINE__, n_gpus, chunk, nelems, bsize, bsize / 1024 / 1024);
   for (int i_gpu = 0; i_gpu < n_gpus; i_gpu++) {
     RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
@@ -440,7 +440,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
 
   // Setup GPUs
   RAFT_CUDA_TRY(cudaGetDeviceCount(&num_gpus));
-  fprintf(stderr, "# num_gpus: %d\n", num_gpus);
+  RAFT_LOG_DEBUG("# num_gpus: %d\n", num_gpus);
   for (int self = 0; self < num_gpus; self++) {
     RAFT_CUDA_TRY(cudaSetDevice(self));
     for (int peer = 0; peer < num_gpus; peer++) {
@@ -468,7 +468,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   // Sorting kNN graph
   //
   double time_sort_start = cur_time();
-  fprintf(stderr, "# Sorting kNN Graph on GPUs ");
+  RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
   mgpu_H2D<uint32_t>(
     d_input_graph_ptr, input_graph_ptr, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
   void (*kernel_sort)(
@@ -501,7 +501,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   }
   dim3 blocks_sort(graph_chunk_size, 1, 1);
   for (int i_gpu = 0; i_gpu < num_gpus; i_gpu++) {
-    fprintf(stderr, ".");
+    RAFT_LOG_DEBUG(".");
     RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
     kernel_sort<<<blocks_sort, threads_sort>>>(d_dataset_ptr[i_gpu],
                                                dataset_size,
@@ -516,12 +516,12 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   }
   RAFT_CUDA_TRY(cudaSetDevice(0));
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  fprintf(stderr, ".");
+  RAFT_LOG_DEBUG(".");
   mgpu_D2H<uint32_t>(
     d_input_graph_ptr, input_graph_ptr, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
-  fprintf(stderr, "\n");
+  RAFT_LOG_DEBUG("\n");
   double time_sort_end = cur_time();
-  fprintf(stderr, "# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
+  RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
 
   mgpu_free<DATA_T>(d_dataset_ptr, num_gpus);
 
@@ -576,7 +576,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   double time_prune_start = cur_time();
   uint64_t num_keep       = 0;
   uint64_t num_full       = 0;
-  fprintf(stderr, "# Pruning kNN Graph on GPUs\r");
+  RAFT_LOG_DEBUG("# Pruning kNN Graph on GPUs\r");
   mgpu_H2D<uint32_t>(
     d_input_graph_ptr, input_graph_ptr, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
   void (*kernel_prune)(uint32_t**,
@@ -639,7 +639,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   }
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   RAFT_CUDA_TRY(cudaSetDevice(0));
-  fprintf(stderr, "\n");
+  RAFT_LOG_DEBUG("\n");
 
   mgpu_D2H<uint8_t>(
     d_detour_count, detour_count, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
@@ -670,7 +670,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
     }
     assert(pk == output_graph_degree);
   }
-  // printf("# max_detour: %u\n", max_detour);
+  // RAFT_LOG_DEBUG("# max_detour: %u\n", max_detour);
 
   double time_prune_end = cur_time();
   fprintf(stderr,
@@ -735,11 +735,11 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
                                                graph_chunk_size,
                                                output_graph_degree);
     }
-    fprintf(stderr, "# Making reverse graph on GPUs: %lu / %u    \r", k, output_graph_degree);
+    RAFT_LOG_DEBUG("# Making reverse graph on GPUs: %lu / %u    \r", k, output_graph_degree);
   }
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
   RAFT_CUDA_TRY(cudaSetDevice(0));
-  fprintf(stderr, "\n");
+  RAFT_LOG_DEBUG("\n");
 
   mgpu_D2H<uint32_t>(
     d_rev_graph_ptr, rev_graph_ptr, num_gpus, graph_size, graph_chunk_size, output_graph_degree);
@@ -748,7 +748,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   mgpu_free<uint32_t>(d_rev_graph_count, num_gpus);
 
   double time_make_end = cur_time();
-  fprintf(stderr, "# Making reverse graph time: %.1lf sec\n", time_make_end - time_make_start);
+  RAFT_LOG_DEBUG("# Making reverse graph time: %.1lf sec\n", time_make_end - time_make_start);
 
   //
   // Replace some edges with reverse edges
@@ -756,7 +756,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   double time_replace_start = cur_time();
 
   uint64_t num_protected_edges = output_graph_degree / 2;
-  fprintf(stderr, "# num_protected_edges: %lu\n", num_protected_edges);
+  RAFT_LOG_DEBUG("# num_protected_edges: %lu\n", num_protected_edges);
 
   array_size = sizeof(uint32_t) * graph_size * output_graph_degree;
   memcpy(output_graph_ptr, pruned_graph_ptr, array_size);
@@ -778,15 +778,15 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
       output_graph_ptr[num_protected_edges + (output_graph_degree * j)] = i;
     }
     if ((omp_get_thread_num() == 0) && ((j % _omp_chunk) == 0)) {
-      fprintf(stderr, "# Replacing reverse edges: %lu / %lu    \r", j, graph_size);
+      RAFT_LOG_DEBUG("# Replacing reverse edges: %lu / %lu    \r", j, graph_size);
     }
   }
-  fprintf(stderr, "\n");
+  RAFT_LOG_DEBUG("\n");
   free(rev_graph_ptr);
   free(rev_graph_count);
 
   double time_replace_end = cur_time();
-  fprintf(stderr, "# Replacing edges time: %.1lf sec\n", time_replace_end - time_replace_start);
+  RAFT_LOG_DEBUG("# Replacing edges time: %.1lf sec\n", time_replace_end - time_replace_start);
 
   /* stats */
   uint64_t num_replaced_edges = 0;

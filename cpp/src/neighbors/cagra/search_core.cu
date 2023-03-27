@@ -58,7 +58,7 @@ void create_plan_dispatch(void** plan,
   } else if (_team_size == 32) {                                                \
     _create_plan = create_plan<DTYPE, 128, 32>;                                 \
   } else {                                                                      \
-    fprintf(stderr,                                                             \
+    RAFT_LOG_DEBUG(                                                            \
             "[CAGRA Error]\nUn-supported team size (%u)."                       \
             "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
             _team_size);                                                        \
@@ -74,7 +74,7 @@ void create_plan_dispatch(void** plan,
   } else if (_team_size == 32) {                                             \
     _create_plan = create_plan<DTYPE, 256, 32>;                              \
   } else {                                                                   \
-    fprintf(stderr,                                                          \
+    RAFT_LOG_DEBUG(                                                         \
             "[CAGRA Error]\nUn-supported team size (%u)."                    \
             "The supported team sizes for this dataset are 8, 16 and 32.\n", \
             _team_size);                                                     \
@@ -88,7 +88,7 @@ void create_plan_dispatch(void** plan,
   } else if (_team_size == 32) {                                          \
     _create_plan = create_plan<DTYPE, 512, 32>;                           \
   } else {                                                                \
-    fprintf(stderr,                                                       \
+    RAFT_LOG_DEBUG(                                                      \
             "[CAGRA Error]\nUn-supported team size (%u)."                 \
             "The supported team sizes for this dataset are 16 and 32.\n", \
             _team_size);                                                  \
@@ -100,7 +100,7 @@ void create_plan_dispatch(void** plan,
   if (_team_size == 32) {                                         \
     _create_plan = create_plan<DTYPE, 1024, 32>;                  \
   } else {                                                        \
-    fprintf(stderr,                                               \
+    RAFT_LOG_DEBUG(                                              \
             "[CAGRA Error]\nUn-supported team size (%u)."         \
             "The supported team sizes for this dataset is 32.\n", \
             _team_size);                                          \
@@ -116,7 +116,7 @@ void create_plan_dispatch(void** plan,
   } else if (dataset_dim <= 1024) {                                                        \
     _SET_CREATE_FUNC_1024D(DTYPE)                                                          \
   } else {                                                                                 \
-    fprintf(stderr, "[CAGRA Error]\nDataset dimension is too large (%lu)\n", dataset_dim); \
+    RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dataset_dim); \
     exit(-1);                                                                              \
   }
 #define SET_CREATE_FUNC() \
@@ -192,7 +192,7 @@ void search_dispatch(void* plan,
   } else if (_plan->_team_size == 32) {                                         \
     _search = search<DTYPE, 128, 32>;                                           \
   } else {                                                                      \
-    fprintf(stderr,                                                             \
+    RAFT_LOG_DEBUG(                                                            \
             "[CAGRA Error]\nUn-supported team size (%u)."                       \
             "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
             _plan->_team_size);                                                 \
@@ -206,7 +206,7 @@ void search_dispatch(void* plan,
   } else if (_plan->_team_size == 32) {                                      \
     _search = search<DTYPE, 256, 32>;                                        \
   } else {                                                                   \
-    fprintf(stderr,                                                          \
+    RAFT_LOG_DEBUG(                                                         \
             "[CAGRA Error]\nUn-supported team size (%u)."                    \
             "The supported team sizes for this dataset are 8, 16 and 32.\n", \
             _plan->_team_size);                                              \
@@ -218,7 +218,7 @@ void search_dispatch(void* plan,
   } else if (_plan->_team_size == 32) {                                   \
     _search = search<DTYPE, 512, 32>;                                     \
   } else {                                                                \
-    fprintf(stderr,                                                       \
+    RAFT_LOG_DEBUG(                                                      \
             "[CAGRA Error]\nUn-supported team size (%u)."                 \
             "The supported team sizes for this dataset are 16 and 32.\n", \
             _plan->_team_size);                                           \
@@ -228,7 +228,7 @@ void search_dispatch(void* plan,
   if (_plan->_team_size == 32) {                                  \
     _search = search<DTYPE, 1024, 32>;                            \
   } else {                                                        \
-    fprintf(stderr,                                               \
+    RAFT_LOG_DEBUG(                                              \
             "[CAGRA Error]\nUn-supported team size (%u)."         \
             "The supported team sizes for this dataset is 32.\n", \
             _plan->_team_size);                                   \
@@ -298,7 +298,7 @@ void destroy_plan_dispatch(void* plan)
   } else if (_plan->_team_size == 32) {                                         \
     _destroy_plan = destroy_plan<DTYPE, 128, 32>;                               \
   } else {                                                                      \
-    fprintf(stderr,                                                             \
+    RAFT_LOG_DEBUG(                                                            \
             "[CAGRA Error]\nUn-supported team size (%u)."                       \
             "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
             _plan->_team_size);                                                 \
@@ -312,7 +312,7 @@ void destroy_plan_dispatch(void* plan)
   } else if (_plan->_team_size == 32) {                                      \
     _destroy_plan = destroy_plan<DTYPE, 256, 32>;                            \
   } else {                                                                   \
-    fprintf(stderr,                                                          \
+    RAFT_LOG_DEBUG(                                                         \
             "[CAGRA Error]\nUn-supported team size (%u)."                    \
             "The supported team sizes for this dataset are 8, 16 and 32.\n", \
             _plan->_team_size);                                              \
@@ -324,7 +324,7 @@ void destroy_plan_dispatch(void* plan)
   } else if (_plan->_team_size == 32) {                                   \
     _destroy_plan = destroy_plan<DTYPE, 512, 32>;                         \
   } else {                                                                \
-    fprintf(stderr,                                                       \
+    RAFT_LOG_DEBUG(                                                      \
             "[CAGRA Error]\nUn-supported team size (%u)."                 \
             "The supported team sizes for this dataset are 16 and 32.\n", \
             _plan->_team_size);                                           \
@@ -334,7 +334,7 @@ void destroy_plan_dispatch(void* plan)
   if (_plan->_team_size == 32) {                                  \
     _destroy_plan = destroy_plan<DTYPE, 1024, 32>;                \
   } else {                                                        \
-    fprintf(stderr,                                               \
+    RAFT_LOG_DEBUG(                                              \
             "[CAGRA Error]\nUn-supported team size (%u)."         \
             "The supported team sizes for this dataset is 32.\n", \
             _plan->_team_size);                                   \

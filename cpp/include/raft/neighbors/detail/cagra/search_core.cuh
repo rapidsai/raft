@@ -17,7 +17,7 @@
 
 #include "fragment.hpp"
 #include "hashmap.hpp"
-#include "search_common.hpp"
+#include  <raft/neighbors/cagra_types.hpp>
 #include "search_multi_cta.cuh"
 #include "search_multi_kernel.cuh"
 #include "search_single_cta.cuh"

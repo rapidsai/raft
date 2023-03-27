@@ -179,7 +179,7 @@ void _cuann_find_topk(uint32_t topK,
         /* else if (topK <= 3072) { SET_KERNEL_VKT(V, 3072, 1024); } */ \
         /* else if (topK <= 4096) { SET_KERNEL_VKT(V, 4096, 1024); } */ \
         else {                                                                       \
-      fprintf(stderr,                                                         \
+      RAFT_LOG_DEBUG(                                                        \
               "[ERROR] (%s, %d) topk must be lower than or equla to 1024.\n", \
               __func__,                                                       \
               __LINE__);                                                      \
