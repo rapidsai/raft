@@ -20,6 +20,13 @@
 
 namespace raft::neighbors::ivf_flat {
 
+// greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
+// function is used in both raft::neighbors::ivf_flat::search and
+// raft::neighbors::detail::refine_device. To prevent a duplicate instantiation
+// of this function (which defines ~270 kernels) in the refine specializations,
+// an extern template definition is provided here. Please check related function
+// calls after editing template definition below. Search for
+// `greppable-id-specializations-ivf-flat-search` to find them.
 #define RAFT_INST(T, IdxT)                                                               \
   extern template auto build(raft::device_resources const& handle,                       \
                              const index_params& params,                                 \
@@ -44,7 +51,23 @@ namespace raft::neighbors::ivf_flat {
                               const raft::neighbors::ivf_flat::index<T, IdxT>&,          \
                               raft::device_matrix_view<const T, IdxT, row_major>,        \
                               raft::device_matrix_view<IdxT, IdxT, row_major>,           \
-                              raft::device_matrix_view<float, IdxT, row_major>);
+                              raft::device_matrix_view<float, IdxT, row_major>);         \
+                                                                                         \
+  extern template void raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<      \
+    T,                                                                                   \
+    typename raft::spatial::knn::detail::utils::config<T>::value_t,                      \
+    IdxT>(const index<T, IdxT>& index,                                                   \
+          const T* queries,                                                              \
+          const uint32_t* coarse_query_results,                                          \
+          const uint32_t n_queries,                                                      \
+          const raft::distance::DistanceType metric,                                     \
+          const uint32_t n_probes,                                                       \
+          const uint32_t k,                                                              \
+          const bool select_min,                                                         \
+          IdxT* neighbors,                                                               \
+          float* distances,                                                              \
+          uint32_t& grid_dim_x,                                                          \
+          rmm::cuda_stream_view stream);
 
 RAFT_INST(float, int64_t);
 RAFT_INST(int8_t, int64_t);
