@@ -4,18 +4,18 @@
 
 # raft build scripts
 
-# This scripts is used to build the component(s) in this repo from
+# This script is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
 # build as needed (see the help output for details)
 
-# Abort scripts on first error
+# Abort script on first error
 set -e
 
 NUMARGS=$#
 ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
-# scripts, and that this scripts resides in the repo dir!
+# scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
@@ -59,7 +59,7 @@ RAFT_DASK_BUILD_DIR=${REPODIR}/python/raft-dask/_skbuild
 PYLIBRAFT_BUILD_DIR=${REPODIR}/python/pylibraft/_skbuild
 BUILD_DIRS="${LIBRAFT_BUILD_DIR} ${PYLIBRAFT_BUILD_DIR} ${RAFT_DASK_BUILD_DIR}"
 
-# Set defaults for vars modified by flags to this scripts
+# Set defaults for vars modified by flags to this script
 CMAKE_LOG_LEVEL=""
 VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
