@@ -32,7 +32,8 @@ namespace raft::neighbors::detail {
                                                     bool rowMajorQuery,                   \
                                                     std::vector<IdxT>* translations,      \
                                                     raft::distance::DistanceType metric,  \
-                                                    float metricArg);
+                                                    float metricArg,                      \
+                                                    raft::identity_op);
 RAFT_INST(uint32_t, float, unsigned int);
 #undef RAFT_INST
 }  // namespace raft::neighbors::detail

@@ -153,12 +153,12 @@ template <typename idx_t = int, typename value_t = float>
 
     case SelectKAlgo::RADIX_8_BITS:
       matrix::detail::select::radix::select_k<value_t, idx_t, 8, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, true, stream);
       break;
 
     case SelectKAlgo::RADIX_11_BITS:
       matrix::detail::select::radix::select_k<value_t, idx_t, 11, 512>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, true, stream);
       break;
 
     case SelectKAlgo::WARP_SORT:

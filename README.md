@@ -1,6 +1,5 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
 
-
 ![Navigating the canyons of accelerated possibilities](img/raft.png)
 
 ## Resources
@@ -35,11 +34,15 @@ While not exhaustive, the following general categories help summarize the accele
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
 
-All of RAFT's C++ APIs can be accessed header-only and optional pre-compiled shared libraries can 1) speed up compile times and 2) enable the APIs to be used without CUDA-enabled compilers.
+RAFT is a C++ header-only template library with an optional shared library that 
+1) can speed up compile times for common template types, and 
+2) provides host-accessible "runtime" APIs, which don't require a CUDA compiler to use
 
-In addition to the C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight low-level Python wrappers around RAFT's host-accessible "runtime" APIs.
+In addition being a C++ library, RAFT also provides 2 Python libraries:
+- `pylibraft` - lightweight Python wrappers around RAFT's host-accessible "runtime" APIs.
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
+
+![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
 
 ## Getting started
 
@@ -81,9 +84,9 @@ raft::device_resources handle;
 int n_samples = 5000;
 int n_features = 50;
 
-auto input = raft::make_device_matrix<float>(handle, n_samples, n_features);
-auto labels = raft::make_device_vector<int>(handle, n_samples);
-auto output = raft::make_device_matrix<float>(handle, n_samples, n_samples);
+auto input = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
+auto labels = raft::make_device_vector<int, int>(handle, n_samples);
+auto output = raft::make_device_matrix<float, int>(handle, n_samples, n_samples);
 
 raft::random::make_blobs(handle, input.view(), labels.view());
 
@@ -218,52 +221,15 @@ pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
 
 ### CMake & CPM
 
-RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it simple to include in downstream cmake projects. RAPIDS CMake provides a convenience layer around CPM.
+RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it easy to include in downstream cmake projects. RAPIDS-CMake provides a convenience layer around CPM. Please refer to [these instructions](https://github.com/rapidsai/rapids-cmake#installation) to install and use rapids-cmake in your project.
 
-After [installing](https://github.com/rapidsai/rapids-cmake#installation) rapids-cmake in your project, you can begin using RAFT by placing the code snippet below in a file named `get_raft.cmake` and including it in your cmake build with `include(get_raft.cmake)`. This will make available several targets to add to configure the link libraries for your artifacts.
+#### Example Template Project
 
-```cmake
+You can find an [example RAFT](cpp/template/README.md) project template in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing cmake project.
 
-set(RAFT_VERSION "22.12")
-set(RAFT_FORK "rapidsai")
-set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
+#### CMake Targets
 
-function(find_and_configure_raft)
-  set(oneValueArgs VERSION FORK PINNED_TAG COMPILE_LIBRARIES)
-  cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                            "${multiValueArgs}" ${ARGN} )
-
-  #-----------------------------------------------------
-  # Invoke CPM find_package()
-  #-----------------------------------------------------
-
-  rapids_cpm_find(raft ${PKG_VERSION}
-          GLOBAL_TARGETS      raft::raft
-          BUILD_EXPORT_SET    projname-exports
-          INSTALL_EXPORT_SET  projname-exports
-          CPM_ARGS
-          GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-          GIT_TAG        ${PKG_PINNED_TAG}
-          SOURCE_SUBDIR  cpp
-          OPTIONS
-          "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
-          "RAFT_COMPILE_LIBRARIES ${PKG_COMPILE_LIBRARIES}"
-  )
-
-endfunction()
-
-# Change pinned tag here to test a commit in CI
-# To use a different RAFT locally, set the CMake variable
-# CPM_raft_SOURCE=/path/to/local/raft
-find_and_configure_raft(VERSION    ${RAFT_VERSION}.00
-        FORK             ${RAFT_FORK}
-        PINNED_TAG       ${RAFT_PINNED_TAG}
-        COMPILE_LIBRARIES      NO
-)
-```
-
-Several CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
+Additional CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
 | Component   | Target              | Description                                               | Base Dependencies                     |
 |-------------|---------------------|-----------------------------------------------------------|---------------------------------------|
@@ -317,6 +283,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
   - `src`: Compiled APIs and template specializations for the shared libraries
+  - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
   - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
 - `python`: Source code for Python libraries.

@@ -96,7 +96,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
 
     auto metric = raft::distance::DistanceType::L2Unexpanded;
-    knn(handle, index, search, indices, distances, k_, metric, std::make_optional<IdxT>(0));
+    knn(handle, index, search, indices, distances, metric, std::make_optional<IdxT>(0));
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());
