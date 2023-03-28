@@ -84,8 +84,7 @@ class RaftIvfPQ : public ANN<T> {
   std::optional<raft::neighbors::ivf_pq::index<IdxT>> index_;
   int device_;
   int dimension_;
-  float refine_ratio_             = 1.0;
-  const int serialization_version = 1;
+  float refine_ratio_ = 1.0;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_matrix_view<const T, IdxT> dataset_;
 };

@@ -4,7 +4,6 @@
     "base_file" : "data/deep-1B/base.1B.fbin",
     "subset_size" : 100000000,
     "query_file" : "data/deep-1B/query.public.10K.fbin",
-    // although distance should be "euclidean", faiss becomes much slower for that
     "distance" : "euclidean"
   },
 

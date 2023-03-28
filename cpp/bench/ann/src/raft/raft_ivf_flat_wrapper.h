@@ -84,7 +84,6 @@ class RaftIvfFlatGpu : public ANN<T> {
   std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
   int device_;
   int dimension_;
-  const int serialization_version = 1;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
 };
 
