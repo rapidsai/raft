@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/core/logger.hpp>
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
 
 // #define CUANN_DEBUG
@@ -151,40 +152,38 @@ void _cuann_find_topk(uint32_t topK,
   } while (0)
 
   // V: vecLen
-#define SET_KERNEL_V(V)                                                       \
-  do {                                                                        \
-    if (topK <= 32) {                                                         \
-      SET_KERNEL_VKT(V, 32, 32);                                              \
-    } else if (topK <= 64) {                                                  \
-      SET_KERNEL_VKT(V, 64, 32);                                              \
-    } else if (topK <= 96) {                                                  \
-      SET_KERNEL_VKT(V, 96, 32);                                              \
-    } else if (topK <= 128) {                                                 \
-      SET_KERNEL_VKT(V, 128, 32);                                             \
-    } else if (topK <= 192) {                                                 \
-      SET_KERNEL_VKT(V, 192, 64);                                             \
-    } else if (topK <= 256) {                                                 \
-      SET_KERNEL_VKT(V, 256, 64);                                             \
-    } else if (topK <= 384) {                                                 \
-      SET_KERNEL_VKT(V, 384, 128);                                            \
-    } else if (topK <= 512) {                                                 \
-      SET_KERNEL_VKT(V, 512, 128);                                            \
-    } else if (topK <= 768) {                                                 \
-      SET_KERNEL_VKT(V, 768, 256);                                            \
-    } else if (topK <= 1024) {                                                \
-      SET_KERNEL_VKT(V, 1024, 256);                                           \
+#define SET_KERNEL_V(V)                                                                      \
+  do {                                                                                       \
+    if (topK <= 32) {                                                                        \
+      SET_KERNEL_VKT(V, 32, 32);                                                             \
+    } else if (topK <= 64) {                                                                 \
+      SET_KERNEL_VKT(V, 64, 32);                                                             \
+    } else if (topK <= 96) {                                                                 \
+      SET_KERNEL_VKT(V, 96, 32);                                                             \
+    } else if (topK <= 128) {                                                                \
+      SET_KERNEL_VKT(V, 128, 32);                                                            \
+    } else if (topK <= 192) {                                                                \
+      SET_KERNEL_VKT(V, 192, 64);                                                            \
+    } else if (topK <= 256) {                                                                \
+      SET_KERNEL_VKT(V, 256, 64);                                                            \
+    } else if (topK <= 384) {                                                                \
+      SET_KERNEL_VKT(V, 384, 128);                                                           \
+    } else if (topK <= 512) {                                                                \
+      SET_KERNEL_VKT(V, 512, 128);                                                           \
+    } else if (topK <= 768) {                                                                \
+      SET_KERNEL_VKT(V, 768, 256);                                                           \
+    } else if (topK <= 1024) {                                                               \
+      SET_KERNEL_VKT(V, 1024, 256);                                                          \
     } \
         /* else if (topK <= 1536) { SET_KERNEL_VKT(V, 1536, 512); } */ \
         /* else if (topK <= 2048) { SET_KERNEL_VKT(V, 2048, 512); } */ \
         /* else if (topK <= 3072) { SET_KERNEL_VKT(V, 3072, 1024); } */ \
         /* else if (topK <= 4096) { SET_KERNEL_VKT(V, 4096, 1024); } */ \
-        else {                                                                       \
-      RAFT_LOG_DEBUG(                                                        \
-              "[ERROR] (%s, %d) topk must be lower than or equla to 1024.\n", \
-              __func__,                                                       \
-              __LINE__);                                                      \
-      exit(-1);                                                               \
-    }                                                                         \
+        else {                                                                                      \
+      RAFT_LOG_DEBUG(                                                                        \
+        "[ERROR] (%s, %d) topk must be lower than or equla to 1024.\n", __func__, __LINE__); \
+      exit(-1);                                                                              \
+    }                                                                                        \
   } while (0)
 
   int _vecLen = _get_vecLen(ldIK, 2);

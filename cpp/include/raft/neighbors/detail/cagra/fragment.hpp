@@ -17,6 +17,7 @@
 
 #include "device_common.hpp"
 #include "utils.hpp"
+#include <raft/core/logger.hpp>
 #include <type_traits>
 
 namespace raft::neighbors::experimental::cagra::detail {
@@ -47,7 +48,8 @@ struct load_unit_t<1> {
 
 // One dataset or query vector is distributed within a warp and stored as `fragment`.
 template <int DIM, class T, unsigned TEAM_SIZE, class ENABLED>
-struct fragment_base {};
+struct fragment_base {
+};
 template <int DIM, class T, unsigned TEAM_SIZE = warp_size>
 struct fragment
   : fragment_base<DIM,

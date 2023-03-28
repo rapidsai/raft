@@ -17,10 +17,11 @@
 
 #include "fragment.hpp"
 #include "hashmap.hpp"
-#include  <raft/neighbors/cagra_types.hpp>
+#include "search_common.hpp"
 #include "search_multi_cta.cuh"
 #include "search_multi_kernel.cuh"
 #include "search_single_cta.cuh"
+#include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 
 using DISTANCE_T = float;

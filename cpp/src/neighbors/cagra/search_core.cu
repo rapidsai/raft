@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cuda.h>
 #include <cuda_fp16.h>
+#include <raft/core/logger.hpp>
 #include <raft/neighbors/detail/cagra/search_common.hpp>
 #include <raft/neighbors/detail/cagra/search_core.h>
 #include <string>
@@ -46,78 +47,78 @@ void create_plan_dispatch(void** plan,
                           const INDEX_T* dev_graph_ptr  // device ptr, [dataset_size, graph_degree]
 )
 {
-#define _SET_CREATE_FUNC_128D(DTYPE)                                            \
-  unsigned _team_size = team_size;                                              \
-  if (_team_size == 0) _team_size = 8;                                          \
-  if (_team_size == 4) {                                                        \
-    _create_plan = create_plan<DTYPE, 128, 4>;                                  \
-  } else if (_team_size == 8) {                                                 \
-    _create_plan = create_plan<DTYPE, 128, 8>;                                  \
-  } else if (_team_size == 16) {                                                \
-    _create_plan = create_plan<DTYPE, 128, 16>;                                 \
-  } else if (_team_size == 32) {                                                \
-    _create_plan = create_plan<DTYPE, 128, 32>;                                 \
-  } else {                                                                      \
-    RAFT_LOG_DEBUG(                                                            \
-            "[CAGRA Error]\nUn-supported team size (%u)."                       \
-            "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
-            _team_size);                                                        \
-    exit(-1);                                                                   \
-  }
-#define _SET_CREATE_FUNC_256D(DTYPE)                                         \
-  unsigned _team_size = team_size;                                           \
-  if (_team_size == 0) _team_size = 16;                                      \
-  if (_team_size == 8) {                                                     \
-    _create_plan = create_plan<DTYPE, 256, 8>;                               \
-  } else if (_team_size == 16) {                                             \
-    _create_plan = create_plan<DTYPE, 256, 16>;                              \
-  } else if (_team_size == 32) {                                             \
-    _create_plan = create_plan<DTYPE, 256, 32>;                              \
-  } else {                                                                   \
-    RAFT_LOG_DEBUG(                                                         \
-            "[CAGRA Error]\nUn-supported team size (%u)."                    \
-            "The supported team sizes for this dataset are 8, 16 and 32.\n", \
-            _team_size);                                                     \
-    exit(-1);                                                                \
-  }
-#define _SET_CREATE_FUNC_512D(DTYPE)                                      \
+#define _SET_CREATE_FUNC_128D(DTYPE)                                      \
   unsigned _team_size = team_size;                                        \
-  if (_team_size == 0) _team_size = 32;                                   \
-  if (_team_size == 16) {                                                 \
-    _create_plan = create_plan<DTYPE, 512, 16>;                           \
+  if (_team_size == 0) _team_size = 8;                                    \
+  if (_team_size == 4) {                                                  \
+    _create_plan = create_plan<DTYPE, 128, 4>;                            \
+  } else if (_team_size == 8) {                                           \
+    _create_plan = create_plan<DTYPE, 128, 8>;                            \
+  } else if (_team_size == 16) {                                          \
+    _create_plan = create_plan<DTYPE, 128, 16>;                           \
   } else if (_team_size == 32) {                                          \
-    _create_plan = create_plan<DTYPE, 512, 32>;                           \
+    _create_plan = create_plan<DTYPE, 128, 32>;                           \
   } else {                                                                \
-    RAFT_LOG_DEBUG(                                                      \
-            "[CAGRA Error]\nUn-supported team size (%u)."                 \
-            "The supported team sizes for this dataset are 16 and 32.\n", \
-            _team_size);                                                  \
+    RAFT_LOG_DEBUG(                                                       \
+      "[CAGRA Error]\nUn-supported team size (%u)."                       \
+      "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
+      _team_size);                                                        \
     exit(-1);                                                             \
   }
-#define _SET_CREATE_FUNC_1024D(DTYPE)                             \
-  unsigned _team_size = team_size;                                \
-  if (_team_size == 0) _team_size = 32;                           \
-  if (_team_size == 32) {                                         \
-    _create_plan = create_plan<DTYPE, 1024, 32>;                  \
-  } else {                                                        \
-    RAFT_LOG_DEBUG(                                              \
-            "[CAGRA Error]\nUn-supported team size (%u)."         \
-            "The supported team sizes for this dataset is 32.\n", \
-            _team_size);                                          \
-    exit(-1);                                                     \
+#define _SET_CREATE_FUNC_256D(DTYPE)                                   \
+  unsigned _team_size = team_size;                                     \
+  if (_team_size == 0) _team_size = 16;                                \
+  if (_team_size == 8) {                                               \
+    _create_plan = create_plan<DTYPE, 256, 8>;                         \
+  } else if (_team_size == 16) {                                       \
+    _create_plan = create_plan<DTYPE, 256, 16>;                        \
+  } else if (_team_size == 32) {                                       \
+    _create_plan = create_plan<DTYPE, 256, 32>;                        \
+  } else {                                                             \
+    RAFT_LOG_DEBUG(                                                    \
+      "[CAGRA Error]\nUn-supported team size (%u)."                    \
+      "The supported team sizes for this dataset are 8, 16 and 32.\n", \
+      _team_size);                                                     \
+    exit(-1);                                                          \
   }
-#define _SET_CREATE_FUNC(DTYPE)                                                            \
-  if (dataset_dim <= 128) {                                                                \
-    _SET_CREATE_FUNC_128D(DTYPE)                                                           \
-  } else if (dataset_dim <= 256) {                                                         \
-    _SET_CREATE_FUNC_256D(DTYPE)                                                           \
-  } else if (dataset_dim <= 512) {                                                         \
-    _SET_CREATE_FUNC_512D(DTYPE)                                                           \
-  } else if (dataset_dim <= 1024) {                                                        \
-    _SET_CREATE_FUNC_1024D(DTYPE)                                                          \
-  } else {                                                                                 \
+#define _SET_CREATE_FUNC_512D(DTYPE)                                \
+  unsigned _team_size = team_size;                                  \
+  if (_team_size == 0) _team_size = 32;                             \
+  if (_team_size == 16) {                                           \
+    _create_plan = create_plan<DTYPE, 512, 16>;                     \
+  } else if (_team_size == 32) {                                    \
+    _create_plan = create_plan<DTYPE, 512, 32>;                     \
+  } else {                                                          \
+    RAFT_LOG_DEBUG(                                                 \
+      "[CAGRA Error]\nUn-supported team size (%u)."                 \
+      "The supported team sizes for this dataset are 16 and 32.\n", \
+      _team_size);                                                  \
+    exit(-1);                                                       \
+  }
+#define _SET_CREATE_FUNC_1024D(DTYPE)                       \
+  unsigned _team_size = team_size;                          \
+  if (_team_size == 0) _team_size = 32;                     \
+  if (_team_size == 32) {                                   \
+    _create_plan = create_plan<DTYPE, 1024, 32>;            \
+  } else {                                                  \
+    RAFT_LOG_DEBUG(                                         \
+      "[CAGRA Error]\nUn-supported team size (%u)."         \
+      "The supported team sizes for this dataset is 32.\n", \
+      _team_size);                                          \
+    exit(-1);                                               \
+  }
+#define _SET_CREATE_FUNC(DTYPE)                                                           \
+  if (dataset_dim <= 128) {                                                               \
+    _SET_CREATE_FUNC_128D(DTYPE)                                                          \
+  } else if (dataset_dim <= 256) {                                                        \
+    _SET_CREATE_FUNC_256D(DTYPE)                                                          \
+  } else if (dataset_dim <= 512) {                                                        \
+    _SET_CREATE_FUNC_512D(DTYPE)                                                          \
+  } else if (dataset_dim <= 1024) {                                                       \
+    _SET_CREATE_FUNC_1024D(DTYPE)                                                         \
+  } else {                                                                                \
     RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dataset_dim); \
-    exit(-1);                                                                              \
+    exit(-1);                                                                             \
   }
 #define SET_CREATE_FUNC() \
   if (dtype_name == "float") { _SET_CREATE_FUNC(float); }
@@ -182,57 +183,57 @@ void search_dispatch(void* plan,
                      uint32_t* num_executed_iterations,
                      cudaStream_t cuda_stream)
 {
-#define _SET_SEARCH_FUNC_128D(DTYPE)                                            \
-  if (_plan->_team_size == 4) {                                                 \
-    _search = search<DTYPE, 128, 4>;                                            \
-  } else if (_plan->_team_size == 8) {                                          \
-    _search = search<DTYPE, 128, 8>;                                            \
-  } else if (_plan->_team_size == 16) {                                         \
-    _search = search<DTYPE, 128, 16>;                                           \
-  } else if (_plan->_team_size == 32) {                                         \
-    _search = search<DTYPE, 128, 32>;                                           \
-  } else {                                                                      \
-    RAFT_LOG_DEBUG(                                                            \
-            "[CAGRA Error]\nUn-supported team size (%u)."                       \
-            "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
-            _plan->_team_size);                                                 \
-    exit(-1);                                                                   \
-  }
-#define _SET_SEARCH_FUNC_256D(DTYPE)                                         \
-  if (_plan->_team_size == 8) {                                              \
-    _search = search<DTYPE, 256, 8>;                                         \
-  } else if (_plan->_team_size == 16) {                                      \
-    _search = search<DTYPE, 256, 16>;                                        \
-  } else if (_plan->_team_size == 32) {                                      \
-    _search = search<DTYPE, 256, 32>;                                        \
-  } else {                                                                   \
-    RAFT_LOG_DEBUG(                                                         \
-            "[CAGRA Error]\nUn-supported team size (%u)."                    \
-            "The supported team sizes for this dataset are 8, 16 and 32.\n", \
-            _plan->_team_size);                                              \
-    exit(-1);                                                                \
-  }
-#define _SET_SEARCH_FUNC_512D(DTYPE)                                      \
-  if (_plan->_team_size == 16) {                                          \
-    _search = search<DTYPE, 512, 16>;                                     \
+#define _SET_SEARCH_FUNC_128D(DTYPE)                                      \
+  if (_plan->_team_size == 4) {                                           \
+    _search = search<DTYPE, 128, 4>;                                      \
+  } else if (_plan->_team_size == 8) {                                    \
+    _search = search<DTYPE, 128, 8>;                                      \
+  } else if (_plan->_team_size == 16) {                                   \
+    _search = search<DTYPE, 128, 16>;                                     \
   } else if (_plan->_team_size == 32) {                                   \
-    _search = search<DTYPE, 512, 32>;                                     \
+    _search = search<DTYPE, 128, 32>;                                     \
   } else {                                                                \
-    RAFT_LOG_DEBUG(                                                      \
-            "[CAGRA Error]\nUn-supported team size (%u)."                 \
-            "The supported team sizes for this dataset are 16 and 32.\n", \
-            _plan->_team_size);                                           \
+    RAFT_LOG_DEBUG(                                                       \
+      "[CAGRA Error]\nUn-supported team size (%u)."                       \
+      "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
+      _plan->_team_size);                                                 \
     exit(-1);                                                             \
   }
-#define _SET_SEARCH_FUNC_1024D(DTYPE)                             \
-  if (_plan->_team_size == 32) {                                  \
-    _search = search<DTYPE, 1024, 32>;                            \
-  } else {                                                        \
-    RAFT_LOG_DEBUG(                                              \
-            "[CAGRA Error]\nUn-supported team size (%u)."         \
-            "The supported team sizes for this dataset is 32.\n", \
-            _plan->_team_size);                                   \
-    exit(-1);                                                     \
+#define _SET_SEARCH_FUNC_256D(DTYPE)                                   \
+  if (_plan->_team_size == 8) {                                        \
+    _search = search<DTYPE, 256, 8>;                                   \
+  } else if (_plan->_team_size == 16) {                                \
+    _search = search<DTYPE, 256, 16>;                                  \
+  } else if (_plan->_team_size == 32) {                                \
+    _search = search<DTYPE, 256, 32>;                                  \
+  } else {                                                             \
+    RAFT_LOG_DEBUG(                                                    \
+      "[CAGRA Error]\nUn-supported team size (%u)."                    \
+      "The supported team sizes for this dataset are 8, 16 and 32.\n", \
+      _plan->_team_size);                                              \
+    exit(-1);                                                          \
+  }
+#define _SET_SEARCH_FUNC_512D(DTYPE)                                \
+  if (_plan->_team_size == 16) {                                    \
+    _search = search<DTYPE, 512, 16>;                               \
+  } else if (_plan->_team_size == 32) {                             \
+    _search = search<DTYPE, 512, 32>;                               \
+  } else {                                                          \
+    RAFT_LOG_DEBUG(                                                 \
+      "[CAGRA Error]\nUn-supported team size (%u)."                 \
+      "The supported team sizes for this dataset are 16 and 32.\n", \
+      _plan->_team_size);                                           \
+    exit(-1);                                                       \
+  }
+#define _SET_SEARCH_FUNC_1024D(DTYPE)                       \
+  if (_plan->_team_size == 32) {                            \
+    _search = search<DTYPE, 1024, 32>;                      \
+  } else {                                                  \
+    RAFT_LOG_DEBUG(                                         \
+      "[CAGRA Error]\nUn-supported team size (%u)."         \
+      "The supported team sizes for this dataset is 32.\n", \
+      _plan->_team_size);                                   \
+    exit(-1);                                               \
   }
 #define _SET_SEARCH_FUNC(DTYPE)                                                                 \
   if (_plan->_max_dataset_dim <= 128) {                                                         \
@@ -288,57 +289,57 @@ void search_dispatch(void* plan,
 //
 void destroy_plan_dispatch(void* plan)
 {
-#define _SET_DESTROY_FUNC_128D(DTYPE)                                           \
-  if (_plan->_team_size == 4) {                                                 \
-    _destroy_plan = destroy_plan<DTYPE, 128, 4>;                                \
-  } else if (_plan->_team_size == 8) {                                          \
-    _destroy_plan = destroy_plan<DTYPE, 128, 8>;                                \
-  } else if (_plan->_team_size == 16) {                                         \
-    _destroy_plan = destroy_plan<DTYPE, 128, 16>;                               \
-  } else if (_plan->_team_size == 32) {                                         \
-    _destroy_plan = destroy_plan<DTYPE, 128, 32>;                               \
-  } else {                                                                      \
-    RAFT_LOG_DEBUG(                                                            \
-            "[CAGRA Error]\nUn-supported team size (%u)."                       \
-            "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
-            _plan->_team_size);                                                 \
-    exit(-1);                                                                   \
-  }
-#define _SET_DESTROY_FUNC_256D(DTYPE)                                        \
-  if (_plan->_team_size == 8) {                                              \
-    _destroy_plan = destroy_plan<DTYPE, 256, 8>;                             \
-  } else if (_plan->_team_size == 16) {                                      \
-    _destroy_plan = destroy_plan<DTYPE, 256, 16>;                            \
-  } else if (_plan->_team_size == 32) {                                      \
-    _destroy_plan = destroy_plan<DTYPE, 256, 32>;                            \
-  } else {                                                                   \
-    RAFT_LOG_DEBUG(                                                         \
-            "[CAGRA Error]\nUn-supported team size (%u)."                    \
-            "The supported team sizes for this dataset are 8, 16 and 32.\n", \
-            _plan->_team_size);                                              \
-    exit(-1);                                                                \
-  }
-#define _SET_DESTROY_FUNC_512D(DTYPE)                                     \
-  if (_plan->_team_size == 16) {                                          \
-    _destroy_plan = destroy_plan<DTYPE, 512, 16>;                         \
+#define _SET_DESTROY_FUNC_128D(DTYPE)                                     \
+  if (_plan->_team_size == 4) {                                           \
+    _destroy_plan = destroy_plan<DTYPE, 128, 4>;                          \
+  } else if (_plan->_team_size == 8) {                                    \
+    _destroy_plan = destroy_plan<DTYPE, 128, 8>;                          \
+  } else if (_plan->_team_size == 16) {                                   \
+    _destroy_plan = destroy_plan<DTYPE, 128, 16>;                         \
   } else if (_plan->_team_size == 32) {                                   \
-    _destroy_plan = destroy_plan<DTYPE, 512, 32>;                         \
+    _destroy_plan = destroy_plan<DTYPE, 128, 32>;                         \
   } else {                                                                \
-    RAFT_LOG_DEBUG(                                                      \
-            "[CAGRA Error]\nUn-supported team size (%u)."                 \
-            "The supported team sizes for this dataset are 16 and 32.\n", \
-            _plan->_team_size);                                           \
+    RAFT_LOG_DEBUG(                                                       \
+      "[CAGRA Error]\nUn-supported team size (%u)."                       \
+      "The supported team sizes for this dataset are 4, 8, 16 and 32.\n", \
+      _plan->_team_size);                                                 \
     exit(-1);                                                             \
   }
-#define _SET_DESTROY_FUNC_1024D(DTYPE)                            \
-  if (_plan->_team_size == 32) {                                  \
-    _destroy_plan = destroy_plan<DTYPE, 1024, 32>;                \
-  } else {                                                        \
-    RAFT_LOG_DEBUG(                                              \
-            "[CAGRA Error]\nUn-supported team size (%u)."         \
-            "The supported team sizes for this dataset is 32.\n", \
-            _plan->_team_size);                                   \
-    exit(-1);                                                     \
+#define _SET_DESTROY_FUNC_256D(DTYPE)                                  \
+  if (_plan->_team_size == 8) {                                        \
+    _destroy_plan = destroy_plan<DTYPE, 256, 8>;                       \
+  } else if (_plan->_team_size == 16) {                                \
+    _destroy_plan = destroy_plan<DTYPE, 256, 16>;                      \
+  } else if (_plan->_team_size == 32) {                                \
+    _destroy_plan = destroy_plan<DTYPE, 256, 32>;                      \
+  } else {                                                             \
+    RAFT_LOG_DEBUG(                                                    \
+      "[CAGRA Error]\nUn-supported team size (%u)."                    \
+      "The supported team sizes for this dataset are 8, 16 and 32.\n", \
+      _plan->_team_size);                                              \
+    exit(-1);                                                          \
+  }
+#define _SET_DESTROY_FUNC_512D(DTYPE)                               \
+  if (_plan->_team_size == 16) {                                    \
+    _destroy_plan = destroy_plan<DTYPE, 512, 16>;                   \
+  } else if (_plan->_team_size == 32) {                             \
+    _destroy_plan = destroy_plan<DTYPE, 512, 32>;                   \
+  } else {                                                          \
+    RAFT_LOG_DEBUG(                                                 \
+      "[CAGRA Error]\nUn-supported team size (%u)."                 \
+      "The supported team sizes for this dataset are 16 and 32.\n", \
+      _plan->_team_size);                                           \
+    exit(-1);                                                       \
+  }
+#define _SET_DESTROY_FUNC_1024D(DTYPE)                      \
+  if (_plan->_team_size == 32) {                            \
+    _destroy_plan = destroy_plan<DTYPE, 1024, 32>;          \
+  } else {                                                  \
+    RAFT_LOG_DEBUG(                                         \
+      "[CAGRA Error]\nUn-supported team size (%u)."         \
+      "The supported team sizes for this dataset is 32.\n", \
+      _plan->_team_size);                                   \
+    exit(-1);                                               \
   }
 #define _SET_DESTROY_FUNC(DTYPE)                                                                \
   if (_plan->_max_dataset_dim <= 128) {                                                         \

@@ -25,9 +25,10 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "search_common.hpp"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk
 #include "utils.hpp"
-#include <raft/neighbors/cagra_types.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
@@ -85,7 +86,8 @@ struct topk_by_radix_sort_base {
   static constexpr std::uint32_t vecLen           = 2;  // TODO
 };
 template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class = void>
-struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {};
+struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {
+};
 
 template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE>
 struct topk_by_radix_sort<MAX_INTERNAL_TOPK,

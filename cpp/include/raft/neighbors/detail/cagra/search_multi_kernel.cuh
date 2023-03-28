@@ -24,9 +24,10 @@
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
+#include "search_common.hpp"
 #include "topk_for_cagra/topk.h"  //todo replace with raft kernel
 #include "utils.hpp"
-#include <raft/neighbors/cagra_types.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 

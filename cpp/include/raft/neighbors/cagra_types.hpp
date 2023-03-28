@@ -43,54 +43,28 @@ struct index_params : ann::index_params {
   size_t graph_degree              = 64;   // Degree of output graph.
 };
 
-enum search_algo_t {
-  SINGLE_CTA,  // for large batch
-  MULTI_CTA,   // for small batch
-  MULTI_KERNEL,
-};
-
-struct search_common {
-  unsigned _max_dataset_dim;
-  unsigned _dataset_dim;
-};
-
 // TODO set reasonable defaults
-struct search_params_base : ann::search_params {
-  /** Number of intermediate search results retained during the search. */
-  size_t itopk_size = 64;
-
-  /** Number of graph nodes to select as the starting point for the search in each iteration. aka
-   * search width?*/
-  size_t num_parents = 1;
-
-  /** Lower limit of search iterations. */
-  size_t min_iterations = 0;
-
-  /** Upper limit of search iterations. Auto selection when 0.*/
-  size_t max_iterations = 0;
-
+struct search_params : ann::search_params {
+  /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
+  size_t team_size = 0;
   /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
   std::string search_mode = "auto";
-
-  /** Number of threads used to calculate a single distance.
-   *  - value 0: select team size automatically,
-   *  - other valid values: 4, 8, 16, or 32. */
-  size_t team_size = 0;
-
-  /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
-  size_t load_bit_length = 0;
-  // private?
-  search_algo_t algo;
-};
-struct search_params : search_params_base {
-  // Parameters for fine tuning search.
-
   /** Number of search results for each query. */
   size_t topk = 10;
+  /** Number of intermediate search results retained during the search. */
+  size_t itopk_size = 64;
+  /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
+   * search width?*/
+  size_t num_parents = 1;
+  /** Lower limit of search iterations. */
+  size_t min_iterations = 0;
+  /** Upper limit of search iterations. */
+  size_t max_iterations = 0;
 
   /** Maximum number of queries to search at the same time. So called batch size. */
   size_t max_queries = 1;
-
+  /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
+  size_t load_bit_length = 0;
   /** Thread block size. 0, 64, 128, 256, 512, 1024. Auto selection when 0. */
   size_t thread_block_size = 0;
   /** Hashmap type. "auto", "hash", or "small-hash". Auto selection when "auto". */
@@ -163,11 +137,11 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&)                    = delete;
-  index(index&&)                         = default;
+  index(const index&) = delete;
+  index(index&&)      = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index&      = default;
-  ~index()                               = default;
+  auto operator=(index&&) -> index& = default;
+  ~index()                          = default;
 
   /** Construct an empty index. */
   index(raft::device_resources const& res)
