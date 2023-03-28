@@ -122,9 +122,8 @@ inline void knn_merge_parts(
  *
  *  raft::raft::device_resources handle;
  *  ...
- *  int k = 10;
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
- *  brute_force::knn(handle, index, search, indices, distances, k, metric);
+ *  brute_force::knn(handle, index, search, indices, distances, metric);
  * @endcode
  *
  * @param[in] handle: the cuml handle to use
@@ -132,7 +131,6 @@ inline void knn_merge_parts(
  * @param[in] search: matrix (size n*d) to be used for searching the index
  * @param[out] indices: matrix (size n*k) to store output knn indices
  * @param[out] distances: matrix (size n*k) to store the output knn distance
- * @param[in] k: the number of nearest neighbors to return
  * @param[in] metric: distance metric to use. Euclidean (L2) is used by default
  * @param[in] metric_arg: the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
