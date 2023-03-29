@@ -2,7 +2,7 @@
 
 # Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
-# raft build script
+# raft build scripts
 
 # This script is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
@@ -15,11 +15,11 @@ NUMARGS=$#
 ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
-# script, and that this script resides in the repo dir!
+# scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench template clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -28,7 +28,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    raft-dask        - build the raft-dask Python package. this also requires pylibraft.
    docs             - build the documentation
    tests            - build the tests
-   bench            - build the benchmarks
+   bench-prims      - build micro-benchmarks for primitives
+   bench-ann        - build end-to-end ann benchmarks
    template         - build the example RAFT application template
 
  and <flag> is:
@@ -39,7 +40,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --compile-lib               - compile shared libraries for all components
                                  can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
-   --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
+   --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
+   --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
@@ -63,7 +65,8 @@ VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
-BUILD_BENCH=OFF
+BUILD_PRIMS_BENCH=OFF
+BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 
@@ -151,15 +154,30 @@ function limitTests {
 
 function limitBench {
     # Check for option to limit the set of test binaries to build
-    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench" || true; } ) ]]; then
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench-prims" || true; } ) ]]; then
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        LIMIT_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench=//' -e 's/ .*//')
-        if [[ -n ${LIMIT_BENCH_TARGETS} ]]; then
+        LIMIT_PRIMS_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench-prims=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_PRIMS_BENCH_TARGETS} ]]; then
+            # Remove the full LIMIT_PRIMS_BENCH_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-bench-prims=$LIMIT_PRIMS_BENCH_TARGETS/}
+            PRIMS_BENCH_TARGETS=${LIMIT_PRIMS_BENCH_TARGETS}
+        fi
+    fi
+}
+
+function limitAnnBench {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench-ann" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_ANN_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench-ann=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_ANN_BENCH_TARGETS} ]]; then
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//--limit-bench=$LIMIT_BENCH_TARGETS/}
-            BENCH_TARGETS=${LIMIT_BENCH_TARGETS}
+            ARGS=${ARGS//--limit-bench-ann=$LIMIT_ANN_BENCH_TARGETS/}
+            ANN_BENCH_TARGETS=${LIMIT_ANN_BENCH_TARGETS}
         fi
     fi
 }
@@ -175,6 +193,7 @@ if (( ${NUMARGS} != 0 )); then
     cacheTool
     limitTests
     limitBench
+    limitAnnBench
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -281,18 +300,23 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     fi
 fi
 
-if hasArg bench || (( ${NUMARGS} == 0 )); then
-    BUILD_BENCH=ON
-    CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
+if hasArg bench-prims || (( ${NUMARGS} == 0 )); then
+    BUILD_PRIMS_BENCH=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${PRIMS_BENCH_TARGETS}"
 
     # Force compile library when needed benchmark targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
-          $CMAKE_TARGET == *"MATRIX_BENCH"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_BENCH"* ]]; then
+    if [[ $CMAKE_TARGET == *"CLUSTER_PRIMS_BENCH"* || \
+          $CMAKE_TARGET == *"MATRIX_PRIMS_BENCH"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_PRIMS_BENCH"* ]]; then
       echo "-- Enabling compiled lib for benchmarks"
       COMPILE_LIBRARY=ON
     fi
+fi
 
+if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
+    BUILD_ANN_BENCH=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
+    COMPILE_LIBRARY=ON
 fi
 
 if hasArg --no-nvtx; then
@@ -304,8 +328,6 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-
-
 
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
@@ -340,7 +362,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench-prims || hasArg bench-ann; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -359,7 +381,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DRAFT_NVTX=${NVTX} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
-          -DBUILD_BENCH=${BUILD_BENCH} \
+          -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
+          -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
@@ -380,7 +403,6 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
     if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
         EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
     fi
-
     cd ${REPODIR}/python/pylibraft
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then

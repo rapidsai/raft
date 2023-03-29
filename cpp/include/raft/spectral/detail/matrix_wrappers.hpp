@@ -352,7 +352,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     // scales y by beta:
     //
     if (beta == 0) {
-      CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
+      RAFT_CUDA_TRY(cudaMemsetAsync(y, 0, n * sizeof(value_type), stream));
     } else if (beta != 1) {
       // TODO: Call from public API when ready
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasscal(cublas_h, n, &beta, y, 1, stream));
