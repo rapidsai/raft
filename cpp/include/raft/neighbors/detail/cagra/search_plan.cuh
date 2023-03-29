@@ -25,284 +25,434 @@
 
 namespace raft::neighbors::experimental::cagra::detail {
 
-inline search_params adjust_search_params(search_params params, uint32_t topk)
-{
-  uint32_t _max_iterations = params.max_iterations;
-  if (params.max_iterations == 0) {
-    if (params.algo == search_algo::MULTI_CTA) {
-      _max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);  // TODO(anaruse)
-    } else {
-      _max_iterations = 1 + std::min((params.itopk_size / params.num_parents) * 1.1,
-                                     (params.itopk_size / params.num_parents) + 10.0);
-    }
-  }
-  if (params.max_iterations < params.min_iterations) { _max_iterations = params.min_iterations; }
-  if (params.max_iterations < _max_iterations) {
-    RAFT_LOG_DEBUG(
-      "# max_iterations is increased from %u to %u.", params.max_iterations, _max_iterations);
-    params.max_iterations = _max_iterations;
-  }
-  if (params.itopk_size % 32) {
-    uint32_t itopk32 = params.itopk_size;
-    itopk32 += 32 - (params.itopk_size % 32);
-    RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.",
-                   params.itopk_size,
-                   itopk32);
-    params.itopk_size = itopk32;
-  }
-  if (params.algo == search_algo::AUTO) {
-    if (params.itopk_size <= 512) {
-      params.algo = search_algo::SINGLE_CTA;
-    } else {
-      params.algo = search_algo::MULTI_KERNEL;
-    }
-  }
-  if (params.algo == search_algo::SINGLE_CTA)
-    params.search_mode = "single-cta";
-  else if (params.algo == search_algo::MULTI_CTA)
-    params.search_mode = "multi-cta";
-  else if (params.algo == search_algo::MULTI_KERNEL)
-    params.search_mode = "multi-kernel";
-  RAFT_LOG_DEBUG("# search_mode = %d", static_cast<int>(params.algo));
-  return params;
-}
+struct search_plan_impl;
 
-inline void check_params(search_params params, uint32_t topk)
-{
-  std::string error_message = "";
-  if (params.itopk_size < topk) {
-    error_message +=
-      std::string("- `internal_topk` (" + std::to_string(params.itopk_size) +
-                  ") must be larger or equal to `topk` (" + std::to_string(topk) + ").");
-  }
-  if (params.itopk_size > 1024) {
-    if (params.algo == search_algo::MULTI_CTA) {
-    } else {
-      error_message += std::string("- `internal_topk` (" + std::to_string(params.itopk_size) +
-                                   ") must be smaller or equal to 1024");
-    }
-  }
-  if (params.hashmap_mode != "auto" && params.hashmap_mode != "hash" &&
-      params.hashmap_mode != "small-hash") {
-    error_message += "An invalid hashmap mode has been given: " + params.hashmap_mode + "";
-  }
-  if (params.algo != search_algo::AUTO && params.algo != search_algo::SINGLE_CTA &&
-      params.algo != search_algo::MULTI_CTA && params.algo != search_algo::MULTI_KERNEL) {
-    error_message += "An invalid kernel mode has been given: " + params.search_mode + "";
-  }
-  if (params.team_size != 0 && params.team_size != 4 && params.team_size != 8 &&
-      params.team_size != 16 && params.team_size != 32) {
-    error_message += "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(params.team_size) +
-                     " has been given.";
-  }
-  if (params.load_bit_length != 0 && params.load_bit_length != 64 &&
-      params.load_bit_length != 128) {
-    error_message += "`load_bit_length` must be 0, 64 or 128. " +
-                     std::to_string(params.load_bit_length) + " has been given.";
-  }
-  if (params.thread_block_size != 0 && params.thread_block_size != 64 &&
-      params.thread_block_size != 128 && params.thread_block_size != 256 &&
-      params.thread_block_size != 512 && params.thread_block_size != 1024) {
-    error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
-                     std::to_string(params.load_bit_length) + " has been given.";
-  }
-  if (params.hashmap_min_bitlen > 20) {
-    error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
-                     std::to_string(params.hashmap_min_bitlen) + " has been given.";
-  }
-  if (params.hashmap_max_fill_rate < 0.1 || params.hashmap_max_fill_rate >= 0.9) {
-    error_message +=
-      "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
-      std::to_string(params.hashmap_max_fill_rate) + " has been given.";
-  }
-  if (params.algo == search_algo::MULTI_CTA) {
-    if (params.hashmap_mode == "small_hash") {
-      error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"";
-    } else {
-      params.hashmap_mode = "hash";
-    }
-    uint32_t mc_num_cta_per_query = max(params.num_parents, params.itopk_size / 32);
-    if (mc_num_cta_per_query * 32 < topk) {
-      error_message += "`mc_num_cta_per_query` (" + std::to_string(mc_num_cta_per_query) +
-                       ") * 32 must be equal to or greater than `topk` (" + std::to_string(topk) +
-                       ") when 'search_mode' is \"multi-cta\"";
+void set_single_cta_params(search_plan_impl);
+struct search_plan_impl : search_params {
+  int64_t dim;
+  int64_t graph_degree;
+  int64_t hash_bitlen;
+
+  size_t small_hash_bitlen;
+  size_t small_hash_reset_interval;
+  int64_t max_dim;
+  size_t hashmap_size;
+
+  search_plan_impl(search_params params, int64_t dim, int64_t graph_degree)
+    : search_params(params), dim(dim), graph_degree(graph_degree)
+  {
+    adjust_search_params();
+    check_params();
+    calc_hashmap_params();
+    set_max_dim_team();
+
+    switch (params.algo) {
+      case search_algo::SINGLE_CTA: set_single_cta_params(*this); break;
+      case search_algo::MULTI_CTA:     // et_multi_cta_params(*this); break;
+      case search_algo::MULTI_KERNEL:  // set_multi_kernel_params(*this); break;
+      default: THROW("Incorrect search_algo for ann_cagra");
     }
   }
 
-  if (error_message.length() != 0) { THROW("[CAGRA Error] %s", error_message.c_str()); }
-}
-
-template <uint32_t TEAM_SIZE>
-inline void calc_hashmap_params(search_params params,
-                                size_t topk,
-                                size_t dataset_size,
-                                size_t dataset_dim,
-                                size_t graph_degree,
-                                size_t& hash_bitlen,
-                                size_t& small_hash_bitlen,
-                                size_t& small_hash_reset_interval,
-                                size_t& hashmap_size)
-{
-  // for multipel CTA search
-  uint32_t mc_num_cta_per_query = 0;
-  uint32_t mc_num_parents       = 0;
-  uint32_t mc_itopk_size        = 0;
-  if (params.algo == search_algo::MULTI_CTA) {
-    mc_itopk_size        = 32;
-    mc_num_parents       = 1;
-    mc_num_cta_per_query = max(params.num_parents, params.itopk_size / 32);
-    RAFT_LOG_DEBUG("# mc_itopk_size: %u", mc_itopk_size);
-    RAFT_LOG_DEBUG("# mc_num_parents: %u", mc_num_parents);
-    RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u", mc_num_cta_per_query);
-  }
-
-  // Determine hash size (bit length)
-  hash_bitlen               = 0;
-  small_hash_bitlen         = 0;
-  small_hash_reset_interval = 1024 * 1024;
-  float max_fill_rate       = params.hashmap_max_fill_rate;
-  while (params.hashmap_mode == "auto" || params.hashmap_mode == "small-hash") {
-    //
-    // The small-hash reduces hash table size by initializing the hash table
-    // for each iteraton and re-registering only the nodes that should not be
-    // re-visited in that iteration. Therefore, the size of small-hash should
-    // be determined based on the internal topk size and the number of nodes
-    // visited per iteration.
-    //
-    const auto max_visited_nodes = params.itopk_size + (params.num_parents * graph_degree * 1);
-    unsigned min_bitlen          = 8;   // 256
-    unsigned max_bitlen          = 13;  // 8K
-    if (min_bitlen < params.hashmap_min_bitlen) { min_bitlen = params.hashmap_min_bitlen; }
-    hash_bitlen = min_bitlen;
-    while (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) {
-      hash_bitlen += 1;
-    }
-    if (hash_bitlen > max_bitlen) {
-      // Switch to normal hash if hashmap_mode is "auto", otherwise exit.
-      if (params.hashmap_mode == "auto") {
-        hash_bitlen = 0;
-        break;
+  void adjust_search_params()
+  {
+    uint32_t _max_iterations = max_iterations;
+    if (max_iterations == 0) {
+      if (algo == search_algo::MULTI_CTA) {
+        _max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);  // TODO(anaruse)
       } else {
-        RAFT_LOG_DEBUG(
-          "[CAGRA Error]"
-          "small-hash cannot be used because the required hash size exceeds the limit (%u)",
-          hashmap::get_size(max_bitlen));
-        exit(-1);
+        _max_iterations =
+          1 + std::min((itopk_size / num_parents) * 1.1, (itopk_size / num_parents) + 10.0);
       }
     }
-    small_hash_bitlen = hash_bitlen;
-    //
-    // Sincc the hash table size is limited to a power of 2, the requirement,
-    // the maximum fill rate, may be satisfied even if the frequency of hash
-    // table reset is reduced to once every 2 or more iterations without
-    // changing the hash table size. In that case, reduce the reset frequency.
-    //
-    small_hash_reset_interval = 1;
-    while (1) {
-      const auto max_visited_nodes =
-        params.itopk_size + (params.num_parents * graph_degree * (small_hash_reset_interval + 1));
-      if (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) { break; }
-      small_hash_reset_interval += 1;
+    if (max_iterations < min_iterations) { _max_iterations = min_iterations; }
+    if (max_iterations < _max_iterations) {
+      RAFT_LOG_DEBUG(
+        "# max_iterations is increased from %u to %u.", max_iterations, _max_iterations);
+      max_iterations = _max_iterations;
     }
-    break;
-  }
-  if (hash_bitlen == 0) {
-    //
-    // The size of hash table is determined based on the maximum number of
-    // nodes that may be visited before the search is completed and the
-    // maximum fill rate of the hash table.
-    //
-    uint32_t max_visited_nodes =
-      params.itopk_size + (params.num_parents * graph_degree * params.max_iterations);
-    if (params.algo == search_algo::MULTI_CTA) {
-      max_visited_nodes = mc_itopk_size + (mc_num_parents * graph_degree * params.max_iterations);
-      max_visited_nodes *= mc_num_cta_per_query;
+    if (itopk_size % 32) {
+      uint32_t itopk32 = itopk_size;
+      itopk32 += 32 - (itopk_size % 32);
+      RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.",
+                     itopk_size,
+                     itopk32);
+      itopk_size = itopk32;
     }
-    unsigned min_bitlen = 11;  // 2K
-    if (min_bitlen < params.hashmap_min_bitlen) { min_bitlen = params.hashmap_min_bitlen; }
-    hash_bitlen = min_bitlen;
-    while (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) {
-      hash_bitlen += 1;
+    if (algo == search_algo::AUTO) {
+      if (itopk_size <= 512) {
+        algo = search_algo::SINGLE_CTA;
+      } else {
+        algo = search_algo::MULTI_KERNEL;
+      }
     }
-    RAFT_EXPECTS(hash_bitlen <= 20, "hash_bitlen cannot be largen than 20 (1M)");
+    if (algo == search_algo::SINGLE_CTA)
+      search_mode = "single-cta";
+    else if (algo == search_algo::MULTI_CTA)
+      search_mode = "multi-cta";
+    else if (algo == search_algo::MULTI_KERNEL)
+      search_mode = "multi-kernel";
+    RAFT_LOG_DEBUG("# search_mode = %d", static_cast<int>(algo));
   }
 
-  RAFT_LOG_DEBUG("# topK = %lu", topk);
-  RAFT_LOG_DEBUG("# internal topK = %lu", params.itopk_size);
-  RAFT_LOG_DEBUG("# parent size = %lu", params.num_parents);
-  RAFT_LOG_DEBUG("# min_iterations = %lu", params.min_iterations);
-  RAFT_LOG_DEBUG("# max_iterations = %lu", params.max_iterations);
-  RAFT_LOG_DEBUG("# max_queries = %lu", params.max_queries);
-  RAFT_LOG_DEBUG("# team size = %u", TEAM_SIZE);
-  RAFT_LOG_DEBUG("# hashmap mode = %s%s-%u",
-                 (small_hash_bitlen > 0 ? "small-" : ""),
-                 "hash",
-                 hashmap::get_size(hash_bitlen));
-  if (small_hash_bitlen > 0) {
-    RAFT_LOG_DEBUG("# small_hash_reset_interval = %lu", small_hash_reset_interval);
-  }
-  hashmap_size = sizeof(std::uint32_t) * params.max_queries * hashmap::get_size(hash_bitlen);
-  RAFT_LOG_DEBUG("# hashmap size: %lu", hashmap_size);
-  if (hashmap_size >= 1024 * 1024 * 1024) {
-    RAFT_LOG_DEBUG(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));
-  } else if (hashmap_size >= 1024 * 1024) {
-    RAFT_LOG_DEBUG(" (%.2f MiB)", (double)hashmap_size / (1024 * 1024));
-  } else if (hashmap_size >= 1024) {
-    RAFT_LOG_DEBUG(" (%.2f KiB)", (double)hashmap_size / (1024));
-  }
-  RAFT_LOG_DEBUG("");
-}
-
-inline void set_max_dim_team(search_plan& plan, size_t dim)
-{
-  plan.max_dim = 1;
-  while (plan.max_dim < dim && plan.max_dim <= 1024)
-    plan.max_dim *= 2;
-  // check params already ensured that team size is one of 0, 4, 8, 16, 32.
-  if (plan.params.team_size == 0) {
-    switch (plan.max_dim) {
-      case 128: plan.params.team_size = 8; break;
-      case 256: plan.params.team_size = 16; break;
-      case 512: plan.params.team_size = 32; break;
-      case 1024: plan.params.team_size = 32; break;
-      default: RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dim);
+  inline void set_max_dim_team()
+  {
+    max_dim = 1;
+    while (max_dim < dim && max_dim <= 1024)
+      max_dim *= 2;
+    // check params already ensured that team size is one of 0, 4, 8, 16, 32.
+    if (team_size == 0) {
+      switch (max_dim) {
+        case 128: team_size = 8; break;
+        case 256: team_size = 16; break;
+        case 512: team_size = 32; break;
+        case 1024: team_size = 32; break;
+        default: RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dim);
+      }
     }
   }
-}
 
-inline search_plan set_single_cta_params(search_plan plan) { return plan; }
+  // defines hash_bitlen, small_hash_bitlen, small_hash_reset interval, hash_size
+  inline void calc_hashmap_params()
+  {
+    // for multipel CTA search
+    uint32_t mc_num_cta_per_query = 0;
+    uint32_t mc_num_parents       = 0;
+    uint32_t mc_itopk_size        = 0;
+    if (algo == search_algo::MULTI_CTA) {
+      mc_itopk_size        = 32;
+      mc_num_parents       = 1;
+      mc_num_cta_per_query = max(num_parents, itopk_size / 32);
+      RAFT_LOG_DEBUG("# mc_itopk_size: %u", mc_itopk_size);
+      RAFT_LOG_DEBUG("# mc_num_parents: %u", mc_num_parents);
+      RAFT_LOG_DEBUG("# mc_num_cta_per_query: %u", mc_num_cta_per_query);
+    }
 
-inline search_plan create_plan(
-  search_params params, size_t topk, size_t n_rows, size_t n_cols, size_t graph_degree)
-{
-  search_plan plan;
-  plan.params = adjust_search_params(params, topk);
-  check_params(plan.params, topk);
-
-  size_t hashmap_size = 0;
-  // todo dispatch on dim
-  calc_hashmap_params<128>(plan.params,
-                           topk,
-                           n_rows,
-                           n_cols,
-                           graph_degree,
-                           plan.hash_bitlen,
-                           plan.small_hash_bitlen,
-                           plan.small_hash_reset_interval,
-                           hashmap_size);
-
-  set_max_dim_team(plan, n_cols);
-
-  switch (params.algo) {
-    case search_algo::SINGLE_CTA:
-      plan = set_single_cta_params(plan);  //*this);
+    // Determine hash size (bit length)
+    hashmap_size              = 0;
+    hash_bitlen               = 0;
+    small_hash_bitlen         = 0;
+    small_hash_reset_interval = 1024 * 1024;
+    float max_fill_rate       = hashmap_max_fill_rate;
+    while (hashmap_mode == "auto" || hashmap_mode == "small-hash") {
+      //
+      // The small-hash reduces hash table size by initializing the hash table
+      // for each iteraton and re-registering only the nodes that should not be
+      // re-visited in that iteration. Therefore, the size of small-hash should
+      // be determined based on the internal topk size and the number of nodes
+      // visited per iteration.
+      //
+      const auto max_visited_nodes = itopk_size + (num_parents * graph_degree * 1);
+      unsigned min_bitlen          = 8;   // 256
+      unsigned max_bitlen          = 13;  // 8K
+      if (min_bitlen < hashmap_min_bitlen) { min_bitlen = hashmap_min_bitlen; }
+      hash_bitlen = min_bitlen;
+      while (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) {
+        hash_bitlen += 1;
+      }
+      if (hash_bitlen > max_bitlen) {
+        // Switch to normal hash if hashmap_mode is "auto", otherwise exit.
+        if (hashmap_mode == "auto") {
+          hash_bitlen = 0;
+          break;
+        } else {
+          RAFT_LOG_DEBUG(
+            "[CAGRA Error]"
+            "small-hash cannot be used because the required hash size exceeds the limit (%u)",
+            hashmap::get_size(max_bitlen));
+          exit(-1);
+        }
+      }
+      small_hash_bitlen = hash_bitlen;
+      //
+      // Sincc the hash table size is limited to a power of 2, the requirement,
+      // the maximum fill rate, may be satisfied even if the frequency of hash
+      // table reset is reduced to once every 2 or more iterations without
+      // changing the hash table size. In that case, reduce the reset frequency.
+      //
+      small_hash_reset_interval = 1;
+      while (1) {
+        const auto max_visited_nodes =
+          itopk_size + (num_parents * graph_degree * (small_hash_reset_interval + 1));
+        if (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) { break; }
+        small_hash_reset_interval += 1;
+      }
       break;
-    case search_algo::MULTI_CTA:     // et_multi_cta_params(*this); break;
-    case search_algo::MULTI_KERNEL:  // set_multi_kernel_params(*this); break;
-    default: THROW("Incorrect search_algo for ann_cagra");
+    }
+    if (hash_bitlen == 0) {
+      //
+      // The size of hash table is determined based on the maximum number of
+      // nodes that may be visited before the search is completed and the
+      // maximum fill rate of the hash table.
+      //
+      uint32_t max_visited_nodes = itopk_size + (num_parents * graph_degree * max_iterations);
+      if (algo == search_algo::MULTI_CTA) {
+        max_visited_nodes = mc_itopk_size + (mc_num_parents * graph_degree * max_iterations);
+        max_visited_nodes *= mc_num_cta_per_query;
+      }
+      unsigned min_bitlen = 11;  // 2K
+      if (min_bitlen < hashmap_min_bitlen) { min_bitlen = hashmap_min_bitlen; }
+      hash_bitlen = min_bitlen;
+      while (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) {
+        hash_bitlen += 1;
+      }
+      RAFT_EXPECTS(hash_bitlen <= 20, "hash_bitlen cannot be largen than 20 (1M)");
+    }
+
+    RAFT_LOG_DEBUG("# internal topK = %lu", itopk_size);
+    RAFT_LOG_DEBUG("# parent size = %lu", num_parents);
+    RAFT_LOG_DEBUG("# min_iterations = %lu", min_iterations);
+    RAFT_LOG_DEBUG("# max_iterations = %lu", max_iterations);
+    RAFT_LOG_DEBUG("# max_queries = %lu", max_queries);
+    RAFT_LOG_DEBUG("# hashmap mode = %s%s-%u",
+                   (small_hash_bitlen > 0 ? "small-" : ""),
+                   "hash",
+                   hashmap::get_size(hash_bitlen));
+    if (small_hash_bitlen > 0) {
+      RAFT_LOG_DEBUG("# small_hash_reset_interval = %lu", small_hash_reset_interval);
+    }
+    hashmap_size = sizeof(std::uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+    RAFT_LOG_DEBUG("# hashmap size: %lu", hashmap_size);
+    if (hashmap_size >= 1024 * 1024 * 1024) {
+      RAFT_LOG_DEBUG(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));
+    } else if (hashmap_size >= 1024 * 1024) {
+      RAFT_LOG_DEBUG(" (%.2f MiB)", (double)hashmap_size / (1024 * 1024));
+    } else if (hashmap_size >= 1024) {
+      RAFT_LOG_DEBUG(" (%.2f KiB)", (double)hashmap_size / (1024));
+    }
   }
-  return plan;
+
+  void check(uint32_t topk)
+  {
+    RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
+    if (algo == search_algo::MULTI_CTA) {
+      uint32_t mc_num_cta_per_query = max(num_parents, itopk_size / 32);
+      RAFT_EXPECTS(mc_num_cta_per_query * 32 >= topk,
+                   "`mc_num_cta_per_query` (%u) * 32 must be equal to or greater than "
+                   "`topk` /%u) when 'search_mode' is \"multi-cta\"",
+                   mc_num_cta_per_query,
+                   topk);
+    }
+  }
+
+  inline void check_params()
+  {
+    std::string error_message = "";
+
+    if (itopk_size > 1024) {
+      if (algo == search_algo::MULTI_CTA) {
+      } else {
+        error_message += std::string("- `internal_topk` (" + std::to_string(itopk_size) +
+                                     ") must be smaller or equal to 1024");
+      }
+    }
+    if (hashmap_mode != "auto" && hashmap_mode != "hash" && hashmap_mode != "small-hash") {
+      error_message += "An invalid hashmap mode has been given: " + hashmap_mode + "";
+    }
+    if (algo != search_algo::AUTO && algo != search_algo::SINGLE_CTA &&
+        algo != search_algo::MULTI_CTA && algo != search_algo::MULTI_KERNEL) {
+      error_message += "An invalid kernel mode has been given: " + search_mode + "";
+    }
+    if (team_size != 0 && team_size != 4 && team_size != 8 && team_size != 16 && team_size != 32) {
+      error_message +=
+        "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(team_size) + " has been given.";
+    }
+    if (load_bit_length != 0 && load_bit_length != 64 && load_bit_length != 128) {
+      error_message += "`load_bit_length` must be 0, 64 or 128. " +
+                       std::to_string(load_bit_length) + " has been given.";
+    }
+    if (thread_block_size != 0 && thread_block_size != 64 && thread_block_size != 128 &&
+        thread_block_size != 256 && thread_block_size != 512 && thread_block_size != 1024) {
+      error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
+                       std::to_string(load_bit_length) + " has been given.";
+    }
+    if (hashmap_min_bitlen > 20) {
+      error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
+                       std::to_string(hashmap_min_bitlen) + " has been given.";
+    }
+    if (hashmap_max_fill_rate < 0.1 || hashmap_max_fill_rate >= 0.9) {
+      error_message +=
+        "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
+        std::to_string(hashmap_max_fill_rate) + " has been given.";
+    }
+    if (algo == search_algo::MULTI_CTA) {
+      if (hashmap_mode == "small_hash") {
+        error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"";
+      } else {
+        hashmap_mode = "hash";
+      }
+      uint32_t mc_num_cta_per_query = max(num_parents, itopk_size / 32);
+      if (mc_num_cta_per_query * 32 < topk) {
+        error_message += "`mc_num_cta_per_query` (" + std::to_string(mc_num_cta_per_query) +
+                         ") * 32 must be equal to or greater than `topk` (" + std::to_string(topk) +
+                         ") when 'search_mode' is \"multi-cta\"";
+      }
+    }
+
+    if (error_message.length() != 0) { THROW("[CAGRA Error] %s", error_message.c_str()); }
+  }
+};
+
+void set_single_cta_params(search_plan_impl)
+{
+  //   params                        = plan.params;
+  //   uint32_t num_itopk_candidates = params.num_parents * graph_degree;
+  //   uint32_t result_buffer_size   = uint32_t.itopk_size + num_itopk_candidates;
+
+  //   unsigned result_buffer_size_32 = result_buffer_size;
+  //   if (result_buffer_size % 32) { result_buffer_size_32 += 32 - (result_buffer_size % 32); }
+  //   constexpr unsigned max_itopk = 512;
+  //   assert(itopk_size <= max_itopk);
+
+  //   RAFT_LOG_DEBUG("# num_itopk_candidates: %u\n", num_itopk_candidates);
+  //   RAFT_LOG_DEBUG("# num_itopk: %u\n", itopk_size);
+  //   // RAFT_LOG_DEBUG( "# max_itopk: %u\n", max_itopk );
+
+  //   //
+  //   // Determine the thread block size
+  //   //
+  //   constexpr unsigned min_block_size       = 64;  // 32 or 64
+  //   constexpr unsigned min_block_size_radix = 256;
+  //   constexpr unsigned max_block_size       = 1024;
+  //   //
+  //   const std::uint32_t topk_ws_size = 3;
+  //   const std::uint32_t base_smem_size =
+  //     sizeof(float) * MAX_DATASET_DIM +
+  //     (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
+  //     sizeof(std::uint32_t) * hashmap::get_size(small_hash_bitlen) +
+  //     sizeof(std::uint32_t) * num_parents + sizeof(std::uint32_t) * topk_ws_size +
+  //     sizeof(std::uint32_t);
+  //   smem_size = base_smem_size;
+  //   if (num_itopk_candidates > 256) {
+  //     // Tentatively calculate the required share memory size when radix
+  //     // sort based topk is used, assuming the block size is the maximum.
+  //     if (itopk_size <= 256) {
+  //       smem_size += topk_by_radix_sort<256, max_block_size>::smem_size * sizeof(std::uint32_t);
+  //     } else {
+  //       smem_size += topk_by_radix_sort<512, max_block_size>::smem_size * sizeof(std::uint32_t);
+  //     }
+  //   }
+  //   //
+  //   if (set_block_size != 0) {
+  //     block_size = set_block_size;
+  //   } else {
+  //     block_size = min_block_size;
+
+  //     if (num_itopk_candidates > 256) {
+  //       // radix-based topk is used.
+  //       block_size = min_block_size_radix;
+
+  //       // Internal topk values per thread must be equlal to or less than 4
+  //       // when radix-sort block_topk is used.
+  //       while ((block_size < max_block_size) && (max_itopk / block_size > 4)) {
+  //         block_size *= 2;
+  //       }
+  //     }
+
+  //     // Increase block size according to shared memory requirements.
+  //     // If block size is 32, upper limit of shared memory size per
+  //     // thread block is set to 4096. This is GPU generation dependent.
+  //     constexpr unsigned ulimit_smem_size_cta32 = 4096;
+  //     while (smem_size > ulimit_smem_size_cta32 / 32 * block_size) {
+  //       block_size *= 2;
+  //     }
+
+  //     // Increase block size to improve GPU occupancy when batch size
+  //     // is small, that is, number of queries is low.
+  //     cudaDeviceProp deviceProp;
+  //     RAFT_CUDA_TRY(cudaGetDeviceProperties(&deviceProp, 0));
+  //     RAFT_LOG_DEBUG("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
+  //     while ((block_size < max_block_size) &&
+  //            (graph_degree * num_parents * TEAM_SIZE >= block_size * 2) &&
+  //            (max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
+  //       block_size *= 2;
+  //     }
+  //   }
+  //   RAFT_LOG_DEBUG("# thread_block_size: %u\n", block_size);
+  //   assert(block_size >= min_block_size);
+  //   assert(block_size <= max_block_size);
+
+  //   // Determine load bit length
+  //   const uint32_t total_bit_length = dataset_dim * sizeof(DATA_T) * 8;
+  //   load_bit_length                 = set_load_bit_length;
+  //   if (load_bit_length == 0) {
+  //     load_bit_length = 128;
+  //     while (total_bit_length % load_bit_length) {
+  //       load_bit_length /= 2;
+  //     }
+  //   }
+  //   RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)\n",
+  //                  load_bit_length,
+  //                  total_bit_length / load_bit_length);
+  //   assert(total_bit_length % load_bit_length == 0);
+  //   assert(load_bit_length >= 64);
+
+  //   if (num_itopk_candidates <= 256) {
+  //     RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used\n");
+  //   } else {
+  //     RAFT_LOG_DEBUG("# radix-sort based topk routine is used\n");
+  //     smem_size = base_smem_size;
+  //     if (itopk_size <= 256) {
+  //       constexpr unsigned MAX_ITOPK = 256;
+  //       if (block_size == 256) {
+  //         constexpr unsigned BLOCK_SIZE = 256;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       } else if (block_size == 512) {
+  //         constexpr unsigned BLOCK_SIZE = 512;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       } else {
+  //         constexpr unsigned BLOCK_SIZE = 1024;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       }
+  //     } else {
+  //       constexpr unsigned MAX_ITOPK = 512;
+  //       if (block_size == 256) {
+  //         constexpr unsigned BLOCK_SIZE = 256;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       } else if (block_size == 512) {
+  //         constexpr unsigned BLOCK_SIZE = 512;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       } else {
+  //         constexpr unsigned BLOCK_SIZE = 1024;
+  //         smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+  //         sizeof(std::uint32_t);
+  //       }
+  //     }
+  //   }
+  //   RAFT_LOG_DEBUG("# smem_size: %u\n", smem_size);
+  //   // RAFT_LOG_DEBUG( "# hash_bitlen: %u\n", hash_bitlen );
+  //   // RAFT_LOG_DEBUG( "# small_hash_bitlen: %u\n", small_hash_bitlen );
+
+  //   SET_KERNEL;
+  //   RAFT_CUDA_TRY(
+  //     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+
+  //   size_t hashmap_size = 0;
+  //   hashmap_ptr         = nullptr;
+  //   if (small_hash_bitlen == 0) {
+  //     hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+  //     RAFT_CUDA_TRY(cudaMalloc(&hashmap_ptr, hashmap_size));
+  //   }
+  //   RAFT_LOG_DEBUG("# hashmap_size: %lu\n", hashmap_size);
+
+  //   return plan;
 }
+
+struct search_plan {
+  search_plan(search_params param, int64_t dim, int64_t graph_degree)
+    : plan(param, dim, graph_degree)
+  {
+  }
+  void check(uint32_t topk) { plan.check(topk); }
+
+  // private:
+  detail::search_plan_impl plan;
+};
 /** @} */  // end group cagra
 
 }  // namespace raft::neighbors::experimental::cagra::detail

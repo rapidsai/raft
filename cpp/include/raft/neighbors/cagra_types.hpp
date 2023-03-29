@@ -24,6 +24,7 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
+// #include <raft/neighbors/detail/cagra/search_plan.cuh>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -52,14 +53,19 @@ enum class search_algo {
 
 // TODO set reasonable defaults
 struct search_params : ann::search_params {
+  /** Maximum number of queries to search at the same time. So called batch size. */
+  size_t max_queries = 1;
+
+  /** Number of intermediate search results retained during the search. */
+  size_t itopk_size = 64;
+
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
   /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
   std::string search_mode = "auto";  // todo remove
   /** Number of search results for each query. */
-  size_t topk = 10;
-  /** Number of intermediate search results retained during the search. */
-  size_t itopk_size = 64;
+  size_t topk = 10;  // todo remove
+
   /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t num_parents = 1;
@@ -68,8 +74,6 @@ struct search_params : ann::search_params {
   /** Upper limit of search iterations. */
   size_t max_iterations = 0;
 
-  /** Maximum number of queries to search at the same time. So called batch size. */
-  size_t max_queries = 1;
   /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
   size_t load_bit_length = 0;
   /** Thread block size. 0, 64, 128, 256, 512, 1024. Auto selection when 0. */
@@ -89,16 +93,6 @@ struct search_params : ann::search_params {
   search_algo algo = search_algo::AUTO;
 };
 
-struct search_plan : search_params {
-  search_params params;
-
-  // derived parameters
-  size_t hash_bitlen;
-  size_t small_hash_bitlen;
-  size_t small_hash_reset_interval;
-
-  size_t max_dim;
-};
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 

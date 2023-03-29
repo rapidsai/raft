@@ -55,21 +55,20 @@ void search_main(raft::device_resources const& handle,
                  raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
                  raft::device_matrix_view<float, IdxT, row_major> distances)
 {
-  const std::string dtype  = "float";  // tamas remove
-  const std::uint32_t topk = neighbors.extent(1);
-  params                   = adjust_search_params(params, topk);
-  check_params(params, topk);
-
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
                  static_cast<size_t>(index.dataset().extent(1)));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  assert(queries.extent(1) == index.dataset().extent(1));
+  RAFT_EXPETS(queries.extent(1) == index.dim(), "Querise and index dim must match");
 
-  // Allocate buffer for search results
+  search_plan splan(params, index.dim(), index.graph_degree());
+  const std::uint32_t topk = neighbors.extent(1);
+  splan.check(topk);
 
+  params                  = splan.plan;
+  const std::string dtype = "float";  // tamas remove
   // Allocate memory for stats
   std::uint32_t* num_executed_iterations = nullptr;
   RAFT_CUDA_TRY(
