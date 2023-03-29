@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -48,6 +48,8 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
+   --time                      - Enable nvcc compilation time logging into cpp/build/nvcc_compile_log.csv.
+                                 Results can be interpreted with cpp/scripts/analyze_nvcc_log.py
    -h                          - print this text
 
  default action (no args) is to build libraft, tests, pylibraft and raft-dask targets
@@ -75,6 +77,7 @@ BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_
 
 CACHE_ARGS=""
 NVTX=ON
+LOG_COMPILE_TIME=OFF
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -322,6 +325,10 @@ fi
 if hasArg --no-nvtx; then
     NVTX=OFF
 fi
+if hasArg --time; then
+    echo "-- Logging compile times to cpp/build/nvcc_compile_log.csv"
+    LOG_COMPILE_TIME=ON
+fi
 if hasArg --show_depr_warn; then
     DISABLE_DEPRECATION_WARNINGS=OFF
 fi
@@ -379,6 +386,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
+          -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
