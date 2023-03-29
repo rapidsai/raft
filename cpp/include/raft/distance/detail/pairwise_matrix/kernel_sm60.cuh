@@ -15,11 +15,11 @@
  */
 #pragma once
 
-#include <cstddef>
-#include <raft/core/operators.hpp>
-#include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/distance/detail/pairwise_matrix/params.cuh>
-#include <raft/util/arch.cuh>
+#include <cassert>                                          // assert
+#include <raft/core/operators.hpp>                          // raft::void_op
+#include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
+#include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
+#include <raft/util/arch.cuh>                               // raft::util::arch::SM_compute_arch
 
 namespace raft::distance::detail {
 
@@ -36,43 +36,27 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
 {
   // Early exit to minimize the size of the kernel when it is not supposed to be compiled.
   constexpr SM_compat_t sm_compat_range{};
-  if constexpr (!sm_compat_range.contains(raft::arch::SM_compute_arch())) {
+  if constexpr (!sm_compat_range.contains(raft::util::arch::SM_compute_arch())) {
     assert(false);
     return;
   }
 
   extern __shared__ char smem[];
 
-  using AccT = typename OpT::AccT;
-
-  // Wrap operator back into lambdas. This is temporary and should be removed.
-  // See: https://github.com/rapidsai/raft/issues/1323
-  auto core_op = [distance_op] __device__(AccT & acc, DataT & x, DataT & y) {
-    distance_op.core(acc, x, y);
-  };
-  auto epilog_op = [distance_op] __device__(AccT acc[Policy::AccRowsPerTh][Policy::AccColsPerTh],
-                                            DataT * regxn,
-                                            DataT * regyn,
-                                            IdxT gridStrideX,
-                                            IdxT gridStrideY) {
-    // Use .template to disambiguate (See:
-    // https://en.cppreference.com/w/cpp/language/dependent_name)
-    distance_op.template epilog<Policy>(acc, regxn, regyn, gridStrideX, gridStrideY);
-  };
-
+  // The epilog is already provided by distance_op. Do not provide additional
+  // epilogs.
+  auto epilog_op = raft::void_op();
   // No support for row_epilog_op.
   auto row_epilog_op = raft::void_op();
 
   // Always write output
   constexpr bool write_out = true;
   constexpr bool use_norms = distance_op.use_norms;
-  PairwiseDistances<use_norms,
-                    DataT,
-                    AccT,
+  PairwiseDistances<DataT,
                     OutT,
                     IdxT,
                     Policy,
-                    decltype(core_op),
+                    decltype(distance_op),
                     decltype(epilog_op),
                     decltype(params.fin_op),
                     decltype(row_epilog_op),
@@ -90,36 +74,11 @@ __global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
         params.y_norm,
         params.out,
         smem,
-        core_op,
+        distance_op,
         epilog_op,
         params.fin_op,
         row_epilog_op);
   obj.run();
-}
-
-template <typename Policy,
-          bool row_major,
-          typename SM_compat_t,
-          typename OpT,
-          typename IdxT,
-          typename DataT,
-          typename OutT,
-          typename FinOpT>
-void pairwise_matrix(OpT distance_op,
-                     pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params,
-                     cudaStream_t stream)
-{
-  dim3 blk(Policy::Nthreads);
-  // Use .template to disambiguate (See:
-  // https://en.cppreference.com/w/cpp/language/dependent_name)
-  size_t smem_size = distance_op.template shared_mem_size<Policy>();
-  // Obtain function pointer to kernel
-  auto kernel =
-    pairwise_matrix_kernel<Policy, row_major, SM_compat_t, OpT, IdxT, DataT, OutT, FinOpT>;
-  dim3 grid = launchConfigGenerator<Policy>(params.m, params.n, smem_size, kernel);
-
-  kernel<<<grid, blk, smem_size, stream>>>(distance_op, params);
-  RAFT_CUDA_TRY(cudaGetLastError());
 }
 
 // The type of a pointer to the pairwise matrix kernel. The following template
@@ -181,9 +140,9 @@ pairwise_matrix_sm60_wrapper<OpT, IdxT, DataT, OutT, FinOpT> make_pairwise_matri
   SM_compat_t sm_compat_range)
 {
   dim3 block(Policy::Nthreads);
-  // Use .template to disambiguate (See:
+  // Use ::template to disambiguate (See:
   // https://en.cppreference.com/w/cpp/language/dependent_name)
-  int smem_size = distance_op.template shared_mem_size<Policy>();
+  int smem_size = OpT::template shared_mem_size<Policy>();
   // Obtain function pointer to kernel
   auto kernel =
     pairwise_matrix_kernel<Policy, row_major, SM_compat_t, OpT, IdxT, DataT, OutT, FinOpT>;

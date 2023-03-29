@@ -14,24 +14,21 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/distance.cuh>
-#include <raft/distance/specializations.cuh>
+#include <raft/core/operators.hpp>                            // raft::identity_op
+#include <raft/distance/detail/distance_ops/all_ops.cuh>      // ops::*
+#include <raft/distance/detail/pairwise_matrix/dispatch.cuh>  // pairwise_matrix_instantiation_point
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>
+#include <raft/distance/detail/pairwise_matrix/dispatch_sm80.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
-template void distance<raft::distance::DistanceType::L2Expanded, double, double, double, int>(
-  raft::resources const& handle,
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  std::size_t worksize,
-  bool isRowMajor,
-  double metric_arg);
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+namespace raft::distance::detail {
+
+template void pairwise_matrix_instantiation_point<ops::l2_exp_distance_op<double, double, int>,
+                                                  int,
+                                                  double,
+                                                  double,
+                                                  decltype(raft::identity_op())>(
+  ops::l2_exp_distance_op<double, double, int>,
+  pairwise_matrix_params<int, double, double, decltype(raft::identity_op())>,
+  cudaStream_t);
+
+}  // namespace raft::distance::detail

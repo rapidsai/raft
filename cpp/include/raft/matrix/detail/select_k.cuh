@@ -84,7 +84,7 @@ void select_k(const T* in_val,
       in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
   } else {
     select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
-      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
+      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, true, stream, mr);
   }
 }
 

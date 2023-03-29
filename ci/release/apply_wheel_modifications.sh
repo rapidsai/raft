@@ -6,10 +6,6 @@
 VERSION=${1}
 CUDA_SUFFIX=${2}
 
-# __init__.py versions
-sed -i "s/__version__ = .*/__version__ = \"${VERSION}\"/g" python/pylibraft/pylibraft/__init__.py
-sed -i "s/__version__ = .*/__version__ = \"${VERSION}\"/g" python/raft-dask/raft_dask/__init__.py
-
 # pyproject.toml versions
 sed -i "s/^version = .*/version = \"${VERSION}\"/g" python/pylibraft/pyproject.toml
 sed -i "s/^version = .*/version = \"${VERSION}\"/g" python/raft-dask/pyproject.toml
