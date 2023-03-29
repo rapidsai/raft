@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <raft/neighbors/cagra.cuh>
+
+namespace raft::neighbors::experimental::cagra {
+
+// todo(tfeher): add build_knn_graph and prune
+
+#define RAFT_INST(T, IdxT, MEM)                                                        \
+  extern template auto                                                                 \
+  build<T, IdxT, host_device_accessor<std::experimental::default_accessor<T>, MEM>>(   \
+    raft::device_resources const& handle,                                              \
+    const index_params& params,                                                        \
+    mdspan<const T,                                                                    \
+           matrix_extent<IdxT>,                                                        \
+           row_major,                                                                  \
+           host_device_accessor<std::experimental::default_accessor<T>, MEM>> dataset) \
+    ->index<T, IdxT>;
+
+RAFT_INST(float, uint32_t, memory_type::host);
+RAFT_INST(float, uint32_t, memory_type::device);
+// RAFT_INST(int8_t, uint32_t);
+// RAFT_INST(uint8_t, uint32_t);
+#undef RAFT_INST
+
+#define RAFT_INST(T, IdxT)                                      \
+  extern template void search<T, IdxT>(                         \
+    raft::device_resources const& handle,                       \
+    const search_params& params,                                \
+    const index<T, IdxT>& idx,                                  \
+    raft::device_matrix_view<const T, IdxT, row_major> queries, \
+    raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,  \
+    raft::device_matrix_view<float, IdxT, row_major> distances);
+
+// RAFT_INST(float, uint32_t)
+#undef RAFT_INST
+}  // namespace raft::neighbors::experimental::cagra
