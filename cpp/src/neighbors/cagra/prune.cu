@@ -40,10 +40,10 @@ using INDEX_T    = std::uint32_t;  // *** DO NOT CHANGE ***
 RAFT_INST(float, uint32_t, memory_type::host, memory_type::host);
 RAFT_INST(float, uint32_t, memory_type::device, memory_type::host);
 
-RAFT_INST(uint8_t, uint32_t, memory_type::host, memory_type::host);
-RAFT_INST(uint8_t, uint32_t, memory_type::device, memory_type::host);
+// RAFT_INST(uint8_t, uint32_t, memory_type::host, memory_type::host);
+// RAFT_INST(uint8_t, uint32_t, memory_type::device, memory_type::host);
 
-RAFT_INST(int8_t, uint32_t, memory_type::host, memory_type::host);
-RAFT_INST(int8_t, uint32_t, memory_type::device, memory_type::host);
+// RAFT_INST(int8_t, uint32_t, memory_type::host, memory_type::host);
+// RAFT_INST(int8_t, uint32_t, memory_type::device, memory_type::host);
 #undef RAFT_INST
 }  // namespace raft::neighbors::experimental::cagra
