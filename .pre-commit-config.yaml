@@ -62,7 +62,7 @@ repos:
                 entry: ./cpp/scripts/run-cmake-format.sh cmake-format
                 language: python
                 types: [cmake]
-                exclude: .*/thirdparty/.*
+                exclude: .*/thirdparty/.*|.*FindAVX.cmake.*
                 # Note that pre-commit autoupdate does not update the versions
                 # of dependencies, so we'll have to update this manually.
                 additional_dependencies:
@@ -101,7 +101,7 @@ repos:
                 args: ["--toml", "pyproject.toml"]
                 exclude: (?x)^(^CHANGELOG.md$)
       - repo: https://github.com/rapidsai/dependency-file-generator
-        rev: v1.4.0
+        rev: v1.5.1
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
