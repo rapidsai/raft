@@ -43,12 +43,19 @@ struct index_params : ann::index_params {
   size_t graph_degree              = 64;   // Degree of output graph.
 };
 
+enum class search_algo {
+  SINGLE_CTA,  // for large batch
+  MULTI_CTA,   // for small batch
+  MULTI_KERNEL,
+  AUTO
+};
+
 // TODO set reasonable defaults
 struct search_params : ann::search_params {
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
   /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
-  std::string search_mode = "auto";
+  std::string search_mode = "auto";  // todo remove
   /** Number of search results for each query. */
   size_t topk = 10;
   /** Number of intermediate search results retained during the search. */
@@ -77,9 +84,19 @@ struct search_params : ann::search_params {
   /* Number of iterations of initial random seed node selection. 1 or more. */
   uint32_t num_random_samplings = 1;
   // Bit mask used for initial random seed node selection. */
-  uint64_t rand_xor_mask;
+  uint64_t rand_xor_mask = 0x128394;
+
+  search_algo algo = search_algo::AUTO;
 };
 
+struct search_plan : search_params {
+  search_params params;
+
+  // derived parameters
+  size_t hash_bitlen;
+  size_t small_hash_bitlen;
+  size_t small_hash_reset_interval;
+};
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);
 

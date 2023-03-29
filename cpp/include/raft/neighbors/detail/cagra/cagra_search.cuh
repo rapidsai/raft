@@ -27,6 +27,113 @@
 
 namespace raft::neighbors::experimental::cagra::detail {
 
+inline search_params adjust_search_params(search_params params, uint32_t topk)
+{
+  uint32_t _max_iterations = params.max_iterations;
+  if (params.max_iterations == 0) {
+    if (params.algo == search_algo::MULTI_CTA) {
+      _max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);  // TODO(anaruse)
+    } else {
+      _max_iterations = 1 + std::min((params.itopk_size / params.num_parents) * 1.1,
+                                     (params.itopk_size / params.num_parents) + 10.0);
+    }
+  }
+  if (params.max_iterations < params.min_iterations) { _max_iterations = params.min_iterations; }
+  if (params.max_iterations < _max_iterations) {
+    RAFT_LOG_DEBUG(
+      "# max_iterations is increased from %u to %u.", params.max_iterations, _max_iterations);
+    params.max_iterations = _max_iterations;
+  }
+  if (params.itopk_size % 32) {
+    uint32_t itopk32 = params.itopk_size;
+    itopk32 += 32 - (params.itopk_size % 32);
+    RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.",
+                   params.itopk_size,
+                   itopk32);
+    params.itopk_size = itopk32;
+  }
+  if (params.algo == search_algo::AUTO) {
+    if (params.itopk_size <= 512) {
+      params.algo = search_algo::SINGLE_CTA;
+    } else {
+      params.algo = search_algo::MULTI_KERNEL;
+    }
+  }
+  if (params.algo == search_algo::SINGLE_CTA)
+    params.search_mode = "single-cta";
+  else if (params.algo == search_algo::MULTI_CTA)
+    params.search_mode = "multi-cta";
+  else if (params.algo == search_algo::MULTI_KERNEL)
+    params.search_mode = "multi-kernel";
+  RAFT_LOG_DEBUG("# search_mode = %d", static_cast<int>(params.algo));
+  return params;
+}
+
+inline void check_params(search_params params, uint32_t topk)
+{
+  std::string error_message = "";
+  if (params.itopk_size < topk) {
+    error_message +=
+      std::string("- `internal_topk` (" + std::to_string(params.itopk_size) +
+                  ") must be larger or equal to `topk` (" + std::to_string(topk) + ").\n");
+  }
+  if (params.itopk_size > 1024) {
+    if (params.algo == search_algo::MULTI_CTA) {
+    } else {
+      error_message += std::string("- `internal_topk` (" + std::to_string(params.itopk_size) +
+                                   ") must be smaller or equal to 1024\n");
+    }
+  }
+  if (params.hashmap_mode != "auto" && params.hashmap_mode != "hash" &&
+      params.hashmap_mode != "small-hash") {
+    error_message += "An invalid hashmap mode has been given: " + params.hashmap_mode + "\n";
+  }
+  if (params.algo != search_algo::AUTO && params.algo != search_algo::SINGLE_CTA &&
+      params.algo != search_algo::MULTI_CTA && params.algo != search_algo::MULTI_KERNEL) {
+    error_message += "An invalid kernel mode has been given: " + params.search_mode + "\n";
+  }
+  if (params.team_size != 0 && params.team_size != 4 && params.team_size != 8 &&
+      params.team_size != 16 && params.team_size != 32) {
+    error_message += "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(params.team_size) +
+                     " has been given.\n";
+  }
+  if (params.load_bit_length != 0 && params.load_bit_length != 64 &&
+      params.load_bit_length != 128) {
+    error_message += "`load_bit_length` must be 0, 64 or 128. " +
+                     std::to_string(params.load_bit_length) + " has been given.\n";
+  }
+  if (params.thread_block_size != 0 && params.thread_block_size != 64 &&
+      params.thread_block_size != 128 && params.thread_block_size != 256 &&
+      params.thread_block_size != 512 && params.thread_block_size != 1024) {
+    error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
+                     std::to_string(params.load_bit_length) + " has been given.\n";
+  }
+  if (params.hashmap_min_bitlen > 20) {
+    error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
+                     std::to_string(params.hashmap_min_bitlen) + " has been given.\n";
+  }
+  if (params.hashmap_max_fill_rate < 0.1 || params.hashmap_max_fill_rate >= 0.9) {
+    error_message +=
+      "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
+      std::to_string(params.hashmap_max_fill_rate) + " has been given.\n";
+  }
+  if (params.algo == search_algo::MULTI_CTA) {
+    if (params.hashmap_mode == "small_hash") {
+      error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"\n";
+    } else {
+      params.hashmap_mode = "hash";
+    }
+    uint32_t mc_num_cta_per_query = max(params.num_parents, params.itopk_size / 32);
+    if (mc_num_cta_per_query * 32 < topk) {
+      error_message += "`mc_num_cta_per_query` (" + std::to_string(mc_num_cta_per_query) +
+                       ") * 32 must be equal to or greater than `topk` (" + std::to_string(topk) +
+                       ") when 'search_mode' is \"multi-cta\"\n";
+    }
+  }
+
+  if (error_message.length() != 0) { THROW("[CAGRA Error]\n%s", error_message.c_str()); }
+}
+
 /**
  * @brief Search ANN using the constructed index.
  *
@@ -47,133 +154,16 @@ namespace raft::neighbors::experimental::cagra::detail {
 
 template <typename T, typename IdxT>
 void search_main(raft::device_resources const& handle,
-                 const search_params& params,
+                 search_params params,
                  const index<T, IdxT>& index,
                  raft::device_matrix_view<const T, IdxT, row_major> queries,
                  raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
                  raft::device_matrix_view<float, IdxT, row_major> distances)
 {
-  const std::string dtype                  = "float";  // tamas remove
-  std::string hashmap_mode                 = params.hashmap_mode;
-  std::string search_mode                  = params.search_mode;
-  const std::uint32_t batch_size           = params.max_queries;
-  const std::uint32_t num_random_samplings = params.num_random_samplings;
-  const std::uint32_t search_width         = params.num_parents;
-  std::uint32_t min_iterations             = params.min_iterations;
-  std::uint32_t max_iterations             = params.max_iterations;
-  std::uint32_t internal_topk              = params.itopk_size;
-  const std::uint32_t topk                 = neighbors.extent(1);
-  std::uint32_t team_size                  = params.team_size;
-  const std::uint32_t load_bit_length      = params.load_bit_length;
-  const std::uint32_t thread_block_size    = params.thread_block_size;
-  const std::uint32_t hashmap_min_bitlen   = params.hashmap_min_bitlen;
-  const float hashmap_max_fill_rate        = params.hashmap_max_fill_rate;
-
-  std::string error_message = "";
-  if (internal_topk < topk) {
-    error_message +=
-      std::string("- `internal_topk` (" + std::to_string(internal_topk) +
-                  ") must be larger or equal to `topk` (" + std::to_string(topk) + ").\n");
-  }
-
-  uint32_t _max_iterations = max_iterations;
-  if (max_iterations == 0) {
-    if (search_mode == "multi-cta") {
-      _max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);  // TODO(anaruse)
-    } else {
-      _max_iterations =
-        1 + std::min((internal_topk / search_width) * 1.1, (internal_topk / search_width) + 10.0);
-    }
-  }
-  if (max_iterations < min_iterations) { _max_iterations = min_iterations; }
-  if (max_iterations < _max_iterations) {
-    RAFT_LOG_DEBUG(
-      "# max_iterations is increased from %u to %u.\n", max_iterations, _max_iterations);
-    max_iterations = _max_iterations;
-  }
-
-  if (internal_topk > 1024) {
-    if (search_mode == "multi-cta") {
-    } else {
-      error_message += std::string("- `internal_topk` (" + std::to_string(internal_topk) +
-                                   ") must be smaller or equal to 1024\n");
-    }
-  }
-  if (internal_topk % 32) {
-    uint32_t itopk32 = internal_topk;
-    itopk32 += 32 - (internal_topk % 32);
-    RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.\n",
-                   internal_topk,
-                   itopk32);
-    internal_topk = itopk32;
-  }
-
-  if (hashmap_mode != "auto" && hashmap_mode != "hash" && hashmap_mode != "small-hash") {
-    error_message += "An invalid hashmap mode has been given: " + hashmap_mode + "\n";
-  }
-
-  if (search_mode != "auto" && search_mode != "single-cta" && search_mode != "multi-cta" &&
-      search_mode != "multi-kernel") {
-    error_message += "An invalid kernel mode has been given: " + search_mode + "\n";
-  }
-
-  if (team_size != 0 && team_size != 4 && team_size != 8 && team_size != 16 && team_size != 32) {
-    error_message +=
-      "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(team_size) + " has been given.\n";
-  }
-
-  if (load_bit_length != 0 && load_bit_length != 64 && load_bit_length != 128) {
-    error_message += "`load_bit_length` must be 0, 64 or 128. " + std::to_string(load_bit_length) +
-                     " has been given.\n";
-  }
-
-  if (thread_block_size != 0 && thread_block_size != 64 && thread_block_size != 128 &&
-      thread_block_size != 256 && thread_block_size != 512 && thread_block_size != 1024) {
-    error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
-                     std::to_string(load_bit_length) + " has been given.\n";
-  }
-
-  if (hashmap_min_bitlen > 20) {
-    error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
-                     std::to_string(hashmap_min_bitlen) + " has been given.\n";
-  }
-  if (hashmap_max_fill_rate < 0.1 || hashmap_max_fill_rate >= 0.9) {
-    error_message +=
-      "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
-      std::to_string(hashmap_max_fill_rate) + " has been given.\n";
-  }
-
-  if (search_mode == "multi-cta") {
-    if (hashmap_mode == "small_hash") {
-      error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"\n";
-    } else {
-      hashmap_mode = "hash";
-    }
-    // const uint32_t mc_itopk_size  = 32;
-    // const uint32_t mc_num_parents = 1;
-    uint32_t mc_num_cta_per_query = max(search_width, internal_topk / 32);
-    if (mc_num_cta_per_query * 32 < topk) {
-      error_message += "`mc_num_cta_per_query` (" + std::to_string(mc_num_cta_per_query) +
-                       ") * 32 must be equal to or greater than `topk` (" + std::to_string(topk) +
-                       ") when 'search_mode' is \"multi-cta\"\n";
-    }
-  }
-
-  if (error_message.length() != 0) { THROW("[CAGRA Error]\n%s", error_message.c_str()); }
-
-  if (search_mode == "auto") {
-    if (internal_topk <= 512) {
-      search_mode = "single-cta";
-    } else {
-      search_mode = "multi-kernel";
-    }
-  }
-  RAFT_LOG_DEBUG("# search_mode = %s\n", search_mode.c_str());
-
-  // Load dataset and queries from file
-  size_t dataset_size   = index.dataset().extent(0);
-  void* dev_dataset_ptr = (void*)index.dataset().data_handle();
-  void* dev_query_ptr   = (void*)queries.data_handle();
+  const std::string dtype  = "float";  // tamas remove
+  const std::uint32_t topk = neighbors.extent(1);
+  params                   = adjust_search_params(params, topk);
+  check_params(params, topk);
 
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -181,13 +171,9 @@ void search_main(raft::device_resources const& handle,
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  // assert(index.dataset_.extent(0) == graph_size);
   assert(queries.extent(1) == index.dataset().extent(1));
 
   // Allocate buffer for search results
-  // todo(tfeher) handle different index types
-  INDEX_T* dev_topk_indices_ptr      = neighbors.data_handle();  // [num_queries, topk]
-  DISTANCE_T* dev_topk_distances_ptr = distances.data_handle();
 
   // Allocate memory for stats
   std::uint32_t* num_executed_iterations = nullptr;
@@ -199,58 +185,44 @@ void search_main(raft::device_resources const& handle,
   void* plan;
   create_plan_dispatch(&plan,
                        dtype,
-                       team_size,
-                       search_mode,
+                       params.team_size,
+                       params.search_mode,
                        topk,
-                       internal_topk,
-                       search_width,
-                       min_iterations,
-                       max_iterations,
-                       batch_size,
-                       load_bit_length,
-                       thread_block_size,
-                       hashmap_mode,
-                       hashmap_min_bitlen,
-                       hashmap_max_fill_rate,
-                       dataset_size,
+                       params.itopk_size,
+                       params.num_parents,
+                       params.min_iterations,
+                       params.max_iterations,
+                       params.max_queries,
+                       params.load_bit_length,
+                       params.thread_block_size,
+                       params.hashmap_mode,
+                       params.hashmap_min_bitlen,
+                       params.hashmap_max_fill_rate,
+                       index.dataset().extent(0),
                        index.dim(),
                        index.graph_degree(),
-                       dev_dataset_ptr,
+                       (void*)index.dataset().data_handle(),
                        index.graph().data_handle());
 
   // Search
-  const uint64_t rand_xor_mask = 0x128394;
-  INDEX_T* dev_seed_ptr        = nullptr;
-  uint32_t num_seeds           = 0;
-
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  const auto start_clock = std::chrono::system_clock::now();
+  IdxT* dev_seed_ptr = nullptr;
+  uint32_t num_seeds = 0;
 
   RAFT_LOG_INFO("Cagra search");
   search_dispatch(plan,
-                  dev_topk_indices_ptr,
-                  nullptr,  // dev_topk_distances_ptr ,
-                  dev_query_ptr,
+                  neighbors.data_handle(),
+                  nullptr,  // distances.data_handle(),
+                  (void*)queries.data_handle(),
                   queries.extent(0),
-                  num_random_samplings,
-                  rand_xor_mask,
+                  params.num_random_samplings,
+                  params.rand_xor_mask,
                   dev_seed_ptr,
                   num_seeds,
                   num_executed_iterations,
                   0);
 
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  const auto end_clock = std::chrono::system_clock::now();
-  double search_time =
-    std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-
-  RAFT_LOG_INFO("Cagra finished");
   // Destroy search plan
-  RAFT_LOG_INFO("Destroying plan");
   destroy_plan_dispatch(plan);
-  RAFT_LOG_INFO("Destroyed");
-
-  RAFT_CUDA_TRY(cudaFreeHost(num_executed_iterations));
 }
 
 /** @} */  // end group cagra

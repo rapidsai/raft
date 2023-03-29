@@ -15,9 +15,6 @@
  */
 #include <raft/core/logger.hpp>
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
-
-// #define CUANN_DEBUG
-
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh>
 
 namespace raft::neighbors::experimental::cagra::detail {

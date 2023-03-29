@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ __global__ void get_vecs(
   if (tid < n_vec * n) {
     size_t out_col   = tid / n_vec;  // col idx
     size_t cache_col = cache_idx[out_col];
-    if (cache_idx[out_col] >= 0) {
+    if (!std::is_signed<idx_t>::value || cache_idx[out_col] >= 0) {
       if (row + out_col * n_vec < (size_t)n_vec * n) { out[tid] = cache[row + cache_col * n_vec]; }
     }
   }

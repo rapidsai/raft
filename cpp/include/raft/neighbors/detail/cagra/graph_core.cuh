@@ -281,6 +281,8 @@ __global__ void kern_prune(
   }
 }
 
+// unnamed namespace to avoid multiple definition error
+namespace {
 __global__ void kern_make_rev_graph(const uint32_t i_gpu,
                                     const uint32_t* dest_nodes,  // [global_graph_size]
                                     const uint32_t global_graph_size,
@@ -303,7 +305,7 @@ __global__ void kern_make_rev_graph(const uint32_t i_gpu,
     if (pos < degree) { rev_graph[pos + ((uint64_t)degree * dest_id)] = gl_src_id; }
   }
 }
-
+}  // namespace
 template <class T>
 T*** mgpu_alloc(int n_gpus, uint32_t chunk, uint32_t nelems)
 {

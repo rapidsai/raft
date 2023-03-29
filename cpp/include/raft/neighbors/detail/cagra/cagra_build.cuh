@@ -19,6 +19,7 @@
 #include "graph_core.cuh"
 #include <chrono>
 #include <cstdio>
+#include <vector>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -29,18 +30,10 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
-#include <raft/neighbors/detail/cagra/cagra.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/refine.cuh>
-
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#else
-#pragma message("NN specializations are not enabled; expect very long building times.")
-#endif
-#include <vector>
 
 namespace raft::neighbors::experimental::cagra::detail {
 
