@@ -33,12 +33,6 @@ def main(input_path):
     df["file"] = df["source file name"]
     df["phase"] = df["phase name"].str.strip()
 
-    def categorize_time(s):
-        if s < 60:
-            return "less than a minute"
-        else:
-            return "more than a minute"
-
     dfp = (df
            # Remove nvcc driver entries. They don't contain a source file name
            .query("phase!='nvcc (driver)'")
@@ -55,9 +49,6 @@ def main(input_path):
 
     dfp["total time"] = dfp_sum
     df_absolute = dfp.melt(ignore_index=False, id_vars="total time", var_name="phase", value_name="seconds")
-
-    df_fraction["time category"] = dfp["total time"].apply(categorize_time)
-    df_absolute["time category"] = dfp["total time"].apply(categorize_time)
 
     # host: light red to dark red (preprocessing, cudafe, gcc (compiling))
     # device: ligt green to dark green (preprocessing, cicc, ptxas)
