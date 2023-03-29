@@ -360,14 +360,8 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
 
     # get the current count before the compile starts
     CACHE_COMMAND=""
-    if [[ -z "${CACHE_TOOL}" ]]; then
-        # default is sccache for CI
-        CACHE_COMMAND="sccache"
-    else
-        CACHE_COMMAND="${CACHE_TOOL}"
-    fi
-    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_COMMAND})" ]]; then
-        # zero the cache statistics
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL:-sccache})" ]]; then
+        CACHE_COMMAND=$CACHE_TOOL
         "${CACHE_COMMAND}" --zero-stats
     fi
 
