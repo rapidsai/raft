@@ -26,8 +26,12 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = (sum_k |x_ik - y_jk|^p)^(1/p)
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct lp_unexp_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   DataT p;
 
   lp_unexp_distance_op(DataT p_) noexcept : p(p_) {}

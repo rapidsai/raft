@@ -16,16 +16,12 @@
 
 #pragma once
 
-#include <raft/spatial/knn/faiss_mr.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
-namespace raft {
-namespace spatial {
-namespace knn {
-namespace detail {
+namespace raft::neighbors::detail {
 
 template <typename payload_t, typename key_t>
 constexpr int kFaissMaxK()
@@ -170,8 +166,4 @@ inline void select_k(const key_t* inK,
   else
     ASSERT(k <= max_k, "Current max k is %d (requested %d)", max_k, k);
 }
-
-};  // namespace detail
-};  // namespace knn
-};  // namespace spatial
-};  // namespace raft
+};  // namespace raft::neighbors::detail
