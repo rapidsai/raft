@@ -15,13 +15,10 @@
 #=============================================================================
 
 function(find_and_configure_rmm)
+    set(RMM_HEADER_ONLY_SPDLOG OFF)
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
     rapids_cpm_rmm(BUILD_EXPORT_SET raft-exports
-                   INSTALL_EXPORT_SET  raft-exports
-            CPM_ARGS
-                OPTIONS
-                    RMM_SPDLOG_COMPILED ON
-            )
+                   INSTALL_EXPORT_SET  raft-exports)
 endfunction()
 
 find_and_configure_rmm()
