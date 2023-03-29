@@ -463,21 +463,6 @@ if(RAFT_COMPILE_LIBRARY)
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
-  # For each source file in raft_lib generate a CSV file in cpp/build with filename
-  # nvcc_log_[...].csv if(CUDA_LOG_COMPILE_TIME)
-  get_target_property(sources raft_lib SOURCES)
-  foreach(source IN LISTS sources)
-    cmake_path(IS_ABSOLUTE source is_abs)
-    if(is_abs)
-      cmake_path(
-        RELATIVE_PATH source BASE_DIRECTORY ${PROJECT_SOURCE_DIR}
-      ) # convert to relative path if not already one
-    endif()
-    string(MAKE_C_IDENTIFIER "nvcc_log_${source}" filename) # convert to valid filename
-    set_source_files_properties(${source} PROPERTIES COMPILE_FLAGS "--time=${filename}.csv")
-  endforeach()
-  # endif()
-
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
