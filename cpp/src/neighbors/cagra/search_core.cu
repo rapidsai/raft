@@ -122,13 +122,9 @@ void create_plan_dispatch(void** plan,
   }
 #define SET_CREATE_FUNC() \
   if (dtype_name == "float") { _SET_CREATE_FUNC(float); }
-  /* else if (dtype_name == "half") {  \
-     _SET_CREATE_FUNC(half);           \
-   } else if (dtype_name == "int8") {  \
-     _SET_CREATE_FUNC(int8_t);         \
-   } else if (dtype_name == "uint8") { \
-     _SET_CREATE_FUNC(uint8_t);        \
-   }*/
+  else if (dtype_name == "half") { _SET_CREATE_FUNC(half); }
+  else if (dtype_name == "int8") { _SET_CREATE_FUNC(int8_t); }
+  else if (dtype_name == "uint8") { _SET_CREATE_FUNC(uint8_t); }
 
   typedef void (*create_plan_t)(void** plan,
                                 const std::string search_mode,
@@ -251,13 +247,9 @@ void search_dispatch(void* plan,
   }
 #define SET_SEARCH_FUNC() \
   if (_plan->_dtype == CUDA_R_32F) { _SET_SEARCH_FUNC(float); }
-  /* else if (_plan->_dtype == CUDA_R_16F) { \
-     _SET_SEARCH_FUNC(half);                 \
-   } else if (_plan->_dtype == CUDA_R_8I) {  \
-     _SET_SEARCH_FUNC(int8_t);               \
-   } else if (_plan->_dtype == CUDA_R_8U) {  \
-     _SET_SEARCH_FUNC(uint8_t);              \
-   }*/
+  else if (_plan->_dtype == CUDA_R_16F) { _SET_SEARCH_FUNC(half); }
+  else if (_plan->_dtype == CUDA_R_8I) { _SET_SEARCH_FUNC(int8_t); }
+  else if (_plan->_dtype == CUDA_R_8U) { _SET_SEARCH_FUNC(uint8_t); }
 
   search_common* _plan = (search_common*)plan;
   typedef void (*search_t)(void* plan,
@@ -357,13 +349,9 @@ void destroy_plan_dispatch(void* plan)
   }
 #define SET_DESTROY_FUNC() \
   if (_plan->_dtype == CUDA_R_32F) { _SET_DESTROY_FUNC(float); }
-  /*else if (_plan->_dtype == CUDA_R_16F) { \
-    _SET_DESTROY_FUNC(half);                \
-  } else if (_plan->_dtype == CUDA_R_8I) {  \
-    _SET_DESTROY_FUNC(int8_t);              \
-  } else if (_plan->_dtype == CUDA_R_8U) {  \
-    _SET_DESTROY_FUNC(uint8_t);             \
-  }*/
+  else if (_plan->_dtype == CUDA_R_16F) { _SET_DESTROY_FUNC(half); }
+  else if (_plan->_dtype == CUDA_R_8I) { _SET_DESTROY_FUNC(int8_t); }
+  else if (_plan->_dtype == CUDA_R_8U) { _SET_DESTROY_FUNC(uint8_t); }
 
   search_common* _plan = (search_common*)plan;
   typedef void (*destroy_plan_t)(void* plan);

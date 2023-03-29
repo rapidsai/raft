@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <raft/neighbors/cagra.cuh>
+// #include <raft/neighbors/specializations/cagra.cuh>
+#include <raft/neighbors/specializations/ivf_flat.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 
 namespace raft::neighbors::experimental::cagra {
 

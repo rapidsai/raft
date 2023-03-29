@@ -52,6 +52,7 @@ option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
 )
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_LOG_COMPILE_TIME "Write a log of compilation times to nvcc_compile_log.csv" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -201,6 +202,8 @@ else()
   target_compile_definitions(raft INTERFACE RAFT_SYSTEM_LITTLE_ENDIAN=1)
 endif()
 
+target_compile_definitions(raft INTERFACE RAFT_ACTIVE_LEVEL=5)
+
 if(RAFT_COMPILE_LIBRARY)
   file(
     WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
@@ -268,6 +271,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/cluster_cost_float.cu
     src/cluster/cluster_cost_double.cu
     src/neighbors/cagra/prune.cu
+    src/neighbors/cagra/build_float_uint32_device.cu
+    src/neighbors/cagra/build_float_uint32_host.cu
+    # src/neighbors/cagra/search_float_uint32.cu
     src/neighbors/cagra/search_core.cu
     src/neighbors/cagra/search_core_float_dim1024_t32.cu
     src/neighbors/cagra/search_core_float_dim128_t16.cu
@@ -279,36 +285,36 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/cagra/search_core_float_dim256_t8.cu
     src/neighbors/cagra/search_core_float_dim512_t16.cu
     src/neighbors/cagra/search_core_float_dim512_t32.cu
-    # src/neighbors/cagra/search_core_half_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_half_dim128_t16.cu
-    # src/neighbors/cagra/search_core_half_dim128_t32.cu
-    # src/neighbors/cagra/search_core_half_dim128_t4.cu
-    # src/neighbors/cagra/search_core_half_dim128_t8.cu
-    # src/neighbors/cagra/search_core_half_dim256_t16.cu
-    # src/neighbors/cagra/search_core_half_dim256_t32.cu
-    # src/neighbors/cagra/search_core_half_dim256_t8.cu
-    # src/neighbors/cagra/search_core_half_dim512_t16.cu
-    # src/neighbors/cagra/search_core_half_dim512_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t4.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t8.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t8.cu
-    # src/neighbors/cagra/search_core_int8_t_dim512_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim512_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t4.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t8.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t8.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim512_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim512_t32.cu
+    src/neighbors/cagra/search_core_half_dim1024_t32.cu
+    src/neighbors/cagra/search_core_half_dim128_t16.cu
+    src/neighbors/cagra/search_core_half_dim128_t32.cu
+    src/neighbors/cagra/search_core_half_dim128_t4.cu
+    src/neighbors/cagra/search_core_half_dim128_t8.cu
+    src/neighbors/cagra/search_core_half_dim256_t16.cu
+    src/neighbors/cagra/search_core_half_dim256_t32.cu
+    src/neighbors/cagra/search_core_half_dim256_t8.cu
+    src/neighbors/cagra/search_core_half_dim512_t16.cu
+    src/neighbors/cagra/search_core_half_dim512_t32.cu
+    src/neighbors/cagra/search_core_int8_t_dim1024_t32.cu
+    src/neighbors/cagra/search_core_int8_t_dim128_t16.cu
+    src/neighbors/cagra/search_core_int8_t_dim128_t32.cu
+    src/neighbors/cagra/search_core_int8_t_dim128_t4.cu
+    src/neighbors/cagra/search_core_int8_t_dim128_t8.cu
+    src/neighbors/cagra/search_core_int8_t_dim256_t16.cu
+    src/neighbors/cagra/search_core_int8_t_dim256_t32.cu
+    src/neighbors/cagra/search_core_int8_t_dim256_t8.cu
+    src/neighbors/cagra/search_core_int8_t_dim512_t16.cu
+    src/neighbors/cagra/search_core_int8_t_dim512_t32.cu
+    src/neighbors/cagra/search_core_uint8_t_dim1024_t32.cu
+    src/neighbors/cagra/search_core_uint8_t_dim128_t16.cu
+    src/neighbors/cagra/search_core_uint8_t_dim128_t32.cu
+    src/neighbors/cagra/search_core_uint8_t_dim128_t4.cu
+    src/neighbors/cagra/search_core_uint8_t_dim128_t8.cu
+    src/neighbors/cagra/search_core_uint8_t_dim256_t16.cu
+    src/neighbors/cagra/search_core_uint8_t_dim256_t32.cu
+    src/neighbors/cagra/search_core_uint8_t_dim256_t8.cu
+    src/neighbors/cagra/search_core_uint8_t_dim512_t16.cu
+    src/neighbors/cagra/search_core_uint8_t_dim512_t32.cu
     src/neighbors/cagra/topk.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
@@ -501,6 +507,23 @@ if(RAFT_COMPILE_LIBRARY)
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
+  # For each source file in raft_lib generate a CSV file in cpp/build with filename
+  # nvcc_log_[...].csv if(CUDA_LOG_COMPILE_TIME)
+  get_target_property(sources raft_lib SOURCES)
+  foreach(source IN LISTS sources)
+    cmake_path(IS_ABSOLUTE source is_abs)
+    if(is_abs)
+      cmake_path(
+        RELATIVE_PATH source BASE_DIRECTORY ${PROJECT_SOURCE_DIR}
+      ) # convert to relative path if not already one
+    endif()
+    string(MAKE_C_IDENTIFIER "nvcc_log_${source}" filename) # convert to valid filename
+    set_source_files_properties(
+      ${source} PROPERTIES COMPILE_FLAGS "--time=CMakeFiles/${filename}.csv"
+    )
+  endforeach()
+  # endif()
 
 endif()
 

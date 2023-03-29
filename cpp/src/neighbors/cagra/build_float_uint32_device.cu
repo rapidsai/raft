@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 #include <raft/neighbors/cagra.cuh>
-
+#include <raft/neighbors/specializations/ivf_flat.cuh>
+#include <raft/neighbors/specializations/ivf_pq.cuh>
 namespace raft::neighbors::experimental::cagra {
 
 template auto

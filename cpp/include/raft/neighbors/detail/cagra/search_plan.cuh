@@ -132,6 +132,7 @@ inline void check_params(search_params params, uint32_t topk)
   if (error_message.length() != 0) { THROW("[CAGRA Error] %s", error_message.c_str()); }
 }
 
+template <uint32_t TEAM_SIZE>
 inline void calc_hashmap_params(search_params params,
                                 size_t topk,
                                 size_t dataset_size,
@@ -146,7 +147,7 @@ inline void calc_hashmap_params(search_params params,
   uint32_t mc_num_cta_per_query = 0;
   uint32_t mc_num_parents       = 0;
   uint32_t mc_itopk_size        = 0;
-  if (search_mode == "multi-cta") {
+  if (params.algo == search_algo::MULTI_CTA) {
     mc_itopk_size        = 32;
     mc_num_parents       = 1;
     mc_num_cta_per_query = max(params.num_parents, params.itopk_size / 32);
@@ -178,7 +179,7 @@ inline void calc_hashmap_params(search_params params,
     }
     if (hash_bitlen > max_bitlen) {
       // Switch to normal hash if hashmap_mode is "auto", otherwise exit.
-      if (hashmap_mode == "auto") {
+      if (params.hashmap_mode == "auto") {
         hash_bitlen = 0;
         break;
       } else {
@@ -199,7 +200,7 @@ inline void calc_hashmap_params(search_params params,
     small_hash_reset_interval = 1;
     while (1) {
       const auto max_visited_nodes =
-        itopk_size + (num_parents * graph_degree * (small_hash_reset_interval + 1));
+        params.itopk_size + (params.num_parents * graph_degree * (small_hash_reset_interval + 1));
       if (max_visited_nodes > hashmap::get_size(hash_bitlen) * max_fill_rate) { break; }
       small_hash_reset_interval += 1;
     }
@@ -213,7 +214,7 @@ inline void calc_hashmap_params(search_params params,
     //
     uint32_t max_visited_nodes =
       params.itopk_size + (params.num_parents * graph_degree * params.max_iterations);
-    if (search_mode == "multi-cta") {
+    if (params.algo == search_algo::MULTI_CTA) {
       max_visited_nodes = mc_itopk_size + (mc_num_parents * graph_degree * params.max_iterations);
       max_visited_nodes *= mc_num_cta_per_query;
     }
@@ -252,9 +253,9 @@ inline void calc_hashmap_params(search_params params,
   RAFT_LOG_DEBUG("");
 }
 
-void set_single_cta_params() {}
+inline search_plan set_single_cta_params(search_plan plan) { return plan; }
 
-search_plan create_plan(
+inline search_plan create_plan(
   search_params params, size_t topk, size_t n_rows, size_t n_cols, size_t graph_degree)
 {
   search_plan plan;
@@ -262,22 +263,24 @@ search_plan create_plan(
   check_params(plan.params, topk);
 
   size_t hashmap_size = 0;
-  calc_hashmap_params(plan.params,
-                      topk,
-                      n_rows,
-                      n_cols,
-                      graph_degree,
-                      plan.hash_bitlen,
-                      plan.small_hash_bitlen,
-                      plan.small_hash_reset_interval);
+  // todo dispatch on dim
+  calc_hashmap_params<128>(plan.params,
+                           topk,
+                           n_rows,
+                           n_cols,
+                           graph_degree,
+                           plan.hash_bitlen,
+                           plan.small_hash_bitlen,
+                           plan.small_hash_reset_interval,
+                           hashmap_size);
 
   switch (params.algo) {
     case search_algo::SINGLE_CTA:
-      set_single_cta_params(*this);
+      plan = set_single_cta_params(plan);  //*this);
       break;
-      // case search_algo::MULTI_CTA: set_multi_cta_params(*this); break;
-      // case search_algo::MULTI_KERNEL: set_multi_kernel_params(*this); break;
-      // default: THROW("Incorrect search_algo for ann_cagra");
+    case search_algo::MULTI_CTA:     // et_multi_cta_params(*this); break;
+    case search_algo::MULTI_KERNEL:  // set_multi_kernel_params(*this); break;
+    default: THROW("Incorrect search_algo for ann_cagra");
   }
   return plan;
 }
