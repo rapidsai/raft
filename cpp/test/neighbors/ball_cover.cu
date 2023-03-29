@@ -22,8 +22,9 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+
+#ifdef RAFT_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <rmm/device_uvector.hpp>
@@ -120,7 +121,6 @@ void compute_bfknn(const raft::device_resources& handle,
                                     make_device_matrix_view(X2, n_query_rows, d),
                                     make_device_matrix_view(inds, n_query_rows, k),
                                     make_device_matrix_view(dists, n_query_rows, k),
-                                    k,
                                     metric);
 }
 

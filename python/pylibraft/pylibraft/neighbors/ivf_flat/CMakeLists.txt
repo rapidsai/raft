@@ -14,7 +14,7 @@
 
 # Set the list of Cython files to build
 set(cython_sources ivf_flat.pyx)
-set(linked_libraries raft::raft raft::distance)
+set(linked_libraries raft::raft raft::compiled)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(

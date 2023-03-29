@@ -21,12 +21,8 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 
-#if defined RAFT_DISTANCE_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
-#endif
-
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
 #endif
 
 #include <rmm/device_buffer.hpp>
@@ -100,7 +96,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
 
     auto metric = raft::distance::DistanceType::L2Unexpanded;
-    knn(handle, index, search, indices, distances, k_, metric, std::make_optional<IdxT>(0));
+    knn(handle, index, search, indices, distances, metric, std::make_optional<IdxT>(0));
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());

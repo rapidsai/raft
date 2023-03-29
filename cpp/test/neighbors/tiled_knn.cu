@@ -25,8 +25,7 @@
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
-#if defined RAFT_NN_COMPILED
-#include <raft/distance/specializations.cuh>
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

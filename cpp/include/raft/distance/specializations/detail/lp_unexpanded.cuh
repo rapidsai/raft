@@ -18,36 +18,23 @@
 
 #include <raft/distance/detail/distance.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
-extern template void distance<raft::distance::DistanceType::LpUnexpanded, float, float, float, int>(
-  raft::resources const& handle,
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  bool isRowMajor,
-  float metric_arg);
+namespace raft::distance::detail {
 
-extern template void
-distance<raft::distance::DistanceType::LpUnexpanded, double, double, double, int>(
-  raft::resources const& handle,
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  bool isRowMajor,
-  double metric_arg);
+extern template void pairwise_matrix_instantiation_point<
+  ops::lp_unexp_distance_op<float, float, int>,
+  int,
+  float,
+  float,
+  raft::identity_op>(ops::lp_unexp_distance_op<float, float, int>,
+                     pairwise_matrix_params<int, float, float, raft::identity_op>,
+                     cudaStream_t);
 
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+extern template void pairwise_matrix_instantiation_point<
+  ops::lp_unexp_distance_op<double, double, int>,
+  int,
+  double,
+  double,
+  raft::identity_op>(ops::lp_unexp_distance_op<double, double, int>,
+                     pairwise_matrix_params<int, double, double, raft::identity_op>,
+                     cudaStream_t);
+}  // namespace raft::distance::detail
