@@ -96,6 +96,8 @@ struct search_plan : search_params {
   size_t hash_bitlen;
   size_t small_hash_bitlen;
   size_t small_hash_reset_interval;
+
+  size_t max_dim;
 };
 static_assert(std::is_aggregate_v<index_params>);
 static_assert(std::is_aggregate_v<search_params>);

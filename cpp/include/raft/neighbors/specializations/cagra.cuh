@@ -35,8 +35,39 @@ namespace raft::neighbors::experimental::cagra {
 
 RAFT_INST(float, uint32_t, memory_type::host);
 RAFT_INST(float, uint32_t, memory_type::device);
-// RAFT_INST(int8_t, uint32_t);
-// RAFT_INST(uint8_t, uint32_t);
+RAFT_INST(int8_t, uint32_t, memory_type::host);
+RAFT_INST(int8_t, uint32_t, memory_type::device);
+RAFT_INST(uint8_t, uint32_t, memory_type::host)
+RAFT_INST(uint8_t, uint32_t, memory_type::device);
+
+#undef RAFT_INST
+
+#define RAFT_INST(DATA_T, IdxT, D_MEM_TYPE, G_MEM_TYPE)                                            \
+  extern template void                                                                             \
+  prune<DATA_T,                                                                                    \
+        IdxT,                                                                                      \
+        host_device_accessor<std::experimental::default_accessor<DATA_T>, D_MEM_TYPE>,             \
+        host_device_accessor<std::experimental::default_accessor<DATA_T>, G_MEM_TYPE>>(            \
+    mdspan<const DATA_T,                                                                           \
+           matrix_extent<IdxT>,                                                                    \
+           row_major,                                                                              \
+           host_device_accessor<std::experimental::default_accessor<DATA_T>, D_MEM_TYPE>> dataset, \
+    mdspan<IdxT,                                                                                   \
+           matrix_extent<IdxT>,                                                                    \
+           row_major,                                                                              \
+           host_device_accessor<std::experimental::default_accessor<DATA_T>, G_MEM_TYPE>>          \
+      knn_graph,                                                                                   \
+    raft::host_matrix_view<IdxT, IdxT, row_major> new_graph);
+
+RAFT_INST(float, uint32_t, memory_type::host, memory_type::host);
+RAFT_INST(float, uint32_t, memory_type::device, memory_type::host);
+
+RAFT_INST(uint8_t, uint32_t, memory_type::host, memory_type::host);
+RAFT_INST(uint8_t, uint32_t, memory_type::device, memory_type::host);
+
+RAFT_INST(int8_t, uint32_t, memory_type::host, memory_type::host);
+RAFT_INST(int8_t, uint32_t, memory_type::device, memory_type::host);
+
 #undef RAFT_INST
 
 #define RAFT_INST(T, IdxT)                                      \

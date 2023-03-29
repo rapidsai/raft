@@ -182,13 +182,11 @@ auto eval_distances(raft::device_resources const& handle,
                     double eps) -> testing::AssertionResult
 {
   // for each vector, we calculate the actual distance to the k neighbors
-  std::cout << n_rows << "x" << n_cols << ", " << k << std::endl;
+
   for (size_t i = 0; i < n_queries; i++) {
     auto y          = raft::make_device_matrix<T, IdxT>(handle, k, n_cols);
     auto naive_dist = raft::make_device_matrix<DistT, IdxT>(handle, 1, k);
 
-    std::cout << "query " << i << std::endl;
-    print_vector(" indices", neighbors + i * k, k, std::cout);
     raft::matrix::copyRows<T, IdxT, int64_t>(
       x, k, n_cols, y.data_handle(), neighbors + i * k, k, handle.get_stream(), true);
 
@@ -204,6 +202,9 @@ auto eval_distances(raft::device_resources const& handle,
                      naive_dist.data_handle(),
                      naive_dist.size(),
                      CompareApprox<float>(eps))) {
+      std::cout << n_rows << "x" << n_cols << ", " << k << std::endl;
+      std::cout << "query " << i << std::endl;
+      print_vector(" indices", neighbors + i * k, k, std::cout);
       print_vector("n dist", distances + i * k, k, std::cout);
       print_vector("c dist", naive_dist.data_handle(), naive_dist.size(), std::cout);
 

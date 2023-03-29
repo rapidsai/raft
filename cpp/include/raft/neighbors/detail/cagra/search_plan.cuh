@@ -253,6 +253,23 @@ inline void calc_hashmap_params(search_params params,
   RAFT_LOG_DEBUG("");
 }
 
+inline void set_max_dim_team(search_plan& plan, size_t dim)
+{
+  plan.max_dim = 1;
+  while (plan.max_dim < dim && plan.max_dim <= 1024)
+    plan.max_dim *= 2;
+  // check params already ensured that team size is one of 0, 4, 8, 16, 32.
+  if (plan.params.team_size == 0) {
+    switch (plan.max_dim) {
+      case 128: plan.params.team_size = 8; break;
+      case 256: plan.params.team_size = 16; break;
+      case 512: plan.params.team_size = 32; break;
+      case 1024: plan.params.team_size = 32; break;
+      default: RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dim);
+    }
+  }
+}
+
 inline search_plan set_single_cta_params(search_plan plan) { return plan; }
 
 inline search_plan create_plan(
@@ -273,6 +290,8 @@ inline search_plan create_plan(
                            plan.small_hash_bitlen,
                            plan.small_hash_reset_interval,
                            hashmap_size);
+
+  set_max_dim_team(plan, n_cols);
 
   switch (params.algo) {
     case search_algo::SINGLE_CTA:

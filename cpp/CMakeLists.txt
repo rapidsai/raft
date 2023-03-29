@@ -273,6 +273,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/cagra/prune.cu
     src/neighbors/cagra/build_float_uint32_device.cu
     src/neighbors/cagra/build_float_uint32_host.cu
+    src/neighbors/cagra/build_int8_uint32_device.cu
+    src/neighbors/cagra/build_int8_uint32_host.cu
+    src/neighbors/cagra/build_uint8_uint32_device.cu
+    src/neighbors/cagra/build_uint8_uint32_host.cu
     # src/neighbors/cagra/search_float_uint32.cu
     src/neighbors/cagra/search_core.cu
     src/neighbors/cagra/search_core_float_dim1024_t32.cu

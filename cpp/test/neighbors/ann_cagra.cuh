@@ -63,14 +63,14 @@ struct AnnCagraInputs {
   double min_recall;  // = std::nullopt;
 };
 
-::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
+inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
 {
   os << "{ " << p.n_queries << ", " << p.n_rows << ", " << p.dim << ", " << p.k << ", "
      << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}' << std::endl;
   return os;
 }
 
-template <typename T, typename DataT, typename IdxT>
+template <typename DistanceT, typename DataT, typename IdxT>
 class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  public:
   AnnCagraTest()
@@ -87,29 +87,29 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
-    std::vector<T> distances_Cagra(queries_size);
-    std::vector<T> distances_naive(queries_size);
+    std::vector<DistanceT> distances_Cagra(queries_size);
+    std::vector<DistanceT> distances_naive(queries_size);
 
     {
-      rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
+      rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<T, DataT, IdxT>(distances_naive_dev.data(),
-                                indices_naive_dev.data(),
-                                search_queries.data(),
-                                database.data(),
-                                ps.n_queries,
-                                ps.n_rows,
-                                ps.dim,
-                                ps.k,
-                                ps.metric,
-                                stream_);
+      naive_knn<DistanceT, DataT, IdxT>(distances_naive_dev.data(),
+                                        indices_naive_dev.data(),
+                                        search_queries.data(),
+                                        database.data(),
+                                        ps.n_queries,
+                                        ps.n_rows,
+                                        ps.dim,
+                                        ps.k,
+                                        ps.metric,
+                                        stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       handle_.sync_stream(stream_);
     }
 
     {
-      rmm::device_uvector<T> distances_dev(queries_size, stream_);
+      rmm::device_uvector<DistanceT> distances_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_dev(queries_size, stream_);
 
       {
@@ -119,15 +119,15 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
 
-        cagra::index<T, IdxT> index(handle_);
+        cagra::index<DataT, IdxT> index(handle_);
         if (ps.host_dataset) {
           auto database_host = raft::make_host_matrix<DataT, IdxT>(ps.n_rows, ps.dim);
           raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
           auto database_host_view = raft::make_host_matrix_view<const DataT, IdxT>(
             (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
-          index = cagra::build<T, IdxT>(handle_, index_params, database_host_view);
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
         } else {
-          index = cagra::build<T, IdxT>(handle_, index_params, database_view);
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
         }
         // rmm::device_uvector<IdxT> vector_indices(ps.n_rows, stream_);
         // thrust::sequence(handle_.get_thrust_policy(),
@@ -140,7 +140,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         auto indices_out_view =
           raft::make_device_matrix_view<IdxT, IdxT>(indices_dev.data(), ps.n_queries, ps.k);
         auto dists_out_view =
-          raft::make_device_matrix_view<T, IdxT>(distances_dev.data(), ps.n_queries, ps.k);
+          raft::make_device_matrix_view<DistanceT, IdxT>(distances_dev.data(), ps.n_queries, ps.k);
         // ivf_flat::detail::serialize(handle_, "cagra_index", index_2);
 
         // auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_,
@@ -216,7 +216,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 // TODO(tfeher): test different team size values, trigger different kernels (single CTA, multi CTA,
 // multi kernel), trigger different topk versions
 
-std::vector<AnnCagraInputs> generate_inputs()
+inline std::vector<AnnCagraInputs> generate_inputs()
 {
   std::vector<AnnCagraInputs> inputs =
     raft::util::itertools::product<AnnCagraInputs>({100},
