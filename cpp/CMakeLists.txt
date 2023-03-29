@@ -474,9 +474,7 @@ if(RAFT_COMPILE_LIBRARY)
       ) # convert to relative path if not already one
     endif()
     string(MAKE_C_IDENTIFIER "nvcc_log_${source}" filename) # convert to valid filename
-    set_source_files_properties(
-      ${source} PROPERTIES COMPILE_FLAGS "--time=CMakeFiles/${filename}.csv"
-    )
+    set_source_files_properties(${source} PROPERTIES COMPILE_FLAGS "--time=${filename}.csv")
   endforeach()
   # endif()
 
