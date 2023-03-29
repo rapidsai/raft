@@ -121,7 +121,6 @@ void compute_bfknn(const raft::device_resources& handle,
                                     make_device_matrix_view(X2, n_query_rows, d),
                                     make_device_matrix_view(inds, n_query_rows, k),
                                     make_device_matrix_view(dists, n_query_rows, k),
-                                    k,
                                     metric);
 }
 

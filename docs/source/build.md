@@ -21,8 +21,8 @@ After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used i
 
 pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
 ```bash
-pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
-pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
 ## Building and installing RAFT

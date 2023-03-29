@@ -46,7 +46,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
-option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
+option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
+option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
@@ -58,14 +59,20 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS
+   OR BUILD_PRIMS_BENCH
+   OR BUILD_ANN_BENCH
+)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS
+   OR BUILD_PRIMS_BENCH
+   OR BUILD_ANN_BENCH
+)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
   # to have different values for the `Threads::Threads` target. Setting this flag ensures
   # `Threads::Threads` is the same value in first run and subsequent runs.
@@ -78,7 +85,7 @@ include(CMakeDependentOption)
 
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
-message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
+message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -159,7 +166,7 @@ if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_BENCH)
+if(BUILD_PRIMS_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench()
 endif()
@@ -647,7 +654,7 @@ raft_export(
 # ##################################################################################################
 # * shared test/bench headers ------------------------------------------------
 
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   include(internal/CMakeLists.txt)
 endif()
 
@@ -661,6 +668,13 @@ endif()
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------
 
-if(BUILD_BENCH)
-  include(bench/CMakeLists.txt)
+if(BUILD_PRIMS_BENCH)
+  include(bench/prims/CMakeLists.txt)
+endif()
+
+# ##################################################################################################
+# * build ann benchmark executable -----------------------------------------------
+
+if(BUILD_ANN_BENCH)
+  include(bench/ann/CMakeLists.txt)
 endif()
