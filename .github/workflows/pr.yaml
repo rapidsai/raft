@@ -100,6 +100,8 @@ jobs:
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120
+    with:
       build_type: pull-request
       package-name: raft_dask
       # Always want to test against latest dask/distributed.
