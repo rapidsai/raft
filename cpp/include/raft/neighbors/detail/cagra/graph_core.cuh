@@ -750,7 +750,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   mgpu_free<uint32_t>(d_rev_graph_count, num_gpus);
 
   double time_make_end = cur_time();
-  RAFT_LOG_DEBUG("# Making reverse graph time: %.1lf sec\n", time_make_end - time_make_start);
+  RAFT_LOG_DEBUG("# Making reverse graph time: %.1lf sec", time_make_end - time_make_start);
 
   //
   // Replace some edges with reverse edges
@@ -758,7 +758,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   double time_replace_start = cur_time();
 
   uint64_t num_protected_edges = output_graph_degree / 2;
-  RAFT_LOG_DEBUG("# num_protected_edges: %lu\n", num_protected_edges);
+  RAFT_LOG_DEBUG("# num_protected_edges: %lu", num_protected_edges);
 
   array_size = sizeof(uint32_t) * graph_size * output_graph_degree;
   memcpy(output_graph_ptr, pruned_graph_ptr, array_size);
@@ -780,7 +780,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
       output_graph_ptr[num_protected_edges + (output_graph_degree * j)] = i;
     }
     if ((omp_get_thread_num() == 0) && ((j % _omp_chunk) == 0)) {
-      RAFT_LOG_DEBUG("# Replacing reverse edges: %lu / %lu    \r", j, graph_size);
+      RAFT_LOG_DEBUG("# Replacing reverse edges: %lu / %lu    ", j, graph_size);
     }
   }
   RAFT_LOG_DEBUG("\n");
@@ -788,7 +788,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
   free(rev_graph_count);
 
   double time_replace_end = cur_time();
-  RAFT_LOG_DEBUG("# Replacing edges time: %.1lf sec\n", time_replace_end - time_replace_start);
+  RAFT_LOG_DEBUG("# Replacing edges time: %.1lf sec", time_replace_end - time_replace_start);
 
   /* stats */
   uint64_t num_replaced_edges = 0;
@@ -802,7 +802,7 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
     }
   }
   fprintf(stderr,
-          "# Average number of replaced edges per node: %.2f\n",
+          "# Average number of replaced edges per node: %.2f",
           (double)num_replaced_edges / graph_size);
 }
 
