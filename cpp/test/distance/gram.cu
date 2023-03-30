@@ -129,7 +129,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
         : raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
             gram.data(), params.n1, params.n2, params.ld_out);
 
-    (*kernel)(x1_span, x2_span, out_span, handle);
+    (*kernel)(handle, x1_span, x2_span, out_span);
 
     naiveGramMatrixKernel(params.n1,
                           params.n2,

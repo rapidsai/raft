@@ -232,7 +232,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
             gram.data(), params.n1, params.n2, params.ld_out);
 
     if (params.sparse_input == SparseType::DENSE) {
-      (*kernel)(x1_span, x2_span, out_span, handle);
+      (*kernel)(handle, x1_span, x2_span, out_span);
     } else {
       x1_csr_indptr.reserve(params.n1 + 1, stream);
       x1_csr_indices.reserve(params.n1 * params.n_cols, stream);
@@ -252,7 +252,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
         x1_csr_structure);
 
       if (params.sparse_input == SparseType::MIX) {
-        (*kernel)(x1_csr, x2_span, out_span, handle);
+        (*kernel)(handle, x1_csr, x2_span, out_span);
       } else {
         x2_csr_indptr.reserve(params.n2 + 1, stream);
         x2_csr_indices.reserve(params.n2 * params.n_cols, stream);
@@ -270,7 +270,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
           raft::device_span<const math_t>(x2_csr_data.data(), x2_csr_structure.get_nnz()),
           x2_csr_structure);
 
-        (*kernel)(x1_csr, x2_csr, out_span, handle);
+        (*kernel)(handle, x1_csr, x2_csr, out_span);
       }
     }
 
