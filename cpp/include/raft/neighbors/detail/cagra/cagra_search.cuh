@@ -61,7 +61,7 @@ void search_main(raft::device_resources const& handle,
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  RAFT_EXPETS(queries.extent(1) == index.dim(), "Querise and index dim must match");
+  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
 
   search_plan splan(handle, params, index.dim(), index.graph_degree());
   const std::uint32_t topk = neighbors.extent(1);

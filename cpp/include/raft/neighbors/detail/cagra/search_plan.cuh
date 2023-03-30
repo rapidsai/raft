@@ -16,19 +16,17 @@
 
 #pragma once
 
+#include "hashmap.hpp"
+#include "search_single_cta.cuh"
+#include "topk_for_cagra/topk_core.cuh"
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <raft/neighbors/detail/cagra/cagra.hpp>
+// #include <raft/neighbors/detail/cagra/cagra.hpp>
 #include <raft/util/pow2_utils.cuh>
-
-#include "hashmap.hpp"
-
 namespace raft::neighbors::experimental::cagra::detail {
 
-struct search_plan_impl;
-
-void set_single_cta_params(search_plan_impl);
 struct search_plan_impl : search_params {
   int64_t dim;
   int64_t graph_degree;
@@ -51,7 +49,7 @@ struct search_plan_impl : search_params {
 
   // params to be removed
   void* dataset_ptr;
-  uint32_t* graph_ptr
+  uint32_t* graph_ptr;
 
   search_plan_impl(raft::device_resources const& res,
                    search_params params,
@@ -61,13 +59,13 @@ struct search_plan_impl : search_params {
   {
     adjust_search_params();
     check_params();
-    calc_hashmap_params();
+    calc_hashmap_params(res);
     set_max_dim_team();
 
     switch (params.algo) {
-      case search_algo::SINGLE_CTA: set_single_cta_params(res, *this); break;
-      case search_algo::MULTI_CTA:     // et_multi_cta_params(*this); break;
-      case search_algo::MULTI_KERNEL:  // set_multi_kernel_params(*this); break;
+      case search_algo::SINGLE_CTA: set_single_cta_params<float, uint32_t, float>(res); break;
+      case search_algo::MULTI_CTA:     // set_multi_cta_params(res); break;
+      case search_algo::MULTI_KERNEL:  // set_multi_kernel_params(res); break;
       default: THROW("Incorrect search_algo for ann_cagra");
     }
   }
@@ -242,7 +240,7 @@ struct search_plan_impl : search_params {
     hashmap_size = 0;
     if (small_hash_bitlen == 0) {
       hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
-      hasmap.resize(hashmap_size, res.get_stream())
+      hashmap.resize(hashmap_size, res.get_stream());
     }
     RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);
   }
@@ -316,145 +314,147 @@ struct search_plan_impl : search_params {
 
     if (error_message.length() != 0) { THROW("[CAGRA Error] %s", error_message.c_str()); }
   }
-};
 
-template <typename INDEX_T, DISTANCE_T>
-inline void set_single_cta_params(raft::device_resources const& res, search_plan_impl& params)
-{
-  params.num_itopk_candidates = params.num_parents * params.graph_degree;
-  params.result_buffer_size   = params.itopk_size + params.num_itopk_candidates;
+  template <typename DATA_T, typename INDEX_T, typename DISTANCE_T>
+  inline void set_single_cta_params(raft::device_resources const& res)
+  {
+    num_itopk_candidates = num_parents * graph_degree;
+    result_buffer_size   = itopk_size + num_itopk_candidates;
 
-  typedef raft::Pow2<32> AlignBytes;
-  unsigned result_buffer_size_32 = AlignBytes.roundUp(params.result_buffer_size);
+    typedef raft::Pow2<32> AlignBytes;
+    unsigned result_buffer_size_32 = AlignBytes::roundUp(result_buffer_size);
 
-  constexpr unsigned max_itopk = 512;
-  RAFT_EXPECTS(params.itopk_size <= max_itopk, "itopk_size cannot be larger than %u", max_itopk);
+    constexpr unsigned max_itopk = 512;
+    RAFT_EXPECTS(itopk_size <= max_itopk, "itopk_size cannot be larger than %u", max_itopk);
 
-  RAFT_LOG_DEBUG("# num_itopk_candidates: %u", params.num_itopk_candidates);
-  RAFT_LOG_DEBUG("# num_itopk: %u", params.itopk_size);
-  //
-  // Determine the thread block size
-  //
-  constexpr unsigned min_block_size       = 64;  // 32 or 64
-  constexpr unsigned min_block_size_radix = 256;
-  constexpr unsigned max_block_size       = 1024;
-  //
-  const std::uint32_t topk_ws_size = 3;
-  const std::uint32_t base_smem_size =
-    sizeof(float) * MAX_DATASET_DIM +
-    (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
-    sizeof(std::uint32_t) * hashmap::get_size(params.small_hash_bitlen) +
-    sizeof(std::uint32_t) * params.num_parents + sizeof(std::uint32_t) * topk_ws_size +
-    sizeof(std::uint32_t);
-  params.smem_size = base_smem_size;
-  if (params.num_itopk_candidates > 256) {
-    // Tentatively calculate the required share memory size when radix
-    // sort based topk is used, assuming the block size is the maximum.
-    if (params.itopk_size <= 256) {
-      params.smem_size +=
-        topk_by_radix_sort<256, max_block_size>::smem_size * sizeof(std::uint32_t);
-    } else {
-      params.smem_size +=
-        topk_by_radix_sort<512, max_block_size>::smem_size * sizeof(std::uint32_t);
-    }
-  }
-
-  uint32_t block_size = params.thread_block_size;
-  if (block_size == 0) {
-    block_size = min_block_size;
-
+    RAFT_LOG_DEBUG("# num_itopk_candidates: %u", num_itopk_candidates);
+    RAFT_LOG_DEBUG("# num_itopk: %u", itopk_size);
+    //
+    // Determine the thread block size
+    //
+    constexpr unsigned min_block_size       = 64;  // 32 or 64
+    constexpr unsigned min_block_size_radix = 256;
+    constexpr unsigned max_block_size       = 1024;
+    //
+    const std::uint32_t topk_ws_size = 3;
+    const std::uint32_t base_smem_size =
+      sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
+      sizeof(std::uint32_t) * hashmap::get_size(small_hash_bitlen) +
+      sizeof(std::uint32_t) * num_parents + sizeof(std::uint32_t) * topk_ws_size +
+      sizeof(std::uint32_t);
+    smem_size = base_smem_size;
     if (num_itopk_candidates > 256) {
-      // radix-based topk is used.
-      block_size = min_block_size_radix;
+      // Tentatively calculate the required share memory size when radix
+      // sort based topk is used, assuming the block size is the maximum.
+      if (itopk_size <= 256) {
+        smem_size += single_cta_search::topk_by_radix_sort<256, max_block_size>::smem_size *
+                     sizeof(std::uint32_t);
+      } else {
+        smem_size += single_cta_search::topk_by_radix_sort<512, max_block_size>::smem_size *
+                     sizeof(std::uint32_t);
+      }
+    }
 
-      // Internal topk values per thread must be equlal to or less than 4
-      // when radix-sort block_topk is used.
-      while ((block_size < max_block_size) && (max_itopk / block_size > 4)) {
+    uint32_t block_size = thread_block_size;
+    if (block_size == 0) {
+      block_size = min_block_size;
+
+      if (num_itopk_candidates > 256) {
+        // radix-based topk is used.
+        block_size = min_block_size_radix;
+
+        // Internal topk values per thread must be equlal to or less than 4
+        // when radix-sort block_topk is used.
+        while ((block_size < max_block_size) && (max_itopk / block_size > 4)) {
+          block_size *= 2;
+        }
+      }
+
+      // Increase block size according to shared memory requirements.
+      // If block size is 32, upper limit of shared memory size per
+      // thread block is set to 4096. This is GPU generation dependent.
+      constexpr unsigned ulimit_smem_size_cta32 = 4096;
+      while (smem_size > ulimit_smem_size_cta32 / 32 * block_size) {
+        block_size *= 2;
+      }
+
+      // Increase block size to improve GPU occupancy when batch size
+      // is small, that is, number of queries is low.
+      cudaDeviceProp deviceProp = res.get_device_properties();
+      RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
+      while ((block_size < max_block_size) &&
+             (graph_degree * num_parents * team_size >= block_size * 2) &&
+             (max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
         block_size *= 2;
       }
     }
+    RAFT_LOG_DEBUG("# thread_block_size: %u", block_size);
+    assert(block_size >= min_block_size);
+    assert(block_size <= max_block_size);
 
-    // Increase block size according to shared memory requirements.
-    // If block size is 32, upper limit of shared memory size per
-    // thread block is set to 4096. This is GPU generation dependent.
-    constexpr unsigned ulimit_smem_size_cta32 = 4096;
-    while (params.smem_size > ulimit_smem_size_cta32 / 32 * block_size) {
-      block_size *= 2;
-    }
+    thread_block_size = block_size;
 
-    // Increase block size to improve GPU occupancy when batch size
-    // is small, that is, number of queries is low.
-    cudaDeviceProp deviceProp = res.get_device_properties();
-    RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
-    while ((block_size < max_block_size) &&
-           (graph_degree * params.num_parents * TEAM_SIZE >= block_size * 2) &&
-           (params.max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
-      block_size *= 2;
-    }
-  }
-  RAFT_LOG_DEBUG("# thread_block_size: %u", block_size);
-  assert(block_size >= min_block_size);
-  assert(block_size <= max_block_size);
-
-  params.thread_block_size = block_size;
-
-  // Determine load bit length
-  const uint32_t total_bit_length = dataset_dim * sizeof(DATA_T) * 8;
-  if (params.load_bit_length == 0) {
-    params.load_bit_length = 128;
-    while (total_bit_length % params.load_bit_length) {
-      params.load_bit_length /= 2;
-    }
-  }
-  RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)",
-                 params.load_bit_length,
-                 total_bit_length / params.load_bit_length);
-  assert(total_bit_length % params.load_bit_length == 0);
-  assert(params.load_bit_length >= 64);
-
-  if (params.num_itopk_candidates <= 256) {
-    RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used");
-  } else {
-    RAFT_LOG_DEBUG("# radix-sort based topk routine is used");
-    params.smem_size = base_smem_size;
-    if (itopk_size <= 256) {
-      constexpr unsigned MAX_ITOPK = 256;
-      if (block_size == 256) {
-        constexpr unsigned BLOCK_SIZE = 256;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
-      } else if (block_size == 512) {
-        constexpr unsigned BLOCK_SIZE = 512;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
-      } else {
-        constexpr unsigned BLOCK_SIZE = 1024;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+    // Determine load bit length
+    const uint32_t total_bit_length = dim * sizeof(DATA_T) * 8;
+    if (load_bit_length == 0) {
+      load_bit_length = 128;
+      while (total_bit_length % load_bit_length) {
+        load_bit_length /= 2;
       }
+    }
+    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)",
+                   load_bit_length,
+                   total_bit_length / load_bit_length);
+    assert(total_bit_length % load_bit_length == 0);
+    assert(load_bit_length >= 64);
+
+    if (num_itopk_candidates <= 256) {
+      RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used");
     } else {
-      constexpr unsigned MAX_ITOPK = 512;
-      if (block_size == 256) {
-        constexpr unsigned BLOCK_SIZE = 256;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
-      } else if (block_size == 512) {
-        constexpr unsigned BLOCK_SIZE = 512;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+      RAFT_LOG_DEBUG("# radix-sort based topk routine is used");
+      smem_size = base_smem_size;
+      if (itopk_size <= 256) {
+        constexpr unsigned MAX_ITOPK = 256;
+        if (block_size == 256) {
+          constexpr unsigned BLOCK_SIZE = 256;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        } else if (block_size == 512) {
+          constexpr unsigned BLOCK_SIZE = 512;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        } else {
+          constexpr unsigned BLOCK_SIZE = 1024;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        }
       } else {
-        constexpr unsigned BLOCK_SIZE = 1024;
-        params.smem_size +=
-          topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+        constexpr unsigned MAX_ITOPK = 512;
+        if (block_size == 256) {
+          constexpr unsigned BLOCK_SIZE = 256;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        } else if (block_size == 512) {
+          constexpr unsigned BLOCK_SIZE = 512;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        } else {
+          constexpr unsigned BLOCK_SIZE = 1024;
+          smem_size += single_cta_search::topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size *
+                       sizeof(std::uint32_t);
+        }
       }
     }
+    RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
   }
-  RAFT_LOG_DEBUG("# smem_size: %u", params.smem_size);
-}
+};
 
 struct search_plan {
-  search_plan(search_params param, int64_t dim, int64_t graph_degree)
-    : plan(param, dim, graph_degree)
+  search_plan(raft::device_resources const& res,
+              search_params param,
+              int64_t dim,
+              int64_t graph_degree)
+    : plan(res, param, dim, graph_degree)
   {
   }
   void check(uint32_t topk) { plan.check(topk); }
