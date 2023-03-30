@@ -278,7 +278,7 @@ dependencies:
           - ucx-proc=*=gpu
       - output_types: pyproject
         packages:
-          - pylibraft==23.4.*
+          - pylibraft==23.6.*
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
