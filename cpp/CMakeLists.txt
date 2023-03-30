@@ -634,7 +634,6 @@ string(
   [=[
 option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
 mark_as_advanced(RAFT_ENABLE_CTK_MATH_DEPENDENCIES)
-$<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>
 target_link_libraries(raft::raft INTERFACE
   $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cublas${_ctk_static_suffix}>
   $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::curand{_ctk_static_suffix}>
