@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/kernels/gram_matrix.cuh>
+#include <raft/distance/kernels/kernel_matrices.cuh>
 #include <raft/distance/specializations.cuh>
 
-template class raft::distance::kernels::detail::GramMatrixBase<double>;
+template class raft::distance::kernels::TanhKernel<double>;

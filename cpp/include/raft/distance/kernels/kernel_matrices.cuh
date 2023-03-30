@@ -23,7 +23,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/sparse/linalg/norm.cuh>
 
-namespace raft::distance::kernels::detail {
+namespace raft::distance::kernels {
 
 /** Epiloge function for polynomial kernel without padding.
  * Calculates output = (gain*in + offset)^exponent
@@ -738,4 +738,4 @@ class RBFKernel : public GramMatrixBase<math_t> {
   }
 };
 
-};  // end namespace raft::distance::kernels::detail
+};  // end namespace raft::distance::kernels

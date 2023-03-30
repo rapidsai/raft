@@ -304,16 +304,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/detail/inner_product_double_double_double_int.cu
     src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
     src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
-    # These are somehow missing a kernel definition which is causing a compile error.
-    # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
-    # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
     src/neighbors/brute_force_knn_int64_t_float.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
     src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
     src/distance/specializations/detail/l1_float_float_float_int.cu
@@ -332,6 +323,14 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/distance/specializations/kernels/gram_matrix_base_double.cu
+    src/distance/specializations/kernels/gram_matrix_base_float.cu
+    src/distance/specializations/kernels/polynomial_kernel_double_int.cu
+    src/distance/specializations/kernels/polynomial_kernel_float_int.cu
+    src/distance/specializations/kernels/rbf_kernel_double.cu
+    src/distance/specializations/kernels/rbf_kernel_float.cu
+    src/distance/specializations/kernels/tanh_kernel_double.cu
+    src/distance/specializations/kernels/tanh_kernel_float.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/kernels/kernel_matrices.cuh>
+#include <raft/distance/kernels/gram_matrix.cuh>
 #include <raft/distance/specializations.cuh>
 
-template class raft::distance::kernels::detail::PolynomialKernel<float, int>;
+template class raft::distance::kernels::GramMatrixBase<float>;

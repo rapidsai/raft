@@ -20,14 +20,12 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
-//#include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/sparse/distance/distance.cuh>
 #include <raft/sparse/linalg/spmm.cuh>
 
-#include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/gemm.cuh>
-
-namespace raft::distance::kernels::detail {
+namespace raft::distance::kernels {
 
 template <typename math_t>
 using dense_input_matrix_view_t = raft::device_matrix_view<const math_t, int, layout_stride>;
@@ -507,4 +505,4 @@ class GramMatrixBase {
   }
 };
 
-};  // end namespace raft::distance::kernels::detail
+};  // end namespace raft::distance::kernels

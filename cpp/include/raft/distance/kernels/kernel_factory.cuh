@@ -21,7 +21,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::distance::kernels::detail {
+namespace raft::distance::kernels {
 
 template <typename math_t>
 class KernelFactory {
@@ -61,4 +61,4 @@ class KernelFactory {
   }
 };
 
-};  // end namespace raft::distance::kernels::detail
+};  // end namespace raft::distance::kernels
