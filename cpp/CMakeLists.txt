@@ -182,17 +182,7 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(
-  raft
-  INTERFACE rmm::rmm
-            cuco::cuco
-            nvidia::cutlass::cutlass
-            CUDA::cublas${_ctk_static_suffix}
-            CUDA::curand${_ctk_static_suffix}
-            CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cusparse${_ctk_static_suffix}
-            raft::Thrust
-)
+target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
@@ -635,6 +625,22 @@ string(
 if(compiled IN_LIST raft_FIND_COMPONENTS)
   enable_language(CUDA)
 endif()
+]=]
+)
+
+string(
+  APPEND
+  code_string
+  [=[
+option(ENABLE_CUDA_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
+mark_as_advanced(ENABLE_CUDA_MATH_DEPENDENCIES)
+$<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>
+target_link_libraries(raft::raft INTERFACE
+  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cublas${_ctk_static_suffix}>
+  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::curand{_ctk_static_suffix}>
+  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cusolver{_ctk_static_suffix}>
+  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cusparse{_ctk_static_suffix}>
+)
 ]=]
 )
 
