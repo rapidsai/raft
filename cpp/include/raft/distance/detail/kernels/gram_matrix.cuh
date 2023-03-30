@@ -20,8 +20,9 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
-#include <raft/sparse/detail/cusparse_wrappers.h>
+//#include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/linalg/spmm.cuh>
 
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -315,16 +316,22 @@ class GramMatrixBase {
  protected:
   bool get_is_row_major(dense_output_matrix_view_t<math_t> matrix)
   {
-    ASSERT(matrix.stride(0) == 1 || matrix.stride(1) == 1,
-           "GramMatrix matrix layout minor stride needs to be 1");
     return (matrix.stride(1) == 1);
   }
 
   bool get_is_row_major(dense_input_matrix_view_t<math_t> matrix)
   {
-    ASSERT(matrix.stride(0) == 1 || matrix.stride(1) == 1,
-           "GramMatrix matrix layout minor stride needs to be 1");
     return (matrix.stride(1) == 1);
+  }
+
+  bool get_is_col_major(dense_output_matrix_view_t<math_t> matrix)
+  {
+    return (matrix.stride(0) == 1);
+  }
+
+  bool get_is_col_major(dense_input_matrix_view_t<math_t> matrix)
+  {
+    return (matrix.stride(0) == 1);
   }
 
   /** Calculates the Gram matrix using simple dot product between vector sets.
@@ -344,11 +351,10 @@ class GramMatrixBase {
               raft::device_resources const& handle)
   {
     // check is_row_major consistency
-    bool is_row_major = get_is_row_major(out);
-    ASSERT(is_row_major ? (x1.stride(1) == 1) : (x1.stride(0) == 1),
-           "GramMatrix leading dimensions for x1 and out do not match");
-    ASSERT(is_row_major ? (x2.stride(1) == 1) : (x2.stride(0) == 1),
-           "GramMatrix leading dimensions for x2 and out do not match");
+    bool is_row_major = get_is_row_major(x1) && get_is_row_major(x2) && get_is_row_major(out);
+    bool is_col_major = get_is_col_major(x1) && get_is_col_major(x2) && get_is_col_major(out);
+    ASSERT(is_row_major || is_col_major,
+           "GramMatrix leading dimensions for x1, x2 and out do not match");
 
     // check dimensions
     int n1     = out.extent(0);
@@ -366,39 +372,41 @@ class GramMatrixBase {
     math_t alpha = 1.0;
     math_t beta  = 0.0;
     if (is_row_major) {
-      // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
-                                                       CUBLAS_OP_T,
-                                                       CUBLAS_OP_N,
-                                                       n2,
-                                                       n1,
-                                                       n_cols,
-                                                       &alpha,
-                                                       x2.data_handle(),
-                                                       ld2,
-                                                       x1.data_handle(),
-                                                       ld1,
-                                                       &beta,
-                                                       out.data_handle(),
-                                                       ld_out,
-                                                       handle.get_stream()));
+      // #TODO: Use mdspan-based API when stride-capable
+      // https://github.com/rapidsai/raft/issues/875
+      raft::linalg::gemm(handle,
+                         true,
+                         false,
+                         n2,
+                         n1,
+                         n_cols,
+                         &alpha,
+                         x2.data_handle(),
+                         ld2,
+                         x1.data_handle(),
+                         ld1,
+                         &beta,
+                         out.data_handle(),
+                         ld_out,
+                         handle.get_stream());
     } else {
-      // #TODO: Call from public API when ready
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
-                                                       CUBLAS_OP_N,
-                                                       CUBLAS_OP_T,
-                                                       n1,
-                                                       n2,
-                                                       n_cols,
-                                                       &alpha,
-                                                       x1.data_handle(),
-                                                       ld1,
-                                                       x2.data_handle(),
-                                                       ld2,
-                                                       &beta,
-                                                       out.data_handle(),
-                                                       ld_out,
-                                                       handle.get_stream()));
+      // #TODO: Use mdspan-based API when stride-capable
+      // https://github.com/rapidsai/raft/issues/875
+      raft::linalg::gemm(handle,
+                         false,
+                         true,
+                         n1,
+                         n2,
+                         n_cols,
+                         &alpha,
+                         x1.data_handle(),
+                         ld1,
+                         x2.data_handle(),
+                         ld2,
+                         &beta,
+                         out.data_handle(),
+                         ld_out,
+                         handle.get_stream());
     }
   }
 
@@ -419,8 +427,9 @@ class GramMatrixBase {
               raft::device_resources const& handle)
   {
     // check is_row_major consistency
-    bool is_row_major = get_is_row_major(out);
-    ASSERT(is_row_major ? (x2.stride(1) == 1) : (x2.stride(0) == 1),
+    bool is_row_major = get_is_row_major(x2) && get_is_row_major(out);
+    bool is_col_major = get_is_col_major(x2) && get_is_col_major(out);
+    ASSERT(is_row_major || is_col_major,
            "GramMatrix leading dimensions for x2 and out do not match");
 
     // check dimensions
@@ -432,77 +441,10 @@ class GramMatrixBase {
     ASSERT(x2.extent(1) == x1_structure.get_n_cols(),
            "GramMatrix input matrix dimensions for x1 and x2 do not match");
 
-    // extract major stride
-    int ld2    = is_row_major ? x2.stride(0) : x2.stride(1);
-    int ld_out = is_row_major ? out.stride(0) : out.stride(1);
-
     math_t alpha = 1.0;
     math_t beta  = 0.0;
 
-    cusparseSpMatDescr_t descrX1;
-    RAFT_CUSPARSE_TRY(
-      raft::sparse::detail::cusparsecreatecsr(&descrX1,
-                                              x1_structure.get_n_rows(),
-                                              x1_structure.get_n_cols(),
-                                              x1_structure.get_nnz(),
-                                              const_cast<int*>(x1_structure.get_indptr().data()),
-                                              const_cast<int*>(x1_structure.get_indices().data()),
-                                              const_cast<math_t*>(x1.get_elements().data())));
-
-    auto order = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
-
-    cusparseDnMatDescr_t descrX2;
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
-      &descrX2, x2.extent(0), x2.extent(1), ld2, const_cast<math_t*>(x2.data_handle()), order));
-
-    cusparseDnMatDescr_t descrOut;
-    RAFT_CUSPARSE_TRY(
-      raft::sparse::detail::cusparsecreatednmat(&descrOut,
-                                                out.extent(0),
-                                                out.extent(1),
-                                                ld_out,
-                                                const_cast<math_t*>(out.data_handle()),
-                                                order));
-
-    auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1 : CUSPARSE_SPMM_CSR_ALG2;
-
-    // compute X1*X2^T
-    auto opX1 = CUSPARSE_OPERATION_NON_TRANSPOSE;
-    auto opX2 = CUSPARSE_OPERATION_TRANSPOSE;
-
-    size_t bufferSize;
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
-                                                                    opX1,
-                                                                    opX2,
-                                                                    &alpha,
-                                                                    descrX1,
-                                                                    descrX2,
-                                                                    &beta,
-                                                                    descrOut,
-                                                                    alg,
-                                                                    &bufferSize,
-                                                                    handle.get_stream()));
-
-    raft::interruptible::synchronize(handle.get_stream());
-
-    rmm::device_uvector<math_t> tmp(bufferSize, handle.get_stream());
-
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(handle.get_cusparse_handle(),
-                                                         opX1,
-                                                         opX2,
-                                                         &alpha,
-                                                         descrX1,
-                                                         descrX2,
-                                                         &beta,
-                                                         descrOut,
-                                                         alg,
-                                                         tmp.data(),
-                                                         handle.get_stream()));
-
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(descrX1));
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descrX2));
-    RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descrOut));
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    raft::sparse::linalg::spmm(handle, false, true, &alpha, x1, x2, &beta, out);
   }
 
   /** Calculates the Gram matrix using simple dot product between vector sets.

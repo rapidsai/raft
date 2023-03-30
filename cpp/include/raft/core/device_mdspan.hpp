@@ -266,26 +266,27 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
  *        pointer.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
  * @param[in] ptr on device to wrap
  * @param[in] n_rows number of rows in pointer
  * @param[in] n_cols number of columns in pointer
  * @param[in] is_row_major whether the data is in row major format (column major otherwise)
- * @param[in] ld leading dimension / stride of data
+ * @param[in] stride leading dimension / stride of data
  */
-template <typename ElementType, typename IndexType = std::uint32_t>
-auto make_device_matrix_view(
-  ElementType* ptr, IndexType n_rows, IndexType n_cols, bool is_row_major, IndexType ld)
+template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
+auto make_device_strided_matrix_view(ElementType* ptr,
+                                     IndexType n_rows,
+                                     IndexType n_cols,
+                                     IndexType stride)
 {
-  IndexType stride0 = is_row_major ? (ld > 0 ? ld : n_cols) : 1;
-  IndexType stride1 = is_row_major ? 1 : (ld > 0 ? ld : n_rows);
+  constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
+  IndexType stride0           = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
+  IndexType stride1           = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
 
   assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
-
   matrix_extent<IndexType> extents{n_rows, n_cols};
-  std::array<IndexType, 2> strides{stride0, stride1};
-  using mapping_type  = typename layout_stride::template mapping<matrix_extent<IndexType>>;
-  mapping_type layout = {extents, strides};
 
+  auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
   return device_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
 }
 

@@ -212,12 +212,24 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     std::unique_ptr<GramMatrixBase<math_t>> kernel =
       std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel));
 
-    auto x1_span = raft::make_device_matrix_view<const math_t, int>(
-      x1.data(), params.n1, params.n_cols, params.is_row_major, params.ld1);
-    auto x2_span = raft::make_device_matrix_view<const math_t, int>(
-      x2.data(), params.n2, params.n_cols, params.is_row_major, params.ld2);
-    auto out_span = raft::make_device_matrix_view<math_t, int>(
-      gram.data(), params.n1, params.n2, params.is_row_major, params.ld_out);
+    auto x1_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<const math_t, int, raft::layout_c_contiguous>(
+            x1.data(), params.n1, params.n_cols, params.ld1)
+        : raft::make_device_strided_matrix_view<const math_t, int, raft::layout_f_contiguous>(
+            x1.data(), params.n1, params.n_cols, params.ld1);
+    auto x2_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<const math_t, int, raft::layout_c_contiguous>(
+            x2.data(), params.n2, params.n_cols, params.ld2)
+        : raft::make_device_strided_matrix_view<const math_t, int, raft::layout_f_contiguous>(
+            x2.data(), params.n2, params.n_cols, params.ld2);
+    auto out_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<math_t, int, raft::layout_c_contiguous>(
+            gram.data(), params.n1, params.n2, params.ld_out)
+        : raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+            gram.data(), params.n1, params.n2, params.ld_out);
 
     if (params.sparse_input == SparseType::DENSE) {
       (*kernel)(x1_span, x2_span, out_span, handle);
