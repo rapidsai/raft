@@ -632,14 +632,14 @@ string(
   APPEND
   code_string
   [=[
-option(ENABLE_CUDA_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
-mark_as_advanced(ENABLE_CUDA_MATH_DEPENDENCIES)
+option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
+mark_as_advanced(RAFT_ENABLE_CTK_MATH_DEPENDENCIES)
 $<$<BOOL:${RAFT_NVTX}>:CUDA::nvToolsExt>
 target_link_libraries(raft::raft INTERFACE
-  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cublas${_ctk_static_suffix}>
-  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::curand{_ctk_static_suffix}>
-  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cusolver{_ctk_static_suffix}>
-  $<BOOL:${ENABLE_CUDA_MATH_DEPENDENCIES}>:CUDA::cusparse{_ctk_static_suffix}>
+  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cublas${_ctk_static_suffix}>
+  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::curand{_ctk_static_suffix}>
+  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cusolver{_ctk_static_suffix}>
+  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cusparse{_ctk_static_suffix}>
 )
 ]=]
 )

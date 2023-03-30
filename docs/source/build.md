@@ -156,6 +156,7 @@ RAFT's cmake has the following configurable flags available:.
 | BUILD_TESTS               | ON, OFF              | ON | Compile Googletests |
 | BUILD_BENCH               | ON, OFF              | OFF | Compile benchmarks |
 | raft_FIND_COMPONENTS      | compiled distributed | | Configures the optional components as a space-separated list |
+| RAFT_ENABLE_CTK_MATH_DEPENDENCIES | ON, OFF | ON | Link against CUDA Math Libraries in `raft::raft` | 
 | RAFT_COMPILE_LIBRARY      | ON, OFF              | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | DETECT_CONDA_ENV          | ON, OFF              | ON | Enable detection of conda environment for dependencies |
 | RAFT_NVTX                 | ON, OFF              | OFF | Enable NVTX Markers |

@@ -52,14 +52,6 @@ outputs:
       host:
         - librmm ={{ minor_version }}
         - cudatoolkit {{ cuda_spec }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
-        - libcurand {{ libcurand_run_version }}
-        - libcurand-dev {{ libcurand_run_version }}
-        - libcusolver {{ libcusolver_run_version }}
-        - libcusolver-dev {{ libcusolver_run_version }}
-        - libcusparse {{ libcusparse_run_version }}
-        - libcusparse-dev {{ libcusparse_run_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -113,14 +105,6 @@ outputs:
         - libcublas-dev {{ libcublas_host_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
-        - libcurand {{ libcurand_run_version }}
-        - libcurand-dev {{ libcurand_run_version }}
-        - libcusolver {{ libcusolver_run_version }}
-        - libcusolver-dev {{ libcusolver_run_version }}
-        - libcusparse {{ libcusparse_run_version }}
-        - libcusparse-dev {{ libcusparse_run_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -184,12 +168,6 @@ outputs:
         - {{ pin_subpackage('libraft', exact=True) }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
     about:
@@ -217,12 +195,6 @@ outputs:
         - {{ pin_subpackage('libraft', exact=True) }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
         - libfaiss>=1.7.1
