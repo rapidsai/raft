@@ -80,6 +80,12 @@ void connect_knn_graph(
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
+  rmm::device_uvector<value_idx> src_indices(m, stream);
+  thrust::counting_iterator<value_idx> arg_sort_iter(0);
+  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + m, src_indices.data());
+
+  auto tuple_it = thrust::make_zip_iterator(thrust::make_tuple(src_indices, reduction_op.core_dists));
+  thrust::sort_by_key(handle.get_thrust_policy(), color, m, tuple_it);
   raft::sparse::neighbors::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
 
