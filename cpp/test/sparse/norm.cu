@@ -62,7 +62,7 @@ class CSRRowNormTest : public ::testing::TestWithParam<CSRRowNormInputs<Type_f, 
     raft::update_device(data.data(), params.data.data(), nnz, stream);
     raft::update_device(verify.data(), params.verify.data(), n_rows, stream);
 
-    linalg::rowNormCsr(result.data(), indptr.data(), data.data(), nnz, n_rows, params.norm, stream);
+    linalg::rowNormCsr(handle, indptr.data(), data.data(), nnz, n_rows, result.data(), params.norm);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     ASSERT_TRUE(

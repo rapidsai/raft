@@ -498,9 +498,9 @@ class RBFKernel : public GramMatrixBase<math_t> {
   {
   }
 
-  void matrixRowNormL2(dense_input_matrix_view_t<math_t> matrix,
-                       math_t* target,
-                       cudaStream_t stream)
+  void matrixRowNormL2(raft::device_resources const& handle,
+                       dense_input_matrix_view_t<math_t> matrix,
+                       math_t* target)
   {
     bool is_row_major = GramMatrixBase<math_t>::get_is_row_major(matrix);
     int minor         = is_row_major ? matrix.extent(1) : matrix.extent(0);
@@ -512,19 +512,21 @@ class RBFKernel : public GramMatrixBase<math_t> {
                           matrix.extent(0),
                           raft::linalg::NormType::L2Norm,
                           is_row_major,
-                          stream);
+                          handle.get_stream());
   }
 
-  void matrixRowNormL2(csr_input_matrix_view_t<math_t> matrix, math_t* target, cudaStream_t stream)
+  void matrixRowNormL2(raft::device_resources const& handle,
+                       csr_input_matrix_view_t<math_t> matrix,
+                       math_t* target)
   {
     auto matrix_structure = matrix.get_structure();
-    raft::sparse::linalg::rowNormCsr(target,
+    raft::sparse::linalg::rowNormCsr(handle,
                                      matrix_structure.get_indptr().data(),
                                      matrix.get_elements().data(),
                                      matrix_structure.get_nnz(),
                                      matrix_structure.get_n_rows(),
-                                     raft::linalg::NormType::L2Norm,
-                                     stream);
+                                     target,
+                                     raft::linalg::NormType::L2Norm);
   }
 
   /** Evaluate kernel matrix using RBF kernel.
@@ -555,12 +557,12 @@ class RBFKernel : public GramMatrixBase<math_t> {
     if (norm_x1 == nullptr) {
       tmp_norm_x1.reserve(x1.extent(0), stream);
       norm_x1 = tmp_norm_x1.data();
-      matrixRowNormL2(x1, norm_x1, stream);
+      matrixRowNormL2(handle, x1, norm_x1);
     }
     if (norm_x2 == nullptr) {
       tmp_norm_x2.reserve(x2.extent(0), stream);
       norm_x2 = tmp_norm_x2.data();
-      matrixRowNormL2(x2, norm_x2, stream);
+      matrixRowNormL2(handle, x2, norm_x2);
     }
 
     // compute L2expanded
@@ -605,12 +607,12 @@ class RBFKernel : public GramMatrixBase<math_t> {
     if (norm_x1 == nullptr) {
       tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
       norm_x1 = tmp_norm_x1.data();
-      matrixRowNormL2(x1, norm_x1, stream);
+      matrixRowNormL2(handle, x1, norm_x1);
     }
     if (norm_x2 == nullptr) {
       tmp_norm_x2.reserve(x2.extent(0), stream);
       norm_x2 = tmp_norm_x2.data();
-      matrixRowNormL2(x2, norm_x2, stream);
+      matrixRowNormL2(handle, x2, norm_x2);
     }
 
     // compute L2expanded
@@ -655,12 +657,12 @@ class RBFKernel : public GramMatrixBase<math_t> {
     if (norm_x1 == nullptr) {
       tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
       norm_x1 = tmp_norm_x1.data();
-      matrixRowNormL2(x1, norm_x1, stream);
+      matrixRowNormL2(handle, x1, norm_x1);
     }
     if (norm_x2 == nullptr) {
       tmp_norm_x2.reserve(x2.get_structure().get_n_rows(), stream);
       norm_x2 = tmp_norm_x2.data();
-      matrixRowNormL2(x2, norm_x2, stream);
+      matrixRowNormL2(handle, x2, norm_x2);
     }
 
     // compute L2expanded
