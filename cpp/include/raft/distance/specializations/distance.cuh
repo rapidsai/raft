@@ -27,8 +27,6 @@
 #include <raft/distance/specializations/detail/kl_divergence.cuh>
 #include <raft/distance/specializations/detail/l1.cuh>
 #include <raft/distance/specializations/detail/l2_expanded.cuh>
-#include <raft/distance/specializations/detail/l2_sqrt_expanded.cuh>
-#include <raft/distance/specializations/detail/l2_sqrt_unexpanded.cuh>
 #include <raft/distance/specializations/detail/l2_unexpanded.cuh>
 #include <raft/distance/specializations/detail/l_inf.cuh>
 #include <raft/distance/specializations/detail/lp_unexpanded.cuh>

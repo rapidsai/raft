@@ -1065,6 +1065,14 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               uint32_t& grid_dim_x,
                               rmm::cuda_stream_view stream)
 {
+  // greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
+  // function is used in both raft::neighbors::ivf_flat::search and
+  // raft::neighbors::detail::refine_device. To prevent a duplicate
+  // instantiation of this function (which defines ~270 kernels) in the refine
+  // specializations, an extern template definition is provided. Please check
+  // related function calls after editing this function definition. Search for
+  // `greppable-id-specializations-ivf-flat-search` to find them.
+
   const int capacity = bound_by_power_of_two(k);
   select_interleaved_scan_kernel<T, AccT, IdxT>::run(capacity,
                                                      index.veclen(),

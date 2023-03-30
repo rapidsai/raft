@@ -20,7 +20,7 @@
 
 #ifdef _RAFT_HAS_CUDA
 #include <cub/cub.cuh>
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>  // raft::shfl_xor
 #endif
 namespace raft {
 /**

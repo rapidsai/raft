@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
 
@@ -42,7 +42,7 @@ struct hellinger_distance_op {
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size()
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }

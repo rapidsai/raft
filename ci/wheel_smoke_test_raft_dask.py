@@ -1,4 +1,19 @@
-from dask.distributed import Client, wait
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+from dask.distributed import Client, get_worker, wait
 from dask_cuda import LocalCUDACluster, initialize
 
 from raft_dask.common import (
@@ -23,12 +38,12 @@ os.environ["UCX_LOG_LEVEL"] = "error"
 
 
 def func_test_send_recv(sessionId, n_trials):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return perform_test_comms_send_recv(handle, n_trials)
 
 
 def func_test_collective(func, sessionId, root):
-    handle = local_handle(sessionId)
+    handle = local_handle(sessionId, dask_worker=get_worker())
     return func(handle, root)
 
 

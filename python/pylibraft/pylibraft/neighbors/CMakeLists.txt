@@ -13,8 +13,8 @@
 # =============================================================================
 
 # Set the list of Cython files to build
-set(cython_sources common.pyx refine.pyx)
-set(linked_libraries raft::raft raft::distance)
+set(cython_sources common.pyx refine.pyx brute_force.pyx)
+set(linked_libraries raft::raft raft::compiled)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
