@@ -44,14 +44,14 @@ namespace raft::neighbors::ivf_pq {
   extern template auto extend(                                                   \
     raft::device_resources const&,                                               \
     raft::device_matrix_view<const T, IdxT, row_major>,                          \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>>,        \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>>,                   \
     const raft::neighbors::ivf_pq::index<IdxT>&)                                 \
     ->raft::neighbors::ivf_pq::index<IdxT>;                                      \
                                                                                  \
   extern template void extend(                                                   \
     raft::device_resources const&,                                               \
     raft::device_matrix_view<const T, IdxT, row_major>,                          \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>>,        \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>>,                   \
     raft::neighbors::ivf_pq::index<IdxT>*);
 
 RAFT_DECL_BUILD_EXTEND(float, int64_t)
