@@ -457,8 +457,11 @@ if(RAFT_COMPILE_LIBRARY)
   )
 
   target_link_libraries(
-    raft_lib PUBLIC raft::raft ${RAFT_CUBLAS_DEPENDENCY}
-                    $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+    raft_lib
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                         # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"

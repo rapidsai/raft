@@ -104,6 +104,12 @@ outputs:
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
+        - libcurand {{ libcurand_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
+        - libcusolver {{ libcusolver_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
