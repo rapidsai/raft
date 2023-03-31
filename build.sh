@@ -505,7 +505,7 @@ fi
 # Initiate build for example RAFT application template (if needed)
 
 if hasArg template; then
-    pushd cpp/template
+    pushd ${REPODIR}/cpp/template
     ./build.sh
     popd
 fi

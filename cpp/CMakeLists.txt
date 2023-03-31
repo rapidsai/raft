@@ -84,7 +84,6 @@ include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
 # nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARY OFF )
 
-message(STATUS "RAFT: Using CUDA Math Library Dependencies: ${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}")
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
@@ -453,7 +452,10 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_lib PUBLIC raft::raft $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
+  target_link_libraries(
+    raft_lib PUBLIC raft::raft ${RAFT_CTK_MATH_DEPENDENCIES}
+                    $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -611,6 +613,7 @@ string(
   [=[
  option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
 mark_as_advanced(RAFT_ENABLE_CTK_MATH_DEPENDENCIES)
+message("RAFT: CUDA Toolkit Math dependencies enabled ${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}")
 target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:${RAFT_CTK_MATH_DEPENDENCIES}>)
 ]=]
 )
