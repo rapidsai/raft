@@ -16,20 +16,16 @@
 
 #pragma once
 
-// #include "search_core.cuh"
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-// #include <raft/neighbors/detail/cagra/cagra.hpp>
+#include <rmm/cuda_stream_view.hpp>
+
 #include "factory.cuh"
 #include "search_multi_cta.cuh"
 #include "search_multi_kernel.cuh"
+#include "search_plan.cuh"
 #include "search_single_cta.cuh"
-#include <raft/neighbors/detail/cagra/search_plan.cuh>
-
-// #include <raft/neighbors/detail/cagra/search_core.cuh>
-
-#include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::experimental::cagra::detail {
 

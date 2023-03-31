@@ -32,8 +32,6 @@
 
 #include <raft/util/cuda_rt_essentials.hpp>
 
-#include <raft/neighbors/detail/cagra/cagra.hpp>
-
 namespace raft::neighbors::experimental::cagra::detail {
 namespace graph {
 
