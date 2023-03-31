@@ -443,7 +443,6 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
@@ -492,7 +491,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     //
     constexpr unsigned min_block_size = 64;
     constexpr unsigned max_block_size = 1024;
-    block_size                        = thread_block_size;
+    uint32_t block_size               = thread_block_size;
     if (block_size == 0) {
       block_size = min_block_size;
 
@@ -571,6 +570,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     cudaStream_t stream = res.get_stream();
+    uint32_t block_size = thread_block_size;
 
     SET_MC_KERNEL;
     RAFT_CUDA_TRY(
@@ -582,6 +582,11 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
     dim3 block_dims(block_size, 1, 1);
     dim3 grid_dims(num_cta_per_query, num_queries, 1);
+    RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
+                   block_size,
+                   num_cta_per_query,
+                   num_queries,
+                   smem_size);
     kernel<<<grid_dims, block_dims, smem_size, stream>>>(intermediate_indices.data(),
                                                          intermediate_distances.data(),
                                                          dataset.data_handle(),
@@ -601,6 +606,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                                                          min_iterations,
                                                          max_iterations,
                                                          num_executed_iterations);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // Select the top-k results from the intermediate results
     const uint32_t num_intermediate_results = num_cta_per_query * itopk_size;

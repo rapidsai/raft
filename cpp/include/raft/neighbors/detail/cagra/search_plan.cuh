@@ -53,13 +53,14 @@ struct search_plan_impl_base : public search_params {
     while (max_dim < dim && max_dim <= 1024)
       max_dim *= 2;
     if (team_size == 0) {
-      switch (max_dim) {
-        case 128: team_size = 8; break;
-        case 256: team_size = 16; break;
-        case 512: team_size = 32; break;
-        case 1024: team_size = 32; break;
-        default: RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dim);
-      }
+      team_size = 32;
+      // switch (max_dim) {
+      //   case 128: team_size = 8; break;
+      //   case 256: team_size = 16; break;
+      //   case 512: team_size = 32; break;
+      //   case 1024: team_size = 32; break;
+      //   default: RAFT_LOG_DEBUG("[CAGRA Error]\nDataset dimension is too large (%lu)\n", dim);
+      // }
     }
   }
 };
@@ -75,7 +76,6 @@ struct search_plan_impl : public search_plan_impl_base {
   uint32_t result_buffer_size;
 
   uint32_t smem_size;
-  uint32_t block_size;
   uint32_t load_bit_lenght;
   uint32_t topk;
   uint32_t num_seeds;

@@ -521,7 +521,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
@@ -714,6 +713,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
         num_executed_iterations[i] = iter;
       }
     }
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

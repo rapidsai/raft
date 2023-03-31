@@ -951,7 +951,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
@@ -1120,12 +1119,14 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     cudaStream_t stream = res.get_stream();
-
+    uint32_t block_size = thread_block_size;
     SET_KERNEL;
     RAFT_CUDA_TRY(
       cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
     dim3 thread_dims(block_size, 1, 1);
     dim3 block_dims(1, num_queries, 1);
+    RAFT_LOG_DEBUG(
+      "Launching kernel with %u threads, %u block %lu smem", block_size, num_queries, smem_size);
     kernel<<<block_dims, thread_dims, smem_size, stream>>>(result_indices_ptr,
                                                            result_distances_ptr,
                                                            topk,
@@ -1148,6 +1149,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                                                            hash_bitlen,
                                                            small_hash_bitlen,
                                                            small_hash_reset_interval);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 };
 

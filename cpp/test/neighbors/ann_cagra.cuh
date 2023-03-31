@@ -24,13 +24,10 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 // #include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/random/rng.cuh>
-// #include <raft/spatial/knn/ann.cuh>
-// #include <raft/spatial/knn/knn.cuh>
-#include <raft/stats/mean.cuh>
 #include <raft/util/itertools.hpp>
 
-#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>
@@ -119,21 +116,20 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
 
-        cagra::index<DataT, IdxT> index(handle_);
-        if (ps.host_dataset) {
-          auto database_host = raft::make_host_matrix<DataT, IdxT>(ps.n_rows, ps.dim);
-          raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
-          auto database_host_view = raft::make_host_matrix_view<const DataT, IdxT>(
-            (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
-          index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
-        } else {
-          index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
+        {
+          cagra::index<DataT, IdxT> index(handle_);
+          if (ps.host_dataset) {
+            auto database_host = raft::make_host_matrix<DataT, IdxT>(ps.n_rows, ps.dim);
+            raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
+            auto database_host_view = raft::make_host_matrix_view<const DataT, IdxT>(
+              (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
+            index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
+          } else {
+            index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
+          };
+          cagra::serialize(handle_, "cagra_index", index);
         }
-        // rmm::device_uvector<IdxT> vector_indices(ps.n_rows, stream_);
-        // thrust::sequence(handle_.get_thrust_policy(),
-        //                  thrust::device_pointer_cast(vector_indices.data()),
-        //                  thrust::device_pointer_cast(vector_indices.data() + ps.n_rows));
-        // handle_.sync_stream(stream_);
+        auto index = cagra::deserialize<DataT, IdxT>(handle_, "cagra_index");
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
           search_queries.data(), ps.n_queries, ps.dim);
@@ -141,10 +137,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
           raft::make_device_matrix_view<IdxT, IdxT>(indices_dev.data(), ps.n_queries, ps.k);
         auto dists_out_view =
           raft::make_device_matrix_view<DistanceT, IdxT>(distances_dev.data(), ps.n_queries, ps.k);
-        // ivf_flat::detail::serialize(handle_, "cagra_index", index_2);
-
-        // auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_,
-        // "ivf_flat_index");
 
         cagra::search(
           handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
