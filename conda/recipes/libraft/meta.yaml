@@ -16,7 +16,7 @@ source:
   git_url: ../../..
 
 outputs:
-  - name: libraft-headers-impl
+  - name: libraft-headers-only
     version: {{ version }}
     script: build_libraft_headers.sh
     build:
@@ -55,7 +55,7 @@ outputs:
     about:
       home: https://rapids.ai/
       license: Apache-2.0
-      summary: libraft-headers-impl library
+      summary: libraft-headers-only library
   - name: libraft-headers
     version: {{ version }}
     build:
@@ -66,7 +66,7 @@ outputs:
         - librmm
     requirements:
       run:
-        - {{ pin_subpackage('libraft-headers-impl', exact=True) }}
+        - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cudatoolkit {{ cuda_version }}
         - librmm ={{ minor_version }}
