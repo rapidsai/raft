@@ -64,7 +64,7 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class DISTANCE_T, class INDEX_T>
+template <class DATA_T, class INDEX_T, class DISTANCE_T>
 struct search_plan_impl : public search_plan_impl_base {
   int64_t hash_bitlen;
 

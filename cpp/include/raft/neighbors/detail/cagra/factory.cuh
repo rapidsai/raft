@@ -40,54 +40,55 @@ class factory {
     switch (plan.max_dim) {
       case 128:
         switch (plan.team_size) {
-          case 4: return dispatch_kernel<T, IdxT, DistanceT, 128, 4>(res, plan); break;
-          case 8: return dispatch_kernel<T, IdxT, DistanceT, 128, 8>(res, plan); break;
-          case 16: return dispatch_kernel<T, IdxT, DistanceT, 128, 16>(res, plan); break;
-          case 32: return dispatch_kernel<T, IdxT, DistanceT, 128, 32>(res, plan); break;
+          case 4: return dispatch_kernel<128, 4>(res, plan); break;
+          case 8: return dispatch_kernel<128, 8>(res, plan); break;
+          case 16: return dispatch_kernel<128, 16>(res, plan); break;
+          case 32: return dispatch_kernel<128, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       case 256:
         switch (plan.team_size) {
-          case 8: return dispatch_kernel<T, IdxT, DistanceT, 256, 8>(res, plan); break;
-          case 16: return dispatch_kernel<T, IdxT, DistanceT, 256, 16>(res, plan); break;
-          case 32: return dispatch_kernel<T, IdxT, DistanceT, 256, 32>(res, plan); break;
+          case 8: return dispatch_kernel<256, 8>(res, plan); break;
+          case 16: return dispatch_kernel<256, 16>(res, plan); break;
+          case 32: return dispatch_kernel<256, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       case 512:
         switch (plan.team_size) {
-          case 16: return dispatch_kernel<T, IdxT, DistanceT, 512, 16>(res, plan); break;
-          case 32: return dispatch_kernel<T, IdxT, DistanceT, 512, 32>(res, plan); break;
+          case 16: return dispatch_kernel<512, 16>(res, plan); break;
+          case 32: return dispatch_kernel<512, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       case 1024:
         switch (plan.team_size) {
-          case 32: return dispatch_kernel<T, IdxT, DistanceT, 1024, 32>(res, plan); break;
+          case 32: return dispatch_kernel<1024, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       default: RAFT_LOG_DEBUG("Incorrect max_dim (%lu)\n", plan.max_dim);
     }
+    return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>>();
   }
 
  private:
   template <unsigned MAX_DATASET_DIM, unsigned TEAM_SIZE>
-  std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> dispatch_kernel(
+  static std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> dispatch_kernel(
     raft::device_resources const& res, search_plan_impl_base& plan)
   {
     if (plan.algo == search_algo::SINGLE_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>>(
-        new single_cta_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, DistanceT, IdxT>(
+        new single_cta_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT>(
           res, plan, plan.dim, plan.graph_degree, plan.topk));
     } else if (plan.algo == search_algo::MULTI_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>>(
-        new multi_cta_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, DistanceT, IdxT>(
+        new multi_cta_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT>(
           res, plan, plan.dim, plan.graph_degree, plan.topk));
     } else {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>>(
-        new multi_kernel_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, DistanceT, IdxT>(
+        new multi_kernel_search::search<TEAM_SIZE, MAX_DATASET_DIM, T, IdxT, DistanceT>(
           res, plan, plan.dim, plan.graph_degree, plan.topk));
     }
   }

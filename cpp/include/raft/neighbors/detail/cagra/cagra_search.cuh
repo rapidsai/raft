@@ -71,21 +71,21 @@ void search_main(raft::device_resources const& res,
   std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> plan =
     factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
 
-  plan.check(neighbors.extent(1));
-  // // Allocate memory for stats
-  // if (plan.num_executed_iterations.size() < queries.extent(0)) {
-  //   plan.num_executed_iterations.resize(queries.extent(0), res.get_stream())
+  plan->check(neighbors.extent(1));
+  // // Allocate memory for stats -  not used currently
+  // if (plan->num_executed_iterations.size() < queries.extent(0)) {
+  //   plan->num_executed_iterations.resize(queries.extent(0), res.get_stream())
   // }
 
   RAFT_LOG_DEBUG("Cagra search");
-  uint32_t max_queries = plan.max_queries;
+  uint32_t max_queries = plan->max_queries;
   uint32_t query_dim   = index.dim();
 
   for (unsigned qid = 0; qid < queries.extent(0); qid += max_queries) {
     const uint32_t n_queries = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
     IdxT* _topk_indices_ptr  = neighbors.data_handle() + (topk * qid);
     DistanceT* _topk_distances_ptr =
-      distances.data_handel() +
+      distances.data_handle() +
       (topk * qid);  // todo(tfeher): one could keep distances optional and pass nullptr
     const T* _query_ptr = queries.data_handle() + (query_dim * qid);
     const IdxT* _seed_ptr =

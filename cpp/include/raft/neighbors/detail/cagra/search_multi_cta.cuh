@@ -409,47 +409,47 @@ void set_value_batch(T* const dev_ptr,
 
 template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
-          class DATA_T,
-          class DISTANCE_T,
-          class INDEX_T>
+          typename DATA_T,
+          typename INDEX_T,
+          typename DISTANCE_T>
 
-struct search : public search_plan_impl<DATA_T, DISTANCE_T, INDEX_T> {
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_queries;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::itopk_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::algo;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::team_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_parents;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::min_iterations;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_iterations;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::load_bit_length;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::thread_block_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_mode;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_min_bitlen;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_max_fill_rate;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_random_samplings;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::rand_xor_mask;
+struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_queries;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_length;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_max_fill_rate;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_random_samplings;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_dim;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dim;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::graph_degree;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::topk;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::graph_degree;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::topk;
 
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hash_bitlen;
 
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::small_hash_bitlen;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::small_hash_reset_interval;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dataset_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::result_buffer_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_reset_interval;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dataset_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::smem_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::block_size;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::load_bit_lenght;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::block_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_executed_iterations;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dev_seed;
-  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_seeds;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dev_seed;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
 
   uint32_t num_cta_per_query;
   rmm::device_uvector<uint32_t> intermediate_indices;
@@ -462,7 +462,7 @@ struct search : public search_plan_impl<DATA_T, DISTANCE_T, INDEX_T> {
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>(res, params, dim, graph_degree, topk),
+    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk),
       intermediate_indices(0, res.get_stream()),
       intermediate_distances(0, res.get_stream()),
       topk_workspace(0, res.get_stream())

@@ -313,7 +313,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/cagra/search_uint8_t_dim256_t8.cu
     src/neighbors/cagra/search_uint8_t_dim512_t16.cu
     src/neighbors/cagra/search_uint8_t_dim512_t32.cu
-    # src/neighbors/cagra/topk.cu
+    src/neighbors/cagra/topk.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu

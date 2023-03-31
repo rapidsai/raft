@@ -21,11 +21,11 @@
 #include "raft/neighbors/detail/cagra/search_single_cta.cuh"
 
 namespace raft::neighbors::experimental::cagra::detail::single_cta_search {
-template struct search<16, 128, float, float, uint32_t>;
+template struct search<16, 128, float, uint32_t, float>;
 }
 namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
-template struct search<16, 128, float, float, uint32_t>;
+template struct search<16, 128, float, uint32_t, float>;
 }
 namespace raft::neighbors::experimental::cagra::detail::multi_kernel_search {
-template struct search<16, 128, float, float, uint32_t>;
+template struct search<16, 128, float, uint32_t, float>;
 }

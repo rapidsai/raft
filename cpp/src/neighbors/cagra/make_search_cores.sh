@@ -49,13 +49,13 @@ for max_dataset_dim in 128 256 512 1024 ; do
 #include \"raft/neighbors/detail/cagra/search_multi_kernel.cuh\"
 
 namespace raft::neighbors::experimental::cagra::detail::single_cta_search {
-  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, float, uint32_t>;
+  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, uint32_t, float>;
 }
 namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
-  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, float, uint32_t>;
+  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, uint32_t, float>;
 }
 namespace raft::neighbors::experimental::cagra::detail::multi_kernel_search {
-  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, float, uint32_t>;
+  template struct search<${team_size}, ${max_dataset_dim}, ${dtype}, uint32_t, float>;
 }
 " > search_${dtype}_dim${max_dataset_dim}_t${team_size}.cu
     done
