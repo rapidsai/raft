@@ -61,7 +61,8 @@ if(NOT raft_FOUND)
   include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
 
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
+  set(BUILD_PRIMS_BENCH OFF)
+  set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
 
   set(_exclude_from_all "")
