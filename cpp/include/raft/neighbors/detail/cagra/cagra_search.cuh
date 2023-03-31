@@ -68,10 +68,6 @@ void search_main(raft::device_resources const& res,
     factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
 
   plan->check(neighbors.extent(1));
-  // // Allocate memory for stats -  not used currently
-  // if (plan->num_executed_iterations.size() < queries.extent(0)) {
-  //   plan->num_executed_iterations.resize(queries.extent(0), res.get_stream())
-  // }
 
   RAFT_LOG_DEBUG("Cagra search");
   uint32_t max_queries = plan->max_queries;

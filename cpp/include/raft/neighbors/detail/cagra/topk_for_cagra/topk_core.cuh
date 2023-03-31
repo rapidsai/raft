@@ -589,12 +589,13 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
 
 #ifdef CUANN_DEBUG
   if (thread_id == 0 && output_count[0] < topk) {
-    RAFT_LOG_DEBUG("# i_batch:%d, topk:%d, output_count:%d, nx_below_threshold:%d, threshold:%08x\n",
-           i_batch,
-           topk,
-           output_count[0],
-           nx_below_threshold,
-           threshold);
+    RAFT_LOG_DEBUG(
+      "# i_batch:%d, topk:%d, output_count:%d, nx_below_threshold:%d, threshold:%08x\n",
+      i_batch,
+      topk,
+      output_count[0],
+      nx_below_threshold,
+      threshold);
   }
 #endif
 
