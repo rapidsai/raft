@@ -338,6 +338,17 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
     ASSERT_TRUE(devArrMatch(
       old_list->data.data_handle(), new_list->data.data_handle(), n_rows, Compare<uint8_t>{}));
+
+    // Pack a few vectors back to the list.
+    int row_offset = 9;
+    int n_vec      = 3;
+    ASSERT_TRUE(row_offset + n_vec < n_rows);
+    size_t offset      = row_offset * index->pq_dim();
+    auto codes_to_pack = make_device_matrix_view<const uint8_t, uint32_t>(
+      codes.data_handle() + offset, n_vec, index->pq_dim());
+    ivf_pq::helpers::pack_list_data(handle_, index, codes_to_pack, label, row_offset);
+    ASSERT_TRUE(devArrMatch(
+      old_list->data.data_handle(), new_list->data.data_handle(), n_rows, Compare<uint8_t>{}));
   }
 
   template <typename BuildIndex>

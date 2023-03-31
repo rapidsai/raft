@@ -30,6 +30,40 @@ namespace raft::neighbors::ivf_pq::helpers {
  */
 
 /**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * The list is identified by its label.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // We will write into the 137th cluster
+ *   uint32_t label = 137;
+ *   // allocate the buffer for the input codes
+ *   auto codes = raft::make_device_matrix<float>(res, n_vec, index.pq_dim());
+ *   ... prepare n_vecs to pack into the list in codes ...
+ *   // write codes into the list starting from the 42nd position
+ *   ivf_pq::helpers::pack_list_data(res, &index, codes_to_pack, label, 42);
+ * @endcode
+ *
+ * @param[in] res
+ * @param[inout] index IVF-PQ index.
+ * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] label The id of the list (cluster) into which we write.
+ * @param[in] offset how many records to skip before writing the data into the list
+ */
+template <typename IdxT>
+void pack_list_data(raft::device_resources const& res,
+                    index<IdxT>* index,
+                    device_matrix_view<const uint8_t, uint32_t, row_major> codes,
+                    uint32_t label,
+                    uint32_t offset)
+{
+  ivf_pq::detail::pack_list_data(res, index, codes, label, offset);
+}
+
+/**
  * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
  * starting at given `offset`, one code per byte (independently of pq_bits).
  *
