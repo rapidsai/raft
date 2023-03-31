@@ -55,7 +55,9 @@ function(ConfigureBench)
                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  target_include_directories(${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>")
+  target_include_directories(
+    ${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench/prims>"
+  )
 
   install(
     TARGETS ${BENCH_NAME}
@@ -66,7 +68,7 @@ function(ConfigureBench)
 
 endfunction()
 
-if(BUILD_BENCH)
+if(BUILD_PRIMS_BENCH)
   ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
     bench/prims/main.cpp OPTIONAL LIB
