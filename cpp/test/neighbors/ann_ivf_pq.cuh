@@ -215,8 +215,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
     auto vecs_1_view =
       raft::make_device_matrix_view<DataT, IdxT, row_major>(vecs_1, size_1, ps.dim);
-    auto inds_1_view =
-      raft::make_device_vector_view<const IdxT, IdxT>(inds_1, size_1);
+    auto inds_1_view = raft::make_device_vector_view<const IdxT, IdxT>(inds_1, size_1);
     ivf_pq::extend<DataT, IdxT>(handle_, vecs_1_view, inds_1_view, &idx);
     return idx;
   }

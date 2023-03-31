@@ -29,7 +29,11 @@ from libcpp.string cimport string
 
 from rmm._lib.memory_resource cimport device_memory_resource
 
-from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
+from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
+    device_vector_view,
+    row_major
+)
 from pylibraft.common.handle cimport device_resources
 from pylibraft.common.optional cimport optional
 from pylibraft.distance.distance_type cimport DistanceType
@@ -126,19 +130,19 @@ cdef extern from "raft_runtime/neighbors/ivf_pq.hpp" \
     cdef void extend(
         const device_resources& handle,
         device_matrix_view[float, int64_t, row_major] new_vectors,
-        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        optional[device_vector_view[int64_t, int64_t]] new_indices,
         index[int64_t]* index) except +
 
     cdef void extend(
         const device_resources& handle,
         device_matrix_view[int8_t, int64_t, row_major] new_vectors,
-        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        optional[device_vector_view[int64_t, int64_t]] new_indices,
         index[int64_t]* index) except +
 
     cdef void extend(
         const device_resources& handle,
         device_matrix_view[uint8_t, int64_t, row_major] new_vectors,
-        optional[device_matrix_view[int64_t, int64_t, row_major]] new_indices,
+        optional[device_vector_view[int64_t, int64_t]] new_indices,
         index[int64_t]* index) except +
 
     cdef void search(
