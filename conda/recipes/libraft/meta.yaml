@@ -71,9 +71,9 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
         - libcurand {{ libcurand_host_version }}
@@ -155,9 +155,9 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
@@ -214,9 +214,9 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
@@ -276,9 +276,9 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
@@ -336,9 +336,9 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
