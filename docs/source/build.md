@@ -155,12 +155,13 @@ RAFT's cmake has the following configurable flags available:.
 |---------------------------------|----------------------| --- |------------------------------------------------------------------------------|
 | BUILD_TESTS                     | ON, OFF              | ON | Compile Googletests                                                          |
 | BUILD_PRIMS_BENCH                     | ON, OFF              | OFF | Compile benchmarks                                                           |
+| BUILD_ANN_BENCH               | ON, OFF              | OFF | Compile end-to-end ANN benchmarks |
+| RAFT_COMPILE_LIBRARY      | ON, OFF              | ON if either BUILD_TESTS or BUILD_PRIMS_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | raft_FIND_COMPONENTS            | compiled distributed | | Configures the optional components as a space-separated list                 |
 | RAFT_ENABLE_CUBLAS_DEPENDENCY   | ON, OFF | ON | Link against cublas library in `raft::raft`                                  | 
 | RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF | ON | Link against cusolver library in `raft::raft`                                | 
 | RAFT_ENABLE_CUSPARSE_DEPENDENCY | ON, OFF | ON | Link against cusparse library in `raft::raft`                                | 
 | RAFT_ENABLE_CUSOLVER_DEPENDENCY | ON, OFF | ON | Link against curand library in `raft::raft`                                  | 
-| RAFT_COMPILE_LIBRARY            | ON, OFF              | ON if either BUILD_TESTS or BUILD_PRIMS_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | DETECT_CONDA_ENV                | ON, OFF              | ON | Enable detection of conda environment for dependencies                       |
 | RAFT_NVTX                       | ON, OFF              | OFF | Enable NVTX Markers                                                          |
 | CUDA_ENABLE_KERNELINFO          | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer`         |
