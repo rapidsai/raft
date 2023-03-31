@@ -16,11 +16,15 @@
 
 #pragma once
 
-#include "search_core.cuh"
+// #include "search_core.cuh"
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <raft/neighbors/detail/cagra/cagra.hpp>
+// #include <raft/neighbors/detail/cagra/cagra.hpp>
+#include "factory.cuh"
+#include "search_multi_cta.cuh"
+#include "search_multi_kernel.cuh"
+#include "search_single_cta.cuh"
 #include <raft/neighbors/detail/cagra/search_plan.cuh>
 
 // #include <raft/neighbors/detail/cagra/search_core.cuh>
@@ -47,13 +51,13 @@ namespace raft::neighbors::experimental::cagra::detail {
  * k]
  */
 
-template <typename T, typename IdxT>
-void search_main(raft::device_resources const& handle,
+template <typename T, typename IdxT = uint32_t, typename DistanceT = float>
+void search_main(raft::device_resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
                  raft::device_matrix_view<const T, IdxT, row_major> queries,
                  raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-                 raft::device_matrix_view<float, IdxT, row_major> distances)
+                 raft::device_matrix_view<DistanceT, IdxT, row_major> distances)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -62,63 +66,44 @@ void search_main(raft::device_resources const& handle,
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
   RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
+  uint32_t topk = queries.extent(1);
 
-  search_plan splan(handle, params, index.dim(), index.graph_degree());
-  const std::uint32_t topk = neighbors.extent(1);
-  splan.check(topk);
+  std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> plan =
+    factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
 
-  params                  = splan.plan;
-  const std::string dtype = "float";  // tamas remove
-  // Allocate memory for stats
-  std::uint32_t* num_executed_iterations = nullptr;
-  RAFT_CUDA_TRY(
-    cudaMallocHost(&num_executed_iterations, sizeof(std::uint32_t) * queries.extent(0)));
+  plan.check(neighbors.extent(1));
+  // // Allocate memory for stats
+  // if (plan.num_executed_iterations.size() < queries.extent(0)) {
+  //   plan.num_executed_iterations.resize(queries.extent(0), res.get_stream())
+  // }
 
-  RAFT_LOG_INFO("Creating plan");
-  // Create search plan
-  void* plan;
-  create_plan_dispatch(&plan,
-                       dtype,
-                       params.team_size,
-                       params.search_mode,
-                       topk,
-                       params.itopk_size,
-                       params.num_parents,
-                       params.min_iterations,
-                       params.max_iterations,
-                       params.max_queries,
-                       params.load_bit_length,
-                       params.thread_block_size,
-                       params.hashmap_mode,
-                       params.hashmap_min_bitlen,
-                       params.hashmap_max_fill_rate,
-                       index.dataset().extent(0),
-                       index.dim(),
-                       index.graph_degree(),
-                       (void*)index.dataset().data_handle(),
-                       index.graph().data_handle());
+  RAFT_LOG_DEBUG("Cagra search");
+  uint32_t max_queries = plan.max_queries;
+  uint32_t query_dim   = index.dim();
 
-  // Search
-  IdxT* dev_seed_ptr = nullptr;
-  uint32_t num_seeds = 0;
+  for (unsigned qid = 0; qid < queries.extent(0); qid += max_queries) {
+    const uint32_t n_queries = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
+    IdxT* _topk_indices_ptr  = neighbors.data_handle() + (topk * qid);
+    DistanceT* _topk_distances_ptr =
+      distances.data_handel() +
+      (topk * qid);  // todo(tfeher): one could keep distances optional and pass nullptr
+    const T* _query_ptr = queries.data_handle() + (query_dim * qid);
+    const IdxT* _seed_ptr =
+      plan->num_seeds > 0 ? plan->dev_seed.data() + (plan->num_seeds * qid) : nullptr;
+    uint32_t* _num_executed_iterations = nullptr;
 
-  RAFT_LOG_INFO("Cagra search");
-  search_dispatch(plan,
-                  neighbors.data_handle(),
-                  distances.data_handle(),
-                  (void*)queries.data_handle(),
-                  queries.extent(0),
-                  params.num_random_samplings,
-                  params.rand_xor_mask,
-                  dev_seed_ptr,
-                  num_seeds,
-                  num_executed_iterations,
-                  0);
-
-  // Destroy search plan
-  destroy_plan_dispatch(plan);
+    (*plan)(res,
+            index.dataset(),
+            index.graph(),
+            _topk_indices_ptr,
+            _topk_distances_ptr,
+            _query_ptr,
+            n_queries,
+            _seed_ptr,
+            _num_executed_iterations,
+            topk);
+  }
 }
-
 /** @} */  // end group cagra
 
 }  // namespace raft::neighbors::experimental::cagra::detail

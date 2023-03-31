@@ -24,7 +24,6 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
-// #include <raft/neighbors/detail/cagra/search_plan.cuh>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -59,12 +58,14 @@ struct search_params : ann::search_params {
   /** Number of intermediate search results retained during the search. */
   size_t itopk_size = 64;
 
+  search_algo algo = search_algo::AUTO;
+
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
   /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
-  std::string search_mode = "auto";  // todo remove
+  //  std::string search_mode = "auto";  // todo remove
   /** Number of search results for each query. */
-  size_t topk = 10;  // todo remove
+  // size_t topk = 10;  // todo remove
 
   /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
@@ -89,8 +90,6 @@ struct search_params : ann::search_params {
   uint32_t num_random_samplings = 1;
   // Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
-
-  search_algo algo = search_algo::AUTO;
 };
 
 static_assert(std::is_aggregate_v<index_params>);

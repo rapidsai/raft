@@ -16,6 +16,7 @@
 #pragma once
 
 #include "device_common.hpp"
+#include "hashmap.hpp"
 #include "utils.hpp"
 #include <type_traits>
 

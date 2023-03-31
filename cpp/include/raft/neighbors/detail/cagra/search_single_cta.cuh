@@ -19,13 +19,16 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 #include "bitonic.hpp"
 #include "compute_distance.hpp"
 #include "device_common.hpp"
 #include "hashmap.hpp"
-#include "search_common.hpp"
+#include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk
 #include "utils.hpp"
 #include <raft/core/logger.hpp>
@@ -918,88 +921,71 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-struct search : search_common {
-  const uint32_t topk;
-  const uint32_t itopk_size;
-  const uint32_t num_parents;
-  const uint32_t max_queries;
-  const uint32_t min_iterations;
-  const uint32_t max_iterations;
-  const uint32_t dataset_size;
-  const uint32_t dataset_dim;
-  const uint32_t graph_degree;
-  const uint32_t hash_bitlen;
-  const DATA_T* const dataset_ptr;  // [dataset_size, dataset_dim]
-  const INDEX_T* const graph_ptr;   // [dataset_size, graph_degree]
+struct search : search_plan_impl<DATA_T, DISTANCE_T, INDEX_T> {
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_queries;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::itopk_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::algo;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::team_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_parents;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::min_iterations;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_iterations;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::load_bit_length;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::thread_block_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_mode;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_min_bitlen;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_max_fill_rate;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_random_samplings;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::rand_xor_mask;
 
-  const uint32_t small_hash_bitlen;
-  const uint32_t small_hash_reset_interval;
-  bool _enabled;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::max_dim;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dim;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::graph_degree;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::topk;
 
-  uint32_t smem_size;
-  uint32_t result_buffer_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hash_bitlen;
+
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::small_hash_bitlen;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::small_hash_reset_interval;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dataset_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::result_buffer_size;
+
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::smem_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::block_size;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::load_bit_lenght;
+
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::hashmap;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_executed_iterations;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::dev_seed;
+  using search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>::num_seeds;
+
   uint32_t num_itopk_candidates;
-  uint32_t block_size;
-  uint32_t load_bit_length;
-  uint32_t* hashmap_ptr;  // [max_queries, 1 << hash_bitlen]
 
-  search(const std::string search_mode,
-         const uint32_t topk,
-         const uint32_t itopk_size,
-         const uint32_t num_parents,
-         const uint32_t max_queries,
-         const uint32_t min_iterations,
-         const uint32_t max_iterations,
-         const uint32_t dataset_size,
-         const uint32_t dataset_dim,
-         const uint32_t graph_degree,
-         const uint32_t hash_bitlen,
-         const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
-         const INDEX_T* const graph_ptr,   // [dataset_size, graph_degree]
-         const uint32_t small_hash_bitlen,
-         const uint32_t small_hash_reset_interval,
-         const uint32_t set_load_bit_length,
-         const uint32_t set_block_size)
-    : topk(topk),
-      itopk_size(itopk_size),
-      num_parents(num_parents),
-      max_queries(max_queries),
-      min_iterations(min_iterations),
-      max_iterations(max_iterations),
-      dataset_size(dataset_size),
-      dataset_dim(dataset_dim),
-      graph_degree(graph_degree),
-      hash_bitlen(hash_bitlen),
-      dataset_ptr(dataset_ptr),
-      graph_ptr(graph_ptr),
-      small_hash_bitlen(small_hash_bitlen),
-      small_hash_reset_interval(small_hash_reset_interval)
+  search(raft::device_resources const& res,
+         search_params params,
+         int64_t dim,
+         int64_t graph_degree,
+         uint32_t topk)
+    : search_plan_impl<DATA_T, DISTANCE_T, INDEX_T>(res, params, dim, graph_degree, topk)
   {
-    _algo            = search_algo_t::SINGLE_CTA;
-    _team_size       = TEAM_SIZE;
-    _max_dataset_dim = MAX_DATASET_DIM;
-    _dtype           = utils::get_cuda_data_type<DATA_T>();
-    _topk            = topk;
-    _max_queries     = max_queries;
-    _dataset_dim     = dataset_dim;
+    set_params(res);
+  }
 
-    _enabled = false;
-    if (search_mode != "single-cta") { return; }
-    _enabled = true;
-    assert(topk <= itopk_size);
-    assert(dataset_dim <= MAX_DATASET_DIM);
+  ~search() {}
 
-    num_itopk_candidates           = num_parents * graph_degree;
-    result_buffer_size             = itopk_size + num_itopk_candidates;
-    unsigned result_buffer_size_32 = result_buffer_size;
-    if (result_buffer_size % 32) { result_buffer_size_32 += 32 - (result_buffer_size % 32); }
+  inline void set_params(raft::device_resources const& res)
+  {
+    num_itopk_candidates = num_parents * graph_degree;
+    result_buffer_size   = itopk_size + num_itopk_candidates;
+
+    typedef raft::Pow2<32> AlignBytes;
+    unsigned result_buffer_size_32 = AlignBytes::roundUp(result_buffer_size);
+
     constexpr unsigned max_itopk = 512;
-    assert(itopk_size <= max_itopk);
+    RAFT_EXPECTS(itopk_size <= max_itopk, "itopk_size cannot be larger than %u", max_itopk);
 
-    RAFT_LOG_DEBUG("# num_itopk_candidates: %u\n", num_itopk_candidates);
-    RAFT_LOG_DEBUG("# num_itopk: %u\n", itopk_size);
-    // RAFT_LOG_DEBUG( "# max_itopk: %u\n", max_itopk );
-
+    RAFT_LOG_DEBUG("# num_itopk_candidates: %u", num_itopk_candidates);
+    RAFT_LOG_DEBUG("# num_itopk: %u", itopk_size);
     //
     // Determine the thread block size
     //
@@ -1009,8 +995,7 @@ struct search : search_common {
     //
     const std::uint32_t topk_ws_size = 3;
     const std::uint32_t base_smem_size =
-      sizeof(float) * MAX_DATASET_DIM +
-      (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
+      sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
       sizeof(std::uint32_t) * hashmap::get_size(small_hash_bitlen) +
       sizeof(std::uint32_t) * num_parents + sizeof(std::uint32_t) * topk_ws_size +
       sizeof(std::uint32_t);
@@ -1024,10 +1009,9 @@ struct search : search_common {
         smem_size += topk_by_radix_sort<512, max_block_size>::smem_size * sizeof(std::uint32_t);
       }
     }
-    //
-    if (set_block_size != 0) {
-      block_size = set_block_size;
-    } else {
+
+    uint32_t block_size = thread_block_size;
+    if (block_size == 0) {
       block_size = min_block_size;
 
       if (num_itopk_candidates > 256) {
@@ -1051,38 +1035,43 @@ struct search : search_common {
 
       // Increase block size to improve GPU occupancy when batch size
       // is small, that is, number of queries is low.
-      cudaDeviceProp deviceProp;
-      RAFT_CUDA_TRY(cudaGetDeviceProperties(&deviceProp, 0));
-      RAFT_LOG_DEBUG("# multiProcessorCount: %d\n", deviceProp.multiProcessorCount);
+      cudaDeviceProp deviceProp = res.get_device_properties();
+      RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
-             (graph_degree * num_parents * TEAM_SIZE >= block_size * 2) &&
+             (graph_degree * num_parents * team_size >= block_size * 2) &&
              (max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
         block_size *= 2;
       }
     }
-    RAFT_LOG_DEBUG("# thread_block_size: %u\n", block_size);
-    assert(block_size >= min_block_size);
-    assert(block_size <= max_block_size);
+    RAFT_LOG_DEBUG("# thread_block_size: %u", block_size);
+    RAFT_EXPECTS(block_size >= min_block_size,
+                 "block_size cannot be smaller than min_block size, %u",
+                 min_block_size);
+    RAFT_EXPECTS(block_size <= max_block_size,
+                 "block_size cannot be larger than max_block size %u",
+                 max_block_size);
+    thread_block_size = block_size;
 
     // Determine load bit length
-    const uint32_t total_bit_length = dataset_dim * sizeof(DATA_T) * 8;
-    load_bit_length                 = set_load_bit_length;
+    const uint32_t total_bit_length = dim * sizeof(DATA_T) * 8;
     if (load_bit_length == 0) {
       load_bit_length = 128;
       while (total_bit_length % load_bit_length) {
         load_bit_length /= 2;
       }
     }
-    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)\n",
+    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)",
                    load_bit_length,
                    total_bit_length / load_bit_length);
-    assert(total_bit_length % load_bit_length == 0);
-    assert(load_bit_length >= 64);
+    RAFT_EXPECTS(total_bit_length % load_bit_length == 0,
+                 "load_bit_length must be a divisor of dim*sizeof(data_t)*8=%u",
+                 total_bit_length);
+    RAFT_EXPECTS(load_bit_length >= 64, "load_bit_lenght cannot be less than 64");
 
     if (num_itopk_candidates <= 256) {
-      RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used\n");
+      RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used");
     } else {
-      RAFT_LOG_DEBUG("# radix-sort based topk routine is used\n");
+      RAFT_LOG_DEBUG("# radix-sort based topk routine is used");
       smem_size = base_smem_size;
       if (itopk_size <= 256) {
         constexpr unsigned MAX_ITOPK = 256;
@@ -1110,68 +1099,55 @@ struct search : search_common {
         }
       }
     }
-    RAFT_LOG_DEBUG("# smem_size: %u\n", smem_size);
-    // RAFT_LOG_DEBUG( "# hash_bitlen: %u\n", hash_bitlen );
-    // RAFT_LOG_DEBUG( "# small_hash_bitlen: %u\n", small_hash_bitlen );
+    RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
+    hashmap_size = 0;
+    if (small_hash_bitlen == 0) {
+      hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+      hashmap.resize(hashmap_size, res.get_stream());
+    }
+    RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);
+  }
+
+  void operator()(raft::device_resources const& res,
+                  raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+                  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                  INDEX_T* const result_indices_ptr,       // [num_queries, topk]
+                  DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
+                  const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
+                  const std::uint32_t num_queries,
+                  const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
+                  std::uint32_t* const num_executed_iterations,  // [num_queries]
+                  uint32_t topk)
+  {
+    cudaStream_t stream = res.get_stream();
 
     SET_KERNEL;
     RAFT_CUDA_TRY(
       cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-
-    size_t hashmap_size = 0;
-    hashmap_ptr         = nullptr;
-    if (small_hash_bitlen == 0) {
-      hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
-      RAFT_CUDA_TRY(cudaMalloc(&hashmap_ptr, hashmap_size));
-    }
-    RAFT_LOG_DEBUG("# hashmap_size: %lu\n", hashmap_size);
-  }
-
-  ~search()
-  {
-    if (!_enabled) return;
-
-    if (hashmap_ptr) { RAFT_CUDA_TRY_NO_THROW(cudaFree(hashmap_ptr)); }
-  }
-
-  void operator()(INDEX_T* const result_indices_ptr,       // [num_queries, topk]
-                  DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
-                  const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
-                  const std::uint32_t num_queries,
-                  const std::uint32_t num_distilation,
-                  const std::uint64_t rand_xor_mask,
-                  const INDEX_T* dev_seed_ptr,  // [num_queries, num_seeds]
-                  const uint32_t num_seeds,
-                  std::uint32_t* const num_executed_iterations,  // [num_queries]
-                  cudaStream_t cuda_stream = 0)
-  {
-    assert(num_queries <= max_queries);
-
-    SET_KERNEL;
     dim3 thread_dims(block_size, 1, 1);
     dim3 block_dims(1, num_queries, 1);
-    kernel<<<block_dims, thread_dims, smem_size, cuda_stream>>>(result_indices_ptr,
-                                                                result_distances_ptr,
-                                                                topk,
-                                                                dataset_ptr,
-                                                                dataset_dim,
-                                                                dataset_size,
-                                                                queries_ptr,
-                                                                graph_ptr,
-                                                                graph_degree,
-                                                                num_distilation,
-                                                                rand_xor_mask,
-                                                                dev_seed_ptr,
-                                                                num_seeds,
-                                                                hashmap_ptr,
-                                                                itopk_size,
-                                                                num_parents,
-                                                                min_iterations,
-                                                                max_iterations,
-                                                                num_executed_iterations,
-                                                                hash_bitlen,
-                                                                small_hash_bitlen,
-                                                                small_hash_reset_interval);
+    kernel<<<block_dims, thread_dims, smem_size, stream>>>(result_indices_ptr,
+                                                           result_distances_ptr,
+                                                           topk,
+                                                           dataset.data_handle(),
+                                                           dataset.extent(1),
+                                                           dataset.extent(0),
+                                                           queries_ptr,
+                                                           graph.data_handle(),
+                                                           graph.extent(1),
+                                                           num_random_samplings,
+                                                           rand_xor_mask,
+                                                           dev_seed_ptr,
+                                                           num_seeds,
+                                                           hashmap.data(),
+                                                           itopk_size,
+                                                           num_parents,
+                                                           min_iterations,
+                                                           max_iterations,
+                                                           num_executed_iterations,
+                                                           hash_bitlen,
+                                                           small_hash_bitlen,
+                                                           small_hash_reset_interval);
   }
 };
 

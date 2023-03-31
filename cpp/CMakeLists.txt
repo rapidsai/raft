@@ -273,53 +273,47 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/cagra/prune.cu
     src/neighbors/cagra/build_float_uint32_device.cu
     src/neighbors/cagra/build_float_uint32_host.cu
-    # src/neighbors/cagra/build_int8_uint32_device.cu
-    # src/neighbors/cagra/build_int8_uint32_host.cu
-    # src/neighbors/cagra/build_uint8_uint32_device.cu
-    # src/neighbors/cagra/build_uint8_uint32_host.cu
-    # src/neighbors/cagra/search_float_uint32.cu
-    src/neighbors/cagra/search_core.cu
-    src/neighbors/cagra/search_core_float_dim1024_t32.cu
-    src/neighbors/cagra/search_core_float_dim128_t16.cu
-    src/neighbors/cagra/search_core_float_dim128_t32.cu
-    src/neighbors/cagra/search_core_float_dim128_t4.cu
-    src/neighbors/cagra/search_core_float_dim128_t8.cu
-    src/neighbors/cagra/search_core_float_dim256_t16.cu
-    src/neighbors/cagra/search_core_float_dim256_t32.cu
-    src/neighbors/cagra/search_core_float_dim256_t8.cu
-    src/neighbors/cagra/search_core_float_dim512_t16.cu
-    src/neighbors/cagra/search_core_float_dim512_t32.cu
-    # src/neighbors/cagra/search_core_half_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_half_dim128_t16.cu
-    # src/neighbors/cagra/search_core_half_dim128_t32.cu
-    # src/neighbors/cagra/search_core_half_dim128_t4.cu
-    # src/neighbors/cagra/search_core_half_dim128_t8.cu
-    # src/neighbors/cagra/search_core_half_dim256_t16.cu
-    # src/neighbors/cagra/search_core_half_dim256_t32.cu
-    # src/neighbors/cagra/search_core_half_dim256_t8.cu
-    # src/neighbors/cagra/search_core_half_dim512_t16.cu
-    # src/neighbors/cagra/search_core_half_dim512_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t4.cu
-    # src/neighbors/cagra/search_core_int8_t_dim128_t8.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t32.cu
-    # src/neighbors/cagra/search_core_int8_t_dim256_t8.cu
-    # src/neighbors/cagra/search_core_int8_t_dim512_t16.cu
-    # src/neighbors/cagra/search_core_int8_t_dim512_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim1024_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t4.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim128_t8.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t32.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim256_t8.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim512_t16.cu
-    # src/neighbors/cagra/search_core_uint8_t_dim512_t32.cu
-    src/neighbors/cagra/topk.cu
+    src/neighbors/cagra/search_float_dim1024_t32.cu
+    src/neighbors/cagra/search_float_dim128_t16.cu
+    src/neighbors/cagra/search_float_dim128_t32.cu
+    src/neighbors/cagra/search_float_dim128_t4.cu
+    src/neighbors/cagra/search_float_dim128_t8.cu
+    src/neighbors/cagra/search_float_dim256_t16.cu
+    src/neighbors/cagra/search_float_dim256_t32.cu
+    src/neighbors/cagra/search_float_dim256_t8.cu
+    src/neighbors/cagra/search_float_dim512_t16.cu
+    src/neighbors/cagra/search_float_dim512_t32.cu
+    src/neighbors/cagra/search_half_dim1024_t32.cu
+    src/neighbors/cagra/search_half_dim128_t16.cu
+    src/neighbors/cagra/search_half_dim128_t32.cu
+    src/neighbors/cagra/search_half_dim128_t4.cu
+    src/neighbors/cagra/search_half_dim128_t8.cu
+    src/neighbors/cagra/search_half_dim256_t16.cu
+    src/neighbors/cagra/search_half_dim256_t32.cu
+    src/neighbors/cagra/search_half_dim256_t8.cu
+    src/neighbors/cagra/search_half_dim512_t16.cu
+    src/neighbors/cagra/search_half_dim512_t32.cu
+    src/neighbors/cagra/search_int8_t_dim1024_t32.cu
+    src/neighbors/cagra/search_int8_t_dim128_t16.cu
+    src/neighbors/cagra/search_int8_t_dim128_t32.cu
+    src/neighbors/cagra/search_int8_t_dim128_t4.cu
+    src/neighbors/cagra/search_int8_t_dim128_t8.cu
+    src/neighbors/cagra/search_int8_t_dim256_t16.cu
+    src/neighbors/cagra/search_int8_t_dim256_t32.cu
+    src/neighbors/cagra/search_int8_t_dim256_t8.cu
+    src/neighbors/cagra/search_int8_t_dim512_t16.cu
+    src/neighbors/cagra/search_int8_t_dim512_t32.cu
+    src/neighbors/cagra/search_uint8_t_dim1024_t32.cu
+    src/neighbors/cagra/search_uint8_t_dim128_t16.cu
+    src/neighbors/cagra/search_uint8_t_dim128_t32.cu
+    src/neighbors/cagra/search_uint8_t_dim128_t4.cu
+    src/neighbors/cagra/search_uint8_t_dim128_t8.cu
+    src/neighbors/cagra/search_uint8_t_dim256_t16.cu
+    src/neighbors/cagra/search_uint8_t_dim256_t32.cu
+    src/neighbors/cagra/search_uint8_t_dim256_t8.cu
+    src/neighbors/cagra/search_uint8_t_dim512_t16.cu
+    src/neighbors/cagra/search_uint8_t_dim512_t32.cu
+    # src/neighbors/cagra/topk.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu
