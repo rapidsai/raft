@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -19,6 +19,10 @@ endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX)
   list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+endif()
+
+if(CUDA_LOG_COMPILE_TIME)
+  list(APPEND RAFT_CUDA_FLAGS "--time=nvcc_compile_log.csv")
 endif()
 
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)

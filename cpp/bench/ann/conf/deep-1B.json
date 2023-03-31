@@ -1,0 +1,38 @@
+{
+  "dataset" : {
+    "name" : "deep-1B",
+    "base_file" : "data/deep-1B/base.1B.fbin",
+    "query_file" : "data/deep-1B/query.public.10K.fbin",
+    // although distance should be "euclidean", faiss becomes much slower for that
+    "distance" : "inner_product"
+  },
+
+  "search_basic_param" : {
+    "batch_size" : 10000,
+    "k" : 10,
+    "run_count" : 2
+  },
+
+  "index" : [
+    {
+      "name" : "faiss_ivf_pq.M48-nlist50K",
+      "algo" : "faiss_gpu_ivf_pq",
+      "build_param": {"nlist":50000, "M":48},
+      "file" : "index/deep-1B/faiss_ivf_pq/M48-nlist50K",
+      "search_params" : [
+        {"nprobe":1},
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000},
+        {"nprobe":2000}
+      ],
+      "search_result_file" : "result/deep-1B/faiss_ivf_pq/M48-nlist50K"
+    },
+
+
+  ]
+}
