@@ -190,9 +190,13 @@ target_compile_options(
                  --expt-relaxed-constexpr>
 )
 
-set(RAFT_CTK_MATH_DEPENDENCIES
-    CUDA::cublas${_ctk_static_suffix} CUDA::cusolver${_ctk_static_suffix}
-    CUDA::curand${_ctk_static_suffix} CUDA::cusparse${_ctk_static_suffix}
+set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
+set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
+set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
+set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
+
+set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
+                               ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
 )
 
 # Endian detection
@@ -611,10 +615,22 @@ string(
   APPEND
   code_string
   [=[
- option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
-mark_as_advanced(RAFT_ENABLE_CTK_MATH_DEPENDENCIES)
-message("RAFT: CUDA Toolkit Math dependencies enabled ${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}")
-target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:${RAFT_CTK_MATH_DEPENDENCIES}>)
+ option(RAFT_ENABLE_CUSOLVER_DEPENDENCY "Enable cusolver dependency" ON)
+ option(RAFT_ENABLE_CUBLAS_DEPENDENCY "Enable cublas dependency" ON)
+ option(RAFT_ENABLE_CURAND_DEPENDENCY "Enable curand dependency" ON)
+ option(RAFT_ENABLE_CUSPARSE_DEPENDENCY "Enable cusparse dependency" ON)
+
+mark_as_advanced(RAFT_ENABLE_CUSOLVER_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUBLAS_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CURAND_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUSPARSE_DEPENDENCY)
+
+target_link_libraries(raft::raft INTERFACE
+  $<$<BOOL:${RAFT_ENABLE_CUSOLVER_DEPENDENCY}>:${RAFT_CUSOLVER_DEPENDENCY>
+  $<$<BOOL:${RAFT_ENABLE_CUBLAS_DEPENDENCY}>:${RAFT_CUBLAS_DEPENDENCY>
+  $<$<BOOL:${RAFT_ENABLE_CUSPARSE_DEPENDENCY}>:${RAFT_CUSPARSE_DEPENDENCY>
+  $<$<BOOL:${RAFT_ENABLE_CURAND_DEPENDENCY}>:${RAFT_CURAND_DEPENDENCY>
+)
 ]=]
 )
 
