@@ -316,11 +316,11 @@ struct knn : public fixture {
             RAFT_CUDA_TRY(cudaHostGetDevicePointer(&data_ptr, data_host_.data(), 0));
             break;
           case TransferStrategy::MANAGED:  // sic! using std::memcpy rather than cuda copy
-            CUDA_CHECK(cudaMemAdvise(
+            RAFT_CUDA_TRY(cudaMemAdvise(
               data_ptr, allocation_size, cudaMemAdviseSetPreferredLocation, handle.get_device()));
-            CUDA_CHECK(cudaMemAdvise(
+            RAFT_CUDA_TRY(cudaMemAdvise(
               data_ptr, allocation_size, cudaMemAdviseSetAccessedBy, handle.get_device()));
-            CUDA_CHECK(cudaMemAdvise(
+            RAFT_CUDA_TRY(cudaMemAdvise(
               data_ptr, allocation_size, cudaMemAdviseSetReadMostly, handle.get_device()));
             std::memcpy(data_ptr, data_host_.data(), allocation_size);
             break;
