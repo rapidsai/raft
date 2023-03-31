@@ -32,7 +32,7 @@ from rmm._lib.memory_resource cimport device_memory_resource
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
     device_vector_view,
-    row_major
+    row_major,
 )
 from pylibraft.common.handle cimport device_resources
 from pylibraft.common.optional cimport optional

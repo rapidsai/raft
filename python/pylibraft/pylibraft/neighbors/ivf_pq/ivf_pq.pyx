@@ -43,7 +43,6 @@ from pylibraft.common.handle cimport device_resources
 
 from pylibraft.common.handle import auto_sync_handle
 from pylibraft.common.input_validation import is_c_contiguous
-from pylibraft.common.optional cimport make_optional, optional
 
 from rmm._lib.memory_resource cimport (
     DeviceMemoryResource,
@@ -52,6 +51,7 @@ from rmm._lib.memory_resource cimport (
 
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.common.optional cimport make_optional, optional
 
 from pylibraft.neighbors.common import _check_input_array, _get_metric
 
@@ -59,7 +59,7 @@ from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
     device_vector_view,
     make_device_vector_view,
-    row_major
+    row_major,
 )
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
