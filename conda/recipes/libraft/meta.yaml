@@ -191,6 +191,9 @@ outputs:
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
     requirements:
       build:
@@ -327,6 +330,9 @@ outputs:
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }} {{ cuda_version }}
+        - cuda-cudart {{ cuda_version }}
+        - cuda-cudart-dev {{ cuda_version }}
+        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
