@@ -83,7 +83,7 @@ outputs:
         - libcusparse {{ libcusparse_host_version }}
         - libcusparse-dev {{ libcusparse_host_version }}
         {% endif %}
-        - librmm ={{ minor_version }}
+        - librmm ={{ minor_version }}*=cuda{{ cuda_major }}*
       run:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
@@ -110,7 +110,7 @@ outputs:
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
         {% endif %}
-        - librmm ={{ minor_version }}
+        - librmm ={{ minor_version }}*=cuda{{ cuda_major }}*
     about:
       home: https://rapids.ai/
       license: Apache-2.0
