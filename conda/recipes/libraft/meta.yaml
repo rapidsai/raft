@@ -51,7 +51,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - librmm ={{ minor_version }}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit {{ cuda_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -67,7 +67,8 @@ outputs:
     requirements:
       run:
         - {{ pin_subpackage('libraft-headers-impl', exact=True) }}
-        - cudatoolkit {{ cuda_spec }}
+        - cuda-profiler-api {{ cuda_profiler_api_run_version }}
+        - cudatoolkit {{ cuda_version }}
         - librmm ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
@@ -77,7 +78,6 @@ outputs:
         - libcusolver-dev {{ libcusolver_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -104,6 +104,12 @@ outputs:
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
+        - libcurand {{ libcurand_host_version }}
+        - libcurand-dev {{ libcurand_host_version }}
+        - libcusolver {{ libcusolver_host_version }}
+        - libcusolver-dev {{ libcusolver_host_version }}
+        - libcusparse {{ libcusparse_host_version }}
+        - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
