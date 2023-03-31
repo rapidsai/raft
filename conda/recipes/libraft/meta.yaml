@@ -101,6 +101,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - libcublas {{ libcublas_host_version }}
         - libcublas-dev {{ libcublas_host_version }}
       run:
