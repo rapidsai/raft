@@ -29,11 +29,12 @@ function(ConfigureBench)
 
   target_link_libraries(
     ${BENCH_NAME}
-    PRIVATE raft::raft
+    PRIVATE raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
             benchmark::benchmark
             Threads::Threads
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
   )

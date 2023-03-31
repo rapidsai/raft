@@ -84,6 +84,7 @@ include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
 # nearest neighbors search on GPU" ON RAFT_COMPILE_LIBRARY OFF )
 
+message(STATUS "RAFT: Using CUDA Math Library Dependencies: ${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}")
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
@@ -188,6 +189,11 @@ target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+
+set(RAFT_CTK_MATH_DEPENDENCIES
+    CUDA::cublas${_ctk_static_suffix} CUDA::cusolver${_ctk_static_suffix}
+    CUDA::curand${_ctk_static_suffix} CUDA::cusparse${_ctk_static_suffix}
 )
 
 # Endian detection
@@ -603,14 +609,9 @@ string(
   APPEND
   code_string
   [=[
-option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
+ option(RAFT_ENABLE_CTK_MATH_DEPENDENCIES "Enable CUDA math library dependencies (e.g. cublas, cusolver, cusparse, curand)" ON)
 mark_as_advanced(RAFT_ENABLE_CTK_MATH_DEPENDENCIES)
-target_link_libraries(raft::raft INTERFACE
-  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cublas${_ctk_static_suffix}>
-  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::curand{_ctk_static_suffix}>
-  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cusolver{_ctk_static_suffix}>
-  $<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:CUDA::cusparse{_ctk_static_suffix}>
-)
+target_link_libraries(raft::raft INTERFACE $<$<BOOL:${RAFT_ENABLE_CTK_MATH_DEPENDENCIES}>:${RAFT_CTK_MATH_DEPENDENCIES}>)
 ]=]
 )
 
