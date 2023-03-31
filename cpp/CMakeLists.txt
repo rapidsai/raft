@@ -457,7 +457,7 @@ if(RAFT_COMPILE_LIBRARY)
   )
 
   target_link_libraries(
-    raft_lib PUBLIC raft::raft ${RAFT_CTK_MATH_DEPENDENCIES}
+    raft_lib PUBLIC raft::raft ${RAFT_CUBLAS_DEPENDENCY}
                     $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
   target_compile_options(
