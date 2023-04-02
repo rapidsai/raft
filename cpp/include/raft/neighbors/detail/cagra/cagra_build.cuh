@@ -76,6 +76,10 @@ void build_knn_graph(raft::device_resources const& res,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
+  RAFT_EXPECTS(
+    dataset.extent(1) * sizeof(DataT) % 8 == 0,
+    "Dataset rows are expected to have at least 8 bytes alignment. Try padding feature dims.");
+
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",
                                                             size_t(dataset.extent(0)),
