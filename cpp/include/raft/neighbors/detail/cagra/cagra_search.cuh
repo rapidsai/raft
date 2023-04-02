@@ -62,7 +62,7 @@ void search_main(raft::device_resources const& res,
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
   RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
-  uint32_t topk = queries.extent(1);
+  uint32_t topk = neighbors.extent(1);
 
   std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> plan =
     factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
@@ -71,14 +71,13 @@ void search_main(raft::device_resources const& res,
 
   RAFT_LOG_DEBUG("Cagra search");
   uint32_t max_queries = plan->max_queries;
-  uint32_t query_dim   = index.dim();
+  uint32_t query_dim   = queries.extent(1);
 
   for (unsigned qid = 0; qid < queries.extent(0); qid += max_queries) {
-    const uint32_t n_queries = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
-    IdxT* _topk_indices_ptr  = neighbors.data_handle() + (topk * qid);
-    DistanceT* _topk_distances_ptr =
-      distances.data_handle() +
-      (topk * qid);  // todo(tfeher): one could keep distances optional and pass nullptr
+    const uint32_t n_queries       = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
+    IdxT* _topk_indices_ptr        = neighbors.data_handle() + (topk * qid);
+    DistanceT* _topk_distances_ptr = distances.data_handle() + (topk * qid);
+    // todo(tfeher): one could keep distances optional and pass nullptr
     const T* _query_ptr = queries.data_handle() + (query_dim * qid);
     const IdxT* _seed_ptr =
       plan->num_seeds > 0 ? plan->dev_seed.data() + (plan->num_seeds * qid) : nullptr;
