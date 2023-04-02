@@ -159,10 +159,17 @@ index<T, IdxT> build(raft::device_resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
-  RAFT_EXPECTS(params.intermediate_graph_degree >= params.graph_degree,
+  size_t degree = params.intermediate_graph_degree;
+  if (degree >= dataset.extent(0)) {
+    RAFT_LOG_WARN(
+      "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
+      dataset.extent(0));
+    degree = dataset.extent(0) - 1;
+  }
+  RAFT_EXPECTS(degree >= params.graph_degree,
                "Intermediate graph degree cannot be smaller than final graph degree");
-  auto knn_graph =
-    raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), params.intermediate_graph_degree);
+
+  auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), degree);
 
   build_knn_graph(res, dataset, knn_graph.view());
 

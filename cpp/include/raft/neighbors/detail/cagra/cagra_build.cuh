@@ -87,7 +87,7 @@ void build_knn_graph(raft::device_resources const& res,
     build_params->n_lists = dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
     build_params->pq_dim  = raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
     build_params->pq_bits = 8;
-    build_params->kmeans_trainset_fraction = 10;
+    build_params->kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
     build_params->kmeans_n_iters           = 25;
     build_params->add_data_on_build        = true;
   }
@@ -139,7 +139,7 @@ void build_knn_graph(raft::device_resources const& res,
   }
   const auto top_k          = node_degree + 1;
   uint32_t gpu_top_k        = node_degree * refine_rate;
-  gpu_top_k                 = std::max(gpu_top_k, top_k);
+  gpu_top_k                 = std::min(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries    = dataset.extent(0);
   const auto max_batch_size = 1024;
   RAFT_LOG_DEBUG(
