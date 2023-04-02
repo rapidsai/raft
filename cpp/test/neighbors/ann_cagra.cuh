@@ -43,6 +43,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace raft::neighbors::experimental::cagra {
@@ -52,8 +53,11 @@ struct AnnCagraInputs {
   int n_rows;
   int dim;
   int k;
+  search_algo algo;
+  int max_queries;
   int team_size;
-  // algo
+  int itopk_size;
+  int num_parents;
   raft::distance::DistanceType metric;
   bool host_dataset;
   // std::optional<double>
@@ -62,8 +66,12 @@ struct AnnCagraInputs {
 
 inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
 {
-  os << "{ " << p.n_queries << ", " << p.n_rows << ", " << p.dim << ", " << p.k << ", "
-     << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}' << std::endl;
+  std::vector<std::string> algo = {"single-cta", "multi_cta", "multi_kernel", "auto"};
+  os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
+     << ", k=" << p.k << ", " << algo.at((int)p.algo) << ", max_queries=" << p.max_queries
+     << ", itopk_size=" << p.itopk_size << ", num_parents=" << p.num_parents
+     << ", metric=" << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}'
+     << std::endl;
   return os;
 }
 
@@ -112,6 +120,9 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       {
         cagra::index_params index_params;
         cagra::search_params search_params;
+        search_params.algo        = ps.algo;
+        search_params.max_queries = ps.max_queries;
+        search_params.team_size   = ps.team_size;
 
         auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -144,14 +155,14 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
         handle_.sync_stream(stream_);
-
-        // Test the index invariants
       }
-      // raft::copy(
-      //   indices_dev.data(), indices_naive.data(), indices_naive.size(), handle_.get_stream());
-      // raft::copy(
-      //   distances_dev.data(), distances_naive.data(), distances_naive.size(),
-      //   handle_.get_stream());
+      // for (int i = 0; i < ps.n_queries; i++) {
+      //   //  std::cout << "query " << i << std::end;
+      //   print_vector("T", indices_naive.data() + i * ps.k, ps.k, std::cout);
+      //   print_vector("C", indices_Cagra.data() + i * ps.k, ps.k, std::cout);
+      //   print_vector("T", distances_naive.data() + i * ps.k, ps.k, std::cout);
+      //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
+      // }
       double min_recall = ps.min_recall;
       ASSERT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
@@ -177,9 +188,11 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void SetUp() override
   {
-    database.resize(ps.n_rows * ps.dim, stream_);
+    std::cout << "Resizing database: " << ps.n_rows * ps.dim << std::endl;
+    database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
+    std::cout << "Done.\nResizing queries" << std::endl;
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-
+    std::cout << "Done.\nRuning rng" << std::endl;
     raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
       r.uniform(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
@@ -205,34 +218,96 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
   rmm::device_uvector<DataT> database;
   rmm::device_uvector<DataT> search_queries;
 };
-// TODO(tfeher): test different team size values, trigger different kernels (single CTA, multi CTA,
-// multi kernel), trigger different topk versions
 
 inline std::vector<AnnCagraInputs> generate_inputs()
 {
-  std::vector<AnnCagraInputs> inputs =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {1000},
-                                                   {2, 4, 8, 64, 128, 196, 256, 512, 1024},
-                                                   {16},
-                                                   {0},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false, true},
-                                                   {0.995});
+  std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {8},
+    {1, 16, 33},  // k
+    {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
+    {1, 10, 100},  // query size
+    {0},
+    {64},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {0.995});
 
   auto inputs2 =
     raft::util::itertools::product<AnnCagraInputs>({100},
                                                    {1000},
-                                                   {64},
+                                                   {2, 4, 8, 64, 128, 196, 256, 512, 1024},  // dim
                                                    {16},
-                                                   {0, 4, 8, 16, 32},  // team_size
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},
+                                                   {64},
+                                                   {1},
                                                    {raft::distance::DistanceType::L2Expanded},
                                                    {false},
                                                    {0.995});
-
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {1000},
+                                                   {64},
+                                                   {16},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0, 4, 8, 16, 32},  // team_size
+                                                   {64},
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false},
+                                                   {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
-  // Todo test different metric types
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {1000},
+                                                   {64},
+                                                   {16},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},  // team_size
+                                                   {32, 64, 128, 256, 512, 768},
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false},
+                                                   {0.995});
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {10000, 20000},
+                                                   {30},
+                                                   {10},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},  // team_size
+                                                   {64},
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false, true},
+                                                   {0.995});
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 =
+    raft::util::itertools::product<AnnCagraInputs>({100},
+                                                   {10000, 20000},
+                                                   {30},
+                                                   {10},
+                                                   {search_algo::AUTO},
+                                                   {10},
+                                                   {0},  // team_size
+                                                   {64},
+                                                   {1},
+                                                   {raft::distance::DistanceType::L2Expanded},
+                                                   {false, true},
+                                                   {0.995});
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   return inputs;
 }
