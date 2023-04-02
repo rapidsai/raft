@@ -12,7 +12,7 @@
 # the License.
 # =============================================================================
 
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   add_library(raft_internal INTERFACE)
   target_include_directories(
     raft_internal INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/internal>"
