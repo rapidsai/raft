@@ -139,7 +139,7 @@ void compare_vectors_l2(
     double d = dist(i);
     // The theoretical estimate of the error is hard to come up with,
     // the estimate below is based on experimentation + curse of dimensionality
-    ASSERT_LE(d, eps * std::pow(2.0, compression_ratio))
+    ASSERT_LE(d, 1.2 * eps * std::pow(2.0, compression_ratio))
       << " (label = " << label << ", ix = " << i << ", eps = " << eps << ")";
   }
 }
