@@ -275,6 +275,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/update_centroids_double.cu
     src/cluster/cluster_cost_float.cu
     src/cluster/cluster_cost_double.cu
+    src/core/logger.cpp
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu
@@ -462,7 +463,8 @@ if(RAFT_COMPILE_LIBRARY)
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
-  target_compile_definitions(raft_lib INTERFACE "RAFT_COMPILED")
+  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
+  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
