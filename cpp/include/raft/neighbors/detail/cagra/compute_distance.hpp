@@ -28,7 +28,7 @@ using LOAD_128BIT_T = uint4;
 using LOAD_64BIT_T  = uint64_t;
 
 template <class LOAD_T, class DATA_T>
-CAGRA_DEVICE constexpr unsigned get_vlen()
+_RAFT_DEVICE constexpr unsigned get_vlen()
 {
   return utils::size_of<LOAD_T>() / utils::size_of<DATA_T>();
 }
@@ -47,7 +47,7 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-CAGRA_DEVICE void compute_distance_to_random_nodes(
+_RAFT_DEVICE void compute_distance_to_random_nodes(
   INDEX_T* const result_indices_ptr,       // [num_pickup]
   DISTANCE_T* const result_distances_ptr,  // [num_pickup]
   const float* const query_buffer,
@@ -137,7 +137,7 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-CAGRA_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_indices_ptr,
+_RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_indices_ptr,
                                                   DISTANCE_T* const result_child_distances_ptr,
                                                   // query
                                                   const float* const query_buffer,

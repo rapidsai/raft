@@ -19,14 +19,8 @@
 #include <cstdint>
 #include <cuda.h>
 #include <cuda_fp16.h>
+#include <raft/core/detail/macros.hpp>
 #include <type_traits>
-
-#ifndef CAGRA_HOST_DEVICE
-#define CAGRA_HOST_DEVICE __host__ __device__
-#endif
-#ifndef CAGRA_DEVICE
-#define CAGRA_DEVICE __device__
-#endif
 
 namespace raft::neighbors::experimental::cagra::detail {
 namespace utils {
@@ -66,47 +60,47 @@ inline cudaDataType_t get_cuda_data_type<uint64_t>()
 template <class T>
 constexpr unsigned size_of();
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<std::int8_t>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::int8_t>()
 {
   return 1;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<std::uint8_t>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint8_t>()
 {
   return 1;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<std::uint16_t>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint16_t>()
 {
   return 2;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<std::uint32_t>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint32_t>()
 {
   return 4;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<std::uint64_t>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint64_t>()
 {
   return 8;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<uint4>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<uint4>()
 {
   return 16;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<ulonglong4>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<ulonglong4>()
 {
   return 32;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<float>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<float>()
 {
   return 4;
 }
 template <>
-CAGRA_HOST_DEVICE constexpr unsigned size_of<half>()
+_RAFT_HOST_DEVICE constexpr unsigned size_of<half>()
 {
   return 2;
 }
@@ -118,19 +112,19 @@ union fp_conv {
   FP_T fp;
 };
 template <class T>
-CAGRA_HOST_DEVICE inline T get_max_value();
+_RAFT_HOST_DEVICE inline T get_max_value();
 template <>
-CAGRA_HOST_DEVICE inline float get_max_value<float>()
+_RAFT_HOST_DEVICE inline float get_max_value<float>()
 {
   return FLT_MAX;
 };
 template <>
-CAGRA_HOST_DEVICE inline half get_max_value<half>()
+_RAFT_HOST_DEVICE inline half get_max_value<half>()
 {
   return fp_conv<std::uint16_t, half>{.bs = 0x7aff}.fp;
 };
 template <>
-CAGRA_HOST_DEVICE inline std::uint32_t get_max_value<std::uint32_t>()
+_RAFT_HOST_DEVICE inline std::uint32_t get_max_value<std::uint32_t>()
 {
   return 0xffffffffu;
 };

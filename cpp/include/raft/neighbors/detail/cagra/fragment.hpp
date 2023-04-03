@@ -69,7 +69,7 @@ struct fragment
 
 // Load a vector from device/shared memory
 template <int DIM, class T, unsigned TEAM_SIZE, class INPUT_T>
-CAGRA_DEVICE void load_vector_sync(device::fragment<DIM, T, TEAM_SIZE>& frag,
+_RAFT_DEVICE void load_vector_sync(device::fragment<DIM, T, TEAM_SIZE>& frag,
                                    const INPUT_T* const input_vector_ptr,
                                    const unsigned input_vector_length,
                                    const bool sync = true)
@@ -101,7 +101,7 @@ CAGRA_DEVICE void load_vector_sync(device::fragment<DIM, T, TEAM_SIZE>& frag,
 
 // Compute the square of the L2 norm of two vectors
 template <class COMPUTE_T, int DIM, class T, unsigned TEAM_SIZE>
-CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
+_RAFT_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
                              const device::fragment<DIM, T, TEAM_SIZE>& b)
 {
   COMPUTE_T sum = 0;
@@ -120,7 +120,7 @@ CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
 }
 
 template <class COMPUTE_T, int DIM, class T, unsigned TEAM_SIZE>
-CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
+_RAFT_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
                              const device::fragment<DIM, T, TEAM_SIZE>& b,
                              const float scale)
 {
@@ -141,7 +141,7 @@ CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
 }
 
 template <class COMPUTE_T, int DIM, class T, unsigned TEAM_SIZE>
-CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
+_RAFT_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
                              const T* b,  // [DIM]
                              const float scale)
 {
@@ -164,7 +164,7 @@ CAGRA_DEVICE COMPUTE_T norm2(const device::fragment<DIM, T, TEAM_SIZE>& a,
 }
 
 template <class COMPUTE_T, int DIM, class T, unsigned TEAM_SIZE>
-CAGRA_DEVICE inline COMPUTE_T norm2x(const device::fragment<DIM, T, TEAM_SIZE>& a,
+_RAFT_DEVICE inline COMPUTE_T norm2x(const device::fragment<DIM, T, TEAM_SIZE>& a,
                                      const COMPUTE_T* b,  // [dim]
                                      const uint32_t dim,
                                      const float scale)
@@ -196,7 +196,7 @@ CAGRA_DEVICE inline COMPUTE_T norm2x(const device::fragment<DIM, T, TEAM_SIZE>& 
 }
 
 template <int DIM, class T, unsigned TEAM_SIZE>
-CAGRA_DEVICE void print_fragment(const device::fragment<DIM, T, TEAM_SIZE>& a)
+_RAFT_DEVICE void print_fragment(const device::fragment<DIM, T, TEAM_SIZE>& a)
 {
   for (unsigned i = 0; i < TEAM_SIZE; i++) {
     if ((threadIdx.x % TEAM_SIZE) == i) {

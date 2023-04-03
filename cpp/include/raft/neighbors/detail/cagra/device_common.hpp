@@ -19,13 +19,7 @@
 #include <cfloat>
 #include <cstdint>
 #include <cuda_fp16.h>
-
-#ifndef CAGRA_HOST_DEVICE
-#define CAGRA_HOST_DEVICE __host__ __device__
-#endif
-#ifndef CAGRA_DEVICE
-#define CAGRA_DEVICE __device__
-#endif
+#include <raft/core/detail/macros.hpp>
 
 namespace raft::neighbors::experimental::cagra::detail {
 namespace device {
@@ -35,24 +29,24 @@ constexpr unsigned warp_size = 32;
 
 // scaling factor for distance computation
 template <class T>
-CAGRA_HOST_DEVICE constexpr float fragment_scale();
+_RAFT_HOST_DEVICE constexpr float fragment_scale();
 template <>
-CAGRA_HOST_DEVICE constexpr float fragment_scale<float>()
+_RAFT_HOST_DEVICE constexpr float fragment_scale<float>()
 {
   return 1.0;
 };
 template <>
-CAGRA_HOST_DEVICE constexpr float fragment_scale<half>()
+_RAFT_HOST_DEVICE constexpr float fragment_scale<half>()
 {
   return 1.0;
 };
 template <>
-CAGRA_HOST_DEVICE constexpr float fragment_scale<uint8_t>()
+_RAFT_HOST_DEVICE constexpr float fragment_scale<uint8_t>()
 {
   return 1.0 / 256.0;
 };
 template <>
-CAGRA_HOST_DEVICE constexpr float fragment_scale<int8_t>()
+_RAFT_HOST_DEVICE constexpr float fragment_scale<int8_t>()
 {
   return 1.0 / 128.0;
 };
@@ -61,7 +55,7 @@ CAGRA_HOST_DEVICE constexpr float fragment_scale<int8_t>()
  *
  * See https://en.wikipedia.org/wiki/Xorshift#xorshift for reference.
  */
-CAGRA_HOST_DEVICE inline uint64_t xorshift64(uint64_t u)
+_RAFT_HOST_DEVICE inline uint64_t xorshift64(uint64_t u)
 {
   u ^= u >> 12;
   u ^= u << 25;
@@ -70,7 +64,7 @@ CAGRA_HOST_DEVICE inline uint64_t xorshift64(uint64_t u)
 }
 
 template <class T>
-CAGRA_DEVICE inline T swizzling(T x)
+_RAFT_DEVICE inline T swizzling(T x)
 {
   // Address swizzling reduces bank conflicts in shared memory, but increases
   // the amount of operation instead.

@@ -17,13 +17,7 @@
 
 #include "utils.hpp"
 #include <cstdint>
-
-#ifndef CAGRA_HOST_DEVICE
-#define CAGRA_HOST_DEVICE __host__ __device__
-#endif
-#ifndef CAGRA_DEVICE
-#define CAGRA_DEVICE __device__
-#endif
+#include <raft/core/detail/macros.hpp>
 
 // #pragma GCC diagnostic push
 // #pragma GCC diagnostic ignored
@@ -31,10 +25,10 @@
 namespace raft::neighbors::experimental::cagra::detail {
 namespace hashmap {
 
-CAGRA_HOST_DEVICE inline uint32_t get_size(const uint32_t bitlen) { return 1U << bitlen; }
+_RAFT_HOST_DEVICE inline uint32_t get_size(const uint32_t bitlen) { return 1U << bitlen; }
 
 template <unsigned FIRST_TID = 0>
-CAGRA_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
+_RAFT_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
 {
   if (threadIdx.x < FIRST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < get_size(bitlen); i += blockDim.x - FIRST_TID) {
@@ -43,7 +37,7 @@ CAGRA_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
 }
 
 template <unsigned FIRST_TID, unsigned LAST_TID>
-CAGRA_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
+_RAFT_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
 {
   if ((FIRST_TID > 0 && threadIdx.x < FIRST_TID) || threadIdx.x >= LAST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < get_size(bitlen); i += LAST_TID - FIRST_TID) {
@@ -51,7 +45,7 @@ CAGRA_DEVICE inline void init(uint32_t* table, const uint32_t bitlen)
   }
 }
 
-CAGRA_DEVICE inline uint32_t insert(uint32_t* table, const uint32_t bitlen, const uint32_t key)
+_RAFT_DEVICE inline uint32_t insert(uint32_t* table, const uint32_t bitlen, const uint32_t key)
 {
   // Open addressing is used for collision resolution
   const uint32_t size     = get_size(bitlen);
@@ -78,7 +72,7 @@ CAGRA_DEVICE inline uint32_t insert(uint32_t* table, const uint32_t bitlen, cons
 }
 
 template <unsigned TEAM_SIZE>
-CAGRA_DEVICE inline uint32_t insert(uint32_t* table, const uint32_t bitlen, const uint32_t key)
+_RAFT_DEVICE inline uint32_t insert(uint32_t* table, const uint32_t bitlen, const uint32_t key)
 {
   uint32_t ret = 0;
   if (threadIdx.x % TEAM_SIZE == 0) { ret = insert(table, bitlen, key); }
