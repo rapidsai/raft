@@ -51,7 +51,7 @@ void build_knn_graph(raft::device_resources const& res,
     dataset.extent(1) * sizeof(DataT) % 8 == 0,
     "Dataset rows are expected to have at least 8 bytes alignment. Try padding feature dims.");
 
-  RAFT_EXPECTS(build_params->metric == distance::DistanceType::L2Expanded,
+  RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded,
                "Currently only L2Expanded metric is supported");
 
   uint32_t node_degree = knn_graph.extent(1);
