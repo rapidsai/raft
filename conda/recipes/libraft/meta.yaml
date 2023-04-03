@@ -64,8 +64,8 @@ outputs:
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_host_version }}
         - cudatoolkit ={{ cuda_version }}
-        - libcublas {{ cuda11_libcublas_host_version }}
-        - libcublas-dev {{ cuda11_libcublas_host_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_host_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_host_version }}
         - libcurand {{ cuda11_libcurand_host_version }}
         - libcurand-dev {{ cuda11_libcurand_host_version }}
         - libcusolver {{ cuda11_libcusolver_host_version }}
@@ -77,8 +77,8 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
+        - nvidia::libcublas {{ libcublas_host_version }}
+        - nvidia::libcublas-dev {{ libcublas_host_version }}
         - libcurand {{ libcurand_host_version }}
         - libcurand-dev {{ libcurand_host_version }}
         - libcusolver {{ libcusolver_host_version }}
@@ -91,8 +91,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
-        - libcublas {{ cuda11_libcublas_run_version }}
-        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcurand-dev {{ cuda11_libcurand_run_version }}
         - libcusolver {{ cuda11_libcusolver_run_version }}
@@ -104,8 +104,8 @@ outputs:
         - cuda-cudart {{ cuda_spec }}
         - cuda-cudart-dev {{ cuda_spec }}
         - cuda-cudart-static {{ cuda_spec }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
+        - nvidia::libcublas {{ libcublas_run_version }}
+        - nvidia::libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
@@ -151,8 +151,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
-        - libcublas {{ cuda11_libcublas_run_version }}
-        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcurand-dev {{ cuda11_libcurand_run_version }}
         - libcusolver {{ cuda11_libcusolver_run_version }}
@@ -164,8 +164,8 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
+        - nvidia::libcublas {{ libcublas_run_version }}
+        - nvidia::libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
@@ -216,8 +216,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
-        - libcublas {{ cuda11_libcublas_run_version }}
-        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcurand-dev {{ cuda11_libcurand_run_version }}
         - libcusolver {{ cuda11_libcusolver_run_version }}
@@ -229,8 +229,8 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
+        - nvidia::libcublas {{ libcublas_run_version }}
+        - nvidia::libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
@@ -281,8 +281,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
-        - libcublas {{ cuda11_libcublas_run_version }}
-        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcurand-dev {{ cuda11_libcurand_run_version }}
         - libcusolver {{ cuda11_libcusolver_run_version }}
@@ -294,8 +294,8 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
+        - nvidia::libcublas {{ libcublas_run_version }}
+        - nvidia::libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
@@ -344,8 +344,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
-        - libcublas {{ cuda11_libcublas_run_version }}
-        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas {{ cuda11_libcublas_run_version }}
+        - nvidia::libcublas-dev {{ cuda11_libcublas_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcurand-dev {{ cuda11_libcurand_run_version }}
         - libcusolver {{ cuda11_libcusolver_run_version }}
@@ -357,8 +357,8 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
+        - nvidia::libcublas {{ libcublas_run_version }}
+        - nvidia::libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
         - libcurand-dev {{ libcurand_run_version }}
         - libcusolver {{ libcusolver_run_version }}
