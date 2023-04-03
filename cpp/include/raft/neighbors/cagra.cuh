@@ -38,12 +38,12 @@ namespace raft::neighbors::experimental::cagra {
  * @brief Build a kNN graph.
  *
  * The kNN graph is the first building block for CAGRA index.
+ * This function uses the IVF-PQ method to build a kNN graph.
  *
  * See [cagra::build](#cagra::build) for alternative method.
  *
- * NB: Currently, the following distance metrics are supported:
- * - L2
- * - TODO(tfeher): update
+ * The following distance metrics are supported:
+ * - L2Expanded
  *
  * Usage example:
  * @code{.cpp}
@@ -63,11 +63,12 @@ namespace raft::neighbors::experimental::cagra {
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param[in] handle
- * @param[in] params parameters for building the index
+ * @param[in] res raft resources
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
- *
- * @return the constructed cagra index
+ * @param[out] knn_graph a host matrix view to store the output knn graph
+ * @param[in] refine_rate refinement rate for ivf-pq search
+ * @param[in] build_params (optional) ivf_pq index building parameters for knn graph
+ * @param[in] search_params (optional) ivf_pq search parameters
  */
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::device_resources const& res,
@@ -83,19 +84,18 @@ void build_knn_graph(raft::device_resources const& res,
 /**
  * @brief Prune a KNN graph.
  *
+ * Decrease the number of neighbors for each node.
+ *
  * See [cagra::build_knn_graph](#cagra::build_knn_graph) for usage example
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices
+ * @tparam IdxT type of the indices in the source dataset
  *
- * @param[in] handle
- * @param[in] params configure the search
- * @param[in] idx cagra index
- * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
- * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
- * [n_queries, k]
- * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
- * k]
+ * @param[in] res raft resources
+ * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
+ * @param[in] knn_graph a matrix view (host or device) of the input knn graph [n_rows,
+ * knn_graph_degree]
+ * @param[out] new_graph a host matrix view of the pruned knn graph [n_rows, graph_degree]
  */
 template <class DATA_T,
           typename IdxT = uint32_t,
@@ -103,7 +103,8 @@ template <class DATA_T,
             host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
-void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+void prune(raft::device_resources const& res,
+           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
@@ -123,9 +124,8 @@ void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> data
  * intermediate results, you could build the index in two steps using
  * [cagra::build_knn_graph](#cagra::build_knn_graph) and [cagra::prune](#cagra::prune).
  *
- * NB: Currently, the following distance metrics are supported:
+ * The following distance metrics are supported:
  * - L2
- * - TODO(tfeher): update
  *
  * Usage example:
  * @code{.cpp}
@@ -175,7 +175,7 @@ index<T, IdxT> build(raft::device_resources const& res,
 
   auto cagra_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), params.graph_degree);
 
-  prune<T, IdxT>(dataset, knn_graph.view(), cagra_graph.view());
+  prune<T, IdxT>(res, dataset, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and pruned knn graph.
   return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
@@ -189,7 +189,7 @@ index<T, IdxT> build(raft::device_resources const& res,
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
- * @param[in] handle
+ * @param[in] res raft resources
  * @param[in] params configure the search
  * @param[in] idx cagra index
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
@@ -199,7 +199,7 @@ index<T, IdxT> build(raft::device_resources const& res,
  * k]
  */
 template <typename T, typename IdxT>
-void search(raft::device_resources const& handle,
+void search(raft::device_resources const& res,
             const search_params& params,
             const index<T, IdxT>& idx,
             raft::device_matrix_view<const T, IdxT, row_major> queries,
@@ -216,7 +216,7 @@ void search(raft::device_resources const& handle,
   RAFT_EXPECTS(queries.extent(1) == idx.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  detail::search_main(handle, params, idx, queries, neighbors, distances);
+  detail::search_main(res, params, idx, queries, neighbors, distances);
 }
 /** @} */  // end group cagra
 

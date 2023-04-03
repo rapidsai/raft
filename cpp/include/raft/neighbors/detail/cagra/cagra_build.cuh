@@ -23,11 +23,11 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
-
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/logger.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/detail/refine.cuh>
@@ -79,6 +79,9 @@ void build_knn_graph(raft::device_resources const& res,
   RAFT_EXPECTS(
     dataset.extent(1) * sizeof(DataT) % 8 == 0,
     "Dataset rows are expected to have at least 8 bytes alignment. Try padding feature dims.");
+
+  RAFT_EXPECTS(build_params->metric == distance::DistanceType::L2Expanded,
+               "Currently only L2Expanded metric is supported");
 
   uint32_t node_degree = knn_graph.extent(1);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::build_graph(%zu, %zu, %u)",

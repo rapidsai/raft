@@ -51,6 +51,7 @@ RAFT_INST(uint8_t, uint32_t, memory_type::device);
         IdxT,                                                                                      \
         host_device_accessor<std::experimental::default_accessor<DATA_T>, D_MEM_TYPE>,             \
         host_device_accessor<std::experimental::default_accessor<DATA_T>, G_MEM_TYPE>>(            \
+    raft::device_resources const& res,                                                             \
     mdspan<const DATA_T,                                                                           \
            matrix_extent<IdxT>,                                                                    \
            row_major,                                                                              \

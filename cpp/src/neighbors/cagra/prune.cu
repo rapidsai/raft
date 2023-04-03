@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra.cuh>
 
 namespace raft::neighbors::experimental::cagra {
@@ -26,6 +27,7 @@ using INDEX_T    = std::uint32_t;  // *** DO NOT CHANGE ***
         IdxT,                                                                                      \
         host_device_accessor<std::experimental::default_accessor<DATA_T>, D_MEM_TYPE>,             \
         host_device_accessor<std::experimental::default_accessor<DATA_T>, G_MEM_TYPE>>(            \
+    raft::device_resources const& res,                                                             \
     mdspan<const DATA_T,                                                                           \
            matrix_extent<IdxT>,                                                                    \
            row_major,                                                                              \
