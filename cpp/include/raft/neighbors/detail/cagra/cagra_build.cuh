@@ -39,35 +39,6 @@ namespace raft::neighbors::experimental::cagra::detail {
 
 using INDEX_T = std::uint32_t;
 
-// template <typename DataT, typename IdxT>
-// DataT* generate_trainset(raft::device_matrix_view<const DataT, IdxT, row_major> dataset,
-//                          const uint64_t trainset_size)
-// {
-//   DataT* trainset_ptr;
-//   cudaMallocHost(&trainset_ptr, dataset.extent(1) * trainset_size * sizeof(DataT));
-
-//   uint32_t primes[] = {11, 13, 17, 19, 23, 29, 31, 37};
-//   uint32_t pickup_interval;
-//   uint32_t i = 0;
-//   while (dataset.extent(0) % (pickup_interval = primes[i++]) == 0)
-//     ;
-
-//   RAFT_LOG_DEBUG("# interval = %u\n", pickup_interval);
-//   std::fflush(stdout);
-//   for (std::size_t i = 0; i < trainset_size; i++) {
-//     const std::size_t dataset_index_offset =
-//       (i * pickup_interval) % static_cast<uint64_t>(dataset.extent(0));
-//     cudaMemcpy(trainset_ptr + i * dataset.extent(1),
-//                dataset.data_handle() + dataset_index_offset * dataset.extent(1),
-//                sizeof(DataT) * dataset.extent(1),
-//                cudaMemcpyDefault);
-//   }
-//   RAFT_LOG_DEBUG("# trainset_size = %lu\n", trainset_size);
-//   std::fflush(stdout);
-
-//   return trainset_ptr;
-// }
-
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::device_resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
@@ -119,21 +90,6 @@ void build_knn_graph(raft::device_resources const& res,
   RAFT_LOG_DEBUG("# Building IVF-PQ index %s", model_name.c_str());
   auto index = ivf_pq::build<DataT, int64_t>(
     res, *build_params, dataset.data_handle(), dataset.extent(0), dataset.extent(1));
-
-  // // Create trainset
-  // build_params->add_data_on_build = false;  // don't populate index on build
-
-  // const auto num_trainset = dataset.extent(0) / 10;
-  // const auto trainset_ptr = generate_trainset<DataT, IdxT>(dataset, num_trainset);
-  // RAFT_LOG_DEBUG("# trainset size = %lu (%.3fM)\n",
-  //                static_cast<size_t>(num_trainset),
-  //                static_cast<double>(num_trainset) * 1e-6);
-
-  // train the index from a [N, D] dataset
-  // auto index = ivf_pq::build(res, *build_params, trainset_ptr, num_trainset, dataset.extent(1));
-  // // fill the index with the data
-  // index = ivf_pq::extend(res, index, dataset.data_handle(), (IdxT*)nullptr,  dataset.extent(1));
-  // RAFT_CUDA_TRY(cudaFreeHost(trainset_ptr));
 
   //
   // search top (k + 1) neighbors
