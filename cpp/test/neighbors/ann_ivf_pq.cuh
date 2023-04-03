@@ -335,9 +335,15 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     ASSERT_NE(old_list.get(), new_list.get())
       << "The old list should have been shared and retained after ivf_pq index has erased the "
          "corresponding cluster.";
+    auto list_data_size = (n_rows / ivf_pq::kIndexGroupSize) * new_list->data.extent(1) *
+                          new_list->data.extent(2) * new_list->data.extent(3);
 
-    ASSERT_TRUE(devArrMatch(
-      old_list->data.data_handle(), new_list->data.data_handle(), n_rows, Compare<uint8_t>{}));
+    ASSERT_TRUE(old_list->data.size() >= list_data_size);
+    ASSERT_TRUE(new_list->data.size() >= list_data_size);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
 
     // Pack a few vectors back to the list.
     int row_offset = 9;
@@ -347,8 +353,10 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto codes_to_pack = make_device_matrix_view<const uint8_t, uint32_t>(
       codes.data_handle() + offset, n_vec, index->pq_dim());
     ivf_pq::helpers::pack_list_data(handle_, index, codes_to_pack, label, row_offset);
-    ASSERT_TRUE(devArrMatch(
-      old_list->data.data_handle(), new_list->data.data_handle(), n_rows, Compare<uint8_t>{}));
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
   }
 
   template <typename BuildIndex>
