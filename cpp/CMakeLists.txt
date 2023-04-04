@@ -444,6 +444,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu
     src/random/rmat_rectangular_generator_int64_float.cu
+    src/spatial/knn/detail/ball_cover/registers.cu
   )
   set_target_properties(
     raft_lib

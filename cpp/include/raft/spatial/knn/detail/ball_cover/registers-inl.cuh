@@ -20,6 +20,7 @@
 
 #include "../../ball_cover_types.hpp"
 #include "../haversine_distance.cuh"
+#include "registers-types.cuh"  // DistFunc
 
 #include <cstdint>
 #include <limits.h>
