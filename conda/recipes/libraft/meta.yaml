@@ -73,7 +73,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
@@ -101,7 +101,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cuda-cudart {{ cuda_spec }}
         - cuda-cudart-dev {{ cuda_spec }}
@@ -162,7 +162,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
@@ -228,7 +228,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
@@ -294,7 +294,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
@@ -358,7 +358,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-version !=12.0 # Temporary hack
+        - cuda-version != 12.0 # Temporary hack
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
