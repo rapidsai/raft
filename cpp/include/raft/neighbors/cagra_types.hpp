@@ -50,30 +50,34 @@ enum class search_algo {
   AUTO
 };
 
-// TODO set reasonable defaults
 struct search_params : ann::search_params {
-  /** Maximum number of queries to search at the same time. So called batch size. */
+  /** Maximum number of queries to search at the same time (batch size). */
   size_t max_queries = 1;
 
-  /** Number of intermediate search results retained during the search. */
+  /** Number of intermediate search results retained during the search.
+   *
+   *  This is the main knob to adjust trade off between accuracy and search speed.
+   *  Higher values improve the search accuracy.
+   */
   size_t itopk_size = 64;
 
+  /** Upper limit of search iterations. Auto select when 0.*/
+  size_t max_iterations = 0;
+
+  // In the following we list additional search parameters for fine tuning.
+  // Reasonable default values are automatically chosen.
+
+  /** Which search imlementation to use. */
   search_algo algo = search_algo::AUTO;
 
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
-  /* Search algorithm. "single-cta", "multi-cta", or "multi-kernel". */
-  //  std::string search_mode = "auto";  // todo remove
-  /** Number of search results for each query. */
-  // size_t topk = 10;  // todo remove
 
   /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t num_parents = 1;
   /** Lower limit of search iterations. */
   size_t min_iterations = 0;
-  /** Upper limit of search iterations. */
-  size_t max_iterations = 0;
 
   /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
   size_t load_bit_length = 0;
@@ -149,11 +153,11 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&) = delete;
-  index(index&&)      = default;
+  index(const index&)                    = delete;
+  index(index&&)                         = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index& = default;
-  ~index()                          = default;
+  auto operator=(index&&) -> index&      = default;
+  ~index()                               = default;
 
   /** Construct an empty index. */
   index(raft::device_resources const& res)
