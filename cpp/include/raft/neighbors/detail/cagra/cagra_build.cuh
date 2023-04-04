@@ -113,8 +113,7 @@ void build_knn_graph(raft::device_resources const& res,
     max_batch_size,
     search_params->n_probes);
 
-  // TODO(tfeher) set RMM pool allocator, use workspace allocator,
-  // TODO(tfeher) shall we use uint32_t?
+  // TODO(tfeher): shall we use uint32_t?
   auto distances = raft::make_device_matrix<float, int64_t>(res, max_batch_size, gpu_top_k);
   auto neighbors = raft::make_device_matrix<int64_t, int64_t>(res, max_batch_size, gpu_top_k);
   auto refined_distances = raft::make_device_matrix<float, int64_t>(res, max_batch_size, top_k);
@@ -124,7 +123,7 @@ void build_knn_graph(raft::device_resources const& res,
   auto refined_neighbors_host = raft::make_host_matrix<int64_t, int64_t>(max_batch_size, top_k);
   auto refined_distances_host = raft::make_host_matrix<float, int64_t>(max_batch_size, top_k);
 
-  // Batched search with multiple GPUs
+  // TODO(tfeher): batched search with multiple GPUs
   std::size_t num_self_included = 0;
   bool first                    = true;
   const auto start_clock        = std::chrono::system_clock::now();
@@ -201,7 +200,7 @@ void build_knn_graph(raft::device_resources const& res,
       res.sync_stream();
     }
     // omit itself & write out
-    // TODO do this in parallel with GPU processing of next batch
+    // TODO(tfeher): do this in parallel with GPU processing of next batch
     for (std::size_t i = 0; i < batch.size(); i++) {
       size_t vec_idx = i + batch.offset();
       for (std::size_t j = 0, num_added = 0; j < top_k && num_added < node_degree; j++) {

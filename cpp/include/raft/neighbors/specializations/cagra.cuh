@@ -38,10 +38,6 @@ namespace raft::neighbors::experimental::cagra {
 
 RAFT_INST(float, uint32_t, memory_type::host);
 RAFT_INST(float, uint32_t, memory_type::device);
-RAFT_INST(int8_t, uint32_t, memory_type::host);
-RAFT_INST(int8_t, uint32_t, memory_type::device);
-RAFT_INST(uint8_t, uint32_t, memory_type::host)
-RAFT_INST(uint8_t, uint32_t, memory_type::device);
 
 #undef RAFT_INST
 
@@ -66,11 +62,6 @@ RAFT_INST(uint8_t, uint32_t, memory_type::device);
 RAFT_INST(float, uint32_t, memory_type::host, memory_type::host);
 RAFT_INST(float, uint32_t, memory_type::device, memory_type::host);
 
-RAFT_INST(uint8_t, uint32_t, memory_type::host, memory_type::host);
-RAFT_INST(uint8_t, uint32_t, memory_type::device, memory_type::host);
-
-RAFT_INST(int8_t, uint32_t, memory_type::host, memory_type::host);
-RAFT_INST(int8_t, uint32_t, memory_type::device, memory_type::host);
 
 #undef RAFT_INST
 
@@ -87,39 +78,21 @@ RAFT_INST(int8_t, uint32_t, memory_type::device, memory_type::host);
 #undef RAFT_INST
 }  // namespace raft::neighbors::experimental::cagra
 namespace raft::neighbors::experimental::cagra::detail::single_cta_search {
-extern template struct search<4, 128, float, uint32_t, float>;
 extern template struct search<8, 128, float, uint32_t, float>;
-extern template struct search<16, 128, float, uint32_t, float>;
-extern template struct search<32, 128, float, uint32_t, float>;
-extern template struct search<8, 256, float, uint32_t, float>;
 extern template struct search<16, 256, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
-extern template struct search<16, 512, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
+extern template struct search<32, 512, float, uint32_t, float>;
 extern template struct search<32, 1024, float, uint32_t, float>;
 }  // namespace raft::neighbors::experimental::cagra::detail::single_cta_search
 
 namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
-extern template struct search<4, 128, float, uint32_t, float>;
 extern template struct search<8, 128, float, uint32_t, float>;
-extern template struct search<16, 128, float, uint32_t, float>;
-extern template struct search<32, 128, float, uint32_t, float>;
-extern template struct search<8, 256, float, uint32_t, float>;
 extern template struct search<16, 256, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
-extern template struct search<16, 512, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
+extern template struct search<32, 512, float, uint32_t, float>;
 extern template struct search<32, 1024, float, uint32_t, float>;
 }  // namespace raft::neighbors::experimental::cagra::detail::multi_cta_search
 namespace raft::neighbors::experimental::cagra::detail::multi_kernel_search {
-extern template struct search<4, 128, float, uint32_t, float>;
 extern template struct search<8, 128, float, uint32_t, float>;
-extern template struct search<16, 128, float, uint32_t, float>;
-extern template struct search<32, 128, float, uint32_t, float>;
-extern template struct search<8, 256, float, uint32_t, float>;
 extern template struct search<16, 256, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
-extern template struct search<16, 512, float, uint32_t, float>;
-extern template struct search<32, 256, float, uint32_t, float>;
+extern template struct search<32, 512, float, uint32_t, float>;
 extern template struct search<32, 1024, float, uint32_t, float>;
 }  // namespace raft::neighbors::experimental::cagra::detail::multi_kernel_search

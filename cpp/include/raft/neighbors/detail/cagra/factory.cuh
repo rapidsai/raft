@@ -40,24 +40,18 @@ class factory {
     switch (plan.max_dim) {
       case 128:
         switch (plan.team_size) {
-          case 4: return dispatch_kernel<128, 4>(res, plan); break;
           case 8: return dispatch_kernel<128, 8>(res, plan); break;
-          case 16: return dispatch_kernel<128, 16>(res, plan); break;
-          case 32: return dispatch_kernel<128, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       case 256:
         switch (plan.team_size) {
-          case 8: return dispatch_kernel<256, 8>(res, plan); break;
           case 16: return dispatch_kernel<256, 16>(res, plan); break;
-          case 32: return dispatch_kernel<256, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
       case 512:
         switch (plan.team_size) {
-          case 16: return dispatch_kernel<512, 16>(res, plan); break;
           case 32: return dispatch_kernel<512, 32>(res, plan); break;
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
