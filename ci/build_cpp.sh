@@ -22,7 +22,7 @@ channels:
 - conda-forge
 conda_build:
 set_build_id: false
-root_dir: /tmp/conda-bld/workspace
+root_dir: /opt/conda
 output_folder: /tmp/conda-bld-output
 number_channel_notices: 0
 always_yes: true
