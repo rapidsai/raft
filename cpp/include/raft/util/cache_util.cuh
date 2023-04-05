@@ -50,7 +50,7 @@ __global__ void get_vecs(
   if (tid < n_vec * n) {
     size_t out_col   = tid / n_vec;  // col idx
     size_t cache_col = cache_idx[out_col];
-    if constexpr (!std::is_signed<idx_t>::value || cache_idx[out_col] >= 0) {
+    if (!std::is_signed<idx_t>::value || cache_idx[out_col] >= 0) {
       if (row + out_col * n_vec < (size_t)n_vec * n) { out[tid] = cache[row + cache_col * n_vec]; }
     }
   }
