@@ -106,7 +106,7 @@ __global__ void tanh_kernel(math_t* inout, int ld, int rows, int cols, math_t ga
  * Calculates output_ij = exp(-gain * (norm_x_i + norm_y_j - 2*input_ij));
  *
  * Intended usage
- *   - input is the product of two matrices X and Y input_ij = \sum_k X_ik * Y_jk
+ *   - input is the product of two matrices X and Y input_ij = sum_k X_ik * Y_jk
  *   - norm_x_i = l2_norm(x_i), where x_i is the i-th row of matrix X
  *   - norm_y_j = l2_norm(y_j), where y_j is the j-th row of matrix Y
  *

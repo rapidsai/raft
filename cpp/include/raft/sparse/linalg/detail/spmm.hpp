@@ -27,22 +27,40 @@ namespace linalg {
 namespace detail {
 
 /**
+ * @brief determine common data layout for both dense matrices
+ * @tparam ValueType Data type of Y,Z (float/double)
+ * @tparam IndexType Type of Y,Z
+ * @tparam LayoutPolicyY layout of Y
+ * @tparam LayoutPolicyZ layout of Z
+ * @param[in] x input raft::device_matrix_view
+ * @param[in] y input raft::device_matrix_view
+ * @returns dense matrix descriptor to be used by cuSparse API
+ */
+template <typename ValueType, typename IndexType, typename LayoutPolicyY, typename LayoutPolicyZ>
+bool is_row_major(raft::device_matrix_view<const ValueType, IndexType, LayoutPolicyY>& y,
+                  raft::device_matrix_view<ValueType, IndexType, LayoutPolicyZ>& z)
+{
+  bool is_row_major = z.stride(1) == 1 && y.stride(1) == 1;
+  bool is_col_major = z.stride(0) == 1 && y.stride(0) == 1;
+  ASSERT(is_row_major || is_col_major, "Both matrices need to be either row or col major");
+  return is_row_major;
+}
+
+/**
  * @brief create a cuSparse dense descriptor
  * @tparam ValueType Data type of dense_view (float/double)
  * @tparam IndexType Type of dense_view
  * @tparam LayoutPolicy layout of dense_view
- * @param[in] handle raft handle
  * @param[in] dense_view input raft::device_matrix_view
+ * @param[in] is_row_major data layout of raft::device_matrix_view
  * @returns dense matrix descriptor to be used by cuSparse API
  */
 template <typename ValueType, typename IndexType, typename LayoutPolicy>
 cusparseDnMatDescr_t create_descriptor(
-  raft::device_matrix_view<ValueType, IndexType, LayoutPolicy>& dense_view)
+  raft::device_matrix_view<ValueType, IndexType, LayoutPolicy>& dense_view, const bool is_row_major)
 {
-  ASSERT(dense_view.stride(0) == 1 || dense_view.stride(1) == 1, "Smallest stride needs to be 1");
-  bool is_row_major = dense_view.stride(1) == 1;
-  auto order        = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
-  IndexType ld      = is_row_major ? dense_view.stride(0) : dense_view.stride(1);
+  auto order   = is_row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
+  IndexType ld = is_row_major ? dense_view.stride(0) : dense_view.stride(1);
   cusparseDnMatDescr_t descr;
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
     &descr,
@@ -58,7 +76,6 @@ cusparseDnMatDescr_t create_descriptor(
  * @brief create a cuSparse sparse descriptor
  * @tparam ValueType Data type of sparse_view (float/double)
  * @tparam NZType Type of sparse_view
- * @param[in] handle raft handle
  * @param[in] sparse_view input raft::device_csr_matrix_view of size M rows x K columns
  * @returns sparse matrix descriptor to be used by cuSparse API
  */
@@ -92,6 +109,7 @@ cusparseSpMatDescr_t create_descriptor(
  * @param[in] handle raft handle
  * @param[in] trans_x transpose operation for X
  * @param[in] trans_y transpose operation for Y
+ * @param[in] is_row_major data layout of Y,Z
  * @param[in] alpha scalar
  * @param[in] descr_x input sparse descriptor
  * @param[in] descr_y input dense descriptor
@@ -102,6 +120,7 @@ template <typename ValueType>
 void spmm(raft::device_resources const& handle,
           const bool trans_x,
           const bool trans_y,
+          const bool is_row_major,
           const ValueType* alpha,
           cusparseSpMatDescr_t& descr_x,
           cusparseDnMatDescr_t& descr_y,
@@ -110,7 +129,7 @@ void spmm(raft::device_resources const& handle,
 {
   auto opX = trans_x ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE;
   auto opY = trans_y ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE;
-  auto alg = CUSPARSE_SPMM_CSR_ALG1;
+  auto alg = is_row_major ? CUSPARSE_SPMM_CSR_ALG2 : CUSPARSE_SPMM_CSR_ALG1;
   size_t bufferSize;
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
                                                                   opX,

@@ -57,11 +57,13 @@ void spmm(raft::device_resources const& handle,
           const ValueType* beta,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyZ> z)
 {
-  auto descr_x = detail::create_descriptor(x);
-  auto descr_y = detail::create_descriptor(y);
-  auto descr_z = detail::create_descriptor(z);
+  bool is_row_major = detail::is_row_major(y, z);
 
-  detail::spmm(handle, trans_x, trans_y, alpha, descr_x, descr_y, beta, descr_z);
+  auto descr_x = detail::create_descriptor(x);
+  auto descr_y = detail::create_descriptor(y, is_row_major);
+  auto descr_z = detail::create_descriptor(z, is_row_major);
+
+  detail::spmm(handle, trans_x, trans_y, is_row_major, alpha, descr_x, descr_y, beta, descr_z);
 
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(descr_x));
   RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnMat(descr_y));
