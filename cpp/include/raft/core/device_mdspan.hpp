@@ -270,7 +270,6 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
  * @param[in] ptr on device to wrap
  * @param[in] n_rows number of rows in pointer
  * @param[in] n_cols number of columns in pointer
- * @param[in] is_row_major whether the data is in row major format (column major otherwise)
  * @param[in] stride leading dimension / stride of data
  */
 template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
