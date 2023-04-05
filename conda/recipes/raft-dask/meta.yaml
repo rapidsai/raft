@@ -47,6 +47,7 @@ requirements:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
     - dask ==2023.3.2
+    - dask-core ==2023.3.2
     - dask-cuda ={{ minor_version }}
     - distributed ==2023.3.2.1
     - joblib >=0.11
