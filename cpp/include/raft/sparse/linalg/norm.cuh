@@ -77,13 +77,14 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
  * @tparam Type the data type
  * @tparam Lambda device final lambda
  * @tparam IdxType Integer type used to for addressing
- * @param stream cuda stream where to launch work
+ * @param handle raft handle
  * @param ia the input matrix row index array
  * @param data the input matrix nnz data
  * @param nnz number of elements in data
  * @param N number of rows
  * @param norm the output vector of row-wise norm, size [N]
  * @param type the type of norm to be applied
+ * @param fin_op the final lambda op
  */
 template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
 void rowNormCsr(raft::device_resources const& handle,
