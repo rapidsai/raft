@@ -62,7 +62,6 @@ RAFT_INST(float, uint32_t, memory_type::device);
 RAFT_INST(float, uint32_t, memory_type::host, memory_type::host);
 RAFT_INST(float, uint32_t, memory_type::device, memory_type::host);
 
-
 #undef RAFT_INST
 
 #define RAFT_INST(T, IdxT)                                      \
