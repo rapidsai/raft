@@ -43,7 +43,7 @@ template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::device_resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
-                     const uint32_t refine_rate                         = 2,
+                     std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
@@ -101,7 +101,7 @@ void build_knn_graph(raft::device_resources const& res,
     search_params->internal_distance_dtype = CUDA_R_32F;
   }
   const auto top_k          = node_degree + 1;
-  uint32_t gpu_top_k        = node_degree * refine_rate;
+  uint32_t gpu_top_k        = node_degree * refine_rate.value_or(2.0f);
   gpu_top_k                 = std::min(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries    = dataset.extent(0);
   const auto max_batch_size = 1024;

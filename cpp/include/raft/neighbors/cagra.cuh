@@ -40,7 +40,10 @@ namespace raft::neighbors::experimental::cagra {
  * The kNN graph is the first building block for CAGRA index.
  * This function uses the IVF-PQ method to build a kNN graph.
  *
- * See [cagra::build](#cagra::build) for alternative method.
+ * The output is a dense matrix that stores the neighbor indices for each pont in the dataset.
+ * Each point has the same number of neighbors.
+ *
+ * See [cagra::build](#cagra::build) for an alternative method.
  *
  * The following distance metrics are supported:
  * - L2Expanded
@@ -65,7 +68,7 @@ namespace raft::neighbors::experimental::cagra {
  *
  * @param[in] res raft resources
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
- * @param[out] knn_graph a host matrix view to store the output knn graph
+ * @param[out] knn_graph a host matrix view to store the output knn graph [n_rows, graph_degree]
  * @param[in] refine_rate refinement rate for ivf-pq search
  * @param[in] build_params (optional) ivf_pq index building parameters for knn graph
  * @param[in] search_params (optional) ivf_pq search parameters
@@ -74,7 +77,7 @@ template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::device_resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
-                     const uint32_t refine_rate                         = 2,
+                     std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
