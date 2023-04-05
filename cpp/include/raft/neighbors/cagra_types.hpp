@@ -50,6 +50,8 @@ enum class search_algo {
   AUTO
 };
 
+enum class hash_mode { HASH, SMALL, AUTO };
+
 struct search_params : ann::search_params {
   /** Maximum number of queries to search at the same time (batch size). */
   size_t max_queries = 1;
@@ -83,8 +85,8 @@ struct search_params : ann::search_params {
   size_t load_bit_length = 0;
   /** Thread block size. 0, 64, 128, 256, 512, 1024. Auto selection when 0. */
   size_t thread_block_size = 0;
-  /** Hashmap type. "auto", "hash", or "small-hash". Auto selection when "auto". */
-  std::string hashmap_mode = "auto";
+  /** Hashmap type. Auto selection when AUTO. */
+  hash_mode hashmap_mode = hash_mode::AUTO;
   /** Lower limit of hashmap bit length. More than 8. */
   size_t hashmap_min_bitlen = 0;
   /** Upper limit of hashmap fill rate. More than 0.1, less than 0.9.*/

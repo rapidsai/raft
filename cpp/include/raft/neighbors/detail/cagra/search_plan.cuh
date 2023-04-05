@@ -165,7 +165,7 @@ struct search_plan_impl : public search_plan_impl_base {
     small_hash_bitlen         = 0;
     small_hash_reset_interval = 1024 * 1024;
     float max_fill_rate       = hashmap_max_fill_rate;
-    while (hashmap_mode == "auto" || hashmap_mode == "small-hash") {
+    while (hashmap_mode == hash_mode::AUTO || hashmap_mode == hash_mode::SMALL) {
       //
       // The small-hash reduces hash table size by initializing the hash table
       // for each iteraton and re-registering only the nodes that should not be
@@ -182,8 +182,8 @@ struct search_plan_impl : public search_plan_impl_base {
         hash_bitlen += 1;
       }
       if (hash_bitlen > max_bitlen) {
-        // Switch to normal hash if hashmap_mode is "auto", otherwise exit.
-        if (hashmap_mode == "auto") {
+        // Switch to normal hash if hashmap_mode is AUTO, otherwise exit.
+        if (hashmap_mode == hash_mode::AUTO) {
           hash_bitlen = 0;
           break;
         } else {
@@ -277,9 +277,6 @@ struct search_plan_impl : public search_plan_impl_base {
                                      ") must be smaller or equal to 1024");
       }
     }
-    if (hashmap_mode != "auto" && hashmap_mode != "hash" && hashmap_mode != "small-hash") {
-      error_message += "An invalid hashmap mode has been given: " + hashmap_mode + "";
-    }
     if (algo != search_algo::SINGLE_CTA && algo != search_algo::MULTI_CTA &&
         algo != search_algo::MULTI_KERNEL) {
       error_message += "An invalid kernel mode has been given: " + std::to_string((int)algo) + "";
@@ -307,10 +304,10 @@ struct search_plan_impl : public search_plan_impl_base {
         std::to_string(hashmap_max_fill_rate) + " has been given.";
     }
     if (algo == search_algo::MULTI_CTA) {
-      if (hashmap_mode == "small_hash") {
+      if (hashmap_mode == hash_mode::SMALL) {
         error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"";
       } else {
-        hashmap_mode = "hash";
+        hashmap_mode = hash_mode::HASH;
       }
     }
 
