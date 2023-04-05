@@ -23,7 +23,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-// #include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
@@ -33,13 +33,6 @@
 #include <gtest/gtest.h>
 
 #include <thrust/sequence.h>
-
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#include <raft/neighbors/specializations/cagra.cuh>
-#else
-#pragma message("Not using specializations")
-#endif
 
 #include <cstddef>
 #include <iostream>

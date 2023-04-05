@@ -275,14 +275,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/update_centroids_double.cu
     src/cluster/cluster_cost_float.cu
     src/cluster/cluster_cost_double.cu
-    src/neighbors/cagra/prune.cu
-    src/neighbors/cagra/build_float_uint32_device.cu
-    src/neighbors/cagra/build_float_uint32_host.cu
-    src/neighbors/cagra/search_float_dim1024_t32.cu
-    src/neighbors/cagra/search_float_dim128_t8.cu
-    src/neighbors/cagra/search_float_dim256_t16.cu
-    src/neighbors/cagra/search_float_dim512_t32.cu
-    src/neighbors/cagra/topk.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu

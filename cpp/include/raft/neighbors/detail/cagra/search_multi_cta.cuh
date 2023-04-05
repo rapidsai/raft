@@ -29,7 +29,7 @@
 #include "device_common.hpp"
 #include "hashmap.hpp"
 #include "search_plan.cuh"
-#include "topk_for_cagra/topk.h"  // TODO replace with raft topk
+#include "topk_for_cagra/topk_core.cuh"  // TODO replace with raft topk if possible
 #include "utils.hpp"
 #include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>

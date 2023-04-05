@@ -30,7 +30,7 @@
 #include "fragment.hpp"
 #include "hashmap.hpp"
 #include "search_plan.cuh"
-#include "topk_for_cagra/topk.h"  //todo replace with raft kernel
+#include "topk_for_cagra/topk_core.cuh"  //todo replace with raft kernel
 #include "utils.hpp"
 #include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
