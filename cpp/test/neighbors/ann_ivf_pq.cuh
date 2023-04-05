@@ -357,6 +357,22 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                             new_list->data.data_handle(),
                             list_data_size,
                             Compare<uint8_t>{}));
+
+    // Another test with the API that take list_data directly
+    auto list_data  = index->lists()[label]->data.view();
+    uint32_t n_take = 4;
+    ASSERT_TRUE(row_offset + n_take < n_rows);
+    auto codes2 = raft::make_device_matrix<uint8_t>(handle_, n_take, index->pq_dim());
+    ivf_pq::helpers::codepacker::unpack(
+      handle_, list_data, index->pq_bits(), row_offset, codes2.view());
+
+    // Write it back
+    ivf_pq::helpers::codepacker::pack(
+      handle_, make_const_mdspan(codes2.view()), index->pq_bits(), row_offset, list_data);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
   }
 
   template <typename BuildIndex>

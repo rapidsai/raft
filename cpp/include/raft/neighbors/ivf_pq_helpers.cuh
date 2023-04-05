@@ -23,11 +23,84 @@
 #include <raft/core/device_resources.hpp>
 
 namespace raft::neighbors::ivf_pq::helpers {
-
 /**
  * @defgroup ivf_pq_helpers Helper functions for manipulationg IVF PQ Index
  * @{
  */
+
+namespace codepacker {
+/**
+ * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
+ * starting at given `offset`.
+ *
+ * Bit compression is removed, which means output will have pq_dim dimensional vectors (one code per
+ * byte, instead of ceildiv(pq_dim * pq_bits, 8) bytes of pq codes).
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   auto list_data = index.lists()[label]->data.view();
+ *   // allocate the buffer for the output
+ *   uint32_t n_take = 4;
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_take, index.pq_dim());
+ *   uint32_t offset = 0;
+ *   // unpack n_take elements from the list
+ *   ivf_pq::helpers::codepacker::unpack(res, list_data, index.pq_bits(), offset, codes.view());
+ * @endcode
+ *
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res raft resource
+ * @param[in] list_data block to read from
+ * @param[in] pq_bits bit length of encoded vector elements
+ * @param[in] offset
+ *   How many records in the list to skip.
+ * @param[out] codes
+ *   the destination buffer [n_take, index.pq_dim()].
+ *   The length `n_take` defines how many records to unpack,
+ *   it must be smaller than the list size.
+ */
+inline void unpack(
+  raft::device_resources const& res,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  uint32_t pq_bits,
+  uint32_t offset,
+  device_matrix_view<uint8_t, uint32_t, row_major> codes)
+{
+  ivf_pq::detail::unpack_list_data(codes, list_data, offset, pq_bits, res.get_stream());
+}
+
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   auto list_data  = index.lists()[label]->data.view();
+ *   // allocate the buffer for the input codes
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_vec, index.pq_dim());
+ *   ... prepare n_vecs to pack into the list in codes ...
+ *   // write codes into the list starting from the 42nd position
+ *   ivf_pq::helpers::codepacker::pack(
+ *       res, make_const_mdspan(codes.view()), index.pq_bits(), 42, list_data);
+ * @endcode
+ *
+ * @param[in] res
+ * @param[in] codes flat PQ codes, one code per byte [n_vec, pq_dim]
+ * @param[in] pq_bits bit length of encoded vector elements
+ * @param[in] offset how many records to skip before writing the data into the list
+ * @param[in] list_data block to write into
+ */
+inline void pack(
+  raft::device_resources const& res,
+  device_matrix_view<const uint8_t, uint32_t, row_major> codes,
+  uint32_t pq_bits,
+  uint32_t offset,
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data)
+{
+  ivf_pq::detail::pack_list_data(list_data, codes, offset, pq_bits, res.get_stream());
+}
+}  // namespace codepacker
 
 /**
  * Write flat PQ codes into an existing list by the given offset.
@@ -41,7 +114,7 @@ namespace raft::neighbors::ivf_pq::helpers {
  *   // We will write into the 137th cluster
  *   uint32_t label = 137;
  *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<float>(res, n_vec, index.pq_dim());
+ *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_vec, index.pq_dim());
  *   ... prepare n_vecs to pack into the list in codes ...
  *   // write codes into the list starting from the 42nd position
  *   ivf_pq::helpers::pack_list_data(res, &index, codes_to_pack, label, 42);
@@ -332,4 +405,5 @@ void erase_list(raft::device_resources const& res, index<IdxT>* index, uint32_t 
   ivf_pq::detail::erase_list(res, index, label);
 }
 
+/** @} */
 }  // namespace raft::neighbors::ivf_pq::helpers
