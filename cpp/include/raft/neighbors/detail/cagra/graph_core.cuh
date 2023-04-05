@@ -412,7 +412,8 @@ template <class DATA_T,
             host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
-void prune(mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+void prune(raft::device_resources const& res,
+           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {

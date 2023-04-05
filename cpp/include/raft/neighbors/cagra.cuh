@@ -108,7 +108,7 @@ void prune(raft::device_resources const& res,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
-  detail::graph::prune(dataset, knn_graph, new_graph);
+  detail::graph::prune(res, dataset, knn_graph, new_graph);
 }
 
 /**
