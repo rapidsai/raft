@@ -55,11 +55,11 @@ struct search_plan_impl_base : public search_params {
     if (team_size != 0) { RAFT_LOG_WARN("Overriding team size parameter."); }
     // To keep binary size in check we limit only one team size specialization for each max_dim.
     // TODO(tfeher): revise this decision.
-      switch (max_dim) {
-        case 128: team_size = 8; break;
-        case 256: team_size = 16; break;
-        case 512: team_size = 32; break;
-        case 1024: team_size = 32; break;
+    switch (max_dim) {
+      case 128: team_size = 8; break;
+      case 256: team_size = 16; break;
+      case 512: team_size = 32; break;
+      case 1024: team_size = 32; break;
       default: RAFT_LOG_DEBUG("Dataset dimension is too large (%lu)\n", dim);
     }
   }

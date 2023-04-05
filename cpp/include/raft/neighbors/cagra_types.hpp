@@ -153,11 +153,11 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&)                    = delete;
-  index(index&&)                         = default;
+  index(const index&) = delete;
+  index(index&&)      = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index&      = default;
-  ~index()                               = default;
+  auto operator=(index&&) -> index& = default;
+  ~index()                          = default;
 
   /** Construct an empty index. */
   index(raft::device_resources const& res)
