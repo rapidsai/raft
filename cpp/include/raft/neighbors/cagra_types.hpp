@@ -67,7 +67,7 @@ struct search_params : ann::search_params {
   // In the following we list additional search parameters for fine tuning.
   // Reasonable default values are automatically chosen.
 
-  /** Which search imlementation to use. */
+  /** Which search implementation to use. */
   search_algo algo = search_algo::AUTO;
 
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
