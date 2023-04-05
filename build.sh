@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn  --build-metrics --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -45,9 +45,13 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
+   --build-metrics             - generate build metrics report for libraft
+   --incl-cache-stats          - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
+   --time                      - Enable nvcc compilation time logging into cpp/build/nvcc_compile_log.csv.
+                                 Results can be interpreted with cpp/scripts/analyze_nvcc_log.py
    -h                          - print this text
 
  default action (no args) is to build libraft, tests, pylibraft and raft-dask targets
@@ -69,12 +73,15 @@ BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
+BUILD_REPORT_METRICS=OFF
+BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 
 CACHE_ARGS=""
 NVTX=ON
+LOG_COMPILE_TIME=OFF
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -322,13 +329,22 @@ fi
 if hasArg --no-nvtx; then
     NVTX=OFF
 fi
+if hasArg --time; then
+    echo "-- Logging compile times to cpp/build/nvcc_compile_log.csv"
+    LOG_COMPILE_TIME=ON
+fi
 if hasArg --show_depr_warn; then
     DISABLE_DEPRECATION_WARNINGS=OFF
 fi
 if hasArg clean; then
     CLEAN=1
 fi
-
+if hasArg --build-metrics; then
+    BUILD_REPORT_METRICS=ON
+fi
+if hasArg --incl-cache-stats; then
+    BUILD_REPORT_INCL_CACHE_STATS=ON
+fi
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
 fi
@@ -371,6 +387,12 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
+    # get the current count before the compile starts
+    CACHE_TOOL=${CACHE_TOOL:-sccache}
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
+        "${CACHE_TOOL}" --zero-stats
+    fi
+
     mkdir -p ${LIBRAFT_BUILD_DIR}
     cd ${LIBRAFT_BUILD_DIR}
     cmake -S ${REPODIR}/cpp -B ${LIBRAFT_BUILD_DIR} \
@@ -379,6 +401,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
+          -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
@@ -387,6 +410,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
+  compile_start=$(date +%s)
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
       if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -394,6 +418,50 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
       else
         cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
       fi
+  fi
+  compile_end=$(date +%s)
+  compile_total=$(( compile_end - compile_start ))
+
+  if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
+      if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
+          echo "Downloading rapids-build-metrics-reporter.py"
+          curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
+      fi
+
+      echo "Formatting build metrics"
+      MSG=""
+      # get some sccache/ccache stats after the compile
+      if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" ]]; then
+          if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
+              COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
+              CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
+              HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
+              MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+          elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
+              CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
+              if [[ ! -z "$CACHE_STATS_LINE" ]]; then
+                  CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
+                  COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
+                  HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
+                  MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+              fi
+          fi
+      fi
+      MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
+      MSG="${MSG}<br/>parallel build time: $compile_total seconds"
+      if [[ -f "${LIBRAFT_BUILD_DIR}/libraft.so" ]]; then
+          LIBRAFT_FS=$(ls -lh ${LIBRAFT_BUILD_DIR}/libraft.so | awk '{print $5}')
+          MSG="${MSG}<br/>libraft.so size: $LIBRAFT_FS"
+      fi
+      BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBRAFT_BUILD_DIR}"}
+      echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
+      echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/raft/, and"
+      echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
+      mkdir -p ${BMR_DIR}
+      MSG_OUTFILE="$(mktemp)"
+      echo "$MSG" > "${MSG_OUTFILE}"
+      PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
+      cp ${LIBRAFT_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
   fi
 fi
 

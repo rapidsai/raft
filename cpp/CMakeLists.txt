@@ -53,6 +53,7 @@ option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
 )
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_LOG_COMPILE_TIME "Write a log of compilation times to nvcc_compile_log.csv" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
@@ -559,41 +560,6 @@ install(
 )
 
 # ##################################################################################################
-# * export/install optional components  --------------------------------------
-
-include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-
-set(raft_components compiled distributed)
-set(raft_install_comp raft raft)
-if(TARGET raft_lib)
-  list(APPEND raft_components compiled-lib)
-  list(APPEND raft_install_comp compiled)
-endif()
-
-foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
-  install(
-    EXPORT raft-${comp}-exports
-    FILE raft-${comp}-targets.cmake
-    NAMESPACE raft::
-    DESTINATION "${lib_dir}/cmake/raft"
-    COMPONENT ${install_comp}
-  )
-  export(
-    EXPORT raft-${comp}-exports
-    FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
-    NAMESPACE raft::
-  )
-  rapids_export_write_dependencies(
-    BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
-  )
-  rapids_export_write_dependencies(
-    INSTALL raft-${comp}-exports
-    "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
-  )
-
-endforeach()
-
-# ##################################################################################################
 # * install export -----------------------------------------------------------
 set(doc_string
     [=[
@@ -635,19 +601,31 @@ if(compiled IN_LIST raft_FIND_COMPONENTS)
 endif()
 ]=]
 )
+set(raft_components compiled distributed)
+set(raft_export_sets raft-compiled-exports raft-distributed-exports)
+if(TARGET raft_lib)
+  list(APPEND raft_components compiled)
+  list(APPEND raft_export_sets raft-compiled-lib-exports)
+endif()
 
-# Use `rapids_export` for 22.04 as it will have COMPONENT support
-include(cmake/modules/raft_export.cmake)
-raft_export(
-  INSTALL raft COMPONENTS compiled distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft compiled
-  distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+rapids_export(
+  INSTALL raft
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  GLOBAL_TARGETS raft compiled distributed
+  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------
-raft_export(
-  BUILD raft EXPORT_SET raft-exports COMPONENTS compiled distributed GLOBAL_TARGETS raft compiled
-  distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+rapids_export(
+  BUILD raft
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  GLOBAL_TARGETS raft
+  compiled distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

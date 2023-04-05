@@ -44,7 +44,8 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             OPTIONS
             "BUILD_TESTS OFF"
-            "BUILD_BENCH OFF"
+            "BUILD_PRIMS_BENCH OFF"
+            "BUILD_ANN_BENCH OFF"
             "RAFT_NVTX   ${ENABLE_NVTX}"
             "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
             )
