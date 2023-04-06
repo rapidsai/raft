@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/detail/device_id_base.hpp>
+#include "execution_device_id_base.hpp"
 #include <raft/core/device_type.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_device.hpp>
@@ -22,9 +22,9 @@
 namespace raft {
 namespace detail {
 template <>
-class device_id<device_type::gpu> {
+struct execution_device_id<device_type::gpu> {
   using value_type = typename rmm::cuda_device_id::value_type;
-  device_id() noexcept(false)
+  execution_device_id() noexcept(false)
     : id_{[]() {
         auto raw_id = value_type{};
         RAFT_CUDA_TRY(cudaGetDevice(&raw_id));
@@ -38,7 +38,7 @@ class device_id<device_type::gpu> {
    * attached to this value and we can easily convert to the strongly-typed
    * rmm::cuda_device_id if desired.
    */
-  device_id(value_type dev_id) noexcept : id_{dev_id} {};
+  execution_device_id(value_type dev_id) noexcept : id_{dev_id} {};
 
   auto value() const noexcept { return id_.value(); }
   auto rmm_id() const noexcept { return id_; }

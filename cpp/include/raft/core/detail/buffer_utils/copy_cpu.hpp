@@ -24,12 +24,12 @@ namespace raft {
 namespace detail {
 
 template<device_type dst_type, device_type src_type, typename T>
-std::enable_if_t<std::conjunction_v<std::bool_constant<dst_type == device_type::cpu>, std::bool_constant<src_type == device_type::cpu>>, void> copy(T* dst, T const* src, uint32_t size, execution_stream stream) {
+std::enable_if_t<std::conjunction_v<std::bool_constant<dst_type == device_type::cpu>, std::bool_constant<src_type == device_type::cpu>>, void> buffer_copy(T* dst, T const* src, uint32_t size, execution_stream stream) {
   std::copy(src, src + size, dst);
 }
 
 template<device_type dst_type, device_type src_type, typename T>
-std::enable_if_t<std::conjunction_v<std::disjunction<std::bool_constant<dst_type != device_type::cpu>, std::bool_constant<src_type != device_type::cpu>>, std::bool_constant<!GPU_ENABLED>>, void> copy(T* dst, T const* src, uint32_t size, execution_stream stream) {
+std::enable_if_t<std::conjunction_v<std::disjunction<std::bool_constant<dst_type != device_type::cpu>, std::bool_constant<src_type != device_type::cpu>>, std::bool_constant<!CUDA_ENABLED>>, void> buffer_copy(T* dst, T const* src, uint32_t size, execution_stream stream) {
   throw raft::cuda_unsupported("Copying from or to device in non-GPU build");
 }
 

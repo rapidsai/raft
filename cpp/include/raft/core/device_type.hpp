@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 #pragma once
+#include <raft/core/memory_type.hpp>
 namespace raft {
 enum class device_type {
   cpu,
   gpu
 };
+
+auto constexpr is_compatible(device_type dev_type, memory_type mem_type)
+{
+  return (dev_type == device_type::gpu && is_device_accessible(mem_type)) ||
+         (dev_type == device_type::cpu && is_host_accessible(mem_type));
+}
 }

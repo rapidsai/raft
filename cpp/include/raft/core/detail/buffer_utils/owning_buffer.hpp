@@ -16,7 +16,7 @@
 #pragma once
 #include <raft/core/device_type.hpp>
 #include "owning_buffer_cpu.hpp"
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
 #include "owning_buffer_gpu.hpp"
 #endif
 namespace raft {

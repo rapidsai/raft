@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/detail/execution_device_id_base.hpp>
+#include "execution_device_id_base.hpp"
 #include <raft/core/device_type.hpp>
 
 namespace raft {
 namespace detail {
 template <>
-class device_id<raft::device_type::cpu> {
+struct execution_device_id<raft::device_type::cpu> {
   using value_type = int;
-  device_id() : id_{value_type{}} {};
-  device_id(value_type dev_id) : id_{dev_id} {};
+  execution_device_id() : id_{value_type{}} {};
+  execution_device_id(value_type dev_id) : id_{dev_id} {};
 
   auto value() const noexcept { return id_; }
  private:

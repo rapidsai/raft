@@ -24,6 +24,24 @@ auto constexpr static const CUDA_ENABLED = false;
 auto constexpr static const CUDA_ENABLED = true;
 #endif
 
+#ifdef __CUDACC__
+#define HOST __host__
+#define DEVICE __device__
+auto constexpr static const GPU_COMPILATION = true;
+#else
+#define HOST
+#define DEVICE
+auto constexpr static const GPU_COMPILATION = false;
+#endif
+
+#ifndef DEBUG
+auto constexpr static const DEBUG_ENABLED = false;
+#elif DEBUG == 0
+auto constexpr static const DEBUG_ENABLED = false;
+#else
+auto constexpr static const DEBUG_ENABLED = true;
+#endif
+
 struct cuda_unsupported : raft::exception {
   explicit cuda_unsupported(std::string const& msg) : raft::exception{msg} {}
   cuda_unsupported() : cuda_unsupported{"CUDA functionality invoked in non-CUDA build"} {}

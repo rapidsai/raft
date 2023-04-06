@@ -28,7 +28,7 @@ namespace raft {
 namespace detail {
 
 template<device_type dst_type, device_type src_type, typename T>
-std::enable_if_t<std::conjunction_v<std::disjunction<std::bool_constant<dst_type == device_type::gpu>, std::bool_constant<src_type == device_type::gpu>>, std::bool_constant<GPU_ENABLED>>, void> copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream) {
+std::enable_if_t<std::conjunction_v<std::disjunction<std::bool_constant<dst_type == device_type::gpu>, std::bool_constant<src_type == device_type::gpu>>, std::bool_constant<CUDA_ENABLED>>, void> buffer_copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream) {
   RAFT_CUDA_TRY(thrust::copy(rmm::exec_policy(stream), src, src + size, dst));
 }
 

@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 #pragma once
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
 #include <cuda_runtime_api.h>
 #endif
 
 namespace raft {
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
 using execution_stream = cudaStream_t;
 #else
 using execution_stream = int;
 #endif
 inline void synchronize(execution_stream stream) {
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
   cudaStreamSynchronize(stream);
 #endif
 }

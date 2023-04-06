@@ -17,7 +17,7 @@
 
 #include <raft/core/detail/execution_device_id_base.hpp>
 #include <raft/core/detail/execution_device_id_cpu.hpp>
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
 #include <raft/core/detail/execution_device_id_gpu.hpp>
 #endif
 #include <raft/core/device_type.hpp>
@@ -25,7 +25,7 @@
 
 namespace raft {
 template <device_type D>
-using execution_device_id = detail::device_id<D>;
+using execution_device_id = detail::execution_device_id<D>;
 
 using execution_device_id_variant = std::variant<execution_device_id<device_type::cpu>, execution_device_id<device_type::gpu>>;
 }

@@ -18,6 +18,7 @@
 #include <raft/core/device_type.hpp>
 #include "owning_buffer_base.hpp"
 #include <memory>
+#include <type_traits>
 
 namespace raft {
 namespace detail {

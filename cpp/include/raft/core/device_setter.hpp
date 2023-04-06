@@ -15,7 +15,7 @@
  */
 #pragma once
 #include <raft/core/detail/device_setter_base.hpp>
-#ifdef CUML_ENABLE_GPU
+#ifndef RAFT_DISABLE_CUDA
 #include <raft/core/detail/device_setter_gpu.hpp>
 #endif
 #include <raft/core/device_type.hpp>

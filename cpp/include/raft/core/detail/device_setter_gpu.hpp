@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/util/cuda_rt_essentials.hpp"
 #include <cuda_runtime_api.h>
-// #include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
 #include <raft/core/detail/device_setter_base.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_device_id.hpp>
@@ -29,17 +29,17 @@ template <>
 class device_setter<device_type::gpu> {
   device_setter(raft::execution_device_id<device_type::gpu> device) noexcept(false) : prev_device_{[]() {
     auto result = int{};
-    raft::cuda_check(cudaGetDevice(&result));
+    RAFT_CUDA_TRY(cudaGetDevice(&result));
     return result;
   }()} {
-    raft::cuda_check(cudaSetDevice(device.value()));
+    RAFT_CUDA_TRY(cudaSetDevice(device.value()));
   }
 
   ~device_setter() {
     RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_.value()));
   }
  private:
-  device_id<device_type::gpu> prev_device_;
+  execution_device_id<device_type::gpu> prev_device_;
 };
 
 }

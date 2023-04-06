@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <exception>
+#include <raft/core/error.hpp>
 
 namespace raft {
-struct bad_cuda_call : std::exception {
+struct bad_cuda_call : raft::exception {
   bad_cuda_call() : bad_cuda_call("CUDA API call failed") {}
   bad_cuda_call(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_; }
@@ -26,7 +26,7 @@ struct bad_cuda_call : std::exception {
   char const* msg_;
 };
 
-struct out_of_bounds : std::exception {
+struct out_of_bounds : raft::exception {
   out_of_bounds() : out_of_bounds("Attempted out-of-bounds memory access") {}
   out_of_bounds(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_; }
@@ -35,7 +35,7 @@ struct out_of_bounds : std::exception {
   char const* msg_;
 };
 
-struct wrong_device_type : std::exception {
+struct wrong_device_type : raft::exception {
   wrong_device_type() : wrong_device_type(
     "Attempted to use host data on GPU or device data on CPU"
   ) {}
@@ -46,7 +46,7 @@ struct wrong_device_type : std::exception {
   char const* msg_;
 };
 
-struct mem_type_mismatch : std::exception {
+struct mem_type_mismatch : raft::exception {
   mem_type_mismatch() : mem_type_mismatch(
     "Memory type does not match expected type"
   ) {}
@@ -57,7 +57,7 @@ struct mem_type_mismatch : std::exception {
   char const* msg_;
 };
 
-struct wrong_device : std::exception {
+struct wrong_device : raft::exception {
   wrong_device() : wrong_device(
     "Attempted to use incorrect device"
   ) {}

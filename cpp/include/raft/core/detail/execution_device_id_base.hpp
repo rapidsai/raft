@@ -19,10 +19,10 @@
 namespace raft {
 namespace detail {
 template<device_type D>
-class device_id {
+struct execution_device_id {
   using value_type = int;
 
-  device_id(value_type device_index) {}
+  execution_device_id(value_type device_index) {}
   auto value() const { return value_type{}; }
 };
 }
