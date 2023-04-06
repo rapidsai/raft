@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,423 +14,358 @@
  * limitations under the License.
  */
 #pragma once
-
-#include <raft/core/error.hpp>
-#include <raft/core/mdspan_types.hpp>
-#include <raft/core/memory_type.hpp>
-
-#include <raft/core/detail/macros.hpp>
-#include <raft/core/detail/mdspan_util.cuh>
-#include <raft/core/host_device_accessor.hpp>
-#include <raft/core/memory_type.hpp>
-
-#include <rmm/cuda_device.hpp>
+#include "raft/core/memory_type.hpp"
+#include <cstddef>
+#include <stdint.h>
+#include <iterator>
+#include <memory>
+#include <utility>
+#include <variant>
+#include <raft/core/detail/const_agnostic.hpp>
+#include <raft/core/buffer_copy.hpp>
+#include <raft/core/execution_stream.hpp>
+#include <raft/core/detail/buffer_utils/non_owning_buffer.hpp>
+#include <raft/core/detail/buffer_utils/owning_buffer.hpp>
+#include <raft/core/execution_device_id.hpp>
+#include <raft/core/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 
 namespace raft {
+/**
+ * @brief A container which may or may not own its own data on host or device
+ *
+ */
+using index_type = std::size_t;
+template<typename T, memory_type M>
+class buffer {
+  using value_type = T;
 
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
-using mdspan = std::experimental::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>;
+  // using data_store = std::variant<
+    // non_owning_buffer<device_type::cpu, T>, non_owning_buffer<device_type::gpu, T>, owning_buffer<device_type::cpu, T>, owning_buffer<device_type::gpu, T>
+  // >;
 
-namespace detail {
+  buffer() : buffer_type{}, size_{} {}
 
-template<memory_type D>
-struct device_id {
-  using value_type = int;
-
-  device_id(value_type device_index) {}
-  auto value() const { return value_type{}; }
+  private:
+  execution_device_id_variant buffer_type;
+  index_type size_;
+  T* cached_ptr;
 };
 
-template <>
-struct device_id<memory_type::host> {
-  using value_type = int;
-  device_id() : id_{value_type{}} {};
-  device_id(value_type dev_id) : id_{dev_id} {};
+  /** Construct non-initialized owning buffer */
+template<typename T>
+class buffer<T, memory_type::host>{
+  buffer(index_type size,
+         device_type mem_type = device_type::cpu,
+         int device = 0,
+         execution_stream stream = 0)
+    : device_{[mem_type, &device]() {
+      auto result = {};
+      switch (mem_type) {
+        case device_type::cpu: result = execution_device_id<device_type::cpu>{device}; break;
+        case device_type::gpu: result = execution_device_id<device_type::gpu>{device}; break;
+      }
+      return result;
+    }()},
+    data_{[this, mem_type, size, stream]() {
+      auto result = data_store{};
+      switch (mem_type) {
+        case device_type::cpu:
+          result = owning_buffer<device_type::cpu, T>{size};
+          break;
+        case device_type::gpu:
+          result = owning_buffer<device_type::gpu, T>{std::get<1>(device_), size, stream};
+          break;
+      }
+      return result;
+    }()},
+    size_{size},
+    cached_ptr {[this](){
+      auto result = static_cast<T*>(nullptr);
+      switch(data_.index()) {
+        case 0: result = std::get<0>(data_).get(); break;
+        case 1: result = std::get<1>(data_).get(); break;
+        case 2: result = std::get<2>(data_).get(); break;
+        case 3: result = std::get<3>(data_).get(); break;
+      }
+      return result;
+    }()}
+  {
+  }
+}
 
-  auto value() const noexcept { return id_; }
- private:
-  value_type id_;
-};
-
-template<>
-struct device_id<memory_type::device> {
-  using value_type = typename rmm::cuda_device_id::value_type;
-  device_id() noexcept(false) : id_{[](){
-    auto raw_id = value_type{};
-    RAFT_CUDA_CHECK(cudaGetDevice(&raw_id));
-    return raw_id;
-  }()} {};
-  device_id(value_type dev_id) noexcept : id_{dev_id} {};
-
-  auto value() const noexcept { return id_.value(); }
- private:
-  rmm::cuda_device_id id_;
-};
-
-template<memory_type D, typename T>
-class non_owning_buffer {
-  using value_type = std::remove_const_t<T>;
-  non_owning_buffer() : data_{nullptr} { }
-
-  explicit non_owning_buffer(T* ptr) : data_{ptr} { }
-
-  T* get() const { return data_; }
-
- private:
-  // TODO(wphicks): Back this with RMM-allocated host memory
-  T* data_;
-};
-
-template<memory_type D, typename T>
-class owning_buffer {
-  owning_buffer() {}
-  owning_buffer(device_id<D> device_id, std::size_t size, cuda_stream stream) {}
-  auto* get() const { return static_cast<T*>(nullptr); }
-};
-
-template<memory_type::device, typename T>
-class owning_buffer {
-  // TODO(wphicks): Assess need for buffers of const T
-  using value_type = std::remove_const_t<T>;
-  owning_buffer() : data_{} {}
-
-  owning_buffer(device_id<device_type::gpu> device_id, std::size_t size, cudaStream_t stream) noexcept(false)
-    : data_{[&device_id, &size, &stream]() {
-      auto device_context = device_setter{device_id};
-      return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
+  /** Construct non-owning buffer */
+  buffer(T* input_data,
+         index_type size,
+         device_type mem_type = device_type::cpu,
+         int device = 0)
+    : device_{[mem_type, &device]() {
+      auto result = device_id_variant{};
+      switch (mem_type) {
+        case device_type::cpu:
+          result = device_id<device_type::cpu>{device};
+          break;
+        case device_type::gpu:
+          result = device_id<device_type::gpu>{device};
+          break;
+      }
+      return result;
+    }()},
+    data_{[this, input_data, mem_type]() {
+      auto result = data_store{};
+      switch (mem_type) {
+        case device_type::cpu:
+          result = non_owning_buffer<device_type::cpu, T>{input_data};
+          break;
+        case device_type::gpu:
+          result = non_owning_buffer<device_type::gpu, T>{input_data};
+          break;
+      }
+      return result;
+    }()},
+    size_{size},
+    cached_ptr {[this](){
+      auto result = static_cast<T*>(nullptr);
+      switch(data_.index()) {
+        case 0: result = std::get<0>(data_).get(); break;
+        case 1: result = std::get<1>(data_).get(); break;
+        case 2: result = std::get<2>(data_).get(); break;
+        case 3: result = std::get<3>(data_).get(); break;
+      }
+      return result;
     }()}
   {
   }
 
-  auto* get() const { return reinterpret_cast<T*>(data_.data()); }
-
- private:
-  mutable rmm::device_buffer data_;
-};
-
-template <class ValueType, size_t ByteAlignment = 128>
-class buffer {
-  buffer() {
+  /**
+   * @brief Construct one buffer from another in the given memory location
+   * (either on host or on device)
+   * A buffer constructed in this way is owning and will copy the data from
+   * the original location
+   */
+  buffer(buffer<T> const& other, device_type mem_type, int device = 0, cuda_stream stream=cuda_stream{})
+    : device_{[mem_type, &device]() {
+      auto result = device_id_variant{};
+      switch (mem_type) {
+        case device_type::cpu:
+          result = device_id<device_type::cpu>{device};
+          break;
+        case device_type::gpu:
+          result = device_id<device_type::gpu>{device};
+          break;
+      }
+      return result;
+    }()},
+    data_{[this, &other, mem_type, device, stream]() {
+      auto result = data_store{};
+      auto result_data = static_cast<T*>(nullptr);
+      if (mem_type == device_type::cpu) {
+        auto buf = owning_buffer<device_type::cpu, T>(other.size());
+        result_data = buf.get();
+        result = std::move(buf);
+      } else if (mem_type==device_type::gpu) {
+        auto buf = owning_buffer<device_type::gpu, T>(std::get<1>(device_), other.size(), stream);
+        result_data = buf.get();
+        result = std::move(buf);
+      }
+      copy(result_data, other.data(), other.size(), mem_type, other.memory_type(), stream);
+      return result;
+    }()},
+    size_{other.size()},
+    cached_ptr {[this](){
+      auto result = static_cast<T*>(nullptr);
+      switch(data_.index()) {
+        case 0: result = std::get<0>(data_).get(); break;
+        case 1: result = std::get<1>(data_).get(); break;
+        case 2: result = std::get<2>(data_).get(); break;
+        case 3: result = std::get<3>(data_).get(); break;
+      }
+      return result;
+    }()}
+  {
   }
 
-  buffer(device_, data_, size_, cached_ptr) :
-  device_(device_), data_(data_), size_(size_), cached_ptr(cached_ptr) {
+  /**
+   * @brief Create owning copy of existing buffer
+   * The memory type of this new buffer will be the same as the original
+   */
+  buffer(buffer<T> const& other) : buffer(other, other.memory_type(), other.device_index()) {}
+  friend void swap(buffer<T>& first, buffer<T>& second) {
+    using std::swap;
+    swap(first.device_, second.device_);
+    swap(first.data_, second.data_);
+    swap(first.size_, second.size_);
+    swap(first.cached_ptr, second.cached_ptr);
+  }
+  buffer<T>& operator=(buffer<T> other) {
+    swap(*this, other);
+    return *this;
   }
 
-  buffer(device_)
-  private:
-  device_id_variant device_;
-  data_store data_;
-  size_t size_;
-  T* cached_ptr;
+  /**
+   * @brief Create owning copy of existing buffer with given stream
+   * The memory type of this new buffer will be the same as the original
+   */
+  buffer(buffer<T> const& other, cuda_stream stream) : buffer(other, other.memory_type(), other.device_index(), stream) {}
+
+  /**
+   * @brief Move from existing buffer unless a copy is necessary based on
+   * memory location
+   */
+  buffer(buffer<T>&& other, device_type mem_type, int device, cuda_stream stream)
+    : device_{[mem_type, &device]() {
+      auto result = device_id_variant{};
+      switch (mem_type) {
+        case device_type::cpu:
+          result = device_id<device_type::cpu>{device};
+          break;
+        case device_type::gpu:
+          result = device_id<device_type::gpu>{device};
+          break;
+      }
+      return result;
+    }()},
+    data_{[&other, mem_type, device, stream]() {
+      auto result = data_store{};
+      if (mem_type == other.memory_type() && device == other.device_index()) {
+        result  = std::move(other.data_);
+      } else {
+        auto* result_data = static_cast<T*>(nullptr);
+        if (mem_type == device_type::cpu) {
+          auto buf = owning_buffer<device_type::cpu, T>{other.size()};
+          result_data = buf.get();
+          result = std::move(buf);
+        } else if (mem_type == device_type::gpu) {
+          auto buf = owning_buffer<device_type::gpu, T>{device, other.size(), stream};
+          result_data = buf.get();
+          result = std::move(buf);
+        }
+        copy(result_data, other.data(), other.size(), mem_type, other.memory_type(), stream);
+      }
+      return result;
+    }()},
+    size_{other.size()},
+    cached_ptr {[this](){
+      auto result = static_cast<T*>(nullptr);
+      switch(data_.index()) {
+        case 0: result = std::get<0>(data_).get(); break;
+        case 1: result = std::get<1>(data_).get(); break;
+        case 2: result = std::get<2>(data_).get(); break;
+        case 3: result = std::get<3>(data_).get(); break;
+      }
+      return result;
+    }()}
+  {
+  }
+  buffer(buffer<T>&& other, device_type mem_type, int device)
+    : buffer{std::move(other), mem_type, device, cuda_stream{}}
+  {
+  }
+  buffer(buffer<T>&& other, device_type mem_type)
+    : buffer{std::move(other), mem_type, 0, cuda_stream{}}
+  {
+  }
+
+  buffer(buffer<T>&& other) : buffer<T>{} {
+    swap(*this, other);
+  }
+
+  template <
+    typename iter_t,
+    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())
+  >
+  buffer(iter_t const& begin, iter_t const& end)
+    : buffer{static_cast<size_t>(std::distance(begin, end))}
+  {
+    auto index = std::size_t{};
+    std::for_each(begin, end, [&index, this](auto&& val) {
+        data()[index++] = val;
+    });
+  }
+
+  template <
+    typename iter_t,
+    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())
+  >
+  buffer(iter_t const& begin, iter_t const& end, device_type mem_type) : buffer{buffer{begin, end}, mem_type} { }
+
+  template <
+    typename iter_t,
+    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())
+  >
+  buffer(iter_t const& begin, iter_t const& end, device_type mem_type, int device, cuda_stream stream=cuda_stream{}) : buffer{buffer{begin, end}, mem_type, device, stream} { }
+
+  auto size() const noexcept { return size_; }
+  HOST DEVICE auto* data() const noexcept {
+    return cached_ptr;
+  }
+  auto memory_type() const noexcept {
+    auto result = device_type{};
+    if (device_.index() == 0) {
+      result = device_type::cpu;
+    } else {
+      result = device_type::gpu;
+    }
+    return result;
+  }
+
+  auto device() const noexcept {
+    return device_;
+  }
+
+  auto device_index() const noexcept {
+    auto result = int{};
+    switch(device_.index()) {
+      case 0: result = std::get<0>(device_).value(); break;
+      case 1: result = std::get<1>(device_).value(); break;
+    }
+    return result;
+  }
+  ~buffer() = default;
 };
 
-// alignment fixed to 128 bytes
-struct alignment {
-  static constexpr size_t value = 128;
-};
-
-}  // namespace detail
-
-template <typename ElementType>
-using layout_right_padded = std::experimental::layout_right_padded<
-  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
-
-template <typename ElementType>
-using layout_left_padded = std::experimental::layout_left_padded<
-  detail::padding<std::remove_cv_t<std::remove_reference_t<ElementType>>>::value>;
-
-template <typename ElementType, typename LayoutPolicy>
-using enable_if_layout_padded =
-  std::enable_if_t<std::is_same<LayoutPolicy, layout_left_padded<ElementType>>::value ||
-                   std::is_same<LayoutPolicy, layout_right_padded<ElementType>>::value>;
-
-/**
- * Ensure all types listed in the parameter pack `Extents` are integral types.
- * Usage:
- *   put it as the last nameless template parameter of a function:
- *     `typename = ensure_integral_extents<Extents...>`
- */
-template <typename... Extents>
-using ensure_integral_extents = std::enable_if_t<std::conjunction_v<std::is_integral<Extents>...>>;
-
-/**
- * @\brief Template checks and helpers to determine if type T is an std::mdspan
- *         or a derived type
- */
-
-template <typename ElementType, typename Extents, typename LayoutPolicy, typename AccessorPolicy>
-void __takes_an_mdspan_ptr(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
-
-template <typename T, typename = void>
-struct is_mdspan : std::false_type {
-};
-template <typename T>
-struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::true_type {
-};
-
-template <typename T, typename = void>
-struct is_input_mdspan : std::false_type {
-};
-template <typename T>
-struct is_input_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::bool_constant<std::is_const_v<typename T::element_type>> {
-};
-
-template <typename T, typename = void>
-struct is_output_mdspan : std::false_type {
-};
-template <typename T>
-struct is_output_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::bool_constant<not std::is_const_v<typename T::element_type>> {
-};
-
-template <typename T>
-using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;
-
-template <typename T>
-using is_input_mdspan_t = is_input_mdspan<T>;
-
-template <typename T>
-using is_output_mdspan_t = is_output_mdspan<T>;
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either
- *          raft::host_mdspan/raft::device_mdspan or their derived types
- */
-template <typename... Tn>
-inline constexpr bool is_mdspan_v = std::conjunction_v<is_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_mdspan = std::enable_if_t<is_mdspan_v<Tn...>>;
-
-template <typename... Tn>
-inline constexpr bool is_input_mdspan_v = std::conjunction_v<is_input_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_input_mdspan = std::enable_if_t<is_input_mdspan_v<Tn...>>;
-
-template <typename... Tn>
-inline constexpr bool is_output_mdspan_v = std::conjunction_v<is_output_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_output_mdspan = std::enable_if_t<is_output_mdspan_v<Tn...>>;
-
-// uint division optimization inspired by the CIndexer in cupy.  Division operation is
-// slow on both CPU and GPU, especially 64 bit integer.  So here we first try to avoid 64
-// bit when the index is smaller, then try to avoid division when it's exp of 2.
-template <typename I, typename IndexType, size_t... Extents>
-RAFT_INLINE_FUNCTION auto unravel_index_impl(
-  I idx, std::experimental::extents<IndexType, Extents...> shape)
-{
-  constexpr auto kRank = static_cast<int32_t>(shape.rank());
-  std::size_t index[shape.rank()]{0};  // NOLINT
-  static_assert(std::is_signed<decltype(kRank)>::value,
-                "Don't change the type without changing the for loop.");
-  for (int32_t dim = kRank; --dim > 0;) {
-    auto s = static_cast<std::remove_const_t<std::remove_reference_t<I>>>(shape.extent(dim));
-    if (s & (s - 1)) {
-      auto t     = idx / s;
-      index[dim] = idx - t * s;
-      idx        = t;
-    } else {  // exp of 2
-      index[dim] = idx & (s - 1);
-      idx >>= detail::popc(s - 1);
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src, typename buffer<T>::index_type dst_offset, typename buffer<U>::index_type src_offset, typename buffer<T>::index_type size, cuda_stream stream) {
+  if constexpr (bounds_check) {
+    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+      throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
-  index[0] = idx;
-  return detail::arr_to_tup(index);
+  copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
 }
 
-/**
- * @brief Create a raft::mdspan
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @tparam is_host_accessible whether the data is accessible on host
- * @tparam is_device_accessible whether the data is accessible on device
- * @param ptr Pointer to the data
- * @param exts dimensionality of the array (series of integers)
- * @return raft::mdspan
- */
-template <typename ElementType,
-          typename IndexType        = std::uint32_t,
-          typename LayoutPolicy     = layout_c_contiguous,
-          bool is_host_accessible   = false,
-          bool is_device_accessible = true,
-          size_t... Extents>
-constexpr auto make_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
-{
-  using accessor_type = host_device_accessor<
-    std::experimental::default_accessor<ElementType>,
-    detail::memory_type_from_access<is_host_accessible, is_device_accessible>()>;
-  /*using accessor_type = host_device_accessor<std::experimental::default_accessor<ElementType>,
-                                             mem_type>; */
-
-  return mdspan<ElementType, decltype(exts), LayoutPolicy, accessor_type>{ptr, exts};
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src, cuda_stream stream) {
+  copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
+}
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src) {
+  copy<bounds_check>(dst, src, 0, 0, src.size(), cuda_stream{});
 }
 
-/**
- * @brief Create a layout_stride mapping from extents and strides
- * @param[in] extents the dimensionality of the layout
- * @param[in] strides the strides between elements in the layout
- * @return raft::layout_stride::mapping<Extents>
- */
-template <typename Extents, typename Strides>
-auto make_strided_layout(Extents extents, Strides strides)
-{
-  return layout_stride::mapping<Extents>{extents, strides};
-}
-
-/**
- * @brief Create raft::extents to specify dimensionality
- *
- * @tparam IndexType The type of each dimension of the extents
- * @tparam Extents Dimensions (a series of integers)
- * @param exts The desired dimensions
- * @return raft::extents
- */
-template <typename IndexType, typename... Extents, typename = ensure_integral_extents<Extents...>>
-constexpr auto make_extents(Extents... exts)
-{
-  return extents<IndexType, ((void)exts, dynamic_extent)...>{exts...};
-}
-
-/**
- * @brief Flatten raft::mdspan into a 1-dim array view
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @return raft::host_mdspan or raft::device_mdspan with vector_extent
- *         depending on AccessoryPolicy
- */
-template <typename mdspan_type, typename = enable_if_mdspan<mdspan_type>>
-auto flatten(mdspan_type mds)
-{
-  RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
-
-  vector_extent<typename mdspan_type::size_type> ext{mds.size()};
-
-  return std::experimental::mdspan<typename mdspan_type::element_type,
-                                   decltype(ext),
-                                   typename mdspan_type::layout_type,
-                                   typename mdspan_type::accessor_type>(mds.data_handle(), ext);
-}
-
-/**
- * @brief Reshape raft::host_mdspan or raft::device_mdspan
- *
- * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
- * @tparam IndexType the index type of the extents
- * @tparam Extents raft::extents for dimensions
- * @param mds raft::host_mdspan or raft::device_mdspan object
- * @param new_shape Desired new shape of the input
- * @return raft::host_mdspan or raft::device_mdspan, depending on AccessorPolicy
- */
-template <typename mdspan_type,
-          typename IndexType = std::uint32_t,
-          size_t... Extents,
-          typename = enable_if_mdspan<mdspan_type>>
-auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
-{
-  RAFT_EXPECTS(mds.is_exhaustive(), "Input must be contiguous.");
-
-  size_t new_size = 1;
-  for (size_t i = 0; i < new_shape.rank(); ++i) {
-    new_size *= new_shape.extent(i);
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, typename buffer<T>::index_type dst_offset, typename buffer<U>::index_type src_offset, typename buffer<T>::index_type size, cuda_stream stream) {
+  if constexpr (bounds_check) {
+    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+      throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
+    }
   }
-  RAFT_EXPECTS(new_size == mds.size(), "Cannot reshape array with size mismatch");
-
-  return std::experimental::mdspan<typename mdspan_type::element_type,
-                                   decltype(new_shape),
-                                   typename mdspan_type::layout_type,
-                                   typename mdspan_type::accessor_type>(mds.data_handle(),
-                                                                        new_shape);
+  copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
 }
 
-/**
- * \brief Turns linear index into coordinate.  Similar to numpy unravel_index.
- *
- * \code
- *   auto m = make_host_matrix<float>(7, 6);
- *   auto m_v = m.view();
- *   auto coord = unravel_index(2, m.extents(), typename decltype(m)::layout_type{});
- *   std::apply(m_v, coord) = 2;
- * \endcode
- *
- * \param idx    The linear index.
- * \param shape  The shape of the array to use.
- * \param layout Must be `layout_c_contiguous` (row-major) in current implementation.
- *
- * \return A std::tuple that represents the coordinate.
- */
-template <typename Idx, typename IndexType, typename LayoutPolicy, size_t... Exts>
-RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
-                                        extents<IndexType, Exts...> shape,
-                                        LayoutPolicy const& layout)
-{
-  static_assert(std::is_same_v<std::remove_cv_t<std::remove_reference_t<decltype(layout)>>,
-                               layout_c_contiguous>,
-                "Only C layout is supported.");
-  static_assert(std::is_integral_v<Idx>, "Index must be integral.");
-  auto constexpr kIs64 = sizeof(std::remove_cv_t<std::remove_reference_t<Idx>>) == sizeof(uint64_t);
-  if (kIs64 && static_cast<uint64_t>(idx) > std::numeric_limits<uint32_t>::max()) {
-    return unravel_index_impl<uint64_t>(static_cast<uint64_t>(idx), shape);
-  } else {
-    return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
-  }
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, typename buffer<T>::index_type dst_offset, cuda_stream stream) {
+  copy<bounds_check>(dst, src, dst_offset, 0, src.size(), stream);
 }
 
-/**
- * @brief Const accessor specialization for default_accessor
- *
- * @tparam ElementType
- * @param a
- * @return std::experimental::default_accessor<std::add_const_t<ElementType>>
- */
-template <class ElementType>
-std::experimental::default_accessor<std::add_const_t<ElementType>> accessor_of_const(
-  std::experimental::default_accessor<ElementType> a)
-{
-  return {a};
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, cuda_stream stream) {
+  copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
+}
+template<bool bounds_check, typename T, typename U>
+const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src) {
+  copy<bounds_check>(dst, src, 0, 0, src.size(), cuda_stream{});
 }
 
-/**
- * @brief Const accessor specialization for host_device_accessor
- *
- * @tparam ElementType the data type of the mdspan elements
- * @tparam MemType the type of memory where the elements are stored.
- * @param a host_device_accessor
- * @return host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>,
- * MemType>
- */
-template <class ElementType, memory_type MemType>
-host_device_accessor<std::experimental::default_accessor<std::add_const_t<ElementType>>, MemType>
-accessor_of_const(host_device_accessor<std::experimental::default_accessor<ElementType>, MemType> a)
-{
-  return {a};
-}
-
-/**
- * @brief Create a copy of the given mdspan with const element type
- *
- * @tparam ElementType the const-qualified data type of the mdspan elements
- * @tparam Extents raft::extents for dimensions
- * @tparam Layout policy for strides and layout ordering
- * @tparam Accessor Accessor policy for the input and output
- * @param mds raft::mdspan object
- * @return raft::mdspan
- */
-template <class ElementType, class Extents, class Layout, class Accessor>
-auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
-{
-  auto acc_c = accessor_of_const(mds.accessor());
-  return mdspan<std::add_const_t<ElementType>, Extents, Layout, decltype(acc_c)>{
-    mds.data_handle(), mds.mapping(), acc_c};
-}
-
-}  // namespace raft
+}  // namespace raft_proto

@@ -22,7 +22,7 @@
 namespace raft {
 namespace detail {
 template <>
-struct device_id<device_type::gpu> {
+class device_id<device_type::gpu> {
   using value_type = typename rmm::cuda_device_id::value_type;
   device_id() noexcept(false)
     : id_{[]() {
