@@ -368,14 +368,20 @@ outputs:
         {% endif %}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
-        #- libfaiss>=1.7.1
-        #- faiss-proc=*=cuda
+        # Temporarily ignore faiss benchmarks on CUDA 12
+        {% if cuda_major == "11" %}
+        - libfaiss>=1.7.1
+        - faiss-proc=*=cuda
+        {% endif %}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - glog {{ glog_version }}
-        #- faiss-proc=*=cuda
-        #- libfaiss {{ faiss_version }}
+        # Temporarily ignore faiss benchmarks on CUDA 12
+        {% if cuda_major == "11" %}
+        - faiss-proc=*=cuda
+        - libfaiss {{ faiss_version }}
+        {% endif %}
         - h5py {{ h5py_version }}
     about:
       home: https://rapids.ai/

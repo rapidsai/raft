@@ -15,9 +15,9 @@
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
-option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" OFF)
-option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" OFF)
-option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
@@ -25,6 +25,13 @@ option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 
 find_package(Threads REQUIRED)
+
+# Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
+if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
+  set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
+endif()
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
