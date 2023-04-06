@@ -105,3 +105,9 @@ cuda_profiler_api_host_version:
 
 cuda_profiler_api_run_version:
   - ">=12.0.76"
+
+libnvjitlink_host_version:
+  - "=12.0.140"
+
+libnvjitlink_run_version:
+  - ">=12.0.140"
