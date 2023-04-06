@@ -14,18 +14,18 @@ if [ "${RAPIDS_CUDA_MAJOR}" == 12 ]; then
 cat << EOF > /opt/conda/.condarc
 auto_update_conda: False
 channels:
-- rapidsai
-- rapidsai-nightly
-- dask/label/dev
-- pytorch
-- nvidia
-- conda-forge
-conda_build:
-set_build_id: false
-root_dir: /opt/conda
-output_folder: /tmp/conda-bld-output
-number_channel_notices: 0
+  - rapidsai
+  - rapidsai-nightly
+  - dask/label/dev
+  - pytorch
+  - nvidia
+  - conda-forge
 always_yes: true
+number_channel_notices: 0
+conda_build:
+  set_build_id: false
+  root_dir: /tmp/conda-bld-workspace
+  output_folder: /tmp/conda-bld-output
 EOF
 fi
 
