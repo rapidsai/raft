@@ -16,10 +16,10 @@
 
 #pragma once
 
-#if defined(RAFT_COMPILED)
-#include "selection_faiss-ext.cuh"
-#endif
-
 #if !defined(RAFT_EXPLICIT_INSTANTIATE)
 #include "selection_faiss-inl.cuh"
+#endif
+
+#if defined(RAFT_COMPILED)
+#include "selection_faiss-ext.cuh"
 #endif

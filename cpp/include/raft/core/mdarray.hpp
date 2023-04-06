@@ -25,6 +25,7 @@
 #include <stddef.h>
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>

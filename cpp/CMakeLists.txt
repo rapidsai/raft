@@ -347,10 +347,14 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/matrix/specializations/detail/select_k_float_uint32_t.cu
-    src/matrix/specializations/detail/select_k_float_int64_t.cu
-    src/matrix/specializations/detail/select_k_half_uint32_t.cu
-    src/matrix/specializations/detail/select_k_half_int64_t.cu
+    src/matrix/detail/select_k_float_uint32_t.cu
+    src/matrix/detail/select_k_float_uint64_t.cu
+    src/matrix/detail/select_k_half_uint32_t.cu
+    src/matrix/detail/select_k_half_uint64_t.cu
+    # src/matrix/specializations/detail/select_k_float_uint32_t.cu
+    # src/matrix/specializations/detail/select_k_float_int64_t.cu
+    # src/matrix/specializations/detail/select_k_half_uint32_t.cu
+    # src/matrix/specializations/detail/select_k_half_int64_t.cu
     src/neighbors/ivfpq_build.cu
     src/neighbors/ivfpq_deserialize.cu
     src/neighbors/ivfpq_serialize.cu
@@ -395,6 +399,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu
     src/random/rmat_rectangular_generator_int64_float.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
+    src/neighbors/detail/ivf_flat_search.cu
     # src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
     # src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
     # src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
@@ -414,9 +422,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/ivfflat_extend_float_int64_t.cu
     src/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
     src/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
+    # src/neighbors/specializations/ivfflat_search_float_int64_t.cu
+    # src/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
+    # src/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build.cu
     src/neighbors/ivfpq_deserialize.cu
     src/neighbors/ivfpq_serialize.cu

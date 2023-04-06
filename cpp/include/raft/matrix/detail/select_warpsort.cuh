@@ -27,7 +27,7 @@
 #include <functional>
 #include <type_traits>
 
-#include <rmm/device_vector.hpp>
+#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 /*
