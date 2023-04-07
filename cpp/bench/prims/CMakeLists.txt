@@ -61,7 +61,7 @@ function(ConfigureBench)
 
   install(
     TARGETS ${BENCH_NAME}
-    COMPONENT testing
+    COMPONENT bench-prims
     DESTINATION bin/gbench/prims/libraft
     EXCLUDE_FROM_ALL
   )
