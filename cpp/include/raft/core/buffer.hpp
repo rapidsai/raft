@@ -22,7 +22,7 @@
 #include <utility>
 #include <variant>
 #include <raft/core/detail/const_agnostic.hpp>
-#include <raft/core/buffer_copy.hpp>
+#include <raft/core/detail/buffer_utils/buffer_copy.hpp>
 #include <raft/core/execution_stream.hpp>
 #include <raft/core/detail/buffer_utils/non_owning_buffer.hpp>
 #include <raft/core/detail/buffer_utils/owning_buffer.hpp>
@@ -317,16 +317,16 @@ detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src, t
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
-  copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
+  detail::buffer_copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
 }
 
 template<bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src, execution_stream stream) {
-  copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
+  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
 }
 template<bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src) {
-  copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
+  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
 }
 
 template<bool bounds_check, typename T, typename U>
@@ -336,21 +336,21 @@ detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, typen
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
-  copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
+  detail::buffer_copy(dst.data() + dst_offset, src.data() + src_offset, size, dst.memory_type(), src.memory_type(), stream);
 }
 
 template<bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, typename buffer<T>::index_type dst_offset, execution_stream stream) {
-  copy<bounds_check>(dst, src, dst_offset, 0, src.size(), stream);
+  detail::buffer_copy<bounds_check>(dst, src, dst_offset, 0, src.size(), stream);
 }
 
 template<bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, execution_stream stream) {
-  copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
+  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
 }
 template<bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src) {
-  copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
+  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
 }
 
-}  // namespace raft_proto
+}  // namespace raft
