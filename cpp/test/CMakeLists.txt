@@ -93,6 +93,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    test/core/buffer.cu
     test/core/logger.cpp
     test/core/math_device.cu
     test/core/math_host.cpp
