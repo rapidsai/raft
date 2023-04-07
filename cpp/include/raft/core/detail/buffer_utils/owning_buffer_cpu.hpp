@@ -14,28 +14,22 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/execution_device_id.hpp>
-#include <raft/core/device_type.hpp>
 #include "owning_buffer_base.hpp"
 #include <memory>
+#include <raft/core/device_type.hpp>
+#include <raft/core/execution_device_id.hpp>
 #include <type_traits>
 
 namespace raft {
 namespace detail {
-template<typename T>
+template <typename T>
 class owning_buffer<device_type::cpu, T> {
   // TODO(wphicks): Assess need for buffers of const T
   using value_type = std::remove_const_t<T>;
 
-  owning_buffer()
-    : data_{std::unique_ptr<T[]>{nullptr}}
-  {
-  }
+  owning_buffer() : data_{std::unique_ptr<T[]>{nullptr}} {}
 
-  owning_buffer(std::size_t size)
-    : data_{std::make_unique<T[]>(size)}
-  {
-  }
+  owning_buffer(std::size_t size) : data_{std::make_unique<T[]>(size)} {}
 
   auto* get() const { return data_.get(); }
 
@@ -43,5 +37,5 @@ class owning_buffer<device_type::cpu, T> {
   // TODO(wphicks): Back this with RMM-allocated host memory
   std::unique_ptr<T[]> data_;
 };
-} // namespace detail
-} // namespace raft
+}  // namespace detail
+}  // namespace raft

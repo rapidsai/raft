@@ -70,12 +70,10 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-# to have different values for the `Threads::Threads` target. Setting this flag ensures
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
 # `Threads::Threads` is the same value across all builds so that cache hits occur
 set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -612,7 +610,9 @@ rapids_export(
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
-  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
@@ -622,8 +622,10 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft
-  compiled distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  GLOBAL_TARGETS raft compiled distributed
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

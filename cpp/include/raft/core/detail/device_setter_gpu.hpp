@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include "raft/util/cuda_rt_essentials.hpp"
 #include <cuda_runtime_api.h>
 #include <raft/core/detail/device_setter_base.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_device_id.hpp>
+#include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft {
@@ -27,20 +27,21 @@ namespace detail {
 /** Class for setting current device within a code block */
 template <>
 class device_setter<device_type::gpu> {
-  device_setter(raft::execution_device_id<device_type::gpu> device) noexcept(false) : prev_device_{[]() {
-    auto result = int{};
-    RAFT_CUDA_TRY(cudaGetDevice(&result));
-    return result;
-  }()} {
+  device_setter(raft::execution_device_id<device_type::gpu> device) noexcept(false)
+    : prev_device_{[]() {
+        auto result = int{};
+        RAFT_CUDA_TRY(cudaGetDevice(&result));
+        return result;
+      }()}
+  {
     RAFT_CUDA_TRY(cudaSetDevice(device.value()));
   }
 
-  ~device_setter() {
-    RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_.value()));
-  }
+  ~device_setter() { RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_.value())); }
+
  private:
   execution_device_id<device_type::gpu> prev_device_;
 };
 
-}
-}
+}  // namespace detail
+}  // namespace raft

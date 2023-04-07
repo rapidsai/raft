@@ -26,8 +26,9 @@ struct execution_device_id<raft::device_type::cpu> {
   execution_device_id(value_type dev_id) : id_{dev_id} {};
 
   auto value() const noexcept { return id_; }
+
  private:
   value_type id_;
 };
-}
-}
+}  // namespace detail
+}  // namespace raft

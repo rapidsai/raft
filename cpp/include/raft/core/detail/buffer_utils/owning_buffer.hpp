@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/device_type.hpp>
 #include "owning_buffer_cpu.hpp"
+#include <raft/core/device_type.hpp>
 #ifndef RAFT_DISABLE_CUDA
 #include "owning_buffer_gpu.hpp"
 #endif
 namespace raft {
 namespace detail {
-template<device_type D, typename T>
+template <device_type D, typename T>
 using owning_buffer = owning_buffer<D, T>;
 
-} // namespace detail
-} // namespace raft
+}  // namespace detail
+}  // namespace raft

@@ -36,9 +36,9 @@ struct out_of_bounds : raft::exception {
 };
 
 struct wrong_device_type : raft::exception {
-  wrong_device_type() : wrong_device_type(
-    "Attempted to use host data on GPU or device data on CPU"
-  ) {}
+  wrong_device_type() : wrong_device_type("Attempted to use host data on GPU or device data on CPU")
+  {
+  }
   wrong_device_type(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_; }
 
@@ -47,9 +47,7 @@ struct wrong_device_type : raft::exception {
 };
 
 struct mem_type_mismatch : raft::exception {
-  mem_type_mismatch() : mem_type_mismatch(
-    "Memory type does not match expected type"
-  ) {}
+  mem_type_mismatch() : mem_type_mismatch("Memory type does not match expected type") {}
   mem_type_mismatch(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_; }
 
@@ -58,9 +56,7 @@ struct mem_type_mismatch : raft::exception {
 };
 
 struct wrong_device : raft::exception {
-  wrong_device() : wrong_device(
-    "Attempted to use incorrect device"
-  ) {}
+  wrong_device() : wrong_device("Attempted to use incorrect device") {}
   wrong_device(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_; }
 
@@ -68,4 +64,4 @@ struct wrong_device : raft::exception {
   char const* msg_;
 };
 
-}
+}  // namespace raft

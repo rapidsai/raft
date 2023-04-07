@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/device_type.hpp>
 #include <memory>
+#include <raft/core/device_type.hpp>
 
 namespace raft {
 namespace detail {
-template<device_type D, typename T>
+template <device_type D, typename T>
 class non_owning_buffer {
   using value_type = std::remove_const_t<T>;
-  non_owning_buffer() : data_{nullptr} { }
+  non_owning_buffer() : data_{nullptr} {}
 
-  non_owning_buffer(T* ptr) : data_{ptr} { }
+  non_owning_buffer(T* ptr) : data_{ptr} {}
 
   auto* get() const { return data_; }
 
@@ -32,5 +32,5 @@ class non_owning_buffer {
   // TODO(wphicks): Back this with RMM-allocated host memory
   T* data_;
 };
-} // namespace detail
-} // namespace raft
+}  // namespace detail
+}  // namespace raft

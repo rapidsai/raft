@@ -27,5 +27,6 @@ namespace raft {
 template <device_type D>
 using execution_device_id = detail::execution_device_id<D>;
 
-using execution_device_id_variant = std::variant<execution_device_id<device_type::cpu>, execution_device_id<device_type::gpu>>;
-}
+using execution_device_id_variant =
+  std::variant<execution_device_id<device_type::cpu>, execution_device_id<device_type::gpu>>;
+}  // namespace raft

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ namespace raft {
 #ifdef RAFT_DISABLE_CUDA
 auto constexpr static const CUDA_ENABLED = false;
 #else
-auto constexpr static const CUDA_ENABLED = true;
+auto constexpr static const CUDA_ENABLED    = true;
 #endif
 
 #ifdef __CUDACC__
-#define HOST __host__
+#define HOST   __host__
 #define DEVICE __device__
 auto constexpr static const GPU_COMPILATION = true;
 #else
@@ -37,7 +37,7 @@ auto constexpr static const GPU_COMPILATION = false;
 #ifndef DEBUG
 auto constexpr static const DEBUG_ENABLED = false;
 #elif DEBUG == 0
-auto constexpr static const DEBUG_ENABLED = false;
+auto constexpr static const DEBUG_ENABLED   = false;
 #else
 auto constexpr static const DEBUG_ENABLED = true;
 #endif

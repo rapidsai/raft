@@ -18,12 +18,12 @@
 
 namespace raft {
 namespace detail {
-template<device_type D>
+template <device_type D>
 struct execution_device_id {
   using value_type = int;
 
   execution_device_id(value_type device_index) {}
   auto value() const { return value_type{}; }
 };
-}
-}
+}  // namespace detail
+}  // namespace raft

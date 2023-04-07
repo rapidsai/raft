@@ -14,25 +14,27 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuda_runtime_api.h>
-#include <raft/core/execution_device_id.hpp>
-#include <raft/core/device_type.hpp>
-#include <raft/core/device_setter.hpp>
 #include "owning_buffer_base.hpp"
+#include <cuda_runtime_api.h>
+#include <raft/core/device_setter.hpp>
+#include <raft/core/device_type.hpp>
+#include <raft/core/execution_device_id.hpp>
 #include <rmm/device_buffer.hpp>
 
 namespace raft {
 namespace detail {
-template<typename T>
+template <typename T>
 class owning_buffer<device_type::gpu, T> {
   using value_type = std::remove_const_t<T>;
   owning_buffer() : data_{} {}
 
-  owning_buffer(execution_device_id<device_type::gpu> execution_device_id, std::size_t size, cudaStream_t stream) noexcept(false)
+  owning_buffer(execution_device_id<device_type::gpu> execution_device_id,
+                std::size_t size,
+                cudaStream_t stream) noexcept(false)
     : data_{[&execution_device_id, &size, &stream]() {
-      auto device_context = device_setter{execution_device_id};
-      return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
-    }()}
+        auto device_context = device_setter{execution_device_id};
+        return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
+      }()}
   {
   }
 
@@ -41,5 +43,5 @@ class owning_buffer<device_type::gpu, T> {
  private:
   mutable rmm::device_buffer data_;
 };
-} // namespace detail
-} // namespace raft
+}  // namespace detail
+}  // namespace raft

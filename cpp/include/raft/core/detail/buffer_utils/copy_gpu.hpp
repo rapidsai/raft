@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 #pragma once
-#include "raft/util/cuda_rt_essentials.hpp"
-#include "raft/util/cudart_utils.hpp"
 #include <cuda_runtime_api.h>
+#include <raft/core/device_support.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_stream.hpp>
-#include <raft/core/device_support.hpp>
+#include <raft/util/cuda_rt_essentials.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/copy.h>
 #include <type_traits>
@@ -27,10 +27,16 @@
 namespace raft {
 namespace detail {
 
-template<device_type dst_type, device_type src_type, typename T>
-std::enable_if_t<std::conjunction_v<std::disjunction<std::bool_constant<dst_type == device_type::gpu>, std::bool_constant<src_type == device_type::gpu>>, std::bool_constant<CUDA_ENABLED>>, void> buffer_copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream) {
+template <device_type dst_type, device_type src_type, typename T>
+std::enable_if_t<
+  std::conjunction_v<std::disjunction<std::bool_constant<dst_type == device_type::gpu>,
+                                      std::bool_constant<src_type == device_type::gpu>>,
+                     std::bool_constant<CUDA_ENABLED>>,
+  void>
+buffer_copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream)
+{
   RAFT_CUDA_TRY(thrust::copy(rmm::exec_policy(stream), src, src + size, dst));
 }
 
-} // namespace detail
-} // namespace raft
+}  // namespace detail
+}  // namespace raft

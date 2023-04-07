@@ -24,9 +24,10 @@ using execution_stream = cudaStream_t;
 #else
 using execution_stream = int;
 #endif
-inline void synchronize(execution_stream stream) {
+inline void synchronize(execution_stream stream)
+{
 #ifndef RAFT_DISABLE_CUDA
   cudaStreamSynchronize(stream);
 #endif
 }
-}
+}  // namespace raft

@@ -26,5 +26,5 @@ class device_setter {
   device_setter(execution_device_id<D> device) {}
 };
 
-}
-}
+}  // namespace detail
+}  // namespace raft
