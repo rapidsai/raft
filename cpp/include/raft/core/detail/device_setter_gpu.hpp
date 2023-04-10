@@ -26,7 +26,7 @@ namespace detail {
 
 /** Class for setting current device within a code block */
 template <>
-class device_setter<device_type::gpu> {
+struct device_setter<device_type::gpu> {
   device_setter(raft::execution_device_id<device_type::gpu> device) noexcept(false)
     : prev_device_{[]() {
         auto result = int{};

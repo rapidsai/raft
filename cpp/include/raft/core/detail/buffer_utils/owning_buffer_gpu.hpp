@@ -24,7 +24,7 @@
 namespace raft {
 namespace detail {
 template <typename T>
-class owning_buffer<device_type::gpu, T> {
+struct owning_buffer<device_type::gpu, T> {
   using value_type = std::remove_const_t<T>;
   owning_buffer() : data_{} {}
 

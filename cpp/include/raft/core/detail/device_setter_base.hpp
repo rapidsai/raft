@@ -22,7 +22,7 @@ namespace detail {
 
 /** Struct for setting current device within a code block */
 template <raft::device_type D>
-class device_setter {
+struct device_setter {
   device_setter(execution_device_id<D> device) {}
 };
 

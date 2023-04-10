@@ -23,7 +23,7 @@ namespace raft {
 namespace detail {
 
 template <device_type D, typename T>
-class owning_buffer {
+struct owning_buffer {
   owning_buffer() {}
   owning_buffer(execution_device_id<D> device_id, std::size_t size, execution_stream stream) {}
   auto* get() const { return static_cast<T*>(nullptr); }

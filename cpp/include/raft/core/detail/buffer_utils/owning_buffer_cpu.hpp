@@ -23,7 +23,7 @@
 namespace raft {
 namespace detail {
 template <typename T>
-class owning_buffer<device_type::cpu, T> {
+struct owning_buffer<device_type::cpu, T> {
   // TODO(wphicks): Assess need for buffers of const T
   using value_type = std::remove_const_t<T>;
 

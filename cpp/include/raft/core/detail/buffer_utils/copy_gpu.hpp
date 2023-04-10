@@ -20,6 +20,7 @@
 #include <raft/core/execution_stream.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/copy.h>
 #include <type_traits>
@@ -33,9 +34,9 @@ std::enable_if_t<
                                       std::bool_constant<src_type == device_type::gpu>>,
                      std::bool_constant<CUDA_ENABLED>>,
   void>
-buffer_copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream)
+copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream)
 {
-  RAFT_CUDA_TRY(thrust::copy(rmm::exec_policy(stream), src, src + size, dst));
+  thrust::copy(rmm::exec_policy(stream), src, src + size, dst);
 }
 
 }  // namespace detail

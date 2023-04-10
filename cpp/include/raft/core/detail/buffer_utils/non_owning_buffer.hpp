@@ -20,7 +20,7 @@
 namespace raft {
 namespace detail {
 template <device_type D, typename T>
-class non_owning_buffer {
+struct non_owning_buffer {
   using value_type = std::remove_const_t<T>;
   non_owning_buffer() : data_{nullptr} {}
 

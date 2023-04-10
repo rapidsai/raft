@@ -47,7 +47,7 @@ struct buffer {
                                   detail::owning_buffer<device_type::cpu, T>,
                                   detail::owning_buffer<device_type::gpu, T>>;
 
-  buffer() : device_{}, data_{}, size_{} {}
+  buffer() : device_{}, data_{}, size_{}, memory_type_{memory_type::host} {}
 
   /** Construct non-initialized owning buffer */
   buffer(index_type size,
@@ -73,6 +73,7 @@ struct buffer {
         return result;
       }()},
       size_{size},
+      memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
@@ -107,6 +108,7 @@ struct buffer {
         return result;
       }()},
       size_{size},
+      memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
@@ -121,8 +123,7 @@ struct buffer {
   }
 
   /**
-   * @brief Construct one buffer from another in the given memory location
-   * (either on host or on device)
+   * @brief Construct one buffer from another of the given memory type
    * A buffer constructed in this way is owning and will copy the data from
    * the original location
    */
@@ -143,19 +144,21 @@ struct buffer {
         auto result      = data_store{};
         auto result_data = static_cast<T*>(nullptr);
         if (is_device_accessible(mem_type)) {
-          auto buf    = detail::owning_buffer<device_type::cpu, T>(other.size());
-          result_data = buf.get();
-          result      = std::move(buf);
-        } else {
           auto buf =
             detail::owning_buffer<device_type::gpu, T>(std::get<1>(device_), other.size(), stream);
           result_data = buf.get();
           result      = std::move(buf);
+          // detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.device_type(), stream);   
+        } else {
+          auto buf    = detail::owning_buffer<device_type::cpu, T>(other.size());
+          result_data = buf.get();
+          result      = std::move(buf);
+          detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.device_type(), stream);
         }
-        copy(result_data, other.data(), other.size(), mem_type, other.memory_type(), stream);
         return result;
       }()},
       size_{other.size()},
+      memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
@@ -173,7 +176,11 @@ struct buffer {
    * @brief Create owning copy of existing buffer
    * The memory type of this new buffer will be the same as the original
    */
-  buffer(buffer<T> const& other) : buffer(other, other.memory_type(), other.device_index()) {}
+  buffer(buffer<T> const& other) : buffer(other,
+         other.memory_type(),
+         other.device_index())
+  {
+  }
   friend void swap(buffer<T>& first, buffer<T>& second)
   {
     using std::swap;
@@ -190,10 +197,9 @@ struct buffer {
 
   /**
    * @brief Create owning copy of existing buffer with given stream
-   * The memory type of this new buffer will be the same as the original
+   * The device type of this new buffer will be the same as the original
    */
-  buffer(buffer<T> const& other, execution_stream stream)
-    : buffer(other, other.memory_type(), other.device_index(), stream)
+  buffer(buffer<T> const& other, execution_stream stream) : buffer(other, other.memory_type(), other.device_index(), stream)
   {
   }
 
@@ -221,16 +227,18 @@ struct buffer {
             auto buf    = detail::owning_buffer<device_type::gpu, T>{device, other.size(), stream};
             result_data = buf.get();
             result      = std::move(buf);
+            detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.device_type(), stream);
           } else {
             auto buf    = detail::owning_buffer<device_type::cpu, T>{other.size()};
             result_data = buf.get();
             result      = std::move(buf);
+            detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.device_type(), stream);
           }
-          copy(result_data, other.data(), other.size(), mem_type, other.memory_type(), stream);
         }
         return result;
       }()},
       size_{other.size()},
+      memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
@@ -286,16 +294,6 @@ struct buffer {
 
   auto size() const noexcept { return size_; }
   HOST DEVICE auto* data() const noexcept { return cached_ptr; }
-  auto device_type() const noexcept
-  {
-    enum device_type result;
-    if (device_.index() == 0) {
-      result = device_type::cpu;
-    } else {
-      result = device_type::gpu;
-    }
-    return result;
-  }
 
   auto device() const noexcept { return device_; }
 
@@ -308,12 +306,30 @@ struct buffer {
     }
     return result;
   }
+
+  auto memory_type() const noexcept
+  {
+    return memory_type_;
+  }
+
   ~buffer() = default;
 
  private:
+ auto device_type() const noexcept
+  {
+    enum device_type result;
+    if (device_.index() == 0) {
+      result = device_type::cpu;
+    } else {
+      result = device_type::gpu;
+    }
+    return result;
+  }
+
   execution_device_id_variant device_;
   data_store data_;
   index_type size_;
+  enum memory_type memory_type_;
   T* cached_ptr;
 };
 
@@ -330,11 +346,13 @@ detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst,
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
+  auto src_device_type = is_device_accessible(src.memory_type()) ? device_type::gpu : device_type::cpu;
+  auto dst_device_type = is_device_accessible(dst.memory_type()) ? device_type::gpu : device_type::cpu; 
   detail::buffer_copy(dst.data() + dst_offset,
                       src.data() + src_offset,
                       size,
-                      dst.memory_type(),
-                      src.memory_type(),
+                      dst_device_type,
+                      src_device_type,
                       stream);
 }
 
@@ -343,53 +361,11 @@ detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst,
                                          buffer<U> const& src,
                                          execution_stream stream)
 {
-  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
+  copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
 }
 template <bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst, buffer<U> const& src)
 {
-  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
+  copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
 }
-
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst,
-                                         buffer<U>&& src,
-                                         typename buffer<T>::index_type dst_offset,
-                                         typename buffer<U>::index_type src_offset,
-                                         typename buffer<T>::index_type size,
-                                         execution_stream stream)
-{
-  if constexpr (bounds_check) {
-    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
-      throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
-    }
-  }
-  detail::buffer_copy(dst.data() + dst_offset,
-                      src.data() + src_offset,
-                      size,
-                      dst.memory_type(),
-                      src.memory_type(),
-                      stream);
-}
-
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst,
-                                         buffer<U>&& src,
-                                         typename buffer<T>::index_type dst_offset,
-                                         execution_stream stream)
-{
-  detail::buffer_copy<bounds_check>(dst, src, dst_offset, 0, src.size(), stream);
-}
-
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src, execution_stream stream)
-{
-  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), stream);
-}
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(buffer<T>&& dst, buffer<U>&& src)
-{
-  detail::buffer_copy<bounds_check>(dst, src, 0, 0, src.size(), execution_stream{});
-}
-
 }  // namespace raft
