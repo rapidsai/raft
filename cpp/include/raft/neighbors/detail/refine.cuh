@@ -27,6 +27,7 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <cstdlib>
+#include <omp.h>
 
 #include <thrust/sequence.h>
 
@@ -202,44 +203,44 @@ void refine_host(raft::host_matrix_view<const data_t, matrix_idx, row_major> dat
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "neighbors::refine_host(%zu, %u)", size_t(numQueries), uint32_t(topK));
 
-  // #pragma omp parallel
-  //   {
-  //     struct_for_refinement* sfr =
-  //       (struct_for_refinement*)malloc(sizeof(struct_for_refinement) * topK);
-  //     for (size_t i = omp_get_thread_num(); i < numQueries; i += omp_get_num_threads()) {
-  //       // compute distance with original dataset vectors
-  //       const data_t* cur_query = queries_ptr + ((uint64_t)dimDataset * i);
-  //       for (size_t j = 0; j < (size_t)topK; j++) {
-  //         idx_t id                  = neighbors[j + (topK * i)];
-  //         const data_t* cur_dataset = dataset_ptr + ((uint64_t)dimDataset * id);
-  //         float distance            = 0.0;
-  //         for (size_t k = 0; k < (size_t)dimDataset; k++) {
-  //           float val_q = (float)(cur_query[k]);
-  //           float val_d = (float)(cur_dataset[k]);
-  //           if (metric == raft::distance::DistanceType::InnerProduct) {
-  //             distance += -val_q * val_d;  // Negate because we sort in ascending order.
-  //           } else {
-  //             distance += (val_q - val_d) * (val_q - val_d);
-  //           }
-  //         }
-  //         sfr[j].id       = id;
-  //         sfr[j].distance = distance;
-  //       }
+#pragma omp parallel
+  {
+    struct_for_refinement* sfr =
+      (struct_for_refinement*)malloc(sizeof(struct_for_refinement) * topK);
+    for (size_t i = omp_get_thread_num(); i < numQueries; i += omp_get_num_threads()) {
+      // compute distance with original dataset vectors
+      const data_t* cur_query = queries_ptr + ((uint64_t)dimDataset * i);
+      for (size_t j = 0; j < (size_t)topK; j++) {
+        idx_t id                  = neighbors[j + (topK * i)];
+        const data_t* cur_dataset = dataset_ptr + ((uint64_t)dimDataset * id);
+        float distance            = 0.0;
+        for (size_t k = 0; k < (size_t)dimDataset; k++) {
+          float val_q = (float)(cur_query[k]);
+          float val_d = (float)(cur_dataset[k]);
+          if (metric == raft::distance::DistanceType::InnerProduct) {
+            distance += -val_q * val_d;  // Negate because we sort in ascending order.
+          } else {
+            distance += (val_q - val_d) * (val_q - val_d);
+          }
+        }
+        sfr[j].id       = id;
+        sfr[j].distance = distance;
+      }
 
-  //       qsort(sfr, topK, sizeof(struct_for_refinement), _postprocessing_qsort_compare);
+      qsort(sfr, topK, sizeof(struct_for_refinement), _postprocessing_qsort_compare);
 
-  //       for (size_t j = 0; j < (size_t)refinedTopK; j++) {
-  //         refinedNeighbors[j + (refinedTopK * i)] = sfr[j].id;
-  //         if (refinedDistances == NULL) continue;
-  //         if (metric == raft::distance::DistanceType::InnerProduct) {
-  //           refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
-  //         } else {
-  //           refinedDistances[j + (refinedTopK * i)] = sfr[j].distance;
-  //         }
-  //       }
-  //     }
-  //     free(sfr);
-  //   }
+      for (size_t j = 0; j < (size_t)refinedTopK; j++) {
+        refinedNeighbors[j + (refinedTopK * i)] = sfr[j].id;
+        if (refinedDistances == NULL) continue;
+        if (metric == raft::distance::DistanceType::InnerProduct) {
+          refinedDistances[j + (refinedTopK * i)] = -sfr[j].distance;
+        } else {
+          refinedDistances[j + (refinedTopK * i)] = sfr[j].distance;
+        }
+      }
+    }
+    free(sfr);
+  }
 }
 
 }  // namespace raft::neighbors::detail
