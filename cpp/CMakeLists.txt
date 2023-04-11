@@ -305,20 +305,48 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/kmeans_fit_double.cu
     src/cluster/kmeans_init_plus_plus_double.cu
     src/cluster/kmeans_init_plus_plus_float.cu
-    src/distance/specializations/detail/canberra_double_double_double_int.cu
-    src/distance/specializations/detail/canberra_float_float_float_int.cu
-    src/distance/specializations/detail/correlation_double_double_double_int.cu
-    src/distance/specializations/detail/correlation_float_float_float_int.cu
-    src/distance/specializations/detail/cosine_double_double_double_int.cu
-    src/distance/specializations/detail/cosine_float_float_float_int.cu
-    src/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/inner_product_float_float_float_int.cu
-    src/distance/specializations/detail/inner_product_double_double_double_int.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
+    src/distance/distance.cu
+    src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_correlation_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_cosine_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_cosine_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l1_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l1_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l_inf_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
+    # src/distance/detail/pairwise_matrix/canberra_float_float_float_int.cu
+    # src/distance/specializations/detail/canberra_double_double_double_int.cu
+    # src/distance/specializations/detail/canberra_float_float_float_int.cu
+    # src/distance/specializations/detail/correlation_double_double_double_int.cu
+    # src/distance/specializations/detail/correlation_float_float_float_int.cu
+    # src/distance/specializations/detail/cosine_double_double_double_int.cu
+    # src/distance/specializations/detail/cosine_float_float_float_int.cu
+    # src/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
+    # src/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
+    # src/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
+    # src/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
+    # src/distance/specializations/detail/inner_product_float_float_float_int.cu
+    # src/distance/specializations/detail/inner_product_double_double_double_int.cu
+    # src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
+    # src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
     src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
     src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
     src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
@@ -329,20 +357,20 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/specializations/detail/kernels/tanh_kernel_float.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
-    src/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/specializations/detail/l1_double_double_double_int.cu
-    src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/l_inf_double_double_double_int.cu
-    src/distance/specializations/detail/l_inf_float_float_float_int.cu
-    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/specializations/detail/russel_rao_float_float_float_int.cu
+    # src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
+    # src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
+    # src/distance/specializations/detail/l1_float_float_float_int.cu
+    # src/distance/specializations/detail/l1_double_double_double_int.cu
+    # src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
+    # src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
+    # src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
+    # src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
+    # src/distance/specializations/detail/l_inf_double_double_double_int.cu
+    # src/distance/specializations/detail/l_inf_float_float_float_int.cu
+    # src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
+    # src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
+    # src/distance/specializations/detail/russel_rao_double_double_double_int.cu
+    # src/distance/specializations/detail/russel_rao_float_float_float_int.cu
     src/distance/specializations/fused_l2_nn_double_int.cu
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
