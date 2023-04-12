@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/core/logger.hpp"
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -77,8 +78,6 @@ struct buffer {
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
-          case 0: result = std::get<0>(data_).get(); break;
-          case 1: result = std::get<1>(data_).get(); break;
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
         }
@@ -111,15 +110,16 @@ struct buffer {
       memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
+        RAFT_LOG_INFO("DATA_INDEX %d\n", data_.index());
         switch (data_.index()) {
           case 0: result = std::get<0>(data_).get(); break;
           case 1: result = std::get<1>(data_).get(); break;
-          case 2: result = std::get<2>(data_).get(); break;
-          case 3: result = std::get<3>(data_).get(); break;
         }
+        RAFT_LOG_INFO("result %p\n", result);
         return result;
       }()}
   {
+    RAFT_LOG_INFO("Non owning constructor called");
   }
 
   /**
@@ -148,12 +148,14 @@ struct buffer {
             detail::owning_buffer<device_type::gpu, T>(std::get<1>(device_), other.size(), stream);
           result_data = buf.get();
           result      = std::move(buf);
-          // detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.device_type(), stream);   
+          RAFT_LOG_INFO("gpu copy called");
+          detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.dev_type(), stream);   
         } else {
           auto buf    = detail::owning_buffer<device_type::cpu, T>(other.size());
           result_data = buf.get();
           result      = std::move(buf);
-          detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.device_type(), stream);
+          RAFT_LOG_INFO("copy called");
+          detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.dev_type(), stream);
         }
         return result;
       }()},
@@ -162,14 +164,13 @@ struct buffer {
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
-          case 0: result = std::get<0>(data_).get(); break;
-          case 1: result = std::get<1>(data_).get(); break;
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
         }
         return result;
       }()}
   {
+    RAFT_LOG_INFO("Pointer to other's data %p\n", other.data());
   }
 
   /**
@@ -177,7 +178,7 @@ struct buffer {
    * The memory type of this new buffer will be the same as the original
    */
   buffer(buffer<T> const& other) : buffer(other,
-         other.memory_type(),
+         other.mem_type(),
          other.device_index())
   {
   }
@@ -187,11 +188,18 @@ struct buffer {
     swap(first.device_, second.device_);
     swap(first.data_, second.data_);
     swap(first.size_, second.size_);
+    swap(first.memory_type_, second.memory_type_);
     swap(first.cached_ptr, second.cached_ptr);
   }
   buffer<T>& operator=(buffer<T> other)
   {
-    swap(*this, other);
+    // swap(*this, other);
+    RAFT_LOG_INFO("EQ Called");
+    this -> device_ = other.device_;
+    // this -> data_ = other.data_;
+    this -> size_ = other.size_;
+    this -> memory_type_ = other.memory_type_;
+    this -> cached_ptr = other.cached_ptr;
     return *this;
   }
 
@@ -199,9 +207,9 @@ struct buffer {
    * @brief Create owning copy of existing buffer with given stream
    * The device type of this new buffer will be the same as the original
    */
-  buffer(buffer<T> const& other, execution_stream stream) : buffer(other, other.memory_type(), other.device_index(), stream)
-  {
-  }
+  // buffer(buffer<T> const& other, execution_stream stream) : buffer(other, other.mem_type(), other.device_index(), stream)
+  // {
+  // }
 
   /**
    * @brief Move from existing buffer unless a copy is necessary based on
@@ -219,7 +227,7 @@ struct buffer {
       }()},
       data_{[&other, mem_type, device, stream]() {
         auto result = data_store{};
-        if (mem_type == other.memory_type() && device == other.device_index()) {
+        if (mem_type == other.mem_type() && device == other.device_index()) {
           result = std::move(other.data_);
         } else {
           auto* result_data = static_cast<T*>(nullptr);
@@ -227,12 +235,12 @@ struct buffer {
             auto buf    = detail::owning_buffer<device_type::gpu, T>{device, other.size(), stream};
             result_data = buf.get();
             result      = std::move(buf);
-            detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.device_type(), stream);
+            detail::buffer_copy(result_data, other.data(), other.size(), device_type::gpu, other.dev_type(), stream);
           } else {
             auto buf    = detail::owning_buffer<device_type::cpu, T>{other.size()};
             result_data = buf.get();
             result      = std::move(buf);
-            detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.device_type(), stream);
+            detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.dev_type(), stream);
           }
         }
         return result;
@@ -242,8 +250,6 @@ struct buffer {
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
         switch (data_.index()) {
-          case 0: result = std::get<0>(data_).get(); break;
-          case 1: result = std::get<1>(data_).get(); break;
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
         }
@@ -293,7 +299,16 @@ struct buffer {
   }
 
   auto size() const noexcept { return size_; }
-  HOST DEVICE auto* data() const noexcept { return cached_ptr; }
+  HOST DEVICE auto* data() const noexcept { 
+    auto result = static_cast<T*>(nullptr);
+    switch (data_.index()) {
+      case 0: result = std::get<0>(data_).get(); break;
+      case 1: result = std::get<1>(data_).get(); break;
+          case 2: result = std::get<2>(data_).get(); break;
+          case 3: result = std::get<3>(data_).get(); break;
+    }
+      RAFT_LOG_INFO("data %p; cached_ptr %p\n", result, cached_ptr);
+        return result;}
 
   auto device() const noexcept { return device_; }
 
@@ -307,7 +322,7 @@ struct buffer {
     return result;
   }
 
-  auto memory_type() const noexcept
+  auto mem_type() const noexcept
   {
     return memory_type_;
   }
@@ -315,7 +330,7 @@ struct buffer {
   ~buffer() = default;
 
  private:
- auto device_type() const noexcept
+ auto dev_type() const noexcept
   {
     enum device_type result;
     if (device_.index() == 0) {
@@ -346,8 +361,8 @@ detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst,
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
-  auto src_device_type = is_device_accessible(src.memory_type()) ? device_type::gpu : device_type::cpu;
-  auto dst_device_type = is_device_accessible(dst.memory_type()) ? device_type::gpu : device_type::cpu; 
+  auto src_device_type = is_device_accessible(src.mem_type()) ? device_type::gpu : device_type::cpu;
+  auto dst_device_type = is_device_accessible(dst.mem_type()) ? device_type::gpu : device_type::cpu; 
   detail::buffer_copy(dst.data() + dst_offset,
                       src.data() + src_offset,
                       size,

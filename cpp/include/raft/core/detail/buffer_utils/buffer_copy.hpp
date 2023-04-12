@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/util/cudart_utils.hpp"
 #include <raft/core/detail/buffer_utils/copy_cpu.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_stream.hpp>
@@ -70,8 +71,10 @@ void buffer_copy(T* dst,
     copy<device_type::cpu, device_type::cpu, T>(
       dst + dst_offset, src + src_offset, size, stream);
   } else if (dst_type == device_type::gpu && src_type == device_type::cpu) {
+    raft::print_device_vector("dst_1", dst + dst_offset, size, std::cout);
     copy<device_type::gpu, device_type::cpu, T>(
       dst + dst_offset, src + src_offset, size, stream);
+      raft::print_device_vector("dst_2", dst + dst_offset, size, std::cout);
   } else if (dst_type == device_type::cpu && src_type == device_type::gpu) {
     copy<device_type::cpu, device_type::gpu, T>(
       dst + dst_offset, src + src_offset, size, stream);

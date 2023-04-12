@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/core/logger.hpp"
 #include <memory>
 #include <raft/core/device_type.hpp>
 
@@ -24,7 +25,10 @@ struct non_owning_buffer {
   using value_type = std::remove_const_t<T>;
   non_owning_buffer() : data_{nullptr} {}
 
-  non_owning_buffer(T* ptr) : data_{ptr} {}
+  non_owning_buffer(T* ptr) : data_{ptr} {
+    RAFT_LOG_INFO("Address: %p\n", ( void * )data_);
+  }
+  
 
   auto* get() const { return data_; }
 

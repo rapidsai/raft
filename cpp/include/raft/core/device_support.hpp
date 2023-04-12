@@ -18,10 +18,10 @@
 #include <string>
 
 namespace raft {
-#ifdef RAFT_DISABLE_CUDA
-auto constexpr static const CUDA_ENABLED = false;
+#ifndef RAFT_DISABLE_CUDA
+auto constexpr static const CUDA_ENABLED = true;
 #else
-auto constexpr static const CUDA_ENABLED    = true;
+auto constexpr static const CUDA_ENABLED    = false;
 #endif
 
 #ifdef __CUDACC__
