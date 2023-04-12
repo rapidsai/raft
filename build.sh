@@ -2,7 +2,7 @@
 
 # Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
-# raft build script
+# raft build scripts
 
 # This script is used to build the component(s) in this repo from
 # source, and can be called with various options to customize the
@@ -15,11 +15,11 @@ NUMARGS=$#
 ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
-# script, and that this script resides in the repo dir!
+# scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests bench clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn -h"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench=<targets>]
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn  --build-metrics --incl-cache-stats --time -h"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -28,7 +28,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    raft-dask        - build the raft-dask Python package. this also requires pylibraft.
    docs             - build the documentation
    tests            - build the tests
-   bench            - build the benchmarks
+   bench-prims      - build micro-benchmarks for primitives
+   bench-ann        - build end-to-end ann benchmarks
+   template         - build the example RAFT application template
 
  and <flag> is:
    -v                          - verbose build mode
@@ -38,13 +40,18 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --compile-lib               - compile shared libraries for all components
                                  can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
-   --limit-bench               - semicolon-separated list of benchmark executables to compute (e.g. NEIGHBORS_BENCH;CLUSTER_BENCH)
+   --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
+   --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
+   --build-metrics             - generate build metrics report for libraft
+   --incl-cache-stats          - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
                                  to speedup the build process.
+   --time                      - Enable nvcc compilation time logging into cpp/build/nvcc_compile_log.csv.
+                                 Results can be interpreted with cpp/scripts/analyze_nvcc_log.py
    -h                          - print this text
 
  default action (no args) is to build libraft, tests, pylibraft and raft-dask targets
@@ -62,15 +69,19 @@ VERBOSE_FLAG=""
 BUILD_ALL_GPU_ARCH=0
 BUILD_TESTS=OFF
 BUILD_TYPE=Release
-BUILD_BENCH=OFF
+BUILD_PRIMS_BENCH=OFF
+BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
+BUILD_REPORT_METRICS=OFF
+BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 
 CACHE_ARGS=""
 NVTX=ON
+LOG_COMPILE_TIME=OFF
 CLEAN=0
 UNINSTALL=0
 DISABLE_DEPRECATION_WARNINGS=ON
@@ -150,15 +161,30 @@ function limitTests {
 
 function limitBench {
     # Check for option to limit the set of test binaries to build
-    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench" || true; } ) ]]; then
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench-prims" || true; } ) ]]; then
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
         # on the invalid option error
-        LIMIT_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench=//' -e 's/ .*//')
-        if [[ -n ${LIMIT_BENCH_TARGETS} ]]; then
+        LIMIT_PRIMS_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench-prims=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_PRIMS_BENCH_TARGETS} ]]; then
+            # Remove the full LIMIT_PRIMS_BENCH_TARGETS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--limit-bench-prims=$LIMIT_PRIMS_BENCH_TARGETS/}
+            PRIMS_BENCH_TARGETS=${LIMIT_PRIMS_BENCH_TARGETS}
+        fi
+    fi
+}
+
+function limitAnnBench {
+    # Check for option to limit the set of test binaries to build
+    if [[ -n $(echo $ARGS | { grep -E "\-\-limit\-bench-ann" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        LIMIT_ANN_BENCH_TARGETS=$(echo $ARGS | sed -e 's/.*--limit-bench-ann=//' -e 's/ .*//')
+        if [[ -n ${LIMIT_ANN_BENCH_TARGETS} ]]; then
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//--limit-bench=$LIMIT_BENCH_TARGETS/}
-            BENCH_TARGETS=${LIMIT_BENCH_TARGETS}
+            ARGS=${ARGS//--limit-bench-ann=$LIMIT_ANN_BENCH_TARGETS/}
+            ANN_BENCH_TARGETS=${LIMIT_ANN_BENCH_TARGETS}
         fi
     fi
 }
@@ -174,6 +200,7 @@ if (( ${NUMARGS} != 0 )); then
     cacheTool
     limitTests
     limitBench
+    limitAnnBench
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -280,22 +307,31 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     fi
 fi
 
-if hasArg bench || (( ${NUMARGS} == 0 )); then
-    BUILD_BENCH=ON
-    CMAKE_TARGET="${CMAKE_TARGET};${BENCH_TARGETS}"
+if hasArg bench-prims || (( ${NUMARGS} == 0 )); then
+    BUILD_PRIMS_BENCH=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${PRIMS_BENCH_TARGETS}"
 
     # Force compile library when needed benchmark targets are specified
-    if [[ $CMAKE_TARGET == *"CLUSTER_BENCH"* || \
-          $CMAKE_TARGET == *"MATRIX_BENCH"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_BENCH"* ]]; then
+    if [[ $CMAKE_TARGET == *"CLUSTER_PRIMS_BENCH"* || \
+          $CMAKE_TARGET == *"MATRIX_PRIMS_BENCH"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_PRIMS_BENCH"* ]]; then
       echo "-- Enabling compiled lib for benchmarks"
       COMPILE_LIBRARY=ON
     fi
+fi
 
+if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
+    BUILD_ANN_BENCH=ON
+    CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
+    COMPILE_LIBRARY=ON
 fi
 
 if hasArg --no-nvtx; then
     NVTX=OFF
+fi
+if hasArg --time; then
+    echo "-- Logging compile times to cpp/build/nvcc_compile_log.csv"
+    LOG_COMPILE_TIME=ON
 fi
 if hasArg --show_depr_warn; then
     DISABLE_DEPRECATION_WARNINGS=OFF
@@ -303,9 +339,12 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-
-
-
+if hasArg --build-metrics; then
+    BUILD_REPORT_METRICS=ON
+fi
+if hasArg --incl-cache-stats; then
+    BUILD_REPORT_INCL_CACHE_STATS=ON
+fi
 if [[ ${CMAKE_TARGET} == "" ]]; then
     CMAKE_TARGET="all"
 fi
@@ -339,7 +378,7 @@ fi
 
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench; then
+if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || hasArg bench-prims || hasArg bench-ann; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         RAFT_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
@@ -348,22 +387,30 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
+    # get the current count before the compile starts
+    CACHE_TOOL=${CACHE_TOOL:-sccache}
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
+        "${CACHE_TOOL}" --zero-stats
+    fi
+
     mkdir -p ${LIBRAFT_BUILD_DIR}
     cd ${LIBRAFT_BUILD_DIR}
     cmake -S ${REPODIR}/cpp -B ${LIBRAFT_BUILD_DIR} \
           -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DRAFT_COMPILE_LIBRARIES=${COMPILE_LIBRARIES} \
+          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
+          -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
-          -DBUILD_BENCH=${BUILD_BENCH} \
+          -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
+          -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
-          -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
 
+  compile_start=$(date +%s)
   if [[ ${CMAKE_TARGET} != "" ]]; then
       echo "-- Compiling targets: ${CMAKE_TARGET}, verbose=${VERBOSE_FLAG}"
       if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -371,6 +418,50 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
       else
         cmake --build  "${LIBRAFT_BUILD_DIR}" ${VERBOSE_FLAG} -j${PARALLEL_LEVEL} --target ${CMAKE_TARGET}
       fi
+  fi
+  compile_end=$(date +%s)
+  compile_total=$(( compile_end - compile_start ))
+
+  if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
+      if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
+          echo "Downloading rapids-build-metrics-reporter.py"
+          curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
+      fi
+
+      echo "Formatting build metrics"
+      MSG=""
+      # get some sccache/ccache stats after the compile
+      if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" ]]; then
+          if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
+              COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
+              CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
+              HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
+              MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+          elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
+              CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
+              if [[ ! -z "$CACHE_STATS_LINE" ]]; then
+                  CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
+                  COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
+                  HIT_RATE=$(echo - | awk "{printf \"%.2f\n\", $CACHE_HITS / $COMPILE_REQUESTS * 100}")
+                  MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+              fi
+          fi
+      fi
+      MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
+      MSG="${MSG}<br/>parallel build time: $compile_total seconds"
+      if [[ -f "${LIBRAFT_BUILD_DIR}/libraft.so" ]]; then
+          LIBRAFT_FS=$(ls -lh ${LIBRAFT_BUILD_DIR}/libraft.so | awk '{print $5}')
+          MSG="${MSG}<br/>libraft.so size: $LIBRAFT_FS"
+      fi
+      BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBRAFT_BUILD_DIR}"}
+      echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
+      echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/raft/, and"
+      echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
+      mkdir -p ${BMR_DIR}
+      MSG_OUTFILE="$(mktemp)"
+      echo "$MSG" > "${MSG_OUTFILE}"
+      PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
+      cp ${LIBRAFT_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
   fi
 fi
 
@@ -380,7 +471,6 @@ if (( ${NUMARGS} == 0 )) || hasArg pylibraft; then
     if [[ "${EXTRA_CMAKE_ARGS}" != *"DFIND_RAFT_CPP"* ]]; then
         EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DFIND_RAFT_CPP=ON"
     fi
-
     cd ${REPODIR}/python/pylibraft
     python setup.py build_ext --inplace -- -DCMAKE_PREFIX_PATH="${RAFT_DASK_BUILD_DIR};${INSTALL_PREFIX}" -DCMAKE_LIBRARY_PATH=${LIBRAFT_BUILD_DIR} ${EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
@@ -409,4 +499,13 @@ if hasArg docs; then
     doxygen Doxyfile
     cd ${SPHINX_BUILD_DIR}
     sphinx-build -b html source _html
+fi
+
+################################################################################
+# Initiate build for example RAFT application template (if needed)
+
+if hasArg template; then
+    pushd cpp/template
+    ./build.sh
+    popd
 fi
