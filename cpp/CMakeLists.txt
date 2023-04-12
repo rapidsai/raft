@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.04")
-set(RAFT_VERSION "23.04.00")
+set(RAPIDS_VERSION "23.06")
+set(RAFT_VERSION "23.06.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -70,15 +70,12 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-if(BUILD_TESTS
-   OR BUILD_PRIMS_BENCH
-   OR BUILD_ANN_BENCH
-)
-  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-  # to have different values for the `Threads::Threads` target. Setting this flag ensures
-  # `Threads::Threads` is the same value in first run and subsequent runs.
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-endif()
+
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
+# to have different values for the `Threads::Threads` target. Setting this flag ensures
+# `Threads::Threads` is the same value across all builds so that cache hits occur
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
