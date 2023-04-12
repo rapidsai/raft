@@ -63,7 +63,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                            float metric_arg                   = 2.0,
                            size_t max_row_tile_size           = 0,
                            size_t max_col_tile_size           = 0,
-                           DistanceEpilogue distance_epilogue = raft::identity_op())
+                           DistanceEpilogue distance_epilogue = raft::identity_op(),
+                           bool allow_stream_pool             = true)
 {
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
@@ -78,11 +79,21 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   if (max_row_tile_size && (tile_rows > max_row_tile_size)) { tile_rows = max_row_tile_size; }
   if (max_col_tile_size && (tile_cols > max_col_tile_size)) { tile_cols = max_col_tile_size; }
 
+  size_t stream_count = 1;
+  if (allow_stream_pool) { stream_count = std::max(handle.get_stream_pool_size(), size_t{1}); }
+
+  size_t num_row_tiles = raft::ceildiv(m, tile_rows);
+  size_t num_col_tiles = raft::ceildiv(n, tile_cols);
+
+  // if we have fewer tiles than streams processing the tiles, divide up the columns
+  // into more tiles to accommodate
+  if (num_row_tiles * num_col_tiles < stream_count) {
+    num_col_tiles = stream_count;
+    tile_cols     = raft::ceildiv(n, stream_count);
+  }
+
   // tile_cols must be at least k items
   tile_cols = std::max(tile_cols, static_cast<size_t>(k));
-
-  // stores pairwise distances for the current tile
-  rmm::device_uvector<ElementType> temp_distances(tile_rows * tile_cols, stream);
 
   // calculate norms for L2 expanded distances - this lets us avoid calculating
   // norms repeatedly per-tile, and just do once for the entire input
@@ -102,7 +113,6 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
   // if we're tiling over columns, we need additional buffers for temporary output
   // distances/indices
-  size_t num_col_tiles = raft::ceildiv(n, tile_cols);
   size_t temp_out_cols = k * num_col_tiles;
 
   // the final column tile could have less than 'k' items in it
@@ -129,6 +139,27 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   rmm::device_uvector<ElementType> temp_out_distances(tile_rows * temp_out_cols, stream);
   rmm::device_uvector<IndexType> temp_out_indices(tile_rows * temp_out_cols, stream);
 
+  std::vector<rmm::device_uvector<ElementType>> temp_distances;
+  std::vector<raft::device_resources> handles;
+
+  if (stream_count > 1) {
+    // need to sync for the l2 norms / temporary output buffers / output fill
+    handle.sync_stream(stream);
+
+    for (size_t i = 0; i < stream_count; ++i) {
+      auto tile_stream = handle.get_next_usable_stream(i);
+      raft::device_resources stream_pool_handle(handle);
+      raft::resource::set_cuda_stream(stream_pool_handle, tile_stream);
+
+      temp_distances.push_back(
+        rmm::device_uvector<ElementType>(tile_rows * tile_cols, tile_stream));
+      handles.push_back(stream_pool_handle);
+    }
+  } else {
+    // either we aren't supposed to be using the stream pool, or one isn't initialized
+    temp_distances.push_back(rmm::device_uvector<ElementType>(tile_rows * tile_cols, stream));
+  }
+
   bool select_min = raft::distance::is_min_close(metric);
 
   for (size_t i = 0; i < m; i += tile_rows) {
@@ -138,15 +169,18 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
       size_t current_centroid_size = std::min(tile_cols, n - j);
       size_t current_k             = std::min(current_centroid_size, static_cast<size_t>(k));
 
+      size_t tile_index    = (i * tile_rows + j) % stream_count;
+      auto& current_handle = stream_count > 1 ? handles[tile_index] : handle;
+
       // calculate the top-k elements for the current tile, by calculating the
       // full pairwise distance for the tile - and then selecting the top-k from that
       // note: we're using a int32 IndexType here on purpose in order to
       // use the pairwise_distance specializations. Since the tile size will ensure
       // that the total memory is < 1GB per tile, this will not cause any issues
-      distance::pairwise_distance<ElementType, int>(handle,
+      distance::pairwise_distance<ElementType, int>(current_handle,
                                                     search + i * d,
                                                     index + j * d,
-                                                    temp_distances.data(),
+                                                    temp_distances[tile_index].data(),
                                                     current_query_size,
                                                     current_centroid_size,
                                                     d,
@@ -157,10 +191,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
         auto row_norms = search_norms.data();
         auto col_norms = index_norms.data();
-        auto dist      = temp_distances.data();
+        auto dist      = temp_distances[tile_index].data();
 
         raft::linalg::map_offset(
-          handle,
+          current_handle,
           raft::make_device_vector_view(dist, current_query_size * current_centroid_size),
           [=] __device__(IndexType idx) {
             IndexType row = i + (idx / current_centroid_size);
@@ -179,10 +213,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
       } else {
         // if we're not l2 distance, and we have a distance epilogue - run it now
         if constexpr (!std::is_same_v<DistanceEpilogue, raft::identity_op>) {
-          auto distances_ptr = temp_distances.data();
+          auto distances_ptr = temp_distances[tile_index].data();
           raft::linalg::map_offset(
-            handle,
-            raft::make_device_vector_view(temp_distances.data(),
+            current_handle,
+            raft::make_device_vector_view(temp_distances[tile_index].data(),
                                           current_query_size * current_centroid_size),
             [=] __device__(size_t idx) {
               IndexType row = i + (idx / current_centroid_size);
@@ -192,7 +226,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         }
       }
 
-      select_k<IndexType, ElementType>(temp_distances.data(),
+      select_k<IndexType, ElementType>(temp_distances[tile_index].data(),
                                        nullptr,
                                        current_query_size,
                                        current_centroid_size,
@@ -200,7 +234,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                        indices + i * k,
                                        select_min,
                                        current_k,
-                                       stream);
+                                       current_handle.get_stream());
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -217,7 +251,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         IndexType* out_indices          = temp_out_indices.data();
 
         auto count = thrust::make_counting_iterator<IndexType>(0);
-        thrust::for_each(handle.get_thrust_policy(),
+        thrust::for_each(current_handle.get_thrust_policy(),
                          count,
                          count + current_query_size * current_k,
                          [=] __device__(IndexType i) {
@@ -231,6 +265,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
     }
 
     if (tile_cols != n) {
+      if (stream_count > 1) { handle.sync_stream_pool(); }
+
       // select the actual top-k items here from the temporary output
       select_k<IndexType, ElementType>(temp_out_distances.data(),
                                        temp_out_indices.data(),
@@ -427,7 +463,7 @@ void brute_force_knn_impl(
           if (!rowMajorIndex) {
             index = index_row_major.data() + total_rows_processed * D;
             total_rows_processed += sizes[i];
-            raft::linalg::transpose(handle, input[i], index, sizes[i], D, stream);
+            raft::linalg::transpose(handle, input[i], index, sizes[i], D, userStream);
           }
 
           // cosine/correlation are handled by metric processor, use IP distance
@@ -437,6 +473,10 @@ void brute_force_knn_impl(
               metric == raft::distance::DistanceType::CorrelationExpanded) {
             tiled_metric = raft::distance::DistanceType::InnerProduct;
           }
+
+          // only allow using a streampool inside the tiled call if we aren't
+          // using one here
+          bool allow_tiled_stream_pool = input.size() == 1;
 
           tiled_brute_force_knn<value_t, IdxType>(stream_pool_handle,
                                                   search,
@@ -451,7 +491,8 @@ void brute_force_knn_impl(
                                                   metricArg,
                                                   0,
                                                   0,
-                                                  distance_epilogue);
+                                                  distance_epilogue,
+                                                  allow_tiled_stream_pool);
           break;
       }
     }

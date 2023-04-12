@@ -61,7 +61,8 @@ template <typename T>
 class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
  public:
   TiledKNNTest()
-    : stream_(handle_.get_stream()),
+    : handle_(rmm::cuda_stream_per_thread, std::make_shared<rmm::cuda_stream_pool>(4)),
+      stream_(handle_.get_stream()),
       params_(::testing::TestWithParam<TiledKNNInputs>::GetParam()),
       database(params_.num_db_vecs * params_.dim, stream_),
       search_queries(params_.num_queries * params_.dim, stream_),

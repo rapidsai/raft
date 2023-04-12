@@ -284,7 +284,7 @@ struct knn : public fixture {
       std::ostringstream label_stream;
       label_stream << params_ << "#" << strategy_ << "#" << scope_;
       state.SetLabel(label_stream.str());
-      raft::device_resources handle(stream);
+      raft::device_resources handle(stream, std::make_shared<rmm::cuda_stream_pool>(4));
       std::optional<ImplT> index;
 
       if (scope_ == Scope::SEARCH) {  // also implies TransferStrategy::NO_COPY
@@ -375,7 +375,7 @@ struct knn : public fixture {
 };
 
 inline const std::vector<params> kInputs{
-  {2000000, 128, 1000, 32}, {10000000, 128, 1000, 32}, {10000, 8192, 1000, 32}};
+  {2000000, 128, 1000, 128}, {10000000, 128, 1000, 128}, {10000, 8192, 1000, 128}};
 
 inline const std::vector<TransferStrategy> kAllStrategies{
   TransferStrategy::NO_COPY, TransferStrategy::MAP_PINNED, TransferStrategy::MANAGED};
