@@ -1,13 +1,33 @@
 # Using The Pre-Compiled Binary
 
-At its core, RAFT is a header-only template library, which makes it very powerful in that APIs can be called with various different combinations of data types and only the templates which are actually used will be compiled into your binaries. This increased flexibility comes with a drawback that all the APIs need to be declared inline and thus calls which are made frequently in your code could be compiled again each source file for which they are invoked.
+At its core, RAFT is a header-only template library, which makes it very powerful in that APIs can be called with various different combinations of data types and only the templates which are actually used will be compiled into your binaries. This increased flexibility comes with a drawback that all the APIs need to be declared inline and thus calls which are made frequently in your code could be compiled again in each source file for which they are invoked.
 
-For most functions, this overhead is pretty minimal and not noticeable but some of RAFT's APIs consist of very complex hierarchies of function calls that ultimately end up dispatching to device code that's executed on the GPU. The compile times for these APIs may still be bearable when compiling for only a single compute architecture but could end up becoming extremely slow to compile for all of the supported architectures at once.
+For most functions, compile-time overhead is minimal but some of RAFT's APIs take a substantial time to compile. As a rule of thumb, most functionality in `raft::distance`, `raft::neighbors`, and `raft::spatial` is expensive to compile and most functionality in other namespaces has little compile-time overhead.
 
-There are three ways to solve this problem and speed up compile times:
-1. Continue to use RAFT as a header-only library and create a CUDA source file in your project to explicitly instantiate the templates which are slow to compile. This can be tedious and will still require compiling the slow code at least once, but it's the most flexible option if you are using types that aren't already compiled into `libraft`
-2. If you are able to use one of the template types that are already being compiled into `libraft`, you can use the pre-compiled template specializations, which I will describe in more detail in the following section.
-3. If you would like to use RAFT but either cannot or would prefer not to compile any CUDA code yourself, you can simply add `libraft` to your link libraries and use the growing set of runtime APIs.
+
+To speed up compilation when using RAFT as a header-only library, you can do the following... 
+
+To speed up compilation when using the precompiled RAFT library, you can do the
+following:
+
+1. 
+
+
+There are three ways to speed up compile times:
+
+1. Continue to use RAFT as a header-only library and create a CUDA source file
+   in your project to explicitly instantiate the templates which are slow to
+   compile. This can be tedious and will still require compiling the slow code
+   at least once, but it's the most flexible option if you are using types that
+   aren't already compiled into `libraft`
+
+2. If you are able to use one of the template types that are already being
+   compiled into `libraft`, you can use the pre-compiled template
+   instantiations, which are described in more detail in the following section.
+
+3. If you would like to use RAFT but either cannot or would prefer not to
+   compile any CUDA code yourself, you can simply add `libraft` to your link
+   libraries and use the growing set of runtime APIs.
 
 ## Using Template Specializations
 
