@@ -19,9 +19,9 @@
 #include "coalesced_reduction-types.cuh"
 #include <raft/core/operators.hpp>
 
-// Include inline definition as well. We cannot possibly cover all
-// instantiations in this file.
-#include "coalesced_reduction-inl.cuh"
+// The explicit instantiation of raft::linalg::detail::coalescedReduction is not
+// forced because there would be too many instances. Instead, we cover the most
+// common instantiations with extern template instantiations below.
 
 #define instantiate_raft_linalg_detail_coalescedReduction(                              \
   InType, OutType, IdxType, MainLambda, ReduceLambda, FinalLambda)                      \

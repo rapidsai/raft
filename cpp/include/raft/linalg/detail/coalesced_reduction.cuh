@@ -16,10 +16,11 @@
 
 #pragma once
 
-#if defined(RAFT_COMPILED) && defined(RAFT_EXPLICIT_INSTANTIATE)
-// Too many lambdas and complicated types to instantiate everything..
+// Always include inline definitions of coalesced reduction, because we do not
+// force explicit instantion.
+#include "coalesced_reduction-inl.cuh"
+
+// Do include the extern template instantiations when possible.
+#ifdef RAFT_COMPILED
 #include "coalesced_reduction-ext.cuh"
-#include "coalesced_reduction-inl.cuh"
-#else
-#include "coalesced_reduction-inl.cuh"
 #endif

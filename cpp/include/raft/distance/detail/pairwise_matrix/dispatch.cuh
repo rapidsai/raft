@@ -15,22 +15,6 @@
  */
 #pragma once
 
-/* This file has two responsibilities:
- *
- * 1. Dispatch to the correct implementation of a kernel based on the
- *    architecture of the device on which the kernel will be launched. For
- *    instance, the cosine distance has a CUTLASS-based implementation that can
- *    be used on SM80+ and the normal implementation that is used on older
- *    architectures.
- *
- * 2. Provide concise function templates that can be instantiated in
- *    src/distance/distance/specializations/detail/. Previously,
- *    raft::distance::detail::distance was instantiated. The function
- *    necessarily required a large set of include files, which slowed down the
- *    build. The raft::distance::detail::pairwise_matrix_arch_dispatch functions
- *    do not require as large an include files set, which speeds up the build.
- */
-
 #if !defined(RAFT_EXPLICIT_INSTANTIATE)
 #include "dispatch-inl.cuh"
 #endif
