@@ -37,7 +37,7 @@ FilesToCheck = [
     re.compile(r"setup[.]cfg$"),
     re.compile(r"meta[.]yaml$")
 ]
-ExemptFiles = ["cpp/include/raft/spatial/knn/detail/faiss_select/"]
+ExemptFiles = ["cpp/include/raft/neighbors/detail/faiss_select/"]
 
 # this will break starting at year 10000, which is probably OK :)
 CheckSimple = re.compile(
@@ -192,7 +192,8 @@ def checkCopyright_main():
                            action="append",
                            required=False,
                            default=["python/cuml/_thirdparty/",
-                                    "cpp/include/raft/thirdparty/"],
+                                    "cpp/include/raft/thirdparty/",
+                                    "cpp/cmake/modules/FindAVX.cmake"],
                            help=("Exclude the paths specified (regexp). "
                                  "Can be specified multiple times."))
 

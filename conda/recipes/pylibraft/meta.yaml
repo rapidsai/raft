@@ -1,12 +1,13 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
   name: pylibraft
@@ -17,7 +18,7 @@ source:
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
-  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  string: cuda{{ cuda_major }}_py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   ignore_run_exports_from:
     - {{ compiler('cuda') }}
 
@@ -33,8 +34,9 @@ requirements:
     - cuda-python >=11.7.1,<12.0
     - cudatoolkit ={{ cuda_version }}
     - cython >=0.29,<0.30
-    - libraft-distance {{ version }}
+    - libraft {{ version }}
     - libraft-headers {{ version }}
+    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
     - scikit-build >=0.13.1
@@ -42,16 +44,15 @@ requirements:
   run:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
-    - libraft-distance {{ version }}
+    - libraft {{ version }}
     - libraft-headers {{ version }}
     - python x.x
 
-# TODO: Remove the linux64 tags on tests after disabling gpuCI / Jenkins
-tests:                                 # [linux64]
-  requirements:                        # [linux64]
-    - cudatoolkit ={{ cuda_version }}  # [linux64]
-  imports:                             # [linux64]
-    - pylibraft                        # [linux64]
+tests:
+  requirements:
+    - cudatoolkit ={{ cuda_version }}
+  imports:
+    - pylibraft
 
 about:
   home: https://rapids.ai/

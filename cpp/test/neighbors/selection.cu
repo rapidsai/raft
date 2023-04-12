@@ -24,7 +24,7 @@
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
-#if defined RAFT_NN_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 
@@ -118,7 +118,7 @@ struct SelectInOutComputed {
         }
         break;
       case knn::SelectKAlgo::FAISS:
-        if (spec.k > raft::spatial::knn::detail::kFaissMaxK<IdxT, KeyT>()) {
+        if (spec.k > raft::neighbors::detail::kFaissMaxK<IdxT, KeyT>()) {
           not_supported = true;
           return;
         }
@@ -488,12 +488,13 @@ INSTANTIATE_TEST_CASE_P(
  *  Indicices do not match! ref[91628] = 131.359 != res[36504] = 158.438
  *  Actual: false (actual=36504 != expected=91628 @38999;
  */
-// typedef SelectionTest<float, size_t, with_ref<knn::SelectKAlgo::RADIX_8_BITS>::params_random>
-//   ReferencedRandomFloatSizeT;
-// TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }
-// INSTANTIATE_TEST_CASE_P(SelectionTest,
-//                         ReferencedRandomFloatSizeT,
-//                         testing::Combine(inputs_random_largek,
-//                                          testing::Values(knn::SelectKAlgo::RADIX_11_BITS)));
-
+typedef SelectionTest<float, size_t, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
+  ReferencedRandomFloatSizeT;
+TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }
+INSTANTIATE_TEST_CASE_P(
+  SelectionTest,
+  ReferencedRandomFloatSizeT,
+  testing::Combine(inputs_random_largek,
+                   testing::Values(knn::SelectKAlgo::FAISS),
+                   testing::Values(std::make_shared<raft::device_resources>())));
 }  // namespace raft::spatial::selection

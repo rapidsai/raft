@@ -16,27 +16,25 @@
 
 #pragma once
 
-#include <limits>
-#include <raft/core/kvp.hpp>
-#include <raft/distance/detail/pairwise_distance_base.cuh>
-#include <raft/linalg/contractions.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <stdint.h>
+#include <cstddef>                                          // size_t
+#include <limits>                                           // std::numeric_limits
+#include <raft/core/kvp.hpp>                                // raft::KeyValuePair
+#include <raft/core/operators.hpp>                          // raft::identity_op
+#include <raft/distance/detail/distance_ops/l2_exp.cuh>     // ops::l2_exp_distance_op
+#include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
+#include <raft/linalg/contractions.cuh>                     // Policy
+#include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
 
 namespace raft {
 namespace distance {
 
 namespace detail {
 
-#if (ENABLE_MEMCPY_ASYNC == 1)
-#include <cuda_pipeline.h>
-using namespace nvcuda::experimental;
-#endif
-
 template <typename LabelT, typename DataT>
 struct KVPMinReduceImpl {
   typedef raft::KeyValuePair<LabelT, DataT> KVP;
   DI KVP operator()(LabelT rit, const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
+  DI KVP operator()(const KVP& a, const KVP& b) { return b.value < a.value ? b : a; }
 
 };  // KVPMinReduce
 
@@ -123,11 +121,10 @@ DI void updateReducedVal(
 template <typename DataT,
           typename OutT,
           typename IdxT,
-          bool Sqrt,
           typename P,
           typename ReduceOpT,
           typename KVPReduceOpT,
-          typename CoreLambda,
+          typename OpT,
           typename FinalLambda>
 __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                                                                   const DataT* x,
@@ -141,7 +138,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                                                                   int* mutex,
                                                                   ReduceOpT redOp,
                                                                   KVPReduceOpT pairRedOp,
-                                                                  CoreLambda core_op,
+                                                                  OpT distance_op,
                                                                   FinalLambda fin_op)
 {
   extern __shared__ char smem[];
@@ -161,24 +158,6 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                          IdxT gridStrideX,
                          IdxT gridStrideY) {
     KVPReduceOpT pairRed_op(pairRedOp);
-
-#pragma unroll
-    for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-      for (int j = 0; j < P::AccColsPerTh; ++j) {
-        acc[i][j] = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
-      }
-    }
-    if (Sqrt) {
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = 0; j < P::AccColsPerTh; ++j) {
-          auto acc_ij = acc[i][j];
-          acc[i][j]   = acc_ij > DataT{0} ? raft::sqrt(acc_ij) : DataT{0};
-        }
-      }
-    }
 
     // intra thread reduce
     const auto acccolid = threadIdx.x % P::AccThCols;
@@ -228,18 +207,18 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
     };
 
   IdxT lda = k, ldb = k, ldd = n;
-  PairwiseDistances<true,
-                    DataT,
-                    DataT,
-                    DataT,
+  constexpr bool row_major = true;
+  constexpr bool write_out = false;
+  PairwiseDistances<DataT,
+                    DataT,  // OutT (unused in PairwiseDistances)
                     IdxT,
                     P,
-                    CoreLambda,
+                    decltype(distance_op),
                     decltype(epilog_lambda),
                     FinalLambda,
                     decltype(rowEpilog_lambda),
-                    true,
-                    false>
+                    row_major,
+                    write_out>
     obj(x,
         y,
         m,
@@ -250,9 +229,9 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
         ldd,
         xn,
         yn,
-        nullptr,
+        nullptr,  // Output pointer
         smem,
-        core_op,
+        distance_op,
         epilog_lambda,
         fin_op,
         rowEpilog_lambda);
@@ -288,9 +267,6 @@ void fusedL2NNImpl(OutT* min,
   constexpr auto maxVal = std::numeric_limits<DataT>::max();
   typedef KeyValuePair<IdxT, DataT> KVPair;
 
-  // Accumulation operation lambda
-  auto core_lambda = [] __device__(DataT & acc, DataT & x, DataT & y) { acc += x * y; };
-
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
   if (initOutBuffer) {
     initKernel<DataT, OutT, IdxT, ReduceOpT>
@@ -299,59 +275,25 @@ void fusedL2NNImpl(OutT* min,
   }
 
   constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-  if (sqrt) {
-    auto fusedL2NNSqrt = fusedL2NNkernel<DataT,
-                                         OutT,
-                                         IdxT,
-                                         true,
-                                         P,
-                                         ReduceOpT,
-                                         KVPReduceOpT,
-                                         decltype(core_lambda),
-                                         raft::identity_op>;
-    dim3 grid          = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NNSqrt);
 
-    fusedL2NNSqrt<<<grid, blk, shmemSize, stream>>>(min,
-                                                    x,
-                                                    y,
-                                                    xn,
-                                                    yn,
-                                                    m,
-                                                    n,
-                                                    k,
-                                                    maxVal,
-                                                    workspace,
-                                                    redOp,
-                                                    pairRedOp,
-                                                    core_lambda,
-                                                    raft::identity_op{});
-  } else {
-    auto fusedL2NN = fusedL2NNkernel<DataT,
-                                     OutT,
-                                     IdxT,
-                                     false,
-                                     P,
-                                     ReduceOpT,
-                                     KVPReduceOpT,
-                                     decltype(core_lambda),
-                                     raft::identity_op>;
-    dim3 grid      = launchConfigGenerator<P>(m, n, shmemSize, fusedL2NN);
-    fusedL2NN<<<grid, blk, shmemSize, stream>>>(min,
-                                                x,
-                                                y,
-                                                xn,
-                                                yn,
-                                                m,
-                                                n,
-                                                k,
-                                                maxVal,
-                                                workspace,
-                                                redOp,
-                                                pairRedOp,
-                                                core_lambda,
-                                                raft::identity_op{});
-  }
+  using AccT = DataT;
+  ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
 
+  raft::identity_op fin_op{};
+
+  auto kernel = fusedL2NNkernel<DataT,
+                                OutT,
+                                IdxT,
+                                P,
+                                ReduceOpT,
+                                KVPReduceOpT,
+                                decltype(distance_op),
+                                decltype(fin_op)>;
+
+  dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, kernel);
+
+  kernel<<<grid, blk, shmemSize, stream>>>(
+    min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 

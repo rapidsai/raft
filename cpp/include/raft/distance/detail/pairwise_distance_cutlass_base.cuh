@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 
-#if (__CUDACC_VER_MAJOR__ < 12)
-
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
 #ifndef CUTLASS_NAMESPACE
@@ -28,6 +26,7 @@
 #endif
 
 #include <rmm/device_uvector.hpp>
+#include <type_traits>
 
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
@@ -37,6 +36,8 @@
 #include <cutlass/layout/tensor.h>
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
+
+#include <raft/distance/detail/distance_ops/cutlass.cuh>
 
 #include "./pairwise_distance_epilogue_elementwise.h"
 #include "./pairwise_distance_gemm.h"
@@ -61,26 +62,28 @@ template <typename DataT,
           typename IdxT,
           int VecLen,
           typename FinalLambda,
-          typename DistanceFn,
+          typename OpT,
           bool isRowMajor>
-void cutlassDistanceKernel(const DataT* x,
-                           const DataT* y,
-                           const DataT* xn,
-                           const DataT* yn,
-                           IdxT m,
-                           IdxT n,
-                           IdxT k,
-                           IdxT lda,
-                           IdxT ldb,
-                           IdxT ldd,
-                           OutT* dOutput,
-                           FinalLambda fin_op,
-                           DistanceFn dist_op,
-                           cudaStream_t stream)
+std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const DataT* x,
+                                                                        const DataT* y,
+                                                                        const DataT* xn,
+                                                                        const DataT* yn,
+                                                                        IdxT m,
+                                                                        IdxT n,
+                                                                        IdxT k,
+                                                                        IdxT lda,
+                                                                        IdxT ldb,
+                                                                        IdxT ldd,
+                                                                        OutT* dOutput,
+                                                                        FinalLambda fin_op,
+                                                                        OpT distance_op,
+                                                                        cudaStream_t stream)
 {
   static_assert(!(std::is_same<OutT, bool>::value),
                 "OutType bool is not supported use uint8_t instead");
 
+  auto dist_op     = distance_op.get_cutlass_op();
+  using DistanceFn = decltype(dist_op);
   using EpilogueOutputOp =
     cutlass::epilogue::thread::PairwiseDistanceEpilogueElementwise<DataT,  // ElementC_
                                                                    AccT,   // ElementAccumulator_
@@ -171,8 +174,8 @@ void cutlassDistanceKernel(const DataT* x,
   CUTLASS_CHECK(status);
 }
 
-};      // namespace detail
-};      // namespace distance
-};      // namespace raft
-#endif  //  (__CUDACC_VER_MAJOR__ < 12)
+};  // namespace detail
+};  // namespace distance
+};  // namespace raft
+
 #pragma GCC diagnostic pop

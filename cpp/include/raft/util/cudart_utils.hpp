@@ -14,24 +14,17 @@
  * limitations under the License.
  */
 
-/**
- * This file is deprecated and will be removed in release 22.06.
- * Please use raft_runtime/cudart_utils.hpp instead.
- */
-
-#ifndef __RAFT_RT_CUDART_UTILS_H
-#define __RAFT_RT_CUDART_UTILS_H
-
 #pragma once
 
 #include <raft/core/error.hpp>
+#include <raft/util/cuda_rt_essentials.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cuda_fp16.h>
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 
 #include <chrono>
 #include <cstdio>
@@ -40,47 +33,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
-
-namespace raft {
-
-/**
- * @brief Exception thrown when a CUDA error is encountered.
- */
-struct cuda_error : public raft::exception {
-  explicit cuda_error(char const* const message) : raft::exception(message) {}
-  explicit cuda_error(std::string const& message) : raft::exception(message) {}
-};
-
-}  // namespace raft
-
-/**
- * @brief Error checking macro for CUDA runtime API functions.
- *
- * Invokes a CUDA runtime API function call, if the call does not return
- * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
- * exception detailing the CUDA error that occurred
- *
- */
-#define RAFT_CUDA_TRY(call)                        \
-  do {                                             \
-    cudaError_t const status = call;               \
-    if (status != cudaSuccess) {                   \
-      cudaGetLastError();                          \
-      std::string msg{};                           \
-      SET_ERROR_MSG(msg,                           \
-                    "CUDA error encountered at: ", \
-                    "call='%s', Reason=%s:%s",     \
-                    #call,                         \
-                    cudaGetErrorName(status),      \
-                    cudaGetErrorString(status));   \
-      throw raft::cuda_error(msg);                 \
-    }                                              \
-  } while (0)
-
-// FIXME: Remove after consumers rename
-#ifndef CUDA_TRY
-#define CUDA_TRY(call) RAFT_CUDA_TRY(call)
-#endif
+#include <string>
 
 /**
  * @brief Debug macro to check for CUDA errors
@@ -101,16 +54,6 @@ struct cuda_error : public raft::exception {
 #define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
 #endif
 
-// FIXME: Remove after consumers rename
-#ifndef CHECK_CUDA
-#define CHECK_CUDA(call) RAFT_CHECK_CUDA(call)
-#endif
-
-/** FIXME: remove after cuml rename */
-#ifndef CUDA_CHECK
-#define CUDA_CHECK(call) RAFT_CUDA_TRY(call)
-#endif
-
 // /**
 //  * @brief check for cuda runtime API errors but log error instead of raising
 //  *        exception.
@@ -126,17 +69,6 @@ struct cuda_error : public raft::exception {
              cudaGetErrorString(status));                          \
     }                                                              \
   } while (0)
-
-// FIXME: Remove after cuml rename
-#ifndef CUDA_CHECK_NO_THROW
-#define CUDA_CHECK_NO_THROW(call) RAFT_CUDA_TRY_NO_THROW(call)
-#endif
-
-/**
- * Alias to raft scope for now.
- * TODO: Rename original implementations in 22.04 to fix
- * https://github.com/rapidsai/raft/issues/128
- */
 
 namespace raft {
 
@@ -249,7 +181,7 @@ class grid_1d_block_t {
 template <typename Type>
 void copy(Type* dst, const Type* src, size_t len, rmm::cuda_stream_view stream)
 {
-  CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
 
 /**
@@ -275,7 +207,8 @@ void update_host(Type* h_ptr, const Type* d_ptr, size_t len, rmm::cuda_stream_vi
 template <typename Type>
 void copy_async(Type* d_ptr1, const Type* d_ptr2, size_t len, rmm::cuda_stream_view stream)
 {
-  CUDA_CHECK(cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type), cudaMemcpyDeviceToDevice, stream));
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(d_ptr1, d_ptr2, len * sizeof(Type), cudaMemcpyDeviceToDevice, stream));
 }
 /** @} */
 
@@ -304,7 +237,7 @@ void print_device_vector(const char* variable_name,
                          OutStream& out)
 {
   auto host_mem = std::make_unique<T[]>(componentsCount);
-  CUDA_CHECK(
+  RAFT_CUDA_TRY(
     cudaMemcpy(host_mem.get(), devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
   print_host_vector(variable_name, host_mem.get(), componentsCount, out);
 }
@@ -331,6 +264,32 @@ void print_vector(const char* variable_name, const T* ptr, size_t componentsCoun
   }
 }
 /** @} */
+
+/**
+ * Returns the id of the device for which the pointer is located
+ * @param p pointer to check
+ * @return id of device for which pointer is located, otherwise -1.
+ */
+template <typename T>
+int get_device_for_address(const T* p)
+{
+  if (!p) { return -1; }
+
+  cudaPointerAttributes att;
+  cudaError_t err = cudaPointerGetAttributes(&att, p);
+  if (err == cudaErrorInvalidValue) {
+    // Make sure the current thread error status has been reset
+    err = cudaGetLastError();
+    return -1;
+  }
+
+  // memoryType is deprecated for CUDA 10.0+
+  if (att.type == cudaMemoryTypeDevice) {
+    return att.device;
+  } else {
+    return -1;
+  }
+}
 
 /** helper method to get max usable shared mem per block parameter */
 inline int getSharedMemPerBlock()
@@ -540,5 +499,3 @@ inline auto get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_
 }
 
 }  // namespace raft
-
-#endif

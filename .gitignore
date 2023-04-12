@@ -24,6 +24,7 @@ log
 .DS_Store
 dask-worker-space/
 *.egg-info/
+*.bin
 
 ## scikit-build
 _skbuild
@@ -52,3 +53,10 @@ doxygen_check/
 
 ## cibuildwheel
 /wheelhouse
+
+# doxygen
+_xml
+
+# sphinx
+_html
+_text

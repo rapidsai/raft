@@ -383,8 +383,8 @@ static int chooseNewCentroid(raft::device_resources const& handle,
                          thrust::device_pointer_cast(dists),
                          thrust::device_pointer_cast(dists + n),
                          thrust::device_pointer_cast(distsCumSum));
-  CHECK_CUDA(stream);
-  CUDA_TRY(cudaMemcpyAsync(
+  RAFT_CHECK_CUDA(stream);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
     &distsSum, distsCumSum + n - 1, sizeof(value_type_t), cudaMemcpyDeviceToHost, stream));
 
   // Randomly choose observation vector
@@ -523,7 +523,7 @@ static int initializeCentroids(raft::device_resources const& handle,
       WARNING("error in k-means++ (could not pick centroid)");
 
     // Compute distances from ith centroid
-    CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(value_type_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(dists + n, 0, n * sizeof(value_type_t), stream));
     computeDistances<<<gridDim_warp, blockDim_warp, 0, stream>>>(
       n, d, 1, obs, centroids + IDX(0, i, d), dists + n);
     RAFT_CHECK_CUDA(stream);
@@ -534,7 +534,7 @@ static int initializeCentroids(raft::device_resources const& handle,
   }
 
   // Compute cluster sizes
-  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
   computeClusterSizes<<<gridDim_block, BLOCK_SIZE, 0, stream>>>(n, codes, clusterSizes);
   RAFT_CHECK_CUDA(stream);
 
@@ -598,7 +598,7 @@ static int assignCentroids(raft::device_resources const& handle,
   RAFT_CHECK_CUDA(stream);
 
   // Find centroid closest to each observation vector
-  CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(clusterSizes, 0, k * sizeof(index_type_t), stream));
   blockDim.x = BLOCK_SIZE;
   blockDim.y = 1;
   blockDim.z = 1;
@@ -606,7 +606,7 @@ static int assignCentroids(raft::device_resources const& handle,
   gridDim.y  = 1;
   gridDim.z  = 1;
   minDistances<<<gridDim, blockDim, 0, stream>>>(n, k, dists, codes, clusterSizes);
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Compute residual sum of squares
   *residual_host = thrust::reduce(
@@ -825,8 +825,8 @@ int kmeans(raft::device_resources const& handle,
 
   // Trivial cases
   if (k == 1) {
-    CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
-    CUDA_TRY(
+    RAFT_CUDA_TRY(cudaMemsetAsync(codes, 0, n * sizeof(index_type_t), stream));
+    RAFT_CUDA_TRY(
       cudaMemcpyAsync(clusterSizes, &n, sizeof(index_type_t), cudaMemcpyHostToDevice, stream));
     if (updateCentroids(handle, n, d, k, obs, codes, clusterSizes, centroids, work, work_int))
       WARNING("could not compute k-means centroids");
@@ -837,7 +837,7 @@ int kmeans(raft::device_resources const& handle,
                  1,
                  std::min(ceildiv<unsigned>(n, BLOCK_SIZE / WARP_SIZE), grid_lower_bound)};
 
-    CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(work, 0, n * k * sizeof(value_type_t), stream));
     computeDistances<<<gridDim, blockDim, 0, stream>>>(n, d, 1, obs, centroids, work);
     RAFT_CHECK_CUDA(stream);
     *residual_host = thrust::reduce(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,51 +18,23 @@
 
 #include <raft/distance/detail/distance.cuh>
 
-namespace raft {
-namespace distance {
-namespace detail {
-extern template void
-distance<raft::distance::DistanceType::HammingUnexpanded, float, float, float, int>(
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  cudaStream_t stream,
-  bool isRowMajor,
-  float metric_arg);
+namespace raft::distance::detail {
 
-extern template void
-distance<raft::distance::DistanceType::HammingUnexpanded, double, double, double, int>(
-  const double* x,
-  const double* y,
-  double* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  size_t worksize,
-  cudaStream_t stream,
-  bool isRowMajor,
-  double metric_arg);
+extern template void pairwise_matrix_instantiation_point<
+  ops::hamming_distance_op<float, float, int>,
+  int,
+  float,
+  float,
+  raft::identity_op>(ops::hamming_distance_op<float, float, int>,
+                     pairwise_matrix_params<int, float, float, raft::identity_op>,
+                     cudaStream_t);
 
-extern template void
-distance<raft::distance::DistanceType::HammingUnexpanded, float, float, float, std::uint32_t>(
-  const float* x,
-  const float* y,
-  float* dist,
-  std::uint32_t m,
-  std::uint32_t n,
-  std::uint32_t k,
-  void* workspace,
-  size_t worksize,
-  cudaStream_t stream,
-  bool isRowMajor,
-  float metric_arg);
-
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+extern template void pairwise_matrix_instantiation_point<
+  ops::hamming_distance_op<double, double, int>,
+  int,
+  double,
+  double,
+  raft::identity_op>(ops::hamming_distance_op<double, double, int>,
+                     pairwise_matrix_params<int, double, double, raft::identity_op>,
+                     cudaStream_t);
+}  // namespace raft::distance::detail

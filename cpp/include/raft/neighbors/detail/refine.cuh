@@ -20,9 +20,9 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <raft/spatial/knn/detail/ivf_flat_build.cuh>
-#include <raft/spatial/knn/detail/ivf_flat_search.cuh>
 
 #include <cstdlib>
 #include <omp.h>
@@ -108,17 +108,25 @@ void refine_device(raft::device_resources const& handle,
     handle.get_thrust_policy(), fake_coarse_idx.data(), fake_coarse_idx.data() + n_queries);
 
   raft::neighbors::ivf_flat::index<data_t, idx_t> refinement_index(
-    handle, metric, n_queries, false, dim);
+    handle, metric, n_queries, false, true, dim);
 
-  raft::spatial::knn::ivf_flat::detail::fill_refinement_index(handle,
-                                                              &refinement_index,
-                                                              dataset.data_handle(),
-                                                              neighbor_candidates.data_handle(),
-                                                              n_queries,
-                                                              n_candidates);
+  raft::neighbors::ivf_flat::detail::fill_refinement_index(handle,
+                                                           &refinement_index,
+                                                           dataset.data_handle(),
+                                                           neighbor_candidates.data_handle(),
+                                                           n_queries,
+                                                           n_candidates);
 
+  // greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
+  // function is used in both raft::neighbors::ivf_flat::search and
+  // raft::neighbors::detail::refine_device. To prevent a duplicate
+  // instantiation of this function (which defines ~270 kernels) in the refine
+  // specializations, an extern template definition is provided. Please check
+  // and adjust the extern template definition and the instantiation when the
+  // below function call is edited. Search for
+  // `greppable-id-specializations-ivf-flat-search` to find them.
   uint32_t grid_dim_x = 1;
-  raft::spatial::knn::ivf_flat::detail::ivfflat_interleaved_scan<
+  raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<
     data_t,
     typename raft::spatial::knn::detail::utils::config<data_t>::value_t,
     idx_t>(refinement_index,
@@ -128,7 +136,7 @@ void refine_device(raft::device_resources const& handle,
            refinement_index.metric(),
            1,
            k,
-           raft::spatial::knn::ivf_flat::detail::is_min_close(metric),
+           raft::distance::is_min_close(metric),
            indices.data_handle(),
            distances.data_handle(),
            grid_dim_x,

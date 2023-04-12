@@ -14,4 +14,13 @@ namespace *raft::neighbors::ivf_pq*
     :members:
     :content-only:
 
+Serializer Methods
+------------------
+``#include <raft/neighbors/ivf_pq_serialize.cuh>``
 
+namespace *raft::neighbors::ivf_pq*
+
+.. doxygengroup:: ivf_pq_serialize
+    :project: RAFT
+    :members:
+    :content-only:

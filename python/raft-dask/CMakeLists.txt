@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(raft_dask_version 23.02.00)
+set(raft_dask_version 23.04.00)
 
 include(../../fetch_rapids.cmake)
 
@@ -55,7 +55,8 @@ if(NOT raft_FOUND)
   # raft-dask doesn't actually use raft libraries, it just needs the headers, so we can turn off all
   # library compilation and we don't need to install anything here.
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
+  set(BUILD_ANN_BENCH OFF)
+  set(BUILD_PRIMS_BENCH OFF)
   set(RAFT_COMPILE_LIBRARIES OFF)
   set(RAFT_COMPILE_DIST_LIBRARY OFF)
   set(RAFT_COMPILE_NN_LIBRARY OFF)

@@ -24,7 +24,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/random/rng.cuh>
-#if defined RAFT_NN_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #else
 #pragma message("NN specializations are not enabled; expect very long building times.")
@@ -120,12 +120,12 @@ auto min_output_size(const raft::device_resources& handle,
                      const ivf_pq::index<IdxT>& index,
                      uint32_t n_probes) -> IdxT
 {
-  uint32_t skip = index.n_nonempty_lists() > n_probes ? index.n_nonempty_lists() - n_probes : 0;
-  auto map_type = [] __device__(uint32_t x) { return IdxT(x); };
-  using iter    = cub::TransformInputIterator<IdxT, decltype(map_type), const uint32_t*>;
-  iter start(index.list_sizes().data_handle() + skip, map_type);
-  iter end(index.list_sizes().data_handle() + index.n_nonempty_lists(), map_type);
-  return thrust::reduce(handle.get_thrust_policy(), start, end);
+  auto acc_sizes        = index.accum_sorted_sizes();
+  uint32_t last_nonzero = index.n_lists();
+  while (last_nonzero > 0 && acc_sizes(last_nonzero - 1) == acc_sizes(last_nonzero)) {
+    last_nonzero--;
+  }
+  return acc_sizes(last_nonzero) - acc_sizes(last_nonzero - std::min(last_nonzero, n_probes));
 }
 
 template <typename EvalT, typename DataT, typename IdxT>
@@ -178,15 +178,17 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     handle_.sync_stream(stream_);
   }
 
-  auto build_only()
+  index<IdxT> build_only()
   {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = true;
 
-    return ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+    auto index_view =
+      raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+    return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
   }
 
-  auto build_2_extends()
+  index<IdxT> build_2_extends()
   {
     rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
     thrust::sequence(handle_.get_thrust_policy(),
@@ -203,21 +205,32 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = false;
 
-    auto index =
-      ivf_pq::build<DataT, IdxT>(handle_, ipams, database.data(), ps.num_db_vecs, ps.dim);
+    auto database_view =
+      raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+    auto idx = ivf_pq::build<DataT, IdxT>(handle_, ipams, database_view);
 
-    ivf_pq::extend<DataT, IdxT>(handle_, &index, vecs_2, inds_2, size_2);
-    return ivf_pq::extend<DataT, IdxT>(handle_, index, vecs_1, inds_1, size_1);
+    auto vecs_2_view = raft::make_device_matrix_view<DataT, IdxT>(vecs_2, size_2, ps.dim);
+    auto inds_2_view = raft::make_device_matrix_view<IdxT, IdxT>(inds_2, size_2, 1);
+    ivf_pq::extend<DataT, IdxT>(handle_, vecs_2_view, inds_2_view, &idx);
+
+    auto vecs_1_view =
+      raft::make_device_matrix_view<DataT, IdxT, row_major>(vecs_1, size_1, ps.dim);
+    auto inds_1_view =
+      raft::make_device_matrix_view<const IdxT, IdxT, row_major>(inds_1, size_1, 1);
+    ivf_pq::extend<DataT, IdxT>(handle_, vecs_1_view, inds_1_view, &idx);
+    return idx;
+  }
+
+  index<IdxT> build_serialize()
+  {
+    ivf_pq::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
+    return ivf_pq::deserialize<IdxT>(handle_, "ivf_pq_index");
   }
 
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
-    {
-      auto index = build_index();
-      raft::spatial::knn::ivf_pq::detail::serialize<IdxT>(handle_, "ivf_pq_index", index);
-    }
-    auto index = raft::spatial::knn::ivf_pq::detail::deserialize<IdxT>(handle_, "ivf_pq_index");
+    index<IdxT> index = build_index();
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -226,14 +239,15 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     rmm::device_uvector<EvalT> distances_ivf_pq_dev(queries_size, stream_);
     rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
 
-    ivf_pq::search<DataT, IdxT>(handle_,
-                                ps.search_params,
-                                index,
-                                search_queries.data(),
-                                ps.num_queries,
-                                ps.k,
-                                indices_ivf_pq_dev.data(),
-                                distances_ivf_pq_dev.data());
+    auto query_view =
+      raft::make_device_matrix_view<DataT, IdxT>(search_queries.data(), ps.num_queries, ps.dim);
+    auto inds_view =
+      raft::make_device_matrix_view<IdxT, IdxT>(indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
+    auto dists_view =
+      raft::make_device_matrix_view<EvalT, IdxT>(distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
+
+    ivf_pq::search<DataT, IdxT>(
+      handle_, ps.search_params, index, query_view, inds_view, dists_view);
 
     update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
@@ -268,11 +282,11 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       for (uint32_t k = 0; k < ps.k; k++) {
         auto flat_i   = query_ix * ps.k + k;
         auto found_ix = indices_ivf_pq[flat_i];
-        if (found_ix == ivf_pq::index<IdxT>::kOutOfBoundsRecord) {
+        if (found_ix == ivf_pq::kOutOfBoundsRecord<IdxT>) {
           found_oob++;
           continue;
         }
-        ASSERT_NE(found_ix, ivf_pq::index<IdxT>::kInvalidRecord)
+        ASSERT_NE(found_ix, ivf::kInvalidRecord<IdxT>)
           << "got an invalid record at query_ix = " << query_ix << ", k = " << k
           << " (distance = " << distances_ivf_pq[flat_i] << ")";
         ASSERT_LT(found_ix, ps.num_db_vecs)
@@ -281,7 +295,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       }
     }
     ASSERT_LE(found_oob, max_oob)
-      << "got too many records out-of-bounds (see ivf_pq::index<IdxT>::kOutOfBoundsRecord).";
+      << "got too many records out-of-bounds (see ivf_pq::kOutOfBoundsRecord<IdxT>).";
     if (found_oob > 0) {
       RAFT_LOG_WARN(
         "Got %zu results out-of-bounds because of large top-k (%zu) and small n_probes (%u) and "
@@ -475,6 +489,7 @@ inline auto enum_variety() -> test_cases_t
   });
   ADD_CASE({
     x.search_params.internal_distance_dtype = CUDA_R_16F;
+    x.search_params.lut_dtype               = CUDA_R_16F;
     x.min_recall                            = 0.86;
   });
 
@@ -632,6 +647,12 @@ inline auto special_cases() -> test_cases_t
   TEST_P(type, build_extend_search) /* NOLINT */             \
   {                                                          \
     this->run([this]() { return this->build_2_extends(); }); \
+  }
+
+#define TEST_BUILD_SERIALIZE_SEARCH(type)                    \
+  TEST_P(type, build_serialize_search) /* NOLINT */          \
+  {                                                          \
+    this->run([this]() { return this->build_serialize(); }); \
   }
 
 #define INSTANTIATE(type, vals) \

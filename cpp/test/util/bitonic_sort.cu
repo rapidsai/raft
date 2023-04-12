@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,9 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/random/rng.cuh>
 #include <raft/util/bitonic_sort.cuh>
-
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
 
@@ -55,7 +54,7 @@ __global__ void bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inp
   const int subwarp_id   = tid / warp_width;
   const int subwarp_lane = tid % warp_width;
   T local_arr[Capacity];  // NOLINT
-  // Split the data into chunks of size `warp_width * Capacity`, each thread poiting
+  // Split the data into chunks of size `warp_width * Capacity`, each thread pointing
   // to the beginning of its stride within the chunk.
   T* per_thread_arr = arr + subwarp_id * warp_width * Capacity + subwarp_lane;
 

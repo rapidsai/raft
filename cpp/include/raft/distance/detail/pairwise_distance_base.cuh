@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/operators.hpp>
-#include <raft/linalg/contractions.cuh>
-#include <raft/linalg/norm.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/vectorized.cuh>
+#include <raft/linalg/contractions.cuh>       // raft::linalg::Contractions_NT
+#include <raft/util/cuda_dev_essentials.cuh>  // ceildiv
+#include <raft/util/cuda_rt_essentials.hpp>   // RAFT_CUDA_TRY
 
-#include <cstddef>
+#include <cstddef>  // size_t
 
 namespace raft {
 namespace distance {
@@ -29,16 +26,12 @@ namespace detail {
 
 /**
  * @brief Device class for L1, L2 and cosine distance metrics.
- * @tparam useNorms       whether norms are needed
  * @tparam DataT          input data-type (for A and B matrices)
  * @tparam AccT           accumulation data-type
  * @tparam OutT           output data-type (for C and D matrices)
  * @tparam IdxT           index data-type
  * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     tells how to accumulate an x and y into
-                          acc. its signature:
-    template <typename AccT, typename DataT> void core_lambda(AccT& acc,
-      const DataT& x, const DataT& y)
+ * @tparam OpT            A distance operation, e.g., cosine_distance_op.
  * @tparam EpilogueLambda applies an elementwise function to compute final
     values. Its signature is:
     template <typename AccT, typename DataT> void epilogue_lambda
@@ -56,18 +49,17 @@ namespace detail {
  * @param[in] yn row norms of input matrix B. Required for expanded L2, cosine
  * @param[output] pD output matrix
  * @param[in] smem shared mem buffer for intermediate storage of A, B, xn & yn.
- * @param core_op the core accumulation operation lambda
+ * @param distance_op the distance operation, e.g. cosine_distance_op
  * @param epilog_op the epilog operation lambda
  * @param fin_op the final gemm epilogue lambda
+ * @param rowEpilog_op epilog lambda that executes when a full row has been processed
  */
 
-template <bool useNorms,
-          typename DataT,
-          typename AccT,
+template <typename DataT,
           typename OutT,
           typename IdxT,
           typename Policy,
-          typename CoreLambda,
+          typename OpT,
           typename EpilogueLambda,
           typename FinalLambda,
           typename rowEpilogueLambda,
@@ -75,6 +67,9 @@ template <bool useNorms,
           bool writeOut      = true,
           typename BaseClass = raft::linalg::Contractions_NT<DataT, IdxT, Policy, isRowMajor>>
 struct PairwiseDistances : public BaseClass {
+  // Get accumulation type from distance_op
+  using AccT = typename OpT::AccT;
+
  private:
   typedef Policy P;
   const DataT* xn;
@@ -82,10 +77,15 @@ struct PairwiseDistances : public BaseClass {
   const DataT* const yBase;
   OutT* dOutput;
   char* smem;
-  CoreLambda core_op;
+  OpT distance_op;
   EpilogueLambda epilog_op;
   FinalLambda fin_op;
   rowEpilogueLambda rowEpilog_op;
+
+  const IdxT grid_stride_m;
+  const IdxT grid_stride_n;
+  const IdxT grid_offset_m;
+  const IdxT grid_offset_n;
 
   AccT acc[P::AccRowsPerTh][P::AccColsPerTh];
 
@@ -103,7 +103,7 @@ struct PairwiseDistances : public BaseClass {
                        const DataT* _yn,
                        OutT* _dOutput,
                        char* _smem,
-                       CoreLambda _core_op,
+                       OpT _distance_op,
                        EpilogueLambda _epilog_op,
                        FinalLambda _fin_op,
                        rowEpilogueLambda _rowEpilog_op)
@@ -113,70 +113,89 @@ struct PairwiseDistances : public BaseClass {
       yBase(_y),
       dOutput(_dOutput),
       smem(_smem),
-      core_op(_core_op),
+      distance_op(_distance_op),
       epilog_op(_epilog_op),
       fin_op(_fin_op),
-      rowEpilog_op(_rowEpilog_op)
+      rowEpilog_op(_rowEpilog_op),
+      grid_stride_m(P::Mblk * gridDim.y),
+      grid_stride_n(P::Nblk * gridDim.x),
+      grid_offset_m(P::Mblk * blockIdx.y),
+      grid_offset_n(P::Nblk * blockIdx.x)
   {
   }
 
   DI void run()
   {
-    for (auto gridStrideY = blockIdx.y * P::Mblk; gridStrideY < this->m;
-         gridStrideY += P::Mblk * gridDim.y) {
-      for (auto gridStrideX = blockIdx.x * P::Nblk; gridStrideX < this->n;
-           gridStrideX += P::Nblk * gridDim.x) {
-        prolog(gridStrideX, gridStrideY);
-        loop();
-        epilog(gridStrideX, gridStrideY);
+    for (auto tile_idx_m = grid_offset_m; tile_idx_m < this->m; tile_idx_m += grid_stride_m) {
+      this->ldgXY(tile_idx_m, grid_offset_n, 0);
+      for (auto tile_idx_n = grid_offset_n; tile_idx_n < this->n; tile_idx_n += grid_stride_n) {
+        // Prolog:
+        reset_accumulator();
+        this->stsXY();
+        __syncthreads();
+        this->switch_write_buffer();
+
+        // Main loop:
+        for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
+          this->ldgXY(tile_idx_m, tile_idx_n, kidx);
+          // Process all data in shared memory (previous k-block) and
+          // accumulate in registers.
+          accumulate();
+          this->stsXY();
+          __syncthreads();
+          this->switch_write_buffer();
+          this->switch_read_buffer();
+        }
+        accumulate();  // last iteration
+        // The pre-condition for the loop over tile_idx_n is that write_buffer
+        // and read_buffer point to the same buffer. This flips read_buffer back
+        // so that it satisfies the pre-condition of this loop.
+        this->switch_read_buffer();
+
+        // Epilog:
+        if (distance_op.use_norms) {
+          DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
+          load_norms(tile_idx_m, tile_idx_n, regxn, regyn);
+          // Overlap ldg with epilog computation
+          ldgNextGridStride(tile_idx_m, tile_idx_n);
+          // Calculate distance_op epilog.
+          // Use .template to disambiguate (See:
+          // https://en.cppreference.com/w/cpp/language/dependent_name)
+          distance_op.template epilog<Policy>(acc, regxn, regyn, tile_idx_n, tile_idx_m);
+          // And any possible additional epilogs
+          epilog_op(acc, regxn, regyn, tile_idx_n, tile_idx_m);
+        } else {
+          // Overlap ldg with epilog computation
+          ldgNextGridStride(tile_idx_m, tile_idx_n);
+          // Calculate distance_op epilog.
+          // Use .template to disambiguate (See:
+          // https://en.cppreference.com/w/cpp/language/dependent_name)
+          distance_op.template epilog<Policy>(acc, nullptr, nullptr, tile_idx_n, tile_idx_m);
+          // And any possible additional epilogs
+          epilog_op(acc, nullptr, nullptr, tile_idx_n, tile_idx_m);
+        }
+        if (writeOut) { store_output(tile_idx_m, tile_idx_n); }
       }
-      rowEpilog_op(gridStrideY);
+      rowEpilog_op(tile_idx_m);
     }
   }
 
  private:
-  DI void updateIndicesY()
-  {
-    const auto stride = P::Nblk * gridDim.x;
-    if (isRowMajor) {
-      this->y += stride * this->ldb;
-    } else {
-      this->y += stride;
-    }
-    this->yrowid += stride;
-  }
-
-  DI void updateIndicesXY()
-  {
-    const auto stride = P::Mblk * gridDim.y;
-    if (isRowMajor) {
-      this->x += stride * this->lda;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk + this->srowid;
-      this->y      = yBase + this->yrowid * this->ldb;
-    } else {
-      this->x += stride;
-      this->yrowid = IdxT(blockIdx.x) * P::Nblk;
-      this->y      = yBase + this->yrowid + this->srowid * this->ldb;
-    }
-    this->xrowid += stride;
-  }
-
-  DI void ldgNextGridStride(IdxT gridStrideX, IdxT gridStrideY)
+  DI void ldgNextGridStride(IdxT tile_idx_m, IdxT tile_idx_n)
   {
     // Fetch next grid stride ldg if within range
-    if ((gridStrideX + gridDim.x * P::Nblk) < this->n) {
-      updateIndicesY();
-      this->ldgXY(0);
-    } else if ((gridStrideY + gridDim.y * P::Mblk) < this->m) {
-      updateIndicesXY();
-      this->ldgXY(0);
+    const auto next_tile_tile_idx_n = tile_idx_n + grid_stride_n;
+    const auto next_tile_tile_idx_m = tile_idx_m + grid_stride_m;
+    if ((next_tile_tile_idx_n) < this->n) {
+      this->ldgXY(tile_idx_m, next_tile_tile_idx_n, 0);
+    } else if ((next_tile_tile_idx_m) < this->m) {
+      this->ldgXY(next_tile_tile_idx_m, grid_offset_n, 0);
     }
   }
 
-  DI void prolog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void reset_accumulator()
   {
-    if (gridStrideX == blockIdx.x * P::Nblk) { this->ldgXY(0); }
-
+    // Reset accumulator registers to zero.
 #pragma unroll
     for (int i = 0; i < P::AccRowsPerTh; ++i) {
 #pragma unroll
@@ -184,276 +203,103 @@ struct PairwiseDistances : public BaseClass {
         acc[i][j] = BaseClass::Zero;
       }
     }
-
-    this->stsXY();
-    __syncthreads();
-    this->pageWr ^= 1;
   }
 
-  DI void loop()
+  DI void accumulate_reg_tile(DataT (&reg_x)[P::AccRowsPerTh][P::Veclen],
+                              DataT (&reg_y)[P::AccColsPerTh][P::Veclen])
   {
-    for (int kidx = P::Kblk; kidx < this->k; kidx += P::Kblk) {
-      this->ldgXY(kidx);
-      accumulate();  // on the previous k-block
-      this->stsXY();
-      __syncthreads();
-      this->pageWr ^= 1;
-      this->pageRd ^= 1;
+#pragma unroll
+    for (int v = 0; v < P::Veclen; ++v) {
+#pragma unroll
+      for (int i = 0; i < P::AccRowsPerTh; ++i) {
+#pragma unroll
+        for (int j = 0; j < P::AccColsPerTh; ++j) {
+          distance_op.core(acc[i][j], reg_x[i][v], reg_y[j][v]);
+        }
+      }
     }
-    accumulate();  // last iteration
-    // This is needed for making sure next grid stride of
-    // non-norm based metrics uses previously accumulated buffer so
-    // it doesn't make shmem dirty until previous iteration
-    // is complete.
-    this->pageRd ^= 1;
   }
 
   DI void accumulate()
   {
-#pragma unroll
-    for (int ki = 0; ki < P::Kblk; ki += P::Veclen) {
+    // We have a separate ldsXY and accumulate_reg_tile outside the loop body,
+    // so that these separated calls can be interspersed with preceding and
+    // following instructions, thereby hiding latency.
+    this->ldsXY(0);
+
+    // If expensive inner loop, do not unroll loop.
+    constexpr int num_iterations = P::Kblk / P::Veclen - 1;
+    constexpr int unroll_count   = decltype(distance_op)::expensive_inner_loop ? 1 : num_iterations;
+#pragma unroll unroll_count
+    for (int ki = P::Veclen; ki < P::Kblk; ki += P::Veclen) {
+      accumulate_reg_tile(this->regx, this->regy);
       this->ldsXY(ki);
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-#pragma unroll
-        for (int j = 0; j < P::AccColsPerTh; ++j) {
-#pragma unroll
-          for (int v = 0; v < P::Veclen; ++v) {
-            core_op(acc[i][j], this->regx[i][v], this->regy[j][v]);
-          }
-        }
+    }
+
+    // Accumulate last loaded tile.
+    accumulate_reg_tile(this->regx, this->regy);
+  }
+
+  DI void load_norms(IdxT tile_idx_m,
+                     IdxT tile_idx_n,
+                     DataT (&regxn)[P::AccRowsPerTh],
+                     DataT (&regyn)[P::AccColsPerTh])
+  {
+    DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
+    DataT* syNorm = (&sxNorm[P::Mblk]);
+
+    // Load x & y norms required by this threadblock in shmem buffer
+    if (tile_idx_n == blockIdx.x * P::Nblk) {
+      for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
+        auto idx  = tile_idx_m + i;
+        sxNorm[i] = idx < this->m ? xn[idx] : 0;
       }
+    }
+
+    for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
+      auto idx  = tile_idx_n + i;
+      syNorm[i] = idx < this->n ? yn[idx] : 0;
+    }
+    __syncthreads();
+
+#pragma unroll
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      regxn[i] = sxNorm[i * P::AccThRows + (threadIdx.x / P::AccThCols)];
+    }
+#pragma unroll
+    for (int i = 0; i < P::AccColsPerTh; ++i) {
+      regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
     }
   }
 
-  DI void epilog(IdxT gridStrideX, IdxT gridStrideY)
+  DI void store_output(IdxT tile_idx_m, IdxT tile_idx_n)
   {
-    if (useNorms) {
-      DataT* sxNorm = (DataT*)(&smem[P::SmemSize]);
-      DataT* syNorm = (&sxNorm[P::Mblk]);
-
-      // Load x & y norms required by this threadblock in shmem buffer
-      if (gridStrideX == blockIdx.x * P::Nblk) {
-        for (int i = threadIdx.x; i < P::Mblk; i += P::Nthreads) {
-          auto idx  = gridStrideY + i;
-          sxNorm[i] = idx < this->m ? xn[idx] : 0;
-        }
-      }
-
-      for (int i = threadIdx.x; i < P::Nblk; i += P::Nthreads) {
-        auto idx  = gridStrideX + i;
-        syNorm[i] = idx < this->n ? yn[idx] : 0;
-      }
-
-      __syncthreads();
-
-      DataT regxn[P::AccRowsPerTh], regyn[P::AccColsPerTh];
-#pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        regxn[i] = sxNorm[i * P::AccThRows + (threadIdx.x / P::AccThCols)];
-      }
-#pragma unroll
-      for (int i = 0; i < P::AccColsPerTh; ++i) {
-        regyn[i] = syNorm[i * P::AccThCols + (threadIdx.x % P::AccThCols)];
-      }
-
-      // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, regxn, regyn, gridStrideX, gridStrideY);
-    } else {
-      // Overlap ldg with epilog computation
-      ldgNextGridStride(gridStrideX, gridStrideY);
-      epilog_op(acc, nullptr, nullptr, gridStrideX, gridStrideY);
-    }
-
-    if (writeOut) {
-      IdxT starty = gridStrideY + this->accrowid;
-      IdxT startx = gridStrideX + this->acccolid;
+    IdxT starty = tile_idx_m + this->accrowid;
+    IdxT startx = tile_idx_n + this->acccolid;
 
 #pragma unroll
-      for (int i = 0; i < P::AccRowsPerTh; ++i) {
-        auto rowId = starty + i * P::AccThRows;
+    for (int i = 0; i < P::AccRowsPerTh; ++i) {
+      auto rowId = starty + i * P::AccThRows;
 #pragma unroll
-        for (int j = 0; j < P::AccColsPerTh; ++j) {
-          auto colId = startx + j * P::AccThCols;
-          if (rowId < this->m && colId < this->n) {
-            // Promote to 64 bit index for final write, as output array can be > 2^31
-            dOutput[std::size_t(rowId) * this->n + colId] = fin_op(acc[i][j], 0);
-          }
+      for (int j = 0; j < P::AccColsPerTh; ++j) {
+        auto colId = startx + j * P::AccThCols;
+        if (rowId < this->m && colId < this->n) {
+          // Promote to 64 bit index for final write, as output array can be > 2^31
+          dOutput[std::size_t(rowId) * this->n + colId] = fin_op(acc[i][j], 0);
         }
       }
     }
   }
 };  // struct PairwiseDistances
 
-/**
- * @brief the distance matrix calculation kernel for L1, L2 and cosine
- * @tparam useNorms       whether norms are needed
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
- * @tparam FinalLambda    final lambda called on final distance value
- * @tparam isRowMajor     true if input/output is row major(default),
-                          false for column major
- *
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       xn row norms of input matrix A.
- * @param[in]       yn row norms of input matrix B.
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
- * @param[in]       lda leading dimension of A
- * @param[in]       ldb leading dimension of B
- * @param[in]       ldd leading dimension of C/D
- * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
- * @param fin_op    the final gemm epilogue lambda
- */
-
-template <bool useNorms,
-          typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename Policy,
-          typename CoreLambda,
-          typename EpilogueLambda,
-          typename FinalLambda,
-          bool isRowMajor = true,
-          bool writeOut   = true>
-__global__ __launch_bounds__(Policy::Nthreads, 2)
-
-  void pairwiseDistanceMatKernel(const DataT* x,
-                                 const DataT* y,
-                                 const DataT* _xn,
-                                 const DataT* _yn,
-                                 IdxT m,
-                                 IdxT n,
-                                 IdxT k,
-                                 IdxT lda,
-                                 IdxT ldb,
-                                 IdxT ldd,
-                                 OutT* dOutput,
-                                 CoreLambda core_op,
-                                 EpilogueLambda epilog_op,
-                                 FinalLambda fin_op)
-{
-  extern __shared__ char smem[];
-  auto rowEpilog = [] __device__(IdxT starty) { return; };
-
-  PairwiseDistances<useNorms,
-                    DataT,
-                    AccT,
-                    OutT,
-                    IdxT,
-                    Policy,
-                    CoreLambda,
-                    EpilogueLambda,
-                    FinalLambda,
-                    decltype(rowEpilog),
-                    isRowMajor,
-                    writeOut>
-    obj(
-      x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op, rowEpilog);
-  obj.run();
-}
-
-/**
- * @brief the distance matrix calculation kernel for L2 and cosine
- * for GPU arch < SM 8.0, this version is to make sure we don't recompile
- * these kernels for ampere or higher as we use cutlass kernel for it.
- * @tparam useNorms       whether norms are needed
- * @tparam DataT          input data-type (for A and B matrices)
- * @tparam AccT           accumulation data-type
- * @tparam OutT           output data-type (for C and D matrices)
- * @tparam IdxT           index data-type
- * @tparam Policy         struct which tunes the Contraction kernel
- * @tparam CoreLambda     lambda which implements accumulation operation
- * @tparam EpilogueLambda lambda which implements operation for calculating
-                          final value.
- * @tparam FinalLambda    final lambda called on final distance value
- * @tparam isRowMajor     true if input/output is row major(default),
-                          false for column major
- *
- * @param[in]       x input matrix
- * @param[in]       y input matrix
- * @param[in]       xn row norms of input matrix A.
- * @param[in]       yn row norms of input matrix B.
- * @param[in]       m number of rows of A and C/D
- * @param[in]       n number of columns of B and C/D
- * @param[in]       k number of cols of A and rows of B
- * @param[in]       lda leading dimension of A
- * @param[in]       ldb leading dimension of B
- * @param[in]       ldd leading dimension of C/D
- * @param[output]   pD output matrix
- * @param core_op   the core lambda
- * @param epilog_op the epilogue lambda
- * @param fin_op    the final gemm epilogue lambda
- */
-
-template <bool useNorms,
-          typename DataT,
-          typename AccT,
-          typename OutT,
-          typename IdxT,
-          typename Policy,
-          typename CoreLambda,
-          typename EpilogueLambda,
-          typename FinalLambda,
-          bool isRowMajor = true,
-          bool writeOut   = true>
-__global__ __launch_bounds__(Policy::Nthreads, 2)
-
-  void pairwiseDistanceMatKernelPriorToAmpere(const DataT* x,
-                                              const DataT* y,
-                                              const DataT* _xn,
-                                              const DataT* _yn,
-                                              IdxT m,
-                                              IdxT n,
-                                              IdxT k,
-                                              IdxT lda,
-                                              IdxT ldb,
-                                              IdxT ldd,
-                                              OutT* dOutput,
-                                              CoreLambda core_op,
-                                              EpilogueLambda epilog_op,
-                                              FinalLambda fin_op)
-{
-  //#if __CUDA_ARCH__ < 800
-  // TODO: re-enable the CUDA_ARCH guard for below Ampere once cutlass based
-  //  kernels are enabled for CUDA 12.0
-  extern __shared__ char smem[];
-  auto rowEpilog = [] __device__(IdxT starty) { return; };
-
-  PairwiseDistances<useNorms,
-                    DataT,
-                    AccT,
-                    OutT,
-                    IdxT,
-                    Policy,
-                    CoreLambda,
-                    EpilogueLambda,
-                    FinalLambda,
-                    decltype(rowEpilog),
-                    isRowMajor,
-                    writeOut>
-    obj(
-      x, y, m, n, k, lda, ldb, ldd, _xn, _yn, dOutput, smem, core_op, epilog_op, fin_op, rowEpilog);
-  obj.run();
-  //#endif
-}
-
 template <typename P, typename IdxT, typename T>
 dim3 launchConfigGenerator(IdxT m, IdxT n, std::size_t sMemSize, T func)
 {
-  const auto numSMs  = raft::getMultiProcessorCount();
+  int devId;
+  RAFT_CUDA_TRY(cudaGetDevice(&devId));
+  int numSMs;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, devId));
+
   int numBlocksPerSm = 0;
   dim3 grid;
 

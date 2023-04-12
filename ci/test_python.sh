@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -25,18 +25,19 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 RAPIDS_COVERAGE_DIR=${RAPIDS_COVERAGE_DIR:-"${PWD}/coverage-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}" "${RAPIDS_COVERAGE_DIR}"
-SUITEERROR=0
 
 rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  libraft-distance libraft-headers pylibraft raft-dask
+  libraft libraft-headers pylibraft raft-dask
 
 rapids-logger "Check GPU usage"
 nvidia-smi
 
+EXITCODE=0
+trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest pylibraft"
@@ -49,12 +50,6 @@ pytest \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/pylibraft-coverage.xml" \
   --cov-report=term \
   test
-exitcode=$?
-
-if (( ${exitcode} != 0 )); then
-    SUITEERROR=${exitcode}
-    echo "FAILED: 1 or more tests in pylibraft"
-fi
 popd
 
 rapids-logger "pytest raft-dask"
@@ -67,12 +62,7 @@ pytest \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/raft-dask-coverage.xml" \
   --cov-report=term \
   test
-exitcode=$?
-
-if (( ${exitcode} != 0 )); then
-    SUITEERROR=${exitcode}
-    echo "FAILED: 1 or more tests in raft-dask"
-fi
 popd
 
-exit ${SUITEERROR}
+rapids-logger "Test script exiting with value: $EXITCODE"
+exit ${EXITCODE}

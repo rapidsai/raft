@@ -7,11 +7,24 @@ files:
       arch: [x86_64]
     includes:
       - build
+      - build_pylibraft
       - cudatoolkit
       - develop
-      - doc
-      - run
-      - test_python
+      - docs
+      - run_raft_dask
+      - run_pylibraft
+      - test_python_common
+      - test_pylibraft
+  bench_ann:
+    output: conda
+    matrix:
+      cuda: ["11.8"]
+      arch: [x86_64]
+    includes:
+      - build
+      - develop
+      - cudatoolkit
+      - nn_bench
   test_cpp:
     output: none
     includes:
@@ -21,12 +34,67 @@ files:
     includes:
       - cudatoolkit
       - py_version
-      - test_python
+      - test_python_common
+      - test_pylibraft
   checks:
     output: none
     includes:
       - checks
       - py_version
+  docs:
+    output: none
+    includes:
+      - cudatoolkit
+      - docs
+      - py_version
+  py_build_pylibraft:
+    output: pyproject
+    pyproject_dir: python/pylibraft
+    extras:
+      table: build-system
+    includes:
+      - build
+      - build_pylibraft
+      - build_wheels
+  py_run_pylibraft:
+    output: pyproject
+    pyproject_dir: python/pylibraft
+    extras:
+      table: project
+    includes:
+      - run_pylibraft
+  py_test_pylibraft:
+    output: pyproject
+    pyproject_dir: python/pylibraft
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python_common
+      - test_pylibraft
+  py_build_raft_dask:
+    output: pyproject
+    pyproject_dir: python/raft-dask
+    extras:
+      table: build-system
+    includes:
+      - build
+      - build_wheels
+  py_run_raft_dask:
+    output: pyproject
+    pyproject_dir: python/raft-dask
+    extras:
+      table: project
+    includes:
+      - run_raft_dask
+  py_test_raft_dask:
+    output: pyproject
+    pyproject_dir: python/raft-dask
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python_common
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -36,10 +104,9 @@ channels:
 dependencies:
   build:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.23.1,!=3.25.0
-          - cuda-python >=11.7.1,<12.0
           - cython>=0.29,<0.30
           - ninja
           - scikit-build>=0.13.1
@@ -47,19 +114,26 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - nccl>=2.9.9
     specific:
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
             packages:
-              - gcc_linux-64=9
+              - gcc_linux-64=11.*
               - sysroot_linux-64==2.17
           - matrix:
               arch: aarch64
             packages:
-              - gcc_linux-aarch64=9
+              - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64==2.17
+  build_pylibraft:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - &cuda_python cuda-python >=11.7.1,<12.0
+          - &rmm rmm==23.4.*
   checks:
     common:
       - output_types: [conda, requirements]
@@ -73,6 +147,17 @@ dependencies:
       - output_types: [conda]
         packages:
           - clang-tools=11.1.0
+  nn_bench:
+    common:
+      - output_types: [conda]
+        packages:
+          - hnswlib=0.7.0
+          - nlohmann_json>=3.11.2
+          - glog>=0.6.0
+          - h5py>=3.8.0
+          - libfaiss>=1.7.1
+          - faiss-proc=*=cuda
+
   cudatoolkit:
     specific:
       - output_types: conda
@@ -131,18 +216,25 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
-  doc:
+  docs:
     common:
-      - output_types: [conda, requirements]
-        packages:
-          - breathe
-      - output_types: [requirements]
-        packages:
-          - sphinx_markdown_tables
       - output_types: [conda]
         packages:
+          - breathe
           - doxygen>=1.8.20
+          - graphviz
+          - ipython
+          - numpydoc
+          - pydata-sphinx-theme
+          - recommonmark
+          - sphinx-copybutton
           - sphinx-markdown-tables
+  build_wheels:
+    common:
+      - output_types: pyproject
+        packages:
+          - wheel
+          - setuptools
   py_version:
     specific:
       - output_types: conda
@@ -162,25 +254,42 @@ dependencies:
           - matrix:
             packages:
               - python>=3.8,<3.11
-  run:
+  run_pylibraft:
     common:
-      - output_types: [conda]
+      - output_types: [conda, pyproject]
         packages:
-          - rmm=23.02
-          - dask==2023.1.1
-          - distributed==2023.1.1
+          - &numpy numpy>=1.21
+          - *cuda_python
+          - *rmm
+  run_raft_dask:
+    common:
+      - output_types: [conda, pyproject]
+        packages:
+          - dask==2023.3.2
+          - dask-cuda==23.4.*
+          - distributed==2023.3.2.1
+          - joblib>=0.11
+          - numba>=0.49
+          - *numpy
+          - ucx-py==0.31.*
+      - output_types: conda
+        packages:
+          - dask-core==2023.3.2
           - ucx>=1.13.0
-          - ucx-py=0.30.*
           - ucx-proc=*=gpu
-          - libfaiss>=1.7.1=cuda*
-          - faiss-proc=*=cuda
-          - dask-cuda=23.02
-  test_python:
-    common:
-      - output_types: [conda, requirements]
+      - output_types: pyproject
         packages:
-          - cupy
+          - pylibraft==23.4.*
+  test_python_common:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
           - pytest
           - pytest-cov
+  test_pylibraft:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - cupy
           - scikit-learn
           - scipy
