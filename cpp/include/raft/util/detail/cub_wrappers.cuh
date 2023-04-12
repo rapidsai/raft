@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ void sortPairs(rmm::device_uvector<char>& workspace,
                int len,
                cudaStream_t stream)
 {
-  size_t worksize;
+  size_t worksize = 0;  // prevent warnings about using uninitialized value of worksize..
   cub::DeviceRadixSort::SortPairs(
     nullptr, worksize, inKeys, outKeys, inVals, outVals, len, 0, sizeof(KeyT) * 8, stream);
   workspace.resize(worksize, stream);

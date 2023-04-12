@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/distance/detail/distance.cuh>
-#include <raft/distance/specializations.cuh>
+#pragma once
 
-namespace raft {
-namespace distance {
-namespace detail {
-template void distance<raft::distance::DistanceType::InnerProduct, float, float, float, int>(
-  raft::resources const& handle,
-  const float* x,
-  const float* y,
-  float* dist,
-  int m,
-  int n,
-  int k,
-  void* workspace,
-  std::size_t worksize,
-  bool isRowMajor,
-  float metric_arg);
-}  // namespace detail
-}  // namespace distance
-}  // namespace raft
+#ifdef RAFT_COMPILED
+#define RAFT_INLINE_CONDITIONAL
+#else
+#define RAFT_INLINE_CONDITIONAL inline
+#endif  // RAFT_COMPILED

@@ -81,12 +81,10 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-# to have different values for the `Threads::Threads` target. Setting this flag ensures
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
 # `Threads::Threads` is the same value across all builds so that cache hits occur
 set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -291,6 +289,13 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/refine_h_int64_t_float.cu
     src/neighbors/refine_h_int64_t_int8_t.cu
     src/neighbors/refine_h_int64_t_uint8_t.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
     src/neighbors/detail/selection_faiss.cu
     src/neighbors/specializations/refine_d_int64_t_float.cu
     src/neighbors/specializations/refine_d_int64_t_int8_t.cu
@@ -329,6 +334,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
+    src/distance/fused_l2_nn.cu
     src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
     src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
     src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
@@ -339,10 +345,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/specializations/detail/kernels/tanh_kernel_float.cu
-    src/distance/specializations/fused_l2_nn_double_int.cu
-    src/distance/specializations/fused_l2_nn_double_int64.cu
-    src/distance/specializations/fused_l2_nn_float_int.cu
-    src/distance/specializations/fused_l2_nn_float_int64.cu
     src/matrix/detail/select_k_double_int64_t.cu
     src/matrix/detail/select_k_double_uint32_t.cu
     src/matrix/detail/select_k_float_int64_t.cu
@@ -355,40 +357,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_long_float_int.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_long_float_uint.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_int.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_uint.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
     src/random/rmat_rectangular_generator_int_double.cu
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu
@@ -409,41 +381,16 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
     src/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build.cu
+    src/neighbors/ivfpq_build_float_int64_t.cu
+    src/neighbors/ivfpq_build_int8_t_int64_t.cu
+    src/neighbors/ivfpq_build_uint8_t_int64_t.cu
     src/neighbors/ivfpq_deserialize.cu
-    src/neighbors/ivfpq_serialize.cu
+    src/neighbors/ivfpq_extend_float_int64_t.cu
+    src/neighbors/ivfpq_extend_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
+    src/neighbors/ivfpq_serialize.cu
     src/random/rmat_rectangular_generator_int_double.cu
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu

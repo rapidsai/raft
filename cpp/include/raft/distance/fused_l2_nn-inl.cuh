@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#ifndef __FUSED_L2_NN_H
-#define __FUSED_L2_NN_H
-
 #pragma once
 
 #include <cub/cub.cuh>
@@ -33,18 +30,8 @@ namespace distance {
 /**
  * \defgroup fused_l2_nn Fused 1-nearest neighbors
  * @{
+ * @}
  */
-
-template <typename LabelT, typename DataT>
-using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
-
-template <typename LabelT, typename DataT>
-using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
-
-template <typename LabelT, typename DataT>
-using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
-
-/** @} */
 
 /**
  * Initialize array using init value from reduction op
@@ -215,8 +202,14 @@ void fusedL2NNMinReduce(OutT* min,
                         bool initOutBuffer,
                         cudaStream_t stream)
 {
-  MinAndDistanceReduceOp<IdxT, DataT> redOp;
-  KVPMinReduce<IdxT, DataT> pairRedOp;
+  // detail::MinAndDistanceReduceOpImpl<IdxT, DataT> redOp;
+  // detail::KVPMinReduceImpl<IdxT, DataT> pairRedOp;
+
+  detail::MinAndDistanceReduceOpImpl<IdxT, DataT> redOp;
+  detail::KVPMinReduceImpl<IdxT, DataT> pairRedOp;
+
+  // MinAndDistanceReduceOp<IdxT, DataT> redOp;
+  // KVPMinReduce<IdxT, DataT> pairRedOp;
 
   fusedL2NN<DataT, OutT, IdxT>(
     min, x, y, xn, yn, m, n, k, workspace, redOp, pairRedOp, sqrt, initOutBuffer, stream);
@@ -226,5 +219,3 @@ void fusedL2NNMinReduce(OutT* min,
 
 }  // namespace distance
 }  // namespace raft
-
-#endif
