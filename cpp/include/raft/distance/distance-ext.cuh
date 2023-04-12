@@ -15,12 +15,12 @@
  */
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
-#include <raft/core/operators.hpp>           // raft::identity_op
-#include <raft/core/resources.hpp>           // raft::resources
-#include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
-#include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
-#include <rmm/device_uvector.hpp>            // rmm::device_uvector
+#include <raft/core/device_mdspan.hpp>                  // raft::device_matrix_view
+#include <raft/core/operators.hpp>                      // raft::identity_op
+#include <raft/core/resources.hpp>                      // raft::resources
+#include <raft/distance/distance_types.hpp>             // raft::distance::DistanceType
+#include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
+#include <rmm/device_uvector.hpp>                       // rmm::device_uvector
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE
 

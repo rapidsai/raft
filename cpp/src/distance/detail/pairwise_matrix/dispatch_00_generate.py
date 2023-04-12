@@ -127,10 +127,10 @@ op_instances = [
      ),
 ]
 
-def arch_headers(op_instance):
+def arch_headers(archs):
     include_headers ="\n".join([
         f"#include <raft/distance/detail/pairwise_matrix/dispatch_sm{arch}.cuh>"
-        for arch in op_instance["archs"]
+        for arch in archs
     ])
     return include_headers
 
@@ -142,7 +142,7 @@ for op in op_instances:
         path = f"dispatch_{op['path_prefix']}_{DataT}_{AccT}_{OutT}_{IdxT}.cu"
         with open(path, "w") as f:
             f.write(header)
-            f.write(arch_headers(op))
+            f.write(arch_headers(op["archs"]))
             f.write(macro)
 
             OpT = op['OpT']

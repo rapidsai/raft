@@ -28,6 +28,6 @@
                                                rmm::cuda_stream_view stream, \
                                                rmm::mr::device_memory_resource* mr)
 
-instantiate_raft_matrix_detail_select_k(float, uint32_t);
+instantiate_raft_matrix_detail_select_k(double, int64_t);
 
 #undef instantiate_raft_matrix_detail_select_k

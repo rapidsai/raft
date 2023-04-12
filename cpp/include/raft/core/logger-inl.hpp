@@ -36,6 +36,7 @@
 #define SPDLOG_HEADER_ONLY
 #include <raft/core/detail/callback_sink.hpp>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/inline.hpp>               // RAFT_INLINE_CONDITIONAL
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 
@@ -111,7 +112,7 @@ class logger::impl {  // defined privately here
  * @todo This currently only supports logging to stdout. Need to add support in
  *       future to add custom loggers as well [Issue #2046]
  */
-logger::logger(std::string const& name_) : pimpl(new impl(name_))
+RAFT_INLINE_CONDITIONAL logger::logger(std::string const& name_) : pimpl(new impl(name_))
 {
   set_pattern(default_log_pattern);
   set_level(RAFT_ACTIVE_LEVEL);
@@ -121,7 +122,7 @@ logger::logger(std::string const& name_) : pimpl(new impl(name_))
  *
  * @return the singleton logger object
  */
-logger& logger::get(std::string const& name)
+RAFT_INLINE_CONDITIONAL logger& logger::get(std::string const& name)
 {
   if (log_map.find(name) == log_map.end()) { log_map[name] = std::make_shared<raft::logger>(name); }
   return *log_map[name];
@@ -138,7 +139,7 @@ logger& logger::get(std::string const& name)
  *       range [RAFT_LEVEL_TRACE, RAFT_LEVEL_OFF]. If it is not, then it'll
  *       be ignored. See documentation of decisiontree for how this gets used
  */
-void logger::set_level(int level)
+RAFT_INLINE_CONDITIONAL void logger::set_level(int level)
 {
   level = raft::detail::convert_level_to_spdlog(level);
   pimpl->spdlogger->set_level(static_cast<spdlog::level::level_enum>(level));
@@ -151,7 +152,7 @@ void logger::set_level(int level)
  *                    https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
  *                    to know the right syntax of this pattern
  */
-void logger::set_pattern(const std::string& pattern)
+RAFT_INLINE_CONDITIONAL void logger::set_pattern(const std::string& pattern)
 {
   pimpl->cur_pattern = pattern;
   pimpl->spdlogger->set_pattern(pattern);
@@ -162,7 +163,7 @@ void logger::set_pattern(const std::string& pattern)
  *
  * @param[in] callback the function to be run on all logged messages
  */
-void logger::set_callback(void (*callback)(int lvl, const char* msg))
+RAFT_INLINE_CONDITIONAL void logger::set_callback(void (*callback)(int lvl, const char* msg))
 {
   pimpl->sink->set_callback(callback);
 }
@@ -172,7 +173,7 @@ void logger::set_callback(void (*callback)(int lvl, const char* msg))
  *
  * @param[in] flush the function to use when flushing logs
  */
-void logger::set_flush(void (*flush)()) { pimpl->sink->set_flush(flush); }
+RAFT_INLINE_CONDITIONAL void logger::set_flush(void (*flush)()) { pimpl->sink->set_flush(flush); }
 
 /**
  * @brief Tells whether messages will be logged for the given log level
@@ -180,7 +181,7 @@ void logger::set_flush(void (*flush)()) { pimpl->sink->set_flush(flush); }
  * @param[in] level log level to be checked for
  * @return true if messages will be logged for this level, else false
  */
-bool logger::should_log_for(int level) const
+RAFT_INLINE_CONDITIONAL bool logger::should_log_for(int level) const
 {
   level        = raft::detail::convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
@@ -192,7 +193,7 @@ bool logger::should_log_for(int level) const
  *
  * @return the current log level
  */
-int logger::get_level() const
+RAFT_INLINE_CONDITIONAL int logger::get_level() const
 {
   auto level_e = pimpl->spdlogger->level();
   return RAFT_LEVEL_TRACE - static_cast<int>(level_e);
@@ -202,7 +203,7 @@ int logger::get_level() const
  * @brief Get the current logging pattern
  * @return the pattern
  */
-std::string logger::get_pattern() const { return pimpl->cur_pattern; }
+RAFT_INLINE_CONDITIONAL std::string logger::get_pattern() const { return pimpl->cur_pattern; }
 
 /**
  * @brief Main logging method
@@ -210,7 +211,7 @@ std::string logger::get_pattern() const { return pimpl->cur_pattern; }
  * @param[in] level logging level of this message
  * @param[in] fmt   C-like format string, followed by respective params
  */
-void logger::log(int level, const char* fmt, ...)
+RAFT_INLINE_CONDITIONAL void logger::log(int level, const char* fmt, ...)
 {
   level        = raft::detail::convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
@@ -227,8 +228,8 @@ void logger::log(int level, const char* fmt, ...)
 /**
  * @brief Flush logs by calling flush on underlying logger
  */
-void logger::flush() { pimpl->spdlogger->flush(); }
+RAFT_INLINE_CONDITIONAL void logger::flush() { pimpl->spdlogger->flush(); }
 
-logger::~logger() {}
+RAFT_INLINE_CONDITIONAL logger::~logger() {}
 
 };  // namespace raft

@@ -16,8 +16,10 @@
 
 #pragma once
 
-#if defined(RAFT_COMPILED) && defined(RAFT_EXPLICIT_INSTANTIATE)
-#include "registers-ext.cuh"
-#else
+#if !defined(RAFT_EXPLICIT_INSTANTIATE)
 #include "registers-inl.cuh"
+#endif
+
+#ifdef RAFT_COMPILED
+#include "registers-ext.cuh"
 #endif

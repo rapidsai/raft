@@ -94,5 +94,9 @@ instantiate_raft_matrix_detail_select_k(__half, uint32_t);
 instantiate_raft_matrix_detail_select_k(__half, int64_t);
 instantiate_raft_matrix_detail_select_k(float, int64_t);
 instantiate_raft_matrix_detail_select_k(float, uint32_t);
+// We did not have these two for double before, but there are tests for them. We
+// therefore include them here.
+instantiate_raft_matrix_detail_select_k(double, int64_t);
+instantiate_raft_matrix_detail_select_k(double, uint32_t);
 
 #undef instantiate_raft_matrix_detail_select_k

@@ -17,7 +17,7 @@
 
 #include "logger-macros.hpp"
 
-#if defined(RAFT_COMPILED) && defined(RAFT_EXPLICIT_INSTANTIATE)
+#ifdef RAFT_COMPILED
 #include "logger-ext.hpp"
 #else
 #include "logger-inl.hpp"

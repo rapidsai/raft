@@ -72,13 +72,13 @@ void fusedL2Knn(size_t D,
     cudaStream_t stream,                                                                    \
     raft::distance::DistanceType metric)
 
-instantiate_raft_spatial_knn_detail_fusedL2Knn(long, float, true);
-instantiate_raft_spatial_knn_detail_fusedL2Knn(long, float, false);
-instantiate_raft_spatial_knn_detail_fusedL2Knn(int, float, true);
-instantiate_raft_spatial_knn_detail_fusedL2Knn(int, float, false);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int32_t, float, true);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int32_t, float, false);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, true);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(int64_t, float, false);
 
 // These are used by brute_force_knn:
-instantiate_raft_spatial_knn_detail_fusedL2Knn(unsigned int, float, true);
-instantiate_raft_spatial_knn_detail_fusedL2Knn(unsigned int, float, false);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, true);
+instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, false);
 
 #undef instantiate_raft_spatial_knn_detail_fusedL2Knn

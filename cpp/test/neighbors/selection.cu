@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+// XXX: we currently disable the EXPLICIT_INSTANTIATION restriction for now because we
+// need kFaissMax, which is not exposed by selection_faiss-ext.cuh.
+// TODO-inl-headers: consider how to re-enable it.
+#undef RAFT_EXPLICIT_INSTANTIATE
+#include <raft/neighbors/detail/selection_faiss.cuh>
+
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <numeric>
@@ -24,9 +30,6 @@
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 namespace raft::spatial::selection {
 

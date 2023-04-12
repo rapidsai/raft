@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>  // raft::make_device_matrix
 #include <raft/distance/distance_types.hpp>
 #include <raft/matrix/detail/select_k.cuh>
 #include <raft/matrix/matrix.cuh>

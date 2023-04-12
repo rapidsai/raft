@@ -17,6 +17,7 @@
 #define RAFT_EXPLICIT                                                     \
   {                                                                       \
     raft::util::raft_explicit::do_not_implicitly_instantiate_templates(); \
+    throw "raft_explicit_error";                                          \
   }
 
 namespace raft::util::raft_explicit {

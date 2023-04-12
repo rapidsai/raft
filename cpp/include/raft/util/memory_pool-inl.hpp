@@ -18,13 +18,14 @@
 #include <cstddef>
 #include <memory>
 
+#include <raft/util/inline.hpp>  // RAFT_INLINE_CONDITIONAL
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 
 namespace raft {
 
-std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
+RAFT_INLINE_CONDITIONAL std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
   rmm::mr::device_memory_resource*& mr, size_t initial_size)
 {
   using pool_res_t = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cstddef>  // size_t
+#include <cstdint>  // uint32_t
 #include <raft/neighbors/detail/selection_faiss-inl.cuh>
 
 #define instantiate_raft_neighbors_detail_select_k(payload_t, key_t)    \
@@ -30,6 +32,12 @@
 // @benfred: Not sure if this is correct. Should I not flip float and uint32_t?
 // It seems weird that float is the key and uint32_t is the payload type.
 instantiate_raft_neighbors_detail_select_k(uint32_t, float);
+instantiate_raft_neighbors_detail_select_k(int32_t, float);
 instantiate_raft_neighbors_detail_select_k(long, float);
+// Needed by the tests
+instantiate_raft_neighbors_detail_select_k(size_t, double);
+// test/neighbors/selection.cu
+instantiate_raft_neighbors_detail_select_k(int, double);
+instantiate_raft_neighbors_detail_select_k(size_t, float);
 
 #undef instantiate_raft_neighbors_detail_select_k

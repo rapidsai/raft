@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#if defined(RAFT_COMPILED)
-#include "fused_l2_knn-ext.cuh"
-#endif
-
 #if !defined(RAFT_EXPLICIT_INSTANTIATE)
 #include "fused_l2_knn-inl.cuh"
+#endif
+
+#if defined(RAFT_COMPILED)
+#include "fused_l2_knn-ext.cuh"
 #endif

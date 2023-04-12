@@ -232,9 +232,9 @@ struct SelectK  // NOLINT
     auto& in_dists   = ref.get_in_dists();
     auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
-      auto ix_i = uint64_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
-      auto ix_j = uint64_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
-      if (ix_i >= in_ids.size() || ix_j >= in_ids.size()) return false;
+      auto ix_i = int64_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
+      auto ix_j = int64_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
+      if (size_t(ix_i) >= in_ids.size() || size_t(ix_j) >= in_ids.size()) return false;
       auto dist_i = in_dists[ix_i];
       auto dist_j = in_dists[ix_j];
       if (dist_i == dist_j) return true;
@@ -434,7 +434,7 @@ INSTANTIATE_TEST_CASE_P(                          // NOLINT
                                    select::Algo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleSizeT =
-  SelectK<double, uint64_t, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<double, int64_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                             // NOLINT
   SelectK,
@@ -461,7 +461,7 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
                                    select::Algo::kRadix11bitsExtraPass)));
 
 using ReferencedRandomFloatSizeT =
-  SelectK<float, uint64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
+  SelectK<float, int64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
                         ReferencedRandomFloatSizeT,
