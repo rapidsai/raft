@@ -47,7 +47,9 @@ using namespace raft::spatial::knn;
  * Calculates brute force knn, using a fixed memory budget
  * by tiling over both the rows and columns of pairwise_distances
  */
-template <typename ElementType = float, typename IndexType = int64_t>
+template <typename ElementType      = float,
+          typename IndexType        = int64_t,
+          typename DistanceEpilogue = raft::identity_op>
 void tiled_brute_force_knn(const raft::device_resources& handle,
                            const ElementType* search,  // size (m ,d)
                            const ElementType* index,   // size (n ,d)
@@ -58,9 +60,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                            ElementType* distances,  // size (m, k)
                            IndexType* indices,      // size (m, k)
                            raft::distance::DistanceType metric,
-                           float metric_arg         = 0.0,
-                           size_t max_row_tile_size = 0,
-                           size_t max_col_tile_size = 0)
+                           float metric_arg                   = 2.0,
+                           size_t max_row_tile_size           = 0,
+                           size_t max_col_tile_size           = 0,
+                           DistanceEpilogue distance_epilogue = raft::identity_op())
 {
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
@@ -152,25 +155,41 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
                                                     metric_arg);
       if (metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
-        auto row_norms = search_norms.data() + i;
-        auto col_norms = index_norms.data() + j;
+        auto row_norms = search_norms.data();
+        auto col_norms = index_norms.data();
         auto dist      = temp_distances.data();
 
         raft::linalg::map_offset(
           handle,
           raft::make_device_vector_view(dist, current_query_size * current_centroid_size),
-          [=] __device__(IndexType i) {
-            IndexType row = i / current_centroid_size, col = i % current_centroid_size;
+          [=] __device__(IndexType idx) {
+            IndexType row = i + (idx / current_centroid_size);
+            IndexType col = j + (idx % current_centroid_size);
 
-            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[i];
+            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[idx];
 
             // due to numerical instability (especially around self-distance)
             // the distances here could be slightly negative, which will
             // cause NaN values in the subsequent sqrt. Clamp to 0
             val = val * (val >= 0.0001);
             if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(val); }
+            val = distance_epilogue(val, row, col);
             return val;
           });
+      } else {
+        // if we're not l2 distance, and we have a distance epilogue - run it now
+        if constexpr (!std::is_same_v<DistanceEpilogue, raft::identity_op>) {
+          auto distances_ptr = temp_distances.data();
+          raft::linalg::map_offset(
+            handle,
+            raft::make_device_vector_view(temp_distances.data(),
+                                          current_query_size * current_centroid_size),
+            [=] __device__(size_t idx) {
+              IndexType row = i + (idx / current_centroid_size);
+              IndexType col = j + (idx % current_centroid_size);
+              return distance_epilogue(distances_ptr[idx], row, col);
+            });
+        }
       }
 
       select_k<IndexType, ElementType>(temp_distances.data(),
@@ -250,7 +269,10 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
  * @param[in] metric corresponds to the raft::distance::DistanceType enum (default is L2Expanded)
  * @param[in] metricArg metric argument to use. Corresponds to the p arg for lp norm
  */
-template <typename IntType = int, typename IdxType = std::int64_t, typename value_t = float>
+template <typename IntType          = int,
+          typename IdxType          = std::int64_t,
+          typename value_t          = float,
+          typename DistanceEpilogue = raft::identity_op>
 void brute_force_knn_impl(
   raft::device_resources const& handle,
   std::vector<value_t*>& input,
@@ -265,7 +287,8 @@ void brute_force_knn_impl(
   bool rowMajorQuery                  = true,
   std::vector<IdxType>* translations  = nullptr,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-  float metricArg                     = 0)
+  float metricArg                     = 0,
+  DistanceEpilogue distance_epilogue  = raft::identity_op())
 {
   auto userStream = handle.get_stream();
 
@@ -355,6 +378,7 @@ void brute_force_knn_impl(
     auto stream = handle.get_next_usable_stream(i);
 
     if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
+        std::is_same_v<DistanceEpilogue, raft::identity_op> &&
         (metric == raft::distance::DistanceType::L2Unexpanded ||
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
          metric == raft::distance::DistanceType::L2Expanded ||
@@ -424,7 +448,10 @@ void brute_force_knn_impl(
                                                   out_d_ptr,
                                                   out_i_ptr,
                                                   tiled_metric,
-                                                  metricArg);
+                                                  metricArg,
+                                                  0,
+                                                  0,
+                                                  distance_epilogue);
           break;
       }
     }

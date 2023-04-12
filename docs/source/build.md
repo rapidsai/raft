@@ -21,8 +21,8 @@ After installing RAFT, `find_package(raft COMPONENTS nn distance)` can be used i
 
 pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
 ```bash
-pip install pylibraft-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
-pip install raft-dask-cu11 --extra-index-url=https://pypi.ngc.nvidia.com
+pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
+pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
 ## Building and installing RAFT
@@ -154,9 +154,10 @@ RAFT's cmake has the following configurable flags available:.
 | Flag                      | Possible Values      | Default Value | Behavior |
 |---------------------------|----------------------| --- | --- |
 | BUILD_TESTS               | ON, OFF              | ON | Compile Googletests |
-| BUILD_BENCH               | ON, OFF              | OFF | Compile benchmarks |
+| BUILD_PRIMS_BENCH               | ON, OFF              | OFF | Compile benchmarks |
+| BUILD_ANN_BENCH               | ON, OFF              | OFF | Compile end-to-end ANN benchmarks |
 | raft_FIND_COMPONENTS      | compiled distributed | | Configures the optional components as a space-separated list |
-| RAFT_COMPILE_LIBRARY      | ON, OFF              | ON if either BUILD_TESTS or BUILD_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
+| RAFT_COMPILE_LIBRARY      | ON, OFF              | ON if either BUILD_TESTS or BUILD_PRIMS_BENCH is ON; otherwise OFF | Compiles all `libraft` shared libraries (these are required for Googletests) |
 | DETECT_CONDA_ENV          | ON, OFF              | ON | Enable detection of conda environment for dependencies |
 | RAFT_NVTX                 | ON, OFF              | OFF | Enable NVTX Markers |
 | CUDA_ENABLE_KERNELINFO    | ON, OFF              | OFF | Enables `kernelinfo` in nvcc. This is useful for `compute-sanitizer` |
@@ -253,7 +254,7 @@ While not a highly suggested method for building against RAFT, when all of the n
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-23.04
+  GIT_TAG           branch-23.06
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -291,7 +292,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "23.04")
+set(RAFT_VERSION "23.06")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 
@@ -315,7 +316,8 @@ function(find_and_configure_raft)
           FIND_PACKAGE_ARGUMENTS "COMPONENTS compiled distributed"
           OPTIONS
           "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
+          "BUILD_PRIMS_BENCH OFF"
+          "BUILD_ANN_BENCH OFF"
           "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
   )
 

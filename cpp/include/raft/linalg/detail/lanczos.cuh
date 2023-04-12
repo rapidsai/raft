@@ -958,7 +958,7 @@ int computeSmallestEigenvectors(
                                 (*effIter) * nEigVecs * sizeof(value_type_t),
                                 cudaMemcpyHostToDevice,
                                 stream));
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Convert eigenvectors from Lanczos basis to standard basis
   RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
@@ -1305,7 +1305,7 @@ int computeLargestEigenvectors(
                                 cudaMemcpyHostToDevice,
                                 stream));
 
-  CHECK_CUDA(stream);
+  RAFT_CHECK_CUDA(stream);
 
   // Convert eigenvectors from Lanczos basis to standard basis
   RAFT_CUBLAS_TRY(cublasgemm(cublas_h,
