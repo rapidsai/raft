@@ -21,10 +21,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>

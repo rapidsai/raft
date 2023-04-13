@@ -36,10 +36,6 @@
 
 #include <thrust/sequence.h>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <cstddef>
 #include <iostream>
 #include <vector>

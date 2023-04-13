@@ -18,8 +18,6 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/brute_force.cuh>
 
-#include <raft/neighbors/specializations.cuh>
-
 #include <raft_runtime/neighbors/brute_force.hpp>
 
 #include <vector>

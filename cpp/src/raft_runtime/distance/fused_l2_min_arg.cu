@@ -19,7 +19,6 @@
 #include <raft/core/kvp.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
-#include <raft/distance/specializations.cuh>
 #include <raft/linalg/norm.cuh>
 #include <thrust/for_each.h>
 #include <thrust/tuple.h>

@@ -17,9 +17,6 @@
 #include <common/benchmark.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::distance {

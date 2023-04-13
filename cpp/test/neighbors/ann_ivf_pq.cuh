@@ -25,11 +25,6 @@
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/random/rng.cuh>
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#else
-#pragma message("NN specializations are not enabled; expect very long building times.")
-#endif
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_buffer.hpp>

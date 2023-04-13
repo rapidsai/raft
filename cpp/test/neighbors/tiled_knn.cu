@@ -25,10 +25,6 @@
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>

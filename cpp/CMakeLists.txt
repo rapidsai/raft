@@ -313,15 +313,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
     src/distance/fused_l2_nn.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
-    # These are somehow missing a kernel definition which is causing a compile error.
-    # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
-    # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/matrix/detail/select_k_double_int64_t.cu
     src/matrix/detail/select_k_double_uint32_t.cu
     src/matrix/detail/select_k_float_int64_t.cu

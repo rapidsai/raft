@@ -23,10 +23,6 @@
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <raft/distance/distance.cuh>
 
 #include <rmm/device_buffer.hpp>

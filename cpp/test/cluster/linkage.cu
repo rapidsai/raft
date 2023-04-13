@@ -29,10 +29,6 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <raft/core/device_mdspan.hpp>
 #include <raft/sparse/hierarchy/single_linkage.cuh>
 #include <raft/util/cudart_utils.hpp>
