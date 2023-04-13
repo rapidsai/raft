@@ -22,8 +22,7 @@ namespace distance {
 
 template <typename DataType>
 class DistanceHellingerExp
-  : public DistanceTest<raft::distance::DistanceType::HellingerExpanded, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::HellingerExpanded, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -66,8 +65,7 @@ TEST_P(DistanceHellingerExpD, Result)
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceHellingerExpD, ::testing::ValuesIn(inputsd));
 
 class BigMatrixHellingerExp
-  : public BigMatrixDistanceTest<raft::distance::DistanceType::HellingerExpanded> {
-};
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::HellingerExpanded> {};
 TEST_F(BigMatrixHellingerExp, Result) {}
 }  // end namespace distance
 }  // end namespace raft

@@ -20,9 +20,9 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use raft/cluster/single_linkage_types.hpp instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use raft/cluster/single_linkage_types.hpp instead.")
 
 #include <raft/cluster/single_linkage_types.hpp>
 

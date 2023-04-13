@@ -45,11 +45,9 @@ template <typename ElementType,
 using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
-struct is_device_mdspan : std::false_type {
-};
+struct is_device_mdspan : std::false_type {};
 template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
-};
+struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
@@ -64,11 +62,9 @@ template <typename T>
 using is_output_device_mdspan_t = is_device_mdspan<T, is_output_mdspan_v<T>>;
 
 template <typename T, bool B>
-struct is_managed_mdspan : std::false_type {
-};
+struct is_managed_mdspan : std::false_type {};
 template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {
-};
+struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type

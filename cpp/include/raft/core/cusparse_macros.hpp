@@ -19,7 +19,7 @@
 #include <cusparse.h>
 #include <raft/core/error.hpp>
 ///@todo: enable this once logging is enabled
-//#include <cuml/common/logger.hpp>
+// #include <cuml/common/logger.hpp>
 
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err: return #err;

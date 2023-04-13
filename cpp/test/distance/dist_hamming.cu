@@ -22,8 +22,7 @@ namespace distance {
 
 template <typename DataType>
 class DistanceHamming
-  : public DistanceTest<raft::distance::DistanceType::HammingUnexpanded, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::HammingUnexpanded, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -66,8 +65,7 @@ TEST_P(DistanceHammingD, Result)
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceHammingD, ::testing::ValuesIn(inputsd));
 
 class BigMatrixHamming
-  : public BigMatrixDistanceTest<raft::distance::DistanceType::HammingUnexpanded> {
-};
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::HammingUnexpanded> {};
 TEST_F(BigMatrixHamming, Result) {}
 }  // end namespace distance
 }  // end namespace raft

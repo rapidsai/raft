@@ -124,7 +124,7 @@ void write_only_unary_op(const raft::device_resources& handle, OutType out, Lamb
 
 /** @} */  // end of group unary_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

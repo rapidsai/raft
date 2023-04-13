@@ -24,8 +24,8 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the raft/util version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the raft/util version instead.")
 
 #include <raft/util/seive.hpp>

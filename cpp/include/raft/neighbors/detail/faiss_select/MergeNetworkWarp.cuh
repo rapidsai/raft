@@ -139,8 +139,7 @@ inline __device__ void warpBitonicMergeLE16(K& k, V& v)
 // Template for performing a bitonic merge of an arbitrary set of
 // registers
 template <typename K, typename V, int N, bool Dir, typename Comp, bool Low, bool Pow2>
-struct BitonicMergeStep {
-};
+struct BitonicMergeStep {};
 
 //
 // Power-of-2 merge specialization

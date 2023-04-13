@@ -26,8 +26,7 @@ namespace raft::neighbors::ann {
  */
 
 /** The base for approximate KNN index structures. */
-struct index {
-};
+struct index {};
 
 /** The base for KNN index parameters. */
 struct index_params {
@@ -46,9 +45,8 @@ struct index_params {
   bool add_data_on_build = true;
 };
 
-struct search_params {
-};
+struct search_params {};
 
 /** @} */  // end group ann_types
 
-};  // namespace raft::neighbors::ann
+};         // namespace raft::neighbors::ann

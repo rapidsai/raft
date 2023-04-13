@@ -31,8 +31,7 @@ namespace raft::random {
 namespace permute_impl {
 
 template <typename T, typename InputOutputValueType, typename IdxType, typename Layout>
-struct perms_out_view {
-};
+struct perms_out_view {};
 
 template <typename InputOutputValueType, typename IdxType, typename Layout>
 struct perms_out_view<std::nullopt_t, InputOutputValueType, IdxType, Layout> {

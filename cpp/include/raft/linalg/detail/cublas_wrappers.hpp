@@ -41,9 +41,9 @@ class cublas_device_pointer_mode {
     }
   }
   auto operator=(const cublas_device_pointer_mode&) -> cublas_device_pointer_mode& = delete;
-  auto operator=(cublas_device_pointer_mode&&) -> cublas_device_pointer_mode& = delete;
-  static auto operator new(std::size_t) -> void*                              = delete;
-  static auto operator new[](std::size_t) -> void*                            = delete;
+  auto operator=(cublas_device_pointer_mode&&) -> cublas_device_pointer_mode&      = delete;
+  static auto operator new(std::size_t) -> void*                                   = delete;
+  static auto operator new[](std::size_t) -> void*                                 = delete;
 
   ~cublas_device_pointer_mode()
   {
@@ -550,7 +550,7 @@ cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         float* const A[],  // NOLINT
+                                         float* const A[],       // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,
@@ -564,7 +564,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         double* const A[],  // NOLINT
+                                         double* const A[],      // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,

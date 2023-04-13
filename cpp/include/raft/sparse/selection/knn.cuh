@@ -24,9 +24,9 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the sparse/spatial version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the sparse/spatial version instead.")
 
 #include <raft/sparse/neighbors/knn.cuh>
 

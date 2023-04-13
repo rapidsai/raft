@@ -191,7 +191,7 @@ inline void pop_range()
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
-#else  // NVTX_ENABLED
+#else   // NVTX_ENABLED
 
 template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)

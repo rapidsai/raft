@@ -104,7 +104,7 @@ class span {
   constexpr span(span&& other) noexcept      = default;
 
   constexpr auto operator=(span const& other) noexcept -> span& = default;
-  constexpr auto operator=(span&& other) noexcept -> span& = default;
+  constexpr auto operator=(span&& other) noexcept -> span&      = default;
 
   constexpr auto begin() const noexcept -> iterator { return data(); }
 

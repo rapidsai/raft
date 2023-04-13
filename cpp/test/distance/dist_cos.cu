@@ -64,8 +64,7 @@ TEST_P(DistanceExpCosD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosD, ::testing::ValuesIn(inputsd));
 
-class BigMatrixCos : public BigMatrixDistanceTest<raft::distance::DistanceType::CosineExpanded> {
-};
+class BigMatrixCos : public BigMatrixDistanceTest<raft::distance::DistanceType::CosineExpanded> {};
 TEST_F(BigMatrixCos, Result) {}
 
 }  // end namespace distance

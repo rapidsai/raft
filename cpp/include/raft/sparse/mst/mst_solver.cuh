@@ -21,9 +21,9 @@
  */
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the raft/sparse/solver version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the raft/sparse/solver version instead.")
 
 #include <raft/sparse/solver/mst_solver.cuh>
 

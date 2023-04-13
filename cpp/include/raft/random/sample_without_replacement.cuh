@@ -29,8 +29,7 @@ namespace raft::random {
 
 namespace sample_without_replacement_impl {
 template <typename T>
-struct weight_alias {
-};
+struct weight_alias {};
 
 template <>
 struct weight_alias<std::nullopt_t> {

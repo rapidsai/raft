@@ -37,8 +37,7 @@ template <std::size_t Extent, std::size_t Offset, std::size_t Count>
 struct extent_value_t
   : public std::integral_constant<
       std::size_t,
-      Count != dynamic_extent ? Count : (Extent != dynamic_extent ? Extent - Offset : Extent)> {
-};
+      Count != dynamic_extent ? Count : (Extent != dynamic_extent ? Extent - Offset : Extent)> {};
 
 /*!
  * If N is dynamic_extent, the extent of the returned span E is also
@@ -47,31 +46,25 @@ struct extent_value_t
 template <typename T, std::size_t Extent>
 struct extent_as_bytes_value_t
   : public std::integral_constant<std::size_t,
-                                  Extent == dynamic_extent ? Extent : sizeof(T) * Extent> {
-};
+                                  Extent == dynamic_extent ? Extent : sizeof(T) * Extent> {};
 
 template <std::size_t From, std::size_t To>
 struct is_allowed_extent_conversion_t
   : public std::integral_constant<bool,
-                                  From == To || From == dynamic_extent || To == dynamic_extent> {
-};
+                                  From == To || From == dynamic_extent || To == dynamic_extent> {};
 
 template <class From, class To>
 struct is_allowed_element_type_conversion_t
-  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value> {
-};
+  : public std::integral_constant<bool, std::is_convertible<From (*)[], To (*)[]>::value> {};
 
 template <class T>
-struct is_span_oracle_t : std::false_type {
-};
+struct is_span_oracle_t : std::false_type {};
 
 template <class T, bool is_device, std::size_t Extent>
-struct is_span_oracle_t<span<T, is_device, Extent>> : std::true_type {
-};
+struct is_span_oracle_t<span<T, is_device, Extent>> : std::true_type {};
 
 template <class T>
-struct is_span_t : public is_span_oracle_t<typename std::remove_cv<T>::type> {
-};
+struct is_span_t : public is_span_oracle_t<typename std::remove_cv<T>::type> {};
 
 template <class InputIt1, class InputIt2, class Compare>
 _RAFT_HOST_DEVICE constexpr auto lexicographical_compare(InputIt1 first1,

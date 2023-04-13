@@ -24,9 +24,9 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the raft::neighbors version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the raft::neighbors version instead.")
 
 #include <raft/neighbors/ivf_pq_types.hpp>
 

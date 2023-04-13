@@ -23,7 +23,7 @@
 #include <raft/core/error.hpp>
 
 ///@todo: enable this once we have logger enabled
-//#include <cuml/common/logger.hpp>
+// #include <cuml/common/logger.hpp>
 
 #include <cstdint>
 

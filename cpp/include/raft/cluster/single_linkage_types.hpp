@@ -77,9 +77,7 @@ class linkage_output {
   }
 };
 
-class linkage_output_int : public linkage_output<int> {
-};
-class linkage_output_int64 : public linkage_output<int64_t> {
-};
+class linkage_output_int : public linkage_output<int> {};
+class linkage_output_int64 : public linkage_output<int64_t> {};
 
 };  // namespace raft::cluster

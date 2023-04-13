@@ -36,8 +36,7 @@ constexpr To bit_cast(const From& from) noexcept
 }
 
 template <typename T>
-struct encode_traits {
-};
+struct encode_traits {};
 
 template <>
 struct encode_traits<float> {

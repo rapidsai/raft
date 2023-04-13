@@ -22,8 +22,7 @@
 namespace raft {
 
 template <typename math_, int VecLen>
-struct IOType {
-};
+struct IOType {};
 template <>
 struct IOType<bool, 1> {
   static_assert(sizeof(bool) == sizeof(int8_t), "IOType bool size assumption failed");

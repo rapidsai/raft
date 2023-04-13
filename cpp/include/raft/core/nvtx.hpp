@@ -144,9 +144,9 @@ class range {
   ~range() { pop_range<Domain>(); }
 
   /* This object is not meant to be touched. */
-  range(const range&) = delete;
-  range(range&&)      = delete;
-  auto operator=(const range&) -> range& = delete;
+  range(const range&)                              = delete;
+  range(range&&)                                   = delete;
+  auto operator=(const range&) -> range&           = delete;
   auto operator=(range&&) -> range&                = delete;
   static auto operator new(std::size_t) -> void*   = delete;
   static auto operator new[](std::size_t) -> void* = delete;

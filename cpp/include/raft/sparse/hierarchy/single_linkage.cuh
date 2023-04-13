@@ -20,9 +20,9 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the raft/cluster version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the raft/cluster version instead.")
 
 #include <raft/cluster/single_linkage.cuh>
 #include <raft/sparse/hierarchy/common.h>

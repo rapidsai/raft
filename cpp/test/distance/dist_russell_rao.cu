@@ -22,8 +22,7 @@ namespace distance {
 
 template <typename DataType>
 class DistanceRussellRao
-  : public DistanceTest<raft::distance::DistanceType::RusselRaoExpanded, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::RusselRaoExpanded, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -66,8 +65,7 @@ TEST_P(DistanceRussellRaoD, Result)
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceRussellRaoD, ::testing::ValuesIn(inputsd));
 
 class BigMatrixRussellRao
-  : public BigMatrixDistanceTest<raft::distance::DistanceType::RusselRaoExpanded> {
-};
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::RusselRaoExpanded> {};
 TEST_F(BigMatrixRussellRao, Result) {}
 }  // end namespace distance
 }  // end namespace raft
