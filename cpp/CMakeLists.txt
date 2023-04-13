@@ -263,28 +263,12 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_lib
-    src/distance/pairwise_distance.cu
-    src/distance/fused_l2_min_arg.cu
-    src/cluster/update_centroids_float.cu
-    src/cluster/update_centroids_double.cu
-    src/cluster/cluster_cost_float.cu
-    src/cluster/cluster_cost_double.cu
-    src/neighbors/refine_d_int64_t_float.cu
-    src/neighbors/refine_d_int64_t_int8_t.cu
-    src/neighbors/refine_d_int64_t_uint8_t.cu
-    src/neighbors/refine_h_int64_t_float.cu
-    src/neighbors/refine_h_int64_t_int8_t.cu
-    src/neighbors/refine_h_int64_t_uint8_t.cu
     src/neighbors/specializations/refine_d_int64_t_float.cu
     src/neighbors/specializations/refine_d_int64_t_int8_t.cu
     src/neighbors/specializations/refine_d_int64_t_uint8_t.cu
     src/neighbors/specializations/refine_h_int64_t_float.cu
     src/neighbors/specializations/refine_h_int64_t_int8_t.cu
     src/neighbors/specializations/refine_h_int64_t_uint8_t.cu
-    src/cluster/kmeans_fit_float.cu
-    src/cluster/kmeans_fit_double.cu
-    src/cluster/kmeans_init_plus_plus_double.cu
-    src/cluster/kmeans_init_plus_plus_float.cu
     src/distance/specializations/detail/canberra_double_double_double_int.cu
     src/distance/specializations/detail/canberra_float_float_float_int.cu
     src/distance/specializations/detail/correlation_double_double_double_int.cu
@@ -306,7 +290,6 @@ if(RAFT_COMPILE_LIBRARY)
     # These are somehow missing a kernel definition which is causing a compile error.
     # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
     # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
-    src/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
@@ -327,17 +310,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/matrix/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu
     src/matrix/specializations/detail/select_k_half_int64_t.cu
-    src/neighbors/ivfpq_build.cu
-    src/neighbors/ivfpq_deserialize.cu
-    src/neighbors/ivfpq_serialize.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
     src/neighbors/specializations/ivfpq_build_float_int64_t.cu
     src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
@@ -372,10 +348,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
-    src/random/rmat_rectangular_generator_int_double.cu
-    src/random/rmat_rectangular_generator_int64_double.cu
-    src/random/rmat_rectangular_generator_int_float.cu
-    src/random/rmat_rectangular_generator_int64_float.cu
     src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
     src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
     src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
@@ -387,8 +359,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/fused_l2_knn_long_float_false.cu
     src/neighbors/specializations/fused_l2_knn_int_float_true.cu
     src/neighbors/specializations/fused_l2_knn_int_float_false.cu
-    src/neighbors/ivf_flat_search.cu
-    src/neighbors/ivf_flat_build.cu
     src/neighbors/specializations/ivfflat_build_float_int64_t.cu
     src/neighbors/specializations/ivfflat_build_int8_t_int64_t.cu
     src/neighbors/specializations/ivfflat_build_uint8_t_int64_t.cu
@@ -398,12 +368,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/ivfflat_search_float_int64_t.cu
     src/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
     src/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_build.cu
-    src/neighbors/ivfpq_deserialize.cu
-    src/neighbors/ivfpq_serialize.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
     src/neighbors/specializations/ivfpq_build_float_int64_t.cu
     src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
@@ -434,10 +398,38 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
-    src/random/rmat_rectangular_generator_int_double.cu
-    src/random/rmat_rectangular_generator_int64_double.cu
-    src/random/rmat_rectangular_generator_int_float.cu
-    src/random/rmat_rectangular_generator_int64_float.cu
+    src/raft_runtime/cluster/cluster_cost.cuh
+    src/raft_runtime/cluster/cluster_cost_double.cu
+    src/raft_runtime/cluster/cluster_cost_float.cu
+    src/raft_runtime/cluster/kmeans_fit_double.cu
+    src/raft_runtime/cluster/kmeans_fit_float.cu
+    src/raft_runtime/cluster/kmeans_init_plus_plus_double.cu
+    src/raft_runtime/cluster/kmeans_init_plus_plus_float.cu
+    src/raft_runtime/cluster/update_centroids.cuh
+    src/raft_runtime/cluster/update_centroids_double.cu
+    src/raft_runtime/cluster/update_centroids_float.cu
+    src/raft_runtime/distance/fused_l2_min_arg.cu
+    src/raft_runtime/distance/pairwise_distance.cu
+    src/raft_runtime/matrix/select_k_float_int64_t.cu
+    src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
+    src/raft_runtime/neighbors/ivf_flat_build.cu
+    src/raft_runtime/neighbors/ivf_flat_search.cu
+    src/raft_runtime/neighbors/ivfpq_build.cu
+    src/raft_runtime/neighbors/ivfpq_deserialize.cu
+    src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_search_int8_t_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_search_uint8_t_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_serialize.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_float.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_int8_t.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_uint8_t.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_float.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_int8_t.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_uint8_t.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
   )
   set_target_properties(
     raft_lib
