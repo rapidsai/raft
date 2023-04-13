@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/neighbors/specializations/ball_cover.cuh>
 #include <raft/neighbors/specializations/brute_force.cuh>
 
 #include <raft/cluster/specializations.cuh>

@@ -21,7 +21,11 @@
 #include <raft/neighbors/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/ball_cover.cuh>
 #include <raft/spatial/knn/detail/ball_cover/common.cuh>
+#include <raft/util/raft_explicit.hpp>
+
 #include <thrust/transform.h>
+
+#ifdef RAFT_EXPLICIT_INSTANTIATE
 
 namespace raft::neighbors::ball_cover {
 
@@ -58,22 +62,7 @@ namespace raft::neighbors::ball_cover {
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
 void build_index(raft::device_resources const& handle,
-                 BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
-{
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  if (index.metric == raft::distance::DistanceType::Haversine) {
-    raft::spatial::knn::detail::rbc_build_index(
-      handle, index, spatial::knn::detail::HaversineFunc<value_t, int_t>());
-  } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
-             index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    raft::spatial::knn::detail::rbc_build_index(
-      handle, index, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
-  } else {
-    RAFT_FAIL("Metric not support");
-  }
-
-  index.set_index_trained();
-}
+                 BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index) RAFT_EXPLICIT;
 
 /** @} */  // end group random_ball_cover
 
@@ -112,36 +101,7 @@ void all_knn_query(raft::device_resources const& handle,
                    idx_t* inds,
                    value_t* dists,
                    bool perform_post_filtering = true,
-                   float weight                = 1.0)
-{
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  if (index.metric == raft::distance::DistanceType::Haversine) {
-    raft::spatial::knn::detail::rbc_all_knn_query(
-      handle,
-      index,
-      k,
-      inds,
-      dists,
-      spatial::knn::detail::HaversineFunc<value_t, int_t>(),
-      perform_post_filtering,
-      weight);
-  } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
-             index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    raft::spatial::knn::detail::rbc_all_knn_query(
-      handle,
-      index,
-      k,
-      inds,
-      dists,
-      spatial::knn::detail::EuclideanFunc<value_t, int_t>(),
-      perform_post_filtering,
-      weight);
-  } else {
-    RAFT_FAIL("Metric not supported");
-  }
-
-  index.set_index_trained();
-}
+                   float weight                = 1.0) RAFT_EXPLICIT;
 
 /**
  * @ingroup random_ball_cover
@@ -205,21 +165,7 @@ void all_knn_query(raft::device_resources const& handle,
                    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                    int_t k,
                    bool perform_post_filtering = true,
-                   float weight                = 1.0)
-{
-  RAFT_EXPECTS(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  RAFT_EXPECTS(k <= index.m,
-               "k must be less than or equal to the number of data points in the index");
-  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<matrix_idx_t>(k),
-               "Number of columns in output indices and distances matrices must be equal to k");
-
-  RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == index.get_X().extent(0),
-               "Number of rows in output indices and distances matrices must equal number of rows "
-               "in index matrix.");
-
-  all_knn_query(
-    handle, index, k, inds.data_handle(), dists.data_handle(), perform_post_filtering, weight);
-}
+                   float weight                = 1.0) RAFT_EXPLICIT;
 
 /** @} */
 
@@ -261,37 +207,7 @@ void knn_query(raft::device_resources const& handle,
                idx_t* inds,
                value_t* dists,
                bool perform_post_filtering = true,
-               float weight                = 1.0)
-{
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  if (index.metric == raft::distance::DistanceType::Haversine) {
-    raft::spatial::knn::detail::rbc_knn_query(handle,
-                                              index,
-                                              k,
-                                              query,
-                                              n_query_pts,
-                                              inds,
-                                              dists,
-                                              spatial::knn::detail::HaversineFunc<value_t, int_t>(),
-                                              perform_post_filtering,
-                                              weight);
-  } else if (index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
-             index.metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    raft::spatial::knn::detail::rbc_knn_query(handle,
-                                              index,
-                                              k,
-                                              query,
-                                              n_query_pts,
-                                              inds,
-                                              dists,
-                                              spatial::knn::detail::EuclideanFunc<value_t, int_t>(),
-                                              perform_post_filtering,
-                                              weight);
-  } else {
-    RAFT_FAIL("Metric not supported");
-  }
-}
-
+               float weight                = 1.0) RAFT_EXPLICIT;
 /**
  * @ingroup random_ball_cover
  * @{
@@ -356,30 +272,7 @@ void knn_query(raft::device_resources const& handle,
                raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,
                int_t k,
                bool perform_post_filtering = true,
-               float weight                = 1.0)
-{
-  RAFT_EXPECTS(k <= index.m,
-               "k must be less than or equal to the number of data points in the index");
-  RAFT_EXPECTS(inds.extent(1) == dists.extent(1) && dists.extent(1) == static_cast<idx_t>(k),
-               "Number of columns in output indices and distances matrices must be equal to k");
-
-  RAFT_EXPECTS(inds.extent(0) == dists.extent(0) && dists.extent(0) == query.extent(0),
-               "Number of rows in output indices and distances matrices must equal number of rows "
-               "in search matrix.");
-
-  RAFT_EXPECTS(query.extent(1) == index.get_X().extent(1),
-               "Number of columns in query and index matrices must match.");
-
-  knn_query(handle,
-            index,
-            k,
-            query.data_handle(),
-            query.extent(0),
-            inds.data_handle(),
-            dists.data_handle(),
-            perform_post_filtering,
-            weight);
-}
+               float weight                = 1.0) RAFT_EXPLICIT;
 
 /** @} */
 
@@ -388,3 +281,57 @@ void knn_query(raft::device_resources const& handle,
 //  5. rbc_all_eps_neigh() - populate a BallCoverIndex and query against training data
 
 }  // namespace raft::neighbors::ball_cover
+
+#endif  // RAFT_EXPLICIT_INSTANTIATE
+
+#define instantiate_raft_neighbors_ball_cover(idx_t, value_t, int_t, matrix_idx_t)                 \
+  extern template void                                                                             \
+  raft::neighbors::ball_cover::build_index<idx_t, value_t, int_t, matrix_idx_t>(                   \
+    raft::device_resources const& handle,                                                          \
+    raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index);      \
+                                                                                                   \
+  extern template void                                                                             \
+  raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(                 \
+    raft::device_resources const& handle,                                                          \
+    raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,       \
+    int_t k,                                                                                       \
+    idx_t* inds,                                                                                   \
+    value_t* dists,                                                                                \
+    bool perform_post_filtering,                                                                   \
+    float weight);                                                                                 \
+                                                                                                   \
+  extern template void                                                                             \
+  raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(                 \
+    raft::device_resources const& handle,                                                          \
+    raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,       \
+    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,                                 \
+    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,                              \
+    int_t k,                                                                                       \
+    bool perform_post_filtering,                                                                   \
+    float weight);                                                                                 \
+                                                                                                   \
+  extern template void raft::neighbors::ball_cover::knn_query<idx_t, value_t, int_t>(              \
+    raft::device_resources const& handle,                                                          \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t>& index,               \
+    int_t k,                                                                                       \
+    const value_t* query,                                                                          \
+    int_t n_query_pts,                                                                             \
+    idx_t* inds,                                                                                   \
+    value_t* dists,                                                                                \
+    bool perform_post_filtering,                                                                   \
+    float weight);                                                                                 \
+                                                                                                   \
+  extern template void                                                                             \
+  raft::neighbors::ball_cover::knn_query<idx_t, value_t, int_t, matrix_idx_t>(                     \
+    raft::device_resources const& handle,                                                          \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    raft::device_matrix_view<const value_t, matrix_idx_t, row_major> query,                        \
+    raft::device_matrix_view<idx_t, matrix_idx_t, row_major> inds,                                 \
+    raft::device_matrix_view<value_t, matrix_idx_t, row_major> dists,                              \
+    int_t k,                                                                                       \
+    bool perform_post_filtering,                                                                   \
+    float weight);
+
+instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
+
+#undef instantiate_raft_neighbors_ball_cover

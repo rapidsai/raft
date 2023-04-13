@@ -344,13 +344,11 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/detail/brute_force_knn_impl_long_float_uint.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_int.cu
     src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_uint.cu
+    src/neighbors/ball_cover.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_search.cu
-    src/neighbors/specializations/ball_cover_all_knn_query.cu
-    src/neighbors/specializations/ball_cover_build_index.cu
-    src/neighbors/specializations/ball_cover_knn_query.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu
