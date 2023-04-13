@@ -18,8 +18,8 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn  --build-metrics --incl-cache-stats --time -h"
-HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>]
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libraft          - build the raft C++ code only. Also builds the C-wrapper library
@@ -45,7 +45,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
    --show_depr_warn            - show cmake deprecation warnings
-   --build-metrics             - generate build metrics report for libraft
+   --build-metrics             - filename for generating build metrics report for libraft
    --incl-cache-stats          - include cache statistics in build metrics report
    --cmake-args=\\\"<args>\\\" - pass arbitrary list of CMake configuration options (escape all quotes in argument)
    --cache-tool=<tool>         - pass the build cache tool (eg: ccache, sccache, distcc) that will be used
@@ -73,7 +73,7 @@ BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
-BUILD_REPORT_METRICS=OFF
+BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
@@ -189,6 +189,25 @@ function limitAnnBench {
     fi
 }
 
+function buildMetrics {
+    # Check for multiple build-metrics options
+    if [[ $(echo $ARGS | { grep -Eo "\-\-build\-metrics" || true; } | wc -l ) -gt 1 ]]; then
+        echo "Multiple --build-metrics options were provided, please provide only one: ${ARGS}"
+        exit 1
+    fi
+    # Check for build-metrics option
+    if [[ -n $(echo $ARGS | { grep -E "\-\-build\-metrics" || true; } ) ]]; then
+        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
+        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
+        # on the invalid option error
+        BUILD_REPORT_METRICS=$(echo $ARGS | sed -e 's/.*--build-metrics=//' -e 's/ .*//')
+        if [[ -n ${BUILD_REPORT_METRICS} ]]; then
+            # Remove the full BUILD_REPORT_METRICS argument from list of args so that it passes validArgs function
+            ARGS=${ARGS//--build-metrics=$BUILD_REPORT_METRICS/}
+        fi
+    fi
+}
+
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -201,6 +220,7 @@ if (( ${NUMARGS} != 0 )); then
     limitTests
     limitBench
     limitAnnBench
+    buildMetrics
     for a in ${ARGS}; do
         if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
             echo "Invalid option: ${a}"
@@ -339,9 +359,6 @@ fi
 if hasArg clean; then
     CLEAN=1
 fi
-if hasArg --build-metrics; then
-    BUILD_REPORT_METRICS=ON
-fi
 if hasArg --incl-cache-stats; then
     BUILD_REPORT_INCL_CACHE_STATS=ON
 fi
@@ -422,7 +439,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
   compile_end=$(date +%s)
   compile_total=$(( compile_end - compile_start ))
 
-  if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
+  if [[ -n "$BUILD_REPORT_METRICS" && -f "${LIBRAFT_BUILD_DIR}/.ninja_log" ]]; then
       if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
           echo "Downloading rapids-build-metrics-reporter.py"
           curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
@@ -454,13 +471,13 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           MSG="${MSG}<br/>libraft.so size: $LIBRAFT_FS"
       fi
       BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBRAFT_BUILD_DIR}"}
-      echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
+      echo "The HTML report can be found at [${BMR_DIR}/${BUILD_REPORT_METRICS}.html]. In CI, this report"
       echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/raft/, and"
       echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
       mkdir -p ${BMR_DIR}
       MSG_OUTFILE="$(mktemp)"
       echo "$MSG" > "${MSG_OUTFILE}"
-      PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
+      PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBRAFT_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/${BUILD_REPORT_METRICS}.html
       cp ${LIBRAFT_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
   fi
 fi
