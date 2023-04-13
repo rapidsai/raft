@@ -92,12 +92,13 @@ void naive(raft::KeyValuePair<int, DataT>* min,
   static const dim3 TPB(32, 16, 1);
   dim3 nblks(raft::ceildiv(n, (int)TPB.x), raft::ceildiv(m, (int)TPB.y), 1);
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace, 0, sizeof(int) * m, stream));
-  auto blks = raft::ceildiv(m, 256);
-  MinAndDistanceReduceOp<int, DataT> op;
+  auto blks                    = raft::ceildiv(m, 256);
+  using MinAndDistanceReduceOp = raft::distance::detail::MinAndDistanceReduceOpImpl<int, DataT>;
+  MinAndDistanceReduceOp op;
   detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(min, m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
-  naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp<int, DataT>, 16>
+  naiveKernel<DataT, Sqrt, MinAndDistanceReduceOp, 16>
     <<<nblks, TPB, 0, stream>>>(min, x, y, m, n, k, workspace, std::numeric_limits<DataT>::max());
   RAFT_CUDA_TRY(cudaGetLastError());
 }

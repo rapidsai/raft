@@ -20,6 +20,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
+#include <raft/distance/detail/fused_l2_nn.cuh>  // MinAndDistanceReduceOpImpl
 #include <raft/distance/detail/masked_nn.cuh>
 #include <raft/distance/masked_nn.cuh>
 #include <raft/linalg/norm.cuh>
@@ -133,9 +134,10 @@ __global__ __launch_bounds__(32 * NWARPS,
       __shared__ typename WarpReduce::TempStorage temp[NWARPS];
       int warpId = threadIdx.x / raft::WarpSize;
       raft::KeyValuePair<int, DataT> tmp;
-      tmp.key   = include_dist ? nidx : -1;
-      tmp.value = include_dist ? acc : maxVal;
-      tmp       = WarpReduce(temp[warpId]).Reduce(tmp, raft::distance::KVPMinReduce<int, DataT>{});
+      tmp.key            = include_dist ? nidx : -1;
+      tmp.value          = include_dist ? acc : maxVal;
+      using KVPMinReduce = raft::distance::detail::KVPMinReduceImpl<int, DataT>;
+      tmp                = WarpReduce(temp[warpId]).Reduce(tmp, KVPMinReduce{});
       if (threadIdx.x % raft::WarpSize == 0 && midx < m) {
         while (atomicCAS(workspace + midx, 0, 1) == 1)
           ;
@@ -215,9 +217,10 @@ auto reference(const raft::handle_t& handle, Inputs<DataT> inp, const Params& p)
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace.data(), 0, sizeof(int) * m, stream));
 
   // Initialize output
-  auto out  = raft::make_device_vector<OutT, int>(handle, m);
-  auto blks = raft::ceildiv(m, 256);
-  MinAndDistanceReduceOp<int, DataT> op;
+  auto out                     = raft::make_device_vector<OutT, int>(handle, m);
+  auto blks                    = raft::ceildiv(m, 256);
+  using MinAndDistanceReduceOp = raft::distance::detail::MinAndDistanceReduceOpImpl<int, DataT>;
+  MinAndDistanceReduceOp op;
   raft::distance::detail::initKernel<DataT, raft::KeyValuePair<int, DataT>, int>
     <<<blks, 256, 0, stream>>>(out.data_handle(), m, std::numeric_limits<DataT>::max(), op);
   RAFT_CUDA_TRY(cudaGetLastError());
@@ -265,8 +268,8 @@ auto run_masked_nn(const raft::handle_t& handle, Inputs<DataT> inp, const Params
 
   // Create parameters for masked_l2_nn
   using IdxT       = int;
-  using RedOpT     = MinAndDistanceReduceOp<int, DataT>;
-  using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
+  using RedOpT     = raft::distance::detail::MinAndDistanceReduceOpImpl<int, DataT>;
+  using PairRedOpT = raft::distance::detail::KVPMinReduceImpl<int, DataT>;
   using ParamT     = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
 
   bool init_out = true;

@@ -997,7 +997,7 @@ struct select_interleaved_scan_kernel {
     if constexpr (Veclen > 1) {
       if (veclen % Veclen != 0) {
         return select_interleaved_scan_kernel<T, AccT, IdxT, Capacity, 1>::run(
-          capacity, veclen, select_min, std::forward<Args>(args)...);
+          capacity, 1, select_min, std::forward<Args>(args)...);
       }
     }
     // NB: this is the limitation of the warpsort structures that use a huge number of

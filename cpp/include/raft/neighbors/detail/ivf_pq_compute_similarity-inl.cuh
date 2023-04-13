@@ -38,8 +38,9 @@ static constexpr int kMaxCapacity = 128;
 static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
               "kMaxCapacity must be a power of two, not smaller than the WarpSize.");
 
-// inline here, because it may be compiled multiple times.
-inline auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries) -> bool
+// using weak attribute here, because it may be compiled multiple times.
+auto __attribute__((weak)) is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries)
+  -> bool
 {
   if (k > kMaxCapacity) { return false; }             // warp_sort not possible
   if (n_probes <= 16) { return false; }               // too few clusters
@@ -558,14 +559,54 @@ struct selected {
   dim3 block_dim;
   size_t smem_size;
   size_t device_lut_size;
-
-  template <typename... Args>
-  void operator()(rmm::cuda_stream_view stream, Args... args)
-  {
-    kernel<<<grid_dim, block_dim, smem_size, stream>>>(args...);
-    RAFT_CHECK_CUDA(stream);
-  }
 };
+
+template <typename OutT, typename LutT>
+void compute_similarity_run(selected<OutT, LutT> s,
+                            rmm::cuda_stream_view stream,
+                            uint32_t n_rows,
+                            uint32_t dim,
+                            uint32_t n_probes,
+                            uint32_t pq_dim,
+                            uint32_t n_queries,
+                            distance::DistanceType metric,
+                            codebook_gen codebook_kind,
+                            uint32_t topk,
+                            uint32_t max_samples,
+                            const float* cluster_centers,
+                            const float* pq_centers,
+                            const uint8_t* const* pq_dataset,
+                            const uint32_t* cluster_labels,
+                            const uint32_t* _chunk_indices,
+                            const float* queries,
+                            const uint32_t* index_list,
+                            float* query_kths,
+                            LutT* lut_scores,
+                            OutT* _out_scores,
+                            uint32_t* _out_indices)
+{
+  s.kernel<<<s.grid_dim, s.block_dim, s.smem_size, stream>>>(n_rows,
+                                                             dim,
+                                                             n_probes,
+                                                             pq_dim,
+                                                             n_queries,
+                                                             metric,
+                                                             codebook_kind,
+                                                             topk,
+                                                             max_samples,
+                                                             cluster_centers,
+                                                             pq_centers,
+                                                             pq_dataset,
+                                                             cluster_labels,
+                                                             _chunk_indices,
+                                                             queries,
+                                                             index_list,
+                                                             query_kths,
+                                                             lut_scores,
+                                                             _out_scores,
+                                                             _out_indices);
+  RAFT_CHECK_CUDA(stream);
+}
 
 /**
  * Use heuristics to choose an optimal instance of the search kernel.

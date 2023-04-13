@@ -387,6 +387,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivfpq_deserialize.cu
     src/neighbors/ivfpq_extend_float_int64_t.cu
     src/neighbors/ivfpq_extend_int8_t_int64_t.cu
+    src/neighbors/ivfpq_extend_uint8_t_int64_t.cu
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu

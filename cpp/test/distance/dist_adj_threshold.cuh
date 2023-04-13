@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cstdint>  // uint8_t
+
 namespace raft::distance {
 
 template <typename AccT, typename DataT, typename OutT, typename Index>

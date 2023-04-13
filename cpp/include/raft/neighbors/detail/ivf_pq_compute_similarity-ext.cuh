@@ -16,38 +16,12 @@
 
 #pragma once
 
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-
-#include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
-#include <raft/neighbors/ivf_pq_types.hpp>
-
-#include <raft/core/cudart_utils.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/core/nvtx.hpp>
-#include <raft/core/operators.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/linalg/gemm.cuh>
-#include <raft/linalg/map.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/detail/select_k.cuh>
-#include <raft/matrix/detail/select_warpsort.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/device_atomics.cuh>
-#include <raft/util/device_loads_stores.cuh>
-#include <raft/util/pow2_utils.cuh>
-#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
-#include <raft/util/vectorized.cuh>
-
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-
-#include <cub/cub.cuh>
-
-#include <cuda_fp16.h>
-
-#include <optional>
+#include <cuda_fp16.h>                               // __half
+#include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
+#include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
+#include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
+#include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
+#include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE
 
@@ -112,10 +86,31 @@ struct selected {
   dim3 block_dim;
   size_t smem_size;
   size_t device_lut_size;
-
-  template <typename... Args>
-  void operator()(rmm::cuda_stream_view stream, Args... args);
 };
+
+template <typename OutT, typename LutT>
+void compute_similarity_run(selected<OutT, LutT> s,
+                            rmm::cuda_stream_view stream,
+                            uint32_t n_rows,
+                            uint32_t dim,
+                            uint32_t n_probes,
+                            uint32_t pq_dim,
+                            uint32_t n_queries,
+                            distance::DistanceType metric,
+                            codebook_gen codebook_kind,
+                            uint32_t topk,
+                            uint32_t max_samples,
+                            const float* cluster_centers,
+                            const float* pq_centers,
+                            const uint8_t* const* pq_dataset,
+                            const uint32_t* cluster_labels,
+                            const uint32_t* _chunk_indices,
+                            const float* queries,
+                            const uint32_t* index_list,
+                            float* query_kths,
+                            LutT* lut_scores,
+                            OutT* _out_scores,
+                            uint32_t* _out_indices) RAFT_EXPLICIT;
 
 /**
  * Use heuristics to choose an optimal instance of the search kernel.
@@ -159,7 +154,31 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
     uint32_t n_queries,                                                                        \
     uint32_t n_probes,                                                                         \
     uint32_t topk)                                                                             \
-    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT>;
+    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT>;                                   \
+                                                                                               \
+  extern template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT>(    \
+    raft::neighbors::ivf_pq::detail::selected<OutT, LutT> s,                                   \
+    rmm::cuda_stream_view stream,                                                              \
+    uint32_t n_rows,                                                                           \
+    uint32_t dim,                                                                              \
+    uint32_t n_probes,                                                                         \
+    uint32_t pq_dim,                                                                           \
+    uint32_t n_queries,                                                                        \
+    raft::distance::DistanceType metric,                                                       \
+    raft::neighbors::ivf_pq::codebook_gen codebook_kind,                                       \
+    uint32_t topk,                                                                             \
+    uint32_t max_samples,                                                                      \
+    const float* cluster_centers,                                                              \
+    const float* pq_centers,                                                                   \
+    const uint8_t* const* pq_dataset,                                                          \
+    const uint32_t* cluster_labels,                                                            \
+    const uint32_t* _chunk_indices,                                                            \
+    const float* queries,                                                                      \
+    const uint32_t* index_list,                                                                \
+    float* query_kths,                                                                         \
+    LutT* lut_scores,                                                                          \
+    OutT* _out_scores,                                                                         \
+    uint32_t* _out_indices);
 
 #define COMMA ,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
