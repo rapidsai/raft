@@ -32,24 +32,6 @@
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/matrix_wrappers.hpp>
 
-#ifdef COLLECT_TIME_STATISTICS
-#include <cuda_profiler_api.h>
-#include <stddef.h>
-#include <sys/resource.h>
-#include <sys/sysinfo.h>
-#include <sys/time.h>
-#endif
-
-#ifdef COLLECT_TIME_STATISTICS
-static double timer(void)
-{
-  struct timeval tv;
-  cudaDeviceSynchronize();
-  gettimeofday(&tv, NULL);
-  return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-}
-#endif
-
 namespace raft {
 namespace spectral {
 namespace detail {
