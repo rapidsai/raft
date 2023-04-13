@@ -20,8 +20,6 @@
 #include <raft/neighbors/specializations/brute_force.cuh>
 #include <raft/neighbors/specializations/fused_l2_knn.cuh>
 
-#include <raft/neighbors/specializations/refine.cuh>
-
 #include <raft/cluster/specializations.cuh>
 #include <raft/distance/specializations.cuh>
 #include <raft/matrix/specializations.cuh>

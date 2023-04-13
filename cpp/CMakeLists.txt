@@ -285,12 +285,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
     src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
     src/neighbors/detail/selection_faiss.cu
-    src/neighbors/specializations/refine_d_int64_t_float.cu
-    src/neighbors/specializations/refine_d_int64_t_int8_t.cu
-    src/neighbors/specializations/refine_d_int64_t_uint8_t.cu
-    src/neighbors/specializations/refine_h_int64_t_float.cu
-    src/neighbors/specializations/refine_h_int64_t_int8_t.cu
-    src/neighbors/specializations/refine_h_int64_t_uint8_t.cu
     src/distance/distance.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
@@ -366,6 +360,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
+    src/neighbors/refine_float_float.cu
+    src/neighbors/refine_int8_t_float.cu
+    src/neighbors/refine_uint8_t_float.cu
     src/raft_runtime/cluster/cluster_cost.cuh
     src/raft_runtime/cluster/cluster_cost_double.cu
     src/raft_runtime/cluster/cluster_cost_float.cu
