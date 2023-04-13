@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/specializations.cuh>
+#include <raft/neighbors/ivf_flat.cuh>
 #include <raft_runtime/neighbors/ivf_flat.hpp>
 
 namespace raft::runtime::neighbors::ivf_flat {

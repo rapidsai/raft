@@ -334,6 +334,15 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_float_uint32_t.cu
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
+    src/neighbors/ivf_flat_build_float_int64_t.cu
+    src/neighbors/ivf_flat_extend_float_int64_t.cu
+    src/neighbors/ivf_flat_search_float_int64_t.cu
+    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
@@ -348,12 +357,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/ball_cover_all_knn_query.cu
     src/neighbors/specializations/ball_cover_build_index.cu
     src/neighbors/specializations/ball_cover_knn_query.cu
-    src/neighbors/specializations/ivfflat_build_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu
