@@ -16,8 +16,4 @@
 
 #pragma once
 
-#include <raft/neighbors/specializations/brute_force.cuh>
-
-#include <raft/cluster/specializations.cuh>
 #include <raft/distance/specializations.cuh>
-#include <raft/matrix/specializations.cuh>
