@@ -78,6 +78,7 @@ BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
+ANN_BENCH_TARGETS="HNSWLIB;RAFT_IVF_PQ;FAISS_IVF_FLAT;GGNN"
 
 CACHE_ARGS=""
 NVTX=ON
@@ -195,7 +196,7 @@ function buildMetrics {
         echo "Multiple --build-metrics options were provided, please provide only one: ${ARGS}"
         exit 1
     fi
-    # Check for cache tool option
+    # Check for build-metrics option
     if [[ -n $(echo $ARGS | { grep -E "\-\-build\-metrics" || true; } ) ]]; then
         # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
         # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
