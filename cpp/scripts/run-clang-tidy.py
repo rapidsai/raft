@@ -28,7 +28,7 @@ import shutil
 import subprocess
 
 
-EXPECTED_VERSIONS = ("11.1.0",)
+EXPECTED_VERSIONS = ("16.0.1",)
 VERSION_REGEX = re.compile(r"clang version ([0-9.]+)")
 CMAKE_COMPILER_REGEX = re.compile(
     r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE)
@@ -296,12 +296,12 @@ def run_clang_tidy_command(tidy_cmd, cwd):
 class LockContext(object):
     def __init__(self, lock=None) -> None:
         self._lock = lock
-    
+
     def __enter__(self):
         if self._lock:
             self._lock.acquire()
         return self
-    
+
     def __exit__(self, _, __, ___):
         if self._lock:
             self._lock.release()
