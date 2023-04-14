@@ -62,8 +62,6 @@ void select_k(const key_t* inK,
                                                          int k,                \
                                                          cudaStream_t stream)
 
-// @benfred: Not sure if this is correct. Should I not flip float and uint32_t?
-// It seems weird that float is the key and uint32_t is the payload type.
 instantiate_raft_neighbors_detail_select_k(uint32_t, float);
 instantiate_raft_neighbors_detail_select_k(int32_t, float);
 instantiate_raft_neighbors_detail_select_k(long, float);
