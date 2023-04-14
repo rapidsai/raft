@@ -31,6 +31,21 @@ namespace distance {
  */
 
 /**
+ * Initialize array using init value from reduction op
+ */
+template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
+void initialize(raft::device_resources const& handle,
+                OutT* min,
+                IdxT m,
+                DataT maxVal,
+                ReduceOpT redOp) RAFT_EXPLICIT;
+
+/**
+ * \ingroup fused_l2_nn
+ * @{
+ */
+
+/**
  * @brief Wrapper around fusedL2NN with minimum reduction operators.
  *
  * fusedL2NN cannot be compiled in the distance library due to the lambda

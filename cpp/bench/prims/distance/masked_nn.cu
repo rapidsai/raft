@@ -25,6 +25,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/distance/detail/fused_l2_nn.cuh>  // MinAndDistanceReduceOpImpl
 #include <raft/distance/masked_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
@@ -91,8 +92,8 @@ struct masked_l2_nn : public fixture {
   using DataT      = T;
   using IdxT       = int;
   using OutT       = raft::KeyValuePair<IdxT, DataT>;
-  using RedOpT     = raft::distance::MinAndDistanceReduceOp<int, DataT>;
-  using PairRedOpT = raft::distance::KVPMinReduce<int, DataT>;
+  using RedOpT     = raft::distance::detail::MinAndDistanceReduceOpImpl<int, DataT>;
+  using PairRedOpT = raft::distance::detail::KVPMinReduceImpl<int, DataT>;
   using ParamT     = raft::distance::masked_l2_nn_params<RedOpT, PairRedOpT>;
 
   // Parameters
@@ -122,8 +123,9 @@ struct masked_l2_nn : public fixture {
       xn.data_handle(), x.data_handle(), p.k, p.m, raft::linalg::L2Norm, true, stream);
     raft::linalg::rowNorm(
       yn.data_handle(), y.data_handle(), p.k, p.n, raft::linalg::L2Norm, true, stream);
-    raft::distance::initialize<T, raft::KeyValuePair<int, T>, int>(
-      handle, out.data_handle(), p.m, std::numeric_limits<T>::max(), RedOpT{});
+    // Avoid instantiating raft::distance::initialize..
+    raft::distance::detail::initialize<T, raft::KeyValuePair<int, T>, int>(
+      out.data_handle(), p.m, std::numeric_limits<T>::max(), RedOpT{}, handle.get_stream());
 
     dim3 block(32, 32);
     dim3 grid(10, 10);
