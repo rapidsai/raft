@@ -13,11 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#ifdef RAFT_COMPILED
-#include "memory_pool-ext.hpp"
-#else
-#include "memory_pool-inl.hpp"
-#endif  // RAFT_COMPILED
+namespace raft::linalg::detail {
+
+template <int warpSize, int rpb>
+struct ReductionThinPolicy {
+  static constexpr int LogicalWarpSize = warpSize;
+  static constexpr int RowsPerBlock    = rpb;
+  static constexpr int ThreadsPerBlock = LogicalWarpSize * RowsPerBlock;
+};
+
+template <int tpb, int bpr>
+struct ReductionThickPolicy {
+  static constexpr int ThreadsPerBlock = tpb;
+  static constexpr int BlocksPerRow    = bpr;
+  static constexpr int BlockStride     = tpb * bpr;
+};
+
+}  // namespace raft::linalg::detail

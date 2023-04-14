@@ -16,22 +16,16 @@
 
 #pragma once
 
+#include "coalesced_reduction-types.cuh"  // policy structs
 #include <cub/cub.cuh>
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
-#include <rmm/device_uvector.hpp>
+#include <rmm/device_uvector.hpp>  // device_uvector
 
 namespace raft {
 namespace linalg {
 namespace detail {
-
-template <int warpSize, int rpb>
-struct ReductionThinPolicy {
-  static constexpr int LogicalWarpSize = warpSize;
-  static constexpr int RowsPerBlock    = rpb;
-  static constexpr int ThreadsPerBlock = LogicalWarpSize * RowsPerBlock;
-};
 
 template <typename Policy,
           typename InType,
@@ -211,13 +205,6 @@ void coalescedReductionMediumDispatcher(OutType* dots,
   coalescedReductionMedium<256>(
     dots, data, D, N, init, stream, inplace, main_op, reduce_op, final_op);
 }
-
-template <int tpb, int bpr>
-struct ReductionThickPolicy {
-  static constexpr int ThreadsPerBlock = tpb;
-  static constexpr int BlocksPerRow    = bpr;
-  static constexpr int BlockStride     = tpb * bpr;
-};
 
 template <typename Policy,
           typename InType,

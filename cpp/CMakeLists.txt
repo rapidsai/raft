@@ -13,6 +13,17 @@
 set(RAPIDS_VERSION "23.04")
 set(RAFT_VERSION "23.04.00")
 
+include(FetchContent)
+FetchContent_Declare(
+  rapids-cmake
+  GIT_REPOSITORY https://github.com/ahendriksen/rapids-cmake.git
+  GIT_TAG different-rmm
+)
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/RAPIDS.cmake
+     ${CMAKE_CURRENT_BINARY_DIR}/RAPIDS.cmake
+)
+include(${CMAKE_CURRENT_BINARY_DIR}/RAPIDS.cmake)
+
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
@@ -276,12 +287,14 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/cluster_cost_float.cu
     src/cluster/cluster_cost_double.cu
     src/core/logger.cpp
+    src/linalg/detail/coalesced_reduction.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu
     src/neighbors/refine_h_int64_t_float.cu
     src/neighbors/refine_h_int64_t_int8_t.cu
     src/neighbors/refine_h_int64_t_uint8_t.cu
+    src/neighbors/detail/selection_faiss.cu
     src/neighbors/specializations/refine_d_int64_t_float.cu
     src/neighbors/specializations/refine_d_int64_t_int8_t.cu
     src/neighbors/specializations/refine_d_int64_t_uint8_t.cu
@@ -382,17 +395,17 @@ if(RAFT_COMPILE_LIBRARY)
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu
     src/random/rmat_rectangular_generator_int64_float.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
+    # src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
+    # src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
+    # src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
+    # src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
     src/neighbors/specializations/ball_cover_all_knn_query.cu
     src/neighbors/specializations/ball_cover_build_index.cu
     src/neighbors/specializations/ball_cover_knn_query.cu
-    src/neighbors/specializations/fused_l2_knn_long_float_true.cu
-    src/neighbors/specializations/fused_l2_knn_long_float_false.cu
-    src/neighbors/specializations/fused_l2_knn_int_float_true.cu
-    src/neighbors/specializations/fused_l2_knn_int_float_false.cu
+    # src/neighbors/specializations/fused_l2_knn_long_float_true.cu
+    # src/neighbors/specializations/fused_l2_knn_long_float_false.cu
+    # src/neighbors/specializations/fused_l2_knn_int_float_true.cu
+    # src/neighbors/specializations/fused_l2_knn_int_float_false.cu
     src/neighbors/ivf_flat_search.cu
     src/neighbors/ivf_flat_build.cu
     src/neighbors/specializations/ivfflat_build_float_int64_t.cu
@@ -445,6 +458,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/random/rmat_rectangular_generator_int_float.cu
     src/random/rmat_rectangular_generator_int64_float.cu
     src/spatial/knn/detail/ball_cover/registers.cu
+    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_lib
@@ -618,7 +632,9 @@ rapids_export(
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
-  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
@@ -628,8 +644,10 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft
-  compiled distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  GLOBAL_TARGETS raft compiled distributed
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

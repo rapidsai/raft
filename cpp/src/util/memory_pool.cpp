@@ -14,10 +14,4 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#ifdef RAFT_COMPILED
-#include "memory_pool-ext.hpp"
-#else
-#include "memory_pool-inl.hpp"
-#endif  // RAFT_COMPILED
+#include <raft/util/memory_pool-inl.hpp>

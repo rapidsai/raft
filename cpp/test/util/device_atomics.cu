@@ -25,7 +25,6 @@
 #include <raft/util/device_atomics.cuh>
 #include <rmm/cuda_stream_pool.hpp>
 #include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace raft {
 

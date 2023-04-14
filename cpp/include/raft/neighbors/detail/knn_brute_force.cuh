@@ -36,6 +36,7 @@
 #include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
+#include <raft/spatial/knn/detail/processing.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
