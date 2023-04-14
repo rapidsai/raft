@@ -69,7 +69,7 @@ index<IdxT> build(raft::device_resources const& handle,
  *
  * @param[in] handle
  * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, idx.dim()]
- * @param[in] new_indices a device matrix view to a vector of indices [n_rows].
+ * @param[in] new_indices a device vector view to a vector of indices [n_rows].
  *    If the original index is empty (`idx.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[inout] idx
@@ -77,7 +77,7 @@ index<IdxT> build(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 index<IdxT> extend(raft::device_resources const& handle,
                    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-                   std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices,
+                   std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
                    const index<IdxT>& idx)
 {
   ASSERT(new_vectors.extent(1) == idx.dim(),
@@ -104,7 +104,7 @@ index<IdxT> extend(raft::device_resources const& handle,
  *
  * @param[in] handle
  * @param[in] new_vectors a device matrix view to a row-major matrix [n_rows, idx.dim()]
- * @param[in] new_indices a device matrix view to a vector of indices [n_rows].
+ * @param[in] new_indices a device vector view to a vector of indices [n_rows].
  *    If the original index is empty (`idx.size() == 0`), you can pass `std::nullopt`
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[inout] idx
@@ -112,7 +112,7 @@ index<IdxT> extend(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 void extend(raft::device_resources const& handle,
             raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-            std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices,
+            std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
             index<IdxT>* idx)
 {
   ASSERT(new_vectors.extent(1) == idx->dim(),
