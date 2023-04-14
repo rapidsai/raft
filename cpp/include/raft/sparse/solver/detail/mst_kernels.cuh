@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -297,11 +297,11 @@ __global__ void final_color_indices(const vertex_t v, const vertex_t* color, ver
 // Consider using curand device API instead of precomputed random_values array
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 __global__ void alteration_kernel(const vertex_t v,
-                                  const edge_t e,
                                   const edge_t* offsets,
                                   const vertex_t* indices,
                                   const weight_t* weights,
                                   alteration_t max,
+                                  alteration_t min_width,
                                   alteration_t* random_values,
                                   alteration_t* altered_weights)
 {
@@ -311,7 +311,8 @@ __global__ void alteration_kernel(const vertex_t v,
     auto row_end   = offsets[row + 1];
     for (auto i = row_begin; i < row_end; i++) {
       auto column        = indices[i];
-      altered_weights[i] = weights[i] + max * (random_values[row] + random_values[column]);
+      altered_weights[i] = weights[i] + max * ((random_values[row] + random_values[column]) / 2 +
+                                               min_width * (row + column));
     }
   }
 }

@@ -18,6 +18,8 @@
 
 #include <curand.h>
 
+#include <raft/linalg/map.cuh>
+
 #include <raft/sparse/solver/detail/mst_kernels.cuh>
 #include <raft/sparse/solver/detail/mst_utils.cuh>
 
@@ -213,34 +215,67 @@ alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_ma
   return max / static_cast<alteration_t>(2);
 }
 
+template <typename edge_t, typename weight_t, typename alteration_t>
+struct duplicate_alteration {
+  alteration_t min_width;
+
+  __device__ alteration_t operator()(edge_t offset, weight_t w) { return offset * min_width + w; }
+};
+
 // Compute the alteration to make all undirected edge weight unique
 // Preserves weights order
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration()
 {
-  auto nthreads = std::min(v, max_threads);
-  auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
-
   // maximum alteration that does not change relative weights order
   alteration_t max = alteration_max();
 
-  // pool of rand values
-  rmm::device_uvector<alteration_t> rand_values(v, stream);
+  auto max_edge_weight = thrust::reduce(
+    handle.get_thrust_policy(), weights, weights + e, 0, thrust::maximum<weight_t>());
 
-  // Random number generator
-  curandGenerator_t randGen;
-  curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_DEFAULT);
-  curandSetPseudoRandomGeneratorSeed(randGen, 1234567);
+  // edge case where there are only duplicates in the input edge list
+  if (max == static_cast<alteration_t>(0)) {
+    // number that can be added to every edge to uniquely identify it without causing overflows
+    auto min_width           = std::numeric_limits<alteration_t>::min();
+    auto max_width_transform = max_edge_weight + min_width * (e - 1);
+    RAFT_EXPECTS(
+      std::isfinite(max_width_transform),
+      "Precision is too low to solve for this input. Please increase precision and try again");
 
-  // Initialize rand values
-  auto curand_status = curand_generate_uniformX(randGen, rand_values.data(), v);
-  RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND failed");
-  curand_status = curandDestroyGenerator(randGen);
-  RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND cleanup failed");
+    auto weights_v         = raft::make_device_vector_view(weights, e);
+    auto altered_weights_v = raft::make_device_vector_view(altered_weights.data(), e);
+    duplicate_alteration<edge_t, weight_t, alteration_t> duplicate_functor{min_width};
+    raft::linalg::map_offset(handle, altered_weights_v, duplicate_functor, weights_v);
+  } else {
+    // number that can be added to every row,col pair to uniquely identify it without causing
+    // overflows
+    auto min_width           = std::numeric_limits<alteration_t>::min();
+    auto max_width_transform = max_edge_weight + min_width * (2 * v - 2);
+    RAFT_EXPECTS(
+      std::isfinite(max_width_transform),
+      "Precision is too low to solve for this input. Please increase precision and try again");
 
-  // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
-  detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
-    v, e, offsets, indices, weights, max, rand_values.data(), altered_weights.data());
+    auto nthreads = std::min(v, max_threads);
+    auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
+
+    // pool of rand values
+    rmm::device_uvector<alteration_t> rand_values(v, stream);
+
+    // Random number generator
+    curandGenerator_t randGen;
+    curandCreateGenerator(&randGen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(randGen, 1234567);
+
+    // Initialize rand values
+    auto curand_status = curand_generate_uniformX(randGen, rand_values.data(), v);
+    RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND failed");
+    curand_status = curandDestroyGenerator(randGen);
+    RAFT_EXPECTS(curand_status == CURAND_STATUS_SUCCESS, "MST: CURAND cleanup failed");
+
+    // Alter the weights, make all undirected edge weight unique while keeping Wuv == Wvu
+    detail::alteration_kernel<<<nblocks, nthreads, 0, stream>>>(
+      v, offsets, indices, weights, max, min_width, rand_values.data(), altered_weights.data());
+  }
 }
 
 // updates colors of vertices by propagating the lower color to the higher
