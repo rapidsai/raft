@@ -13,17 +13,6 @@
 set(RAPIDS_VERSION "23.06")
 set(RAFT_VERSION "23.06.00")
 
-include(FetchContent)
-FetchContent_Declare(
-  rapids-cmake
-  GIT_REPOSITORY https://github.com/ahendriksen/rapids-cmake.git
-  GIT_TAG different-rmm
-)
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/RAPIDS.cmake
-     ${CMAKE_CURRENT_BINARY_DIR}/RAPIDS.cmake
-)
-include(${CMAKE_CURRENT_BINARY_DIR}/RAPIDS.cmake)
-
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
