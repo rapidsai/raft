@@ -15,9 +15,8 @@
  */
 #include "raft_ivf_pq_wrapper.h"
 
-onamespace raft::bench::ann
-{
-  template class RaftIvfPQ<float, int64_t>;
-  template class RaftIvfPQ<uint8_t, int64_t>;
-  template class RaftIvfPQ<int8_t, int64_t>;
+namespace raft::bench::ann {
+template class RaftIvfPQ<float, int64_t>;
+template class RaftIvfPQ<uint8_t, int64_t>;
+template class RaftIvfPQ<int8_t, int64_t>;
 }  // namespace raft::bench::ann
