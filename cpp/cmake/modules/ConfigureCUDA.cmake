@@ -37,7 +37,6 @@ if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
   # list(APPEND RAFT_CUDA_FLAGS -Werror=all-warnings)
 endif()
 
-
 # Option to enable line info in CUDA device compilation to allow introspection when profiling /
 # memchecking
 if(CUDA_ENABLE_LINEINFO)
