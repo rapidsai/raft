@@ -484,7 +484,7 @@ instantiate_raft_neighbors_ivf_flat_extend(uint8_t, int64_t);
     uint32_t k,                                                    \
     IdxT* neighbors,                                               \
     float* distances,                                              \
-    rmm::mr::device_memory_resource* mr = nullptr);                \
+    rmm::mr::device_memory_resource* mr);                          \
                                                                    \
   extern template void raft::neighbors::ivf_flat::search<T, IdxT>( \
     raft::device_resources const& handle,                          \

@@ -35,7 +35,7 @@
     uint32_t k,                                                 \
     IdxT* neighbors,                                            \
     float* distances,                                           \
-    rmm::mr::device_memory_resource* mr = nullptr);             \
+    rmm::mr::device_memory_resource* mr);                       \
                                                                 \
   template void raft::neighbors::ivf_flat::search<T, IdxT>(     \
     raft::device_resources const& handle,                       \
