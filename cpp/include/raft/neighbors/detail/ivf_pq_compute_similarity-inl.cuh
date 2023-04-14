@@ -519,8 +519,9 @@ struct compute_similarity_kernel_config {
   }
 };
 
-// A standalone accessor function is necessary to make sure template specializations work correctly
-// (we "extern template" this function)
+// A standalone accessor function was necessary to make sure template
+// instantiation work correctly. This accessor function is not used anymore and
+// may be removed.
 template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut>
 auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
   -> compute_similarity_kernel_t<OutT, LutT>

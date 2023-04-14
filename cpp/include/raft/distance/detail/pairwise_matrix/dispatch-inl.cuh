@@ -24,7 +24,7 @@
  *    architectures.
  *
  * 2. Provide concise function templates that can be instantiated in
- *    src/distance/distance/specializations/detail/. Previously,
+ *    src/distance/detail/pairwise_matrix/. Previously,
  *    raft::distance::detail::distance was instantiated. The function
  *    necessarily required a large set of include files, which slowed down the
  *    build. The raft::distance::detail::pairwise_matrix_arch_dispatch functions
@@ -46,7 +46,7 @@ namespace raft::distance::detail {
 
 // This forward-declaration ensures that we do not need to include
 // dispatch_sm80.cuh if we are not calling it in practice. This makes compiling
-// all the non-CUTLASS based distance specializations faster. For CUTLASS-based
+// all the non-CUTLASS based distance instantiations faster. For CUTLASS-based
 // distances, dispatch_sm80.cuh has to be included by the file including this
 // file.
 template <typename OpT,
