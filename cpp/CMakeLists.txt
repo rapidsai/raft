@@ -276,16 +276,6 @@ if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_lib
     src/core/logger.cpp
-    src/linalg/detail/coalesced_reduction.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
-    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
-    src/neighbors/detail/selection_faiss.cu
-    src/distance/distance.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
@@ -306,41 +296,48 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/detail/pairwise_matrix/dispatch_l2_expanded_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_float_float_float_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
-    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_l_inf_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
+    src/distance/distance.cu
     src/distance/fused_l2_nn.cu
+    src/linalg/detail/coalesced_reduction.cu
     src/matrix/detail/select_k_double_int64_t.cu
     src/matrix/detail/select_k_double_uint32_t.cu
     src/matrix/detail/select_k_float_int64_t.cu
     src/matrix/detail/select_k_float_uint32_t.cu
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
-    src/neighbors/ivf_flat_build_float_int64_t.cu
-    src/neighbors/ivf_flat_extend_float_int64_t.cu
-    src/neighbors/ivf_flat_search_float_int64_t.cu
-    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
-    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
-    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
     src/neighbors/ball_cover.cu
-    src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
+    src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
     src/neighbors/brute_force_knn_int64_t_float_int64_t.cu
+    src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
     src/neighbors/brute_force_knn_int_float_int.cu
     src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
-    src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_search.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
+    src/neighbors/detail/selection_faiss.cu
+    src/neighbors/ivf_flat_build_float_int64_t.cu
+    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_float_int64_t.cu
+    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_float_int64_t.cu
+    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu
@@ -384,21 +381,21 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
     src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
-    src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
-    src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_euclidean.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
     src/spatial/knn/detail/ball_cover/registers_pass_one_3d_dist.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_euclidean.cu
-    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_haversine.cu
     src/spatial/knn/detail/ball_cover/registers_pass_two_2d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_haversine.cu
     src/spatial/knn/detail/ball_cover/registers_pass_two_3d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
+    src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
+    src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
+    src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
     src/util/memory_pool.cpp
   )
   set_target_properties(
