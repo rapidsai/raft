@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import shutil
 import subprocess
 
 
-EXPECTED_VERSIONS = ("16.0.1",)
+EXPECTED_VERSIONS = ("11.1.0",)
 VERSION_REGEX = re.compile(r"clang version ([0-9.]+)")
 CMAKE_COMPILER_REGEX = re.compile(
     r"^\s*CMAKE_CXX_COMPILER:FILEPATH=(.+)\s*$", re.MULTILINE)
@@ -296,12 +296,12 @@ def run_clang_tidy_command(tidy_cmd, cwd):
 class LockContext(object):
     def __init__(self, lock=None) -> None:
         self._lock = lock
-
+    
     def __enter__(self):
         if self._lock:
             self._lock.acquire()
         return self
-
+    
     def __exit__(self, _, __, ___):
         if self._lock:
             self._lock.release()
