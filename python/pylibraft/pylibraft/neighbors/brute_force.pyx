@@ -40,7 +40,6 @@ from pylibraft.common.handle cimport device_resources
 from pylibraft.common.mdspan cimport get_dmv_float, get_dmv_int64
 
 from pylibraft.common.handle import auto_sync_handle
-from pylibraft.common.input_validation import is_c_contiguous
 from pylibraft.common.interruptible import cuda_interruptible
 
 from pylibraft.distance.distance_type cimport DistanceType
@@ -144,7 +143,7 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
             raise ValueError("Argument k must be specified if both indices "
                              "and distances arg is None")
 
-    n_queries = cai_wrapper(queries).shape[0]
+    n_queries = queries_cai.shape[0]
 
     if indices is None:
         indices = device_ndarray.empty((n_queries, k), dtype='int64')
