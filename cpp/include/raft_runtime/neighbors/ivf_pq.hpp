@@ -23,26 +23,26 @@ namespace raft::runtime::neighbors::ivf_pq {
 // We define overloads for build and extend with void return type. This is used in the Cython
 // wrappers, where exception handling is not compatible with return type that has nontrivial
 // constructor.
-#define RAFT_DECL_BUILD_EXTEND(T, IdxT)                                                         \
-  [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> build(                                     \
-    raft::device_resources const& handle,                                                       \
-    const raft::neighbors::ivf_pq::index_params& params,                                        \
-    raft::device_matrix_view<const T, IdxT, row_major> dataset);                                \
-                                                                                                \
-  void build(raft::device_resources const& handle,                                              \
-             const raft::neighbors::ivf_pq::index_params& params,                               \
-             raft::device_matrix_view<const T, IdxT, row_major> dataset,                        \
-             raft::neighbors::ivf_pq::index<IdxT>* idx);                                        \
-                                                                                                \
-  [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> extend(                                    \
-    raft::device_resources const& handle,                                                       \
-    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                             \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices,           \
-    const raft::neighbors::ivf_pq::index<IdxT>& idx);                                           \
-                                                                                                \
-  void extend(raft::device_resources const& handle,                                             \
-              raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
-              std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices, \
+#define RAFT_DECL_BUILD_EXTEND(T, IdxT)                                              \
+  [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> build(                          \
+    raft::device_resources const& handle,                                            \
+    const raft::neighbors::ivf_pq::index_params& params,                             \
+    raft::device_matrix_view<const T, IdxT, row_major> dataset);                     \
+                                                                                     \
+  void build(raft::device_resources const& handle,                                   \
+             const raft::neighbors::ivf_pq::index_params& params,                    \
+             raft::device_matrix_view<const T, IdxT, row_major> dataset,             \
+             raft::neighbors::ivf_pq::index<IdxT>* idx);                             \
+                                                                                     \
+  [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> extend(                         \
+    raft::device_resources const& handle,                                            \
+    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                  \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,           \
+    const raft::neighbors::ivf_pq::index<IdxT>& idx);                                \
+                                                                                     \
+  void extend(raft::device_resources const& handle,                                  \
+              raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
+              std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
               raft::neighbors::ivf_pq::index<IdxT>* idx);
 
 RAFT_DECL_BUILD_EXTEND(float, int64_t);
