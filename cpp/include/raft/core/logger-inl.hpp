@@ -44,18 +44,6 @@ namespace raft {
 
 namespace detail {
 
-/**
- * @defgroup CStringFormat Expand a C-style format string
- *
- * @brief Expands C-style formatted string into std::string
- *
- * @param[in] fmt format string
- * @param[in] vl  respective values for each of format modifiers in the string
- *
- * @return the expanded `std::string`
- *
- * @{
- */
 inline std::string format(const char* fmt, va_list& vl)
 {
   va_list vl_copy;
@@ -75,7 +63,6 @@ inline std::string format(const char* fmt, ...)
   va_end(vl);
   return str;
 }
-/** @} */
 
 inline int convert_level_to_spdlog(int level)
 {
@@ -102,85 +89,37 @@ class logger::impl {  // defined privately here
   }
 };  // class logger::impl
 
-/**
- * @brief The main Logging class for raft library.
- *
- * This class acts as a thin wrapper over the underlying `spdlog` interface. The
- * design is done in this way in order to avoid us having to also ship `spdlog`
- * header files in our installation.
- *
- * @todo This currently only supports logging to stdout. Need to add support in
- *       future to add custom loggers as well [Issue #2046]
- */
 RAFT_INLINE_CONDITIONAL logger::logger(std::string const& name_) : pimpl(new impl(name_))
 {
   set_pattern(default_log_pattern);
   set_level(RAFT_ACTIVE_LEVEL);
 }
-/**
- * @brief Singleton method to get the underlying logger object
- *
- * @return the singleton logger object
- */
+
 RAFT_INLINE_CONDITIONAL logger& logger::get(std::string const& name)
 {
   if (log_map.find(name) == log_map.end()) { log_map[name] = std::make_shared<raft::logger>(name); }
   return *log_map[name];
 }
 
-/**
- * @brief Set the logging level.
- *
- * Only messages with level equal or above this will be printed
- *
- * @param[in] level logging level
- *
- * @note The log level will actually be set only if the input is within the
- *       range [RAFT_LEVEL_TRACE, RAFT_LEVEL_OFF]. If it is not, then it'll
- *       be ignored. See documentation of decisiontree for how this gets used
- */
 RAFT_INLINE_CONDITIONAL void logger::set_level(int level)
 {
   level = raft::detail::convert_level_to_spdlog(level);
   pimpl->spdlogger->set_level(static_cast<spdlog::level::level_enum>(level));
 }
 
-/**
- * @brief Set the logging pattern
- *
- * @param[in] pattern the pattern to be set. Refer this link
- *                    https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
- *                    to know the right syntax of this pattern
- */
 RAFT_INLINE_CONDITIONAL void logger::set_pattern(const std::string& pattern)
 {
   pimpl->cur_pattern = pattern;
   pimpl->spdlogger->set_pattern(pattern);
 }
 
-/**
- * @brief Register a callback function to be run in place of usual log call
- *
- * @param[in] callback the function to be run on all logged messages
- */
 RAFT_INLINE_CONDITIONAL void logger::set_callback(void (*callback)(int lvl, const char* msg))
 {
   pimpl->sink->set_callback(callback);
 }
 
-/**
- * @brief Register a flush function compatible with the registered callback
- *
- * @param[in] flush the function to use when flushing logs
- */
 RAFT_INLINE_CONDITIONAL void logger::set_flush(void (*flush)()) { pimpl->sink->set_flush(flush); }
 
-/**
- * @brief Tells whether messages will be logged for the given log level
- *
- * @param[in] level log level to be checked for
- * @return true if messages will be logged for this level, else false
- */
 RAFT_INLINE_CONDITIONAL bool logger::should_log_for(int level) const
 {
   level        = raft::detail::convert_level_to_spdlog(level);
@@ -188,29 +127,14 @@ RAFT_INLINE_CONDITIONAL bool logger::should_log_for(int level) const
   return pimpl->spdlogger->should_log(level_e);
 }
 
-/**
- * @brief Query for the current log level
- *
- * @return the current log level
- */
 RAFT_INLINE_CONDITIONAL int logger::get_level() const
 {
   auto level_e = pimpl->spdlogger->level();
   return RAFT_LEVEL_TRACE - static_cast<int>(level_e);
 }
 
-/**
- * @brief Get the current logging pattern
- * @return the pattern
- */
 RAFT_INLINE_CONDITIONAL std::string logger::get_pattern() const { return pimpl->cur_pattern; }
 
-/**
- * @brief Main logging method
- *
- * @param[in] level logging level of this message
- * @param[in] fmt   C-like format string, followed by respective params
- */
 RAFT_INLINE_CONDITIONAL void logger::log(int level, const char* fmt, ...)
 {
   level        = raft::detail::convert_level_to_spdlog(level);
@@ -225,9 +149,6 @@ RAFT_INLINE_CONDITIONAL void logger::log(int level, const char* fmt, ...)
   }
 }
 
-/**
- * @brief Flush logs by calling flush on underlying logger
- */
 RAFT_INLINE_CONDITIONAL void logger::flush() { pimpl->spdlogger->flush(); }
 
 RAFT_INLINE_CONDITIONAL logger::~logger() {}
