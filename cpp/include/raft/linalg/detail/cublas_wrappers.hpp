@@ -965,7 +965,8 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 cudaStream_t stream)
 {
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
-  return cublasSdot(handle, n, x, incx, y, incy, result);
+  return cublasDotEx(
+    handle, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
 }
 
 template <>
@@ -979,7 +980,8 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 cudaStream_t stream)
 {
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
-  return cublasDdot(handle, n, x, incx, y, incy, result);
+  return cublasDotEx(
+    handle, n, x, CUDA_R_64F, incx, y, CUDA_R_64F, incy, result, CUDA_R_64F, CUDA_R_64F);
 }
 /** @} */
 

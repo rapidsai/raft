@@ -19,17 +19,17 @@
 
 namespace raft::neighbors::ivf_pq {
 
-#define RAFT_MAKE_INSTANCE(T, IdxT)                                                   \
-  template auto extend<T, IdxT>(                                                      \
-    raft::device_resources const& handle,                                             \
-    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices, \
-    const index<IdxT>& idx)                                                           \
-    ->index<IdxT>;                                                                    \
-  template void extend<T, IdxT>(                                                      \
-    raft::device_resources const& handle,                                             \
-    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                   \
-    std::optional<raft::device_matrix_view<const IdxT, IdxT, row_major>> new_indices, \
+#define RAFT_MAKE_INSTANCE(T, IdxT)                                        \
+  template auto extend<T, IdxT>(                                           \
+    raft::device_resources const& handle,                                  \
+    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
+    const index<IdxT>& idx)                                                \
+    ->index<IdxT>;                                                         \
+  template void extend<T, IdxT>(                                           \
+    raft::device_resources const& handle,                                  \
+    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
+    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
     index<IdxT>* idx);
 
 RAFT_MAKE_INSTANCE(float, int64_t);
