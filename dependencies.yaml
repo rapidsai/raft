@@ -276,14 +276,13 @@ dependencies:
         packages:
           - dask-core==2023.3.2
           - ucx>=1.13.0
-          - ucx-py=0.32.*
           - ucx-proc=*=gpu
       - output_types: pyproject
         packages:
           - pylibraft==23.6.*
   test_python_common:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - pytest
           - pytest-cov
