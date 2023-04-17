@@ -22,7 +22,7 @@ from pylibraft.matrix import select_k
 
 @pytest.mark.parametrize("n_rows", [32, 100])
 @pytest.mark.parametrize("n_cols", [40, 100])
-@pytest.mark.parametrize("k", [1, 5, 16])
+@pytest.mark.parametrize("k", [1, 5, 16, 35])
 @pytest.mark.parametrize("inplace", [True, False])
 def test_select_k(n_rows, n_cols, k, inplace):
     dataset = np.random.random_sample((n_rows, n_cols)).astype("float32")
