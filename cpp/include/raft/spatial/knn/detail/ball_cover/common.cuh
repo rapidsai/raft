@@ -17,7 +17,7 @@
 #pragma once
 
 #include "../haversine_distance.cuh"
-#include "registers-types.cuh"
+#include "registers_types.cuh"
 #include <cstdint>
 #include <thrust/functional.h>
 #include <thrust/tuple.h>

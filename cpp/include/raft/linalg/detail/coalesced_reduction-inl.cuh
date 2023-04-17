@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "coalesced_reduction-types.cuh"  // policy structs
+#include "coalesced_reduction_types.cuh"  // policy structs
 #include <cub/cub.cuh>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>

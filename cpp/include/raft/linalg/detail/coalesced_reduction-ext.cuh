@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "coalesced_reduction-types.cuh"
+#include "coalesced_reduction_types.cuh"
 #include <raft/core/operators.hpp>
 
 // The explicit instantiation of raft::linalg::detail::coalescedReduction is not
