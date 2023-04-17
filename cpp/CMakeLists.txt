@@ -70,12 +70,10 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-# to have different values for the `Threads::Threads` target. Setting this flag ensures
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
 # `Threads::Threads` is the same value across all builds so that cache hits occur
 set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -329,6 +327,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/matrix/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu
