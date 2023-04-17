@@ -29,7 +29,6 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/memory_type.hpp>
-#include <rmm/cuda_stream_view.hpp>
 
 namespace raft {
 /**
@@ -45,11 +44,11 @@ namespace raft {
 template <typename Base>
 class array_interface {
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get a an mdspan
    */
   auto view() noexcept { return static_cast<Base*>(this)->view(); }
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get a const mdspan
    */
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
@@ -108,7 +107,8 @@ inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
  *   template.
  *
  * - Most of the constructors from the reference implementation is removed to make sure
- *   CUDA stream is honorred.
+ *   CUDA stream is honorred. `raft::resources` is used to facade away the CUDA API so
+ *   this file has no direct dependency on CUDA (unless being compiled with nvcc).
  *
  * - unique_size is not implemented, which is still working in progress in the proposal
  *
@@ -201,8 +201,9 @@ class mdarray
 #endif  // RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief The only constructor that can create storage, this is to make sure CUDA stream is being
-   * used.
+   * @brief The only constructor that can create storage, raft::resources is accepted
+   * so that the device implementation can make sure the relevant CUDA stream is
+   * being used for allocation.
    */
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
@@ -220,11 +221,11 @@ class mdarray
 #undef RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get an mdspan
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get a const mdspan
    */
   auto view() const noexcept
   {
