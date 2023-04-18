@@ -31,12 +31,13 @@ function(ConfigureTest)
 
   target_link_libraries(
     ${TEST_NAME}
-    PRIVATE raft::raft
+    PRIVATE raft
             raft_internal
             $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
   )

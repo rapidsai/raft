@@ -70,12 +70,10 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-
-# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-# to have different values for the `Threads::Threads` target. Setting this flag ensures
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
 # `Threads::Threads` is the same value across all builds so that cache hits occur
 set(THREADS_PREFER_PTHREAD_FLAG ON)
-
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -179,22 +177,21 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(
-  raft
-  INTERFACE rmm::rmm
-            cuco::cuco
-            nvidia::cutlass::cutlass
-            CUDA::cublas${_ctk_static_suffix}
-            CUDA::curand${_ctk_static_suffix}
-            CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cusparse${_ctk_static_suffix}
-            raft::Thrust
-)
+target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+
+set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
+set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
+set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
+set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
+
+set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
+                               ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
 )
 
 # Endian detection
@@ -330,6 +327,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/matrix/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu
@@ -454,7 +452,13 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_lib PUBLIC raft::raft $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
+  target_link_libraries(
+    raft_lib
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                         # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -606,13 +610,39 @@ if(TARGET raft_lib)
   list(APPEND raft_export_sets raft-compiled-lib-exports)
 endif()
 
+string(
+  APPEND
+  code_string
+  [=[
+ option(RAFT_ENABLE_CUSOLVER_DEPENDENCY "Enable cusolver dependency" ON)
+ option(RAFT_ENABLE_CUBLAS_DEPENDENCY "Enable cublas dependency" ON)
+ option(RAFT_ENABLE_CURAND_DEPENDENCY "Enable curand dependency" ON)
+ option(RAFT_ENABLE_CUSPARSE_DEPENDENCY "Enable cusparse dependency" ON)
+
+mark_as_advanced(RAFT_ENABLE_CUSOLVER_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUBLAS_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CURAND_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUSPARSE_DEPENDENCY)
+
+target_link_libraries(raft::raft INTERFACE
+  $<$<BOOL:${RAFT_ENABLE_CUSOLVER_DEPENDENCY}>:${RAFT_CUSOLVER_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUBLAS_DEPENDENCY}>:${RAFT_CUBLAS_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUSPARSE_DEPENDENCY}>:${RAFT_CUSPARSE_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CURAND_DEPENDENCY}>:${RAFT_CURAND_DEPENDENCY}>
+)
+]=]
+)
+
+# Use `rapids_export` for 22.04 as it will have COMPONENT support
 rapids_export(
   INSTALL raft
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
-  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
@@ -622,8 +652,10 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft
-  compiled distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  GLOBAL_TARGETS raft compiled distributed
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

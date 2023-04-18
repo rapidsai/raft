@@ -74,8 +74,6 @@ inline bool is_min_close(DistanceType metric)
   bool select_min;
   switch (metric) {
     case DistanceType::InnerProduct:
-    case DistanceType::CosineExpanded:
-    case DistanceType::CorrelationExpanded:
       // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
       // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
       // {perform_k_selection})

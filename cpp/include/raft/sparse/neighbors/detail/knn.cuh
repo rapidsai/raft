@@ -355,8 +355,7 @@ class sparse_knn_t {
     // want to adjust k.
     value_idx n_neighbors = std::min(static_cast<value_idx>(k), batch_cols);
 
-    bool ascending = true;
-    if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;
+    bool ascending = raft::distance::is_min_close(metric);
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
     raft::spatial::knn::select_k(batch_dists,
