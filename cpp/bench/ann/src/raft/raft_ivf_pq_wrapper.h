@@ -42,6 +42,7 @@ template <typename T, typename IdxT>
 class RaftIvfPQ : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
+  using ANN<T>::dim_;
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::ivf_pq::search_params pq_param;
@@ -118,7 +119,7 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), index_->dim());
+  auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
 
   index_.emplace(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v));
   return;
