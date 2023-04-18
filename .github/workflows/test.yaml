@@ -41,7 +41,7 @@ jobs:
       package-name: pylibraft
       test-before-amd64: "pip install cupy-cuda11x"
       test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
-      test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
+      test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.06
@@ -53,4 +53,4 @@ jobs:
       package-name: raft_dask
       test-before-amd64: "pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
       test-before-arm64: "pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
-      test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
+      test-unittest: "python -m pytest ./python/raft-dask/raft_dask/test"
