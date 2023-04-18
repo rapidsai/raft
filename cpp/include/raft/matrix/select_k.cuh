@@ -21,6 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/select_k_types.hpp>
 
 #include <optional>
 
@@ -80,7 +81,8 @@ void select_k(const device_resources& handle,
               std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_idx,
               raft::device_matrix_view<T, int64_t, row_major> out_val,
               raft::device_matrix_view<IdxT, int64_t, row_major> out_idx,
-              bool select_min)
+              bool select_min,
+              select_method algo = select_method::AUTO)
 {
   RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
@@ -102,6 +104,7 @@ void select_k(const device_resources& handle,
                                    out_val.data_handle(),
                                    out_idx.data_handle(),
                                    select_min,
+                                   algo,
                                    handle.get_stream());
 }
 

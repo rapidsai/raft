@@ -30,8 +30,9 @@ void select_k(const device_resources& handle,
               std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
               raft::device_matrix_view<float, int64_t, row_major> out_val,
               raft::device_matrix_view<int64_t, int64_t, row_major> out_idx,
-              bool select_min)
+              bool select_min,
+              select_method algo)
 {
-  raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, select_min);
+  raft::matrix::select_k(handle, in_val, in_idx, out_val, out_idx, select_min, algo);
 }
 }  // namespace raft::runtime::matrix

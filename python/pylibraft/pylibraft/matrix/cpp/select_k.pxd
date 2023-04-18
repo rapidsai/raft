@@ -29,6 +29,12 @@ from pylibraft.common.handle cimport device_resources
 cdef extern from "raft_runtime/matrix/select_k.hpp" \
         namespace "raft::runtime::matrix" nogil:
 
+    ctypedef enum select_method 'raft::matrix::select_method':
+        AUTO 'raft::matrix::select_method::AUTO'
+        RADIX 'raft::matrix::select_method::RADIX'
+        BLOCK 'raft::matrix::select_method::BLOCK'
+        WARPSORT 'raft::matrix::select_method::WARPSORT'
+
     cdef void select_k(const device_resources & handle,
                        device_matrix_view[float, int64_t, row_major],
                        optional[device_matrix_view[int64_t,
@@ -36,4 +42,5 @@ cdef extern from "raft_runtime/matrix/select_k.hpp" \
                                                    row_major]],
                        device_matrix_view[float, int64_t, row_major],
                        device_matrix_view[int64_t, int64_t, row_major],
-                       bool) except +
+                       bool,
+                       select_method) except +

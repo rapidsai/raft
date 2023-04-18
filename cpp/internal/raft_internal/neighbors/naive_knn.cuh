@@ -121,6 +121,7 @@ void naive_knn(EvalT* dist_topk,
                                           dist_topk + offset * k,
                                           indices_topk + offset * k,
                                           type != raft::distance::DistanceType::InnerProduct,
+                                          matrix::select_method::AUTO,
                                           stream,
                                           mr);
   }

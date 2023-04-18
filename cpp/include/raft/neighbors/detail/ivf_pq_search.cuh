@@ -224,6 +224,7 @@ void select_clusters(raft::device_resources const& handle,
                                             cluster_dists.data(),
                                             clusters_to_probe,
                                             true,
+                                            raft::matrix::select_method::AUTO,
                                             stream,
                                             mr);
 }
@@ -1418,6 +1419,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                                              topk_dists.data(),
                                              neighbors_uint32,
                                              true,
+                                             matrix::select_method::AUTO,
                                              stream,
                                              mr);
 

@@ -28,6 +28,7 @@ namespace raft::matrix::detail {
                                   T*,                    \
                                   IdxT*,                 \
                                   bool,                  \
+                                  select_method,         \
                                   rmm::cuda_stream_view, \
                                   rmm::mr::device_memory_resource*);
 

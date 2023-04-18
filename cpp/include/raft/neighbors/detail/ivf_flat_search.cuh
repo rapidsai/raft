@@ -1189,6 +1189,7 @@ void search_impl(raft::device_resources const& handle,
                                            coarse_distances_dev.data(),
                                            coarse_indices_dev.data(),
                                            select_min,
+                                           matrix::select_method::AUTO,
                                            stream,
                                            search_mr);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
@@ -1247,6 +1248,7 @@ void search_impl(raft::device_resources const& handle,
                                          distances,
                                          neighbors,
                                          select_min,
+                                         matrix::select_method::AUTO,
                                          stream,
                                          search_mr);
   }

@@ -13,6 +13,6 @@
 # limitations under the License.
 #
 
-from .select_k import select_k
+from .select_k import SelectMethod, select_k
 
-__all__ = ["select_k"]
+__all__ = ["select_k", "SelectMethod"]

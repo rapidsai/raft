@@ -17,14 +17,23 @@ import numpy as np
 import pytest
 
 from pylibraft.common import device_ndarray
-from pylibraft.matrix import select_k
+from pylibraft.matrix import SelectMethod, select_k
 
 
 @pytest.mark.parametrize("n_rows", [32, 100])
 @pytest.mark.parametrize("n_cols", [40, 100])
 @pytest.mark.parametrize("k", [1, 5, 16, 35])
 @pytest.mark.parametrize("inplace", [True, False])
-def test_select_k(n_rows, n_cols, k, inplace):
+@pytest.mark.parametrize(
+    "algo",
+    [
+        SelectMethod.AUTO,
+        SelectMethod.BLOCK,
+        SelectMethod.RADIX,
+        SelectMethod.WARPSORT,
+    ],
+)
+def test_select_k(n_rows, n_cols, k, inplace, algo):
     dataset = np.random.random_sample((n_rows, n_cols)).astype("float32")
     dataset_device = device_ndarray(dataset)
 
@@ -38,6 +47,7 @@ def test_select_k(n_rows, n_cols, k, inplace):
         k=k,
         distances=distances_device,
         indices=indices_device,
+        algo=algo,
     )
 
     distances_device = ret_distances if not inplace else distances_device
@@ -46,7 +56,9 @@ def test_select_k(n_rows, n_cols, k, inplace):
 
     for i in range(dataset.shape[0]):
         expected_indices = argsort[i]
-        gpu_dists = actual_distances[i]
+
+        # radix select doesn't sort outputs - sort here
+        gpu_dists = np.sort(actual_distances[i])
 
         cpu_ordered = dataset[i, expected_indices]
         np.testing.assert_allclose(

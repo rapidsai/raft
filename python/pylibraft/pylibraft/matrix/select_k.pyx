@@ -19,6 +19,9 @@
 # cython: language_level = 3
 
 from cython.operator cimport dereference as deref
+
+from enum import IntEnum
+
 from libc.stdint cimport int64_t
 from libcpp cimport bool
 
@@ -38,13 +41,24 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 from pylibraft.common.mdspan cimport get_dmv_float, get_dmv_int64
-from pylibraft.matrix.cpp.select_k cimport select_k as c_select_k
+from pylibraft.matrix.cpp.select_k cimport (
+    select_k as c_select_k,
+    select_method,
+)
+
+
+class SelectMethod(IntEnum):
+    """ Method for initializing kmeans """
+    AUTO = <int> select_method.AUTO
+    RADIX = <int> select_method.RADIX
+    WARPSORT = <int> select_method.WARPSORT
+    BLOCK = <int> select_method.BLOCK
 
 
 @auto_sync_handle
 @auto_convert_output
 def select_k(dataset, k=None, distances=None, indices=None, select_min=True,
-             handle=None):
+             algo=SelectMethod.AUTO, handle=None):
     """
     Selects the top k items from each row in a matrix
 
@@ -126,7 +140,8 @@ def select_k(dataset, k=None, distances=None, indices=None, select_min=True,
                    in_idx,
                    get_dmv_float(distances_cai, check_shape=True),
                    get_dmv_int64(indices_cai, check_shape=True),
-                   <bool>select_min)
+                   <bool>select_min,
+                   <select_method><int>algo)
     else:
         raise TypeError("dtype %s not supported" % dataset_cai.dtype)
 

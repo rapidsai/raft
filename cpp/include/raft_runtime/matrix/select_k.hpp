@@ -18,15 +18,18 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/matrix/select_k_types.hpp>
 
 #include <optional>
 
 namespace raft::runtime::matrix {
+using raft::matrix::select_method;
+
 void select_k(const device_resources& handle,
               raft::device_matrix_view<const float, int64_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
               raft::device_matrix_view<float, int64_t, row_major> out_val,
               raft::device_matrix_view<int64_t, int64_t, row_major> out_idx,
-              bool select_min);
-
+              bool select_min,
+              select_method algo = select_method::AUTO);
 }  // namespace raft::runtime::matrix

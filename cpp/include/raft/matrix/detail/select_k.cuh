@@ -20,6 +20,8 @@
 #include "select_warpsort.cuh"
 
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/select_k_types.hpp>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
@@ -72,20 +74,39 @@ void select_k(const T* in_val,
               T* out_val,
               IdxT* out_idx,
               bool select_min,
+              select_method algo,
               rmm::cuda_stream_view stream,
               rmm::mr::device_memory_resource* mr = nullptr)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
   // TODO (achirkin): investigate the trade-off for a wider variety of inputs.
-  const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
-  if (k <= select::warpsort::kMaxCapacity && !radix_faster) {
-    select::warpsort::select_k<T, IdxT>(
-      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
-  } else {
-    select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
-      in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, true, stream, mr);
+  if (algo == select_method::AUTO) {
+    const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
+    if (k <= select::warpsort::kMaxCapacity && !radix_faster) {
+      algo = select_method::WARPSORT;
+    } else {
+      algo = select_method::RADIX;
+    }
+  }
+
+  switch (algo) {
+    case select_method::WARPSORT:
+      select::warpsort::select_k<T, IdxT>(
+        in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
+      break;
+    case select_method::RADIX:
+      select::radix::select_k<T, IdxT, (sizeof(T) >= 4 ? 11 : 8), 512>(
+        in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, true, stream, mr);
+      break;
+    case select_method::BLOCK:
+      // block select from selection_faiss
+      neighbors::detail::select_k(
+        in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream);
+      break;
+    case select_method::AUTO:
+      // can't happen because of logic above
+      throw std::invalid_argument("select_method::AUTO isn't valid here");
   }
 }
-
 }  // namespace raft::matrix::detail
