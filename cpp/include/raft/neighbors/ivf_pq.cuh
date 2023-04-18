@@ -234,7 +234,7 @@ auto build(raft::device_resources const& handle,
  * @brief Build a new index containing the data of the original plus new extra vectors.
  *
  * Implementation note:
- *    The new data is clustered according to existing kmeans clusters, then the cluster
+ *    The new data is clustered according to existing kmeans clusters, the cluster
  *    centers are unchanged.
  *
  * Usage example:
