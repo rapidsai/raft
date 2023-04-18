@@ -284,7 +284,7 @@ void extend(raft::device_resources const& handle,
  *   index_params.add_data_on_build = false;      // don't populate index on build
  *   index_params.kmeans_trainset_fraction = 1.0; // use whole dataset for kmeans training
  *   // train the index from a [N, D] dataset
- *   auto index_empty = ivf_flat::build(handle, dataset, index_params, dataset);
+ *   auto index_empty = ivf_flat::build(handle, index_params, dataset);
  *   // fill the index with the data
  *   std::optional<raft::device_vector_view<const IdxT, IdxT>> no_op = std::nullopt;
  *   ivf_flat::extend(handle, dataset, no_opt, &index_empty);
