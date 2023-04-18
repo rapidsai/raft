@@ -331,6 +331,18 @@ void pairwise_distance(raft::resources const& handle,
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE
 
+/*
+ * Hierarchy of instantiations:
+ *
+ * This file defines the extern template instantiations for the public API of
+ * raft::distance. To improve compile times, the extern template instantiation
+ * of the distance kernels is handled in
+ * distance/detail/pairwise_matrix/dispatch-ext.cuh.
+ *
+ * After adding an instance here, make sure to also add the instance to
+ * dispatch-ext.cuh and the corresponding .cu files.
+ */
+
 #define instantiate_raft_distance_distance(DT, DataT, AccT, OutT, FinalLambda, IdxT)       \
   extern template void raft::distance::distance<DT, DataT, AccT, OutT, FinalLambda, IdxT>( \
     raft::resources const& handle,                                                         \

@@ -16,6 +16,15 @@
 
 #include <raft/distance/distance-inl.cuh>
 
+/*
+ * Hierarchy of instantiations:
+ *
+ * This file defines the template instantiations for the public API of
+ * raft::distance. To improve compile times, the compilation of the distance
+ * kernels is handled in distance/detail/pairwise_matrix/dispatch_*.cu.
+ *
+ */
+
 #define instantiate_raft_distance_distance(DT, DataT, AccT, OutT, FinalLambda, IdxT) \
   template void raft::distance::distance<DT, DataT, AccT, OutT, FinalLambda, IdxT>(  \
     raft::resources const& handle,                                                   \

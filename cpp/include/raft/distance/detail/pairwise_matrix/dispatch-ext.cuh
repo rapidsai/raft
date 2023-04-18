@@ -65,6 +65,14 @@ void pairwise_matrix_dispatch(OpT distance_op,
       cudaStream_t stream,                                                             \
       bool is_row_major)
 
+/*
+ * Hierarchy of instantiations:
+ *
+ * This file defines extern template instantiations of the distance kernels. The
+ * instantiation of the public API is handled in raft/distance/distance-ext.cuh.
+ *
+ * After adding an instance here, make sure to also add the instance there.
+ */
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
   raft::distance::detail::ops::canberra_distance_op, float, float, float, raft::identity_op, int);
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
