@@ -48,7 +48,7 @@ class array_interface {
    */
   auto view() noexcept { return static_cast<Base*>(this)->view(); }
   /**
-   * @brief Get a const mdspan
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
@@ -224,7 +224,7 @@ class mdarray
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
-   * @brief Get a const mdspan
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept
   {
