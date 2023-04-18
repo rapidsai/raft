@@ -26,8 +26,8 @@
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
-#include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_helpers.cuh>
+#include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/random/rng.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
