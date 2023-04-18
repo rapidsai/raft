@@ -171,3 +171,24 @@ for op in op_instances:
             f.write(f"\ninstantiate_raft_distance_detail_pairwise_matrix_dispatch({OpT}, {DataT}, {AccT}, {OutT}, {FinOpT}, {IdxT});\n")
             f.write("\n#undef instantiate_raft_distance_detail_pairwise_matrix_dispatch\n")
         print(f"src/distance/detail/pairwise_matrix/{path}")
+
+# Dispatch kernels for with the RBF fin op.
+with open("dispatch_rbf.cu", "w") as f:
+        OpT="raft::distance::detail::ops::l2_unexp_distance_op"
+        archs = [60]
+
+        f.write(header)
+        f.write("#include <raft/distance/detail/kernels/rbf_fin_op.cuh> // rbf_fin_op\n")
+        f.write(arch_headers(archs))
+        f.write(macro)
+
+        for dt in data_type_instances:
+            DataT, AccT, OutT, IdxT = (dt[k] for k in ["DataT", "AccT", "OutT", "IdxT"]);
+            IdxT = "int64_t"    # overwrite IdxT
+
+            FinOpT = f"raft::distance::kernels::detail::rbf_fin_op<{DataT}>"
+            f.write(f"\ninstantiate_raft_distance_detail_pairwise_matrix_dispatch({OpT}, {DataT}, {AccT}, {OutT}, {FinOpT}, {IdxT});\n")
+
+        f.write("\n#undef instantiate_raft_distance_detail_pairwise_matrix_dispatch\n")
+
+print("src/distance/detail/pairwise_matrix/dispatch_rbf.cu")

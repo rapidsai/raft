@@ -290,6 +290,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_rbf.cu
     src/distance/distance.cu
     src/distance/fused_l2_nn.cu
     src/linalg/detail/coalesced_reduction.cu

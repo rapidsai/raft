@@ -15,12 +15,13 @@
  */
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
-#include <raft/core/operators.hpp>           // raft::identity_op
-#include <raft/core/resources.hpp>           // raft::resources
-#include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
-#include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
-#include <rmm/device_uvector.hpp>            // rmm::device_uvector
+#include <raft/core/device_mdspan.hpp>                  // raft::device_matrix_view
+#include <raft/core/operators.hpp>                      // raft::identity_op
+#include <raft/core/resources.hpp>                      // raft::resources
+#include <raft/distance/detail/kernels/rbf_fin_op.cuh>  // rbf_fin_op
+#include <raft/distance/distance_types.hpp>             // raft::distance::DistanceType
+#include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
+#include <rmm/device_uvector.hpp>                       // rmm::device_uvector
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE
 
@@ -357,6 +358,21 @@ void pairwise_distance(raft::resources const& handle,
     FinalLambda fin_op,                                                                    \
     bool isRowMajor,                                                                       \
     DataT metric_arg)
+
+// The following two instances are used in test/distance/gram.cu. Note the use
+// of int64_t for the index type.
+instantiate_raft_distance_distance(raft::distance::DistanceType::L2Unexpanded,
+                                   float,
+                                   float,
+                                   float,
+                                   raft::distance::kernels::detail::rbf_fin_op<float>,
+                                   int64_t);
+instantiate_raft_distance_distance(raft::distance::DistanceType::L2Unexpanded,
+                                   double,
+                                   double,
+                                   double,
+                                   raft::distance::kernels::detail::rbf_fin_op<double>,
+                                   int64_t);
 
 instantiate_raft_distance_distance(
   raft::distance::DistanceType::Canberra, float, float, float, raft::identity_op, int);

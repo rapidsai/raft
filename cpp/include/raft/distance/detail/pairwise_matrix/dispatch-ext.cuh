@@ -18,6 +18,7 @@
 #include <raft/core/operators.hpp>                          // raft::identity_op
 #include <raft/distance/detail/distance_ops/all_ops.cuh>    // ops::*
 #include <raft/distance/detail/distance_ops/cutlass.cuh>    // ops::has_cutlass_op
+#include <raft/distance/detail/kernels/rbf_fin_op.cuh>      // rbf_fin_op
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
 #include <raft/util/raft_explicit.hpp>                      // RAFT_EXPLICIT
 
@@ -73,6 +74,25 @@ void pairwise_matrix_dispatch(OpT distance_op,
  *
  * After adding an instance here, make sure to also add the instance there.
  */
+
+// The following two instances are used in the RBF kernel object. Note the use of int64_t for the
+// index type.
+instantiate_raft_distance_detail_pairwise_matrix_dispatch(
+  raft::distance::detail::ops::l2_unexp_distance_op,
+  float,
+  float,
+  float,
+  raft::distance::kernels::detail::rbf_fin_op<float>,
+  int64_t);
+instantiate_raft_distance_detail_pairwise_matrix_dispatch(
+  raft::distance::detail::ops::l2_unexp_distance_op,
+  double,
+  double,
+  double,
+  raft::distance::kernels::detail::rbf_fin_op<double>,
+  int64_t);
+
+// Rest of instances
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
   raft::distance::detail::ops::canberra_distance_op, float, float, float, raft::identity_op, int);
 instantiate_raft_distance_detail_pairwise_matrix_dispatch(
