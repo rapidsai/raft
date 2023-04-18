@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/kernels/kernel_matrices.cuh>
+#include <raft/distance/detail/kernels/kernel_matrices.cuh>
 #include <raft/distance/specializations.cuh>
 
-template class raft::distance::kernels::PolynomialKernel<float, int>;
+template class raft::distance::kernels::detail::RBFKernel<double>;
