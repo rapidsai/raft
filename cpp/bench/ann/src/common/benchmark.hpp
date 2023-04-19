@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #ifdef NVTX
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #endif
 #include <unistd.h>
 
