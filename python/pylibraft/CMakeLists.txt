@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(pylibraft_version 23.04.00)
+set(pylibraft_version 23.06.00)
 
 include(../../fetch_rapids.cmake)
 
@@ -61,7 +61,8 @@ if(NOT raft_FOUND)
   include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
 
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
+  set(BUILD_PRIMS_BENCH OFF)
+  set(BUILD_ANN_BENCH OFF)
   set(RAFT_COMPILE_LIBRARY ON)
 
   set(_exclude_from_all "")
@@ -85,6 +86,7 @@ rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
+add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
 add_subdirectory(pylibraft/cluster)

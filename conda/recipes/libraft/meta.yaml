@@ -16,7 +16,7 @@ source:
   git_url: ../../..
 
 outputs:
-  - name: libraft-headers
+  - name: libraft-headers-only
     version: {{ version }}
     script: build_libraft_headers.sh
     build:
@@ -29,6 +29,7 @@ outputs:
         - CMAKE_CXX_COMPILER_LAUNCHER
         - CMAKE_GENERATOR
         - PARALLEL_LEVEL
+        - RAPIDS_ARTIFACTS_DIR
         - SCCACHE_BUCKET
         - SCCACHE_IDLE_TIMEOUT
         - SCCACHE_REGION
@@ -49,20 +50,26 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cudatoolkit ={{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
         - librmm ={{ minor_version }}
+        - cudatoolkit {{ cuda_version }}
+    about:
+      home: https://rapids.ai/
+      license: Apache-2.0
+      summary: libraft-headers-only library
+  - name: libraft-headers
+    version: {{ version }}
+    build:
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+        - librmm
+    requirements:
       run:
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
+        - cudatoolkit {{ cuda_version }}
+        - librmm ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcurand {{ libcurand_run_version }}
@@ -71,7 +78,6 @@ outputs:
         - libcusolver-dev {{ libcusolver_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-        - librmm ={{ minor_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -129,7 +135,6 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
-        - {{ pin_subpackage('libraft-headers', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_host_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
@@ -143,10 +148,71 @@ outputs:
         - libcusparse-dev {{ libcusparse_host_version }}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
-        - {{ pin_subpackage('libraft-headers', exact=True) }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
       summary: libraft tests
+  - name: libraft-template
+    version: {{ version }}
+    script: build_libraft_template.sh
+    build:
+      script_env: *script_env
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cxx') }}
+        - cmake {{ cmake_version }}
+        - ninja
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
+      host:
+        - {{ pin_subpackage('libraft', exact=True) }}
+        - libcublas {{ libcublas_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
+      run:
+        - {{ pin_subpackage('libraft', exact=True) }}
+    about:
+      home: https://rapids.ai/
+      license: Apache-2.0
+      summary: libraft template
+  - name: libraft-ann-bench
+    version: {{ version }}
+    script: build_libraft_nn_bench.sh
+    build:
+      script_env: *script_env
+      number: {{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      ignore_run_exports_from:
+        - {{ compiler('cuda') }}
+    requirements:
+      build:
+        - {{ compiler('c') }}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cxx') }}
+        - cmake {{ cmake_version }}
+        - ninja
+        - sysroot_{{ target_platform }} {{ sysroot_version }}
+      host:
+        - {{ pin_subpackage('libraft', exact=True) }}
+        - libcublas {{ libcublas_host_version }}
+        - libcublas-dev {{ libcublas_host_version }}
+        - glog {{ glog_version }}
+        - nlohmann_json {{ nlohmann_json_version }}
+        - libfaiss>=1.7.1
+        - faiss-proc=*=cuda
+      run:
+        - {{ pin_subpackage('libraft', exact=True) }}
+        - glog {{ glog_version }}
+        - faiss-proc=*=cuda
+        - libfaiss {{ faiss_version }}
+        - h5py {{ h5py_version }}
+    about:
+      home: https://rapids.ai/
+      license: Apache-2.0
+      summary: libraft ann bench

@@ -122,9 +122,8 @@ inline void knn_merge_parts(
  *
  *  raft::raft::device_resources handle;
  *  ...
- *  int k = 10;
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
- *  brute_force::knn(handle, index, search, indices, distances, k, metric);
+ *  brute_force::knn(handle, index, search, indices, distances, metric);
  * @endcode
  *
  * @param[in] handle: the cuml handle to use
@@ -132,28 +131,31 @@ inline void knn_merge_parts(
  * @param[in] search: matrix (size n*d) to be used for searching the index
  * @param[out] indices: matrix (size n*k) to store output knn indices
  * @param[out] distances: matrix (size n*k) to store the output knn distance
- * @param[in] k: the number of nearest neighbors to return
  * @param[in] metric: distance metric to use. Euclidean (L2) is used by default
  * @param[in] metric_arg: the value of `p` for Minkowski (l-p) distances. This
  * 					 is ignored if the metric_type is not Minkowski.
  * @param[in] global_id_offset: optional starting global id mapping for the local partition
  *                              (assumes the index contains contiguous ids in the global id space)
+ * @param[in] distance_epilogue: optional epilogue function to run after computing distances. This
+                                 function takes a triple of the (value, rowid, colid) for each
+                                 element in the pairwise distances and returns a transformed value
+                                 back.
  */
 template <typename idx_t,
           typename value_t,
-          typename value_int,
           typename matrix_idx,
           typename index_layout,
-          typename search_layout>
+          typename search_layout,
+          typename epilogue_op = raft::identity_op>
 void knn(raft::device_resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
          raft::device_matrix_view<value_t, matrix_idx, row_major> distances,
-         value_int k,
          distance::DistanceType metric         = distance::DistanceType::L2Unexpanded,
          std::optional<float> metric_arg       = std::make_optional<float>(2.0f),
-         std::optional<idx_t> global_id_offset = std::nullopt)
+         std::optional<idx_t> global_id_offset = std::nullopt,
+         epilogue_op distance_epilogue         = raft::identity_op())
 {
   RAFT_EXPECTS(index[0].extent(1) == search.extent(1),
                "Number of dimensions for both index and search matrices must be equal");
@@ -161,15 +163,14 @@ void knn(raft::device_resources const& handle,
   RAFT_EXPECTS(indices.extent(0) == distances.extent(0) && distances.extent(0) == search.extent(0),
                "Number of rows in output indices and distances matrices must equal number of rows "
                "in search matrix.");
-  RAFT_EXPECTS(
-    indices.extent(1) == distances.extent(1) && distances.extent(1) == static_cast<matrix_idx>(k),
-    "Number of columns in output indices and distances matrices must be equal to k");
+  RAFT_EXPECTS(indices.extent(1) == distances.extent(1) && distances.extent(1),
+               "Number of columns in output indices and distances matrices must the same");
 
   bool rowMajorIndex = std::is_same_v<index_layout, layout_c_contiguous>;
   bool rowMajorQuery = std::is_same_v<search_layout, layout_c_contiguous>;
 
   std::vector<value_t*> inputs;
-  std::vector<value_int> sizes;
+  std::vector<matrix_idx> sizes;
   for (std::size_t i = 0; i < index.size(); ++i) {
     inputs.push_back(const_cast<value_t*>(index[i].data_handle()));
     sizes.push_back(index[i].extent(0));
@@ -183,18 +184,19 @@ void knn(raft::device_resources const& handle,
   raft::neighbors::detail::brute_force_knn_impl(handle,
                                                 inputs,
                                                 sizes,
-                                                static_cast<value_int>(index[0].extent(1)),
+                                                index[0].extent(1),
                                                 // TODO: This is unfortunate. Need to fix.
                                                 const_cast<value_t*>(search.data_handle()),
-                                                static_cast<value_int>(search.extent(0)),
+                                                search.extent(0),
                                                 indices.data_handle(),
                                                 distances.data_handle(),
-                                                k,
+                                                indices.extent(1),
                                                 rowMajorIndex,
                                                 rowMajorQuery,
                                                 trans_arg,
                                                 metric,
-                                                metric_arg.value_or(2.0f));
+                                                metric_arg.value_or(2.0f),
+                                                distance_epilogue);
 }
 
 /**

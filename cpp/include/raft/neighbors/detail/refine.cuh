@@ -117,6 +117,14 @@ void refine_device(raft::device_resources const& handle,
                                                            n_queries,
                                                            n_candidates);
 
+  // greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
+  // function is used in both raft::neighbors::ivf_flat::search and
+  // raft::neighbors::detail::refine_device. To prevent a duplicate
+  // instantiation of this function (which defines ~270 kernels) in the refine
+  // specializations, an extern template definition is provided. Please check
+  // and adjust the extern template definition and the instantiation when the
+  // below function call is edited. Search for
+  // `greppable-id-specializations-ivf-flat-search` to find them.
   uint32_t grid_dim_x = 1;
   raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<
     data_t,

@@ -185,7 +185,6 @@ void k_closest_landmarks(raft::device_resources const& handle,
     make_device_matrix_view(query_pts, n_query_pts, inputs[0].extent(1)),
     make_device_matrix_view(R_knn_inds, n_query_pts, k),
     make_device_matrix_view(R_knn_dists, n_query_pts, k),
-    k,
     index.get_metric());
 }
 

@@ -38,15 +38,8 @@ namespace raft::runtime::neighbors::brute_force {
   {                                                                                      \
     std::vector<raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, INDEX_LAYOUT>> vec; \
     vec.push_back(index);                                                                \
-    raft::neighbors::brute_force::knn(handle,                                            \
-                                      vec,                                               \
-                                      search,                                            \
-                                      indices,                                           \
-                                      distances,                                         \
-                                      static_cast<int>(distances.extent(1)),             \
-                                      metric,                                            \
-                                      metric_arg,                                        \
-                                      global_id_offset);                                 \
+    raft::neighbors::brute_force::knn(                                                   \
+      handle, vec, search, indices, distances, metric, metric_arg, global_id_offset);    \
   }
 
 RAFT_INST_BFKNN(int64_t, float, int64_t, raft::row_major, raft::row_major);
