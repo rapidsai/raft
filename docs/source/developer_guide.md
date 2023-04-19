@@ -262,9 +262,31 @@ Sometimes, we need to temporarily change the log pattern (eg: for reporting deci
 
 ## Header organization of expensive function templates
 
-RAFT is a heavily templated library. Several core functions are expensive to compile and we want to prevent duplicate compilation of this functionality. To limit build time, RAFT provides a precompiled library (libraft.so) where expensive function templates are instantiated for the most commonly used template parameters. To prevent (1) accidental instantiation of these templates and (2) unnecessary dependency on the internals of these templates, we use the following header structure.
+RAFT is a heavily templated library. Several core functions are expensive to compile and we want to prevent duplicate compilation of this functionality. To limit build time, RAFT provides a precompiled library (libraft.so) where expensive function templates are instantiated for the most commonly used template parameters. To prevent (1) accidental instantiation of these templates and (2) unnecessary dependency on the internals of these templates, we use a split header structure and define macros to control template instantiation. This section describes the macros and header structure.
 
-Any header file that defines an expensive function template (say `expensive.cuh`) should be split in three parts: `expensive.cuh`, `expensive-inl.cuh`, and `expensive-ext.cuh`. The file `expensive-inl.cuh` ("inl" for "inline") contains the template definitions, i.e., the actual code. The file `expensive.cuh` includes one or both of the other two files, depending on the values of the `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` macros. The file `expensive-ext.cuh` contains `extern template` instantiations. In addition, if `RAFT_EXPLICIT_INSTANTIATE_ONLY` is set, it contains template definitions to ensure that a compiler error is raised in case of accidental instantiation.
+**Macros.** We define the macros `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY`. The `RAFT_COMPILED` macro is defined by `CMake` when compiling code that (1) is part of `libraft.so` or (2) is linked with `libraft.so`. It indicates that a precompiled `libraft.so` is present at runtime.
+
+The `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro is defined by `CMake` during compilation of `libraft.so` itself. When defined, it indicates that implicit instantiations of expensive function templates are forbidden (they result in a compiler error). In the RAFT project, we additionally define this macro during compilation of the tests and benchmarks. 
+
+Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` are used in practice and what the effect of the combination is. 
+
+| RAFT_COMPILED | RAFT_EXPLICIT_INSTANTIATE_ONLY | Which targets                                                                                        |
+|---------------|--------------------------------|------------------------------------------------------------------------------------------------------|
+| defined       | defined                        | `raft::compiled`, RAFT tests, RAFT benchmarks                                                        |
+| defined       |                                | Downstream libraries depending of `libraft` like cuML, cuGraph.                                      |
+|               |                                | Downstream libraries depending on `libraft-headers` like cugraph-ops.                                |
+
+
+| RAFT_COMPILED | RAFT_EXPLICIT_INSTANTIATE_ONLY | Effect                                                                                                |
+|---------------|--------------------------------|-------------------------------------------------------------------------------------------------------|
+| defined       | defined                        | Templates are precompiled. Compiler error on accidental instantiation of expensive function template. |
+| defined       |                                | Templates are precompiled. Implicit instantiation allowed.                                            |
+|               |                                | Nothing precompiled. Implicit instantiation allowed.                                                  |
+|               | defined                        | Avoid this: nothing precompiled. Compiler error on any instantiation of expensive function template.  |
+
+
+
+**Header organization.** Any header file that defines an expensive function template (say `expensive.cuh`) should be split in three parts: `expensive.cuh`, `expensive-inl.cuh`, and `expensive-ext.cuh`. The file `expensive-inl.cuh` ("inl" for "inline") contains the template definitions, i.e., the actual code. The file `expensive.cuh` includes one or both of the other two files, depending on the values of the `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` macros. The file `expensive-ext.cuh` contains `extern template` instantiations. In addition, if `RAFT_EXPLICIT_INSTANTIATE_ONLY` is set, it contains template definitions to ensure that a compiler error is raised in case of accidental instantiation.
 
 The dispatching by `expensive.cuh` is performed as follows:
 ``` c++
