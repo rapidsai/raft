@@ -72,12 +72,6 @@ class coordinate_structure_view
   }
 
   /**
-   * Create a view from this view. Note that this is for interface compatibility
-   * @return
-   */
-  view_type view() { return view_type(rows_, cols_, this->get_n_rows(), this->get_n_cols()); }
-
-  /**
    * Return span containing underlying rows array
    * @return span containing underlying rows array
    */
@@ -261,11 +255,6 @@ class coo_matrix
   coo_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
-  /**
-   * Return a view of the structure underlying this matrix
-   * @return
-   */
-  structure_view_type structure_view() { return this->structure_.get()->view(); }
 
   /**
    * Initialize the sparsity on this instance if it was not known upon construction
@@ -278,6 +267,19 @@ class coo_matrix
   {
     sparse_matrix_type::initialize_sparsity(nnz);
     this->structure_.get()->initialize_sparsity(nnz);
+  }
+
+  /**
+   * Return a view of the structure underlying this matrix
+   * @return
+   */
+  structure_view_type structure_view()
+  {
+    if constexpr (get_sparsity_type() == SparsityType::OWNING) {
+      return this->structure_.get()->view();
+    } else {
+      return *(this->structure_.get());
+    }
   }
 };
 }  // namespace raft

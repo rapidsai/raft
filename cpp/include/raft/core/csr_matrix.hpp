@@ -87,12 +87,6 @@ class compressed_structure_view
    */
   span<indices_type, is_device> get_indices() override { return indices_; }
 
-  /**
-   * Create a view from this view. Note that this is for interface compatibility
-   * @return
-   */
-  view_type view() { return view_type(indptr_, indices_, this->get_n_cols()); }
-
  protected:
   raft::span<indptr_type, is_device> indptr_;
   raft::span<indices_type, is_device> indices_;
@@ -291,6 +285,13 @@ class csr_matrix
    * Return a view of the structure underlying this matrix
    * @return
    */
-  structure_view_type structure_view() { return this->structure_.get()->view(); }
+  structure_view_type structure_view()
+  {
+    if constexpr (get_sparsity_type() == SparsityType::OWNING) {
+      return this->structure_.get()->view();
+    } else {
+      return *(this->structure_.get());
+    }
+  }
 };
 }  // namespace raft

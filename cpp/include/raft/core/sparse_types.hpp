@@ -109,7 +109,7 @@ class sparse_matrix_view {
    * Return a view of the structure underlying this matrix
    * @return
    */
-  structure_view_type get_structure() { return structure_view_; }
+  structure_view_type structure_view() { return structure_view_; }
 
   /**
    * Return a span of the nonzero elements of the matrix

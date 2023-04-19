@@ -338,7 +338,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_device_coo_structure_view(
+auto make_device_coordinate_structure_view(
   RowType* rows, ColType* cols, RowType n_rows, ColType n_cols, NZType nnz)
 {
   return device_coordinate_structure_view<RowType, ColType, NZType>(
@@ -376,10 +376,10 @@ auto make_device_coo_structure_view(
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_device_coo_structure_view(raft::device_span<RowType> rows,
-                                    raft::device_span<ColType> cols,
-                                    RowType n_rows,
-                                    ColType n_cols)
+auto make_device_coordinate_structure_view(raft::device_span<RowType> rows,
+                                           raft::device_span<ColType> cols,
+                                           RowType n_rows,
+                                           ColType n_cols)
 {
   return device_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }

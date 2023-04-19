@@ -365,7 +365,7 @@ auto make_device_compressed_structure(raft::device_resources const& handle,
  * @return a sparsity-preserving compressed structural view
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_device_csr_structure_view(
+auto make_device_compressed_structure_view(
   IndptrType* indptr, IndicesType* indices, IndptrType n_rows, IndicesType n_cols, NZType nnz)
 {
   return device_compressed_structure_view<IndptrType, IndicesType, NZType>(
@@ -408,9 +408,9 @@ auto make_device_csr_structure_view(
  *
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_device_csr_structure_view(raft::device_span<IndptrType> indptr,
-                                    raft::device_span<IndicesType> indices,
-                                    IndicesType n_cols)
+auto make_device_compressed_structure_view(raft::device_span<IndptrType> indptr,
+                                           raft::device_span<IndicesType> indices,
+                                           IndicesType n_cols)
 {
   return device_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
