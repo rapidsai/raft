@@ -139,7 +139,7 @@ class SparseDistanceTest
   rmm::device_uvector<value_t> out_dists, out_dists_ref;
 
   SparseDistanceInputs<value_idx, value_t> params;
-  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
+  raft::sparse::distance::detail::distances_config_t<value_idx, value_t> dist_config;
 };
 
 const std::vector<SparseDistanceInputs<int, float>> inputs_i32_f = {

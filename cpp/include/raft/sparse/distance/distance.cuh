@@ -133,9 +133,41 @@ void pairwiseDistance(value_t* out,
 }
 
 template <typename DeviceCSRMatrix,
+          typename ElementType,
+          typename IndexType,
           typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
-void pairwise_distance(raft::resources const& handle, )
+void pairwise_distance(
+  raft::device_resources const& handle,
+  DeviceCSRMatrix x,
+  DeviceCSRMatrix y,
+  raft::device_matrix_view<const ElementType, IndexType, raft::layout_c_contiguous> dist,
+  raft::distance::DistanceType metric,
+  float metric_arg = 2.0f)
 {
+  RAFT_EXPECTS(x.get_n_cols() == y.get_n_cols(), "Number of columns must be equal");
+  RAFT_EXPECTS(dist.extent(0) == x.get_n_rows(),
+               "Number of rows in output must be equal to "
+               "number of rows in X");
+  RAFT_EXPECTS(dist.extent(1) == y.get_n_rows(),
+               "Number of columns in output must be equal to "
+               "number of rows in Y");
+
+  detail::distances_config_t input_config(handle);
+  input_config.a_nrows   = x.get_n_rows();
+  input_config.a_ncols   = x.get_n_cols();
+  input_config.a_nnz     = x.get_nnz();
+  input_config.a_indptr  = x.get_indptr().data();
+  input_config.a_indices = x.get_indices().data();
+  input_config.a_data    = x.get_elements().data();
+
+  input_config.b_nrows   = y.get_n_rows();
+  input_config.b_ncols   = y.get_n_cols();
+  input_config.b_nnz     = y.get_nnz();
+  input_config.b_indptr  = y.get_indptr().data();
+  input_config.b_indices = y.get_indices().data();
+  input_config.b_data    = y.get_elements().data();
+
+  pairwiseDistance(dist.data_handle(), input_config, metric, metric_arg);
 }
 
 };  // namespace distance
