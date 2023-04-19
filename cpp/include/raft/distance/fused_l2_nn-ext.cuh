@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <cstdint>                      // int64_t
-#include <raft/core/kvp.hpp>            // raft::KeyValuePair
-#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+#include <cstdint>                         // int64_t
+#include <raft/core/device_resources.hpp>  // raft::device_resources
+#include <raft/core/kvp.hpp>               // raft::KeyValuePair
+#include <raft/util/raft_explicit.hpp>     // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

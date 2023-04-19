@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/host_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
-#include <raft/neighbors/detail/refine.cuh>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
-#include <raft/util/raft_explicit.hpp>
+#include <cstdint>  // int64_t
+
+#include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
+#include <raft/core/device_resources.hpp>    // raft::device_resources
+#include <raft/core/host_mdspan.hpp>         // // raft::host_matrix_view
+#include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
+#include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
@@ -35,7 +35,8 @@ void refine(raft::device_resources const& handle,
             raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
             raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
             raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
-            distance::DistanceType metric = distance::DistanceType::L2Unexpanded) RAFT_EXPLICIT;
+            raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+  RAFT_EXPLICIT;
 
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
 void refine(raft::device_resources const& handle,
@@ -44,7 +45,8 @@ void refine(raft::device_resources const& handle,
             raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
             raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
             raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
-            distance::DistanceType metric = distance::DistanceType::L2Unexpanded) RAFT_EXPLICIT;
+            raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+  RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors
 

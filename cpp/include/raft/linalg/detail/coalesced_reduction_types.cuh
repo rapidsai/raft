@@ -15,6 +15,7 @@
  */
 #pragma once
 
+// TODO: consider putting this back in coalesced reduction
 namespace raft::linalg::detail {
 
 template <int warpSize, int rpb>

@@ -64,22 +64,6 @@ template <typename OutT, typename LutT>
 using compute_similarity_kernel_t =
   decltype(&compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
 
-// TODO: consider remove
-template <typename OutT, typename LutT>
-struct occupancy_t {
-  using shmem_unit = Pow2<128>;
-
-  int blocks_per_sm = 0;
-  double occupancy  = 0.0;
-  double shmem_use  = 1.0;
-
-  inline occupancy_t() = default;
-  inline occupancy_t(size_t smem,
-                     uint32_t n_threads,
-                     compute_similarity_kernel_t<OutT, LutT> kernel,
-                     const cudaDeviceProp& dev_props) RAFT_EXPLICIT;
-};
-
 template <typename OutT, typename LutT>
 struct selected {
   compute_similarity_kernel_t<OutT, LutT> kernel;

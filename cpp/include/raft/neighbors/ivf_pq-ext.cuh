@@ -17,13 +17,12 @@
 #pragma once
 
 #include <cstdint>  // int64_t
-#include <raft/neighbors/ivf_pq_types.hpp>
 
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <raft/core/device_mdspan.hpp>            // raft::device_matrix_view
+#include <raft/core/device_resources.hpp>         // raft::device_resources
+#include <raft/neighbors/ivf_pq_types.hpp>        // raft::neighbors::ivf_pq::index
+#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
+#include <rmm/mr/device/per_device_resource.hpp>  // rmm::mr::device_memory_resource
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 

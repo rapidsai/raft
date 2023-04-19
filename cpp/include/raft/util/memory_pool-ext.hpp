@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <cstddef>
+#include <cstddef>                                   // size_t
 #include <memory>                                    // std::unique_ptr
 #include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
 

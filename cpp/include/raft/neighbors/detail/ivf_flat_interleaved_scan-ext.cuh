@@ -16,17 +16,14 @@
 
 #pragma once
 
-#include <cstdint>                                // uintX_t
-#include <raft/neighbors/ivf_flat_types.hpp>      // index
-#include <raft/spatial/knn/detail/ann_utils.cuh>  // TODO: consider remove
-#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
-#include <rmm/cuda_stream_view.hpp>               // rmm:cuda_stream_view
+#include <cstdint>                            // uintX_t
+#include <raft/neighbors/ivf_flat_types.hpp>  // raft::neighbors::ivf_flat::index
+#include <raft/util/raft_explicit.hpp>        // RAFT_EXPLICIT
+#include <rmm/cuda_stream_view.hpp>           // rmm:cuda_stream_view
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
-
-using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <typename T, typename AccT, typename IdxT>
 void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& index,

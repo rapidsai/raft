@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../../ball_cover_types.hpp"
+#include "../../ball_cover_types.hpp"   // BallCoverIndex
 #include "registers_types.cuh"          // DistFunc
 #include <cstdint>                      // uint32_t
 #include <raft/util/raft_explicit.hpp>  //RAFT_EXPLICIT

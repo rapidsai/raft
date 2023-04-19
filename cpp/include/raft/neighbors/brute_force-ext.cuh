@@ -16,12 +16,11 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/operators.hpp>  // raft::identity_op
-#include <raft/distance/distance_types.hpp>
-#include <raft/neighbors/detail/knn_brute_force.cuh>
-#include <raft/spatial/knn/detail/fused_l2_knn.cuh>
-#include <raft/util/raft_explicit.hpp>
+#include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
+#include <raft/core/device_resources.hpp>    // raft::device_resources
+#include <raft/core/operators.hpp>           // raft::identity_op
+#include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
+#include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
