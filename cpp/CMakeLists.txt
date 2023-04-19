@@ -327,7 +327,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/matrix/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu
@@ -434,6 +433,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
     src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
+    src/raft_runtime/matrix/select_k_float_int64_t.cu
     src/random/rmat_rectangular_generator_int_double.cu
     src/random/rmat_rectangular_generator_int64_double.cu
     src/random/rmat_rectangular_generator_int_float.cu
