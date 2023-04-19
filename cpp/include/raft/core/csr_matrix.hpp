@@ -215,6 +215,10 @@ class csr_matrix_view
                               compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
                               is_device> {
  public:
+  using element_type = ElementType;
+  using indptr_type  = IndptrType;
+  using indices_type = IndicesType;
+  using nnz_type     = NZType;
   csr_matrix_view(
     raft::span<ElementType, is_device> element_span,
     compressed_structure_view<IndptrType, IndicesType, NZType, is_device> structure_view)
@@ -243,6 +247,9 @@ class csr_matrix
                          ContainerPolicy> {
  public:
   using element_type        = ElementType;
+  using indptr_type         = IndptrType;
+  using indices_type        = IndicesType;
+  using nnz_type            = NZType;
   using structure_view_type = typename structure_type::view_type;
   static constexpr auto get_sparsity_type() { return sparsity_type; }
   using sparse_matrix_type =

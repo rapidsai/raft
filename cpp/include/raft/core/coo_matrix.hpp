@@ -203,6 +203,10 @@ class coo_matrix_view
                               coordinate_structure_view<RowType, ColType, NZType, is_device>,
                               is_device> {
  public:
+  using element_type = ElementType;
+  using row_type     = RowType;
+  using col_type     = ColType;
+  using nnz_type     = NZType;
   coo_matrix_view(raft::span<ElementType, is_device> element_span,
                   coordinate_structure_view<RowType, ColType, NZType, is_device> structure_view)
     : sparse_matrix_view<ElementType,
@@ -232,6 +236,9 @@ class coo_matrix
                          ContainerPolicy> {
  public:
   using element_type        = ElementType;
+  using row_type            = RowType;
+  using col_type            = ColType;
+  using nnz_type            = NZType;
   using structure_view_type = typename structure_type::view_type;
   using container_type      = typename ContainerPolicy<ElementType>::container_type;
   using sparse_matrix_type =
