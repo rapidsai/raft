@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include "common.hpp"
 #include <raft/core/operators.cuh>
 #include <raft/core/operators.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/coo_spmv.cuh>
 #include <raft/sparse/linalg/transpose.cuh>
 #include <rmm/device_uvector.hpp>

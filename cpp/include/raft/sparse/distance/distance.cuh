@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@
 
 #pragma once
 
-#include <raft/sparse/distance/common.h>
+#include "detail/common.hpp"
 #include <unordered_set>
+
+#include <raft/core/device_csr_matrix.hpp>
 
 #include <raft/distance/distance_types.hpp>
 
@@ -66,7 +68,7 @@ static const std::unordered_set<raft::distance::DistanceType> supportedDistance{
  */
 template <typename value_idx = int, typename value_t = float>
 void pairwiseDistance(value_t* out,
-                      distances_config_t<value_idx, value_t> input_config,
+                      detail::distances_config_t<value_idx, value_t> input_config,
                       raft::distance::DistanceType metric,
                       float metric_arg)
 {
@@ -128,6 +130,12 @@ void pairwiseDistance(value_t* out,
 
     default: THROW("Unsupported distance: %d", metric);
   }
+}
+
+template <typename DeviceCSRMatrix,
+          typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
+void pairwise_distance(raft::resources const& handle, )
+{
 }
 
 };  // namespace distance

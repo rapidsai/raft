@@ -21,6 +21,7 @@
 namespace raft {
 namespace sparse {
 namespace distance {
+namespace detail {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
@@ -52,6 +53,7 @@ class distances_t {
   virtual ~distances_t() = default;
 };
 
+};  // namespace detail
 };  // namespace distance
-}  // namespace sparse
+};  // namespace sparse
 };  // namespace raft

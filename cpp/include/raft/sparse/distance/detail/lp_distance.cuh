@@ -28,8 +28,8 @@
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/utils.h>
 
+#include "common.hpp"
 #include <raft/sparse/convert/coo.cuh>
-#include <raft/sparse/distance/common.h>
 
 #include <nvfunctional>
 
