@@ -84,7 +84,7 @@ class resource_factory {
    */
   virtual resource* make_resource() = 0;
 
-  virtual ~resource_factory();
+  virtual ~resource_factory() {}
 };
 
 /**
