@@ -16,23 +16,15 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
-#include <raft/core/kvp.hpp>
+#include <cstdint>                      // int64_t
+#include <raft/core/kvp.hpp>            // raft::KeyValuePair
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft {
 namespace distance {
-/**
- * \defgroup fused_l2_nn Fused 1-nearest neighbors
- * @{
- * @}
- */
 
-/**
- * Initialize array using init value from reduction op
- */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
 void initialize(raft::device_resources const& handle,
                 OutT* min,
@@ -40,41 +32,6 @@ void initialize(raft::device_resources const& handle,
                 DataT maxVal,
                 ReduceOpT redOp) RAFT_EXPLICIT;
 
-/**
- * \ingroup fused_l2_nn
- * @{
- */
-
-/**
- * @brief Wrapper around fusedL2NN with minimum reduction operators.
- *
- * fusedL2NN cannot be compiled in the distance library due to the lambda
- * operators, so this wrapper covers the most common case (minimum).
- * This should be preferred to the more generic API when possible, in order to
- * reduce compilation times for users of the shared library.
- *
- * @tparam DataT     data type
- * @tparam OutT      output type to either store 1-NN indices and their minimum
- *                   distances (e.g. raft::KeyValuePair<int, float>) or store only the min
- * distances.
- * @tparam IdxT      indexing arithmetic type
- * @param[out] min           will contain the reduced output (Length = `m`)
- *                           (on device)
- * @param[in]  x             first matrix. Row major. Dim = `m x k`.
- *                           (on device).
- * @param[in]  y             second matrix. Row major. Dim = `n x k`.
- *                           (on device).
- * @param[in]  xn            L2 squared norm of `x`. Length = `m`. (on device).
- * @param[in]  yn            L2 squared norm of `y`. Length = `n`. (on device)
- * @param[in]  m             gemm m
- * @param[in]  n             gemm n
- * @param[in]  k             gemm k
- * @param[in]  workspace     temp workspace. Size = sizeof(int)*m. (on device)
- * @param[in]  sqrt          Whether the output `minDist` should contain L2-sqrt
- * @param[in]  initOutBuffer whether to initialize the output buffer before the
- *                           main kernel launch
- * @param[in]  stream        cuda stream
- */
 template <typename DataT, typename OutT, typename IdxT>
 void fusedL2NNMinReduce(OutT* min,
                         const DataT* x,
@@ -88,8 +45,6 @@ void fusedL2NNMinReduce(OutT* min,
                         bool sqrt,
                         bool initOutBuffer,
                         cudaStream_t stream) RAFT_EXPLICIT;
-
-/** @} */
 
 }  // namespace distance
 }  // namespace raft

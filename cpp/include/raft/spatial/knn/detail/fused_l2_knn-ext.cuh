@@ -22,22 +22,7 @@
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
 namespace raft::spatial::knn::detail {
-/**
- * Compute the k-nearest neighbors using L2 expanded/unexpanded distance.
 
- * @tparam value_idx
- * @tparam value_t
- * @param[out] out_inds output indices array on device (size n_query_rows * k)
- * @param[out] out_dists output dists array on device (size n_query_rows * k)
- * @param[in] index input index array on device (size n_index_rows * D)
- * @param[in] query input query array on device (size n_query_rows * D)
- * @param[in] n_index_rows number of rows in index array
- * @param[in] n_query_rows number of rows in query array
- * @param[in] k number of closest neighbors to return
- * @param[in] rowMajorIndex are the index arrays in row-major layout?
- * @param[in] rowMajorQuery are the query array in row-major layout?
- * @param[in] stream stream to order kernel launch
- */
 template <typename value_idx, typename value_t, bool usePrevTopKs = false>
 void fusedL2Knn(size_t D,
                 value_idx* out_inds,

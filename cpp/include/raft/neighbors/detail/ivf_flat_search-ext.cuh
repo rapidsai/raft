@@ -26,7 +26,6 @@
 
 namespace raft::neighbors::ivf_flat::detail {
 
-/** See raft::neighbors::ivf_flat::search docs */
 template <typename T, typename IdxT>
 void search(raft::device_resources const& handle,
             const search_params& params,

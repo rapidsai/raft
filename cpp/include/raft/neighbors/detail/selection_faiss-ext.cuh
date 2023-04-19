@@ -23,20 +23,7 @@
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
 namespace raft::neighbors::detail {
-/**
- * @brief Select the k-nearest neighbors from dense
- * distance and index matrices.
- *
- * @param[in] inK partitioned knn distance matrix
- * @param[in] inV partitioned knn index matrix
- * @param[in] n_rows number of rows in distance and index matrices
- * @param[in] n_cols number of columns in distance and index matrices
- * @param[out] outK merged knn distance matrix
- * @param[out] outV merged knn index matrix
- * @param[in] select_min whether to select the min or the max distances
- * @param[in] k number of neighbors per partition (also number of merged neighbors)
- * @param[in] stream CUDA stream to use
- */
+
 template <typename payload_t = int, typename key_t = float>
 void select_k(const key_t* inK,
               const payload_t* inV,

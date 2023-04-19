@@ -64,6 +64,7 @@ template <typename OutT, typename LutT>
 using compute_similarity_kernel_t =
   decltype(&compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
 
+// TODO: consider remove
 template <typename OutT, typename LutT>
 struct occupancy_t {
   using shmem_unit = Pow2<128>;

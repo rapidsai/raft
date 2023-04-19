@@ -26,43 +26,6 @@
 
 namespace raft::matrix::detail {
 
-/**
- * Select k smallest or largest key/values from each row in the input data.
- *
- * If you think of the input data `in_val` as a row-major matrix with `len` columns and
- * `batch_size` rows, then this function selects `k` smallest/largest values in each row and fills
- * in the row-major matrix `out_val` of size (batch_size, k).
- *
- * @tparam T
- *   the type of the keys (what is being compared).
- * @tparam IdxT
- *   the index type (what is being selected together with the keys).
- *
- * @param[in] in_val
- *   contiguous device array of inputs of size (len * batch_size);
- *   these are compared and selected.
- * @param[in] in_idx
- *   contiguous device array of inputs of size (len * batch_size);
- *   typically, these are indices of the corresponding in_val.
- * @param batch_size
- *   number of input rows, i.e. the batch size.
- * @param len
- *   length of a single input array (row); also sometimes referred as n_cols.
- *   Invariant: len >= k.
- * @param k
- *   the number of outputs to select in each input row.
- * @param[out] out_val
- *   contiguous device array of outputs of size (k * batch_size);
- *   the k smallest/largest values from each row of the `in_val`.
- * @param[out] out_idx
- *   contiguous device array of outputs of size (k * batch_size);
- *   the payload selected together with `out_val`.
- * @param select_min
- *   whether to select k smallest (true) or largest (false) keys.
- * @param stream
- * @param mr an optional memory resource to use across the calls (you can provide a large enough
- *           memory pool here to avoid memory allocations within the call).
- */
 template <typename T, typename IdxT>
 void select_k(const T* in_val,
               const IdxT* in_idx,
