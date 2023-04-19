@@ -41,18 +41,7 @@
       std::optional<idx_t> global_id_offset,                                                \
       epilogue_op distance_epilogue);
 
-#define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
-  value_t, idx_t, idx_layout, query_layout)                             \
-  template void raft::neighbors::brute_force::fused_l2_knn(             \
-    raft::device_resources const& handle,                               \
-    raft::device_matrix_view<const value_t, idx_t, idx_layout> index,   \
-    raft::device_matrix_view<const value_t, idx_t, query_layout> query, \
-    raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,         \
-    raft::device_matrix_view<value_t, idx_t, row_major> out_dists,      \
-    raft::distance::DistanceType metric);
-
 instantiate_raft_neighbors_brute_force_knn(
   int64_t, float, int64_t, raft::row_major, raft::row_major, raft::identity_op);
 
 #undef instantiate_raft_neighbors_brute_force_knn
-#undef instantiate_raft_neighbors_brute_force_fused_l2_knn

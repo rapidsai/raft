@@ -27,20 +27,6 @@
 #include <cstdint>
 #include <raft/neighbors/brute_force-inl.cuh>
 
-#define instantiate_raft_neighbors_brute_force_knn(                                         \
-  idx_t, value_t, matrix_idx, index_layout, search_layout, epilogue_op)                     \
-  template void raft::neighbors::brute_force::                                              \
-    knn<idx_t, value_t, matrix_idx, index_layout, search_layout, epilogue_op>(              \
-      raft::device_resources const& handle,                                                 \
-      std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index, \
-      raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,            \
-      raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,                       \
-      raft::device_matrix_view<value_t, matrix_idx, row_major> distances,                   \
-      raft::distance::DistanceType metric,                                                  \
-      std::optional<float> metric_arg,                                                      \
-      std::optional<idx_t> global_id_offset,                                                \
-      epilogue_op distance_epilogue);
-
 #define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
   value_t, idx_t, idx_layout, query_layout)                             \
   template void raft::neighbors::brute_force::fused_l2_knn(             \
@@ -56,5 +42,4 @@ instantiate_raft_neighbors_brute_force_fused_l2_knn(float,
                                                     raft::row_major,
                                                     raft::row_major);
 
-#undef instantiate_raft_neighbors_brute_force_knn
 #undef instantiate_raft_neighbors_brute_force_fused_l2_knn
