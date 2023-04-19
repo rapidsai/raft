@@ -22,7 +22,7 @@
 #include <raft/distance/detail/pairwise_matrix/params.cuh>  // pairwise_matrix_params
 #include <raft/util/raft_explicit.hpp>                      // RAFT_EXPLICIT
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::distance::detail {
 
@@ -47,7 +47,7 @@ void pairwise_matrix_dispatch(OpT distance_op,
 
 };  // namespace raft::distance::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_distance_detail_pairwise_matrix_dispatch(                     \
   OpT, DataT, AccT, OutT, FinOpT, IdxT)                                                \

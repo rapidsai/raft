@@ -20,7 +20,7 @@
 #include <raft/core/kvp.hpp>
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft {
 namespace distance {
@@ -94,7 +94,7 @@ void fusedL2NNMinReduce(OutT* min,
 }  // namespace distance
 }  // namespace raft
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_distance_fusedL2NNMinReduce(DataT, OutT, IdxT)                          \
   extern template void raft::distance::fusedL2NNMinReduce<DataT, OutT, IdxT>(OutT * min,         \

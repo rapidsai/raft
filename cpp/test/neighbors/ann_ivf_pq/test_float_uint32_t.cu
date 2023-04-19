@@ -19,7 +19,7 @@
 //
 // TODO: consider removing this test or consider adding an instantiation to the
 // library.
-#undef RAFT_EXPLICIT_INSTANTIATE
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "../ann_ivf_pq.cuh"
 

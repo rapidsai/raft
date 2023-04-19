@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "distance-inl.cuh"
 #endif
 

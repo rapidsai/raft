@@ -418,7 +418,7 @@ if(RAFT_COMPILE_LIBRARY)
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
   target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
-  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE")
+  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")

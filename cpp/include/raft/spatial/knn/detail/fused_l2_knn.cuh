@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "fused_l2_knn-inl.cuh"
 #endif
 

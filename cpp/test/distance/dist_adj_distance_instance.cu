@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#undef RAFT_EXPLICIT_INSTANTIATE
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "dist_adj_threshold.cuh"
 #include <cstdint>

@@ -22,7 +22,7 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::matrix::detail {
 
@@ -76,7 +76,7 @@ void select_k(const T* in_val,
               rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
 }  // namespace raft::matrix::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_matrix_detail_select_k(T, IdxT)                            \
   extern template void raft::matrix::detail::select_k(const T* in_val,              \

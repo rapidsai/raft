@@ -19,7 +19,7 @@
 #include <raft/distance/distance_types.hpp>  // DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
 
-#if defined(RAFT_EXPLICIT_INSTANTIATE)
+#if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
 namespace raft::spatial::knn::detail {
 /**
@@ -54,7 +54,7 @@ void fusedL2Knn(size_t D,
 
 }  // namespace raft::spatial::knn::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_spatial_knn_detail_fusedL2Knn(Mvalue_idx, Mvalue_t, MusePrevTopKs) \
   extern template void                                                                      \

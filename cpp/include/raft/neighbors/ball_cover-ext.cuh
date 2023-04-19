@@ -25,7 +25,7 @@
 
 #include <thrust/transform.h>
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ball_cover {
 
@@ -282,7 +282,7 @@ void knn_query(raft::device_resources const& handle,
 
 }  // namespace raft::neighbors::ball_cover
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_neighbors_ball_cover(idx_t, value_t, int_t, matrix_idx_t)                 \
   extern template void                                                                             \

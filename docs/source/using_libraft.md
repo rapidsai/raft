@@ -22,12 +22,12 @@ There are three ways to speed up compile times:
 
 ### How do I verify template instantiations didn't compile into my binary?
 
-To verify that you are not accidentally instantiating templates that have not been pre-compiled in RAFT, set the `RAFT_EXPLICIT_INSTANTIATE` macro. This only works if you are linking with the pre-compiled libraft (i.e., when `RAFT_COMPILED` has been defined). To check if, for instance, `raft::distance::distance` has been precompiled with specific template arguments, you can set `RAFT_EXPLICIT_INSTANTIATE` at the top of the file you are compiling, as in the following example:
+To verify that you are not accidentally instantiating templates that have not been pre-compiled in RAFT, set the `RAFT_EXPLICIT_INSTANTIATE_ONLY` macro. This only works if you are linking with the pre-compiled libraft (i.e., when `RAFT_COMPILED` has been defined). To check if, for instance, `raft::distance::distance` has been precompiled with specific template arguments, you can set `RAFT_EXPLICIT_INSTANTIATE_ONLY` at the top of the file you are compiling, as in the following example:
 
 ```c++
 
 #ifdef RAFT_COMPILED
-#define RAFT_EXPLICIT_INSTANTIATE
+#define RAFT_EXPLICIT_INSTANTIATE_ONLY
 #endif
 
 #include <cstdint>

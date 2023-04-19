@@ -16,7 +16,7 @@
 
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "select_k-inl.cuh"
 #endif
 

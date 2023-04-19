@@ -23,7 +23,7 @@
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/util/raft_explicit.hpp>
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::brute_force {
 
@@ -184,7 +184,7 @@ void fused_l2_knn(raft::device_resources const& handle,
 
 }  // namespace raft::neighbors::brute_force
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 // No extern template for raft::neighbors::brute_force::knn_merge_parts
 

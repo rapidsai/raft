@@ -24,7 +24,7 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/raft_explicit.hpp>
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors {
 
@@ -101,7 +101,7 @@ void refine(raft::device_resources const& handle,
 /** @} */  // end group ann_refine
 }  // namespace raft::neighbors
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_neighbors_refine(idx_t, data_t, distance_t, matrix_idx)       \
   extern template void raft::neighbors::refine<idx_t, data_t, distance_t, matrix_idx>( \

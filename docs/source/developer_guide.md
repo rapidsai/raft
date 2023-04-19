@@ -264,11 +264,11 @@ Sometimes, we need to temporarily change the log pattern (eg: for reporting deci
 
 RAFT is a heavily templated library. Several core functions are expensive to compile and we want to prevent duplicate compilation of this functionality. To limit build time, RAFT provides a precompiled library (libraft.so) where expensive function templates are instantiated for the most commonly used template parameters. To prevent (1) accidental instantiation of these templates and (2) unnecessary dependency on the internals of these templates, we use the following header structure.
 
-Any header file that defines an expensive function template (say `expensive.cuh`) should be split in three parts: `expensive.cuh`, `expensive-inl.cuh`, and `expensive-ext.cuh`. The file `expensive-inl.cuh` ("inl" for "inline") contains the template definitions, i.e., the actual code. The file `expensive.cuh` includes one or both of the other two files, depending on the values of the `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE` macros. The file `expensive-ext.cuh` contains `extern template` instantiations. In addition, if `RAFT_EXPLICIT_INSTANTIATE` is set, it contains template definitions to ensure that a compiler error is raised in case of accidental instantiation.
+Any header file that defines an expensive function template (say `expensive.cuh`) should be split in three parts: `expensive.cuh`, `expensive-inl.cuh`, and `expensive-ext.cuh`. The file `expensive-inl.cuh` ("inl" for "inline") contains the template definitions, i.e., the actual code. The file `expensive.cuh` includes one or both of the other two files, depending on the values of the `RAFT_COMPILED` and `RAFT_EXPLICIT_INSTANTIATE_ONLY` macros. The file `expensive-ext.cuh` contains `extern template` instantiations. In addition, if `RAFT_EXPLICIT_INSTANTIATE_ONLY` is set, it contains template definitions to ensure that a compiler error is raised in case of accidental instantiation.
 
 The dispatching by `expensive.cuh` is performed as follows:
 ``` c++
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 // If implicit instantiation is allowed, include template definitions.
 #include "expensive-inl.cuh"
 #endif
@@ -293,12 +293,12 @@ The file `expensive-ext.cuh` contains the following:
 ``` c++
 #include <raft/util/raft_explicit.cuh> // RAFT_EXPLICIT
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 namespace raft {
 // (1) define templates to raise an error in case of accidental instantiation 
 template <typename T> void expensive(T arg) RAFT_EXPLICIT;
 } // namespace raft
-#endif //RAFT_EXPLICIT_INSTANTIATE
+#endif //RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 // (2) Provide extern template instantiations.
 extern template void raft::expensive<int>(int);
@@ -306,7 +306,7 @@ extern template void raft::expensive<float>(float);
 ```
 
 This header has two responsibilities: (1) define templates to raise an error in case of accidental instantiation and (2) provide `extern template` instantiations.
-First, if `RAFT_EXPLICIT_INSTANTIATE` is set, `expensive` is defined. This is done for two reasons: (1) to give a definition, because the definition in `expensive-inl.cuh` was skipped and (2) to indicate that the template should be explicitly instantiated by taging it with the `RAFT_EXPLICIT` macro. This macro defines the function body, and it ensures that an informative error message is generated when an implicit instantiation erroneously occurs. Finally, the `extern template` instantiations are listed.
+First, if `RAFT_EXPLICIT_INSTANTIATE_ONLY` is set, `expensive` is defined. This is done for two reasons: (1) to give a definition, because the definition in `expensive-inl.cuh` was skipped and (2) to indicate that the template should be explicitly instantiated by taging it with the `RAFT_EXPLICIT` macro. This macro defines the function body, and it ensures that an informative error message is generated when an implicit instantiation erroneously occurs. Finally, the `extern template` instantiations are listed.
 
 To actually generate the code for the template instances, the file `src/expensive.cu` contains the following. Note that the only difference between the extern template instantiations in `expensive-ext.cuh` and these lines are the removal of the word `extern`:
 

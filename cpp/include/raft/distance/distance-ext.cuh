@@ -23,7 +23,7 @@
 #include <raft/util/raft_explicit.hpp>                  // RAFT_EXPLICIT
 #include <rmm/device_uvector.hpp>                       // rmm::device_uvector
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft {
 namespace distance {
@@ -330,7 +330,7 @@ void pairwise_distance(raft::resources const& handle,
 };  // namespace distance
 };  // namespace raft
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 /*
  * Hierarchy of instantiations:

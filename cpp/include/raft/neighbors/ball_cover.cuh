@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "ball_cover-inl.cuh"
 #endif
 

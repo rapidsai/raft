@@ -16,7 +16,7 @@
 
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE)
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 #include "selection_faiss-inl.cuh"
 #endif
 

@@ -23,7 +23,7 @@
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_pq::detail {
 
@@ -140,7 +140,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
 
 }  // namespace raft::neighbors::ivf_pq::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT)         \
   extern template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT>( \

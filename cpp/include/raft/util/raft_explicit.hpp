@@ -56,7 +56,7 @@
                                                                                                \
       "Simplest temporary solution:\n\n"                                                       \
                                                                                                \
-      "    Add '#undef RAFT_EXPLICIT_INSTANTIATE' at the top of your .cpp/.cu file.\n\n"       \
+      "    Add '#undef RAFT_EXPLICIT_INSTANTIATE_ONLY' at the top of your .cpp/.cu file.\n\n"  \
                                                                                                \
       "Best solution:\n\n"                                                                     \
                                                                                                \

@@ -20,7 +20,7 @@
 #include <cstdint>                      // uint32_t
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
-#if defined(RAFT_EXPLICIT_INSTANTIATE)
+#if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
 namespace raft::neighbors::detail {
 /**
@@ -49,7 +49,7 @@ void select_k(const key_t* inK,
               cudaStream_t stream) RAFT_EXPLICIT;
 };  // namespace raft::neighbors::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_neighbors_detail_select_k(payload_t, key_t)           \
   extern template void raft::neighbors::detail::select_k(const key_t* inK,     \

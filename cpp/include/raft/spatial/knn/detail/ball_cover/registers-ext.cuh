@@ -21,7 +21,7 @@
 #include <cstdint>                      // uint32_t
 #include <raft/util/raft_explicit.hpp>  //RAFT_EXPLICIT
 
-#if defined(RAFT_EXPLICIT_INSTANTIATE)
+#if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
 namespace raft::spatial::knn::detail {
 
@@ -63,7 +63,7 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
 
 };  // namespace raft::spatial::knn::detail
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(                            \
   Mvalue_idx, Mvalue_t, Mvalue_int, Mdims, Mdist_func)                                       \

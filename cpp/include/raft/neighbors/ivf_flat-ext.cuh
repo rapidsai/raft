@@ -27,7 +27,7 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat {
 
@@ -411,7 +411,7 @@ void search(raft::device_resources const& handle,
 
 }  // namespace raft::neighbors::ivf_flat
 
-#endif  // RAFT_EXPLICIT_INSTANTIATE
+#endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #define instantiate_raft_neighbors_ivf_flat_build(T, IdxT)        \
   extern template auto raft::neighbors::ivf_flat::build<T, IdxT>( \

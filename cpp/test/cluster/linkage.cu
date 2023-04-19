@@ -21,7 +21,7 @@
 //
 // TODO: consider adding this to libraft.so or creating an instance in a
 // separate translation unit for this test.
-#undef RAFT_EXPLICIT_INSTANTIATE
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "../test_utils.cuh"
 
