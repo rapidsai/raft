@@ -269,6 +269,12 @@ if(RAFT_COMPILE_LIBRARY)
     src/cluster/update_centroids_double.cu
     src/cluster/cluster_cost_float.cu
     src/cluster/cluster_cost_double.cu
+    src/matrix/detail/select_k_double_int64_t.cu
+    src/matrix/detail/select_k_double_uint32_t.cu
+    src/matrix/detail/select_k_float_int64_t.cu
+    src/matrix/detail/select_k_float_uint32_t.cu
+    src/matrix/detail/select_k_half_int64_t.cu
+    src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/refine_d_int64_t_float.cu
     src/neighbors/refine_d_int64_t_int8_t.cu
     src/neighbors/refine_d_int64_t_uint8_t.cu
@@ -327,10 +333,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/matrix/specializations/detail/select_k_float_uint32_t.cu
-    src/matrix/specializations/detail/select_k_float_int64_t.cu
-    src/matrix/specializations/detail/select_k_half_uint32_t.cu
-    src/matrix/specializations/detail/select_k_half_int64_t.cu
     src/neighbors/ivfpq_build.cu
     src/neighbors/ivfpq_deserialize.cu
     src/neighbors/ivfpq_serialize.cu

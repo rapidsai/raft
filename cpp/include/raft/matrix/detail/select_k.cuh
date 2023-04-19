@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
 
 #pragma once
 
-#pragma message(                                          \
-  __FILE__                                                \
-  " is deprecated and will be removed."                   \
-  " Including specializations is not necessary any more." \
-  " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")
+#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
+#include "select_k-inl.cuh"
+#endif
+
+#ifdef RAFT_COMPILED
+#include "select_k-ext.cuh"
+#endif
