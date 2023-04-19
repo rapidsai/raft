@@ -19,10 +19,11 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ball_cover.cuh>
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/random/make_blobs.cuh>
-#include <raft/spatial/knn/detail/knn_brute_force_faiss.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_NN_COMPILED
+
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 
@@ -112,24 +113,15 @@ void compute_bfknn(const raft::device_resources& handle,
                    value_t* dists,
                    int64_t* inds)
 {
-  std::vector<value_t*> input_vec = {const_cast<value_t*>(X1)};
-  std::vector<uint32_t> sizes_vec = {n_rows};
+  std::vector<raft::device_matrix_view<const value_t, uint32_t>> input_vec = {
+    make_device_matrix_view(X1, n_rows, d)};
 
-  std::vector<int64_t>* translations = nullptr;
-
-  raft::spatial::knn::detail::brute_force_knn_impl<uint32_t, int64_t>(handle,
-                                                                      input_vec,
-                                                                      sizes_vec,
-                                                                      d,
-                                                                      const_cast<value_t*>(X2),
-                                                                      n_query_rows,
-                                                                      inds,
-                                                                      dists,
-                                                                      k,
-                                                                      true,
-                                                                      true,
-                                                                      translations,
-                                                                      metric);
+  raft::neighbors::brute_force::knn(handle,
+                                    input_vec,
+                                    make_device_matrix_view(X2, n_query_rows, d),
+                                    make_device_matrix_view(inds, n_query_rows, k),
+                                    make_device_matrix_view(dists, n_query_rows, k),
+                                    metric);
 }
 
 struct ToRadians {

@@ -40,7 +40,7 @@ jobs:
       sha: ${{ inputs.sha }}
       package-name: pylibraft
       test-before-amd64: "pip install cupy-cuda11x"
-      test-before-arm64: "pip install cupy-cuda11x -f https://pip.cupy.dev/aarch64"
+      test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
       test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
@@ -51,6 +51,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       package-name: raft_dask
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
-      test-before-arm64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
+      test-before-arm64: "pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.04"
       test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"

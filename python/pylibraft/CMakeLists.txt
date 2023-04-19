@@ -36,11 +36,11 @@ option(RAFT_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 
 # If the user requested it we attempt to find RAFT.
 if(FIND_RAFT_CPP)
-  find_package(raft ${pylibraft_version} REQUIRED COMPONENTS distance)
-  if(NOT TARGET raft::raft_distance_lib)
+  find_package(raft ${pylibraft_version} REQUIRED COMPONENTS compiled)
+  if(NOT TARGET raft::raft_lib)
     message(
       FATAL_ERROR
-        "Building against a preexisting libraft library requires the distance components of that library to have been built!"
+        "Building against a preexisting libraft library requires the compiled libraft to have been built!"
     )
 
   endif()
@@ -61,9 +61,9 @@ if(NOT raft_FOUND)
   include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
 
   set(BUILD_TESTS OFF)
-  set(BUILD_BENCH OFF)
-  set(RAFT_COMPILE_LIBRARIES OFF)
-  set(RAFT_COMPILE_DIST_LIBRARY ON)
+  set(BUILD_PRIMS_BENCH OFF)
+  set(BUILD_ANN_BENCH OFF)
+  set(RAFT_COMPILE_LIBRARY ON)
 
   set(_exclude_from_all "")
   if(RAFT_BUILD_WHEELS)
@@ -75,11 +75,11 @@ if(NOT raft_FOUND)
 
   add_subdirectory(../../cpp raft-cpp ${_exclude_from_all})
 
-  # When building the C++ libraries from source we must copy libraft_distance.so alongside the
+  # When building the C++ libraries from source we must copy libraft.so alongside the
   # pairwise_distance and random Cython libraries TODO: when we have a single 'compiled' raft
   # library, we shouldn't need this
   set(cython_lib_dir pylibraft)
-  install(TARGETS raft_distance_lib DESTINATION ${cython_lib_dir})
+  install(TARGETS raft_lib DESTINATION ${cython_lib_dir})
 endif()
 
 rapids_cython_init()

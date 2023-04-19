@@ -15,6 +15,7 @@
  */
 
 #include <cstdint>
+#include <raft/neighbors/specializations.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
 namespace raft {

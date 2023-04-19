@@ -38,7 +38,7 @@ namespace raft::neighbors::ivf_pq {
  * // create an output stream
  * std::ostream os(std::cout.rdbuf());
  * // create an index with `auto index = ivf_pq::build(...);`
- * raft::serailize(handle, os, index);
+ * raft::serialize(handle, os, index);
  * @endcode
  *
  * @tparam IdxT type of the index
@@ -47,7 +47,6 @@ namespace raft::neighbors::ivf_pq {
  * @param[in] os output stream
  * @param[in] index IVF-PQ index
  *
- * @return raft::neighbors::ivf_pq::index<IdxT>
  */
 template <typename IdxT>
 void serialize(raft::device_resources const& handle, std::ostream& os, const index<IdxT>& index)
@@ -68,7 +67,7 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  * // create a string with a filepath
  * std::string filename("/path/to/index");
  * // create an index with `auto index = ivf_pq::build(...);`
- * raft::serailize(handle, filename, index);
+ * raft::serialize(handle, filename, index);
  * @endcode
  *
  * @tparam IdxT type of the index
@@ -77,7 +76,6 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  * @param[in] filename the file name for saving the index
  * @param[in] index IVF-PQ index
  *
- * @return raft::neighbors::ivf_pq::index<IdxT>
  */
 template <typename IdxT>
 void serialize(raft::device_resources const& handle,

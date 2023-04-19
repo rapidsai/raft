@@ -18,6 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/math.cuh>
 #include <raft/matrix/matrix.cuh>
 
@@ -65,9 +66,7 @@ void fill(raft::device_resources const& handle,
           raft::device_mdspan<math_t, extents, layout> inout,
           math_t scalar)
 {
-  RAFT_EXPECTS(raft::is_row_or_column_major(inout), "Data layout not supported");
-  detail::setValue(
-    inout.data_handle(), inout.data_handle(), scalar, inout.size(), handle.get_stream());
+  linalg::map(handle, inout, raft::const_op{scalar});
 }
 
 template <typename math_t, typename idx_t>
