@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -59,7 +59,10 @@ function(ConfigureTest)
                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  if(ConfigureTest_EXPLICIT_INSTANTIATE_ONLY)
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
+
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
 
   install(
@@ -145,6 +148,43 @@ if(BUILD_TESTS)
     OPTIONAL
     LIB
   )
+
+  list(
+    APPEND
+    EXT_HEADER_TEST_SOURCES
+    test/ext_headers/raft_neighbors_brute_force.cu
+    test/ext_headers/raft_distance_distance.cu
+    test/ext_headers/raft_distance_detail_pairwise_matrix_dispatch.cu
+    test/ext_headers/raft_matrix_detail_select_k.cu
+    test/ext_headers/raft_neighbors_ball_cover.cu
+    test/ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
+    test/ext_headers/raft_distance_fused_l2_nn.cu
+    test/ext_headers/raft_neighbors_ivf_pq.cu
+    test/ext_headers/raft_util_memory_pool.cpp
+    test/ext_headers/raft_neighbors_ivf_flat.cu
+    test/ext_headers/raft_core_logger.cpp
+    test/ext_headers/raft_neighbors_refine.cu
+    test/ext_headers/raft_neighbors_detail_ivf_flat_search.cu
+    test/ext_headers/raft_neighbors_detail_selection_faiss.cu
+    test/ext_headers/raft_linalg_detail_coalesced_reduction.cu
+    test/ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
+    test/ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
+    test/ext_headers/raft_neighbors_detail_ivf_pq_compute_similarity.cu
+  )
+
+  # Test that the split headers compile in isolation with:
+  #
+  # * EXT_HEADERS_TEST_COMPILED_EXPLICIT: RAFT_COMPILED, RAFT_EXPLICIT_INSTANTIATE_ONLY defined
+  # * EXT_HEADERS_TEST_COMPILED_IMPLICIT: RAFT_COMPILED defined
+  # * EXT_HEADERS_TEST_IMPLICIT:          no macros defined.
+  ConfigureTest(
+    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
+  ConfigureTest(
+    NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
+  )
+  ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
 
@@ -325,6 +365,9 @@ if(BUILD_TESTS)
     CLUSTER_TEST
     CORE_TEST
     DISTANCE_TEST
+    EXT_HEADERS_TEST_COMPILED_EXPLICIT
+    EXT_HEADERS_TEST_COMPILED_IMPLICIT
+    EXT_HEADERS_TEST_IMPLICIT
     LABEL_TEST
     LINALG_TEST
     MATRIX_TEST
