@@ -17,7 +17,7 @@
 
 #include <raft/core/detail/execution_device_id_base.hpp>
 #include <raft/core/detail/execution_device_id_cpu.hpp>
-#ifndef RAFT_DISABLE_CUDA
+#ifndef RAFT_DISABLE_GPU
 #include <raft/core/detail/execution_device_id_gpu.hpp>
 #endif
 #include <raft/core/device_type.hpp>

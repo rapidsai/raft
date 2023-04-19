@@ -18,7 +18,7 @@
 #include <string>
 
 namespace raft {
-#ifndef RAFT_DISABLE_CUDA
+#ifndef RAFT_DISABLE_GPU
 auto constexpr static const CUDA_ENABLED = true;
 #else
 auto constexpr static const CUDA_ENABLED    = false;

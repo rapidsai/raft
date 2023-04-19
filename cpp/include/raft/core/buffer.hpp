@@ -89,6 +89,7 @@ struct buffer {
   /** Construct non-owning buffer */
   buffer(T* input_data, index_type size, memory_type mem_type = memory_type::host, int device = 0)
     : device_{[mem_type, &device]() {
+        RAFT_LOG_INFO("Non owning constructor call started");
         auto result = execution_device_id_variant{};
         if (is_device_accessible(mem_type)) {
           result = execution_device_id<device_type::gpu>{device};
@@ -110,16 +111,16 @@ struct buffer {
       memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<T*>(nullptr);
-        RAFT_LOG_INFO("DATA_INDEX %d\n", data_.index());
+        RAFT_LOG_INFO("data_index from constructor %d\n", data_.index());
         switch (data_.index()) {
           case 0: result = std::get<0>(data_).get(); break;
           case 1: result = std::get<1>(data_).get(); break;
         }
-        RAFT_LOG_INFO("result %p\n", result);
+        RAFT_LOG_INFO("data pointer from constructor %p\n", result);
         return result;
       }()}
   {
-    RAFT_LOG_INFO("Non owning constructor called");
+    RAFT_LOG_INFO("Non owning constructor call complete");
   }
 
   /**
@@ -154,7 +155,7 @@ struct buffer {
           auto buf    = detail::owning_buffer<device_type::cpu, T>(other.size());
           result_data = buf.get();
           result      = std::move(buf);
-          RAFT_LOG_INFO("copy called");
+          RAFT_LOG_INFO("cpu copy called");
           detail::buffer_copy(result_data, other.data(), other.size(), device_type::cpu, other.dev_type(), stream);
         }
         return result;
@@ -173,15 +174,6 @@ struct buffer {
     RAFT_LOG_INFO("Pointer to other's data %p\n", other.data());
   }
 
-  /**
-   * @brief Create owning copy of existing buffer
-   * The memory type of this new buffer will be the same as the original
-   */
-  buffer(buffer<T> const& other) : buffer(other,
-         other.mem_type(),
-         other.device_index())
-  {
-  }
   friend void swap(buffer<T>& first, buffer<T>& second)
   {
     using std::swap;
@@ -191,15 +183,9 @@ struct buffer {
     swap(first.memory_type_, second.memory_type_);
     swap(first.cached_ptr, second.cached_ptr);
   }
-  buffer<T>& operator=(buffer<T> other)
-  {
-    // swap(*this, other);
-    RAFT_LOG_INFO("EQ Called");
-    this -> device_ = other.device_;
-    // this -> data_ = other.data_;
-    this -> size_ = other.size_;
-    this -> memory_type_ = other.memory_type_;
-    this -> cached_ptr = other.cached_ptr;
+  buffer<T>& operator=(buffer<T> const& other) {
+    auto copy = other;
+    swap(*this, copy);
     return *this;
   }
 
@@ -207,9 +193,9 @@ struct buffer {
    * @brief Create owning copy of existing buffer with given stream
    * The device type of this new buffer will be the same as the original
    */
-  // buffer(buffer<T> const& other, execution_stream stream) : buffer(other, other.mem_type(), other.device_index(), stream)
-  // {
-  // }
+  buffer(buffer<T> const& other, execution_stream stream=execution_stream{}) : buffer(other, other.mem_type(), other.device_index(), stream)
+  {
+  }
 
   /**
    * @brief Move from existing buffer unless a copy is necessary based on
@@ -256,46 +242,28 @@ struct buffer {
         return result;
       }()}
   {
+    RAFT_LOG_INFO("original move called");
   }
-  buffer(buffer<T>&& other, device_type mem_type, int device)
+  buffer(buffer<T>&& other, device_type mem_type, int device=0)
     : buffer{std::move(other), mem_type, device, execution_stream{}}
   {
+    RAFT_LOG_INFO("move constructor without stream called");
   }
-  buffer(buffer<T>&& other, device_type mem_type)
-    : buffer{std::move(other), mem_type, 0, execution_stream{}}
-  {
-  }
+  // buffer(buffer<T>&& other, device_type mem_type)
+  //   : buffer{std::move(other), mem_type, 0, execution_stream{}}
+  // {
+  //   RAFT_LOG_INFO("copy constructor without stream and device called");
+  // }
 
-  buffer(buffer<T>&& other) : buffer<T>{} { swap(*this, other); }
-
-  template <
-    typename iter_t,
-    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())>
-  buffer(iter_t const& begin, iter_t const& end)
-    : buffer{static_cast<size_t>(std::distance(begin, end))}
-  {
-    auto index = std::size_t{};
-    std::for_each(begin, end, [&index, this](auto&& val) { data()[index++] = val; });
-  }
-
-  template <
-    typename iter_t,
-    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())>
-  buffer(iter_t const& begin, iter_t const& end, device_type mem_type)
-    : buffer{buffer{begin, end}, mem_type}
-  {
-  }
-
-  template <
-    typename iter_t,
-    typename = decltype(*std::declval<iter_t&>(), void(), ++std::declval<iter_t&>(), void())>
-  buffer(iter_t const& begin,
-         iter_t const& end,
-         device_type mem_type,
-         int device,
-         execution_stream stream = execution_stream{})
-    : buffer{buffer{begin, end}, mem_type, device, stream}
-  {
+  buffer(buffer<T>&& other) noexcept
+    : buffer{std::move(other), other.mem_type(), other.device_index(), execution_stream{}} {}
+  buffer<T>& operator=(buffer<T>&& other) noexcept {
+    data_ = std::move(other.data_);
+    device_ = std::move(other.device_);
+    size_ = std::move(other.size_);
+    memory_type_ = std::move(other.memory_type_);
+    cached_ptr = std::move(other.cached_ptr);
+    return *this;
   }
 
   auto size() const noexcept { return size_; }

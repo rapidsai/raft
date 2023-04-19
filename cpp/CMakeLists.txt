@@ -252,7 +252,7 @@ endif()
 # - CUDA-free build support --------------------------------------------------
 
 if (DISABLE_CUDA)
-  target_compile_definitions(raft INTERFACE RAFT_DISABLE_CUDA)
+  target_compile_definitions(raft INTERFACE RAFT_DISABLE_GPU)
 endif()
 
 # ##################################################################################################

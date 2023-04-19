@@ -26,7 +26,6 @@ struct non_owning_buffer {
   non_owning_buffer() : data_{nullptr} {}
 
   non_owning_buffer(T* ptr) : data_{ptr} {
-    RAFT_LOG_INFO("Address: %p\n", ( void * )data_);
   }
   
 

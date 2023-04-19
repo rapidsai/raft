@@ -16,6 +16,6 @@
 #pragma once
 #include "owning_buffer_cpu.hpp"
 #include <raft/core/device_type.hpp>
-#ifndef RAFT_DISABLE_CUDA
+#ifndef RAFT_DISABLE_GPU
 #include "owning_buffer_gpu.hpp"
 #endif

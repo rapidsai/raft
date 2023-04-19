@@ -18,7 +18,7 @@
 #include <raft/core/detail/buffer_utils/copy_cpu.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_stream.hpp>
-#ifndef RAFT_DISABLE_CUDA
+#ifndef RAFT_DISABLE_GPU
 #include <raft/core/detail/buffer_utils/copy_gpu.hpp>
 #endif
 #include <raft/core/device_type.hpp>
