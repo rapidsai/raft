@@ -74,6 +74,9 @@ namespace raft::matrix {
  *   the payload selected together with `out_val`.
  * @param[in] select_min
  *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] algo
+ *   what selection algorithm to use. defaults to AUTO, which indicates to
+ *   pick the best version based off of in_val shape and k value
  */
 template <typename T, typename IdxT>
 void select_k(const device_resources& handle,
