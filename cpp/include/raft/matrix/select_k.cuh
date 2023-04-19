@@ -42,13 +42,13 @@ namespace raft::matrix {
  * @code{.cpp}
  *   using namespace raft;
  *   // get a 2D row-major array of values to search through
- *   auto in_values = {... input device_matrix_view<const float, size_t, row_major> ...}
+ *   auto in_values = {... input device_matrix_view<const float, int64_t, row_major> ...}
  *   // prepare output arrays
- *   auto out_extents = make_extents<size_t>(in_values.extent(0), k);
+ *   auto out_extents = make_extents<int64_t>(in_values.extent(0), k);
  *   auto out_values  = make_device_mdarray<float>(handle, out_extents);
- *   auto out_indices = make_device_mdarray<size_t>(handle, out_extents);
+ *   auto out_indices = make_device_mdarray<int64_t>(handle, out_extents);
  *   // search `k` smallest values in each row
- *   matrix::select_k<float, size_t>(
+ *   matrix::select_k<float, int64_t>(
  *     handle, in_values, std::nullopt, out_values.view(), out_indices.view(), true);
  * @endcode
  *
@@ -76,13 +76,13 @@ namespace raft::matrix {
  */
 template <typename T, typename IdxT>
 void select_k(const device_resources& handle,
-              raft::device_matrix_view<const T, size_t, row_major> in_val,
-              std::optional<raft::device_matrix_view<const IdxT, size_t, row_major>> in_idx,
-              raft::device_matrix_view<T, size_t, row_major> out_val,
-              raft::device_matrix_view<IdxT, size_t, row_major> out_idx,
+              raft::device_matrix_view<const T, int64_t, row_major> in_val,
+              std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_idx,
+              raft::device_matrix_view<T, int64_t, row_major> out_val,
+              raft::device_matrix_view<IdxT, int64_t, row_major> out_idx,
               bool select_min)
 {
-  RAFT_EXPECTS(out_val.extent(1) <= size_t(std::numeric_limits<int>::max()),
+  RAFT_EXPECTS(out_val.extent(1) <= int64_t(std::numeric_limits<int>::max()),
                "output k must fit the int type.");
   auto batch_size = in_val.extent(0);
   auto len        = in_val.extent(1);
@@ -93,7 +93,7 @@ void select_k(const device_resources& handle,
     RAFT_EXPECTS(batch_size == in_idx->extent(0), "batch sizes must be equal");
     RAFT_EXPECTS(len == in_idx->extent(1), "value and index input lengths must be equal");
   }
-  RAFT_EXPECTS(size_t(k) == out_idx.extent(1), "value and index output lengths must be equal");
+  RAFT_EXPECTS(int64_t(k) == out_idx.extent(1), "value and index output lengths must be equal");
   return detail::select_k<T, IdxT>(in_val.data_handle(),
                                    in_idx.has_value() ? in_idx->data_handle() : nullptr,
                                    batch_size,

@@ -91,12 +91,13 @@ void select_k_impl(const device_resources& handle,
   auto stream = handle.get_stream();
   switch (algo) {
     case Algo::kPublicApi: {
-      auto in_extent   = make_extents<size_t>(batch_size, len);
-      auto out_extent  = make_extents<size_t>(batch_size, k);
-      auto in_span     = make_mdspan<const T, size_t, row_major, false, true>(in, in_extent);
-      auto in_idx_span = make_mdspan<const IdxT, size_t, row_major, false, true>(in_idx, in_extent);
-      auto out_span    = make_mdspan<T, size_t, row_major, false, true>(out, out_extent);
-      auto out_idx_span = make_mdspan<IdxT, size_t, row_major, false, true>(out_idx, out_extent);
+      auto in_extent  = make_extents<int64_t>(batch_size, len);
+      auto out_extent = make_extents<int64_t>(batch_size, k);
+      auto in_span    = make_mdspan<const T, int64_t, row_major, false, true>(in, in_extent);
+      auto in_idx_span =
+        make_mdspan<const IdxT, int64_t, row_major, false, true>(in_idx, in_extent);
+      auto out_span     = make_mdspan<T, int64_t, row_major, false, true>(out, out_extent);
+      auto out_idx_span = make_mdspan<IdxT, int64_t, row_major, false, true>(out_idx, out_extent);
       if (in_idx == nullptr) {
         // NB: std::nullopt prevents automatic inference of the template parameters.
         return matrix::select_k<T, IdxT>(
