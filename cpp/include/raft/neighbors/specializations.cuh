@@ -13,17 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <raft/neighbors/specializations/ball_cover.cuh>
-#include <raft/neighbors/specializations/brute_force.cuh>
-#include <raft/neighbors/specializations/fused_l2_knn.cuh>
-
-#include <raft/neighbors/specializations/ivf_flat.cuh>
-#include <raft/neighbors/specializations/ivf_pq.cuh>
-#include <raft/neighbors/specializations/refine.cuh>
-
-#include <raft/cluster/specializations.cuh>
-#include <raft/distance/specializations.cuh>
-#include <raft/matrix/specializations.cuh>
+#pragma message(                                          \
+  __FILE__                                                \
+  " is deprecated and will be removed."                   \
+  " Including specializations is not necessary any more." \
+  " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")

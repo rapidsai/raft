@@ -13,35 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <raft/matrix/detail/select_k.cuh>
-
-#include <cuda_fp16.h>
-
-namespace raft::matrix::detail {
-
-#define RAFT_INST(T, IdxT)                                      \
-  extern template void select_k<T, IdxT>(const T*,              \
-                                         const IdxT*,           \
-                                         size_t,                \
-                                         size_t,                \
-                                         int,                   \
-                                         T*,                    \
-                                         IdxT*,                 \
-                                         bool,                  \
-                                         rmm::cuda_stream_view, \
-                                         rmm::mr::device_memory_resource*);
-
-// Commonly used types
-RAFT_INST(float, int64_t);
-RAFT_INST(half, int64_t);
-
-// These instances are used in the ivf_pq::search parameterized by the internal_distance_dtype
-RAFT_INST(float, uint32_t);
-RAFT_INST(half, uint32_t);
-
-#undef RAFT_INST
-
-}  // namespace raft::matrix::detail
+#pragma message(                                          \
+  __FILE__                                                \
+  " is deprecated and will be removed."                   \
+  " Including specializations is not necessary any more." \
+  " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")
