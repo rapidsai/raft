@@ -20,15 +20,9 @@
 #include <raft/util/pow2_utils.cuh>
 
 #include <raft/neighbors/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMaxK
 
 namespace raft::neighbors::detail {
-
-template <typename payload_t, typename key_t>
-constexpr int kFaissMaxK()
-{
-  if (sizeof(key_t) >= 8) { return sizeof(payload_t) >= 8 ? 512 : 1024; }
-  return 2048;
-}
 
 template <typename payload_t, typename key_t, bool select_min, int warp_q, int thread_q, int tpb>
 __global__ void select_k_kernel(const key_t* inK,
