@@ -23,6 +23,7 @@
 #include <limits>
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
+#include <raft/distance/fused_l2_nn_helpers.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <stdint.h>
@@ -30,31 +31,6 @@
 
 namespace raft {
 namespace distance {
-/**
- * \defgroup fused_l2_nn Fused 1-nearest neighbors
- * @{
- */
-
-template <typename LabelT, typename DataT>
-using KVPMinReduce = detail::KVPMinReduceImpl<LabelT, DataT>;
-
-template <typename LabelT, typename DataT>
-using MinAndDistanceReduceOp = detail::MinAndDistanceReduceOpImpl<LabelT, DataT>;
-
-template <typename LabelT, typename DataT>
-using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
-
-/** @} */
-
-/**
- * Initialize array using init value from reduction op
- */
-template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(
-  raft::device_resources const& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
-{
-  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
-}
 
 /**
  * \ingroup fused_l2_nn
