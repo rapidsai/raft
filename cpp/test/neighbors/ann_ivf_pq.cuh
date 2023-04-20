@@ -27,6 +27,7 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_helpers.cuh>
+#include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/random/rng.cuh>
 #ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
