@@ -76,7 +76,7 @@ class FusedL2NNEpilogueElementwise {
 
   using FragmentOutput = FragmentZ;
 
-  static bool const kIsHeavy = false;  // ElementwiseOp::kIsHeavy;
+  static bool const kIsHeavy = true;  // ElementwiseOp::kIsHeavy;
 
   /// If true, the 'Z' tensor is stored
   static bool const kStoreZ = false;  // We don't store anything in Z,
@@ -119,9 +119,10 @@ class FusedL2NNEpilogueElementwise {
   //
   DistanceOp_ elementwise_op;
   KVPReduceOpT_ pair_redop;
-  ReduceOpT_ red_op;
 
  public:
+  ReduceOpT_ red_op;
+
   //
   // Methods
   //

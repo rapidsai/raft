@@ -67,7 +67,6 @@ struct MinAndDistanceReduceOpImpl {
   DI void init(DataT* out, DataT maxVal) const { *out = maxVal; }
   DI void init(KVP* out, DataT maxVal) const
   {
-    out->key   = 0;
     out->value = maxVal;
   }
 
@@ -275,6 +274,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 template <typename AccType, typename Index, typename OutType>
 struct kvp_cg_min_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
+  //static const AccType maxVal;  maxVal(std::numeric_limits<DataT>::max())
 
   __host__ __device__ kvp_cg_min_reduce_op() noexcept {};
 

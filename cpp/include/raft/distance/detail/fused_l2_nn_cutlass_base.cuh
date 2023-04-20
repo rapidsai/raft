@@ -26,10 +26,10 @@
 #endif
 
 #include <rmm/device_uvector.hpp>
-
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
 #include <cutlass/gemm/device/gemm_universal_adapter.h>
+#include <cutlass/gemm/device/gemm_grouped.h>
 
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
@@ -39,6 +39,7 @@
 #include <raft/distance/detail/fused_l2_nn_epilogue_elementwise.cuh>
 #include <raft/distance/detail/fused_l2_nn_gemm.h>
 #include <raft/util/cutlass_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft {
 namespace distance {
@@ -77,14 +78,12 @@ void cutlassFusedL2NNKernel(const DataT* x,
                                                             DataT,  // ElementCompute_
                                                             AccT,   // ElementZ_
                                                             OutT,   // ElementT_
-                                                            1,      // Elements per access 1
+                                                            1, //128 / cutlass::sizeof_bits<DataT>::value,      // Elements per access 1
                                                             DistanceFn,
                                                             FinalLambda,
                                                             ReduceOpT,
                                                             KVPReduceOpT>;
   constexpr int batch_count = 1;
-
-  constexpr auto mode = cutlass::gemm::GemmUniversalMode::kGemm;
 
   typename EpilogueOutputOp::Params epilog_op_param(dist_op, fin_op, redOp, pairRedOp, mutexes);
 
@@ -98,7 +97,8 @@ void cutlassFusedL2NNKernel(const DataT* x,
   constexpr int Alignment = VecLen;
 
   // default initialize problem size with row major inputs
-  auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
+  //auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
+  auto problem_size = cutlass::gemm::GemmCoord(m, n, k);
 
   constexpr bool isRowMajor = true;
 
@@ -113,12 +113,14 @@ void cutlassFusedL2NNKernel(const DataT* x,
                                                   NumStages,  // Number of pipeline stages
                                                   isRowMajor>::GemmKernel;
 
+#if 0
   using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
 
   a        = y;
   b        = x;
   gemm_lda = ldb;
   gemm_ldb = lda;
+  constexpr auto mode = cutlass::gemm::GemmUniversalMode::kGemm;
 
   typename cutlassDist::Arguments arguments{
     mode,
@@ -157,6 +159,53 @@ void cutlassFusedL2NNKernel(const DataT* x,
   RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
   // Launch initialized CUTLASS kernel
   RAFT_CUTLASS_TRY(cutlassDist_op());
+#else
+
+
+  using cutlassDist = cutlass::gemm::device::GemmGrouped<cutlassDistKernel>;
+
+  a        = x;
+  b        = y;
+  gemm_lda = lda;
+  gemm_ldb = ldb;
+  int num_blocks = cutlassDist::maximum_active_blocks();
+  int num_sms = raft::getMultiProcessorCount();
+  num_blocks = num_blocks * num_sms;
+  auto thread_blocks = std::max(num_blocks, int((problem_size.m() - 1 + cutlassDistKernel::Mma::Shape::kM)/ cutlassDistKernel::Mma::Shape::kM));
+  //printf("num blocks = %d sms = %d thread_blocks_sel = %d shapekM = %d\n", num_blocks, num_sms, (int)thread_blocks,  (int)cutlassDistKernel::Mma::Shape::kM);
+  //rmm::device_uvector<decltype(problem_size)> problem_sizes(sizeof(decltype(problem_size)), stream);
+  //raft::copy(problem_sizes.data(), &problem_size, 1, stream);
+  typename cutlassDist::Arguments arguments{
+    //problem_sizes.data(),
+    problem_size,
+    batch_count,
+    thread_blocks,
+    epilog_op_param,
+    a,
+    b,
+    xn,          // C matrix eq vector param, which here is A norm
+    (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
+    dOutput,     // Output distance matrix
+    (int64_t)gemm_lda,  // stride A
+    (int64_t)gemm_ldb,  // stride B
+    (int64_t)1,                  // stride A norm
+    (int64_t)ldd        // stride Output matrix
+  };
+
+  // Using the arguments, query for extra workspace required for matrix multiplication computation
+  size_t workspace_size = cutlassDist::get_workspace_size(arguments);
+  // Allocate workspace memory
+  rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
+  // Instantiate CUTLASS kernel depending on templates
+  cutlassDist cutlassDist_op;
+  // Check the problem size is supported or not
+  RAFT_CUTLASS_TRY(cutlassDist_op.can_implement(arguments));
+  // Initialize CUTLASS kernel with arguments and workspace pointer
+  RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
+  // Launch initialized CUTLASS kernel
+  RAFT_CUTLASS_TRY(cutlassDist_op.run(stream));
+#endif
+
 }
 
 };  // namespace detail

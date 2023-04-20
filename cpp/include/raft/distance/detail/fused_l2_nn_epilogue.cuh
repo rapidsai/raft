@@ -39,9 +39,11 @@ operation.
 #include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
 #include <cutlass/epilogue/threadblock/epilogue.h>
-#include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
+//#include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
+#include <raft/distance/detail/custom_epilogue_with_broadcast.h>
 
-#include <raft/distance/detail/predicated_tile_iterator_normvec.h>
+//#include <raft/distance/detail/predicated_tile_iterator_normvec.h>
+#include <raft/distance/detail/predicated_tile_iterator_normvec_smem.h>
 #include <raft/distance/detail/predicated_tile_iterator_reduced_vec.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,8 +73,10 @@ struct FusedL2NNEpilogue {
   //
   // Stores the result z = (y = GEMM(A, B, C), broadcast)
   //
-  using RowNormTileIterator = cutlass::epilogue::threadblock::
-    PredicatedTileIteratorNormVec<typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
+  // using RowNormTileIterator = cutlass::epilogue::threadblock::
+  //   PredicatedTileIteratorNormVec<typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
+  using RowNormTileIterator = cutlass::epilogue::threadblock::PredicatedTileIteratorNormVecSmem<
+            typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
 
   //
   // Additional tensor tile iterator - stores t = Elementwise(z)
@@ -84,7 +88,7 @@ struct FusedL2NNEpilogue {
     typename OutputOp::Params>;
 
   /// Define the epilogue
-  using Epilogue = EpilogueWithBroadcast<Shape,
+  using Epilogue = cutlass::epilogue::threadblock::EpilogueWithBroadcastCustom<Shape,
                                          WarpMmaTensorOp,
                                          PartitionsK,
                                          RowNormTileIterator,

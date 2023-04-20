@@ -23,6 +23,7 @@
 #include <cutlass/layout/tensor.h>
 
 #include <raft/distance/detail/fusedL2NN_gemm_with_fused_epilogue.h>
+#include <raft/distance/detail/fused_l2_nn_gemm_grouped_custom.h>
 #include <raft/distance/detail/fused_l2_nn_epilogue.cuh>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,12 +60,17 @@ struct FusedL2NNGemm {
 
   /// Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 32, N = 64, K = 16
-  using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;  // this is more performant
+  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 256, 16>;  // this is more performant for grouped GEMM
+  using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;  // this is more performant for non-grouped GEMM
+  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 64, 16>;  // SHAPE for less reg pressure grouped GEMM
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
   // <- warp tile M = 64, N = 64, K = 16
-  using WarpShape = cutlass::gemm::GemmShape<16, 64, 16>;  // this is more performant
+  //using WarpShape = cutlass::gemm::GemmShape<32, 64, 16>;  // this is more performant for grouped GEMM
+  //using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;  // // SHAPE for less reg pressure grouped GEMM
+  using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;  // // SHAPE for less reg pressure grouped GEMM
+  //using WarpShape = cutlass::gemm::GemmShape<16, 64, 16>;  // // this is more performant for non-grouped GEMM
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
@@ -73,6 +79,7 @@ struct FusedL2NNGemm {
 
   /// Operation performed by GEMM
   using Operator = cutlass::arch::OpMultiplyAddFastF32;
+  //using Operator = cutlass::arch::OpMultiplyAdd; // this runs only 1xTF32 for float inputs
 
   // This code section describes whether you want to use tensor cores or regular SIMT cores on GPU
   // SM
@@ -83,7 +90,8 @@ struct FusedL2NNGemm {
 
   // This code section describes how threadblocks are scheduled on GPU
   /// Threadblock-level swizzling operator
-  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<2>;
+  //using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<2>;
+  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
 
   /// data layout for final output matrix.
   // we keep this same layout even for column major inputs
@@ -132,9 +140,12 @@ struct FusedL2NNGemm {
     NormXLayout,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
+
   // Compose the GEMM kernel
-  using GemmKernel =
-    FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  // using GemmKernel =
+  //   FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel = FusedL2NNWithGemmGrouped<typename GemmBase::Mma, Epilogue, 
+                                ThreadblockSwizzle, GroupScheduleMode::kDeviceOnly>;
 };
 
 template <
@@ -164,10 +175,12 @@ struct FusedL2NNGemm<double,
   // Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 64, N = 64, K = 16
   using ThreadblockShape = cutlass::gemm::GemmShape<64, 64, 16>;
+  //using ThreadblockShape = cutlass::gemm::GemmShape<16, 128, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
   // <- warp tile M = 32, N = 32, K = 16
   using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;
+  //using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
   using InstructionShape = cutlass::gemm::GemmShape<8, 8, 4>;
@@ -184,6 +197,7 @@ struct FusedL2NNGemm<double,
   // This code section describes how threadblocks are scheduled on GPU
   /// Threadblock-level swizzling operator
   using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
+
 
   /// data layout for final output matrix.
   // we keep this same layout even for column major inputs
@@ -233,8 +247,11 @@ struct FusedL2NNGemm<double,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  using GemmKernel =
-    FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  // using GemmKernel =
+  //   FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
+  using GemmKernel = FusedL2NNWithGemmGrouped<typename GemmBase::Mma, Epilogue, 
+                                ThreadblockSwizzle, GroupScheduleMode::kDeviceOnly>;
+
 };
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

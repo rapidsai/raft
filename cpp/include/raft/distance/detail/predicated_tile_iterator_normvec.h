@@ -284,11 +284,14 @@ class PredicatedTileIteratorNormVec {
           CUTLASS_PRAGMA_UNROLL
           for (int column = 0; column < ThreadMap::Iterations::kColumn; ++column) {
             bool guard = row_guard && mask_.predicates[column];
-
-            cutlass::arch::global_load<AccessType, sizeof(AccessType)>(
-              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
-              (void*)&memory_pointer[0],
-              guard);
+            if (column == 0) {
+              cutlass::arch::global_load<AccessType, sizeof(AccessType)>(
+                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column],
+                (void*)&memory_pointer[0],
+                guard);
+            } else {
+              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column] = frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn];
+            }
           }
 
           if (row + 1 < ThreadMap::Iterations::kRow) {
