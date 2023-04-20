@@ -22,6 +22,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 

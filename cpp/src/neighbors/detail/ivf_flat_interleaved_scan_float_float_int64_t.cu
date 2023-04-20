@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/detail/ivf_flat_search-inl.cuh>
+#include <raft/neighbors/detail/ivf_flat_interleaved_scan-inl.cuh>
 
 #define instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(T, AccT, IdxT)  \
   template void raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<T, AccT, IdxT>( \

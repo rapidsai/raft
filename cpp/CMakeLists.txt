@@ -309,6 +309,13 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_search.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
     src/neighbors/detail/selection_faiss_int32_t_float.cu
     src/neighbors/detail/selection_faiss_int_double.cu
     src/neighbors/detail/selection_faiss_long_float.cu
