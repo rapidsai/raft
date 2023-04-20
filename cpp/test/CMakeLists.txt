@@ -163,12 +163,16 @@ if(BUILD_TESTS)
     test/ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
     test/ext_headers/raft_distance_fused_l2_nn.cu
     test/ext_headers/raft_neighbors_ivf_pq.cu
+    test/ext_headers/raft_util_memory_pool.cpp
     test/ext_headers/raft_neighbors_ivf_flat.cu
+    test/ext_headers/raft_core_logger.cpp
     test/ext_headers/raft_neighbors_refine.cu
     test/ext_headers/raft_neighbors_detail_ivf_flat_search.cu
     test/ext_headers/raft_neighbors_detail_selection_faiss.cu
     test/ext_headers/raft_linalg_detail_coalesced_reduction.cu
     test/ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
+    test/ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
+    test/ext_headers/raft_neighbors_detail_ivf_pq_compute_similarity.cu
   )
 
   # Test that the split headers compile in isolation with:
