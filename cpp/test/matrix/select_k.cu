@@ -18,10 +18,6 @@
 
 #include <raft_internal/matrix/select_k.cuh>
 
-#ifdef RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
 #include <raft/core/device_resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>

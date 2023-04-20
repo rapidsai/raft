@@ -30,10 +30,6 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#ifdef RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 namespace raft::bench::distance::masked_nn {
 
 // Introduce various sparsity patterns

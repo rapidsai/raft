@@ -17,7 +17,6 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
-#include <raft/distance/specializations.cuh>
 
 namespace raft::runtime::distance {
 

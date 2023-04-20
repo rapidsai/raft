@@ -17,7 +17,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/matrix/select_k.cuh>
-#include <raft/matrix/specializations.cuh>
 
 #include <raft_runtime/matrix/select_k.hpp>
 

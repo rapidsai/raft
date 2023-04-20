@@ -15,7 +15,6 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
-#include <raft/cluster/specializations.cuh>
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
