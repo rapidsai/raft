@@ -119,6 +119,7 @@ if(BUILD_TESTS)
     DISTANCE_TEST
     PATH
     test/distance/dist_adj.cu
+    test/distance/dist_adj_distance_instance.cu
     test/distance/dist_canberra.cu
     test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
