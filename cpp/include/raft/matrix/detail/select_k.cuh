@@ -37,7 +37,7 @@ namespace raft::matrix::detail {
  * See:
  * https://gitlab-master.nvidia.com/benf/raft_select_k_experiments
  */
-select_method choose_select_k_algorithm(size_t rows, size_t cols, int k)
+inline select_method choose_select_k_algorithm(size_t rows, size_t cols, int k)
 {
   if (k > 1713) {
     if (k > 2048) {
