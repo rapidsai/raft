@@ -22,6 +22,8 @@
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include "dist_adj.cuh"
+
 namespace raft {
 namespace distance {
 
@@ -72,18 +74,6 @@ struct DistanceAdjInputs {
   int m, n, k;
   bool isRowMajor;
   unsigned long long int seed;
-};
-
-template <typename AccT, typename DataT, typename OutT, typename Index>
-struct threshold_final_op {
-  DataT threshold_val;
-
-  __device__ __host__ threshold_final_op() noexcept : threshold_val(0.0) {}
-  __device__ __host__ threshold_final_op(DataT val) noexcept : threshold_val(val) {}
-  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const noexcept
-  {
-    return d_val <= threshold_val;
-  }
 };
 
 template <typename DataType>
@@ -140,7 +130,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                                                   n,
                                                   k,
                                                   workspace.data(),
-                                                  workspace.size(),
+                                                  worksize,
                                                   threshold_op,
                                                   isRowMajor);
     handle.sync_stream(stream);
