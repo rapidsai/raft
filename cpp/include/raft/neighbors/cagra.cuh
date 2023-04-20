@@ -158,7 +158,7 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<T, IdxT> build(raft::device_resources const& res,
+index<IdxT> build(raft::device_resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
@@ -181,7 +181,7 @@ index<T, IdxT> build(raft::device_resources const& res,
   prune<T, IdxT>(res, dataset, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and pruned knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
+  return index<IdxT>(res, params.metric, cagra_graph.view());
 }
 
 /**
@@ -195,6 +195,7 @@ index<T, IdxT> build(raft::device_resources const& res,
  * @param[in] res raft resources
  * @param[in] params configure the search
  * @param[in] idx cagra index
+ * @param[in] dataset a device matrix view to a row-major matrix [index->size(), index->dim()]
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
@@ -204,7 +205,8 @@ index<T, IdxT> build(raft::device_resources const& res,
 template <typename T, typename IdxT>
 void search(raft::device_resources const& res,
             const search_params& params,
-            const index<T, IdxT>& idx,
+            const index<IdxT>& idx,
+            raft::device_matrix_view<const T, IdxT, row_major> dataset,
             raft::device_matrix_view<const T, IdxT, row_major> queries,
             raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::device_matrix_view<float, IdxT, row_major> distances)
@@ -216,10 +218,10 @@ void search(raft::device_resources const& res,
   RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
                "Number of columns in output neighbors and distances matrices must equal k");
 
-  RAFT_EXPECTS(queries.extent(1) == idx.dim(),
+  RAFT_EXPECTS(queries.extent(1) == dataset.extent(1),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  detail::search_main(res, params, idx, queries, neighbors, distances);
+  detail::search_main(res, params, idx, dataset, queries, neighbors, distances);
 }
 /** @} */  // end group cagra
 

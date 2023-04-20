@@ -40,6 +40,7 @@ namespace raft::neighbors::experimental::cagra::detail {
  * @param[in] handle
  * @param[in] params configure the search
  * @param[in] idx ivf-pq constructed index
+ * @param[in] dataset a device matrix view to a row-major matrix [index->size(), index->dim()]
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
@@ -50,22 +51,23 @@ namespace raft::neighbors::experimental::cagra::detail {
 template <typename T, typename IdxT = uint32_t, typename DistanceT = float>
 void search_main(raft::device_resources const& res,
                  search_params params,
-                 const index<T, IdxT>& index,
+                 const index<IdxT>& index,
+                 raft::device_matrix_view<const T, IdxT, row_major> dataset,
                  raft::device_matrix_view<const T, IdxT, row_major> queries,
                  raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
                  raft::device_matrix_view<DistanceT, IdxT, row_major> distances)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
-                 static_cast<size_t>(index.dataset().extent(0)),
-                 static_cast<size_t>(index.dataset().extent(1)));
+                 static_cast<size_t>(dataset.extent(0)),
+                 static_cast<size_t>(dataset.extent(1)));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
+  RAFT_EXPECTS(queries.extent(1) == dataset.extent(1), "Querise and dataset dim must match");
   uint32_t topk = neighbors.extent(1);
 
   std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> plan =
-    factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
+    factory<T, IdxT, DistanceT>::create(res, params, dataset.extent(1), index.graph_degree(), topk);
 
   plan->check(neighbors.extent(1));
 
@@ -84,7 +86,7 @@ void search_main(raft::device_resources const& res,
     uint32_t* _num_executed_iterations = nullptr;
 
     (*plan)(res,
-            index.dataset(),
+            dataset,
             index.graph(),
             _topk_indices_ptr,
             _topk_distances_ptr,

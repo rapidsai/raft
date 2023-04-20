@@ -36,7 +36,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-template struct check_index_layout<sizeof(index<double, std::uint64_t>), 136>;
+template struct check_index_layout<sizeof(index<std::uint64_t>), 72>;
 
 /**
  * Save the index to file.
@@ -48,25 +48,23 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), 136>;
  * @param[in] index_ CAGRA index
  *
  */
-template <typename T, typename IdxT>
-void serialize(raft::device_resources const& res, std::ostream& os, const index<T, IdxT>& index_)
+template <typename IdxT>
+void serialize(raft::device_resources const& res, std::ostream& os, const index<IdxT>& index_)
 {
   RAFT_LOG_DEBUG(
-    "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+    "Saving CAGRA index, size %zu", static_cast<size_t>(index_.size()));
 
   serialize_scalar(res, os, serialization_version);
   serialize_scalar(res, os, index_.size());
-  serialize_scalar(res, os, index_.dim());
   serialize_scalar(res, os, index_.graph_degree());
   serialize_scalar(res, os, index_.metric());
-  serialize_mdspan(res, os, index_.dataset());
   serialize_mdspan(res, os, index_.graph());
 }
 
-template <typename T, typename IdxT>
+template <typename IdxT>
 void serialize(raft::device_resources const& res,
                const std::string& filename,
-               const index<T, IdxT>& index_)
+               const index<IdxT>& index_)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
@@ -86,35 +84,32 @@ void serialize(raft::device_resources const& res,
  * @param[in] index_ CAGRA index
  *
  */
-template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& res, std::istream& is) -> index<T, IdxT>
+template <typename IdxT>
+auto deserialize(raft::device_resources const& res, std::istream& is) -> index<IdxT>
 {
   auto ver = deserialize_scalar<int>(res, is);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
   }
   auto n_rows       = deserialize_scalar<IdxT>(res, is);
-  auto dim          = deserialize_scalar<std::uint32_t>(res, is);
   auto graph_degree = deserialize_scalar<std::uint32_t>(res, is);
   auto metric       = deserialize_scalar<raft::distance::DistanceType>(res, is);
 
-  auto dataset = raft::make_host_matrix<T, IdxT>(n_rows, dim);
   auto graph   = raft::make_host_matrix<IdxT, IdxT>(n_rows, graph_degree);
 
-  deserialize_mdspan(res, is, dataset.view());
   deserialize_mdspan(res, is, graph.view());
 
-  return index<T, IdxT>(res, metric, raft::make_const_mdspan(dataset.view()), graph.view());
+  return index<IdxT>(res, metric, graph.view());
 }
 
-template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& res, const std::string& filename) -> index<T, IdxT>
+template <typename IdxT>
+auto deserialize(raft::device_resources const& res, const std::string& filename) -> index<IdxT>
 {
   std::ifstream is(filename, std::ios::in | std::ios::binary);
 
   if (!is) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  auto index = detail::deserialize<T, IdxT>(res, is);
+  auto index = detail::deserialize<IdxT>(res, is);
 
   is.close();
 

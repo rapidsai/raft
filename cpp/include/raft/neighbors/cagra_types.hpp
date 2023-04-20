@@ -106,11 +106,10 @@ static_assert(std::is_aggregate_v<search_params>);
  *
  * The index stores the dataset and a kNN graph in device memory.
  *
- * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
  */
-template <typename T, typename IdxT>
+template <typename IdxT>
 struct index : ann::index {
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
@@ -123,23 +122,12 @@ struct index : ann::index {
   }
 
   // /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return dataset_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return graph_.extent(0); }
 
-  /** Dimensionality of the data. */
-  [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
-  {
-    return dataset_.extent(1);
-  }
   /** Graph degree */
   [[nodiscard]] constexpr inline auto graph_degree() const noexcept -> uint32_t
   {
     return graph_.extent(1);
-  }
-
-  /** Dataset [size, dim] */
-  [[nodiscard]] inline auto dataset() const noexcept -> device_matrix_view<const T, IdxT, row_major>
-  {
-    return dataset_.view();
   }
 
   /** neighborhood graph [size, graph-degree] */
@@ -165,32 +153,25 @@ struct index : ann::index {
   index(raft::device_resources const& res)
     : ann::index(),
       metric_(raft::distance::DistanceType::L2Expanded),
-      dataset_(make_device_matrix<T, IdxT>(res, 0, 0)),
       graph_(make_device_matrix<IdxT, IdxT>(res, 0, 0))
   {
   }
 
   /** Construct an index from dataset and knn_graph arrays */
-  template <typename data_accessor, typename graph_accessor>
+  template <typename graph_accessor>
   index(raft::device_resources const& res,
         raft::distance::DistanceType metric,
-        mdspan<const T, matrix_extent<IdxT>, row_major, data_accessor> dataset,
         mdspan<IdxT, matrix_extent<IdxT>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(make_device_matrix<T, IdxT>(res, dataset.extent(0), dataset.extent(1))),
       graph_(make_device_matrix<IdxT, IdxT>(res, knn_graph.extent(0), knn_graph.extent(1)))
   {
-    RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
-                 "Dataset and knn_graph must have equal number of rows");
-    raft::copy(dataset_.data_handle(), dataset.data_handle(), dataset.size(), res.get_stream());
     raft::copy(graph_.data_handle(), knn_graph.data_handle(), knn_graph.size(), res.get_stream());
     res.sync_stream();
   }
 
  private:
   raft::distance::DistanceType metric_;
-  raft::device_matrix<T, IdxT, row_major> dataset_;
   raft::device_matrix<IdxT, IdxT, row_major> graph_;
 };
 
