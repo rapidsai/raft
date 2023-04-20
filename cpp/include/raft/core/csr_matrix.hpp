@@ -87,12 +87,6 @@ class compressed_structure_view
    */
   span<indices_type, is_device> get_indices() override { return indices_; }
 
-  /**
-   * Create a view from this view. Note that this is for interface compatibility
-   * @return
-   */
-  view_type view() { return view_type(indptr_, indices_, this->get_n_cols()); }
-
  protected:
   raft::span<indptr_type, is_device> indptr_;
   raft::span<indices_type, is_device> indices_;
@@ -221,6 +215,10 @@ class csr_matrix_view
                               compressed_structure_view<IndptrType, IndicesType, NZType, is_device>,
                               is_device> {
  public:
+  using element_type = ElementType;
+  using indptr_type  = IndptrType;
+  using indices_type = IndicesType;
+  using nnz_type     = NZType;
   csr_matrix_view(
     raft::span<ElementType, is_device> element_span,
     compressed_structure_view<IndptrType, IndicesType, NZType, is_device> structure_view)
@@ -249,6 +247,9 @@ class csr_matrix
                          ContainerPolicy> {
  public:
   using element_type        = ElementType;
+  using indptr_type         = IndptrType;
+  using indices_type        = IndicesType;
+  using nnz_type            = NZType;
   using structure_view_type = typename structure_type::view_type;
   static constexpr auto get_sparsity_type() { return sparsity_type; }
   using sparse_matrix_type =
@@ -271,7 +272,7 @@ class csr_matrix
 
   template <SparsityType sparsity_type_ = get_sparsity_type(),
             typename = typename std::enable_if_t<sparsity_type_ == SparsityType::PRESERVING>>
-  csr_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
+  csr_matrix(raft::resources const& handle, structure_type structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
     : sparse_matrix_type(handle, structure){};
 
@@ -284,13 +285,20 @@ class csr_matrix
   void initialize_sparsity(NZType nnz)
   {
     sparse_matrix_type::initialize_sparsity(nnz);
-    this->structure_.get()->initialize_sparsity(nnz);
+    this->structure_.initialize_sparsity(nnz);
   }
 
   /**
    * Return a view of the structure underlying this matrix
    * @return
    */
-  structure_view_type structure_view() { return this->structure_.get()->view(); }
+  structure_view_type structure_view()
+  {
+    if constexpr (get_sparsity_type() == SparsityType::OWNING) {
+      return this->structure_.view();
+    } else {
+      return this->structure_;
+    }
+  }
 };
 }  // namespace raft
