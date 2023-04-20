@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <numeric>
+#include <raft/neighbors/detail/selection_faiss.cuh>
+#include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMax
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 

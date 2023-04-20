@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <cstddef>                      // size_t
-#include <cstdint>                      // uint32_t
-#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+#include <cstddef>                                            // size_t
+#include <cstdint>                                            // uint32_t
+#include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMaxK
+#include <raft/util/raft_explicit.hpp>                        // RAFT_EXPLICIT
 
 #if defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
 
