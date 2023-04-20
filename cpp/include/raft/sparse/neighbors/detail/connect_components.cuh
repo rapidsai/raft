@@ -207,21 +207,6 @@ void perform_1nn(raft::device_resources const& handle,
 {
   auto stream = handle.get_stream();
 
-  // raft::print_device_vector("colors_before_sort", colors, n_rows, std::cout);
-  // raft::print_device_vector("X_before_sort", X, 50, std::cout);
-  // raft::print_device_vector("src_indices_before_sort", src_indices, n_rows, std::cout);
-  // Sort data points by color
-  // thrust::sort_by_key(handle.get_thrust_policy(), colors, colors + n_rows, thrust::make_zip_iterator(thrust::make_tuple(src_indices)));
-
-  // auto X_cpy = raft::make_device_matrix<value_t, value_idx>(handle, n_rows, n_cols);
-  // copy_sorted_kernel<<<raft::ceildiv(n_rows * n_cols, (size_t)256), 256, 0, stream>>>(X,
-  //                                  X_cpy.data_handle(),
-  //                                  src_indices,
-  //                                  n_rows,
-  //                                  raft::util::FastIntDiv(n_cols));
-  // raft::print_device_vector("colors_after_sort", colors, n_rows, std::cout);
-  // raft::print_device_vector("X_after_sort", X_cpy.data_handle(), 50, std::cout);
-  // raft::print_device_vector("src_indices_after_sort", src_indices, n_rows, std::cout);
   auto x_norm = raft::make_device_vector<value_t, value_idx>(handle, n_rows);
 
   raft::linalg::rowNorm(x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
@@ -244,9 +229,7 @@ void perform_1nn(raft::device_resources const& handle,
                       adj_iterator + n_rows * n_components,
                       adj.data_handle(),
                       mask_op);
-    handle.sync_stream(stream);
     raft::print_device_vector("adj", adj.data_handle(), 30, std::cout);
-    // auto adj_view = raft::make_device_matrix_view<const bool, value_idx>(adj.data(), n_rows, n_components);
     auto kvp_view = raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
   using OutT       = raft::KeyValuePair<value_idx, value_t>;
   // using RedOpT     = raft::distance::MinAndDistanceReduceOp<int, DataT>;
@@ -269,7 +252,6 @@ void perform_1nn(raft::device_resources const& handle,
                   raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
                   kvp_view);
 
-  handle.sync_stream(stream);
   RAFT_LOG_INFO("Done until masked l2 distance");
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
@@ -287,13 +269,11 @@ void perform_1nn(raft::device_resources const& handle,
     thrust::get<1>(t) = thrust::get<0>(t).key;
     thrust::get<2>(t) = thrust::get<0>(t).value;
   });
-  handle.sync_stream(stream);
   raft::print_device_vector("nbrs_original", nbrs.data(), n_rows, std::cout);
   raft::print_device_vector("nbrs_dists", dists.data(), n_rows, std::cout);
 
   thrust::for_each(rmm::exec_policy(stream), kvp_iterator, kvp_iterator + n_rows, fetch_neighbor_indices_op);
 
-  handle.sync_stream(stream);
   RAFT_LOG_INFO("Done until fetching neighbor indices");
 }
 

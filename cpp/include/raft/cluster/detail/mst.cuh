@@ -16,6 +16,10 @@
 
 #pragma once
 
+#include "raft/linalg/map.cuh"
+#include "thrust/copy.h"
+#include "thrust/iterator/counting_iterator.h"
+#include "thrust/transform_reduce.h"
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -24,11 +28,46 @@
 #include <raft/sparse/solver/mst.cuh>
 #include <rmm/device_uvector.hpp>
 
+#include <rmm/exec_policy.hpp>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 
 namespace raft::cluster::detail {
+template <typename value_idx, typename value_t>
+void batched_scatter(raft::device_resources const& handle,
+                     value_t* X,
+                     value_idx* map,
+                     size_t m,
+                     size_t n,
+                     size_t batch_size){
+  auto stream = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  value_idx n_batches = raft::ceildiv((int)n, (int)batch_size);
+
+  
+
+  for(value_idx bid = 0; bid < n_batches; bid++) {
+    value_idx batch_offset = bid * batch_size;
+    value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - batch_offset);
+    auto scratch_space = raft::make_device_vector<value_t, value_idx>(handle, m * batch_size);
+
+    auto scatter_op = [X, batch_offset, n = raft::util::FastIntDiv(n), map]__device__(auto idx) {
+      value_idx row = idx / cols_per_batch;
+      value_idx col = idx % cols_per_batch;
+      return X[map[row] * n + batch_offset + col];
+    };
+    raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
+    auto copy_op = [X, batch_offset, n = raft::util::FastIntDiv(n), map]__device__(auto idx) {
+      value_idx row = idx / cols_per_batch;
+      value_idx col = idx % cols_per_batch;
+      return X[row * n + batch_offset + col] = scratch_space[idx];
+    };
+    auto counting = thrust::make_counting_iterator<value_idx>(0);
+    thrust::for_each(exec_policy, counting, counting + m * batch_size, copy_op);
+  }
+}
 
 template <typename value_idx, typename value_t>
 void merge_msts(sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo1,
@@ -68,7 +107,7 @@ void merge_msts(sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo1,
 template <typename value_idx, typename value_t, typename red_op>
 void connect_knn_graph(
   raft::device_resources const& handle,
-  const value_t* X,
+  value_t* X,
   sparse::solver::Graph_COO<value_idx, value_idx, value_t>& msf,
   size_t m,
   size_t n,
@@ -77,17 +116,39 @@ void connect_knn_graph(
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
   auto stream = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
-  rmm::device_uvector<value_idx> src_indices(m, stream);
+  rmm::device_uvector<value_idx> sort_plan(m, stream);
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + m, src_indices.data());
+  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + m, sort_plan.data());
 
-  auto tuple_it = thrust::make_zip_iterator(thrust::make_tuple(src_indices, reduction_op.core_dists));
-  thrust::sort_by_key(handle.get_thrust_policy(), color, m, tuple_it);
+  thrust::sort_by_key(handle.get_thrust_policy(), color, color + m, sort_plan.data());
+  reduction_op.rearrange(sort_plan.data());
+
+  // create inverse map for unsorting
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  rmm::device_uvector<value_idx> unsort_plan(m, stream);
+  auto inverse_map_op = [unsort_plan = unsort_plan.data()] __device__(auto t) {
+    unsort_plan[thrust::get<0>(t)] = thrust::get<1>(t);
+    return;
+  };
+
+  thrust::for_each(
+    exec_policy,
+    thrust::make_zip_iterator(thrust::make_tuple(sort_plan.data(), counting)),
+    thrust::make_zip_iterator(thrust::make_tuple(sort_plan.data() + m, counting + m)),
+    inverse_map_op);
+
+  batched_scatter(handle, const_cast<value_t*>(X), sort_plan.data(), 16);
+
   raft::sparse::neighbors::connect_components<value_idx, value_t>(
     handle, connected_edges, X, color, m, n, reduction_op);
+
+  // unsort the input matrix
+  batched_scatter(handle, const_cast<value_t*>(X), unsort_plan.data(), 16);
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(
@@ -104,7 +165,6 @@ void connect_knn_graph(
                                                                      connected_edges.nnz,
                                                                      color,
                                                                      stream,
-                                                                     false,
                                                                      false);
 
   merge_msts<value_idx, value_t>(msf, new_mst, stream);
