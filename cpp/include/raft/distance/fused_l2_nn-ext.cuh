@@ -16,22 +16,16 @@
 
 #pragma once
 
-#include <cstdint>                         // int64_t
-#include <raft/core/device_resources.hpp>  // raft::device_resources
-#include <raft/core/kvp.hpp>               // raft::KeyValuePair
-#include <raft/util/raft_explicit.hpp>     // RAFT_EXPLICIT
+#include <cstdint>                                // int64_t
+#include <raft/core/device_resources.hpp>         // raft::device_resources
+#include <raft/core/kvp.hpp>                      // raft::KeyValuePair
+#include <raft/distance/fused_l2_nn_helpers.cuh>  // include initialize and reduce operations
+#include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft {
 namespace distance {
-
-template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(raft::device_resources const& handle,
-                OutT* min,
-                IdxT m,
-                DataT maxVal,
-                ReduceOpT redOp) RAFT_EXPLICIT;
 
 template <typename DataT, typename OutT, typename IdxT>
 void fusedL2NNMinReduce(OutT* min,
