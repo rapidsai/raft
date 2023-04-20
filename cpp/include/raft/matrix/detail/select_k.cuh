@@ -27,6 +27,56 @@
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 namespace raft::matrix::detail {
+/**
+ * Predict the fastest select_k algorithm based on the number of rows/cols/k
+ *
+ * The body of this method is automatically generated, using a DecisionTree
+ * to predict the fastest algorithm based off of thousands of trial runs
+ * on different values of rows/cols/k. The decision tree is converted to c++
+ * code, which is cut and paste below.
+ * See:
+ * https://gitlab-master.nvidia.com/benf/raft_select_k_experiments
+ */
+select_method choose_select_k_algorithm(size_t rows, size_t cols, int k)
+{
+  if (k > 1713) {
+    if (k > 2048) {
+      return select_method::RADIX;
+    } else {
+      if (rows > 991) {
+        if (cols > 398636) {
+          return select_method::BLOCK;
+        } else {
+          return select_method::RADIX;
+        }
+      } else {
+        return select_method::RADIX;
+      }
+    }
+  } else {
+    if (rows > 144) {
+      if (cols > 120769) {
+        if (k > 256) {
+          return select_method::BLOCK;
+        } else {
+          return select_method::WARPSORT;
+        }
+      } else {
+        if (k > 520) {
+          return select_method::RADIX;
+        } else {
+          return select_method::BLOCK;
+        }
+      }
+    } else {
+      if (k > 256) {
+        return select_method::RADIX;
+      } else {
+        return select_method::WARPSORT;
+      }
+    }
+  }
+}
 
 /**
  * Select k smallest or largest key/values from each row in the input data.
@@ -80,15 +130,7 @@ void select_k(const T* in_val,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
-  // TODO (achirkin): investigate the trade-off for a wider variety of inputs.
-  if (algo == select_method::AUTO) {
-    const bool radix_faster = batch_size >= 64 && len >= 102400 && k >= 128;
-    if (k <= select::warpsort::kMaxCapacity && !radix_faster) {
-      algo = select_method::WARPSORT;
-    } else {
-      algo = select_method::RADIX;
-    }
-  }
+  if (algo == select_method::AUTO) { algo = choose_select_k_algorithm(batch_size, len, k); }
 
   switch (algo) {
     case select_method::WARPSORT:
