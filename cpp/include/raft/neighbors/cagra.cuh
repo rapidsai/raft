@@ -91,27 +91,22 @@ void build_knn_graph(raft::device_resources const& res,
  *
  * See [cagra::build_knn_graph](#cagra::build_knn_graph) for usage example
  *
- * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] res raft resources
- * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
  * @param[in] knn_graph a matrix view (host or device) of the input knn graph [n_rows,
  * knn_graph_degree]
  * @param[out] new_graph a host matrix view of the pruned knn graph [n_rows, graph_degree]
  */
-template <class DATA_T,
-          typename IdxT = uint32_t,
-          typename d_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::device>,
+template <typename IdxT = uint32_t,
           typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void prune(raft::device_resources const& res,
-           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
-           raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
+           raft::host_matrix_view<IdxT, IdxT, row_major> new_graph
+					 )
 {
-  detail::graph::prune(res, dataset, knn_graph, new_graph);
+  detail::graph::prune(res, knn_graph, new_graph);
 }
 
 /**
@@ -178,7 +173,7 @@ index<T, IdxT> build(raft::device_resources const& res,
 
   auto cagra_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), params.graph_degree);
 
-  prune<T, IdxT>(res, dataset, knn_graph.view(), cagra_graph.view());
+  prune<IdxT>(res, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and pruned knn graph.
   return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
