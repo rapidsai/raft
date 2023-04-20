@@ -244,9 +244,8 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                               x1_csr_indices.data(),
                               x1_csr_data.data());
 
-      auto x1_csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+      auto x1_csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
         x1_csr_indptr.data(), x1_csr_indices.data(), params.n1, params.n_cols, x1_nnz);
-
       auto x1_csr = raft::device_csr_matrix_view<const math_t, int, int, int>(
         raft::device_span<const math_t>(x1_csr_data.data(), x1_csr_structure.get_nnz()),
         x1_csr_structure);
@@ -264,7 +263,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                                 x2_csr_indices.data(),
                                 x2_csr_data.data());
 
-        auto x2_csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+        auto x2_csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
           x2_csr_indptr.data(), x2_csr_indices.data(), params.n2, params.n_cols, x2_nnz);
         auto x2_csr = raft::device_csr_matrix_view<const math_t, int, int, int>(
           raft::device_span<const math_t>(x2_csr_data.data(), x2_csr_structure.get_nnz()),

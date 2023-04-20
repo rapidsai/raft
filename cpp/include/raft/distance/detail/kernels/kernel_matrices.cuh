@@ -519,7 +519,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
                        csr_input_matrix_view_t<math_t> matrix,
                        math_t* target)
   {
-    auto matrix_structure = matrix.get_structure();
+    auto matrix_structure = matrix.structure_view();
     raft::sparse::linalg::rowNormCsr(handle,
                                      matrix_structure.get_indptr().data(),
                                      matrix.get_elements().data(),
@@ -605,7 +605,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
     rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
     rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
     if (norm_x1 == nullptr) {
-      tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
+      tmp_norm_x1.reserve(x1.structure_view().get_n_rows(), stream);
       norm_x1 = tmp_norm_x1.data();
       matrixRowNormL2(handle, x1, norm_x1);
     }
@@ -655,12 +655,12 @@ class RBFKernel : public GramMatrixBase<math_t> {
     rmm::device_uvector<math_t> tmp_norm_x1(0, stream);
     rmm::device_uvector<math_t> tmp_norm_x2(0, stream);
     if (norm_x1 == nullptr) {
-      tmp_norm_x1.reserve(x1.get_structure().get_n_rows(), stream);
+      tmp_norm_x1.reserve(x1.structure_view().get_n_rows(), stream);
       norm_x1 = tmp_norm_x1.data();
       matrixRowNormL2(handle, x1, norm_x1);
     }
     if (norm_x2 == nullptr) {
-      tmp_norm_x2.reserve(x2.get_structure().get_n_rows(), stream);
+      tmp_norm_x2.reserve(x2.structure_view().get_n_rows(), stream);
       norm_x2 = tmp_norm_x2.data();
       matrixRowNormL2(handle, x2, norm_x2);
     }

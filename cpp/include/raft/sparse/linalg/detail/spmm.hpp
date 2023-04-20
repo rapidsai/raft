@@ -84,7 +84,7 @@ cusparseSpMatDescr_t create_descriptor(
   raft::device_csr_matrix_view<ValueType, int, int, NZType>& sparse_view)
 {
   cusparseSpMatDescr_t descr;
-  auto csr_structure = sparse_view.get_structure();
+  auto csr_structure = sparse_view.structure_view();
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(
     &descr,
     csr_structure.get_n_rows(),

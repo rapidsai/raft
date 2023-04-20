@@ -433,7 +433,7 @@ class GramMatrixBase {
            "GramMatrix leading dimensions for x2 and out do not match");
 
     // check dimensions
-    auto x1_structure = x1.get_structure();
+    auto x1_structure = x1.structure_view();
     ASSERT(x1_structure.get_n_rows() == out.extent(0),
            "GramMatrix input matrix dimensions for x1 and out do not match");
     ASSERT(x2.extent(0) == out.extent(1),
@@ -469,8 +469,8 @@ class GramMatrixBase {
     int minor_out     = is_row_major ? out.extent(1) : out.extent(0);
     ASSERT(ld_out == minor_out, "Sparse linear Kernel distance does not support ld_out parameter");
 
-    auto x1_structure = x1.get_structure();
-    auto x2_structure = x2.get_structure();
+    auto x1_structure = x1.structure_view();
+    auto x2_structure = x2.structure_view();
     raft::sparse::distance::distances_config_t<int, math_t> dist_config(handle);
 
     // switch a,b based on is_row_major
