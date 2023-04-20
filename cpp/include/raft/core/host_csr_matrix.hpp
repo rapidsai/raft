@@ -189,20 +189,18 @@ auto make_host_csr_matrix(raft::resources const& handle,
  * @tparam IndicesType
  * @tparam NZType
  * @param[in] handle raft handle for managing expensive resources
- * @param[in] structure_ a sparsity-preserving compressed structural view
+ * @param[in] structure a sparsity-preserving compressed structural view
  * @return a sparsity-preserving sparse matrix in compressed (csr) format
  */
 template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
           typename NZType = uint64_t>
-auto make_host_csr_matrix(
-  raft::resources const& handle,
-  host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+auto make_host_csr_matrix(raft::resources const& handle,
+                          host_compressed_structure_view<IndptrType, IndicesType, NZType> structure)
 {
   return host_sparsity_preserving_csr_matrix<ElementType, IndptrType, IndicesType, NZType>(
-    handle,
-    std::make_shared<host_compressed_structure_view<IndptrType, IndicesType, NZType>>(structure_));
+    handle, structure);
 }
 
 /**
@@ -231,7 +229,7 @@ auto make_host_csr_matrix(
  * @tparam IndicesType
  * @tparam NZType
  * @param[in] ptr a pointer to array of nonzero matrix elements on host (size nnz)
- * @param[in] structure_ a sparsity-preserving compressed sparse structural view
+ * @param[in] structure a sparsity-preserving compressed sparse structural view
  * @return a sparsity-preserving csr matrix view
  */
 template <typename ElementType,
@@ -239,10 +237,10 @@ template <typename ElementType,
           typename IndicesType,
           typename NZType = uint64_t>
 auto make_host_csr_matrix_view(
-  ElementType* ptr, host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+  ElementType* ptr, host_compressed_structure_view<IndptrType, IndicesType, NZType> structure)
 {
   return host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
-    raft::host_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
+    raft::host_span<ElementType>(ptr, structure.get_nnz()), structure);
 }
 
 /**
@@ -272,7 +270,7 @@ auto make_host_csr_matrix_view(
  * @tparam IndicesType
  * @tparam NZType
  * @param[in] elements host span containing array of matrix elements (size nnz)
- * @param[in] structure_ a sparsity-preserving structural view
+ * @param[in] structure a sparsity-preserving structural view
  * @return a sparsity-preserving csr matrix view
  */
 template <typename ElementType,
@@ -281,12 +279,11 @@ template <typename ElementType,
           typename NZType = uint64_t>
 auto make_host_csr_matrix_view(
   raft::host_span<ElementType> elements,
-  host_compressed_structure_view<IndptrType, IndicesType, NZType> structure_)
+  host_compressed_structure_view<IndptrType, IndicesType, NZType> structure)
 {
-  RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
+  RAFT_EXPECTS(elements.size() == structure.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  return host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(
-    elements, std::make_shared(structure_));
+  return host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>(elements, structure);
 }
 
 /**
@@ -365,7 +362,7 @@ auto make_host_compressed_structure(raft::resources const& handle,
  * @return a sparsity-preserving compressed structural view
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_host_csr_structure_view(
+auto make_host_compressed_structure_view(
   IndptrType* indptr, IndicesType* indices, IndptrType n_rows, IndicesType n_cols, NZType nnz)
 {
   return host_compressed_structure_view<IndptrType, IndicesType, NZType>(
@@ -408,9 +405,9 @@ auto make_host_csr_structure_view(
  *
  */
 template <typename IndptrType, typename IndicesType, typename NZType = uint64_t>
-auto make_host_csr_structure_view(raft::host_span<IndptrType> indptr,
-                                  raft::host_span<IndicesType> indices,
-                                  IndicesType n_cols)
+auto make_host_compressed_structure_view(raft::host_span<IndptrType> indptr,
+                                         raft::host_span<IndicesType> indices,
+                                         IndicesType n_cols)
 {
   return host_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
