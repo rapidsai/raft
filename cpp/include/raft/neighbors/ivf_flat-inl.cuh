@@ -97,8 +97,8 @@ auto build(raft::device_resources const& handle,
  *   ivf_flat::search(handle, search_params, index, queries, out_inds, out_dists);
  * @endcode
  *
- * @tparam value_t data element type
- * @tparam idx_t type of the indices in the source dataset
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] handle
  * @param[in] params configure the index building
@@ -106,17 +106,16 @@ auto build(raft::device_resources const& handle,
  *
  * @return the constructed ivf-flat index
  */
-template <typename value_t, typename idx_t>
+template <typename T, typename IdxT>
 auto build(raft::device_resources const& handle,
            const index_params& params,
-           raft::device_matrix_view<const value_t, idx_t, row_major> dataset)
-  -> index<value_t, idx_t>
+           raft::device_matrix_view<const T, IdxT, row_major> dataset) -> index<T, IdxT>
 {
   return raft::neighbors::ivf_flat::detail::build(handle,
                                                   params,
                                                   dataset.data_handle(),
-                                                  static_cast<idx_t>(dataset.extent(0)),
-                                                  static_cast<idx_t>(dataset.extent(1)));
+                                                  static_cast<IdxT>(dataset.extent(0)),
+                                                  static_cast<IdxT>(dataset.extent(1)));
 }
 
 /**
@@ -141,8 +140,8 @@ auto build(raft::device_resources const& handle,
  *   ivf_flat::search(handle, search_params, index, queries, out_inds, out_dists);
  * @endcode
  *
- * @tparam value_t data element type
- * @tparam idx_t type of the indices in the source dataset
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] handle
  * @param[in] params configure the index building
@@ -150,17 +149,17 @@ auto build(raft::device_resources const& handle,
  * @param[out] idx reference to ivf_flat::index
  *
  */
-template <typename value_t, typename idx_t>
+template <typename T, typename IdxT>
 void build(raft::device_resources const& handle,
            const index_params& params,
-           raft::device_matrix_view<const value_t, idx_t, row_major> dataset,
-           raft::neighbors::ivf_flat::index<value_t, idx_t>& idx)
+           raft::device_matrix_view<const T, IdxT, row_major> dataset,
+           raft::neighbors::ivf_flat::index<T, IdxT>& idx)
 {
   idx = raft::neighbors::ivf_flat::detail::build(handle,
                                                  params,
                                                  dataset.data_handle(),
-                                                 static_cast<idx_t>(dataset.extent(0)),
-                                                 static_cast<idx_t>(dataset.extent(1)));
+                                                 static_cast<IdxT>(dataset.extent(0)),
+                                                 static_cast<IdxT>(dataset.extent(1)));
 }
 
 /** @} */
@@ -229,12 +228,12 @@ auto extend(raft::device_resources const& handle,
  *   // train the index from a [N, D] dataset
  *   auto index_empty = ivf_flat::build(handle, dataset, index_params, dataset);
  *   // fill the index with the data
- *   std::optional<raft::device_vector_view<const idx_t, idx_t>> no_op = std::nullopt;
+ *   std::optional<raft::device_vector_view<const IdxT, IdxT>> no_op = std::nullopt;
  *   auto index = ivf_flat::extend(handle, index_empty, no_op, dataset);
  * @endcode
  *
- * @tparam value_t data element type
- * @tparam idx_t type of the indices in the source dataset
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] handle
  * @param[in] new_vectors raft::device_matrix_view to a row-major matrix [n_rows, index.dim()]
@@ -245,18 +244,17 @@ auto extend(raft::device_resources const& handle,
  *
  * @return the constructed extended ivf-flat index
  */
-template <typename value_t, typename idx_t>
+template <typename T, typename IdxT>
 auto extend(raft::device_resources const& handle,
-            raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
-            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices,
-            const index<value_t, idx_t>& orig_index) -> index<value_t, idx_t>
+            raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
+            const index<T, IdxT>& orig_index) -> index<T, IdxT>
 {
-  return extend<value_t, idx_t>(
-    handle,
-    orig_index,
-    new_vectors.data_handle(),
-    new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
-    new_vectors.extent(0));
+  return extend<T, IdxT>(handle,
+                         orig_index,
+                         new_vectors.data_handle(),
+                         new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
+                         new_vectors.extent(0));
 }
 
 /** @} */
@@ -314,12 +312,12 @@ void extend(raft::device_resources const& handle,
  *   // train the index from a [N, D] dataset
  *   auto index_empty = ivf_flat::build(handle, index_params, dataset);
  *   // fill the index with the data
- *   std::optional<raft::device_vector_view<const idx_t, idx_t>> no_op = std::nullopt;
+ *   std::optional<raft::device_vector_view<const IdxT, IdxT>> no_op = std::nullopt;
  *   ivf_flat::extend(handle, dataset, no_opt, &index_empty);
  * @endcode
  *
- * @tparam value_t data element type
- * @tparam idx_t type of the indices in the source dataset
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] handle
  * @param[in] new_vectors raft::device_matrix_view to a row-major matrix [n_rows, index.dim()]
@@ -328,17 +326,17 @@ void extend(raft::device_resources const& handle,
  *    here to imply a continuous range `[0...n_rows)`.
  * @param[inout] index pointer to index, to be overwritten in-place
  */
-template <typename value_t, typename idx_t>
+template <typename T, typename IdxT>
 void extend(raft::device_resources const& handle,
-            raft::device_matrix_view<const value_t, idx_t, row_major> new_vectors,
-            std::optional<raft::device_vector_view<const idx_t, idx_t>> new_indices,
-            index<value_t, idx_t>* index)
+            raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
+            index<T, IdxT>* index)
 {
   extend(handle,
          index,
          new_vectors.data_handle(),
          new_indices.has_value() ? new_indices.value().data_handle() : nullptr,
-         static_cast<idx_t>(new_vectors.extent(0)));
+         static_cast<IdxT>(new_vectors.extent(0)));
 }
 
 /** @} */
@@ -426,8 +424,8 @@ void search(raft::device_resources const& handle,
  *   ...
  * @endcode
  *
- * @tparam value_t data element type
- * @tparam idx_t type of the indices
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -437,13 +435,13 @@ void search(raft::device_resources const& handle,
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
  */
-template <typename value_t, typename idx_t>
+template <typename T, typename IdxT>
 void search(raft::device_resources const& handle,
             const search_params& params,
-            const index<value_t, idx_t>& index,
-            raft::device_matrix_view<const value_t, idx_t, row_major> queries,
-            raft::device_matrix_view<idx_t, idx_t, row_major> neighbors,
-            raft::device_matrix_view<float, idx_t, row_major> distances)
+            const index<T, IdxT>& index,
+            raft::device_matrix_view<const T, IdxT, row_major> queries,
+            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::device_matrix_view<float, IdxT, row_major> distances)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),

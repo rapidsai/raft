@@ -27,6 +27,7 @@
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <algorithm>  // std::max
 #include <memory>
 #include <optional>
 #include <thrust/fill.h>
@@ -379,10 +380,11 @@ struct index : ann::index {
   {
     // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
     // template parameter (https://github.com/rapidsai/raft/issues/711)
-    uint32_t veclen = 16 / sizeof(T);
-    while (dim % veclen != 0) {
-      veclen = veclen >> 1;
-    }
+
+    // NOTE: keep this consistent with the select_interleaved_scan_kernel logic
+    // in detail/ivf_flat_interleaved_scan-inl.cuh.
+    uint32_t veclen = std::max<uint32_t>(1, 16 / sizeof(T));
+    if (dim % veclen != 0) { veclen = 1; }
     return veclen;
   }
 };
