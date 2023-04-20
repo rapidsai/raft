@@ -455,7 +455,10 @@ if(RAFT_COMPILE_LIBRARY)
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
-  target_compile_definitions(raft_lib INTERFACE "RAFT_COMPILED")
+
+  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
+  # "PUBLIC")
+  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
