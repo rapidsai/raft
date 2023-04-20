@@ -28,10 +28,6 @@
 #include <raft/neighbors/detail/knn_brute_force.cuh>  // raft::neighbors::detail::brute_force_knn_impl
 #include <raft/neighbors/detail/selection_faiss.cuh>  // raft::neighbors::detail::select_k
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <rmm/device_buffer.hpp>
 
 #include <gtest/gtest.h>

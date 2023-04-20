@@ -26,9 +26,6 @@
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 namespace raft::spatial::selection {
 

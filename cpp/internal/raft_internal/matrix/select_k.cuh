@@ -21,12 +21,6 @@
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
 
-#ifdef RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
-#include <raft/core/device_resources.hpp>
-
 namespace raft::matrix::select {
 
 struct params {
