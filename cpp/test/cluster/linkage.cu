@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+// XXX: We allow the instantiation of fused_l2_nn here:
+// raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(), params.n_row);
+// raft::linkage::connect_components<value_idx, value_t>(
+//   handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
+//
+// TODO: consider adding this to libraft.so or creating an instance in a
+// separate translation unit for this test.
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include "../test_utils.cuh"
 
 #include <raft/distance/distance_types.hpp>
