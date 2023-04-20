@@ -263,6 +263,7 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_lib
+    src/core/logger.cpp
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
     src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
@@ -390,6 +391,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
+    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_lib
