@@ -32,7 +32,7 @@
 #ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #else
-#pragma message("NN specializations are not enabled; expect very long building times.")
+#pragma message("NN instantiations are not enabled; expect very long building times.")
 #endif
 
 #include <rmm/cuda_stream_view.hpp>
