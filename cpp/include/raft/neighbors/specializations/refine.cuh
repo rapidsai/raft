@@ -13,39 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <raft/neighbors/refine.cuh>
-
-namespace raft::neighbors {
-
-#ifdef RAFT_INST
-#undef RAFT_INST
-#endif
-
-#define RAFT_INST(T, IdxT)                                                        \
-  extern template void refine<IdxT, T, float, int64_t>(                           \
-    raft::device_resources const& handle,                                         \
-    raft::device_matrix_view<const T, int64_t, row_major> dataset,                \
-    raft::device_matrix_view<const T, int64_t, row_major> queries,                \
-    raft::device_matrix_view<const IdxT, int64_t, row_major> neighbor_candidates, \
-    raft::device_matrix_view<IdxT, int64_t, row_major> indices,                   \
-    raft::device_matrix_view<float, int64_t, row_major> distances,                \
-    distance::DistanceType metric);                                               \
-                                                                                  \
-  extern template void refine<IdxT, T, float, int64_t>(                           \
-    raft::device_resources const& handle,                                         \
-    raft::host_matrix_view<const T, int64_t, row_major> dataset,                  \
-    raft::host_matrix_view<const T, int64_t, row_major> queries,                  \
-    raft::host_matrix_view<const IdxT, int64_t, row_major> neighbor_candidates,   \
-    raft::host_matrix_view<IdxT, int64_t, row_major> indices,                     \
-    raft::host_matrix_view<float, int64_t, row_major> distances,                  \
-    distance::DistanceType metric);
-
-RAFT_INST(float, int64_t);
-RAFT_INST(uint8_t, int64_t);
-RAFT_INST(int8_t, int64_t);
-
-#undef RAFT_INST
-}  // namespace raft::neighbors
+#pragma message(                                          \
+  __FILE__                                                \
+  " is deprecated and will be removed."                   \
+  " Including specializations is not necessary any more." \
+  " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")
