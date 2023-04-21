@@ -25,7 +25,7 @@ namespace raft::common::nvtx::detail {
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #include <string>
 #include <type_traits>
 #include <unordered_map>

@@ -83,6 +83,8 @@ class resource_factory {
    * @return resource instance
    */
   virtual resource* make_resource() = 0;
+
+  virtual ~resource_factory() {}
 };
 
 /**

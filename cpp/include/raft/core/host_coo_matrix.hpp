@@ -173,15 +173,15 @@ auto make_host_coo_matrix(raft::resources const& handle,
  * @tparam ColType
  * @tparam NZType
  * @param[in] handle raft handle for managing expensive resources
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_host_coo_matrix(raft::resources const& handle,
-                          host_coordinate_structure_view<RowType, ColType, NZType> structure_)
+                          host_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
-  return host_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
-    handle, std::make_shared<host_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
+  return host_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(handle,
+                                                                                    structure);
 }
 
 /**
@@ -210,15 +210,15 @@ auto make_host_coo_matrix(raft::resources const& handle,
  * @tparam ColType
  * @tparam NZType
  * @param[in] ptr a pointer to array of nonzero matrix elements on host (size nnz)
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_host_coo_matrix_view(ElementType* ptr,
-                               host_coordinate_structure_view<RowType, ColType, NZType> structure_)
+                               host_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
   return host_coo_matrix_view<ElementType, RowType, ColType, NZType>(
-    raft::host_span<ElementType>(ptr, structure_.get_nnz()), std::make_shared(structure_));
+    raft::host_span<ElementType>(ptr, structure.get_nnz()), structure);
 }
 
 /**
@@ -248,17 +248,16 @@ auto make_host_coo_matrix_view(ElementType* ptr,
  * @tparam ColType
  * @tparam NZType
  * @param[in] elements a host span containing nonzero matrix elements (size nnz)
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_host_coo_matrix_view(raft::host_span<ElementType> elements,
-                               host_coordinate_structure_view<RowType, ColType, NZType> structure_)
+                               host_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
-  RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
+  RAFT_EXPECTS(elements.size() == structure.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  return host_coo_matrix_view<ElementType, RowType, ColType, NZType>(elements,
-                                                                     std::make_shared(structure_));
+  return host_coo_matrix_view<ElementType, RowType, ColType, NZType>(elements, structure);
 }
 
 /**
@@ -333,7 +332,7 @@ auto make_host_coordinate_structure(raft::resources const& handle,
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_host_coo_structure_view(
+auto make_host_coordinate_structure_view(
   RowType* rows, ColType* cols, RowType n_rows, ColType n_cols, NZType nnz)
 {
   return host_coordinate_structure_view<RowType, ColType, NZType>(
@@ -371,10 +370,10 @@ auto make_host_coo_structure_view(
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_host_coo_structure_view(raft::host_span<RowType> rows,
-                                  raft::host_span<ColType> cols,
-                                  RowType n_rows,
-                                  ColType n_cols)
+auto make_host_coordinate_structure_view(raft::host_span<RowType> rows,
+                                         raft::host_span<ColType> cols,
+                                         RowType n_rows,
+                                         ColType n_cols)
 {
   return host_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }
