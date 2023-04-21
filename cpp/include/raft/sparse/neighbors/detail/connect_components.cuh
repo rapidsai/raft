@@ -219,16 +219,12 @@ void perform_1nn(raft::device_resources const& handle,
     raft::print_device_vector("colors_csr", colors_group_idxs.data_handle(), n_components + 1, std::cout);
     auto adj = raft::make_device_matrix<bool, value_idx> (handle, n_rows, n_components);
     auto adj_iterator = thrust::make_counting_iterator<value_idx>(0);
-    auto mask_op = [colors, n_components = raft::util::FastIntDiv(n_components), adj = adj.data_handle()] __device__(value_idx idx) {
+    auto mask_op = [colors, n_components = raft::util::FastIntDiv(n_components)] __device__(value_idx idx) {
       value_idx row = idx / n_components;
       value_idx col = idx % n_components;
       return colors[row] != col;
     };
-    thrust::transform(handle.get_thrust_policy(),
-                      adj_iterator,
-                      adj_iterator + n_rows * n_components,
-                      adj.data_handle(),
-                      mask_op);
+    raft::linalg::map_offset(handle, adj.view(), mask_op);
     raft::print_device_vector("adj", adj.data_handle(), 30, std::cout);
     auto kvp_view = raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
   using OutT       = raft::KeyValuePair<value_idx, value_t>;

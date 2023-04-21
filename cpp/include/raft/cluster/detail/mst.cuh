@@ -22,6 +22,7 @@
 #include "thrust/transform_reduce.h"
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
 
 #include <raft/sparse/neighbors/connect_components.cuh>
 #include <raft/sparse/op/sort.cuh>
