@@ -144,8 +144,13 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         auto dists_out_view =
           raft::make_device_matrix_view<DistanceT, IdxT>(distances_dev.data(), ps.n_queries, ps.k);
 
-        cagra::search(
-          handle_, search_params, index, database_view, search_queries_view, indices_out_view, dists_out_view);
+        cagra::search(handle_,
+                      search_params,
+                      index,
+                      database_view,
+                      search_queries_view,
+                      indices_out_view,
+                      dists_out_view);
 
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);

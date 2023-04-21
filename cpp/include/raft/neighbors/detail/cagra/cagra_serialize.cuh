@@ -51,8 +51,7 @@ template struct check_index_layout<sizeof(index<std::uint64_t>), 72>;
 template <typename IdxT>
 void serialize(raft::device_resources const& res, std::ostream& os, const index<IdxT>& index_)
 {
-  RAFT_LOG_DEBUG(
-    "Saving CAGRA index, size %zu", static_cast<size_t>(index_.size()));
+  RAFT_LOG_DEBUG("Saving CAGRA index, size %zu", static_cast<size_t>(index_.size()));
 
   serialize_scalar(res, os, serialization_version);
   serialize_scalar(res, os, index_.size());
@@ -95,7 +94,7 @@ auto deserialize(raft::device_resources const& res, std::istream& is) -> index<I
   auto graph_degree = deserialize_scalar<std::uint32_t>(res, is);
   auto metric       = deserialize_scalar<raft::distance::DistanceType>(res, is);
 
-  auto graph   = raft::make_host_matrix<IdxT, IdxT>(n_rows, graph_degree);
+  auto graph = raft::make_host_matrix<IdxT, IdxT>(n_rows, graph_degree);
 
   deserialize_mdspan(res, is, graph.view());
 

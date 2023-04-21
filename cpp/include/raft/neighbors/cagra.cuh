@@ -159,8 +159,8 @@ template <typename T,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<IdxT> build(raft::device_resources const& res,
-                     const index_params& params,
-                     mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
+                  const index_params& params,
+                  mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
   size_t degree = params.intermediate_graph_degree;
   if (degree >= dataset.extent(0)) {
