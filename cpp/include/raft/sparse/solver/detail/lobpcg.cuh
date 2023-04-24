@@ -73,13 +73,6 @@ void bmat(const raft::handle_t& handle,
           index_t n_blocks)
 {
   RAFT_EXPECTS(n_blocks * n_blocks == ins.size(), "inconsistent number of blocks");
-  index_t n_rows = 0;
-  index_t n_cols = 0;
-  for (const auto& inView : ins) {
-    n_rows += inView.extent(0);
-    n_cols += inView.extent(1);
-  }
-  RAFT_EXPECTS(n_rows == out.extent(0) && n_cols == out.extent(1), "input/output dimension mismatch");
   std::vector<index_t> cumulative_row(n_blocks);
   std::vector<index_t> cumulative_col(n_blocks);
   for (index_t i = 0; i < n_blocks; i++) {
@@ -693,10 +686,10 @@ void lobpcg(
     if (verbosityLevel > 2) {
       print_device_vector("active_mask", active_mask.data_handle(), active_mask.size(), std::cout);
     }
-    index_t currentBlockSize = thrust::count(thrust::cuda::par.on(stream),
-                                             active_mask.data_handle(),
-                                             active_mask.data_handle() + active_mask.size(),
-                                             0);
+    index_t currentBlockSize = thrust::count_if(thrust::cuda::par.on(stream),
+                                                active_mask.data_handle(),
+                                                active_mask.data_handle() + active_mask.size(),
+                                                [] __device__(value_t v) {return v > 0; });
     handle.sync_stream();
     if (currentBlockSize != previousBlockSize) {
       previousBlockSize = currentBlockSize;
@@ -847,7 +840,7 @@ void lobpcg(
       raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
     raft::linalg::gemm(handle,
                        raft::make_device_matrix_view<value_t, index_t, row_major>(
-                         X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         X.data_handle(), X.extent(1), X.extent(0)),  // transpose for gemm?
                        activeAR.view(),
                        gramXAR.view());
 
