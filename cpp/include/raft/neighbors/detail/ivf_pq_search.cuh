@@ -1613,7 +1613,7 @@ inline void search(raft::device_resources const& handle,
 
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
-  rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * params.n_probes, stream, mr);
+  rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * n_probes, stream, mr);
 
   auto search_instance = ivfpq_search<IdxT>::fun(params, index.metric());
 
@@ -1624,7 +1624,7 @@ inline void search(raft::device_resources const& handle,
                     clusters_to_probe.data(),
                     float_queries.data(),
                     queries_batch,
-                    params.n_probes,
+                    n_probes,
                     index.n_lists(),
                     dim,
                     dim_ext,
@@ -1661,10 +1661,10 @@ inline void search(raft::device_resources const& handle,
       search_instance(handle,
                       index,
                       max_samples,
-                      params.n_probes,
+                      n_probes,
                       k,
                       batch_size,
-                      clusters_to_probe.data() + uint64_t(params.n_probes) * offset_b,
+                      clusters_to_probe.data() + uint64_t(n_probes) * offset_b,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),
                       distances + uint64_t(k) * (offset_q + offset_b),
