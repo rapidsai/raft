@@ -368,7 +368,7 @@ void compute_distance_to_child_nodes(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,         // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,    // [num_queries, ldd]
-  const std::uint32_t ldd,                   // (*) ldd >= num_parants * graph_degree
+  const std::uint32_t ldd,                   // (*) ldd >= num_parents * graph_degree
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
