@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -144,9 +144,9 @@ class range {
   ~range() { pop_range<Domain>(); }
 
   /* This object is not meant to be touched. */
-  range(const range&) = delete;
-  range(range&&)      = delete;
-  auto operator=(const range&) -> range& = delete;
+  range(const range&)                              = delete;
+  range(range&&)                                   = delete;
+  auto operator=(const range&) -> range&           = delete;
   auto operator=(range&&) -> range&                = delete;
   static auto operator new(std::size_t) -> void*   = delete;
   static auto operator new[](std::size_t) -> void* = delete;

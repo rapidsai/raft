@@ -37,11 +37,9 @@ template <typename ElementType,
 using host_mdspan = mdspan<ElementType, Extents, LayoutPolicy, host_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
-struct is_host_mdspan : std::false_type {
-};
+struct is_host_mdspan : std::false_type {};
 template <typename T>
-struct is_host_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible> {
-};
+struct is_host_mdspan<T, true> : std::bool_constant<T::accessor_type::is_host_accessible> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::host_mdspan or a derived type

@@ -213,7 +213,7 @@ void select_residuals(raft::device_resources const& handle,
 template <typename T, typename IdxT>
 void flat_compute_residuals(
   raft::device_resources const& handle,
-  float* residuals,  // [n_rows, rot_dim]
+  float* residuals,                                                      // [n_rows, rot_dim]
   IdxT n_rows,
   device_matrix_view<const float, uint32_t, row_major> rotation_matrix,  // [rot_dim, dim]
   device_matrix_view<const float, uint32_t, row_major> centers,          // [n_lists, dim_ext]

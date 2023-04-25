@@ -55,10 +55,10 @@ class temporary_device_buffer {
   static constexpr bool is_const_pointer_ = std::is_const_v<ElementType>;
 
  public:
-  temporary_device_buffer(temporary_device_buffer const&) = delete;
+  temporary_device_buffer(temporary_device_buffer const&)            = delete;
   temporary_device_buffer& operator=(temporary_device_buffer const&) = delete;
 
-  constexpr temporary_device_buffer(temporary_device_buffer&&) = default;
+  constexpr temporary_device_buffer(temporary_device_buffer&&)            = default;
   constexpr temporary_device_buffer& operator=(temporary_device_buffer&&) = default;
 
   /**
