@@ -66,9 +66,9 @@ outputs:
         - librmm
     requirements:
       run:
+        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - cudatoolkit {{ cuda_version }}
         - librmm ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
