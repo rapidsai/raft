@@ -31,9 +31,8 @@ namespace raft::neighbors::ivf {
  * `size` bound or whenever the list is allocated but not filled-in yet.
  */
 template <typename IdxT>
-constexpr static IdxT kInvalidRecord = (std::is_signed_v<IdxT> ? IdxT{0}
-                                                               : std::numeric_limits<IdxT>::max()) -
-                                       1;
+constexpr static IdxT kInvalidRecord =
+  (std::is_signed_v<IdxT> ? IdxT{0} : std::numeric_limits<IdxT>::max()) - 1;
 
 /** The data for a single IVF list. */
 template <template <typename, typename...> typename SpecT,
@@ -58,8 +57,7 @@ struct list {
 };
 
 template <typename ListT, class T = void>
-struct enable_if_valid_list {
-};
+struct enable_if_valid_list {};
 
 template <class T,
           template <typename, typename...>

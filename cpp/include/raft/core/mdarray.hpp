@@ -44,23 +44,21 @@ namespace raft {
 template <typename Base>
 class array_interface {
   /**
-   * @brief Get a an mdspan
+   * @brief Get an mdspan
    */
   auto view() noexcept { return static_cast<Base*>(this)->view(); }
   /**
-   * @brief Get a const mdspan
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
 
 namespace detail {
 template <typename T, typename = void>
-struct is_array_interface : std::false_type {
-};
+struct is_array_interface : std::false_type {};
 template <typename T>
 struct is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
-  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
-};
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {};
 
 template <typename T>
 using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
@@ -75,16 +73,13 @@ inline constexpr bool is_array_interface_v = is_array_interface<std::remove_cons
 }  // namespace detail
 
 template <typename...>
-struct is_array_interface : std::true_type {
-};
+struct is_array_interface : std::true_type {};
 template <typename T1>
-struct is_array_interface<T1> : detail::is_array_interface_t<T1> {
-};
+struct is_array_interface<T1> : detail::is_array_interface_t<T1> {};
 template <typename T1, typename... Tn>
 struct is_array_interface<T1, Tn...> : std::conditional_t<detail::is_array_interface_v<T1>,
                                                           is_array_interface<Tn...>,
-                                                          std::false_type> {
-};
+                                                          std::false_type> {};
 /**
  * @\brief Boolean to determine if variadic template types Tn are raft::array_interface
  *         or derived type or any type that has a member function `view()` that returns either
@@ -107,8 +102,8 @@ inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
  *   template.
  *
  * - Most of the constructors from the reference implementation is removed to make sure
- *   CUDA stream is honorred. `raft::resources` is used to facade away the CUDA API so
- *   this file has no direct dependency on CUDA (unless being compiled with nvcc).
+ *   CUDA stream is honored. Note that this class is not coupled to CUDA and therefore
+ *   will only be used in the case where the device variant is used.
  *
  * - unique_size is not implemented, which is still working in progress in the proposal
  *
@@ -177,9 +172,9 @@ class mdarray
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  constexpr auto operator                                               =(mdarray const&) noexcept(
+  constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
-  constexpr auto operator                                               =(mdarray&&) noexcept(
+  constexpr auto operator=(mdarray&&) noexcept(
     std::is_nothrow_move_assignable<container_type>::value) -> mdarray& = default;
 
   ~mdarray() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
@@ -225,7 +220,7 @@ class mdarray
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
-   * @brief Get a const mdspan
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept
   {

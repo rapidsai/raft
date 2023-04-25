@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -473,33 +473,33 @@ void Lapack<T>::gemm(bool transa,
                      int ldc)
 {
   // check_lapack_enabled();
-  //#ifdef NVGRAPH_USE_LAPACK
+  // #ifdef NVGRAPH_USE_LAPACK
   const char transA_char = transa ? 'T' : 'N';
   const char transB_char = transb ? 'T' : 'N';
   lapack_gemm(transA_char, transB_char, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-  //#endif
+  // #endif
 }
 
 template <typename T>
 void Lapack<T>::sterf(int n, T* d, T* e)
 {
   //    check_lapack_enabled();
-  //#ifdef NVGRAPH_USE_LAPACK
+  // #ifdef NVGRAPH_USE_LAPACK
   int info;
   lapack_sterf(n, d, e, &info);
   lapackCheckError(info);
-  //#endif
+  // #endif
 }
 
 template <typename T>
 void Lapack<T>::steqr(char compz, int n, T* d, T* e, T* z, int ldz, T* work)
 {
   //    check_lapack_enabled();
-  //#ifdef NVGRAPH_USE_LAPACK
+  // #ifdef NVGRAPH_USE_LAPACK
   int info;
   lapack_steqr(compz, n, d, e, z, ldz, work, &info);
   lapackCheckError(info);
-  //#endif
+  // #endif
 }
 
 template <typename T>

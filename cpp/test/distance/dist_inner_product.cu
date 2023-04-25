@@ -22,8 +22,7 @@ namespace distance {
 
 template <typename DataType>
 class DistanceInnerProduct
-  : public DistanceTest<raft::distance::DistanceType::InnerProduct, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::InnerProduct, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 10, 5, 32, true, 1234ULL},
@@ -68,8 +67,7 @@ TEST_P(DistanceInnerProductD, Result)
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceInnerProductD, ::testing::ValuesIn(inputsd));
 
 class BigMatrixInnerProduct
-  : public BigMatrixDistanceTest<raft::distance::DistanceType::InnerProduct> {
-};
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::InnerProduct> {};
 TEST_F(BigMatrixInnerProduct, Result) {}
 
 }  // end namespace distance

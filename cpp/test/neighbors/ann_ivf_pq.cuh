@@ -22,7 +22,11 @@
 
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/map_reduce.cuh>
+#include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
+#include <raft/neighbors/ivf_pq_helpers.cuh>
 #include <raft/random/rng.cuh>
 #ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
@@ -38,8 +42,6 @@
 #include <gtest/gtest.h>
 
 #include <cub/cub.cuh>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -115,6 +117,33 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
   return os;
 }
 
+template <typename T>
+void compare_vectors_l2(
+  const raft::device_resources& res, T a, T b, uint32_t label, double compression_ratio, double eps)
+{
+  auto n_rows = a.extent(0);
+  auto dim    = a.extent(1);
+  rmm::mr::managed_memory_resource managed_memory;
+  auto dist = make_device_mdarray<double>(res, &managed_memory, make_extents<uint32_t>(n_rows));
+  linalg::map_offset(res, dist.view(), [a, b, dim] __device__(uint32_t i) {
+    spatial::knn::detail::utils::mapping<float> f{};
+    double d = 0.0f;
+    for (uint32_t j = 0; j < dim; j++) {
+      double t = f(a(i, j)) - f(b(i, j));
+      d += t * t;
+    }
+    return sqrt(d / double(dim));
+  });
+  res.sync_stream();
+  for (uint32_t i = 0; i < n_rows; i++) {
+    double d = dist(i);
+    // The theoretical estimate of the error is hard to come up with,
+    // the estimate below is based on experimentation + curse of dimensionality
+    ASSERT_LE(d, 1.2 * eps * std::pow(2.0, compression_ratio))
+      << " (label = " << label << ", ix = " << i << ", eps = " << eps << ")";
+  }
+}
+
 template <typename IdxT>
 auto min_output_size(const raft::device_resources& handle,
                      const ivf_pq::index<IdxT>& index,
@@ -139,7 +168,6 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
   }
 
- protected:
   void gen_data()
   {
     database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
@@ -178,7 +206,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     handle_.sync_stream(stream_);
   }
 
-  index<IdxT> build_only()
+  auto build_only()
   {
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = true;
@@ -188,19 +216,17 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
   }
 
-  index<IdxT> build_2_extends()
+  auto build_2_extends()
   {
-    rmm::device_uvector<IdxT> db_indices(ps.num_db_vecs, stream_);
-    thrust::sequence(handle_.get_thrust_policy(),
-                     thrust::device_pointer_cast(db_indices.data()),
-                     thrust::device_pointer_cast(db_indices.data() + ps.num_db_vecs));
+    auto db_indices = make_device_vector<IdxT>(handle_, ps.num_db_vecs);
+    linalg::map_offset(handle_, db_indices.view(), identity_op{});
     handle_.sync_stream(stream_);
     auto size_1 = IdxT(ps.num_db_vecs) / 2;
     auto size_2 = IdxT(ps.num_db_vecs) - size_1;
     auto vecs_1 = database.data();
     auto vecs_2 = database.data() + size_t(size_1) * size_t(ps.dim);
-    auto inds_1 = db_indices.data();
-    auto inds_2 = db_indices.data() + size_t(size_1);
+    auto inds_1 = db_indices.data_handle();
+    auto inds_2 = db_indices.data_handle() + size_t(size_1);
 
     auto ipams              = ps.index_params;
     ipams.add_data_on_build = false;
@@ -220,16 +246,159 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     return idx;
   }
 
-  index<IdxT> build_serialize()
+  auto build_serialize()
   {
     ivf_pq::serialize<IdxT>(handle_, "ivf_pq_index", build_only());
     return ivf_pq::deserialize<IdxT>(handle_, "ivf_pq_index");
+  }
+
+  void check_reconstruction(const index<IdxT>& index,
+                            double compression_ratio,
+                            uint32_t label,
+                            uint32_t n_take,
+                            uint32_t n_skip)
+  {
+    auto& rec_list = index.lists()[label];
+    auto dim       = index.dim();
+    n_take         = std::min<uint32_t>(n_take, rec_list->size.load());
+    n_skip         = std::min<uint32_t>(n_skip, rec_list->size.load() - n_take);
+
+    if (n_take == 0) { return; }
+
+    auto rec_data  = make_device_matrix<DataT>(handle_, n_take, dim);
+    auto orig_data = make_device_matrix<DataT>(handle_, n_take, dim);
+
+    ivf_pq::helpers::reconstruct_list_data(handle_, index, rec_data.view(), label, n_skip);
+
+    matrix::gather(database.data(),
+                   IdxT{dim},
+                   IdxT{n_take},
+                   rec_list->indices.data_handle() + n_skip,
+                   IdxT{n_take},
+                   orig_data.data_handle(),
+                   stream_);
+
+    compare_vectors_l2(handle_, rec_data.view(), orig_data.view(), label, compression_ratio, 0.06);
+  }
+
+  void check_reconstruct_extend(index<IdxT>* index, double compression_ratio, uint32_t label)
+  {
+    // NB: this is not reference, the list is retained; the index will have to create a new list on
+    // `erase_list` op.
+    auto old_list = index->lists()[label];
+    auto n_rows   = old_list->size.load();
+    if (n_rows == 0) { return; }
+
+    auto vectors_1 = make_device_matrix<EvalT>(handle_, n_rows, index->dim());
+    auto indices   = make_device_vector<IdxT>(handle_, n_rows);
+    copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
+
+    ivf_pq::helpers::reconstruct_list_data(handle_, *index, vectors_1.view(), label, 0);
+    ivf_pq::helpers::erase_list(handle_, index, label);
+    // NB: passing the type parameter because const->non-const implicit conversion of the mdspans
+    // breaks type inference
+    ivf_pq::helpers::extend_list<EvalT, IdxT>(
+      handle_, index, vectors_1.view(), indices.view(), label);
+
+    auto& new_list = index->lists()[label];
+    ASSERT_NE(old_list.get(), new_list.get())
+      << "The old list should have been shared and retained after ivf_pq index has erased the "
+         "corresponding cluster.";
+
+    auto vectors_2 = make_device_matrix<EvalT>(handle_, n_rows, index->dim());
+    ivf_pq::helpers::reconstruct_list_data(handle_, *index, vectors_2.view(), label, 0);
+    // The code search is unstable, and there's high chance of repeating values of the lvl-2 codes.
+    // Hence, encoding-decoding chain often leads to altering both the PQ codes and the
+    // reconstructed data.
+    compare_vectors_l2(
+      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.025);
+  }
+
+  void check_packing(index<IdxT>* index, uint32_t label)
+  {
+    auto old_list = index->lists()[label];
+    auto n_rows   = old_list->size.load();
+
+    if (n_rows == 0) { return; }
+
+    auto codes   = make_device_matrix<uint8_t>(handle_, n_rows, index->pq_dim());
+    auto indices = make_device_vector<IdxT>(handle_, n_rows);
+    copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
+
+    ivf_pq::helpers::unpack_list_data(handle_, *index, codes.view(), label, 0);
+    ivf_pq::helpers::erase_list(handle_, index, label);
+    ivf_pq::helpers::extend_list_with_codes<IdxT>(
+      handle_, index, codes.view(), indices.view(), label);
+
+    auto& new_list = index->lists()[label];
+    ASSERT_NE(old_list.get(), new_list.get())
+      << "The old list should have been shared and retained after ivf_pq index has erased the "
+         "corresponding cluster.";
+    auto list_data_size = (n_rows / ivf_pq::kIndexGroupSize) * new_list->data.extent(1) *
+                          new_list->data.extent(2) * new_list->data.extent(3);
+
+    ASSERT_TRUE(old_list->data.size() >= list_data_size);
+    ASSERT_TRUE(new_list->data.size() >= list_data_size);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
+
+    // Pack a few vectors back to the list.
+    int row_offset = 9;
+    int n_vec      = 3;
+    ASSERT_TRUE(row_offset + n_vec < n_rows);
+    size_t offset      = row_offset * index->pq_dim();
+    auto codes_to_pack = make_device_matrix_view<const uint8_t, uint32_t>(
+      codes.data_handle() + offset, n_vec, index->pq_dim());
+    ivf_pq::helpers::pack_list_data(handle_, index, codes_to_pack, label, row_offset);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
+
+    // Another test with the API that take list_data directly
+    auto list_data  = index->lists()[label]->data.view();
+    uint32_t n_take = 4;
+    ASSERT_TRUE(row_offset + n_take < n_rows);
+    auto codes2 = raft::make_device_matrix<uint8_t>(handle_, n_take, index->pq_dim());
+    ivf_pq::helpers::codepacker::unpack(
+      handle_, list_data, index->pq_bits(), row_offset, codes2.view());
+
+    // Write it back
+    ivf_pq::helpers::codepacker::pack(
+      handle_, make_const_mdspan(codes2.view()), index->pq_bits(), row_offset, list_data);
+    ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
+                            new_list->data.data_handle(),
+                            list_data_size,
+                            Compare<uint8_t>{}));
   }
 
   template <typename BuildIndex>
   void run(BuildIndex build_index)
   {
     index<IdxT> index = build_index();
+
+    double compression_ratio =
+      static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
+
+    for (uint32_t label = 0; label < index.n_lists(); label++) {
+      switch (label % 3) {
+        case 0: {
+          // Reconstruct and re-write vectors for one label
+          check_reconstruct_extend(&index, compression_ratio, label);
+        } break;
+        case 1: {
+          // Dump and re-write codes for one label
+          check_packing(&index, label);
+        } break;
+        default: {
+          // check a small subset of data in a randomly chosen cluster to see if the data
+          // reconstruction works well.
+          check_reconstruction(index, compression_ratio, label, 100, 7);
+        }
+      }
+    }
 
     size_t queries_size = ps.num_queries * ps.k;
     std::vector<IdxT> indices_ivf_pq(queries_size);
@@ -255,11 +424,9 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     // A very conservative lower bound on recall
     double min_recall =
       static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
-    double low_precision_factor =
-      static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
     // Using a heuristic to lower the required recall due to code-packing errors
     min_recall =
-      std::min(std::erfc(0.05 * low_precision_factor / std::max(min_recall, 0.5)), min_recall);
+      std::min(std::erfc(0.05 * compression_ratio / std::max(min_recall, 0.5)), min_recall);
     // Use explicit per-test min recall value if provided.
     min_recall = ps.min_recall.value_or(min_recall);
 
@@ -269,7 +436,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                                 distances_ivf_pq,
                                 ps.num_queries,
                                 ps.k,
-                                0.0001 * low_precision_factor,
+                                0.0001 * compression_ratio,
                                 min_recall))
       << ps;
 

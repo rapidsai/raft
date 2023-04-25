@@ -90,9 +90,6 @@ def test_knn(
         expected_indices = argsort[i]
         gpu_dists = actual_distances[i]
 
-        if metric == "correlation" or metric == "cosine":
-            gpu_dists = gpu_dists[::-1]
-
         cpu_ordered = pw_dists[i, expected_indices]
         np.testing.assert_allclose(
             cpu_ordered[:k], gpu_dists, atol=1e-4, rtol=1e-4
