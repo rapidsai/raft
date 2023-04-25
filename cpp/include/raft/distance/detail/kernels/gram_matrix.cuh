@@ -20,7 +20,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
-//#include <raft/sparse/detail/cusparse_wrappers.h>
+// #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/distance/distance.cuh>
 #include <raft/sparse/linalg/spmm.cuh>
 
