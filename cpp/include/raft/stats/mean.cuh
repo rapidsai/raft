@@ -92,7 +92,7 @@ void mean(raft::device_resources const& handle,
 
 /** @} */  // end group stats_mean
 
-};  // namespace stats
-};  // namespace raft
+};         // namespace stats
+};         // namespace raft
 
 #endif

@@ -91,7 +91,7 @@ double v_measure(raft::device_resources const& handle,
 
 /** @} */  // end group stats_vmeasure
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

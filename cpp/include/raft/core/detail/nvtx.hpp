@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ namespace raft::common::nvtx::detail {
 #include <cstdint>
 #include <cstdlib>
 #include <mutex>
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -191,7 +191,7 @@ inline void pop_range()
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
-#else  // NVTX_ENABLED
+#else   // NVTX_ENABLED
 
 template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)

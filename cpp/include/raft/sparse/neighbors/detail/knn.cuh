@@ -58,7 +58,7 @@ struct csr_batcher_t {
   void set_batch(int batch_num)
   {
     batch_start_ = batch_num * batch_size_;
-    batch_stop_  = batch_start_ + batch_size_ - 1;  // zero-based indexing
+    batch_stop_  = batch_start_ + batch_size_ - 1;                  // zero-based indexing
 
     if (batch_stop_ >= total_rows_) batch_stop_ = total_rows_ - 1;  // zero-based indexing
 
@@ -355,8 +355,7 @@ class sparse_knn_t {
     // want to adjust k.
     value_idx n_neighbors = std::min(static_cast<value_idx>(k), batch_cols);
 
-    bool ascending = true;
-    if (metric == raft::distance::DistanceType::InnerProduct) ascending = false;
+    bool ascending = raft::distance::is_min_close(metric);
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
     raft::spatial::knn::select_k(batch_dists,
