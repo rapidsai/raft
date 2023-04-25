@@ -86,10 +86,10 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void gather(value_idx* map) {
+  void gather(raft::device_resources const& handle, value_idx* map) {
   }
 
-  void scatter(value_idx* map) {
+  void scatter(raft::device_resources const& handle, value_idx* map) {
   }
 };
 
@@ -442,7 +442,7 @@ void connect_components(
   thrust::sort_by_key(handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data());
   
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
-  reduction_op.gather(sort_plan.data());
+  reduction_op.gather(handle, sort_plan.data());
 
   batched_gather(handle,
                   const_cast<value_t*>(X),
@@ -513,7 +513,7 @@ void connect_components(
                  n_rows,
                  n_cols,
                  n_cols);
-  reduction_op.scatter(sort_plan.data());
+  reduction_op.scatter(handle, sort_plan.data());
   /**
    * Symmetrize resulting edge list
    */
