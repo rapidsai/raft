@@ -189,12 +189,10 @@ constexpr inline auto absolute_value(T val) -> std::enable_if_t<!std::is_signed<
  * @{
  */
 template <typename From, typename To, typename = void>
-struct is_narrowing : std::true_type {
-};
+struct is_narrowing : std::true_type {};
 
 template <typename From, typename To>
-struct is_narrowing<From, To, std::void_t<decltype(To{std::declval<From>()})>> : std::false_type {
-};
+struct is_narrowing<From, To, std::void_t<decltype(To{std::declval<From>()})>> : std::false_type {};
 /** @} */
 
 /** Check whether the numeric conversion is narrowing */

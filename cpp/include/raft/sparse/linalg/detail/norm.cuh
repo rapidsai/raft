@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,10 +44,10 @@ __global__ void csr_row_normalize_l1_kernel(
   // over each row and then divide the values in parallel.
   const int* ia,  // csr row ex_scan (sorted by row)
   const T* vals,
-  int nnz,  // array of values and number of non-zeros
-  int m,    // num rows in csr
+  int nnz,        // array of values and number of non-zeros
+  int m,          // num rows in csr
   T* result)
-{  // output array
+{                 // output array
 
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -90,8 +90,8 @@ __global__ void csr_row_normalize_l1_kernel(
 template <int TPB_X = 64, typename T>
 void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
                           const T* vals,
-                          int nnz,  // array of values and number of non-zeros
-                          int m,    // num rows in csr
+                          int nnz,        // array of values and number of non-zeros
+                          int m,          // num rows in csr
                           T* result,
                           cudaStream_t stream)
 {  // output array
@@ -110,10 +110,10 @@ __global__ void csr_row_normalize_max_kernel(
   // over each row and then divide the values in parallel.
   const int* ia,  // csr row ind array (sorted by row)
   const T* vals,
-  int nnz,  // array of values and number of non-zeros
-  int m,    // num total rows in csr
+  int nnz,        // array of values and number of non-zeros
+  int m,          // num total rows in csr
   T* result)
-{  // output array
+{                 // output array
 
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -158,8 +158,8 @@ __global__ void csr_row_normalize_max_kernel(
 template <int TPB_X = 64, typename T>
 void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
                            const T* vals,
-                           int nnz,  // array of values and number of non-zeros
-                           int m,    // num total rows in csr
+                           int nnz,        // array of values and number of non-zeros
+                           int m,          // num total rows in csr
                            T* result,
                            cudaStream_t stream)
 {

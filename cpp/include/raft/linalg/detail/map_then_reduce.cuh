@@ -25,8 +25,7 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-struct sum_tag {
-};
+struct sum_tag {};
 
 template <typename InType, typename OutType, int TPB>
 __device__ void reduce(OutType* out, const InType acc, sum_tag)

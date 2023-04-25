@@ -216,7 +216,7 @@ void add_scalar(raft::device_resources const& handle,
 
 /** @} */  // end of group add
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

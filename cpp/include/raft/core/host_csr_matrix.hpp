@@ -45,8 +45,7 @@ using host_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy>;
 
 template <typename T>
-struct is_host_csr_matrix : std::false_type {
-};
+struct is_host_csr_matrix : std::false_type {};
 
 template <typename ElementType,
           typename IndptrType,
@@ -57,8 +56,7 @@ template <typename ElementType,
           SparsityType sparsity_type>
 struct is_host_csr_matrix<
   host_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, sparsity_type>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 template <typename T>
 constexpr bool is_host_csr_matrix_v = is_host_csr_matrix<T>::value;

@@ -106,6 +106,6 @@ void meanvar(raft::device_resources const& handle,
 
 /** @} */  // end group stats_mean_var
 
-};  // namespace raft::stats
+};         // namespace raft::stats
 
 #endif
