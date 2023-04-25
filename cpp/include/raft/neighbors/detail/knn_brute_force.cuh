@@ -30,10 +30,9 @@
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
+#include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
-#include <raft/neighbors/detail/faiss_select/Select.cuh>
 #include <raft/neighbors/detail/knn_merge_parts.cuh>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <set>
@@ -225,15 +224,16 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         }
       }
 
-      select_k<IndexType, ElementType>(temp_distances.data(),
-                                       nullptr,
-                                       current_query_size,
-                                       current_centroid_size,
-                                       distances + i * k,
-                                       indices + i * k,
-                                       select_min,
-                                       current_k,
-                                       stream);
+      matrix::select_k<ElementType, IndexType>(
+        handle,
+        raft::make_device_matrix_view<const ElementType, int64_t, row_major>(
+          temp_distances.data(), current_query_size, current_centroid_size),
+        std::nullopt,
+        raft::make_device_matrix_view<ElementType, int64_t, row_major>(
+          distances + i * k, current_query_size, current_k),
+        raft::make_device_matrix_view<IndexType, int64_t, row_major>(
+          indices + i * k, current_query_size, current_k),
+        select_min);
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -265,15 +265,17 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
     if (tile_cols != n) {
       // select the actual top-k items here from the temporary output
-      select_k<IndexType, ElementType>(temp_out_distances.data(),
-                                       temp_out_indices.data(),
-                                       current_query_size,
-                                       temp_out_cols,
-                                       distances + i * k,
-                                       indices + i * k,
-                                       select_min,
-                                       k,
-                                       stream);
+      matrix::select_k<ElementType, IndexType>(
+        handle,
+        raft::make_device_matrix_view<const ElementType, int64_t, row_major>(
+          temp_out_distances.data(), current_query_size, temp_out_cols),
+        raft::make_device_matrix_view<const IndexType, int64_t, row_major>(
+          temp_out_indices.data(), current_query_size, temp_out_cols),
+        raft::make_device_matrix_view<ElementType, int64_t, row_major>(
+          distances + i * k, current_query_size, k),
+        raft::make_device_matrix_view<IndexType, int64_t, row_major>(
+          indices + i * k, current_query_size, k),
+        select_min);
     }
   }
 }
