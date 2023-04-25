@@ -32,7 +32,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = { text = "Apache 2.0" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "dask-cuda==23.6.*",
     "dask==2023.3.2",
@@ -46,7 +46,7 @@ dependencies = [
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
 

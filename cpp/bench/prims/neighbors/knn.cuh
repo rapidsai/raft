@@ -384,11 +384,10 @@ inline const std::vector<TransferStrategy> kNoCopyOnly{TransferStrategy::NO_COPY
 inline const std::vector<Scope> kScopeFull{Scope::BUILD_SEARCH};
 inline const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::BUILD};
 
-#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                   \
-  namespace BENCHMARK_PRIVATE_NAME(knn)                                          \
-  {                                                                              \
-    using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
-    RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
+#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                 \
+  namespace BENCHMARK_PRIVATE_NAME(knn) {                                      \
+  using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
+  RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
   }
 
 }  // namespace raft::bench::spatial

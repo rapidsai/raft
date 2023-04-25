@@ -46,8 +46,7 @@ using device_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
 
 template <typename T>
-struct is_device_csr_matrix : std::false_type {
-};
+struct is_device_csr_matrix : std::false_type {};
 
 template <typename ElementType,
           typename IndptrType,
@@ -58,8 +57,7 @@ template <typename ElementType,
           SparsityType sparsity_type>
 struct is_device_csr_matrix<
   device_csr_matrix<ElementType, IndptrType, IndicesType, NZType, ContainerPolicy, sparsity_type>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 template <typename T>
 constexpr bool is_device_csr_matrix_v = is_device_csr_matrix<T>::value;

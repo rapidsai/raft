@@ -16,14 +16,14 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>  // common::nvtx::range
+#include <raft/common/nvtx.hpp>              // common::nvtx::range
 
 #include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
 #include <raft/core/device_resources.hpp>    // raft::device_resources
 #include <raft/core/operators.hpp>           // raft::sqrt
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>
-#include <rmm/device_uvector.hpp>  // rmm::device_uvector
+#include <rmm/device_uvector.hpp>            // rmm::device_uvector
 
 // When the distance library is precompiled, include only the raft_runtime
 // headers. This way, a small change in one of the kernel internals does not

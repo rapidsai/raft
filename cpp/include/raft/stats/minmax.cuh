@@ -138,6 +138,6 @@ void minmax(raft::device_resources const& handle,
 
 /** @} */  // end group stats_minmax
 
-};  // namespace stats
-};  // namespace raft
+};         // namespace stats
+};         // namespace raft
 #endif
