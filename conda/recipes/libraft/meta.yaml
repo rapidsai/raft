@@ -67,7 +67,7 @@ outputs:
     requirements:
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
-        - cuda_toolkit {{ cuda_spec }}
+        - cudatoolkit {{ cuda_spec }}
         - cuda-profiler-api {{ cuda_profiler_api_run_version }}
         - librmm ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
