@@ -16,6 +16,20 @@
 
 #pragma once
 
+// The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
+// the inline specification when RAFT_COMPILED is defined.
+//
+// When RAFT_COMPILED is not defined, functions may be defined in multiple
+// translation units and we do not want that to lead to linker errors.
+//
+// When RAFT_COMPILED is defined, this serves two purposes:
+//
+// 1. It triggers a multiple definition error message when memory_pool-inl.hpp
+// (for instance) is accidentally included in multiple translation units.
+//
+// 2. We function definitions to be non-inline, because non-inline functions
+// symbols are always exported in the object symbol table. For inline functions,
+// the compiler may elide the external symbol, which results in linker errors.
 #ifdef RAFT_COMPILED
 #define RAFT_INLINE_CONDITIONAL
 #else
