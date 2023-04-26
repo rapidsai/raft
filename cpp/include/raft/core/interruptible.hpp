@@ -172,10 +172,10 @@ class interruptible {
   inline void cancel() noexcept { continue_.clear(std::memory_order_relaxed); }
 
   // don't allow the token to leave the shared_ptr
-  interruptible(interruptible const&) = delete;
-  interruptible(interruptible&&)      = delete;
+  interruptible(interruptible const&)                    = delete;
+  interruptible(interruptible&&)                         = delete;
   auto operator=(interruptible const&) -> interruptible& = delete;
-  auto operator=(interruptible&&) -> interruptible& = delete;
+  auto operator=(interruptible&&) -> interruptible&      = delete;
 
  private:
   /** Global registry of thread-local cancellation stores. */

@@ -141,7 +141,7 @@ class compressed_structure
   constexpr auto operator=(compressed_structure const&) noexcept(
     std::is_nothrow_copy_assignable<indptr_container_type>::value)
     -> compressed_structure& = default;
-  constexpr auto operator    =(compressed_structure&&) noexcept(
+  constexpr auto operator=(compressed_structure&&) noexcept(
     std::is_nothrow_move_assignable<indptr_container_type>::value)
     -> compressed_structure& = default;
 

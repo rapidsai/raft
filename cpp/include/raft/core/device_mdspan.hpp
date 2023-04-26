@@ -45,11 +45,9 @@ template <typename ElementType,
 using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
-struct is_device_mdspan : std::false_type {
-};
+struct is_device_mdspan : std::false_type {};
 template <typename T>
-struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {
-};
+struct is_device_mdspan<T, true> : std::bool_constant<T::accessor_type::is_device_accessible> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::device_mdspan or a derived type
@@ -64,11 +62,9 @@ template <typename T>
 using is_output_device_mdspan_t = is_device_mdspan<T, is_output_mdspan_v<T>>;
 
 template <typename T, bool B>
-struct is_managed_mdspan : std::false_type {
-};
+struct is_managed_mdspan : std::false_type {};
 template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {
-};
+struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type
@@ -257,6 +253,36 @@ auto make_device_matrix_view(ElementType* ptr, IndexType n_rows, IndexType n_col
 {
   matrix_extent<IndexType> extents{n_rows, n_cols};
   return device_matrix_view<ElementType, IndexType, LayoutPolicy>{ptr, extents};
+}
+
+/**
+ * @brief Create a 2-dim mdspan instance for device pointer with a strided layout
+ *        that is restricted to stride 1 in the trailing dimension. It's
+ *        expected that the given layout policy match the layout of the underlying
+ *        pointer.
+ * @tparam ElementType the data type of the matrix elements
+ * @tparam IndexType the index type of the extents
+ * @tparam LayoutPolicy policy for strides and layout ordering
+ * @param[in] ptr on device to wrap
+ * @param[in] n_rows number of rows in pointer
+ * @param[in] n_cols number of columns in pointer
+ * @param[in] stride leading dimension / stride of data
+ */
+template <typename ElementType, typename IndexType, typename LayoutPolicy = layout_c_contiguous>
+auto make_device_strided_matrix_view(ElementType* ptr,
+                                     IndexType n_rows,
+                                     IndexType n_cols,
+                                     IndexType stride)
+{
+  constexpr auto is_row_major = std::is_same_v<LayoutPolicy, layout_c_contiguous>;
+  IndexType stride0           = is_row_major ? (stride > 0 ? stride : n_cols) : 1;
+  IndexType stride1           = is_row_major ? 1 : (stride > 0 ? stride : n_rows);
+
+  assert(is_row_major ? stride0 >= n_cols : stride1 >= n_rows);
+  matrix_extent<IndexType> extents{n_rows, n_cols};
+
+  auto layout = make_strided_layout(extents, std::array<IndexType, 2>{stride0, stride1});
+  return device_matrix_view<ElementType, IndexType, layout_stride>{ptr, layout};
 }
 
 /**

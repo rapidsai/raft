@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,9 +77,7 @@ class linkage_output {
   }
 };
 
-class linkage_output_int : public linkage_output<int> {
-};
-class linkage_output_int64 : public linkage_output<int64_t> {
-};
+class linkage_output_int : public linkage_output<int> {};
+class linkage_output_int64 : public linkage_output<int64_t> {};
 
 };  // namespace raft::cluster

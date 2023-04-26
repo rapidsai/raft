@@ -199,8 +199,7 @@ template <int NumThreads,
           typename Comp,
           bool SmallerThanBlock,
           bool FullMerge>
-struct BlockMerge {
-};
+struct BlockMerge {};
 
 /// Merging lists smaller than a block
 template <int NumThreads,
