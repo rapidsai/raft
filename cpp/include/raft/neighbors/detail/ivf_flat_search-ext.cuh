@@ -33,7 +33,7 @@ void search(raft::device_resources const& handle,
             uint32_t k,
             IdxT* neighbors,
             float* distances,
-            rmm::mr::device_memory_resource* mr = nullptr);
+            rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ivf_flat::detail
 
