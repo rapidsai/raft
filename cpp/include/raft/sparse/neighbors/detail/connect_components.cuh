@@ -86,11 +86,9 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void gather(raft::device_resources const& handle, value_idx* map) {
-  }
+  void gather(raft::device_resources const& handle, value_idx* map) {}
 
-  void scatter(raft::device_resources const& handle, value_idx* map) {
-  }
+  void scatter(raft::device_resources const& handle, value_idx* map) {}
 };
 
 /**
@@ -174,30 +172,38 @@ struct LookupColorOp {
 
 template <typename value_idx, typename value_t>
 void batched_gather(raft::device_resources const& handle,
-                     value_t* X,
-                     value_idx* map,
-                     size_t m,
-                     size_t n,
-                     size_t batch_size){
-  auto stream = handle.get_stream();
+                    value_t* X,
+                    value_idx* map,
+                    size_t m,
+                    size_t n,
+                    size_t batch_size)
+{
+  auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
-  value_idx n_batches = raft::ceildiv((int)n, (int)batch_size);
+  value_idx n_batches = raft::ceildiv((value_idx)n, (value_idx)batch_size);
 
-  for(value_idx bid = 0; bid < n_batches; bid++) {
-    value_idx batch_offset = bid * batch_size;
+  for (value_idx bid = 0; bid < n_batches; bid++) {
+    value_idx batch_offset   = bid * batch_size;
     value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - bid * batch_offset);
     auto scratch_space = raft::make_device_vector<value_t, value_idx>(handle, m * cols_per_batch);
 
-    auto scatter_op = [X, map, batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n]__device__(auto idx) {
-      value_idx row = idx / cols_per_batch;
-      value_idx col = idx % cols_per_batch;
-      return X[map[row] * n + batch_offset + col];
-    };
+    auto scatter_op =
+      [X, map, batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n] __device__(
+        auto idx) {
+        value_idx row = idx / cols_per_batch;
+        value_idx col = idx % cols_per_batch;
+        return X[map[row] * n + batch_offset + col];
+      };
     raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
-    auto copy_op = [X, map, scratch_space = scratch_space.data_handle(), batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n]__device__(auto idx) {
-      value_idx row = idx / cols_per_batch;
-      value_idx col = idx % cols_per_batch;
+    auto copy_op = [X,
+                    map,
+                    scratch_space = scratch_space.data_handle(),
+                    batch_offset,
+                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                    n] __device__(auto idx) {
+      value_idx row                          = idx / cols_per_batch;
+      value_idx col                          = idx % cols_per_batch;
       return X[row * n + batch_offset + col] = scratch_space[idx];
     };
     auto counting = thrust::make_counting_iterator<value_idx>(0);
@@ -207,31 +213,38 @@ void batched_gather(raft::device_resources const& handle,
 
 template <typename value_idx, typename value_t>
 void batched_scatter(raft::device_resources const& handle,
-                    value_t* X,
-                    value_idx* map,
-                    size_t m,
-                    size_t n,
-                    size_t batch_size) {
-  
-  auto stream = handle.get_stream();
+                     value_t* X,
+                     value_idx* map,
+                     size_t m,
+                     size_t n,
+                     size_t batch_size)
+{
+  auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
-  value_idx n_batches = raft::ceildiv((int)n, (int)batch_size);
+  value_idx n_batches = raft::ceildiv((value_idx)n, (value_idx)batch_size);
 
-  for(value_idx bid = 0; bid < n_batches; bid++) {
-    value_idx batch_offset = bid * batch_size;
+  for (value_idx bid = 0; bid < n_batches; bid++) {
+    value_idx batch_offset   = bid * batch_size;
     value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - bid * batch_offset);
     auto scratch_space = raft::make_device_vector<value_t, value_idx>(handle, m * cols_per_batch);
 
-    auto scatter_op = [X, map, batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n]__device__(auto idx) {
-      value_idx row = idx / cols_per_batch;
-      value_idx col = idx % cols_per_batch;
-      return X[row * n + batch_offset + col];
-    };
+    auto scatter_op =
+      [X, map, batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n] __device__(
+        auto idx) {
+        value_idx row = idx / cols_per_batch;
+        value_idx col = idx % cols_per_batch;
+        return X[row * n + batch_offset + col];
+      };
     raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
-    auto copy_op = [X, map, scratch_space = scratch_space.data_handle(), batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n]__device__(auto idx) {
-      value_idx row = idx / cols_per_batch;
-      value_idx col = idx % cols_per_batch;
+    auto copy_op = [X,
+                    map,
+                    scratch_space = scratch_space.data_handle(),
+                    batch_offset,
+                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                    n] __device__(auto idx) {
+      value_idx row                        = idx / cols_per_batch;
+      value_idx col                        = idx % cols_per_batch;
       X[map[row] * n + batch_offset + col] = scratch_space[idx];
     };
     auto counting = thrust::make_counting_iterator<value_idx>(0);
@@ -267,46 +280,43 @@ void perform_1nn(raft::device_resources const& handle,
 
   auto x_norm = raft::make_device_vector<value_t, value_idx>(handle, n_rows);
 
-  raft::linalg::rowNorm(x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
+  raft::linalg::rowNorm(
+    x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
 
-    value_idx n_components = get_n_components(colors, n_rows, stream);
-    auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx> (handle, n_components + 1);
-    raft::sparse::convert::sorted_coo_to_csr(colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
+  value_idx n_components = get_n_components(colors, n_rows, stream);
+  auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx>(handle, n_components + 1);
+  raft::sparse::convert::sorted_coo_to_csr(
+    colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
 
-    raft::print_device_vector("colors", colors, n_rows, std::cout);
-    raft::print_device_vector("colors_csr", colors_group_idxs.data_handle(), n_components + 1, std::cout);
-    auto adj = raft::make_device_matrix<bool, value_idx> (handle, n_rows, n_components);
-    auto mask_op = [colors, n_components = raft::util::FastIntDiv(n_components)] __device__(value_idx idx) {
-      value_idx row = idx / n_components;
-      value_idx col = idx % n_components;
-      return colors[row] != col;
-    };
-    raft::linalg::map_offset(handle, adj.view(), mask_op);
-    raft::print_device_vector("adj", adj.data_handle(), 30, std::cout);
-    auto kvp_view = raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
-  using OutT       = raft::KeyValuePair<value_idx, value_t>;
-  using ParamT     = raft::distance::masked_l2_nn_params<red_op, red_op>;
-    ParamT params{
-        reduction_op,
-        reduction_op,
-        true,
-        true};
-    auto X_view = raft::make_device_matrix_view<const value_t, value_idx>(X, n_rows, n_cols);
-    raft::distance::masked_l2_nn<value_t, OutT, value_idx, red_op, red_op>(handle,
-                  params,
-                  X_view,
-                  X_view,
-             x_norm.view(),
-                x_norm.view(),
-                  adj.view(),
-                  raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
-                  kvp_view);
+  auto adj     = raft::make_device_matrix<bool, value_idx>(handle, n_rows, n_components);
+  auto mask_op = [colors,
+                  n_components = raft::util::FastIntDiv(n_components)] __device__(value_idx idx) {
+    value_idx row = idx / n_components;
+    value_idx col = idx % n_components;
+    return colors[row] != col;
+  };
+  raft::linalg::map_offset(handle, adj.view(), mask_op);
+  auto kvp_view =
+    raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
+  using OutT   = raft::KeyValuePair<value_idx, value_t>;
+  using ParamT = raft::distance::masked_l2_nn_params<red_op, red_op>;
 
-  RAFT_LOG_INFO("Done until masked l2 distance");
+  ParamT params{reduction_op, reduction_op, true, true};
+
+  auto X_view = raft::make_device_matrix_view<const value_t, value_idx>(X, n_rows, n_cols);
+  raft::distance::masked_l2_nn<value_t, OutT, value_idx, red_op, red_op>(
+    handle,
+    params,
+    X_view,
+    X_view,
+    x_norm.view(),
+    x_norm.view(),
+    adj.view(),
+    raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
+    kvp_view);
+
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
-
-  raft::print_device_vector("nn_colors", nn_colors, n_rows, std::cout);
 }
 
 /**
@@ -413,21 +423,15 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * @param[in] n_cols number of cols in X
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(
-  raft::device_resources const& handle,
-  raft::sparse::COO<value_t, value_idx>& out,
-  const value_t* X,
-  const value_idx* orig_colors,
-  size_t n_rows,
-  size_t n_cols,
-  red_op reduction_op,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
+void connect_components(raft::device_resources const& handle,
+                        raft::sparse::COO<value_t, value_idx>& out,
+                        const value_t* X,
+                        const value_idx* orig_colors,
+                        size_t n_rows,
+                        size_t n_cols,
+                        red_op reduction_op)
 {
   auto stream = handle.get_stream();
-
-  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
-               "Fixing connectivities for an unconnected k-NN graph only "
-               "supports L2SqrtExpanded currently.");
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
   raft::copy_async(colors.data(), orig_colors, n_rows, stream);
@@ -439,17 +443,13 @@ void connect_components(
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
   thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, sort_plan.data());
 
-  thrust::sort_by_key(handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data());
-  
+  thrust::sort_by_key(
+    handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data());
+
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
   reduction_op.gather(handle, sort_plan.data());
 
-  batched_gather(handle,
-                  const_cast<value_t*>(X),
-                  sort_plan.data(),
-                  n_rows,
-                  n_cols,
-                  n_cols);
+  batched_gather(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, n_cols);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -460,13 +460,13 @@ void connect_components(
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
   perform_1nn(handle,
-               temp_inds_dists.data(),
-               nn_colors.data(),
+              temp_inds_dists.data(),
+              nn_colors.data(),
               colors.data(),
-               X,
-               n_rows,
-               n_cols,
-               reduction_op);
+              X,
+              n_rows,
+              n_cols,
+              reduction_op);
 
   /**
    * Sort data points by color (neighbors are not sorted)
@@ -484,15 +484,10 @@ void connect_components(
   raft::sparse::op::compute_duplicates_mask(
     out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
 
-    raft::print_device_vector("colors", colors.data(), n_rows, std::cout);
-    raft::print_device_vector("nn_colors", nn_colors.data(), n_rows, std::cout);
-    raft::print_device_vector("out_index", out_index.data(), n_rows, std::cout);
-
   thrust::exclusive_scan(handle.get_thrust_policy(),
                          out_index.data(),
                          out_index.data() + out_index.size(),
                          out_index.data());
-  raft::print_device_vector("out_index", out_index.data(), n_rows, std::cout);
 
   // compute final size
   value_idx size = 0;
@@ -504,15 +499,15 @@ void connect_components(
   raft::sparse::COO<value_t, value_idx> min_edges(stream);
   min_edges.allocate(size, n_rows, n_rows, true, stream);
 
-  min_components_by_color(
-    min_edges, out_index.data(), src_indices.data(), sort_plan.data(), temp_inds_dists.data(), n_rows, stream);
+  min_components_by_color(min_edges,
+                          out_index.data(),
+                          src_indices.data(),
+                          sort_plan.data(),
+                          temp_inds_dists.data(),
+                          n_rows,
+                          stream);
 
-  batched_scatter(handle,
-                 const_cast<value_t*>(X),
-                 sort_plan.data(),
-                 n_rows,
-                 n_cols,
-                 n_cols);
+  batched_scatter(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, n_cols);
   reduction_op.scatter(handle, sort_plan.data());
   /**
    * Symmetrize resulting edge list
