@@ -35,7 +35,7 @@
 
 #define SPDLOG_HEADER_ONLY
 #include <raft/core/detail/callback_sink.hpp>
-#include <raft/util/inline.hpp>               // RAFT_INLINE_CONDITIONAL
+#include <raft/core/detail/macros.hpp>        // RAFT_INLINE_CONDITIONAL
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 
