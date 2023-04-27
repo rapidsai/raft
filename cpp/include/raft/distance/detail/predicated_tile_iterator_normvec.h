@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ namespace threadblock {
 ///
 /// Satisfies: ReadableTileIterator | PredicatedTileIterator | ForwardTileIterator
 ///
-template <typename ThreadMap_,  ///< Thread map (conept: OutputTileThreadMap)
-          typename Element_,    ///< Element data type
+template <typename ThreadMap_,        ///< Thread map (conept: OutputTileThreadMap)
+          typename Element_,          ///< Element data type
           typename Layout_,
           bool ScatterD     = false,  ///< Scatter D operand or not
           bool UseCUDAStore = false>

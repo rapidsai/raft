@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.04")
-set(RAFT_VERSION "23.04.00")
+set(RAPIDS_VERSION "23.06")
+set(RAFT_VERSION "23.06.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -46,31 +46,34 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_SHARED_LIBS "Build raft shared libraries" ON)
 option(BUILD_TESTS "Build raft unit-tests" ON)
-option(BUILD_BENCH "Build raft C++ benchmark tests" OFF)
+option(BUILD_PRIMS_BENCH "Build raft C++ benchmark tests" OFF)
+option(BUILD_ANN_BENCH "Build raft ann benchmarks" OFF)
 option(CUDA_ENABLE_KERNELINFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINEINFO
        "Enable the -lineinfo option for nvcc (useful for cuda-memcheck / profiler)" OFF
 )
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_LOG_COMPILE_TIME "Write a log of compilation times to nvcc_compile_log.csv" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS
+   OR BUILD_PRIMS_BENCH
+   OR BUILD_ANN_BENCH
+)
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-if(BUILD_TESTS OR BUILD_BENCH)
-  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-  # to have different values for the `Threads::Threads` target. Setting this flag ensures
-  # `Threads::Threads` is the same value in first run and subsequent runs.
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-endif()
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
+# `Threads::Threads` is the same value across all builds so that cache hits occur
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -78,7 +81,7 @@ include(CMakeDependentOption)
 
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
-message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_BENCH}")
+message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -159,7 +162,7 @@ if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_BENCH)
+if(BUILD_PRIMS_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench()
 endif()
@@ -174,22 +177,21 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(
-  raft
-  INTERFACE rmm::rmm
-            cuco::cuco
-            nvidia::cutlass::cutlass
-            CUDA::cublas${_ctk_static_suffix}
-            CUDA::curand${_ctk_static_suffix}
-            CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cusparse${_ctk_static_suffix}
-            raft::Thrust
-)
+target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+
+set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
+set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
+set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
+set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
+
+set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
+                               ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
 )
 
 # Endian detection
@@ -304,6 +306,7 @@ if(RAFT_COMPILE_LIBRARY)
     # These are somehow missing a kernel definition which is causing a compile error.
     # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
     # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
+    src/neighbors/brute_force_knn_int64_t_float.cu
     src/distance/specializations/detail/kernels/tanh_kernel_double.cu
     src/distance/specializations/detail/kernels/tanh_kernel_float.cu
     src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
@@ -312,10 +315,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/detail/l1_double_double_double_int.cu
     src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
     src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_sqrt_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_sqrt_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_sqrt_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
     src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
     src/distance/specializations/detail/l_inf_double_double_double_int.cu
@@ -328,6 +327,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/distance/specializations/fused_l2_nn_double_int64.cu
     src/distance/specializations/fused_l2_nn_float_int.cu
     src/distance/specializations/fused_l2_nn_float_int64.cu
+    src/matrix/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_float_uint32_t.cu
     src/matrix/specializations/detail/select_k_float_int64_t.cu
     src/matrix/specializations/detail/select_k_half_uint32_t.cu
@@ -452,7 +452,13 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_lib PUBLIC raft::raft $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
+  target_link_libraries(
+    raft_lib
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                         # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
@@ -556,41 +562,6 @@ install(
 )
 
 # ##################################################################################################
-# * export/install optional components  --------------------------------------
-
-include("${rapids-cmake-dir}/export/write_dependencies.cmake")
-
-set(raft_components compiled distributed)
-set(raft_install_comp raft raft)
-if(TARGET raft_lib)
-  list(APPEND raft_components compiled-lib)
-  list(APPEND raft_install_comp compiled)
-endif()
-
-foreach(comp install_comp IN ZIP_LISTS raft_components raft_install_comp)
-  install(
-    EXPORT raft-${comp}-exports
-    FILE raft-${comp}-targets.cmake
-    NAMESPACE raft::
-    DESTINATION "${lib_dir}/cmake/raft"
-    COMPONENT ${install_comp}
-  )
-  export(
-    EXPORT raft-${comp}-exports
-    FILE ${RAFT_BINARY_DIR}/raft-${comp}-targets.cmake
-    NAMESPACE raft::
-  )
-  rapids_export_write_dependencies(
-    BUILD raft-${comp}-exports "${PROJECT_BINARY_DIR}/raft-${comp}-dependencies.cmake"
-  )
-  rapids_export_write_dependencies(
-    INSTALL raft-${comp}-exports
-    "${PROJECT_BINARY_DIR}/rapids-cmake/raft/export/${install_comp}/raft-${comp}-dependencies.cmake"
-  )
-
-endforeach()
-
-# ##################################################################################################
 # * install export -----------------------------------------------------------
 set(doc_string
     [=[
@@ -632,25 +603,65 @@ if(compiled IN_LIST raft_FIND_COMPONENTS)
 endif()
 ]=]
 )
+set(raft_components compiled distributed)
+set(raft_export_sets raft-compiled-exports raft-distributed-exports)
+if(TARGET raft_lib)
+  list(APPEND raft_components compiled)
+  list(APPEND raft_export_sets raft-compiled-lib-exports)
+endif()
+
+string(
+  APPEND
+  code_string
+  [=[
+ option(RAFT_ENABLE_CUSOLVER_DEPENDENCY "Enable cusolver dependency" ON)
+ option(RAFT_ENABLE_CUBLAS_DEPENDENCY "Enable cublas dependency" ON)
+ option(RAFT_ENABLE_CURAND_DEPENDENCY "Enable curand dependency" ON)
+ option(RAFT_ENABLE_CUSPARSE_DEPENDENCY "Enable cusparse dependency" ON)
+
+mark_as_advanced(RAFT_ENABLE_CUSOLVER_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUBLAS_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CURAND_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUSPARSE_DEPENDENCY)
+
+target_link_libraries(raft::raft INTERFACE
+  $<$<BOOL:${RAFT_ENABLE_CUSOLVER_DEPENDENCY}>:${RAFT_CUSOLVER_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUBLAS_DEPENDENCY}>:${RAFT_CUBLAS_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUSPARSE_DEPENDENCY}>:${RAFT_CUSPARSE_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CURAND_DEPENDENCY}>:${RAFT_CURAND_DEPENDENCY}>
+)
+]=]
+)
 
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
-include(cmake/modules/raft_export.cmake)
-raft_export(
-  INSTALL raft COMPONENTS compiled distributed EXPORT_SET raft-exports GLOBAL_TARGETS raft compiled
-  distributed NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+rapids_export(
+  INSTALL raft
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  GLOBAL_TARGETS raft compiled distributed
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * build export -------------------------------------------------------------
-raft_export(
-  BUILD raft EXPORT_SET raft-exports COMPONENTS compiled distributed GLOBAL_TARGETS raft compiled
-  distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+rapids_export(
+  BUILD raft
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  GLOBAL_TARGETS raft compiled distributed
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
 # * shared test/bench headers ------------------------------------------------
 
-if(BUILD_TESTS OR BUILD_BENCH)
+if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   include(internal/CMakeLists.txt)
 endif()
 
@@ -664,6 +675,13 @@ endif()
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------
 
-if(BUILD_BENCH)
-  include(bench/CMakeLists.txt)
+if(BUILD_PRIMS_BENCH)
+  include(bench/prims/CMakeLists.txt)
+endif()
+
+# ##################################################################################################
+# * build ann benchmark executable -----------------------------------------------
+
+if(BUILD_ANN_BENCH)
+  include(bench/ann/CMakeLists.txt)
 endif()

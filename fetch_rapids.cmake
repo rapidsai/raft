@@ -12,8 +12,9 @@
 # the License.
 # =============================================================================
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
-  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.04/RAPIDS.cmake
+  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.06/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake
   )
 endif()
+
 include(${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)

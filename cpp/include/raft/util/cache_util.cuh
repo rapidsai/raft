@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,11 +46,11 @@ __global__ void get_vecs(
   const math_t* cache, int_t n_vec, const idx_t* cache_idx, int_t n, math_t* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec;  // row idx
+  int row = tid % n_vec;             // row idx
   if (tid < n_vec * n) {
     size_t out_col   = tid / n_vec;  // col idx
     size_t cache_col = cache_idx[out_col];
-    if (cache_idx[out_col] >= 0) {
+    if (!std::is_signed<idx_t>::value || cache_idx[out_col] >= 0) {
       if (row + out_col * n_vec < (size_t)n_vec * n) { out[tid] = cache[row + cache_col * n_vec]; }
     }
   }
@@ -93,7 +93,7 @@ __global__ void store_vecs(const math_t* tile,
                            int n_cache_vecs)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int row = tid % n_vec;  // row idx
+  int row = tid % n_vec;          // row idx
   if (tid < n_vec * n) {
     int tile_col  = tid / n_vec;  // col idx
     int data_col  = tile_idx ? tile_idx[tile_col] : tile_col;
@@ -359,7 +359,7 @@ __global__ void get_cache_idx(int* keys,
       cache_time[cidx] = time;  // update time stamp
       cache_idx[tid]   = cidx;  // exact cache idx
     } else {
-      cache_idx[tid] = sidx;  // assign cache set
+      cache_idx[tid] = sidx;    // assign cache set
     }
   }
 }

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -17,8 +17,20 @@ if(DISABLE_DEPRECATION_WARNINGS)
   list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
 endif()
 
+# Be very strict when compiling with GCC as host compiler (and thus more lenient when compiling with
+# clang)
 if(CMAKE_COMPILER_IS_GNUCXX)
   list(APPEND RAFT_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+  list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+
+  # set warnings as errors
+  if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
+    list(APPEND RAFT_CUDA_FLAGS -Werror=all-warnings)
+  endif()
+endif()
+
+if(CUDA_LOG_COMPILE_TIME)
+  list(APPEND RAFT_CUDA_FLAGS "--time=nvcc_compile_log.csv")
 endif()
 
 list(APPEND RAFT_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
@@ -26,12 +38,6 @@ list(APPEND RAFT_CXX_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
 list(APPEND RAFT_CUDA_FLAGS "-DCUDA_API_PER_THREAD_DEFAULT_STREAM")
 # make sure we produce smallest binary size
 list(APPEND RAFT_CUDA_FLAGS -Xfatbin=-compress-all)
-
-# set warnings as errors
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
-  list(APPEND RAFT_CUDA_FLAGS -Werror=all-warnings)
-endif()
-list(APPEND RAFT_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling /
 # memchecking

@@ -16,16 +16,24 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>
-#include <raft/core/mdarray.hpp>
-#include <raft/core/operators.hpp>
-#include <raft/distance/distance.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
+#include <raft/common/nvtx.hpp>              // common::nvtx::range
+
+#include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
+#include <raft/core/device_resources.hpp>    // raft::device_resources
+#include <raft/core/operators.hpp>           // raft::sqrt
+#include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>            // rmm::device_uvector
+
+// When the distance library is precompiled, include only the raft_runtime
+// headers. This way, a small change in one of the kernel internals does not
+// trigger a rebuild of the test files (it of course still triggers a rebuild of
+// the raft specializations)
+#if defined RAFT_COMPILED
+#include <raft_runtime/distance/pairwise_distance.hpp>
+#else
+#include <raft/distance/distance.cuh>
+#endif
 
 namespace raft {
 namespace distance {
@@ -409,6 +417,25 @@ template <typename DataType>
   return os;
 }
 
+// TODO: Remove when mdspan-based raft::runtime::distance::pairwise_distance is
+// implemented.
+//
+// Context:
+// https://github.com/rapidsai/raft/issues/1338
+template <typename layout>
+constexpr bool layout_to_row_major();
+
+template <>
+constexpr bool layout_to_row_major<layout_c_contiguous>()
+{
+  return true;
+}
+template <>
+constexpr bool layout_to_row_major<layout_f_contiguous>()
+{
+  return false;
+}
+
 template <raft::distance::DistanceType distanceType, typename DataType, typename layout>
 void distanceLauncher(raft::device_resources const& handle,
                       DataType* x,
@@ -422,12 +449,23 @@ void distanceLauncher(raft::device_resources const& handle,
                       DataType threshold,
                       DataType metric_arg = 2.0f)
 {
+#if defined RAFT_COMPILED
+  // TODO: Implement and use mdspan-based
+  // raft::runtime::distance::pairwise_distance here.
+  //
+  // Context:
+  // https://github.com/rapidsai/raft/issues/1338
+  bool row_major = layout_to_row_major<layout>();
+  raft::runtime::distance::pairwise_distance(
+    handle, x, y, dist, m, n, k, distanceType, row_major, metric_arg);
+#else
   auto x_v    = make_device_matrix_view<DataType, int, layout>(x, m, k);
   auto y_v    = make_device_matrix_view<DataType, int, layout>(y, n, k);
   auto dist_v = make_device_matrix_view<DataType, int, layout>(dist, m, n);
 
   raft::distance::distance<distanceType, DataType, DataType, DataType, layout>(
     handle, x_v, y_v, dist_v, metric_arg);
+#endif
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
@@ -523,9 +561,25 @@ class BigMatrixDistanceTest : public ::testing::Test {
     auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
     common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
 
+    void pairwise_distance(raft::device_resources const& handle,
+                           float* x,
+                           float* y,
+                           float* dists,
+                           int m,
+                           int n,
+                           int k,
+                           raft::distance::DistanceType metric,
+                           bool isRowMajor,
+                           float metric_arg);
+    constexpr bool row_major   = true;
+    constexpr float metric_arg = 0.0f;
+#if defined RAFT_COMPILED
+    raft::runtime::distance::pairwise_distance(
+      handle, x.data(), x.data(), dist.data(), m, n, k, distanceType, row_major, metric_arg);
+#else
     raft::distance::distance<distanceType, float, float, float>(
-      handle, x.data(), x.data(), dist.data(), m, n, k, true, 0.0f);
-
+      handle, x.data(), x.data(), dist.data(), m, n, k, row_major, metric_arg);
+#endif
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
 

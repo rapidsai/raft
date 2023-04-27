@@ -427,7 +427,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         Trained ivf_flat object.
     new_vectors : CUDA array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
-    new_indices : CUDA array interface compliant matrix shape (n_samples, dim)
+    new_indices : CUDA array interface compliant vector shape (n_samples)
         Supported dtype [int64]
     {handle_docstring}
 

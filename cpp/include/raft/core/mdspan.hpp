@@ -85,28 +85,22 @@ template <typename ElementType, typename Extents, typename LayoutPolicy, typenam
 void __takes_an_mdspan_ptr(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>*);
 
 template <typename T, typename = void>
-struct is_mdspan : std::false_type {
-};
+struct is_mdspan : std::false_type {};
 template <typename T>
 struct is_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 template <typename T, typename = void>
-struct is_input_mdspan : std::false_type {
-};
+struct is_input_mdspan : std::false_type {};
 template <typename T>
 struct is_input_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::bool_constant<std::is_const_v<typename T::element_type>> {
-};
+  : std::bool_constant<std::is_const_v<typename T::element_type>> {};
 
 template <typename T, typename = void>
-struct is_output_mdspan : std::false_type {
-};
+struct is_output_mdspan : std::false_type {};
 template <typename T>
 struct is_output_mdspan<T, std::void_t<decltype(__takes_an_mdspan_ptr(std::declval<T*>()))>>
-  : std::bool_constant<not std::is_const_v<typename T::element_type>> {
-};
+  : std::bool_constant<not std::is_const_v<typename T::element_type>> {};
 
 template <typename T>
 using is_mdspan_t = is_mdspan<std::remove_const_t<T>>;

@@ -109,7 +109,7 @@ class sparse_matrix_view {
    * Return a view of the structure underlying this matrix
    * @return
    */
-  structure_view_type get_structure() { return structure_view_; }
+  structure_view_type structure_view() { return structure_view_; }
 
   /**
    * Return a span of the nonzero elements of the matrix
@@ -158,18 +158,19 @@ class sparse_matrix {
   using container_policy_type = ContainerPolicy<element_type>;
   using container_type        = typename container_policy_type::container_type;
 
+  // constructor that owns the data and the structure
   sparse_matrix(raft::resources const& handle,
                 row_type n_rows,
                 col_type n_cols,
                 nnz_type nnz = 0) noexcept(std::is_nothrow_default_constructible_v<container_type>)
-    : structure_{std::make_shared<structure_type>(handle, n_rows, n_cols, nnz)},
-      cp_{},
-      c_elements_{cp_.create(handle, 0)} {};
+    : structure_{handle, n_rows, n_cols, nnz}, cp_{}, c_elements_{cp_.create(handle, 0)} {};
 
   // Constructor that owns the data but not the structure
-  sparse_matrix(raft::resources const& handle, std::shared_ptr<structure_type> structure) noexcept(
+  // This constructor is only callable with a `structure_type == *_structure_view`
+  // which makes it okay to copy
+  sparse_matrix(raft::resources const& handle, structure_type structure) noexcept(
     std::is_nothrow_default_constructible_v<container_type>)
-    : structure_{structure}, cp_{}, c_elements_{cp_.create(handle, structure.get()->get_nnz())} {};
+    : structure_{structure}, cp_{}, c_elements_{cp_.create(handle, structure_.get_nnz())} {};
 
   constexpr sparse_matrix(sparse_matrix const&) noexcept(
     std::is_nothrow_copy_constructible_v<container_type>) = default;
@@ -187,7 +188,7 @@ class sparse_matrix {
 
   raft::span<ElementType, is_device> get_elements()
   {
-    return raft::span<ElementType, is_device>(c_elements_.data(), structure_view().get_nnz());
+    return raft::span<ElementType, is_device>(c_elements_.data(), structure_.get_nnz());
   }
 
   /**
@@ -209,7 +210,7 @@ class sparse_matrix {
   }
 
  protected:
-  std::shared_ptr<structure_type> structure_;
+  structure_type structure_;
   container_policy_type cp_;
   container_type c_elements_;
 };

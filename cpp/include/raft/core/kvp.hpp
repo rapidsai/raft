@@ -20,7 +20,7 @@
 
 #ifdef _RAFT_HAS_CUDA
 #include <cub/cub.cuh>
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>  // raft::shfl_xor
 #endif
 namespace raft {
 /**
@@ -32,8 +32,8 @@ struct KeyValuePair {
   typedef _Key Key;      ///< Key data type
   typedef _Value Value;  ///< Value data type
 
-  Key key;      ///< Item key
-  Value value;  ///< Item value
+  Key key;               ///< Item key
+  Value value;           ///< Item value
 
   /// Constructor
   RAFT_INLINE_FUNCTION KeyValuePair() {}

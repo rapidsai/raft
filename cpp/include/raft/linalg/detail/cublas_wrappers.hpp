@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,9 +41,9 @@ class cublas_device_pointer_mode {
     }
   }
   auto operator=(const cublas_device_pointer_mode&) -> cublas_device_pointer_mode& = delete;
-  auto operator=(cublas_device_pointer_mode&&) -> cublas_device_pointer_mode& = delete;
-  static auto operator new(std::size_t) -> void*                              = delete;
-  static auto operator new[](std::size_t) -> void*                            = delete;
+  auto operator=(cublas_device_pointer_mode&&) -> cublas_device_pointer_mode&      = delete;
+  static auto operator new(std::size_t) -> void*                                   = delete;
+  static auto operator new[](std::size_t) -> void*                                 = delete;
 
   ~cublas_device_pointer_mode()
   {
@@ -550,7 +550,7 @@ cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         float* const A[],  // NOLINT
+                                         float* const A[],       // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,
@@ -564,7 +564,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         double* const A[],  // NOLINT
+                                         double* const A[],      // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,
@@ -965,7 +965,8 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 cudaStream_t stream)
 {
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
-  return cublasSdot(handle, n, x, incx, y, incy, result);
+  return cublasDotEx(
+    handle, n, x, CUDA_R_32F, incx, y, CUDA_R_32F, incy, result, CUDA_R_32F, CUDA_R_32F);
 }
 
 template <>
@@ -979,7 +980,8 @@ inline cublasStatus_t cublasdot(cublasHandle_t handle,
                                 cudaStream_t stream)
 {
   RAFT_CUBLAS_TRY(cublasSetStream(handle, stream));
-  return cublasDdot(handle, n, x, incx, y, incy, result);
+  return cublasDotEx(
+    handle, n, x, CUDA_R_64F, incx, y, CUDA_R_64F, incy, result, CUDA_R_64F, CUDA_R_64F);
 }
 /** @} */
 

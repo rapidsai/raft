@@ -74,7 +74,7 @@ namespace numpy_serializer {
 
 #if RAFT_SYSTEM_LITTLE_ENDIAN == 1
 #define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_LITTLE_ENDIAN_CHAR
-#else  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
+#else   // RAFT_SYSTEM_LITTLE_ENDIAN == 1
 #define RAFT_NUMPY_HOST_ENDIAN_CHAR RAFT_NUMPY_BIG_ENDIAN_CHAR
 #endif  // RAFT_SYSTEM_LITTLE_ENDIAN == 1
 
@@ -110,11 +110,9 @@ struct header_t {
 };
 
 template <class T>
-struct is_complex : std::false_type {
-};
+struct is_complex : std::false_type {};
 template <class T>
-struct is_complex<std::complex<T>> : std::true_type {
-};
+struct is_complex<std::complex<T>> : std::true_type {};
 
 template <typename T, typename std::enable_if_t<std::is_floating_point_v<T>, bool> = true>
 inline dtype_t get_numpy_dtype()

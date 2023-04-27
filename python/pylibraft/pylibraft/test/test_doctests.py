@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import pytest
 
 import pylibraft.cluster
 import pylibraft.distance
+import pylibraft.matrix
 import pylibraft.neighbors
 import pylibraft.random
 
@@ -94,8 +95,10 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 DOC_STRINGS = list(_find_doctests_in_obj(pylibraft.cluster))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.common))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.distance))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.matrix.select_k))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.brute_force))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.random))
 
 
