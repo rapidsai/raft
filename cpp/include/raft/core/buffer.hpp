@@ -37,12 +37,8 @@ namespace raft {
  * @brief A container which may or may not own its own data on host or device
  *
  */
-using index_type = std::size_t;
 template <typename T>
 struct buffer {
-  using index_type = std::size_t;
-  using value_type = T;
-
   using data_store = std::variant<detail::non_owning_buffer<device_type::cpu, T>,
                                   detail::non_owning_buffer<device_type::gpu, T>,
                                   detail::owning_buffer<device_type::cpu, T>,
@@ -51,7 +47,7 @@ struct buffer {
   buffer() : device_{}, data_{}, size_{}, memory_type_{memory_type::host} {}
 
   /** Construct non-initialized owning buffer */
-  buffer(index_type size,
+  buffer(size_t size,
          memory_type mem_type    = memory_type::host,
          int device              = 0,
          execution_stream stream = 0)
@@ -87,7 +83,7 @@ struct buffer {
   }
 
   /** Construct non-owning buffer */
-  buffer(T* input_data, index_type size, memory_type mem_type = memory_type::host, int device = 0)
+  buffer(T* input_data, size_t size, memory_type mem_type = memory_type::host, int device = 0)
     : device_{[mem_type, &device]() {
         RAFT_LOG_INFO("Non owning constructor call started");
         auto result = execution_device_id_variant{};
@@ -311,7 +307,7 @@ struct buffer {
 
   execution_device_id_variant device_;
   data_store data_;
-  index_type size_;
+  size_t size_;
   enum memory_type memory_type_;
   T* cached_ptr;
 };
@@ -319,9 +315,9 @@ struct buffer {
 template <bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(buffer<T>& dst,
                                          buffer<U> const& src,
-                                         typename buffer<T>::index_type dst_offset,
-                                         typename buffer<U>::index_type src_offset,
-                                         typename buffer<T>::index_type size,
+                                         size_t dst_offset,
+                                         size_t src_offset,
+                                         size_t size,
                                          execution_stream stream)
 {
   if constexpr (bounds_check) {

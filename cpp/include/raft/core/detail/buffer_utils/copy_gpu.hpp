@@ -42,13 +42,16 @@ std::enable_if_t<
   void>
 copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream)
 {
-
-  cudaMemcpyAsync(dst, src, size * sizeof(T), cudaMemcpyDefault, stream);
-  // auto it = std::iterator(std::remove_const(src));
-  // auto dst_ptr = thrust::device_pointer_cast(dst);
-  // auto it = thrust::make_zip_iterator(thrust::make_tuple(src));
-  // auto v = std::vector<int> {1,2,3};
-  // thrust::copy(rmm::exec_policy(stream), v.begin(), v.end(), dst);
+  if (src_type == device_type::cpu) {
+    raft::update_device(dst, src, size, stream);
+  }
+  else if (dst_type == device_type::cpu) {
+    raft::update_host(dst, src, size, stream);
+    cudaDeviceSynchronize();
+  }
+  else {
+    raft::copy_async(dst, src, size, stream);
+  }
 }
 
 }  // namespace detail
