@@ -60,6 +60,20 @@
 #define RAFT_INLINE_CONDITIONAL inline
 #endif  // RAFT_COMPILED
 
+// The RAFT_WEAK_FUNCTION specificies that:
+//
+// 1. A function may be defined in multiple translation units (like inline)
+//
+// 2. Must still emit an external symbol (unlike inline). This enables declaring
+// a function signature in an `-ext` header and defining it in a source file.
+//
+// From
+// https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#Common-Function-Attributes:
+//
+// "The weak attribute causes a declaration of an external symbol to be emitted
+// as a weak symbol rather than a global."
+#define RAFT_WEAK_FUNCTION __attribute__((weak))
+
 /**
  * Some macro magic to remove optional parentheses of a macro argument.
  * See https://stackoverflow.com/a/62984543

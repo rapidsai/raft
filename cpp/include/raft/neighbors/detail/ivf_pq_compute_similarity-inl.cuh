@@ -39,7 +39,7 @@ static_assert((kMaxCapacity >= 32) && !(kMaxCapacity & (kMaxCapacity - 1)),
               "kMaxCapacity must be a power of two, not smaller than the WarpSize.");
 
 // using weak attribute here, because it may be compiled multiple times.
-auto __attribute__((weak)) is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries)
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries)
   -> bool
 {
   if (k > kMaxCapacity) { return false; }             // warp_sort not possible
