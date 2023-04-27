@@ -18,7 +18,7 @@ There are three ways to speed up compile times:
 
 3. If you would like to use RAFT but either cannot or would prefer not to
    compile any CUDA code yourself, you can simply add `libraft` to your link
-   libraries and use the growing set of runtime APIs.
+   libraries and use the growing set of `raft::runtime` APIs.
 
 ### How do I verify template instantiations didn't compile into my binary?
 
