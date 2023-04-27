@@ -23,7 +23,7 @@
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
-#ifdef RAFT_DISTANCE_COMPILED
+#ifdef RAFT_COMPILED
 #include <raft/neighbors/specializations.cuh>
 #endif
 

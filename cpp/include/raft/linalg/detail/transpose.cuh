@@ -37,6 +37,7 @@ void transpose(raft::device_resources const& handle,
                cudaStream_t stream)
 {
   cublasHandle_t cublas_h = handle.get_cublas_handle();
+  RAFT_CUBLAS_TRY(cublasSetStream(cublas_h, stream));
 
   int out_n_rows = n_cols;
   int out_n_cols = n_rows;
@@ -90,6 +91,7 @@ void transpose_row_major_impl(
   auto out_n_cols   = in.extent(0);
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
+
   CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,
@@ -116,6 +118,7 @@ void transpose_col_major_impl(
   auto out_n_cols   = in.extent(0);
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
+
   CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,

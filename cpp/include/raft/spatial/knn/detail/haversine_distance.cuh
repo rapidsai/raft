@@ -22,7 +22,7 @@
 
 #include <raft/core/device_resources.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
+#include <raft/neighbors/detail/faiss_select/Select.cuh>
 
 namespace raft {
 namespace spatial {
@@ -65,13 +65,9 @@ __global__ void haversine_knn_kernel(value_idx* out_inds,
   __shared__ value_t smemK[kNumWarps * warp_q];
   __shared__ value_idx smemV[kNumWarps * warp_q];
 
-  faiss_select::
-    BlockSelect<value_t, value_idx, false, faiss_select::Comparator<value_t>, warp_q, thread_q, tpb>
-      heap(std::numeric_limits<value_t>::max(),
-           std::numeric_limits<value_idx>::max(),
-           smemK,
-           smemV,
-           k);
+  using namespace raft::neighbors::detail::faiss_select;
+  BlockSelect<value_t, value_idx, false, Comparator<value_t>, warp_q, thread_q, tpb> heap(
+    std::numeric_limits<value_t>::max(), std::numeric_limits<value_idx>::max(), smemK, smemV, k);
 
   // Grid is exactly sized to rows available
   int limit = Pow2<WarpSize>::roundDown(n_index_rows);

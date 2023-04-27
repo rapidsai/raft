@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -17,7 +17,7 @@ set(cython_sources rmat_rectangular_generator.pyx)
 
 # TODO: should finally be replaced with 'compiled' library to be more generic, when that is
 # available
-set(linked_libraries raft::raft raft::distance)
+set(linked_libraries raft::raft raft::compiled)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(

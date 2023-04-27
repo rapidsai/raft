@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,6 +65,26 @@ enum DistanceType : unsigned short {
   /** Precomputed (special value) **/
   Precomputed = 100
 };
+
+/**
+ * Whether minimal distance corresponds to similar elements (using the given metric).
+ */
+inline bool is_min_close(DistanceType metric)
+{
+  bool select_min;
+  switch (metric) {
+    case DistanceType::InnerProduct:
+    case DistanceType::CosineExpanded:
+    case DistanceType::CorrelationExpanded:
+      // Similarity metrics have the opposite meaning, i.e. nearest neighbors are those with larger
+      // similarity (See the same logic at cpp/include/raft/sparse/spatial/detail/knn.cuh:362
+      // {perform_k_selection})
+      select_min = false;
+      break;
+    default: select_min = true;
+  }
+  return select_min;
+}
 
 namespace kernels {
 enum KernelType { LINEAR, POLYNOMIAL, RBF, TANH };

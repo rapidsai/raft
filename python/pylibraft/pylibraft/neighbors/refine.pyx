@@ -18,6 +18,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import cupy as cp
 import numpy as np
 
 from cython.operator cimport dereference as deref
@@ -42,7 +43,7 @@ from pylibraft.common.interruptible import cuda_interruptible
 from pylibraft.distance.distance_type cimport DistanceType
 
 import pylibraft.neighbors.ivf_pq as ivf_pq
-from pylibraft.neighbors.ivf_pq.ivf_pq import _get_metric
+from pylibraft.neighbors.common import _get_metric
 
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 from pylibraft.common.cpp.mdspan cimport (
@@ -57,6 +58,7 @@ from pylibraft.common.mdspan cimport (
     get_dmv_int64,
     get_dmv_uint8,
 )
+from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params,
     search_params,

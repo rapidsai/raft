@@ -27,8 +27,12 @@ namespace raft::distance::detail::ops {
  *
  * c_ij = optional_sqrt ( sum_k (x_ik - y_kj)^2 )
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct l2_unexp_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   bool sqrt;
 
   l2_unexp_distance_op(bool sqrt_) noexcept : sqrt(sqrt_) {}
