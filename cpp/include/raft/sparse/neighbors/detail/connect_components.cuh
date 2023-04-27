@@ -17,6 +17,7 @@
 
 #include <cub/cub.cuh>
 
+#include <raft/core/error.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/masked_nn.cuh>
 #include <raft/label/classlabels.cuh>
@@ -32,6 +33,8 @@
 #include <rmm/exec_policy.hpp>
 
 #include <raft/core/kvp.hpp>
+#include <raft/core/nvtx.hpp>
+
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -429,8 +432,12 @@ void connect_components(raft::device_resources const& handle,
                         const value_idx* orig_colors,
                         size_t n_rows,
                         size_t n_cols,
+                        size_t col_batch_size,
                         red_op reduction_op)
 {
+  auto func_range = raft::common::nvtx::range{__func__};
+
+  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n_cols, "col_batch_size should be > 0 and <= n_cols");
   auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
@@ -449,7 +456,7 @@ void connect_components(raft::device_resources const& handle,
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
   reduction_op.gather(handle, sort_plan.data());
 
-  batched_gather(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, n_cols);
+  batched_gather(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -507,7 +514,7 @@ void connect_components(raft::device_resources const& handle,
                           n_rows,
                           stream);
 
-  batched_scatter(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, n_cols);
+  batched_scatter(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
   reduction_op.scatter(handle, sort_plan.data());
   /**
    * Symmetrize resulting edge list

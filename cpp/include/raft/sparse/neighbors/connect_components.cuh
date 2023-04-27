@@ -70,10 +70,10 @@ void connect_components(
   const value_idx* orig_colors,
   size_t n_rows,
   size_t n_cols,
-  red_op reduction_op,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
+  size_t col_batch_size,
+  red_op reduction_op)
 {
-  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, reduction_op, metric);
+  detail::connect_components(handle, out, X, orig_colors, n_rows, n_cols, col_batch_size, reduction_op);
 }
 
 };  // end namespace raft::sparse::neighbors
