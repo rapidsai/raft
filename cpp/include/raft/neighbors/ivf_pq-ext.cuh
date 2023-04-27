@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
+#include <cstdint>                                // int64_t
 
 #include <raft/core/device_mdspan.hpp>            // raft::device_matrix_view
 #include <raft/core/device_resources.hpp>         // raft::device_resources

@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <cstdint>  // int64_t
+#include <cstdint>                                // int64_t
 
-#include <raft/core/device_mdspan.hpp>     // raft::device_matrix_view
-#include <raft/core/device_resources.hpp>  // raft::device_resources
+#include <raft/core/device_mdspan.hpp>            // raft::device_matrix_view
+#include <raft/core/device_resources.hpp>         // raft::device_resources
 #include <raft/neighbors/ivf_flat_serialize.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>      // raft::neighbors::ivf_flat::index
 #include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT

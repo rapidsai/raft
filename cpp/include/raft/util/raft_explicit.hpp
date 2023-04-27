@@ -39,8 +39,7 @@
 #define RAFT_EXPLICIT                                                                          \
   {                                                                                            \
     /* Type of `not_allowed` depends on template parameters of enclosing function. */          \
-    struct not_allowed {                                                                       \
-    };                                                                                         \
+    struct not_allowed {};                                                                     \
     static_assert(                                                                             \
       raft::util::raft_explicit::implicit_instantiation<not_allowed>::value,                   \
       "ACCIDENTAL_IMPLICIT_INSTANTIATION\n\n"                                                  \

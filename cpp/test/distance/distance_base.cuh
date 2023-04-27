@@ -18,9 +18,9 @@
 #include <gtest/gtest.h>
 #include <raft/common/nvtx.hpp>              // common::nvtx::range
 
-#include <raft/core/device_mdspan.hpp>     // make_device_matrix_view
-#include <raft/core/device_resources.hpp>  // raft::device_resources
-#include <raft/core/operators.hpp>         // raft::sqrt
+#include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
+#include <raft/core/device_resources.hpp>    // raft::device_resources
+#include <raft/core/operators.hpp>           // raft::sqrt
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>

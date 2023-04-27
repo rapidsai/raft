@@ -35,7 +35,7 @@ void select_k(const key_t* inK,
               bool select_min,
               int k,
               cudaStream_t stream) RAFT_EXPLICIT;
-};  // namespace raft::neighbors::detail
+};      // namespace raft::neighbors::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
