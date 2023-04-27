@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_fp16.h>                               // __half
+#include <raft/core/detail/macros.hpp>               // RAFT_WEAK_FUNCTION
 #include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
 #include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
@@ -30,7 +31,8 @@ namespace raft::neighbors::ivf_pq::detail {
 // is_local_topk_feasible is not inline here, because we would have to define it
 // here as well. That would run the risk of the definitions here and in the
 // -inl.cuh header diverging.
-auto is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries) -> bool;
+auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k, uint32_t n_probes, uint32_t n_queries)
+  -> bool;
 
 template <typename OutT,
           typename LutT,
