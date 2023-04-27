@@ -269,10 +269,10 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     std::cout << "Done.\nResizing queries" << std::endl;
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     std::cout << "Done.\nRuning rng" << std::endl;
-    raft::random::Rng r(234ULL);
+    raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.normal(database.data(), ps.n_rows * ps.dim, DataT(0), DataT(10.0), stream_);
-      r.normal(search_queries.data(), ps.n_queries * ps.dim, DataT(0), DataT(10.0), stream_);
+      r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      r.normal(search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0), stream_);
     } else {
       r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20), stream_);
