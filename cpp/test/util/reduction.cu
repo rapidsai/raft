@@ -1,0 +1,148 @@
+/*
+* Copyright (c) 2023, NVIDIA CORPORATION.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#include "../test_utils.cuh"
+
+#include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <numeric>
+
+namespace raft::util {
+
+template <typename ReduceLambda>
+__global__ void test_reduction_kernel(const int* input, int* reduction_res, ReduceLambda reduce_op)
+{
+  assert(gridDim.x == 1);
+  __shared__ int red_buf[raft::WarpSize];
+  int th_val = input[threadIdx.x];
+  th_val = raft::blockReduce(th_val, (char*)red_buf, reduce_op);
+  if(threadIdx.x == 0){
+    reduction_res[0] = th_val;
+  }
+}
+
+template <typename ReduceLambda>
+__global__ void test_ranked_reduction_kernel(const int* input, int* reduction_res, int* out_rank,  ReduceLambda reduce_op)
+{
+  assert(gridDim.x == 1);
+  __shared__ int red_buf[2 * raft::WarpSize];
+  int th_val = input[threadIdx.x];
+  int th_rank = threadIdx.x;
+  auto result = raft::blockRankedReduce(th_val, red_buf, th_rank,  reduce_op);
+  if(threadIdx.x == 0){
+    reduction_res[0] = result.first;
+    out_rank[0] = result.second;
+  }
+}
+
+__global__ void test_random_reduction_kernel(const int* input, int* reduction_res)
+{
+  assert(gridDim.x == 1);
+  __shared__ int red_buf[2 * raft::WarpSize];
+  raft::random::PCGenerator thread_rng(1234, threadIdx.x, 0);
+  int th_val = input[threadIdx.x];
+  int th_rank = threadIdx.x;
+  int result = raft::blockRandomReduce(thread_rng,red_buf,  th_val, th_rank);
+  if(threadIdx.x == 0){
+    reduction_res[0] = result;
+  }
+}
+
+
+struct reduction_launch {
+  template <typename ReduceLambda>
+  static void run(const rmm::device_uvector<int>& arr_d, int ref_val, ReduceLambda reduce_op,  rmm::cuda_stream_view stream)
+  {
+    rmm::device_scalar<int> ref_d(stream);
+    const int block_dim  = 64;
+    const int grid_dim   = 1;
+    test_reduction_kernel
+      <<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data(),reduce_op);
+    stream.synchronize();
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    ASSERT_EQ(ref_d.value(stream), ref_val);
+  }
+
+  template <typename ReduceLambda>
+  static void run_ranked(const rmm::device_uvector<int>& arr_d, int ref_val, int rank_ref_val, ReduceLambda reduce_op,  rmm::cuda_stream_view stream)
+  {
+    rmm::device_scalar<int> ref_d(stream);
+    rmm::device_scalar<int> rank_d(stream);
+    const int block_dim  = 64;
+    const int grid_dim   = 1;
+    test_ranked_reduction_kernel
+      <<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data(),rank_d.data(), reduce_op);
+    stream.synchronize();
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    ASSERT_EQ(ref_d.value(stream), ref_val);
+    ASSERT_EQ(rank_d.value(stream), rank_ref_val);
+  }
+
+  static void run_random(const rmm::device_uvector<int>& arr_d, int ref_val,  rmm::cuda_stream_view stream)
+  {
+    rmm::device_scalar<int> ref_d(stream);
+    const int block_dim  = 64;
+    const int grid_dim   = 1;
+    test_random_reduction_kernel
+      <<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data());
+    stream.synchronize();
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    ASSERT_EQ(ref_d.value(stream), ref_val);
+  }
+
+};
+
+template <typename T>
+class ReductionTest : public testing::TestWithParam<std::vector<int>> {     // NOLINT
+ protected:
+  const std::vector<int> input;                                            // NOLINT
+
+ public:
+  explicit ReductionTest()
+    : input(testing::TestWithParam<std::vector<int>>::GetParam())
+  {
+    auto stream = rmm::cuda_stream_default;
+    rmm::device_uvector<int> arr_d(input.size(), stream);
+    
+    update_device(arr_d.data(), input.data(), input.size(), stream);
+    // calculate the results
+    reduction_launch::run(arr_d, 0, raft::min_op{}, stream);
+    reduction_launch::run(arr_d, 5, raft::max_op{}, stream);
+    reduction_launch::run(arr_d, 158, raft::add_op{}, stream);
+    reduction_launch::run_ranked(arr_d, 5, 15, raft::max_op{}, stream);
+    reduction_launch::run_ranked(arr_d, 0, 26, raft::min_op{}, stream);
+    // value 15 is for the current state of PCgenerator. adjust this if rng changes
+    reduction_launch::run_random(arr_d, 15,stream);
+  }
+
+};
+
+const std::vector<int> test_vector{1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,5, 1, 2, 3,4, 1, 2, 3,4,1, 2, 0,4, 1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,};
+auto reduction_input = ::testing::Values(test_vector);
+
+
+using ReductionTestInt = ReductionTest<int>;                          // NOLINT
+TEST_P(ReductionTestInt, ALL) {}                                      // NOLINT
+INSTANTIATE_TEST_CASE_P(ReductionTest,ReductionTestInt, reduction_input);     // NOLINT
+
+}  // namespace raft::util

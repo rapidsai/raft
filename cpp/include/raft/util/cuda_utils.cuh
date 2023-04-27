@@ -854,7 +854,7 @@ DI T warpReduce(T val, ReduceLambda reduce_op)
 }
 
 /**
- * @brief Warp-level sum reduction
+ * @brief Warp-level reduction
  * @tparam T Value type to be reduced
  * @param val input value
  * @return Reduction result. All lanes will have the valid result.
@@ -869,28 +869,155 @@ DI T warpReduce(T val)
 }
 
 /**
- * @brief 1-D block-level sum reduction
+ * @brief 1-D block-level reduction
  * @param val input value
  * @param smem shared memory region needed for storing intermediate results. It
  *             must alteast be of size: `sizeof(T) * nWarps`
+ * @param reduce_op a binary reduction operation. 
  * @return only the thread0 will contain valid reduced result
  * @note Why not cub? Because cub doesn't seem to allow working with arbitrary
  *       number of warps in a block. All threads in the block must enter this
- *       function together
- * @todo Expand this to support arbitrary reduction ops
+ *       function together. cub also uses too many registers
  */
-template <typename T>
-DI T blockReduce(T val, char* smem)
+template <typename T, typename ReduceLambda>
+DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
 {
   auto* sTemp = reinterpret_cast<T*>(smem);
   int nWarps  = (blockDim.x + WarpSize - 1) / WarpSize;
   int lid     = laneId();
   int wid     = threadIdx.x / WarpSize;
-  val         = warpReduce(val);
+  val         = warpReduce(val, reduce_op);
   if (lid == 0) sTemp[wid] = val;
   __syncthreads();
   val = lid < nWarps ? sTemp[lid] : T(0);
-  return warpReduce(val);
+  return warpReduce(val, reduce_op);
+}
+
+/**
+ * @brief 1-D warp-level weighted random reduction which returns the rank.
+ * used conditional probability to return the weighted random rank of the result.
+ * @param rng random number generator, must have next_u32() function
+ * @param weight weight of the rank/index.
+ * @param idx index to be used as rank
+ * @return only the thread0 will contain valid reduced result
+ */
+template <typename T, typename rng_t, typename i_t = int>
+__device__ inline T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
+{
+#pragma unroll
+  for (i_t offset = raft::WarpSize / 2; offset > 0; offset /= 2) {
+    T tmp_weight = shfl(weight, laneId() + offset);
+    i_t tmp_idx  = shfl(idx, laneId() + offset);
+    T sum        = (tmp_weight + weight);
+    weight       = sum;
+    if (sum != 0) {
+      i_t rnd_number = (rng.next_u32() % sum);
+      if (rnd_number < tmp_weight) { idx = tmp_idx; }
+    }
+  }
+}
+
+
+/**
+ * @brief 1-D block-level weighted random reduction which returns the rank.
+ * used conditional probability to return the weighted random rank of the result.
+ * @param rng random number generator, must have next_u32() function
+ * @param shbuf shared memory region needed for storing intermediate results. It
+ *             must alteast be of size: `(sizeof(T) + sizeof(i_t)) * WarpSize`
+ * @param weight weight of the rank/index.
+ * @param idx index to be used as rank
+ * @return only the thread0 will contain valid reduced result
+ */
+ template <typename T, typename rng_t, typename i_t = int>
+ __inline__ __device__ i_t blockRandomReduce( rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
+ {
+   T* values    = shbuf;
+   i_t* indices = (i_t*)&shbuf[WarpSize];
+   i_t wid      = threadIdx.x / WarpSize;
+   i_t nWarps   = (blockDim.x + WarpSize - 1) / WarpSize;
+   warpRandomReduce(rng,weight, idx);  // Each warp performs partial reduction
+   i_t lane = laneId();
+   if (lane == 0) {
+     values[wid]  = weight;  // Write reduced value to shared memory
+     indices[wid] = idx;  // Write reduced value to shared memory
+   }
+ 
+   __syncthreads();  // Wait for all partial reductions
+ 
+   // read from shared memory only if that warp existed
+   if (lane < nWarps) {
+     weight = values[lane];
+     idx = indices[lane];
+   } else {
+     // get the min if it is a max op, get the max if it is a min op
+     weight = 0;
+     idx = -1;
+   }
+   __syncthreads();
+   if (wid == 0) warpRandomReduce(rng, weight, idx);
+   return idx;
+ }
+
+/**
+ * @brief 1-D warp-level ranked reduction which returns the value and rank.
+ * thread 0 will have valid result and rank(idx).
+ * @param val input value
+ * @param idx index to be used as rank
+ * @param reduce_op a binary reduction operation.
+ * @return only the thread0 will contain valid reduced result
+ */
+template <typename T, typename ReduceLambda, typename i_t = int>
+__inline__ __device__ void warpRankedReduce(T& val, i_t& idx, ReduceLambda reduce_op = raft::min_op{})
+{
+#pragma unroll
+  for (i_t offset = WarpSize / 2; offset > 0; offset /= 2) {
+    T tmpVal   = shfl(val, laneId() + offset);
+    i_t tmpIdx = shfl(idx, laneId() + offset);
+    if (reduce_op(tmpVal , val) == tmpVal) {
+      val = tmpVal;
+      idx = tmpIdx;
+    }
+  }
+}
+
+/**
+ * @brief 1-D block-level ranked reduction which returns the value and rank.
+ * thread 0 will have valid result and rank(idx).
+ * @param val input value
+ * @param smem shared memory region needed for storing intermediate results. It
+ *             must alteast be of size: `(sizeof(T) + sizeof(i_t)) * WarpSize`
+ * @param idx index to be used as rank
+ * @param reduce_op a binary reduction operation.
+ * @return only the thread0 will contain valid reduced result
+ */
+template <typename T, typename ReduceLambda, typename i_t = int>
+__inline__ __device__ std::pair<T, i_t> blockRankedReduce(T val, T* shbuf, i_t idx = threadIdx.x, ReduceLambda reduce_op = raft::min_op{})
+{
+  T* values    = shbuf;
+  i_t* indices = (i_t*)&shbuf[WarpSize];
+  i_t wid      = threadIdx.x / WarpSize;
+  i_t nWarps   = (blockDim.x + WarpSize - 1) / WarpSize;
+  warpRankedReduce(val, idx, reduce_op);  // Each warp performs partial reduction
+  i_t lane = laneId();
+  if (lane == 0) {
+    values[wid]  = val;  // Write reduced value to shared memory
+    indices[wid] = idx;  // Write reduced value to shared memory
+  }
+
+  __syncthreads();  // Wait for all partial reductions
+
+  // read from shared memory only if that warp existed
+  if (lane < nWarps) {
+    val = values[lane];
+    idx = indices[lane];
+  } else {
+    // get the min if it is a max op, get the max if it is a min op
+    val = reduce_op(std::numeric_limits<T>::min(), std::numeric_limits<T>::max()) == std::numeric_limits<T>::min() ? std::numeric_limits<T>::max() : std::numeric_limits<T>::min();
+    idx = -1;
+  }
+  __syncthreads();
+  if (wid == 0) warpRankedReduce(val, idx, reduce_op);
+  return std::pair<T, i_t>{val,idx};
 }
 
 /**
