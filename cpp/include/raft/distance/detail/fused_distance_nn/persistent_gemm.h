@@ -35,17 +35,17 @@
 
 #pragma once
 
-#include "cutlass/complex.h"
-#include "cutlass/cutlass.h"
-#include "cutlass/fast_math.h"
-#include "cutlass/gemm/gemm.h"
-#include "cutlass/matrix_coord.h"
-#include "cutlass/semaphore.h"
+#include <cutlass/complex.h>
+#include <cutlass/cutlass.h>
+#include <cutlass/fast_math.h>
+#include <cutlass/gemm/gemm.h>
+#include <cutlass/matrix_coord.h>
+#include <cutlass/semaphore.h>
 
-#include "cutlass/gemm/kernel/gemm_grouped_problem_visitor.h"
-#include "cutlass/gemm/kernel/gemm_transpose_operands.h"
-#include "cutlass/layout/matrix.h"
-#include "cutlass/trace.h"
+#include <cutlass/gemm/kernel/gemm_grouped_problem_visitor.h>
+#include <cutlass/gemm/kernel/gemm_transpose_operands.h>
+#include <cutlass/layout/matrix.h>
+#include <cutlass/trace.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,7 +60,7 @@ template <typename Mma_,                         ///! Threadblock-scoped matrix 
           typename ThreadblockSwizzle_,          ///! Threadblock swizzling function
           GroupScheduleMode GroupScheduleMode_,  ///! Type of scheduling to perform
           bool Transposed = false>
-struct FusedL2NNWithGemmGrouped {
+struct FusedDistanceNNPersistent {
  public:
   using Mma                                         = Mma_;
   using Epilogue                                    = Epilogue_;
@@ -263,8 +263,7 @@ struct FusedL2NNWithGemmGrouped {
 
     CUTLASS_HOST_DEVICE
     Params(Arguments const& args, void* workspace = nullptr, int tile_count = 0)
-      : //problem_visitor(args.problem_sizes, args.problem_count, workspace, tile_count),
-        problem_size(args.problem_sizes),
+      : problem_size(args.problem_sizes),
         threadblock_count(args.threadblock_count),
         output_op(args.output_op),
         params_A(args.lda),
@@ -289,8 +288,6 @@ struct FusedL2NNWithGemmGrouped {
     CUTLASS_HOST_DEVICE
     void update(Arguments const& args, void* workspace = nullptr, int tile_count = 0)
     {
-      // problem_visitor = typename ProblemVisitor::Params(
-      //   args.problem_sizes, args.problem_count, workspace, tile_count);
       threadblock_count = args.threadblock_count;
       output_op         = args.output_op;
       ptr_A = const_cast<void*>(args.ptr_A);
@@ -307,34 +304,25 @@ struct FusedL2NNWithGemmGrouped {
     }
   };
 
-  struct epilogue_SharedStorage {
-    typename Epilogue::SharedStorage epilogue;
-    //typename Epilogue::TensorTileIterator::SharedStorage reduced_store;
-  };
 
   /// Shared memory storage structure
   struct SharedStorage {
     union {
       typename Mma::SharedStorage main_loop;
-      epilogue_SharedStorage epilogue_combined_store;
+      typename Epilogue::SharedStorage epilogue;
     } kernel;
 
-    // ProblemVisitor shared storage can't be overlapped with others
-    //typename ProblemVisitor::SharedStorage problem_visitor;
     typename Epilogue::TensorTileIterator::SharedStorage reduced_store;
     typename Epilogue::OutputTileIterator::SharedStorage rownorm_store;
-
   };
 
- protected:
-    //uint32_t tile_idx;
  public:
   //
   // Methods
   //
 
   CUTLASS_DEVICE
-  FusedL2NNWithGemmGrouped() {}
+  FusedDistanceNNPersistent() {}
 
   /// Determines whether kernel satisfies alignment
   static Status can_implement(cutlass::gemm::GemmCoord const& problem_size)
@@ -351,31 +339,19 @@ struct FusedL2NNWithGemmGrouped {
   }
 
   CUTLASS_DEVICE
-  static uint32_t tile_count_(const cutlass::MatrixCoord& grid) {
+  static uint32_t tile_count(const cutlass::MatrixCoord& grid) {
     return grid.row() * grid.column();
   }
 
     /// Get the grid shape
   CUTLASS_DEVICE
-  static cutlass::MatrixCoord grid_shape_(const cutlass::gemm::GemmCoord& problem) {
+  static cutlass::MatrixCoord grid_shape(const cutlass::gemm::GemmCoord& problem) {
 
     return cutlass::MatrixCoord(
       ((problem.m() - 1 + ThreadblockShape::kM) / ThreadblockShape::kM),
       ((problem.n() - 1 + ThreadblockShape::kN) / ThreadblockShape::kN));
   }
 
-  CUTLASS_DEVICE
-  bool custom_next_tile_(const cutlass::gemm::GemmCoord &problem_size, uint32_t tile_idx_) {
-    // Check whether the tile to compute is within the range of the current problem.
-    const auto grid = grid_shape_(problem_size);
-    const uint32_t problem_chunk =  (tile_count_(grid) - 1 + gridDim.x) / gridDim.x;
-    const uint32_t problem_chunk_end = blockIdx.x * problem_chunk + problem_chunk;
-    if (tile_idx_ < problem_chunk_end) {
-      return true;
-    }
-
-    return false;
-  }
 
   /// Executes one GEMM
   CUTLASS_DEVICE
@@ -394,17 +370,12 @@ struct FusedL2NNWithGemmGrouped {
     using ElementOut   = typename Epilogue::TensorTileIterator::Element;
     using LongIndexOut = typename Epilogue::TensorTileIterator::LongIndex;
     using OutValTy   = typename Epilogue::TensorTileIterator::OutValT;
-    //
-    // Problem visitor.
-    //
-    // ProblemVisitor problem_visitor(
-    //   params.problem_visitor, shared_storage.problem_visitor, blockIdx.x);
 
     const GemmCoord& problem_size  = params.problem_size;
-    const uint32_t problem_chunk = (tile_count_(grid_shape_(problem_size)) - 1 + gridDim.x) / gridDim.x;
+    const uint32_t problem_chunk = (tile_count(grid_shape(problem_size)) - 1 + gridDim.x) / gridDim.x;
     const uint32_t problem_chunk_end = blockIdx.x * problem_chunk + problem_chunk;
-    const auto grid_shape = grid_shape_(problem_size);
-    typename LayoutB::Index column =  ((blockIdx.x * problem_chunk)  % grid_shape.column()) * Mma::Shape::kN;
+    const auto grid_shape_ = grid_shape(problem_size);
+    typename LayoutB::Index column =  ((blockIdx.x * problem_chunk)  % grid_shape_.column()) * Mma::Shape::kN;
     {
       ElementOut* shared_elem_arr_ = shared_storage.reduced_store.data();
       constexpr auto maxVal_ = std::numeric_limits<OutValTy>::max();
@@ -419,7 +390,7 @@ struct FusedL2NNWithGemmGrouped {
     {
         ElementC* shared_elem_arr = shared_storage.rownorm_store.data();
         if (column) {
-          typename LayoutB::Index row = ((blockIdx.x * problem_chunk) / grid_shape.column()) * Mma::Shape::kM;
+          typename LayoutB::Index row = ((blockIdx.x * problem_chunk) / grid_shape_.column()) * Mma::Shape::kM;
 
           uint8_t* first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(params.ptr_C) +
                                   typename LayoutB::LongIndex(row) * typename LayoutB::LongIndex(sizeof(ElementC));
@@ -436,23 +407,14 @@ struct FusedL2NNWithGemmGrouped {
     // Outer 'persistent' loop to iterate over tiles
     for (uint32_t tile_idx = blockIdx.x * problem_chunk; tile_idx < problem_chunk_end; tile_idx++) {
 
-        const auto grid_shape = grid_shape_(problem_size);
+        const auto grid_shape_ = grid_shape(problem_size);
         cutlass::MatrixCoord threadblock_offset(
-          int(tile_idx / grid_shape.column()) * Mma::Shape::kM,
-          int(tile_idx % grid_shape.column()) * Mma::Shape::kN);
-#if 1   
-        //const bool isNextTile = custom_next_tile_(problem_size, tile_idx + 1);
+          int(tile_idx / grid_shape_.column()) * Mma::Shape::kM,
+          int(tile_idx % grid_shape_.column()) * Mma::Shape::kN);
+
         const bool isNextTile =  ((tile_idx + 1) < problem_chunk_end);
-        //const bool doesRowChange = ((int((tile_idx + 1) / grid_shape.column()) * Mma::Shape::kM) == threadblock_offset.row());
         const bool doesRowChange = ((threadblock_offset.column() +  Mma::Shape::kN) >= problem_size.n());
         const bool do_gmem_reduce = (doesRowChange || !isNextTile) ? true : false;
-#endif
-        // Load element pointers. Exchange pointers and strides if working on the transpose
-        //const ElementA* ptr_A = reinterpret_cast<const ElementA*>((kTransposed ? params.ptr_B : params.ptr_A));
-        //typename LayoutA::LongIndex ldm_A = (kTransposed ? params.ldb : params.lda);
-
-        //const ElementB* ptr_B = reinterpret_cast<const ElementB*>((kTransposed ? params.ptr_A : params.ptr_B));
-        //typename LayoutB::LongIndex ldm_B = (kTransposed ? params.lda : params.ldb);
 
         ElementA* ptr_A = static_cast<ElementA*>(params.ptr_A);
         ElementB* ptr_B = static_cast<ElementB*>(params.ptr_B);
@@ -511,28 +473,10 @@ struct FusedL2NNWithGemmGrouped {
         static_cast<typename Epilogue::ElementVector*>(params.ptr_Vector);
 
         // Tile iterator loading from source tensor.
-#if 1
         typename Epilogue::OutputTileIterator iterator_rownorm(
           shared_storage.rownorm_store,
           params.params_C, ptr_C, problem_size.mn(), thread_idx, 
           threadblock_offset);
-#else
-        typename Epilogue::OutputTileIterator iterator_rownorm(
-          params.params_C, ptr_C, problem_size.mn(), thread_idx,
-          threadblock_offset);
-#endif
-
-        // Tile iterator writing to destination tensor.
-        // typename Epilogue::OutputTileIterator::Params params_D(0);
-        // ElementC* ptr_D = nullptr;
-#if 1
-        // typename Epilogue::OutputTileIterator iterator_D(
-        //   shared_storage.rownorm_store,
-        //   params_D, ptr_D, problem_size.mn(), thread_idx,  threadblock_offset);
-#else
-        typename Epilogue::OutputTileIterator iterator_D(
-          params_D, ptr_D, problem_size.mn(), thread_idx,  threadblock_offset);
-#endif
 
         // Additional tensor to load from
         typename Epilogue::TensorTileIterator tensor_iterator(
@@ -545,7 +489,7 @@ struct FusedL2NNWithGemmGrouped {
           do_gmem_reduce,
           threadblock_offset);
 
-        Epilogue epilogue(shared_storage.kernel.epilogue_combined_store.epilogue, thread_idx, warp_idx, lane_idx);
+        Epilogue epilogue(shared_storage.kernel.epilogue, thread_idx, warp_idx, lane_idx);
 
         // Execute the epilogue operator to update the destination tensor.
         // Move to appropriate location for this output tile

@@ -39,12 +39,10 @@ operation.
 #include <cutlass/epilogue/threadblock/default_epilogue_tensor_op.h>
 #include <cutlass/epilogue/threadblock/default_epilogue_volta_tensor_op.h>
 #include <cutlass/epilogue/threadblock/epilogue.h>
-//#include <cutlass/epilogue/threadblock/epilogue_with_broadcast.h>
-#include <raft/distance/detail/custom_epilogue_with_broadcast.h>
+#include <raft/distance/detail/fused_distance_nn/custom_epilogue_with_broadcast.h>
 
-//#include <raft/distance/detail/predicated_tile_iterator_normvec.h>
-#include <raft/distance/detail/predicated_tile_iterator_normvec_smem.h>
-#include <raft/distance/detail/predicated_tile_iterator_reduced_vec.h>
+#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_normvec_smem.h>
+#include <raft/distance/detail/fused_distance_nn/predicated_tile_iterator_reduced_vec.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -65,7 +63,7 @@ template <typename Shape,
           typename LayoutT,
           int ElementsPerAccess,
           bool ScatterD = false>
-struct FusedL2NNEpilogue {
+struct FusedDistanceNNEpilogue {
   /// Use defaults related to the existing epilogue
   using Base =
     DefaultEpilogueTensorOp<Shape, WarpMmaTensorOp, PartitionsK, OutputOp, ElementsPerAccess>;
@@ -73,8 +71,6 @@ struct FusedL2NNEpilogue {
   //
   // Stores the result z = (y = GEMM(A, B, C), broadcast)
   //
-  // using RowNormTileIterator = cutlass::epilogue::threadblock::
-  //   PredicatedTileIteratorNormVec<typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
   using RowNormTileIterator = cutlass::epilogue::threadblock::PredicatedTileIteratorNormVecSmem<
             typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
 

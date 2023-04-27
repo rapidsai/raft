@@ -19,7 +19,7 @@
 #include <limits>
 #include <raft/core/kvp.hpp>
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>
-#include <raft/distance/detail/fused_l2_nn_cutlass_base.cuh>
+#include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>
 #include <raft/linalg/contractions.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -72,6 +72,15 @@ struct MinAndDistanceReduceOpImpl {
 
   DI void init_key(DataT& out, LabelT idx) const { return; }
   DI void init_key(KVP& out, LabelT idx) const { out.key = idx; }
+
+  DI DataT get_value(KVP& out) const
+  {
+    return out.value;;
+  }
+  DI DataT get_value(DataT& out) const
+  {
+    return out;
+  }
 };
 
 template <typename LabelT, typename DataT>
@@ -274,7 +283,6 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 template <typename AccType, typename Index, typename OutType>
 struct kvp_cg_min_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
-  //static const AccType maxVal;  maxVal(std::numeric_limits<DataT>::max())
 
   __host__ __device__ kvp_cg_min_reduce_op() noexcept {};
 
@@ -282,7 +290,11 @@ struct kvp_cg_min_reduce_op {
   using IndexT   = Index;
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
-  __host__ __device__ AccType operator()(AccType a, AccType b) const { return a < b ? a : b; }
+
+__host__ __device__ AccType operator()(AccType a, AccType b) const { return min(a, b); }
+
+__host__ __device__ bool isAmin(AccType a, AccType b) const { return a < b ? true : false; }
+
 };
 
 template <typename DataT,
@@ -335,7 +347,7 @@ void fusedL2NNImpl(OutT* min,
     IdxT lda, ldb, ldd;
     lda = k, ldb = k, ldd = n;
 
-    cutlassFusedL2NNKernel<DataT,
+    cutlassFusedDistanceNN<DataT,
                            DataT,
                            OutT,
                            IdxT,

@@ -22,9 +22,9 @@
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
 
-#include <raft/distance/detail/fusedL2NN_gemm_with_fused_epilogue.h>
-#include <raft/distance/detail/fused_l2_nn_gemm_grouped_custom.h>
-#include <raft/distance/detail/fused_l2_nn_epilogue.cuh>
+//#include <raft/distance/detail/fused_distance_nn/fusedL2NN_gemm_with_fused_epilogue.h>
+#include <raft/distance/detail/fused_distance_nn/persistent_gemm.h>
+#include <raft/distance/detail/fused_distance_nn/epilogue.cuh>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -55,22 +55,20 @@ template <
   int Stages,
   /// data layout row/column major of inputs
   bool isRowMajor>
-struct FusedL2NNGemm {
+struct FusedDistanceNNGemm {
   // This struct is specialized for fp32/3xTF32
 
   /// Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 32, N = 64, K = 16
-  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 256, 16>;  // this is more performant for grouped GEMM
-  using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;  // this is more performant for non-grouped GEMM
-  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 64, 16>;  // SHAPE for less reg pressure grouped GEMM
+  using ThreadblockShape = cutlass::gemm::GemmShape<32, 256, 16>;  // this is more performant for grouped GEMM
+  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;  // this shape has high occupancy but less perf
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
   // <- warp tile M = 64, N = 64, K = 16
-  //using WarpShape = cutlass::gemm::GemmShape<32, 64, 16>;  // this is more performant for grouped GEMM
-  //using WarpShape = cutlass::gemm::GemmShape<16, 32, 16>;  // // SHAPE for less reg pressure grouped GEMM
-  using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;  // // SHAPE for less reg pressure grouped GEMM
-  //using WarpShape = cutlass::gemm::GemmShape<16, 64, 16>;  // // this is more performant for non-grouped GEMM
+  using WarpShape = cutlass::gemm::GemmShape<32, 64, 16>;  // this is more performant for grouped GEMM
+  //using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;  //  this shape has high occupancy but less perf
+
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op
@@ -90,7 +88,6 @@ struct FusedL2NNGemm {
 
   // This code section describes how threadblocks are scheduled on GPU
   /// Threadblock-level swizzling operator
-  //using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<2>;
   using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
 
   /// data layout for final output matrix.
@@ -129,7 +126,7 @@ struct FusedL2NNGemm {
                                                  Operator>::GemmKernel;
 
   // Replace epilogue
-  using Epilogue = typename cutlass::epilogue::threadblock::FusedL2NNEpilogue<
+  using Epilogue = typename cutlass::epilogue::threadblock::FusedDistanceNNEpilogue<
     typename GemmBase::Epilogue::Shape,
     typename GemmBase::Epilogue::WarpMmaOperator,
     GemmBase::Epilogue::kPartitionsK,
@@ -142,9 +139,7 @@ struct FusedL2NNGemm {
 
 
   // Compose the GEMM kernel
-  // using GemmKernel =
-  //   FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
-  using GemmKernel = FusedL2NNWithGemmGrouped<typename GemmBase::Mma, Epilogue, 
+  using GemmKernel = FusedDistanceNNPersistent<typename GemmBase::Mma, Epilogue, 
                                 ThreadblockSwizzle, GroupScheduleMode::kDeviceOnly>;
 };
 
@@ -163,7 +158,7 @@ template <
   int Stages,
   /// data layout row/column major of inputs
   bool isRowMajor>
-struct FusedL2NNGemm<double,
+struct FusedDistanceNNGemm<double,
                      kAlignmentA,
                      double,
                      kAlignmentB,
@@ -235,7 +230,7 @@ struct FusedL2NNGemm<double,
                                                  Operator>::GemmKernel;
 
   // Replace epilogue
-  using Epilogue = typename cutlass::epilogue::threadblock::FusedL2NNEpilogue<
+  using Epilogue = typename cutlass::epilogue::threadblock::FusedDistanceNNEpilogue<
     typename GemmBase::Epilogue::Shape,
     typename GemmBase::Epilogue::WarpMmaOperator,
     GemmBase::Epilogue::kPartitionsK,
@@ -247,9 +242,7 @@ struct FusedL2NNGemm<double,
     GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
 
   // Compose the GEMM kernel
-  // using GemmKernel =
-  //   FusedL2NNWithFusedEpilogue<typename GemmBase::Mma, Epilogue, ThreadblockSwizzle>;
-  using GemmKernel = FusedL2NNWithGemmGrouped<typename GemmBase::Mma, Epilogue, 
+  using GemmKernel = FusedDistanceNNPersistent<typename GemmBase::Mma, Epilogue, 
                                 ThreadblockSwizzle, GroupScheduleMode::kDeviceOnly>;
 
 };

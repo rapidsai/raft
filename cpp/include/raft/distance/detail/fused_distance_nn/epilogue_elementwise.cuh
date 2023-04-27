@@ -54,7 +54,7 @@ template <typename ElementC_,
           typename CGReduceOp_,
           typename ReduceOpT_,
           typename KVPReduceOpT_>
-class FusedL2NNEpilogueElementwise {
+class FusedDistanceNNEpilogueElementwise {
  public:
   using ElementOutput                 = ElementC_;
   using ElementC                      = ElementC_;
@@ -72,7 +72,9 @@ class FusedL2NNEpilogueElementwise {
   using FragmentCompute     = Array<ElementCompute, kElementsPerAccess>;
   using FragmentC           = Array<ElementOutput, kElementsPerAccess>;
   using FragmentZ           = Array<ElementZ, kElementsPerAccess>;
-  using FragmentT           = Array<ElementT, kElementsPerAccess>;
+  using OutValT             = typename CGReduceOp::AccTypeT;
+  //using FragmentT           = Array<ElementT, kElementsPerAccess>;
+  using FragmentT           = Array<OutValT, kElementsPerAccess>;
 
   using FragmentOutput = FragmentZ;
 
@@ -129,7 +131,7 @@ class FusedL2NNEpilogueElementwise {
 
   /// Constructor from Params
   CUTLASS_HOST_DEVICE
-  FusedL2NNEpilogueElementwise(Params const& params)
+  FusedDistanceNNEpilogueElementwise(Params const& params)
     : elementwise_op(params.dist_op_), pair_redop(params.pair_redop_), red_op(params.red_op_)
   {
   }
@@ -148,8 +150,7 @@ class FusedL2NNEpilogueElementwise {
 
   /// Applies the operation when is_source_needed() is true
   CUTLASS_HOST_DEVICE
-  void operator()(FragmentZ& frag_Z,
-                  FragmentT& frag_T,
+  void operator()(FragmentT& frag_T,
                   FragmentAccumulator const& AB,
                   FragmentC const& frag_C,
                   FragmentCompute const& V) const
@@ -163,7 +164,8 @@ class FusedL2NNEpilogueElementwise {
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < kElementsPerAccess; ++i) {
       ElementCompute res_Z = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
-      red_op.init(&frag_T[i], res_Z);
+      //red_op.init(&frag_T[i], res_Z);
+      frag_T[i] = res_Z;
     }
   }
 

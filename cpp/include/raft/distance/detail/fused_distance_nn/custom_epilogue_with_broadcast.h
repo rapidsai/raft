@@ -387,7 +387,6 @@ public:
   void operator()(
     OutputOp const &output_op,                        ///< Output operator
     ElementVector const * broadcast_ptr,           ///< Broadcast vector
-    //OutputTileIterator destination_iterator,          ///< Tile iterator for destination
     AccumulatorTile const &accumulators,              ///< Complete warp-level accumulator tile
     OutputTileIterator source_iterator,               ///< Tile iterator for source accumulator matrix
     TensorTileIterator tensor_iterator,               ///< Threadblock tile iterator for additional tensor operand
@@ -399,25 +398,13 @@ public:
     BroadcastFragment broadcast_fragment;
 
     load_broadcast_fragment_(broadcast_fragment, broadcast_ptr, problem_size, threadblock_offset);
-#if 0
-    if (!output_op.is_source_needed()) {
-      compute_source_not_needed_(
-        output_op, 
-        broadcast_fragment, 
-        destination_iterator, 
-        accumulators,
-        tensor_iterator);
-    }
-    else {
-#endif
-      compute_source_needed_(
-        output_op, 
-        broadcast_fragment, 
-        //destination_iterator, 
-        accumulators, 
-        source_iterator,
-        tensor_iterator);
-    //}
+
+    compute_source_needed_(
+      output_op, 
+      broadcast_fragment, 
+      accumulators, 
+      source_iterator,
+      tensor_iterator);
   }
 
 private:
@@ -649,7 +636,6 @@ private:
   void compute_source_needed_(
     OutputOp const &output_op,                    ///< Output operator
     BroadcastFragment const &broadcast_fragment,  ///< Fragment containing the accumulated partial reduction over columns
-    //OutputTileIterator destination_iterator,      ///< Tile iterator for destination
     AccumulatorTile const &accumulators,          ///< Complete warp-level accumulator tile
     OutputTileIterator source_iterator,           ///< Threadblock tile coordinate in GEMM (in units of threadblock tiles)
     TensorTileIterator tensor_iterator            ///< Threadblock tile iterator for additioanl tensor operand
@@ -670,13 +656,6 @@ private:
 
     #pragma unroll(IterationsUnroll ? OutputTileIterator::kIterations : 1)
     for (int iter = 0; iter < OutputTileIterator::kIterations; ++iter) {
-
-      //
-      // Load the source
-      //
-
-      // source_iterator.load(source_fragment);
-      // ++source_iterator;
 
       //
       // Convert and store fragment
@@ -717,7 +696,6 @@ private:
       // Apply output operation
       //
 
-      typename OutputTileIterator::Fragment frag_Z;
       typename TensorTileIterator::Fragment frag_T;
 
       //
@@ -728,22 +706,16 @@ private:
       ++source_iterator;
 
       apply_output_operator_(
-        frag_Z,
         frag_T,
         output_op,
         aligned_accum_fragment[0],
         source_fragment,
         broadcast_fragment);
 
+
       //
       // Conditionally store fragments
       //
-#if 0
-      if (OutputOp::kStoreZ) {
-        destination_iterator.store(frag_Z);
-        ++destination_iterator;
-      }
-#endif
       if (OutputOp::kStoreT) {
         tensor_iterator.store(frag_T);
         ++tensor_iterator;
@@ -754,18 +726,15 @@ private:
   /// Helper to invoke the output functor over each vector of output
   CUTLASS_DEVICE
   void apply_output_operator_(
-    typename OutputTileIterator::Fragment &frag_Z,
     typename TensorTileIterator::Fragment &frag_T,
     OutputOp const &output_op,
     typename SharedLoadIterator::Fragment const &frag_AB,
     typename OutputTileIterator::Fragment const &frag_C,
     BroadcastFragment const &frag_Broadcast) {
 
-    using AccessTypeZ = Array<typename OutputTileIterator::Element, kElementsPerAccess>;
-    using AccessTypeT = Array<typename TensorTileIterator::Element, kElementsPerAccess>;
+    using AccessTypeT = Array<typename TensorTileIterator::OutValT, kElementsPerAccess>;
     using AccessTypeBroadcast = Array<ElementCompute, kElementsPerAccess>;
 
-    AccessTypeZ *frag_Z_ptr = reinterpret_cast<AccessTypeZ *>(&frag_Z);
     AccessTypeT *frag_T_ptr = reinterpret_cast<AccessTypeT *>(&frag_T);
     
     AccumulatorAccessType const *frag_AB_ptr = 
@@ -777,8 +746,6 @@ private:
     AccessTypeBroadcast const *frag_Broadcast_ptr =
       reinterpret_cast<AccessTypeBroadcast const *>(&frag_Broadcast);
 
-    // int const kOutputOpIterations = 
-    //   OutputTileIterator::Fragment::kElements / OutputTileIterator::kElementsPerAccess;
     int const kOutputOpIterations = 
       TensorTileIterator::Fragment::kElements / TensorTileIterator::kElementsPerAccess;
 
@@ -786,7 +753,6 @@ private:
     for (int i = 0; i < kOutputOpIterations; ++i) {
 
       output_op(
-        frag_Z_ptr[i], 
         frag_T_ptr[i], 
         frag_AB_ptr[i], 
         frag_C_ptr[(i / ThreadMap::Iterations::kColumn)],
@@ -803,31 +769,6 @@ private:
     typename SharedLoadIterator::Fragment const &frag_AB,
     BroadcastFragment const &frag_Broadcast) {
 
-    using AccessTypeZ = Array<typename OutputTileIterator::Element, kElementsPerAccess>;
-    using AccessTypeT = Array<typename TensorTileIterator::Element, kElementsPerAccess>;
-    using AccessTypeBroadcast = Array<ElementCompute, kElementsPerAccess>;
-
-    AccessTypeZ *frag_Z_ptr = reinterpret_cast<AccessTypeZ *>(&frag_Z);
-    AccessTypeT *frag_T_ptr = reinterpret_cast<AccessTypeT *>(&frag_T);
-    
-    AccumulatorAccessType const *frag_AB_ptr = 
-      reinterpret_cast<AccumulatorAccessType const *>(&frag_AB);
-
-    AccessTypeBroadcast const *frag_Broadcast_ptr =
-      reinterpret_cast<AccessTypeBroadcast const *>(&frag_Broadcast);
-
-    int const kOutputOpIterations = 
-      OutputTileIterator::Fragment::kElements / OutputTileIterator::kElementsPerAccess;
-
-    CUTLASS_PRAGMA_UNROLL
-    for (int i = 0; i < kOutputOpIterations; ++i) {
-
-      output_op(
-        frag_Z_ptr[i], 
-        frag_T_ptr[i], 
-        frag_AB_ptr[i], 
-        frag_Broadcast_ptr[i % ThreadMap::Iterations::kColumn]);
-    }
   }
 };
 

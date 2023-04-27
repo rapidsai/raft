@@ -90,8 +90,8 @@ struct l2_exp_cutlass_op {
     // outVal could be negative due to numerical instability, especially when
     // calculating self distance.
     // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (outVal > DataT(0.0));
-    return sqrt ? raft::sqrt(outVal) : outVal;
+    //outVal = outVal * (outVal > DataT(0.0));
+    return sqrt ? raft::sqrt(outVal * (outVal > DataT(0.0))) : outVal;
   }
 
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
