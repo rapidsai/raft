@@ -321,7 +321,7 @@ Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INS
 
 The dispatching by `expensive.cuh` is performed as follows:
 ``` c++
-#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
+#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 // If implicit instantiation is allowed, include template definitions.
 #include "expensive-inl.cuh"
 #endif
