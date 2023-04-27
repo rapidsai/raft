@@ -415,7 +415,7 @@ void svd_reconstruction(raft::device_resources const& handle,
 
 /** @} */  // end of group svd
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

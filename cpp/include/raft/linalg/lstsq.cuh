@@ -244,7 +244,7 @@ void lstsq_qr(raft::device_resources const& handle,
 
 /** @} */  // end of lstsq
 
-};  // namespace linalg
-};  // namespace raft
+};         // namespace linalg
+};         // namespace raft
 
 #endif

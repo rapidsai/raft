@@ -143,10 +143,10 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - clang=11.1.0
+          - clang=16.0.1
       - output_types: [conda]
         packages:
-          - clang-tools=11.1.0
+          - clang-tools=16.0.1
   nn_bench:
     common:
       - output_types: [conda]
@@ -240,10 +240,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.8"
-            packages:
-              - python=3.8
-          - matrix:
               py: "3.9"
             packages:
               - python=3.9
@@ -253,7 +249,7 @@ dependencies:
               - python=3.10
           - matrix:
             packages:
-              - python>=3.8,<3.11
+              - python>=3.9,<3.11
   run_pylibraft:
     common:
       - output_types: [conda, pyproject]

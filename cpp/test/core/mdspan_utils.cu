@@ -30,8 +30,7 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = stdex::default_accessor<ElementType>>
 struct derived_device_mdspan
-  : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
-};
+  : public device_mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {};
 
 void test_template_asserts()
 {

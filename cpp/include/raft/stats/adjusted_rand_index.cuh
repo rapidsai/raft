@@ -82,7 +82,7 @@ double adjusted_rand_index(raft::device_resources const& handle,
 
 /** @} */  // end group stats_adj_rand_index
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

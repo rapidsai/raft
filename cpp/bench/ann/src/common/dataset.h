@@ -47,7 +47,7 @@ class BinFile {
           uint32_t subset_first_row = 0,
           uint32_t subset_size      = 0);
   ~BinFile() { fclose(fp_); }
-  BinFile(const BinFile&) = delete;
+  BinFile(const BinFile&)            = delete;
   BinFile& operator=(const BinFile&) = delete;
 
   void get_shape(size_t* nrows, int* ndims)
@@ -219,7 +219,7 @@ class Dataset {
   Dataset(const std::string& name, const std::string& distance) : name_(name), distance_(distance)
   {
   }
-  Dataset(const Dataset&) = delete;
+  Dataset(const Dataset&)            = delete;
   Dataset& operator=(const Dataset&) = delete;
   virtual ~Dataset();
 

@@ -78,12 +78,12 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
 
 template <class DATA_T, int blockDim_x, int numElementsPerThread>
 __global__ void kern_sort(
-  DATA_T** dataset,  // [num_gpus][dataset_chunk_size, dataset_dim]
+  DATA_T** dataset,             // [num_gpus][dataset_chunk_size, dataset_dim]
   uint32_t dataset_size,
   uint32_t dataset_chunk_size,  // (*) num_gpus * dataset_chunk_size >= dataset_size
   uint32_t dataset_dim,
   float scale,
-  uint32_t** knn_graph,  // [num_gpus][graph_chunk_size, graph_degree]
+  uint32_t** knn_graph,       // [num_gpus][graph_chunk_size, graph_degree]
   uint32_t graph_size,
   uint32_t graph_chunk_size,  // (*) num_gpus * graph_chunk_size >= graph_size
   uint32_t graph_degree,
@@ -211,7 +211,7 @@ __global__ void kern_sort(
 
 template <int MAX_DEGREE>
 __global__ void kern_prune(
-  uint32_t** knn_graph,  // [num_gpus][graph_chunk_size, graph_degree]
+  uint32_t** knn_graph,       // [num_gpus][graph_chunk_size, graph_degree]
   uint32_t graph_size,
   uint32_t graph_chunk_size,  // (*) num_gpus * graph_chunk_size >= graph_size
   uint32_t graph_degree,
@@ -284,8 +284,8 @@ namespace {
 __global__ void kern_make_rev_graph(const uint32_t i_gpu,
                                     const uint32_t* dest_nodes,  // [global_graph_size]
                                     const uint32_t global_graph_size,
-                                    uint32_t* rev_graph,        // [graph_size, degree]
-                                    uint32_t* rev_graph_count,  // [graph_size]
+                                    uint32_t* rev_graph,         // [graph_size, degree]
+                                    uint32_t* rev_graph_count,   // [graph_size]
                                     const uint32_t graph_size,
                                     const uint32_t degree)
 {
@@ -316,8 +316,8 @@ T*** mgpu_alloc(int n_gpus, uint32_t chunk, uint32_t nelems)
     RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
     RAFT_CUDA_TRY(cudaMalloc(&(arrays[i_gpu]), bsize)); /* d1 */
   }
-  T*** d_arrays;                                       // [n_gpus+1][n_gpus][chunk, nelems]
-  d_arrays = (T***)malloc(sizeof(T**) * (n_gpus + 1)); /* h2 */
+  T*** d_arrays;                                        // [n_gpus+1][n_gpus][chunk, nelems]
+  d_arrays = (T***)malloc(sizeof(T**) * (n_gpus + 1));  /* h2 */
   bsize    = sizeof(T*) * n_gpus;
   for (int i_gpu = 0; i_gpu < n_gpus; i_gpu++) {
     RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
@@ -737,7 +737,7 @@ void prune(raft::device_resources const& res,
   d_rev_graph_count = mgpu_alloc<uint32_t>(num_gpus, graph_chunk_size, 1);
   mgpu_H2D<uint32_t>(d_rev_graph_count, rev_graph_count, num_gpus, graph_size, graph_chunk_size, 1);
 
-  uint32_t* dest_nodes;  // [graph_size]
+  uint32_t* dest_nodes;     // [graph_size]
   dest_nodes = (uint32_t*)malloc(sizeof(uint32_t) * graph_size);
   uint32_t** d_dest_nodes;  // [num_gpus][graph_size]
   d_dest_nodes = (uint32_t**)malloc(sizeof(uint32_t*) * num_gpus);
