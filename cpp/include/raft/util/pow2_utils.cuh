@@ -20,12 +20,6 @@
 
 namespace raft {
 
-template <typename i_t>
-constexpr i_t next_pow2(i_t val)
-{
-  return 1 << (log2(val) + 1);
-}
-
 /**
  * @brief Fast arithmetics and alignment checks for power-of-two values known at compile time.
  *
