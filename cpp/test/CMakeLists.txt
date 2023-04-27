@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -59,6 +59,10 @@ function(ConfigureTest)
                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
+  if(ConfigureTest_EXPLICIT_INSTANTIATE_ONLY)
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
+
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
 
   install(
@@ -88,6 +92,7 @@ if(BUILD_TESTS)
     test/cluster/kmeans_find_k.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -112,6 +117,9 @@ if(BUILD_TESTS)
     test/core/span.cu
     test/core/temporary_device_buffer.cu
     test/test.cpp
+    OPTIONAL
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -141,6 +149,7 @@ if(BUILD_TESTS)
     test/distance/gram.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -202,6 +211,7 @@ if(BUILD_TESTS)
     test/sparse/spectral_matrix.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -221,7 +231,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -246,19 +256,20 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME 
-    SPARSE_DIST_TEST 
-    PATH 
-    test/sparse/dist_coo_spmv.cu 
-    test/sparse/distance.cu 
-    test/sparse/gram.cu 
-    OPTIONAL 
-    LIB
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
+    test/sparse/gram.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
-    NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL LIB
+    NAME
+    SPARSE_NEIGHBORS_TEST
+    PATH
+    test/sparse/neighbors/connect_components.cu
+    test/sparse/neighbors/brute_force.cu
+    test/sparse/neighbors/knn_graph.cu
+    OPTIONAL
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -284,6 +295,7 @@ if(BUILD_TESTS)
     test/neighbors/selection.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -317,6 +329,7 @@ if(BUILD_TESTS)
     test/stats/v_measure.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
