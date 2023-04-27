@@ -228,9 +228,9 @@ struct SelectK  // NOLINT
     auto& in_dists   = ref.get_in_dists();
     auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
-      auto ix_i = int64_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
-      auto ix_j = int64_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
-      if (size_t(ix_i) >= in_ids.size() || size_t(ix_j) >= in_ids.size()) return false;
+      auto ix_i = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
+      auto ix_j = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
+      if (static_cast<size_t>(ix_i) >= in_ids.size() || static_cast<size_t>(ix_j) >= in_ids.size()) return false;
       auto dist_i = in_dists[ix_i];
       auto dist_j = in_dists[ix_j];
       if (dist_i == dist_j) return true;
