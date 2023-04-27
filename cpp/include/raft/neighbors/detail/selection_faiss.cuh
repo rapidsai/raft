@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#if !defined(RAFT_EXPLICIT_INSTANTIATE_ONLY)
+#ifndef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "selection_faiss-inl.cuh"
 #endif
 
-#if defined(RAFT_COMPILED)
+#ifdef RAFT_COMPILED
 #include "selection_faiss-ext.cuh"
 #endif
