@@ -245,14 +245,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME 
-    SPARSE_DIST_TEST 
-    PATH 
-    test/sparse/dist_coo_spmv.cu 
-    test/sparse/distance.cu 
-    test/sparse/gram.cu 
-    OPTIONAL 
-    LIB
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
+    test/sparse/gram.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -319,7 +313,15 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
-    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
+    NAME
+    UTILS_TEST
+    PATH
+    test/core/seive.cu
+    test/util/bitonic_sort.cu
+    test/util/cudart_utils.cpp
+    test/util/device_atomics.cu
+    test/util/integer_utils.cpp
+    test/util/pow2_utils.cu
+    test/util/reduction.cu
   )
 endif()

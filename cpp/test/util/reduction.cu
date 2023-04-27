@@ -17,7 +17,7 @@
 #include "../test_utils.cuh"
 
 #include <raft/random/rng.cuh>
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/reduction.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -181,10 +181,13 @@ const std::vector<int> binary_test_vector{
 auto reduction_input        = ::testing::Values(test_vector);
 auto binary_reduction_input = ::testing::Values(binary_test_vector);
 
-using ReductionTestInt = ReductionTest<int>;                                             // NOLINT
+using ReductionTestInt       = ReductionTest<int>;                            // NOLINT
+using BinaryReductionTestInt = ReductionTest<int>;                            // NOLINT
 TEST_P(ReductionTestInt, REDUCTIONS) { run_reduction(); }
-INSTANTIATE_TEST_CASE_P(ReductionTest, ReductionTestInt, reduction_input);               // NOLINT
-TEST_P(ReductionTestInt, BINARY_REDUCTION) { run_binary_reduction(); }                   // NOLINT
-INSTANTIATE_TEST_CASE_P(BinaryReductionTest, ReductionTestInt, binary_reduction_input);  // NOLINT
+INSTANTIATE_TEST_CASE_P(ReductionTest, ReductionTestInt, reduction_input);    // NOLINT
+TEST_P(BinaryReductionTestInt, BINARY_REDUCTION) { run_binary_reduction(); }  // NOLINT
+INSTANTIATE_TEST_CASE_P(BinaryReductionTest,
+                        BinaryReductionTestInt,
+                        binary_reduction_input);  // NOLINT
 
 }  // namespace raft::util
