@@ -85,6 +85,32 @@ void build_knn_graph(raft::device_resources const& res,
 }
 
 /**
+ * @brief Sort a KNN graph index.
+ *
+ * See [cagra::build_knn_graph](#cagra::build_knn_graph) for usage example
+ *
+ * @tparam DataT type of the data in the source dataset
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res raft resources
+ * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
+ * @param[in,out] knn_graph a matrix view (host or device) of the input knn graph [n_rows,
+ * knn_graph_degree]
+ */
+template <typename DataT,
+          typename IdxT = uint32_t,
+          typename d_accessor =
+            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
+          typename g_accessor =
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+void sort_knn_graph(raft::device_resources const& res,
+                    mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+                    mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
+{
+  detail::graph::sort_knn_graph(res, dataset, knn_graph);
+}
+
+/**
  * @brief Prune a KNN graph.
  *
  * Decrease the number of neighbors for each node.
@@ -103,8 +129,7 @@ template <typename IdxT = uint32_t,
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void prune(raft::device_resources const& res,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
-           raft::host_matrix_view<IdxT, IdxT, row_major> new_graph
-					 )
+           raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
   detail::graph::prune(res, knn_graph, new_graph);
 }
