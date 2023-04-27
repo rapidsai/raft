@@ -68,6 +68,18 @@ __global__ void test_random_reduction_kernel(const int* input, int* reduction_re
   }
 }
 
+template<int TPB>
+__global__ void test_binary_reduction_kernel(const int* input, int* reduction_res)
+{
+  assert(gridDim.x == 1);
+  __shared__ int shared[TPB / WarpSize];
+  int th_val = input[threadIdx.x];
+  int result = raft::binaryBlockReduce<TPB>(th_val,shared);
+  if(threadIdx.x == 0){
+    reduction_res[0] = result;
+  }
+}
+
 
 struct reduction_launch {
   template <typename ReduceLambda>
@@ -110,21 +122,37 @@ struct reduction_launch {
     ASSERT_EQ(ref_d.value(stream), ref_val);
   }
 
+  static void run_binary(const rmm::device_uvector<int>& arr_d, int ref_val, rmm::cuda_stream_view stream)
+  {
+    rmm::device_scalar<int> ref_d(stream);
+    constexpr int block_dim  = 64;
+    const int grid_dim   = 1;
+    test_binary_reduction_kernel<block_dim>
+      <<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data());
+    stream.synchronize();
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    ASSERT_EQ(ref_d.value(stream), ref_val);
+  }
+
 };
 
 template <typename T>
 class ReductionTest : public testing::TestWithParam<std::vector<int>> {     // NOLINT
  protected:
-  const std::vector<int> input;                                            // NOLINT
-
+  const std::vector<int> input;  // NOLINT
+  rmm::cuda_stream_view stream;                                          // NOLINT
+  rmm::device_uvector<int> arr_d; // NOLINT
+  
  public:
   explicit ReductionTest()
-    : input(testing::TestWithParam<std::vector<int>>::GetParam())
-  {
-    auto stream = rmm::cuda_stream_default;
-    rmm::device_uvector<int> arr_d(input.size(), stream);
-    
+    : input(testing::TestWithParam<std::vector<int>>::GetParam()) , stream(rmm::cuda_stream_default), arr_d(input.size(), stream)
+  {   
     update_device(arr_d.data(), input.data(), input.size(), stream);
+    
+    
+  }
+
+  void run_reduction(){
     // calculate the results
     reduction_launch::run(arr_d, 0, raft::min_op{}, stream);
     reduction_launch::run(arr_d, 5, raft::max_op{}, stream);
@@ -135,14 +163,22 @@ class ReductionTest : public testing::TestWithParam<std::vector<int>> {     // N
     reduction_launch::run_random(arr_d, 15,stream);
   }
 
+  void run_binary_reduction(){
+    reduction_launch::run_binary(arr_d, 24,stream);
+  }
+
 };
 
-const std::vector<int> test_vector{1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,5, 1, 2, 3,4, 1, 2, 3,4,1, 2, 0,4, 1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,};
+const std::vector<int> test_vector{1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,5, 1, 2, 3,4, 1, 2, 3,4,1, 2, 0,4, 1, 2, 3,4, 1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4,1, 2, 3,4, 1, 2, 3,4};
+const std::vector<int> binary_test_vector{1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0,1,0,0,0,1,1,0,0};
 auto reduction_input = ::testing::Values(test_vector);
+auto binary_reduction_input = ::testing::Values(binary_test_vector);
 
 
 using ReductionTestInt = ReductionTest<int>;                          // NOLINT
-TEST_P(ReductionTestInt, ALL) {}                                      // NOLINT
+TEST_P(ReductionTestInt, REDUCTIONS) {run_reduction();}      
 INSTANTIATE_TEST_CASE_P(ReductionTest,ReductionTestInt, reduction_input);     // NOLINT
+TEST_P(ReductionTestInt, BINARY_REDUCTION) {run_binary_reduction();}                                    // NOLINT
+INSTANTIATE_TEST_CASE_P(BinaryReductionTest,ReductionTestInt, binary_reduction_input);     // NOLINT
 
 }  // namespace raft::util

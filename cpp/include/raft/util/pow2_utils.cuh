@@ -20,6 +20,12 @@
 
 namespace raft {
 
+template <typename i_t>
+constexpr i_t next_pow2(i_t val)
+{
+  return 1 << (log2(val) + 1);
+}
+
 /**
  * @brief Fast arithmetics and alignment checks for power-of-two values known at compile time.
  *
@@ -80,6 +86,15 @@ struct Pow2 {
   {
     return x >> I(Log2);
   }
+
+  /**
+   * Rounds up the value to next power of two.
+   */
+   template <typename I>
+   Pow2_FUNC_QUALIFIER Pow2_WHEN_INTEGRAL(I) round_up_pow2(I val) noexcept
+   {
+     return 1 << (log2(val) + 1);
+   }
 
   /**
    * x modulo Value operation (remainder of the `div(x)`)

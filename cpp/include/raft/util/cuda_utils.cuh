@@ -1021,6 +1021,34 @@ __inline__ __device__ std::pair<T, i_t> blockRankedReduce(T val, T* shbuf, i_t i
 }
 
 /**
+ * @brief Executes a 1d binary block reduce
+ * @param val binary value to be reduced across the thread block
+ * @param reduce_op a binary reduction operation.
+ * @return only the thread0 will contain valid reduced result
+ */
+template <int BLOCK_SIZE, typename i_t>
+DI i_t binaryBlockReduce(i_t val, i_t* shared)
+{
+  static_assert(BLOCK_SIZE <= 1024);
+  assert(val == 0 || val == 1);
+  const uint32_t mask                 = __ballot_sync(~0, val);
+  const uint32_t n_items = __popc(mask);
+
+  // Each first thread of the warp
+  if (threadIdx.x % WarpSize == 0)
+    shared[threadIdx.x / WarpSize] = n_items;
+  __syncthreads();
+
+  val = (threadIdx.x < BLOCK_SIZE / WarpSize) ? shared[threadIdx.x] : 0;
+
+  if (threadIdx.x < WarpSize)
+    return warpReduce(val);
+  else  // Only first warp gets the results
+    return -1;
+}
+
+
+/**
  * @brief Simple utility function to determine whether user_stream or one of the
  * internal streams should be used.
  * @param user_stream main user stream
