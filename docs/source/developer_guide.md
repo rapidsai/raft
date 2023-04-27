@@ -304,7 +304,7 @@ Below, we summarize which combinations of `RAFT_COMPILED` and `RAFT_EXPLICIT_INS
 | RAFT_COMPILED | RAFT_EXPLICIT_INSTANTIATE_ONLY | Which targets                                                                                        |
 |---------------|--------------------------------|------------------------------------------------------------------------------------------------------|
 | defined       | defined                        | `raft::compiled`, RAFT tests, RAFT benchmarks                                                        |
-| defined       |                                | Downstream libraries depending of `libraft` like cuML, cuGraph.                                      |
+| defined       |                                | Downstream libraries depending on `libraft` like cuML, cuGraph.                                      |
 |               |                                | Downstream libraries depending on `libraft-headers` like cugraph-ops.                                |
 
 
