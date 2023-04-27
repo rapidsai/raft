@@ -18,7 +18,7 @@
 #include <cstddef>
 #include <memory>
 
-#include <raft/util/inline.hpp>  // RAFT_INLINE_CONDITIONAL
+#include <raft/core/detail/macros.hpp>  // RAFT_INLINE_CONDITIONAL
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
