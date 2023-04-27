@@ -535,60 +535,60 @@ DI void ldg(int8_t (&x)[1], const int8_t* const& addr)
 }
 
 /**
- * @brief Executes a 1D block strided copy 
+ * @brief Executes a 1D block strided copy
  * @param dst destination pointer
  * @param src source pointer
  * @param size number of items to copy
  */
- template <typename T>
- DI void block_copy(T* dst, const T* src, const size_t size)
- {
-   for (auto i = threadIdx.x; i < size; i += blockDim.x) {
-     dst[i] = src[i];
-   }
- }
- 
- /**
- * @brief Executes a 1D block strided copy 
+template <typename T>
+DI void block_copy(T* dst, const T* src, const size_t size)
+{
+  for (auto i = threadIdx.x; i < size; i += blockDim.x) {
+    dst[i] = src[i];
+  }
+}
+
+/**
+ * @brief Executes a 1D block strided copy
  * @param dst span of destination pointer
  * @param src span of source pointer
  * @param size number of items to copy
  */
- template <typename T>
- DI void block_copy(raft::device_span<T> dst,
-                    const raft::device_span<const T> src,
-                    const size_t size)
- {
-   assert(src.size() >= size);
-   assert(dst.size() >= size);
-   block_copy(dst.data(), src.data(), size);
- }
- 
-  /**
- * @brief Executes a 1D block strided copy 
+template <typename T>
+DI void block_copy(raft::device_span<T> dst,
+                   const raft::device_span<const T> src,
+                   const size_t size)
+{
+  assert(src.size() >= size);
+  assert(dst.size() >= size);
+  block_copy(dst.data(), src.data(), size);
+}
+
+/**
+ * @brief Executes a 1D block strided copy
  * @param dst span of destination pointer
  * @param src span of source pointer
  * @param size number of items to copy
  */
- template <typename T>
- DI void block_copy(raft::device_span<T> dst, const raft::device_span<T> src, const size_t size)
- {
-   assert(src.size() >= size);
-   assert(dst.size() >= size);
-   block_copy(dst.data(), src.data(), size);
- }
- 
-  /**
- * @brief Executes a 1D block strided copy 
+template <typename T>
+DI void block_copy(raft::device_span<T> dst, const raft::device_span<T> src, const size_t size)
+{
+  assert(src.size() >= size);
+  assert(dst.size() >= size);
+  block_copy(dst.data(), src.data(), size);
+}
+
+/**
+ * @brief Executes a 1D block strided copy
  * @param dst span of destination pointer
  * @param src span of source pointer
  */
- template <typename T>
- DI void block_copy(raft::device_span<T> dst, const raft::device_span<T> src)
- {
-   assert(dst.size() >= src.size());
-   block_copy(dst, src, src.size());
- }
+template <typename T>
+DI void block_copy(raft::device_span<T> dst, const raft::device_span<T> src)
+{
+  assert(dst.size() >= src.size());
+  block_copy(dst, src, src.size());
+}
 
 /** @} */
 
