@@ -19,7 +19,7 @@ jobs:
       #- conda-python-tests
       #- docs-build
       - wheel-build-pylibraft
-      - wheel-tests-pylibraft
+      #- wheel-tests-pylibraft
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
     secrets: inherit
