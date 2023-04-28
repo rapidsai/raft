@@ -369,6 +369,7 @@ struct FusedDistanceNNPersistent {
   CUTLASS_DEVICE
   void operator()(Params const& params, SharedStorage& shared_storage)
   {
+#if __CUDA_ARCH__ >= 800
     //
     // These types shadow the type-level definitions and support the ability to implement
     // a 'transposed' GEMM that computes the transposed problems.
@@ -523,6 +524,7 @@ struct FusedDistanceNNPersistent {
                problem_size.mn(),
                threadblock_offset);
     }
+#endif
   }
 };
 
