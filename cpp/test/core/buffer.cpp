@@ -19,7 +19,7 @@
 #include <raft/core/buffer.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/memory_type.hpp>
-#include <raft/core/exceptions.hpp>
+#include <raft/core/error.hpp>
 
 namespace raft {
 

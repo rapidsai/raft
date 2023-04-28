@@ -24,7 +24,7 @@
 #include <raft/core/detail/const_agnostic.hpp>
 #include <raft/core/device_support.hpp>
 #include <raft/core/device_type.hpp>
-#include <raft/core/exceptions.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/execution_device_id.hpp>
 #include <raft/core/memory_type.hpp>
 #include <raft/core/resources.hpp>
@@ -197,7 +197,7 @@ struct buffer {
    * @brief Move from existing buffer unless a copy is necessary based on
    * memory location
    */
-  buffer(raft::resources const& handle, buffer<T>&& other, memory_type mem_type, int device)
+  buffer(raft::resources const& handle, buffer<T>&& other, memory_type mem_type, int device = 0)
     : device_{[mem_type, &device]() {
         auto result = execution_device_id_variant{};
         if (is_device_accessible(mem_type)) {
@@ -240,12 +240,7 @@ struct buffer {
         return result;
       }()}
   {
-    RAFT_LOG_INFO("original move called");
-  }
-  buffer(raft::resources const& handle, buffer<T>&& other, device_type mem_type, int device=0)
-    : buffer{handle, std::move(other), mem_type, device}
-  {
-    RAFT_LOG_INFO("move constructor without stream called");
+    RAFT_LOG_INFO("main move called");
   }
   // buffer(buffer<T>&& other, device_type mem_type)
   //   : buffer{std::move(other), mem_type, 0, execution_stream{}}
@@ -284,6 +279,7 @@ struct buffer {
     RAFT_LOG_INFO("trivial move called");
   }
   buffer<T>& operator=(buffer<T>&& other) noexcept {
+    RAFT_LOG_INFO("operator= move called");
     data_ = std::move(other.data_);
     device_ = std::move(other.device_);
     size_ = std::move(other.size_);
@@ -301,7 +297,7 @@ struct buffer {
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
     }
-      RAFT_LOG_INFO("data %p; cached_ptr %p\n", result, cached_ptr);
+      RAFT_LOG_INFO("data() called: data %p; cached_ptr %p\n", result, cached_ptr);
         return result;}
 
   auto device() const noexcept { return device_; }
