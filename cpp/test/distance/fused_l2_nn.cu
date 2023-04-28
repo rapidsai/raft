@@ -24,10 +24,6 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 namespace raft {
 namespace distance {
 

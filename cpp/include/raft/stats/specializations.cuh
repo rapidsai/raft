@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef __STATS_SPECIALIZATIONS_H
-#define __STATS_SPECIALIZATIONS_H
-
 #pragma once
 
-#include <raft/distance/specializations.cuh>
-#include <raft/neighbors/specializations.cuh>
-
-#endif
+#pragma message(                                            \
+    __FILE__                                                \
+    " is deprecated and will be removed."                   \
+    " Including specializations is not necessary any more." \
+    " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")

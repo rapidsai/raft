@@ -20,10 +20,6 @@
 #include <raft/distance/distance.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/stats/specializations.cuh>
-#endif
-
 #include <raft/stats/trustworthiness_score.cuh>
 #include <vector>
 

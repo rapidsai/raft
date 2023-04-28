@@ -22,6 +22,7 @@
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <unordered_map>
 
 namespace raft {

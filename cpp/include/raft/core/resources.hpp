@@ -18,6 +18,7 @@
 #include "resource/resource_types.hpp"
 #include <algorithm>
 #include <mutex>
+#include <raft/core/error.hpp>  // RAFT_EXPECTS
 #include <raft/core/logger.hpp>
 #include <string>
 #include <vector>
