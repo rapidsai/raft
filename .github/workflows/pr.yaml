@@ -86,7 +86,7 @@ jobs:
       test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
       test-smoketest: "python ./ci/wheel_smoke_test_pylibraft.py"
   wheel-build-raft-dask:
-    needs: wheel-tests-pylibraft
+    needs: wheel-build-pylibraft
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@py-39
     with:
