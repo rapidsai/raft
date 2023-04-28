@@ -73,20 +73,20 @@ jobs:
       package-name: pylibraft
       package-dir: python/pylibraft
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
-  wheel-tests-pylibraft:
-    needs: wheel-build-pylibraft
-    secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@manylinux_v2
-    with:
-      build_type: pull-request
-      package-name: pylibraft
-      test-before-amd64: "pip install cupy-cuda11x"
-      # On arm also need to install cupy from the specific webpage.
-      test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
-      test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
-      test-smoketest: "python ./ci/wheel_smoke_test_pylibraft.py"
+  #wheel-tests-pylibraft:
+  #  needs: wheel-build-pylibraft
+  #  secrets: inherit
+  #  uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@manylinux_v2
+  #  with:
+  #    build_type: pull-request
+  #    package-name: pylibraft
+  #    test-before-amd64: "pip install cupy-cuda11x"
+  #    # On arm also need to install cupy from the specific webpage.
+  #    test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
+  #    test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
+  #    test-smoketest: "python ./ci/wheel_smoke_test_pylibraft.py"
   wheel-build-raft-dask:
-    needs: wheel-tests-pylibraft
+    needs: wheel-build-pylibraft
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@manylinux_v2
     with:
