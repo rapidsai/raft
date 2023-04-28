@@ -203,7 +203,7 @@ RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https:
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` RAFT headers
-- `libraft` (optional) shared library of pre-compiled template specializations and runtime APIs.
+- `libraft` (optional) shared library of pre-compiled template instantiations and runtime APIs.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
@@ -236,11 +236,11 @@ You can find an [example RAFT](cpp/template/README.md) project template in the `
 
 Additional CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
-| Component   | Target              | Description                                               | Base Dependencies                     |
-|-------------|---------------------|-----------------------------------------------------------|---------------------------------------|
-| n/a         | `raft::raft`        | Full RAFT header library                                  | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
-| compiled    | `raft::compiled`    | Pre-compiled template specializations and runtime library | raft::raft                            |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                       | raft::raft, UCX, NCCL                 |
+| Component   | Target              | Description                                              | Base Dependencies                      |
+|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
+| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
+| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL                  |
 
 ### Source
 
@@ -287,7 +287,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
     - `util`: Various reusable tools and utilities for accelerated algorithm development
   - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
-  - `src`: Compiled APIs and template specializations for the shared libraries
+  - `src`: Compiled APIs and template instantiations for the shared libraries
   - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
   - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)

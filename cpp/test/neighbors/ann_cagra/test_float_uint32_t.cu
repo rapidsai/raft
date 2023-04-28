@@ -18,10 +18,6 @@
 
 #include "../ann_cagra.cuh"
 
-// #if defined RAFT_DISTANCE_COMPILED
-// #include <raft/neighbors/specializations.cuh>
-// #endif
-
 namespace raft::neighbors::experimental::cagra {
 
 typedef AnnCagraTest<float, float, std::uint32_t> AnnCagraTestF;
