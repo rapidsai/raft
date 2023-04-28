@@ -1,5 +1,21 @@
+/*
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /***************************************************************************************************
- * Copyright (c) 2017 - 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,26 +63,26 @@
 #include <utility>
 #endif
 
-#include "cutlass/aligned_buffer.h"
-#include "cutlass/array.h"
-#include "cutlass/cutlass.h"
-#include "cutlass/fast_math.h"
-#include "cutlass/functional.h"
-#include "cutlass/layout/tensor.h"
-#include "cutlass/layout/vector.h"
-#include "cutlass/numeric_conversion.h"
-#include "cutlass/numeric_types.h"
-#include "cutlass/tensor_coord.h"
+#include <cutlass/aligned_buffer.h>
+#include <cutlass/array.h>
+#include <cutlass/cutlass.h>
+#include <cutlass/fast_math.h>
+#include <cutlass/functional.h>
+#include <cutlass/layout/tensor.h>
+#include <cutlass/layout/vector.h>
+#include <cutlass/numeric_conversion.h>
+#include <cutlass/numeric_types.h>
+#include <cutlass/tensor_coord.h>
 
-#include "cutlass/gemm/gemm.h"
+#include <cutlass/gemm/gemm.h>
 
-#include "cutlass/transform/pitch_linear_thread_map.h"
-#include "cutlass/transform/threadblock/regular_tile_iterator.h"
+#include <cutlass/transform/pitch_linear_thread_map.h>
+#include <cutlass/transform/threadblock/regular_tile_iterator.h>
 
-#include "cutlass/epilogue/threadblock/epilogue_base.h"
-#include "cutlass/epilogue/threadblock/predicated_tile_iterator.h"
+#include <cutlass/epilogue/threadblock/epilogue_base.h>
+#include <cutlass/epilogue/threadblock/predicated_tile_iterator.h>
 
-#include "cutlass/numeric_types.h"
+#include <cutlass/numeric_types.h>
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
