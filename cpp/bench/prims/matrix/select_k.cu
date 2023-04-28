@@ -23,10 +23,6 @@
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>

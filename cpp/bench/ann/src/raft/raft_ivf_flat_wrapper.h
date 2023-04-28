@@ -29,6 +29,7 @@
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>

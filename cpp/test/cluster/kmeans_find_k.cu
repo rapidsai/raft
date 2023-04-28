@@ -25,10 +25,6 @@
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
-
 namespace raft {
 
 template <typename T>

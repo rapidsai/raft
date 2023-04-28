@@ -19,10 +19,6 @@
 #include <memory>
 #include <raft/core/device_resources.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/spectral/specializations.cuh>
-#endif
-
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
 

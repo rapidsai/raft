@@ -17,6 +17,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <numeric>
+#include <raft/neighbors/detail/selection_faiss.cuh>
+#include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMax
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -24,9 +26,6 @@
 
 #include <raft/sparse/detail/utils.h>
 #include <raft/spatial/knn/knn.cuh>
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 namespace raft::spatial::selection {
 

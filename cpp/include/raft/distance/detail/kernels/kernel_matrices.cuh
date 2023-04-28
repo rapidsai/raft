@@ -17,11 +17,12 @@
 #pragma once
 
 #include "gram_matrix.cuh"
-#include <raft/util/cuda_utils.cuh>
 
+#include <raft/distance/detail/kernels/rbf_fin_op.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/sparse/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace raft::distance::kernels::detail {
 
@@ -718,7 +719,7 @@ class RBFKernel : public GramMatrixBase<math_t> {
     math_t gain   = this->gain;
     using index_t = int64_t;
 
-    auto fin_op = [gain] __device__(math_t d_val, index_t idx) { return exp(-gain * d_val); };
+    rbf_fin_op fin_op{gain};
     raft::distance::distance<raft::distance::DistanceType::L2Unexpanded,
                              math_t,
                              math_t,
