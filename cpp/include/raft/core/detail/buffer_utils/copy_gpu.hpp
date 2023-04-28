@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/core/resource/cuda_stream.hpp"
 #include "thrust/detail/raw_pointer_cast.h"
 #include "thrust/detail/tuple.inl"
 #include "thrust/iterator/zip_iterator.h"
@@ -23,7 +24,7 @@
 #include <iterator>
 #include <raft/core/device_support.hpp>
 #include <raft/core/device_type.hpp>
-#include <raft/core/execution_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/exec_policy.hpp>
@@ -40,17 +41,17 @@ std::enable_if_t<
                                       std::bool_constant<src_type == device_type::gpu>>,
                      std::bool_constant<CUDA_ENABLED>>,
   void>
-copy(T* dst, T const* src, uint32_t size, raft::execution_stream stream)
+copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)
 {
   if (src_type == device_type::cpu) {
-    raft::update_device(dst, src, size, stream);
+    raft::update_device(dst, src, size, raft::resource::get_cuda_stream(handle));
   }
   else if (dst_type == device_type::cpu) {
-    raft::update_host(dst, src, size, stream);
+    raft::update_host(dst, src, size, raft::resource::get_cuda_stream(handle));
     cudaDeviceSynchronize();
   }
   else {
-    raft::copy_async(dst, src, size, stream);
+    raft::copy_async(dst, src, size, raft::resource::get_cuda_stream(handle));
   }
 }
 

@@ -19,6 +19,7 @@
 #include <raft/core/device_setter.hpp>
 #include <raft/core/device_type.hpp>
 #include <raft/core/execution_device_id.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <rmm/device_buffer.hpp>
 
 namespace raft {
@@ -28,12 +29,12 @@ struct owning_buffer<device_type::gpu, T> {
   using value_type = std::remove_const_t<T>;
   owning_buffer() : data_{} {}
 
-  owning_buffer(execution_device_id<device_type::gpu> execution_device_id,
-                std::size_t size,
-                cudaStream_t stream) noexcept(false)
-    : data_{[&execution_device_id, &size, &stream]() {
+  owning_buffer(raft::resources const& handle,
+                execution_device_id<device_type::gpu> execution_device_id,
+                std::size_t size) noexcept(false)
+    : data_{[&execution_device_id, &size, handle]() {
         auto device_context = device_setter{execution_device_id};
-        return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
+        return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
       }()}
   {
   }

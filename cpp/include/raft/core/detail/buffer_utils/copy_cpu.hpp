@@ -18,7 +18,7 @@
 #include <cstring>
 #include <raft/core/device_support.hpp>
 #include <raft/core/device_type.hpp>
-#include <raft/core/execution_stream.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace detail {
@@ -27,18 +27,18 @@ template <device_type dst_type, device_type src_type, typename T>
 std::enable_if_t<std::conjunction_v<std::bool_constant<dst_type == device_type::cpu>,
                                     std::bool_constant<src_type == device_type::cpu>>,
                  void>
-copy(T* dst, T const* src, uint32_t size, execution_stream stream)
+copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)
 {
   std::copy(src, src + size, dst);
 }
 
 template <device_type dst_type, device_type src_type, typename T>
 std::enable_if_t<
-  std::conjunction_v<std::disjunction<std::bool_constant<dst_type != device_type::cpu>,
-                                      std::bool_constant<src_type != device_type::cpu>>,
+  std::conjunction_v<std::disjunction<std::bool_constant<dst_type != device_type::gpu>,
+                                      std::bool_constant<src_type != device_type::gpu>>,
                      std::bool_constant<!CUDA_ENABLED>>,
   void>
-copy(T* dst, T const* src, uint32_t size, execution_stream stream)
+copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)
 {
   throw raft::cuda_unsupported("Copying from or to device in non-GPU build");
 }
