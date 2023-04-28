@@ -31,10 +31,6 @@
 
 #include <gtest/gtest.h>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <vector>
 
 namespace raft::neighbors {
