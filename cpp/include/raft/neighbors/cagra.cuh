@@ -87,8 +87,6 @@ void build_knn_graph(raft::device_resources const& res,
 /**
  * @brief Sort a KNN graph index.
  *
- * See [cagra::build_knn_graph](#cagra::build_knn_graph) for usage example
- *
  * @tparam DataT type of the data in the source dataset
  * @tparam IdxT type of the indices in the source dataset
  *
