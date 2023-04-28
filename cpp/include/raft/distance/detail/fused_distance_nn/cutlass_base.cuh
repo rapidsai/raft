@@ -25,11 +25,11 @@
 #define cutlass raft_cutlass
 #endif
 
-#include <rmm/device_uvector.hpp>
 #include <cutlass/cutlass.h>
 #include <cutlass/gemm/device/gemm.h>
-#include <cutlass/gemm/device/gemm_universal_adapter.h>
 #include <cutlass/gemm/device/gemm_grouped.h>
+#include <cutlass/gemm/device/gemm_universal_adapter.h>
+#include <rmm/device_uvector.hpp>
 
 #include <cutlass/layout/matrix.h>
 #include <cutlass/layout/tensor.h>
@@ -38,8 +38,8 @@
 
 #include <raft/distance/detail/fused_distance_nn/epilogue_elementwise.cuh>
 #include <raft/distance/detail/fused_distance_nn/gemm.h>
-#include <raft/util/cutlass_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/util/cutlass_utils.cuh>
 
 namespace raft {
 namespace distance {
@@ -72,21 +72,22 @@ void cutlassFusedDistanceNN(const DataT* x,
                             KVPReduceOpT pairRedOp,
                             cudaStream_t stream)
 {
-  using EpilogueOutputOp =
-    cutlass::epilogue::thread::FusedDistanceNNEpilogueElementwise<DataT,  // ElementC_
-                                                            AccT,   // ElementAccumulator_
-                                                            DataT,  // ElementCompute_
-                                                            AccT,   // ElementZ_
-                                                            OutT,   // ElementT_
-                                                            //128 / cutlass::sizeof_bits<DataT>::value, 
-                                                            1,  // Elements per access 1
-                                                            DistanceFn,
-                                                            CGReduceOpT,
-                                                            ReduceOpT,
-                                                            KVPReduceOpT>;
+  using EpilogueOutputOp = cutlass::epilogue::thread::FusedDistanceNNEpilogueElementwise<
+    DataT,  // ElementC_
+    AccT,   // ElementAccumulator_
+    DataT,  // ElementCompute_
+    AccT,   // ElementZ_
+    OutT,   // ElementT_
+    // 128 / cutlass::sizeof_bits<DataT>::value,
+    1,  // Elements per access 1
+    DistanceFn,
+    CGReduceOpT,
+    ReduceOpT,
+    KVPReduceOpT>;
   constexpr int batch_count = 1;
 
-  typename EpilogueOutputOp::Params epilog_op_param(dist_op, cg_reduce_op, redOp, pairRedOp, mutexes);
+  typename EpilogueOutputOp::Params epilog_op_param(
+    dist_op, cg_reduce_op, redOp, pairRedOp, mutexes);
 
   // Number of pipelines you want to use
   constexpr int NumStages = 3;
@@ -100,34 +101,33 @@ void cutlassFusedDistanceNN(const DataT* x,
 
   using fusedDistanceNNKernel =
     typename cutlass::gemm::kernel::FusedDistanceNNGemm<DataT,
-                                                  Alignment,
-                                                  DataT,
-                                                  Alignment,
-                                                  AccT,
-                                                  AccT,
-                                                  EpilogueOutputOp,
-                                                  NumStages,  // Number of pipeline stages
-                                                  isRowMajor>::GemmKernel;
-
+                                                        Alignment,
+                                                        DataT,
+                                                        Alignment,
+                                                        AccT,
+                                                        AccT,
+                                                        EpilogueOutputOp,
+                                                        NumStages,  // Number of pipeline stages
+                                                        isRowMajor>::GemmKernel;
 
   using fusedDistanceNN = cutlass::gemm::device::GemmGrouped<fusedDistanceNNKernel>;
 
-  int num_blocks_per_sm = fusedDistanceNN::maximum_active_blocks();
-  int num_sms           = raft::getMultiProcessorCount();
-  int num_blocks        = num_blocks_per_sm * num_sms;
+  int num_blocks_per_sm   = fusedDistanceNN::maximum_active_blocks();
+  int num_sms             = raft::getMultiProcessorCount();
+  int num_blocks          = num_blocks_per_sm * num_sms;
   constexpr int mmaShapeM = fusedDistanceNNKernel::Mma::Shape::kM;
   auto thread_blocks = std::max(num_blocks, int((problem_size.m() - 1 + mmaShapeM) / mmaShapeM));
 
   typename fusedDistanceNN::Arguments arguments{
     problem_size,
-    batch_count, // num of problems.
+    batch_count,  // num of problems.
     thread_blocks,
     epilog_op_param,
     x,
     y,
-    xn,          // C matrix eq vector param, which here is A norm
-    (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
-    dOutput,     // Output distance matrix
+    xn,            // C matrix eq vector param, which here is A norm
+    (DataT*)yn,    // this is broadcast vec, which is required to be non-const param
+    dOutput,       // Output distance matrix
     (int64_t)lda,  // stride A
     (int64_t)ldb,  // stride B
     (int64_t)1,    // stride A norm

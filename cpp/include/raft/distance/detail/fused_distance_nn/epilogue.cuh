@@ -71,8 +71,8 @@ struct FusedDistanceNNEpilogue {
   //
   // Stores the result z = (y = GEMM(A, B, C), broadcast)
   //
-  using RowNormTileIterator = cutlass::epilogue::threadblock::PredicatedTileIteratorNormVecSmem<
-            typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
+  using RowNormTileIterator = cutlass::epilogue::threadblock::
+    PredicatedTileIteratorNormVecSmem<typename Base::OutputTileThreadMap, ElementOutput, LayoutT>;
 
   //
   // Additional tensor tile iterator - stores t = Elementwise(z)
@@ -84,18 +84,19 @@ struct FusedDistanceNNEpilogue {
     typename OutputOp::Params>;
 
   /// Define the epilogue
-  using Epilogue = cutlass::epilogue::threadblock::EpilogueWithBroadcastCustom<Shape,
-                                         WarpMmaTensorOp,
-                                         PartitionsK,
-                                         RowNormTileIterator,
-                                         OutputTileIterator,
-                                         ElementVector,
-                                         typename Base::AccumulatorFragmentIterator,
-                                         typename Base::WarpTileIterator,
-                                         typename Base::SharedLoadIterator,
-                                         OutputOp,
-                                         typename Base::Padding,
-                                         Base::kFragmentsPerIteration>;
+  using Epilogue = cutlass::epilogue::threadblock::EpilogueWithBroadcastCustom<
+    Shape,
+    WarpMmaTensorOp,
+    PartitionsK,
+    RowNormTileIterator,
+    OutputTileIterator,
+    ElementVector,
+    typename Base::AccumulatorFragmentIterator,
+    typename Base::WarpTileIterator,
+    typename Base::SharedLoadIterator,
+    OutputOp,
+    typename Base::Padding,
+    Base::kFragmentsPerIteration>;
 };
 
 }  // namespace threadblock

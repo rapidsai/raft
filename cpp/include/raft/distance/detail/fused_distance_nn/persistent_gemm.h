@@ -122,8 +122,8 @@ struct FusedDistanceNNPersistent {
 
   struct temp_problem_visitor {
     int problem_count;
-    
-    CUTLASS_HOST_DEVICE temp_problem_visitor() : problem_count(0) {};
+
+    CUTLASS_HOST_DEVICE temp_problem_visitor() : problem_count(0){};
     CUTLASS_HOST_DEVICE temp_problem_visitor(int problem_count_) : problem_count(problem_count_){};
   };
 
@@ -160,7 +160,7 @@ struct FusedDistanceNNPersistent {
     /// Default ctor
     CUTLASS_HOST_DEVICE
     Arguments()
-      : //problem_count(0),
+      :  // problem_count(0),
         threadblock_count(0),
         ptr_A(nullptr),
         ptr_B(nullptr),
@@ -207,8 +207,6 @@ struct FusedDistanceNNPersistent {
     {
       problem_visitor.problem_count = problem_count;
     }
-
-
   };
 
   //
@@ -217,7 +215,7 @@ struct FusedDistanceNNPersistent {
 
   /// Parameters structure
   struct Params {
-    //typename ProblemVisitor::Params problem_visitor;
+    // typename ProblemVisitor::Params problem_visitor;
     temp_problem_visitor problem_visitor;
     int threadblock_count;
 
@@ -257,7 +255,7 @@ struct FusedDistanceNNPersistent {
         lda(0),
         ldb(0),
         ldc(0),
-        ldt(0)        
+        ldt(0)
     {
     }
 
@@ -290,9 +288,9 @@ struct FusedDistanceNNPersistent {
     {
       threadblock_count = args.threadblock_count;
       output_op         = args.output_op;
-      ptr_A = const_cast<void*>(args.ptr_A);
-      ptr_B = const_cast<void*>(args.ptr_B);
-      ptr_C = const_cast<void*>(args.ptr_C);
+      ptr_A             = const_cast<void*>(args.ptr_A);
+      ptr_B             = const_cast<void*>(args.ptr_B);
+      ptr_C             = const_cast<void*>(args.ptr_C);
       ptr_Vector        = args.ptr_Vector;
       ptr_Tensor        = args.ptr_Tensor;
       lda               = args.lda;
@@ -303,7 +301,6 @@ struct FusedDistanceNNPersistent {
       problem_size = args.problem_sizes;
     }
   };
-
 
   /// Shared memory storage structure
   struct SharedStorage {
@@ -339,19 +336,18 @@ struct FusedDistanceNNPersistent {
   }
 
   CUTLASS_DEVICE
-  static uint32_t tile_count(const cutlass::MatrixCoord& grid) {
+  static uint32_t tile_count(const cutlass::MatrixCoord& grid)
+  {
     return grid.row() * grid.column();
   }
 
-    /// Get the grid shape
+  /// Get the grid shape
   CUTLASS_DEVICE
-  static cutlass::MatrixCoord grid_shape(const cutlass::gemm::GemmCoord& problem) {
-
-    return cutlass::MatrixCoord(
-      ((problem.m() - 1 + ThreadblockShape::kM) / ThreadblockShape::kM),
-      ((problem.n() - 1 + ThreadblockShape::kN) / ThreadblockShape::kN));
+  static cutlass::MatrixCoord grid_shape(const cutlass::gemm::GemmCoord& problem)
+  {
+    return cutlass::MatrixCoord(((problem.m() - 1 + ThreadblockShape::kM) / ThreadblockShape::kM),
+                                ((problem.n() - 1 + ThreadblockShape::kN) / ThreadblockShape::kN));
   }
-
 
   /// Executes one GEMM
   CUTLASS_DEVICE
@@ -369,16 +365,18 @@ struct FusedDistanceNNPersistent {
     using LayoutC      = typename Epilogue::OutputTileIterator::Layout;
     using ElementOut   = typename Epilogue::TensorTileIterator::Element;
     using LongIndexOut = typename Epilogue::TensorTileIterator::LongIndex;
-    using OutValTy   = typename Epilogue::TensorTileIterator::OutValT;
+    using OutValTy     = typename Epilogue::TensorTileIterator::OutValT;
 
-    const GemmCoord& problem_size  = params.problem_size;
-    const uint32_t problem_chunk = (tile_count(grid_shape(problem_size)) - 1 + gridDim.x) / gridDim.x;
+    const GemmCoord& problem_size = params.problem_size;
+    const uint32_t problem_chunk =
+      (tile_count(grid_shape(problem_size)) - 1 + gridDim.x) / gridDim.x;
     const uint32_t problem_chunk_end = blockIdx.x * problem_chunk + problem_chunk;
-    const auto grid_shape_ = grid_shape(problem_size);
-    typename LayoutB::Index column =  ((blockIdx.x * problem_chunk)  % grid_shape_.column()) * Mma::Shape::kN;
+    const auto grid_shape_           = grid_shape(problem_size);
+    typename LayoutB::Index column =
+      ((blockIdx.x * problem_chunk) % grid_shape_.column()) * Mma::Shape::kN;
     {
       ElementOut* shared_elem_arr_ = shared_storage.reduced_store.data();
-      constexpr auto maxVal_ = std::numeric_limits<OutValTy>::max();
+      constexpr auto maxVal_       = std::numeric_limits<OutValTy>::max();
 
       if (column) {
         for (int row = threadIdx.x; row < Mma::Shape::kM; row += blockDim.x) {
@@ -388,124 +386,126 @@ struct FusedDistanceNNPersistent {
     }
 
     {
-        ElementC* shared_elem_arr = shared_storage.rownorm_store.data();
-        if (column) {
-          typename LayoutB::Index row = ((blockIdx.x * problem_chunk) / grid_shape_.column()) * Mma::Shape::kM;
+      ElementC* shared_elem_arr = shared_storage.rownorm_store.data();
+      if (column) {
+        typename LayoutB::Index row =
+          ((blockIdx.x * problem_chunk) / grid_shape_.column()) * Mma::Shape::kM;
 
-          uint8_t* first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(params.ptr_C) +
-                                  typename LayoutB::LongIndex(row) * typename LayoutB::LongIndex(sizeof(ElementC));
-          auto gmem_ptr = reinterpret_cast<ElementC*>(first_tile_byte_pointer_);
+        uint8_t* first_tile_byte_pointer_ =
+          reinterpret_cast<uint8_t*>(params.ptr_C) +
+          typename LayoutB::LongIndex(row) * typename LayoutB::LongIndex(sizeof(ElementC));
+        auto gmem_ptr = reinterpret_cast<ElementC*>(first_tile_byte_pointer_);
 
-          for (int row_local = threadIdx.x ; row_local < Mma::Shape::kM; row_local += blockDim.x) {
-              bool guard = (row + row_local) < problem_size.m();
-              cutlass::arch::cp_async<sizeof(ElementC)>(shared_elem_arr + row_local, gmem_ptr + row_local, guard);
-              cutlass::arch::cp_async_wait<0>();
-          }
+        for (int row_local = threadIdx.x; row_local < Mma::Shape::kM; row_local += blockDim.x) {
+          bool guard = (row + row_local) < problem_size.m();
+          cutlass::arch::cp_async<sizeof(ElementC)>(
+            shared_elem_arr + row_local, gmem_ptr + row_local, guard);
+          cutlass::arch::cp_async_wait<0>();
         }
+      }
     }
 
     // Outer 'persistent' loop to iterate over tiles
     for (uint32_t tile_idx = blockIdx.x * problem_chunk; tile_idx < problem_chunk_end; tile_idx++) {
+      const auto grid_shape_ = grid_shape(problem_size);
+      cutlass::MatrixCoord threadblock_offset(
+        int(tile_idx / grid_shape_.column()) * Mma::Shape::kM,
+        int(tile_idx % grid_shape_.column()) * Mma::Shape::kN);
 
-        const auto grid_shape_ = grid_shape(problem_size);
-        cutlass::MatrixCoord threadblock_offset(
-          int(tile_idx / grid_shape_.column()) * Mma::Shape::kM,
-          int(tile_idx % grid_shape_.column()) * Mma::Shape::kN);
+      const bool isNextTile = ((tile_idx + 1) < problem_chunk_end);
+      const bool doesRowChange =
+        ((threadblock_offset.column() + Mma::Shape::kN) >= problem_size.n());
+      const bool do_gmem_reduce = (doesRowChange || !isNextTile) ? true : false;
 
-        const bool isNextTile =  ((tile_idx + 1) < problem_chunk_end);
-        const bool doesRowChange = ((threadblock_offset.column() +  Mma::Shape::kN) >= problem_size.n());
-        const bool do_gmem_reduce = (doesRowChange || !isNextTile) ? true : false;
+      ElementA* ptr_A = static_cast<ElementA*>(params.ptr_A);
+      ElementB* ptr_B = static_cast<ElementB*>(params.ptr_B);
 
-        ElementA* ptr_A = static_cast<ElementA*>(params.ptr_A);
-        ElementB* ptr_B = static_cast<ElementB*>(params.ptr_B);
+      // Compute initial location in logical coordinates
+      cutlass::MatrixCoord tb_offset_A{threadblock_offset.row(), 0};
+      cutlass::MatrixCoord tb_offset_B{0, threadblock_offset.column()};
 
-        // Compute initial location in logical coordinates
-        cutlass::MatrixCoord tb_offset_A{threadblock_offset.row(), 0};
-        cutlass::MatrixCoord tb_offset_B{0, threadblock_offset.column()};
+      // Compute position within threadblock
+      int thread_idx = threadIdx.x;
 
-        // Compute position within threadblock
-        int thread_idx = threadIdx.x;
+      // Construct iterators to A and B operands
+      typename Mma::IteratorA iterator_A(
+        params.params_A, ptr_A, {problem_size.m(), problem_size.k()}, thread_idx, tb_offset_A);
 
-        // Construct iterators to A and B operands
-        typename Mma::IteratorA iterator_A(
-          params.params_A, ptr_A, {problem_size.m(), problem_size.k()}, thread_idx, tb_offset_A);
+      typename Mma::IteratorB iterator_B(
+        params.params_B, ptr_B, {problem_size.k(), problem_size.n()}, thread_idx, tb_offset_B);
 
-        typename Mma::IteratorB iterator_B(
-          params.params_B, ptr_B, {problem_size.k(), problem_size.n()}, thread_idx, tb_offset_B);
+      // Broadcast the warp_id computed by lane 0 to ensure dependent code
+      // is compiled as warp-uniform.
+      int warp_idx = __shfl_sync(0xffffffff, threadIdx.x / 32, 0);
 
-        // Broadcast the warp_id computed by lane 0 to ensure dependent code
-        // is compiled as warp-uniform.
-        int warp_idx = __shfl_sync(0xffffffff, threadIdx.x / 32, 0);
+      int lane_idx = threadIdx.x % 32;
 
-        int lane_idx = threadIdx.x % 32;
+      //
+      // Matrix multiply phase
+      //
 
-        //
-        // Matrix multiply phase
-        //
+      // Construct thread-scoped matrix multiply
+      Mma mma(shared_storage.kernel.main_loop, thread_idx, warp_idx, lane_idx);
 
-        // Construct thread-scoped matrix multiply
-        Mma mma(shared_storage.kernel.main_loop, thread_idx, warp_idx, lane_idx);
+      typename Mma::FragmentC accumulators;
 
-        typename Mma::FragmentC accumulators;
+      accumulators.clear();
+      // Compute threadblock-scoped matrix multiply-add
+      int gemm_k_iterations = (problem_size.k() + Mma::Shape::kK - 1) / Mma::Shape::kK;
 
-        accumulators.clear();
-        // Compute threadblock-scoped matrix multiply-add
-        int gemm_k_iterations = (problem_size.k() + Mma::Shape::kK - 1) / Mma::Shape::kK;
+      // Wait for all threads to finish their epilogue phases from the previous tile.
+      //__syncthreads();
 
-        // Wait for all threads to finish their epilogue phases from the previous tile.
-        //__syncthreads();
+      // Compute threadblock-scoped matrix multiply-add
+      mma(gemm_k_iterations, accumulators, iterator_A, iterator_B, accumulators);
 
-        // Compute threadblock-scoped matrix multiply-add
-        mma(gemm_k_iterations, accumulators, iterator_A, iterator_B, accumulators);
+      //
+      // Epilogue
+      //
 
-        //
-        // Epilogue
-        //
+      EpilogueOutputOp output_op(params.output_op);
 
-        EpilogueOutputOp output_op(params.output_op);
-
-        ElementC* ptr_C = static_cast<ElementC*>(params.ptr_C);
-        typename Epilogue::ElementTensor* ptr_Tensor =
+      ElementC* ptr_C = static_cast<ElementC*>(params.ptr_C);
+      typename Epilogue::ElementTensor* ptr_Tensor =
         static_cast<typename Epilogue::ElementTensor*>(params.ptr_Tensor);
 
       // Define the reduction output pointer and move to the appropriate place
-        typename Epilogue::ElementVector* ptr_Vector =
+      typename Epilogue::ElementVector* ptr_Vector =
         static_cast<typename Epilogue::ElementVector*>(params.ptr_Vector);
 
-        // Tile iterator loading from source tensor.
-        typename Epilogue::OutputTileIterator iterator_rownorm(
-          shared_storage.rownorm_store,
-          params.params_C, ptr_C, problem_size.mn(), thread_idx, 
-          threadblock_offset);
+      // Tile iterator loading from source tensor.
+      typename Epilogue::OutputTileIterator iterator_rownorm(shared_storage.rownorm_store,
+                                                             params.params_C,
+                                                             ptr_C,
+                                                             problem_size.mn(),
+                                                             thread_idx,
+                                                             threadblock_offset);
 
-        // Additional tensor to load from
-        typename Epilogue::TensorTileIterator tensor_iterator(
-          shared_storage.reduced_store,
-          params.params_Tensor,
-          // Only the final block outputs Tensor
-          ptr_Tensor,
-          problem_size.mn(),
-          thread_idx,
-          do_gmem_reduce,
-          threadblock_offset);
+      // Additional tensor to load from
+      typename Epilogue::TensorTileIterator tensor_iterator(shared_storage.reduced_store,
+                                                            params.params_Tensor,
+                                                            // Only the final block outputs Tensor
+                                                            ptr_Tensor,
+                                                            problem_size.mn(),
+                                                            thread_idx,
+                                                            do_gmem_reduce,
+                                                            threadblock_offset);
 
-        Epilogue epilogue(shared_storage.kernel.epilogue, thread_idx, warp_idx, lane_idx);
+      Epilogue epilogue(shared_storage.kernel.epilogue, thread_idx, warp_idx, lane_idx);
 
-        // Execute the epilogue operator to update the destination tensor.
-        // Move to appropriate location for this output tile
-        if (ptr_Vector) {
-          ptr_Vector += threadblock_offset.column();
-        }
+      // Execute the epilogue operator to update the destination tensor.
+      // Move to appropriate location for this output tile
+      if (ptr_Vector) { ptr_Vector += threadblock_offset.column(); }
 
-        // Execute the epilogue operator to update the destination tensor.
-        epilogue(output_op,
-                  ptr_Vector,
-                  //iterator_D,
-                  accumulators,
-                  iterator_rownorm,
-                  tensor_iterator,
-                  problem_size.mn(),
-                  threadblock_offset);
+      // Execute the epilogue operator to update the destination tensor.
+      epilogue(output_op,
+               ptr_Vector,
+               // iterator_D,
+               accumulators,
+               iterator_rownorm,
+               tensor_iterator,
+               problem_size.mn(),
+               threadblock_offset);
     }
   }
 };

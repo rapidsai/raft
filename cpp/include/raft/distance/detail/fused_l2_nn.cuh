@@ -61,22 +61,17 @@ struct MinAndDistanceReduceOpImpl {
   }
 
   DI void init(DataT* out, DataT maxVal) const { *out = maxVal; }
-  DI void init(KVP* out, DataT maxVal) const
-  {
-    out->value = maxVal;
-  }
+  DI void init(KVP* out, DataT maxVal) const { out->value = maxVal; }
 
   DI void init_key(DataT& out, LabelT idx) const { return; }
   DI void init_key(KVP& out, LabelT idx) const { out.key = idx; }
 
   DI DataT get_value(KVP& out) const
   {
-    return out.value;;
+    return out.value;
+    ;
   }
-  DI DataT get_value(DataT& out) const
-  {
-    return out;
-  }
+  DI DataT get_value(DataT& out) const { return out; }
 };
 
 template <typename LabelT, typename DataT>
@@ -268,10 +263,9 @@ struct kvp_cg_min_reduce_op {
   // functor signature.
   __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
 
-__host__ __device__ AccType operator()(AccType a, AccType b) const { return min(a, b); }
+  __host__ __device__ AccType operator()(AccType a, AccType b) const { return min(a, b); }
 
-__host__ __device__ bool isAmin(AccType a, AccType b) const { return a < b ? true : false; }
-
+  __host__ __device__ bool isAmin(AccType a, AccType b) const { return a < b ? true : false; }
 };
 
 template <typename DataT,
@@ -349,7 +343,6 @@ void fusedL2NNImpl(OutT* min,
   } else {
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
 
-
     using AccT = DataT;
     ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
 
@@ -370,7 +363,6 @@ void fusedL2NNImpl(OutT* min,
       min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);
     RAFT_CUDA_TRY(cudaGetLastError());
   }
-
 }
 
 }  // namespace detail

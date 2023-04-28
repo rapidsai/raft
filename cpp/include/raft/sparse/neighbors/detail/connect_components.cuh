@@ -82,23 +82,18 @@ struct FixConnectivitiesRedOp {
   }
 
   DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal) const
-  {
-    out->value = maxVal;
-  }
+  DI void init(KVP* out, value_t maxVal) const { out->value = maxVal; }
 
   DI void init_key(value_t& out, value_idx idx) const { return; }
   DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
 
   DI value_t get_value(KVP& out) const
   {
-    return out.value;;
+    return out.value;
+    ;
   }
 
-  DI value_t get_value(value_t& out) const
-  {
-    return out;
-  }
+  DI value_t get_value(value_t& out) const { return out; }
 };
 
 /**

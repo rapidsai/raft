@@ -73,8 +73,8 @@ class FusedDistanceNNEpilogueElementwise {
   using FragmentC           = Array<ElementOutput, kElementsPerAccess>;
   using FragmentZ           = Array<ElementZ, kElementsPerAccess>;
   using OutValT             = typename CGReduceOp::AccTypeT;
-  //using FragmentT           = Array<ElementT, kElementsPerAccess>;
-  using FragmentT           = Array<OutValT, kElementsPerAccess>;
+  // using FragmentT           = Array<ElementT, kElementsPerAccess>;
+  using FragmentT = Array<OutValT, kElementsPerAccess>;
 
   using FragmentOutput = FragmentZ;
 
@@ -164,7 +164,7 @@ class FusedDistanceNNEpilogueElementwise {
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < kElementsPerAccess; ++i) {
       ElementCompute res_Z = elementwise_op(tmp_C[i], V[i], tmp_Accum[i]);
-      //red_op.init(&frag_T[i], res_Z);
+      // red_op.init(&frag_T[i], res_Z);
       frag_T[i] = res_Z;
     }
   }

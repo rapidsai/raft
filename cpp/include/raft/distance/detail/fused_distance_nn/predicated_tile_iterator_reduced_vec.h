@@ -89,16 +89,15 @@ class PredicatedTileIteratorReducedVec {
   using OutValT          = typename EpilogueOpParams::CGReduceT::AccTypeT;
 
   static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
-  //static int const kElementsPerAccess = 1;
-  static int const kThreads           = ThreadMap::kThreads;
-  static int const kIterations        = ThreadMap::Count::kTile;
+  // static int const kElementsPerAccess = 1;
+  static int const kThreads    = ThreadMap::kThreads;
+  static int const kIterations = ThreadMap::Count::kTile;
 
   static_assert(ThreadMap::Iterations::kRow > 0, "ThreadMap::Iterations::kRow must be > 0");
   static_assert(ThreadMap::Iterations::kGroup > 0, "ThreadMap::Iterations::kGroup must be > 0");
   static_assert(ThreadMap::Iterations::kCluster > 0, "ThreadMap::Iterations::kCluster must be > 0");
   static_assert(ThreadMap::Iterations::kColumn > 0, "ThreadMap::Iterations::kColumn must be > 0");
   static_assert(!UseCUDAStore, "UseCUDAStore path is not supported");
-
 
   static int const total_rows = ThreadMap::kWarpCount * ThreadMap::Iterations::kRow *
                                 ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
@@ -110,7 +109,7 @@ class PredicatedTileIteratorReducedVec {
             ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster * kElementsPerAccess>;
 
   // Memory access size
-  using AccessType = AlignedArray<Element, kElementsPerAccess>;
+  using AccessType     = AlignedArray<Element, kElementsPerAccess>;
   using AccessTypeValT = AlignedArray<OutValT, kElementsPerAccess>;
 
   //
@@ -147,7 +146,7 @@ class PredicatedTileIteratorReducedVec {
 
   /// Mask object
   struct Mask {
-    //static int const kCount = ThreadMap::Iterations::kColumn;
+    // static int const kCount = ThreadMap::Iterations::kColumn;
     static int const kCount = ThreadMap::Iterations::kColumn * kElementsPerAccess;
 
     /// Predicate state
@@ -192,7 +191,6 @@ class PredicatedTileIteratorReducedVec {
     //
     // Data members
 
-
     //
     // Methods
     //
@@ -204,19 +202,23 @@ class PredicatedTileIteratorReducedVec {
     SharedStorage() {}
   };
 
-  template <typename cg_reduce_op_t, typename cg_group_t, 
-             typename IdxT, typename ValT, typename OutT>
+  template <typename cg_reduce_op_t,
+            typename cg_group_t,
+            typename IdxT,
+            typename ValT,
+            typename OutT>
   struct select_reduce {
     /// Performs reduction and stores a reduced output to memory
     CUTLASS_DEVICE
-    select_reduce(OutT value, ValT prev_red_val, cg_reduce_op_t reduce_op,
-                 cg_group_t cg_warp_group, OutT& shmem_ptr)
+    select_reduce(OutT value,
+                  ValT prev_red_val,
+                  cg_reduce_op_t reduce_op,
+                  cg_group_t cg_warp_group,
+                  OutT& shmem_ptr)
     {
       if (cg_warp_group.any(reduce_op.isAmin(value, prev_red_val))) {
         OutT reduced_val = cg::reduce(cg_warp_group, value, reduce_op);
-        if (cg_warp_group.thread_rank() == 0) {
-          shmem_ptr = reduced_val;
-        }
+        if (cg_warp_group.thread_rank() == 0) { shmem_ptr = reduced_val; }
       }
     }
   };
@@ -227,19 +229,20 @@ class PredicatedTileIteratorReducedVec {
     using Ty   = raft::KeyValuePair<IdxT, ValT>;
 
     CUTLASS_DEVICE
-    select_reduce(Ty val_to_red, float prev_red_val, cg_reduce_op_t cg_reduce_op,
-                  cg_group_t cg_warp_group, Ty& shmem_ptr)
+    select_reduce(Ty val_to_red,
+                  float prev_red_val,
+                  cg_reduce_op_t cg_reduce_op,
+                  cg_group_t cg_warp_group,
+                  Ty& shmem_ptr)
     {
-      ValT val         = val_to_red.value;
+      ValT val = val_to_red.value;
 
       if (cg_warp_group.any(cg_reduce_op.isAmin(val, prev_red_val))) {
         ValT reduced_val = cg::reduce(cg_warp_group, val, cg_reduce_op);
         bool pred        = (reduced_val == val);
         auto subTile     = cg::binary_partition(cg_warp_group, pred);
         if (pred) {
-          if (subTile.thread_rank() == 0) {
-            shmem_ptr = val_to_red;
-          }
+          if (subTile.thread_rank() == 0) { shmem_ptr = val_to_red; }
         }
       }
     }
@@ -251,19 +254,20 @@ class PredicatedTileIteratorReducedVec {
     using Ty   = raft::KeyValuePair<IdxT, ValT>;
 
     CUTLASS_DEVICE
-    select_reduce(Ty val_to_red, double prev_red_val, cg_reduce_op_t cg_reduce_op,
-                  cg_group_t cg_warp_group, Ty& shmem_ptr)
+    select_reduce(Ty val_to_red,
+                  double prev_red_val,
+                  cg_reduce_op_t cg_reduce_op,
+                  cg_group_t cg_warp_group,
+                  Ty& shmem_ptr)
     {
-      ValT val         = val_to_red.value;
+      ValT val = val_to_red.value;
 
       if (cg_warp_group.any(cg_reduce_op.isAmin(val, prev_red_val))) {
         ValT reduced_val = cg::reduce(cg_warp_group, val, cg_reduce_op);
         bool pred        = (reduced_val == val);
         auto subTile     = cg::binary_partition(cg_warp_group, pred);
         if (pred) {
-          if (subTile.thread_rank() == 0) {
-            shmem_ptr = val_to_red;
-          }
+          if (subTile.thread_rank() == 0) { shmem_ptr = val_to_red; }
         }
       }
     }
@@ -300,7 +304,7 @@ class PredicatedTileIteratorReducedVec {
 
   /// Internal state counter
   int state_[3];
-  //mutable int shared_tile_id;
+  // mutable int shared_tile_id;
 
   /// Scatter indices
   int const* indices_;
@@ -322,7 +326,6 @@ class PredicatedTileIteratorReducedVec {
   // Methods
   //
  public:
-
   //
   // Methods
   //
@@ -336,10 +339,11 @@ class PredicatedTileIteratorReducedVec {
                                    const bool& do_gmem_reduction,
                                    TensorCoord threadblock_offset = TensorCoord(),
                                    int const* indices             = nullptr)
-    : params_(params), indices_(indices), shared_storage_(shared_storage),
+    : params_(params),
+      indices_(indices),
+      shared_storage_(shared_storage),
       do_gmem_reduction_(do_gmem_reduction)
   {
-
     TensorCoord thread_offset = ThreadMap::initial_offset(thread_idx) + threadblock_offset;
 
     extent_row_    = extent.row();
@@ -350,19 +354,20 @@ class PredicatedTileIteratorReducedVec {
 
     TensorCoord block_offset    = ThreadMap::initial_offset(0) + threadblock_offset;
     block_start_row_first_tile_ = block_offset.row();
-    
+
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
     for (int c = 0; c < ThreadMap::Iterations::kColumn * kElementsPerAccess; ++c) {
-        int columnPerAccess = (c / kElementsPerAccess);
-        int columnWithinPerAccess = c  % kElementsPerAccess;
-        mask_.predicates[c] = ((thread_offset.column() + ThreadMap::Delta::kColumn * columnPerAccess + columnWithinPerAccess) < extent.column());
+      int columnPerAccess       = (c / kElementsPerAccess);
+      int columnWithinPerAccess = c % kElementsPerAccess;
+      mask_.predicates[c] = ((thread_offset.column() + ThreadMap::Delta::kColumn * columnPerAccess +
+                              columnWithinPerAccess) < extent.column());
     }
 
     if (threadblock_offset.column() == 0) {
-      Element* shared_elem_arr = shared_storage_.data();
+      Element* shared_elem_arr            = shared_storage_.data();
       EpilogueOpParams const& user_params = params_.user_param;
-      constexpr auto maxVal = std::numeric_limits<OutValT>::max();
+      constexpr auto maxVal               = std::numeric_limits<OutValT>::max();
 
       for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
         user_params.red_op_.init(&shared_elem_arr[row], maxVal);
@@ -387,13 +392,14 @@ class PredicatedTileIteratorReducedVec {
     state_[0] = state_[1] = state_[2] = 0;
   }
 
-    /// Destructor
+  /// Destructor
   CUTLASS_DEVICE
-  ~PredicatedTileIteratorReducedVec() {
+  ~PredicatedTileIteratorReducedVec()
+  {
     if (do_gmem_reduction_) {
       EpilogueOpParams const& user_params = params_.user_param;
 
-      auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
+      auto gmem_ptr            = reinterpret_cast<Element*>(first_tile_byte_pointer_);
       Element* shared_elem_arr = shared_storage_.data();
 
       // If this is not optimal grid size perform mutex based gmem reduce.
@@ -404,20 +410,18 @@ class PredicatedTileIteratorReducedVec {
           // acquire mutex lock.
           unsigned int ns = 8;
           while (atomicCAS(user_params.mutexes_ + mutex_id, 0, 1) == 1) {
-              __nanosleep(ns);
-              if (ns < 256) {
-                  ns *= 2;
-              }
+            __nanosleep(ns);
+            if (ns < 256) { ns *= 2; }
           }
         }
 
-      __syncthreads();
+        __syncthreads();
 
-      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-        if (block_start_row_first_tile_ + row < extent_row_) {
-          user_params.red_op_(0, &gmem_ptr[row], shared_elem_arr[row]);
+        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+          if (block_start_row_first_tile_ + row < extent_row_) {
+            user_params.red_op_(0, &gmem_ptr[row], shared_elem_arr[row]);
+          }
         }
-      }
 
         __threadfence();
         __syncthreads();
@@ -449,17 +453,17 @@ class PredicatedTileIteratorReducedVec {
   {
     AccessTypeValT* frag_ptr = reinterpret_cast<AccessTypeValT*>(&frag);
 
-    cg::thread_block cta     = cg::this_thread_block();
+    cg::thread_block cta = cg::this_thread_block();
     // tile_width 16 is required if kElementPerAccess > 1
-    constexpr int tile_width = (32 / ThreadMap::Delta::kColumn) ? 32 : 16;
+    constexpr int tile_width                 = (32 / ThreadMap::Delta::kColumn) ? 32 : 16;
     cg::thread_block_tile<tile_width> tile32 = cg::tiled_partition<tile_width>(cta);
-    EpilogueOpParams const& user_params = params_.user_param;
+    EpilogueOpParams const& user_params      = params_.user_param;
 
     using cg_reduce_t = decltype(user_params.cg_reduce_op);
     using tile32_t    = decltype(tile32);
 
     Element* shared_elem_arr = shared_storage_.data();
-    constexpr auto maxVal = std::numeric_limits<OutValT>::max();
+    constexpr auto maxVal    = std::numeric_limits<OutValT>::max();
 
     CUTLASS_PRAGMA_UNROLL
     for (int cluster = 0; cluster < ThreadMap::Iterations::kCluster; ++cluster) {
@@ -479,27 +483,29 @@ class PredicatedTileIteratorReducedVec {
           Element red_val;
           user_params.red_op_.init(&red_val, maxVal);
           if (row_guard) {
-
-            const int iter_row = ((row_offset + thread_start_row_) % total_rows);
+            const int iter_row      = ((row_offset + thread_start_row_) % total_rows);
             const auto prev_red_val = user_params.red_op_.get_value(shared_elem_arr[iter_row]);
 
             CUTLASS_PRAGMA_UNROLL
-            for (int column = 0; column < ThreadMap::Iterations::kColumn * kElementsPerAccess; ++column) {
-              int columnPerAccess = column / kElementsPerAccess;
+            for (int column = 0; column < ThreadMap::Iterations::kColumn * kElementsPerAccess;
+                 ++column) {
+              int columnPerAccess     = column / kElementsPerAccess;
               int columnWithPerAccess = column % kElementsPerAccess;
-              bool guard = mask_.predicates[column];
+              bool guard              = mask_.predicates[column];
               if (guard) {
-                const OutIdxT key_id   = thread_start_column_ + ThreadMap::Delta::kColumn * columnPerAccess + columnWithPerAccess;
+                const OutIdxT key_id = thread_start_column_ +
+                                       ThreadMap::Delta::kColumn * columnPerAccess +
+                                       columnWithPerAccess;
                 const int frag_col_idx = frag_idx + column;
 
                 Element this_val;
                 user_params.red_op_.init(&this_val, (*frag_ptr)[frag_col_idx]);
-                user_params.red_op_.init_key(this_val, key_id );
-                user_params.red_op_(key_id , &red_val, this_val);
+                user_params.red_op_.init_key(this_val, key_id);
+                user_params.red_op_(key_id, &red_val, this_val);
               }
             }
             select_reduce<cg_reduce_t, tile32_t, OutIdxT, OutValT, Element> red_obj(
-                red_val, prev_red_val, user_params.cg_reduce_op, tile32, shared_elem_arr[iter_row]);
+              red_val, prev_red_val, user_params.cg_reduce_op, tile32, shared_elem_arr[iter_row]);
           }
         }
       }
@@ -534,7 +540,6 @@ class PredicatedTileIteratorReducedVec {
   PredicatedTileIteratorReducedVec& operator++()
   {
     ++state_[0];
-    //shared_tile_id++;  // tile iteration.
 
     if (!ScatterD) { byte_pointer_ += params_.advance_row; }
 

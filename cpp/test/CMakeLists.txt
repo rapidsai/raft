@@ -245,14 +245,8 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME 
-    SPARSE_DIST_TEST 
-    PATH 
-    test/sparse/dist_coo_spmv.cu 
-    test/sparse/distance.cu 
-    test/sparse/gram.cu 
-    OPTIONAL 
-    LIB
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
+    test/sparse/gram.cu OPTIONAL LIB
   )
 
   ConfigureTest(

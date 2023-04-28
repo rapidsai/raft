@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,8 +58,8 @@ namespace threadblock {
 ///
 /// Satisfies: ReadableTileIterator | PredicatedTileIterator | ForwardTileIterator
 ///
-template <typename ThreadMap_,  ///< Thread map (conept: OutputTileThreadMap)
-          typename Element_,    ///< Element data type
+template <typename ThreadMap_,        ///< Thread map (conept: OutputTileThreadMap)
+          typename Element_,          ///< Element data type
           typename Layout_,
           bool ScatterD     = false,  ///< Scatter D operand or not
           bool UseCUDAStore = false>
@@ -95,9 +95,8 @@ class PredicatedTileIteratorNormVecSmem {
   static_assert(ThreadMap::Iterations::kColumn > 0, "ThreadMap::Iterations::kColumn must be > 0");
 
   using Fragment = Array<Element,
-                           ThreadMap::Iterations::kRow *
-                           ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
-                           ThreadMap::kElementsPerAccess>;
+                         ThreadMap::Iterations::kRow * ThreadMap::Iterations::kGroup *
+                           ThreadMap::Iterations::kCluster * ThreadMap::kElementsPerAccess>;
 
   /// Memory access size
   using AccessType = AlignedArray<Element, ThreadMap::kElementsPerAccess>;
@@ -191,13 +190,13 @@ class PredicatedTileIteratorNormVecSmem {
 
   /// Byte-level pointer
   uint8_t* byte_pointer_;
-  //uint8_t* first_tile_byte_pointer_;
+  // uint8_t* first_tile_byte_pointer_;
   /// Array of boolean values to contain steady-state predicates
   Mask mask_;
 
   /// Extent of the matrix tile in rows
   Index extent_row_;
-  //Index block_start_row_first_tile_;
+  // Index block_start_row_first_tile_;
 
   /// Extent of the matrix tile in rows
   Index extent_column_;
@@ -213,7 +212,6 @@ class PredicatedTileIteratorNormVecSmem {
 
   /// Scatter indices
   int const* indices_;
-
 
   //
   // Static asserts about internal strides
@@ -239,16 +237,15 @@ class PredicatedTileIteratorNormVecSmem {
   /// Constructor
   CUTLASS_DEVICE
   PredicatedTileIteratorNormVecSmem(SharedStorage& shared_storage,
-                                PredicatedTileIteratorParams const& params,
-                                Element* pointer,
-                                TensorCoord extent,
-                                int thread_idx,
-                                //const bool init_shmem,
-                                TensorCoord& threadblock_offset,
-                                int const* indices             = nullptr)
+                                    PredicatedTileIteratorParams const& params,
+                                    Element* pointer,
+                                    TensorCoord extent,
+                                    int thread_idx,
+                                    // const bool init_shmem,
+                                    TensorCoord& threadblock_offset,
+                                    int const* indices = nullptr)
     : params_(params), indices_(indices), shared_storage_(shared_storage)
   {
-
     TensorCoord thread_offset = ThreadMap::initial_offset(thread_idx) + threadblock_offset;
 
     extent_row_    = extent.row();
@@ -256,7 +253,6 @@ class PredicatedTileIteratorNormVecSmem {
 
     thread_start_row_    = thread_offset.row();
     thread_start_column_ = thread_offset.column();
-
 
     // Initialize predicates
     CUTLASS_PRAGMA_UNROLL
@@ -266,9 +262,9 @@ class PredicatedTileIteratorNormVecSmem {
     }
 
     // Null pointer performs no accesses
-    if (!pointer) { 
-        mask_.clear();
-        return;
+    if (!pointer) {
+      mask_.clear();
+      return;
     }
 
     if (ScatterD && !indices) { mask_.clear(); }
@@ -283,16 +279,17 @@ class PredicatedTileIteratorNormVecSmem {
     }
 
     if (threadblock_offset.column() == 0) {
-        Element* shared_elem_arr = shared_storage_.data();
-        uint8_t* first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
-                                LongIndex(threadblock_offset.row()) * LongIndex(params_.stride);
-        auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
+      Element* shared_elem_arr = shared_storage_.data();
+      uint8_t* first_tile_byte_pointer_ =
+        reinterpret_cast<uint8_t*>(pointer) +
+        LongIndex(threadblock_offset.row()) * LongIndex(params_.stride);
+      auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
 
-        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-            bool guard = (threadblock_offset.row() + row) < extent_row_;
-            cutlass::arch::cp_async<sizeof(Element)>(shared_elem_arr + row, gmem_ptr + row, guard);
-            cutlass::arch::cp_async_wait<0>();
-        }
+      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+        bool guard = (threadblock_offset.row() + row) < extent_row_;
+        cutlass::arch::cp_async<sizeof(Element)>(shared_elem_arr + row, gmem_ptr + row, guard);
+        cutlass::arch::cp_async_wait<0>();
+      }
     }
 
     // Initialize internal state counter
@@ -310,7 +307,7 @@ class PredicatedTileIteratorNormVecSmem {
   CUTLASS_DEVICE
   void load_with_byte_offset(Fragment& frag, int64_t byte_offset) const
   {
-    AccessType* frag_ptr  = reinterpret_cast<AccessType*>(&frag);
+    AccessType* frag_ptr = reinterpret_cast<AccessType*>(&frag);
 
     Element* shared_elem_arr = shared_storage_.data();
 
@@ -326,7 +323,7 @@ class PredicatedTileIteratorNormVecSmem {
           int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
                            cluster * ThreadMap::Delta::kCluster;
           int iter_row = ((row_offset + thread_start_row_) % total_rows);
-          Element val = shared_elem_arr[iter_row];
+          Element val  = shared_elem_arr[iter_row];
 
           CUTLASS_PRAGMA_UNROLL
           for (int i = 0; i < kElementsPerAccess; ++i) {
@@ -340,7 +337,6 @@ class PredicatedTileIteratorNormVecSmem {
   /// Loads a fragment from memory
   CUTLASS_DEVICE
   void load(Fragment& frag) const { load_with_byte_offset(frag, 0); }
-
 
   CUTLASS_DEVICE
   MatrixCoord thread_start() const { return MatrixCoord(thread_start_row_, thread_start_column_); }

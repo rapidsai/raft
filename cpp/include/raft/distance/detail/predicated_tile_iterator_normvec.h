@@ -290,7 +290,8 @@ class PredicatedTileIteratorNormVec {
                 (void*)&memory_pointer[0],
                 guard);
             } else {
-              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column] = frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn];
+              frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn + column] =
+                frag_ptr[frag_row_idx * ThreadMap::Iterations::kColumn];
             }
           }
 
