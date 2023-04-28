@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cstdint>                            // uintX_t
-#include <raft/util/cuda_dev_essentials.cuh>  // DI
 #include <raft/core/device_span.hpp>
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft {
 
