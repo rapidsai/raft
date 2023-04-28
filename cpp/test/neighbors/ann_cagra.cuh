@@ -41,13 +41,15 @@
 
 namespace raft::neighbors::experimental::cagra {
 
+// For sort_knn_graph test
 template <typename IdxT>
-void RandomReorder(raft::host_matrix_view<IdxT, IdxT> index)
+void RandomSuffle(raft::host_matrix_view<IdxT, IdxT> index)
 {
   for (IdxT i = 0; i < index.extent(0); i++) {
     uint64_t rand       = i;
     IdxT* const row_ptr = index.data_handle() + i * index.extent(1);
     for (unsigned j = 0; j < index.extent(1); j++) {
+      // Swap two indices at random
       rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
       const auto i0 = rand % index.extent(1);
       rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
@@ -89,11 +91,9 @@ testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, IdxT> index_tes
 }
 
 // Generate dataset to ensure no rounding error occurs in the norm computation of any two vectors.
-// The generation method is based on the Error-free transformation method propoed by Ozaki et al.
-// (Ozaki et al. "Error-free transformations of matrix multiplication by using fast routines of
-// matrix multiplication and its applications", 2012)
-// When testing an index sorting function, rounding errors can affect the norm and alter the order
-// of the index. To ensure the accuracy and reliability of our testing, we utilize the dataset.
+// When testing the CAGRA index sorting function, rounding errors can affect the norm and alter the
+// order of the index. To ensure the accuracy of the test, we utilize the dataset. The generation
+// method is based on the error-free transformation (EFT) method.
 __global__ void GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
                                                         const uint32_t size,
                                                         const uint32_t resolution)
@@ -331,7 +331,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
       handle_.sync_stream();
       ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
 
-      RandomReorder(knn_graph.view());
+      RandomSuffle(knn_graph.view());
 
       cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
       handle_.sync_stream(stream_);
