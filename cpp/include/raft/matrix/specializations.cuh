@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <raft/matrix/specializations/detail/select_k.cuh>
+#pragma message(                                            \
+    __FILE__                                                \
+    " is deprecated and will be removed."                   \
+    " Including specializations is not necessary any more." \
+    " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")

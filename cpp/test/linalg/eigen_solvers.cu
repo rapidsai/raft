@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/common/nvtx.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 
@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 namespace raft {
 namespace spectral {

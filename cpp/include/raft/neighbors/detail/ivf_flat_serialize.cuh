@@ -21,6 +21,7 @@
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
+#include <raft/util/pow2_utils.cuh>
 
 #include <fstream>
 
