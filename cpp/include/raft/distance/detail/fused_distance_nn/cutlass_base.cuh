@@ -18,6 +18,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wtautological-compare"
 
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
