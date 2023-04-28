@@ -88,7 +88,7 @@ DI T warpReduce(T val)
  *       number of warps in a block. All threads in the block must enter this
  *       function together. cub also uses too many registers
  */
-template <typename T, typename ReduceLambda>
+template <typename T, typename ReduceLambda = raft::add_op>
 DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
 {
   auto* sTemp = reinterpret_cast<T*>(smem);
