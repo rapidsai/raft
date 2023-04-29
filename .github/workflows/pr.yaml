@@ -12,60 +12,60 @@ concurrency:
 jobs:
   pr-builder:
     needs:
-      #- checks
-      #- conda-cpp-build
-      #- conda-cpp-tests
-      #- conda-python-build
-      #- conda-python-tests
-      #- docs-build
+      - checks
+      - conda-cpp-build
+      - conda-cpp-tests
+      - conda-python-build
+      - conda-python-tests
+      - docs-build
       - wheel-build-pylibraft
-      #- wheel-tests-pylibraft
+      - wheel-tests-pylibraft
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.06
-  #checks:
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.06
-  #  with:
-  #    enable_check_generated_files: false
-  #conda-cpp-build:
-  #  needs: checks
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.06
-  #  with:
-  #    build_type: pull-request
-  #    node_type: cpu16
-  #conda-cpp-tests:
-  #  needs: conda-cpp-build
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.06
-  #  with:
-  #    build_type: pull-request
-  #conda-python-build:
-  #  needs: conda-cpp-build
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.06
-  #  with:
-  #    build_type: pull-request
-  #conda-python-tests:
-  #  needs: conda-python-build
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.06
-  #  with:
-  #    build_type: pull-request
-  #docs-build:
-  #  needs: conda-python-build
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.06
-  #  with:
-  #    build_type: pull-request
-  #    node_type: "gpu-v100-latest-1"
-  #    arch: "amd64"
-  #    container_image: "rapidsai/ci:latest"
-  #    run_script: "ci/build_docs.sh"
+  checks:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.06
+    with:
+      enable_check_generated_files: false
+  conda-cpp-build:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.06
+    with:
+      build_type: pull-request
+      node_type: cpu16
+  conda-cpp-tests:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.06
+    with:
+      build_type: pull-request
+  conda-python-build:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.06
+    with:
+      build_type: pull-request
+  conda-python-tests:
+    needs: conda-python-build
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.06
+    with:
+      build_type: pull-request
+  docs-build:
+    needs: conda-python-build
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.06
+    with:
+      build_type: pull-request
+      node_type: "gpu-v100-latest-1"
+      arch: "amd64"
+      container_image: "rapidsai/ci:latest"
+      run_script: "ci/build_docs.sh"
   wheel-build-pylibraft:
-    #needs: checks
+    needs: checks
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@manylinux_v2
     with:
@@ -73,20 +73,20 @@ jobs:
       package-name: pylibraft
       package-dir: python/pylibraft
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
-  #wheel-tests-pylibraft:
-  #  needs: wheel-build-pylibraft
-  #  secrets: inherit
-  #  uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@manylinux_v2
-  #  with:
-  #    build_type: pull-request
-  #    package-name: pylibraft
-  #    test-before-amd64: "pip install cupy-cuda11x"
-  #    # On arm also need to install cupy from the specific webpage.
-  #    test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
-  #    test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
-  #    test-smoketest: "python ./ci/wheel_smoke_test_pylibraft.py"
-  wheel-build-raft-dask:
+  wheel-tests-pylibraft:
     needs: wheel-build-pylibraft
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@manylinux_v2
+    with:
+      build_type: pull-request
+      package-name: pylibraft
+      test-before-amd64: "pip install cupy-cuda11x"
+      # On arm also need to install cupy from the specific webpage.
+      test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64"
+      test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
+      test-smoketest: "python ./ci/wheel_smoke_test_pylibraft.py"
+  wheel-build-raft-dask:
+    needs: wheel-tests-pylibraft
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@manylinux_v2
     with:
