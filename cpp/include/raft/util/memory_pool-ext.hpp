@@ -18,10 +18,11 @@
 #include <cstddef>                                   // size_t
 #include <memory>                                    // std::unique_ptr
 #include <rmm/mr/device/device_memory_resource.hpp>  // rmm::mr::device_memory_resource
+#include <rmm/mr/device/pool_memory_resource.hpp>    // rmm::mr::pool_memory_resource
 
 namespace raft {
 
-std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
-  rmm::mr::device_memory_resource*& mr, size_t initial_size);
+std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>
+get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_t initial_size);
 
 }  // namespace raft

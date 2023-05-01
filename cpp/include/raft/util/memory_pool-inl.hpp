@@ -57,8 +57,9 @@ namespace raft {
  * @return if a new memory pool is created, it returns a unique_ptr to it;
  *   this managed pointer controls the lifetime of the created memory resource.
  */
-RAFT_INLINE_CONDITIONAL std::unique_ptr<rmm::mr::device_memory_resource> get_pool_memory_resource(
-  rmm::mr::device_memory_resource*& mr, size_t initial_size)
+RAFT_INLINE_CONDITIONAL
+std::unique_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>
+get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_t initial_size)
 {
   using pool_res_t = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
   std::unique_ptr<pool_res_t> pool_res{};
