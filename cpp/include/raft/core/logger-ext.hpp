@@ -24,6 +24,9 @@ namespace raft {
 static const std::string RAFT_NAME = "raft";
 static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
 
+namespace detail {
+std::string format(const char* fmt, ...);
+}
 /**
  * @brief The main Logging class for raft library.
  *
