@@ -195,7 +195,7 @@ __inline__ __device__ void warpRankedReduce(T& val,
  * @brief 1-D block-level ranked reduction which returns the value and rank.
  * thread 0 will have valid result and rank(idx).
  * @param val input value
- * @param smem shared memory region needed for storing intermediate results. It
+ * @param shbuf shared memory region needed for storing intermediate results. It
  *             must alteast be of size: `(sizeof(T) + sizeof(i_t)) * WarpSize`
  * @param idx index to be used as rank
  * @param reduce_op a binary reduction operation.
@@ -240,11 +240,11 @@ __inline__ __device__ std::pair<T, i_t> blockRankedReduce(T val,
 /**
  * @brief Executes a 1d binary block reduce
  * @param val binary value to be reduced across the thread block
- * @param reduce_op a binary reduction operation.
+ * @param shmem memory needed for the reduction. It should be at least of size blockDim.x/WarpSize
  * @return only the thread0 will contain valid reduced result
  */
 template <int BLOCK_SIZE, typename i_t>
-DI i_t binaryBlockReduce(i_t val, i_t* shared)
+DI i_t binaryBlockReduce(i_t val, i_t* shmem)
 {
   static_assert(BLOCK_SIZE <= 1024);
   assert(val == 0 || val == 1);
@@ -252,10 +252,10 @@ DI i_t binaryBlockReduce(i_t val, i_t* shared)
   const uint32_t n_items = __popc(mask);
 
   // Each first thread of the warp
-  if (threadIdx.x % WarpSize == 0) shared[threadIdx.x / WarpSize] = n_items;
+  if (threadIdx.x % WarpSize == 0) shmem[threadIdx.x / WarpSize] = n_items;
   __syncthreads();
 
-  val = (threadIdx.x < BLOCK_SIZE / WarpSize) ? shared[threadIdx.x] : 0;
+  val = (threadIdx.x < BLOCK_SIZE / WarpSize) ? shmem[threadIdx.x] : 0;
 
   if (threadIdx.x < WarpSize)
     return warpReduce(val);
