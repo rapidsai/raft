@@ -15,7 +15,6 @@
  */
 #pragma once
 #include <raft/core/device_type.hpp>
-#include <raft/core/execution_device_id.hpp>
 #include <raft/core/resources.hpp>
 #include <type_traits>
 
@@ -25,7 +24,7 @@ namespace detail {
 template <device_type D, typename T>
 struct owning_buffer {
   owning_buffer() {}
-  owning_buffer(raft::resources const& handle, execution_device_id<D> device_id, std::size_t size) {}
+  owning_buffer(raft::resources const& handle, std::size_t size) {}
   auto* get() const { return static_cast<T*>(nullptr); }
 };
 

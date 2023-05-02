@@ -41,10 +41,4 @@ auto constexpr static const DEBUG_ENABLED   = false;
 #else
 auto constexpr static const DEBUG_ENABLED = true;
 #endif
-
-struct cuda_unsupported : raft::exception {
-  explicit cuda_unsupported(std::string const& msg) : raft::exception{msg} {}
-  cuda_unsupported() : cuda_unsupported{"CUDA functionality invoked in non-CUDA build"} {}
-};
-
 }  // namespace raft

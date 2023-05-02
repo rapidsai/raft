@@ -107,6 +107,11 @@ struct bad_cuda_call : logic_error {
   explicit bad_cuda_call(char const* msg) : logic_error(msg) {}
 };
 
+struct cuda_unsupported : logic_error {
+  cuda_unsupported() : cuda_unsupported("CUDA functionality invoked in non-CUDA build") {}
+  explicit cuda_unsupported(char const* msg) : logic_error(msg) {}
+};
+
 struct out_of_bounds : logic_error {
   out_of_bounds() : out_of_bounds("Attempted out-of-bounds memory access") {}
   explicit out_of_bounds(char const* msg) : logic_error(msg) {}

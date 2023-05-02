@@ -45,8 +45,7 @@ TEST(Buffer, device_buffer_access)
   auto buf = buffer<int>(
     handle,
     buffer<int>(handle, data.data(), data.size(), memory_type::host),
-    memory_type::device,
-    0);
+    memory_type::device);
   // check_buffer_access<<<1,1>>>(buf.data());
   // auto data_out = std::vector<int>(expected.size());
   // auto host_buf = buffer<int>(data_out.data(), data_out.size(), memory_type::host);

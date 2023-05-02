@@ -28,7 +28,6 @@ TEST(Buffer, default_buffer)
   auto buf = buffer<int>();
   EXPECT_EQ(buf.mem_type(), memory_type::host);
   EXPECT_EQ(buf.size(), 0);
-  EXPECT_EQ(buf.device_index(), 0);
 }
 
 TEST(Buffer, device_buffer)
@@ -36,23 +35,23 @@ TEST(Buffer, device_buffer)
   raft::resources handle;
   auto data = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
-  test_buffers.emplace_back(handle, data.size(), memory_type::device, 0);
-  test_buffers.emplace_back(handle, data.size(), memory_type::device, 0);
+  test_buffers.emplace_back(handle, data.size(), memory_type::device);
+  test_buffers.emplace_back(handle, data.size(), memory_type::device);
   test_buffers.emplace_back(handle, data.size(), memory_type::device);
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::device);
     ASSERT_EQ(buf.size(), data.size());
 #ifndef RAFT_DISABLE_GPU
-    ASSERT_NE(buf.data(), nullptr);
+    ASSERT_NE(buf.data_handle(), nullptr);
 
     auto data_out = std::vector<int>(data.size());
-    cudaMemcpy(static_cast<void*>(buf.data()),
+    cudaMemcpy(static_cast<void*>(buf.data_handle()),
                static_cast<void*>(data.data()),
                sizeof(int) * data.size(),
                cudaMemcpyHostToDevice);
     cudaMemcpy(static_cast<void*>(data_out.data()),
-               static_cast<void*>(buf.data()),
+               static_cast<void*>(buf.data_handle()),
                sizeof(int) * data.size(),
                cudaMemcpyDeviceToHost);
     EXPECT_THAT(data_out, testing::ElementsAreArray(data));
@@ -73,18 +72,18 @@ TEST(Buffer, non_owning_device_buffer)
              cudaMemcpyHostToDevice);
 #endif
   auto test_buffers = std::vector<buffer<int>>{};
-  test_buffers.emplace_back(handle, ptr_d, data.size(), memory_type::device, 0);
+  test_buffers.emplace_back(handle, ptr_d, data.size(), memory_type::device);
   test_buffers.emplace_back(handle, ptr_d, data.size(), memory_type::device);
 #ifndef RAFT_DISABLE_GPU
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::device);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_EQ(buf.data(), ptr_d);
+    ASSERT_EQ(buf.data_handle(), ptr_d);
 
     auto data_out = std::vector<int>(data.size());
     cudaMemcpy(static_cast<void*>(data_out.data()),
-               static_cast<void*>(buf.data()),
+               static_cast<void*>(buf.data_handle()),
                sizeof(int) * data.size(),
                cudaMemcpyDeviceToHost);
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
@@ -98,20 +97,20 @@ TEST(Buffer, host_buffer)
   raft::resources handle;
   auto data   = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
-  test_buffers.emplace_back(handle, data.size(), memory_type::host, 0);
-  test_buffers.emplace_back(handle, data.size(), memory_type::host, 0);
+  test_buffers.emplace_back(handle, data.size(), memory_type::host);
+  test_buffers.emplace_back(handle, data.size(), memory_type::host);
   test_buffers.emplace_back(handle, data.size(), memory_type::host);
   test_buffers.emplace_back(handle, data.size());
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::host);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_NE(buf.data(), nullptr);
+    ASSERT_NE(buf.data_handle(), nullptr);
 
     std::memcpy(
-      static_cast<void*>(buf.data()), static_cast<void*>(data.data()), data.size() * sizeof(int));
+      static_cast<void*>(buf.data_handle()), static_cast<void*>(data.data()), data.size() * sizeof(int));
 
-    auto data_out = std::vector<int>(buf.data(), buf.data() + buf.size());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 }
@@ -121,16 +120,16 @@ TEST(Buffer, non_owning_host_buffer)
   raft::resources handle;
   auto data   = std::vector<int>{1, 2, 3};
   std::vector<buffer<int>> test_buffers;
-  test_buffers.emplace_back(handle, data.data(), data.size(), memory_type::host, 0);
+  test_buffers.emplace_back(handle, data.data(), data.size(), memory_type::host);
   test_buffers.emplace_back(handle, data.data(), data.size(), memory_type::host);
   test_buffers.emplace_back(handle, data.data(), data.size());
 
   for (auto& buf : test_buffers) { 
     ASSERT_EQ(buf.mem_type(), memory_type::host);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_EQ(buf.data(), data.data());
+    ASSERT_EQ(buf.data_handle(), data.data());
 
-    auto data_out = std::vector<int>(buf.data(), buf.data() + buf.size());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 }
@@ -145,46 +144,46 @@ TEST(Buffer, copy_constructor)
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(handle, orig_buffer);
   test_buffers.emplace_back(handle, orig_buffer, memory_type::host);
-  test_buffers.emplace_back(handle, orig_buffer, memory_type::host, 0);
-  test_buffers.emplace_back(handle, orig_buffer, memory_type::host, 0);
+  test_buffers.emplace_back(handle, orig_buffer, memory_type::host);
+  test_buffers.emplace_back(handle, orig_buffer, memory_type::host);
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::host);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_NE(buf.data(), orig_buffer.data());
+    ASSERT_NE(buf.data_handle(), orig_buffer.data_handle());
 
-    auto data_out = std::vector<int>(buf.data(), buf.data() + buf.size());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
 
 #ifndef RAFT_DISABLE_GPU
     // host to device copy operations
     auto test_dev_buffers = std::vector<buffer<int>>{};
     test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
-    test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device, 0);
-    test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device, 0);
+    test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
+    test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
     for (auto& dev_buf : test_dev_buffers) {
       data_out = std::vector<int>(data.size());
-      RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(dev_buf.data()), dev_buf.size() * sizeof(int), cudaMemcpyDefault));
+      RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(dev_buf.data_handle()), dev_buf.size() * sizeof(int), cudaMemcpyDefault));
       EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
       
       // device to device copy operations
       auto test_dev_copies = std::vector<buffer<int>>{};
       test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
-      test_dev_copies.emplace_back(handle, dev_buf, memory_type::device, 0);
-      test_dev_copies.emplace_back(handle, dev_buf, memory_type::device, 0);
+      test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
+      test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
       for (auto& copy_buf : test_dev_copies) {
         data_out = std::vector<int>(data.size());
-        RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(copy_buf.data()), copy_buf.size() * sizeof(int), cudaMemcpyDefault));
+        RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(copy_buf.data_handle()), copy_buf.size() * sizeof(int), cudaMemcpyDefault));
         EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
       }
 
       // device to host copy operations
       auto test_host_buffers = std::vector<buffer<int>>{};
       test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
-      test_host_buffers.emplace_back(handle, dev_buf, memory_type::host, 0);
-      test_host_buffers.emplace_back(handle, dev_buf, memory_type::host, 0);
+      test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
+      test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
       for (auto& host_buf : test_host_buffers) {
-        data_out = std::vector<int>(host_buf.data(), host_buf.data() + host_buf.size());
+        data_out = std::vector<int>(host_buf.data_handle(), host_buf.data_handle() + host_buf.size());
         EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
       }
     }
@@ -199,29 +198,29 @@ TEST(Buffer, move_buffer)
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(buffer<int>(handle, data.data(), data.size(), memory_type::host));
   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
-  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host, 0);
-  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host, 0);
+  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
+  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::host);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_EQ(buf.data(), data.data());
+    ASSERT_EQ(buf.data_handle(), data.data());
 
-    auto data_out = std::vector<int>(buf.data(), buf.data() + buf.size());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 #ifndef RAFT_DISABLE_GPU
   test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
-  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device, 0);
-  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device, 0);
+  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
+  test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::device);
     ASSERT_EQ(buf.size(), data.size());
-    ASSERT_NE(buf.data(), data.data());
+    ASSERT_NE(buf.data_handle(), data.data());
 
     auto data_out = std::vector<int>(buf.size());
-    RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(buf.data()), buf.size() * sizeof(int), cudaMemcpyDefault));
+    RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(buf.data_handle()), buf.size() * sizeof(int), cudaMemcpyDefault));
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 #endif
