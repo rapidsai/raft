@@ -252,15 +252,18 @@ DI i_t binaryBlockReduce(i_t val, i_t* shmem)
   const uint32_t n_items = __popc(mask);
 
   // Each first thread of the warp
-  if (threadIdx.x % WarpSize == 0) shmem[threadIdx.x / WarpSize] = n_items;
+  if (threadIdx.x % WarpSize == 0) { shmem[threadIdx.x / WarpSize] = n_items; }
   __syncthreads();
 
   val = (threadIdx.x < BLOCK_SIZE / WarpSize) ? shmem[threadIdx.x] : 0;
 
-  if (threadIdx.x < WarpSize)
+  if (threadIdx.x < WarpSize) {
     return warpReduce(val);
-  else  // Only first warp gets the results
+  }
+  // Only first warp gets the results
+  else {
     return -1;
+  }
 }
 
 }  // namespace raft

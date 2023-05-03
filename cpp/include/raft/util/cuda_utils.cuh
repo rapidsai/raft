@@ -23,6 +23,8 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.hpp>
+// For backward compatibility, we include the follow headers. They contain
+// functionality that were previously contained in cuda_utils.cuh
 #include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/reduction.cuh>
 
