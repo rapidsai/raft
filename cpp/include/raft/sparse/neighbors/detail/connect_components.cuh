@@ -450,6 +450,8 @@ void connect_components(raft::device_resources const& handle,
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
   thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, sort_plan.data());
 
+  uint32_t sort_start = curTimeMillis();
+
   thrust::sort_by_key(
     handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data());
 
@@ -458,6 +460,9 @@ void connect_components(raft::device_resources const& handle,
 
   batched_gather(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
 
+  uint32_t sort_end = curTimeMillis();
+
+  RAFT_LOG_INFO("Time required to sort %zu", sort_end - sort_start);
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -466,6 +471,7 @@ void connect_components(raft::device_resources const& handle,
   rmm::device_uvector<raft::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
+  uint32_t op_start = curTimeMillis();
   perform_1nn(handle,
               temp_inds_dists.data(),
               nn_colors.data(),
@@ -513,9 +519,19 @@ void connect_components(raft::device_resources const& handle,
                           temp_inds_dists.data(),
                           n_rows,
                           stream);
+  uint32_t op_end = curTimeMillis();
+
+  RAFT_LOG_INFO("Time required for all operations between sort and unsort %zu", op_end - op_start);
+
+  uint32_t unsort_start = curTimeMillis();
 
   batched_scatter(handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
   reduction_op.scatter(handle, sort_plan.data());
+
+  uint32_t unsort_end = curTimeMillis();
+
+  RAFT_LOG_INFO("Time required to unsort %zu", unsort_end - unsort_start);
+
   /**
    * Symmetrize resulting edge list
    */
