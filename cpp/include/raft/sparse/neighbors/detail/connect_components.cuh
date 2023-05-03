@@ -435,8 +435,6 @@ void connect_components(raft::device_resources const& handle,
                         size_t col_batch_size,
                         red_op reduction_op)
 {
-  auto func_range = raft::common::nvtx::range{__func__};
-
   RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n_cols, "col_batch_size should be > 0 and <= n_cols");
   auto stream = handle.get_stream();
 
