@@ -30,10 +30,6 @@
 #include <rmm/device_uvector.hpp>
 #include <thrust/fill.h>
 
-#if defined RAFT_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
-
 /* This test takes advantage of the fact that make_blobs generates balanced clusters.
  * It doesn't currently test whether the algorithm can make balanced clusters with an imbalanced
  * dataset.

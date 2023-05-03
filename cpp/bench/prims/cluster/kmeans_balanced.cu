@@ -18,10 +18,6 @@
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/random/rng.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
-
 namespace raft::bench::cluster {
 
 struct KMeansBalancedBenchParams {
