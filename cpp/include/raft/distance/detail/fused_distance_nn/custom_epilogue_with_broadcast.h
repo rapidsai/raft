@@ -51,6 +51,11 @@
   The epilogue rearranges the result of a matrix product through shared memory to match canonical
   tensor layouts in global memory. Epilogues support conversion and reduction operations.
 
+This file contains a customized version of EpilogueWithBroadcast from CUTLASS 2.9.1
+(https://github.com/NVIDIA/cutlass/blob/v2.9.1/include/cutlass/epilogue/threadblock/epilogue_with_broadcast.h)
+
+Changes:
+- customized the compute_source_needed_() and apply_output_operator_() to suit the needs of per row reduction
 */
 
 #pragma once
@@ -512,100 +517,6 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
     TensorTileIterator tensor_iterator  ///< Threadblock tile iterator for additioanl tensor operand
   )
   {
-#if 0
-    //
-    // Iterator over warp-level accumulator fragment
-    //
-
-    AccumulatorFragmentIterator accum_fragment_iterator(accumulators);
-
-    //
-    // Iterate over accumulator tile
-    // 
-
-    // CUTLASS_PRAGMA_UNROLL
-#pragma unroll(IterationsUnroll ? OutputTileIterator::kIterations / Base::kFragmentsPerIteration \
-                                : 1)
-    for (int iter = 0; iter < OutputTileIterator::kIterations; iter += Base::kFragmentsPerIteration) {
-
-      //
-      // Convert and store fragment
-      //
-      
-
-      __syncthreads();
-
-      acc2smem_source_not_needed<
-          cutlass::make_index_sequence<OutputTileIterator::kIterations /
-                                   Base::kFragmentsPerIteration>>::push(iter,
-                                                                        accum_fragment_iterator,
-                                                                        this->warp_tile_iterator_);
-
-      __syncthreads();
-
-      //
-      // Load fragments from shared memory
-      //
-
-      CUTLASS_PRAGMA_UNROLL
-      for (int p = 0; p < Base::kFragmentsPerIteration; ++p) {
-
-
-        typename SharedLoadIterator::Fragment aligned_accum_fragment[kPartitionsK];
-
-        shared_load_iterator_.load(aligned_accum_fragment[0]);
-
-        if (p < Base::kFragmentsPerIteration - 1) {
-          shared_load_iterator_.add_pointer_offset(kSmemPointerOffset);
-        }
-        else if (kPartitionsK > 1) {
-
-          plus <typename SharedLoadIterator::Fragment> add_fragments;
-
-          CUTLASS_PRAGMA_UNROLL
-          for ( int i = 1; i < kPartitionsK; ++i) {
-            shared_load_iterator_.add_pointer_offset(kSmemPointerOffset);
-            shared_load_iterator_.load(aligned_accum_fragment[i]);
-            aligned_accum_fragment[0] = add_fragments(aligned_accum_fragment[0], aligned_accum_fragment[i]);
-          }
-
-          shared_load_iterator_.add_pointer_offset((1 - kPartitionsK) * kSmemPointerOffset);
-        }
-
-        //
-        // Apply output operation
-        //
-
-        typename OutputTileIterator::Fragment frag_Z;
-        typename TensorTileIterator::Fragment frag_T;
-
-        apply_output_operator_source_not_needed_(
-          frag_Z,
-          frag_T,
-          output_op,
-          aligned_accum_fragment[0],
-          broadcast_fragment);
-
-        //
-        // Conditionally store fragments
-        //
-
-        if (OutputOp::kStoreZ) {
-          destination_iterator.store(frag_Z);
-          ++destination_iterator;
-        }
-
-        if (OutputOp::kStoreT) {
-          tensor_iterator.store(frag_T);
-          ++tensor_iterator;
-        }
-      }
-
-      if (Base::kFragmentsPerIteration > 1) {
-        shared_load_iterator_.add_pointer_offset(kSmemPointerOffset * (1 - Base::kFragmentsPerIteration));
-      }
-    }
-#endif
   }
 
   template <class Seq>
@@ -681,23 +592,7 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
       typename SharedLoadIterator::Fragment aligned_accum_fragment[kPartitionsK];
 
       shared_load_iterator_.load(aligned_accum_fragment[0]);
-#if 0
-      // If the number of k-slices is > 1 - perform a reduction amongst the k-slices
-      if (kPartitionsK > 1)
-      {
-        plus <typename SharedLoadIterator::Fragment> add_fragments;
-        const int tile_row_offset = Base::SharedStorage::StorageShape::kRow / PartitionsK;
 
-        CUTLASS_PRAGMA_UNROLL
-        for ( int i = 1; i < kPartitionsK; ++i) {
-          shared_load_iterator_.add_tile_offset({tile_row_offset , 0});
-          shared_load_iterator_.load(aligned_accum_fragment[i]);
-          aligned_accum_fragment[0] = add_fragments(aligned_accum_fragment[0], aligned_accum_fragment[i]);
-        }
-
-        shared_load_iterator_.add_tile_offset({-1 * (kPartitionsK-1) * tile_row_offset, 0});
-      }
-#endif
       //
       // Apply output operation
       //
