@@ -29,11 +29,13 @@
 
 namespace raft::util {
 
+constexpr int max_warps_per_block = 32;
+
 template <typename ReduceLambda>
 __global__ void test_reduction_kernel(const int* input, int* reduction_res, ReduceLambda reduce_op)
 {
   assert(gridDim.x == 1);
-  __shared__ int red_buf[raft::WarpSize];
+  __shared__ int red_buf[max_warps_per_block];
   int th_val = input[threadIdx.x];
   th_val     = raft::blockReduce(th_val, (char*)red_buf, reduce_op);
   if (threadIdx.x == 0) { reduction_res[0] = th_val; }
@@ -46,7 +48,7 @@ __global__ void test_ranked_reduction_kernel(const int* input,
                                              ReduceLambda reduce_op)
 {
   assert(gridDim.x == 1);
-  __shared__ int red_buf[2 * raft::WarpSize];
+  __shared__ int red_buf[2 * max_warps_per_block];
   int th_val  = input[threadIdx.x];
   int th_rank = threadIdx.x;
   auto result = raft::blockRankedReduce(th_val, red_buf, th_rank, reduce_op);
@@ -59,7 +61,7 @@ __global__ void test_ranked_reduction_kernel(const int* input,
 __global__ void test_random_reduction_kernel(const int* input, int* reduction_res)
 {
   assert(gridDim.x == 1);
-  __shared__ int red_buf[2 * raft::WarpSize];
+  __shared__ int red_buf[2 * max_warps_per_block];
   raft::random::PCGenerator thread_rng(1234, threadIdx.x, 0);
   int th_val  = input[threadIdx.x];
   int th_rank = threadIdx.x;

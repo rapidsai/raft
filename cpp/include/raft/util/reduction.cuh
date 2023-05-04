@@ -111,7 +111,7 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
-__device__ inline T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
+DI T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
 {
 #pragma unroll
   for (i_t offset = raft::WarpSize / 2; offset > 0; offset /= 2) {
@@ -137,7 +137,7 @@ __device__ inline T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
-__inline__ __device__ i_t
+DI i_t
 blockRandomReduce(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
 {
   T* values    = shbuf;
@@ -158,7 +158,6 @@ blockRandomReduce(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
     weight = values[lane];
     idx    = indices[lane];
   } else {
-    // get the min if it is a max op, get the max if it is a min op
     weight = 0;
     idx    = -1;
   }
@@ -176,7 +175,7 @@ blockRandomReduce(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename ReduceLambda, typename i_t = int>
-__inline__ __device__ void warpRankedReduce(T& val,
+DI void warpRankedReduce(T& val,
                                             i_t& idx,
                                             ReduceLambda reduce_op = raft::min_op{})
 {
@@ -202,7 +201,7 @@ __inline__ __device__ void warpRankedReduce(T& val,
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename ReduceLambda, typename i_t = int>
-__inline__ __device__ std::pair<T, i_t> blockRankedReduce(T val,
+DI std::pair<T, i_t> blockRankedReduce(T val,
                                                           T* shbuf,
                                                           i_t idx                = threadIdx.x,
                                                           ReduceLambda reduce_op = raft::min_op{})
