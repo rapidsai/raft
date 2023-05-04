@@ -58,14 +58,14 @@ __global__ void test_ranked_reduction_kernel(const int* input,
   }
 }
 
-__global__ void test_random_reduction_kernel(const int* input, int* reduction_res)
+__global__ void test_weighted_select_kernel(const int* input, int* reduction_res)
 {
   assert(gridDim.x == 1);
   __shared__ int red_buf[2 * max_warps_per_block];
   raft::random::PCGenerator thread_rng(1234, threadIdx.x, 0);
   int th_val  = input[threadIdx.x];
   int th_rank = threadIdx.x;
-  int result  = raft::blockRandomReduce(thread_rng, red_buf, th_val, th_rank);
+  int result  = raft::blockWeightedSelect(thread_rng, red_buf, th_val, th_rank);
   if (threadIdx.x == 0) { reduction_res[0] = result; }
 }
 
@@ -115,14 +115,14 @@ struct reduction_launch {
     ASSERT_EQ(rank_d.value(stream), rank_ref_val);
   }
 
-  static void run_random(const rmm::device_uvector<int>& arr_d,
-                         int ref_val,
-                         rmm::cuda_stream_view stream)
+  static void run_weighted(const rmm::device_uvector<int>& arr_d,
+                           int ref_val,
+                           rmm::cuda_stream_view stream)
   {
     rmm::device_scalar<int> ref_d(stream);
     const int block_dim = 64;
     const int grid_dim  = 1;
-    test_random_reduction_kernel<<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data());
+    test_weighted_select_kernel<<<grid_dim, block_dim, 0, stream>>>(arr_d.data(), ref_d.data());
     stream.synchronize();
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     ASSERT_EQ(ref_d.value(stream), ref_val);
@@ -168,7 +168,7 @@ class ReductionTest : public testing::TestWithParam<std::vector<int>> {  // NOLI
     reduction_launch::run_ranked(arr_d, 5, 15, raft::max_op{}, stream);
     reduction_launch::run_ranked(arr_d, 0, 26, raft::min_op{}, stream);
     // value 15 is for the current state of PCgenerator. adjust this if rng changes
-    reduction_launch::run_random(arr_d, 15, stream);
+    reduction_launch::run_weighted(arr_d, 15, stream);
   }
 
   void run_binary_reduction() { reduction_launch::run_binary(arr_d, 24, stream); }
