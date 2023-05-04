@@ -164,7 +164,7 @@ DI i_t blockWeightedSelect(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadId
     idx    = -1;
   }
   __syncthreads();
-  if (wid == 0) warpRandomReduce(rng, weight, idx);
+  if (wid == 0) warpWeightedSelect(rng, weight, idx);
   return idx;
 }
 
