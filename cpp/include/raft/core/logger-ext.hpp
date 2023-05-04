@@ -15,15 +15,19 @@
  */
 #pragma once
 
-#include <memory>         // std::unique_ptr
-#include <string>         // std::string
-#include <unordered_map>  // std::unordered_map
+#include <memory>                       // std::unique_ptr
+#include <raft/core/detail/macros.hpp>  // RAFT_INLINE_CONDITIONAL
+#include <string>                       // std::string
+#include <unordered_map>                // std::unordered_map
 
 namespace raft {
 
 static const std::string RAFT_NAME = "raft";
 static const std::string default_log_pattern("[%L] [%H:%M:%S.%f] %v");
 
+namespace detail {
+RAFT_INLINE_CONDITIONAL std::string format(const char* fmt, ...);
+}
 /**
  * @brief The main Logging class for raft library.
  *
