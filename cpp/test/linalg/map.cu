@@ -17,8 +17,11 @@
 #include "../test_utils.cuh"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
+#include <raft/matrix/init.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -92,9 +95,20 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
     raft::random::RngState r(params.seed);
 
     IdxType len = params.len;
-    uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
-    uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
-    uniform(handle, r, in3.data(), len, InType(-1.0), InType(1.0));
+    if constexpr (std::is_floating_point<InType>::value) {
+      uniform(handle, r, in1.data(), len, InType(-1.0), InType(1.0));
+      uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
+      uniform(handle, r, in3.data(), len, InType(-1.0), InType(1.0));
+    } else {
+      // just fill with values that are constructable from an int.
+      auto in1_view = raft::make_device_vector_view(in1.data(), in1.size());
+      auto in2_view = raft::make_device_vector_view(in2.data(), in2.size());
+      auto in3_view = raft::make_device_vector_view(in3.data(), in3.size());
+
+      raft::matrix::fill(handle, in1_view, InType(1));
+      raft::matrix::fill(handle, in2_view, InType(2));
+      raft::matrix::fill(handle, in3_view, InType(3));
+    }
 
     create_ref(out_ref.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
     mapLaunch(out.data(), in1.data(), in2.data(), in3.data(), params.scalar, len, stream);
@@ -174,6 +188,58 @@ const std::vector<MapInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 1234ULL, 5.2}};
 MAP_TEST((MapTest<double, size_t>), MapTestD_i64, inputsd_i64);
 MAP_TEST((MapOffsetTest<double, size_t>), MapOffsetTestD_i64, inputsd_i64);
+
+// Use exact comparison instead of floating point comparison with tolerance.
+#define MAP_TEST_EXACT(test_type, test_name, inputs)                                            \
+  typedef RAFT_DEPAREN(test_type) test_name;                                                    \
+  TEST_P(test_name, Result)                                                                     \
+  {                                                                                             \
+    ASSERT_TRUE(                                                                                \
+      devArrMatch(this->out_ref.data(), this->out.data(), this->params.len, raft::equal_op{})); \
+  }                                                                                             \
+  INSTANTIATE_TEST_SUITE_P(MapTests, test_name, ::testing::ValuesIn(inputs))
+
+// Create custom type that is 12 bytes wide.
+struct int3 {
+  int a, b, c;
+  int3() = default;
+  constexpr int3(int x) : a(x), b(x), c(x) {}
+  constexpr int3(int a_, int b_, int c_) : a(a_), b(b_), c(c_) {}
+  constexpr int3(const int3& other) = default;
+  constexpr int3& operator=(const int3& other) = default;
+
+  constexpr int3 operator+(const int3& other) const
+  {
+    return int3(this->a + other.a, this->b + other.b, this->c + other.c);
+  }
+  constexpr int3 operator-(const int3& other) const
+  {
+    return int3(this->a - other.a, this->b - other.b, this->c - other.c);
+  }
+  constexpr bool operator==(const int3& other) const
+  {
+    return (this->a == other.a && this->b == other.b && this->c == other.c);
+  }
+};
+
+constexpr int3 operator*(const int3& x, int scalar)
+{
+  return int3{scalar * x.a, scalar * x.b, scalar * x.c};
+}
+constexpr int3 operator*(const int3& x, const int3& y)
+{
+  return int3{x.a * y.a, x.b * y.b, x.c * y.c};
+}
+inline auto operator<<(std::ostream& os, const int3& x) -> std::ostream&
+{
+  os << "(" << x.a << ", " << x.b << ", " << x.c << ", "
+     << ")";
+  return os;
+}
+
+const std::vector<MapInputs<int3, size_t>> inputsd_int3 = {{0.00000001, 1024 * 1024, 1234ULL, 5.2}};
+MAP_TEST_EXACT((MapTest<int3, size_t>), MapTestD_int3, inputsd_int3);
+MAP_TEST_EXACT((MapOffsetTest<int3, size_t>), MapOffsetTestD_int3, inputsd_int3);
 
 }  // namespace linalg
 }  // namespace raft
