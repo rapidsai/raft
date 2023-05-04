@@ -37,10 +37,10 @@
 #include <cutlass/matrix_coord.h>
 #include <cutlass/tensor_view.h>
 
-#include <raft/distance/detail/fused_distance_nn/epilogue_elementwise.cuh>
-#include <raft/distance/detail/fused_distance_nn/gemm.h>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/cutlass_utils.cuh>
+#include <raft/distance/detail/fused_distance_nn/epilogue_elementwise.cuh>  // FusedDistanceNNEpilogueElementwise
+#include <raft/distance/detail/fused_distance_nn/gemm.h>                    // FusedDistanceNNGemm
+#include <raft/util/cudart_utils.hpp>   // getMultiProcessorCount
+#include <raft/util/cutlass_utils.cuh>  // RAFT_CUTLASS_TRY
 
 namespace raft {
 namespace distance {
@@ -115,9 +115,14 @@ void cutlassFusedDistanceNN(const DataT* x,
 
   int num_blocks_per_sm   = fusedDistanceNN::maximum_active_blocks();
   int num_sms             = raft::getMultiProcessorCount();
-  int num_blocks          = num_blocks_per_sm * num_sms;
+  int full_wave           = num_blocks_per_sm * num_sms;
   constexpr int mmaShapeM = fusedDistanceNNKernel::Mma::Shape::kM;
-  auto thread_blocks = std::max(num_blocks, int((problem_size.m() - 1 + mmaShapeM) / mmaShapeM));
+  constexpr int mmaShapeN = fusedDistanceNNKernel::Mma::Shape::kN;
+  int columnTiles         = (problem_size.n() - 1 + mmaShapeN) / mmaShapeN;
+  int rowTiles            = (problem_size.m() - 1 + mmaShapeM) / mmaShapeM;
+
+  int thread_blocks =
+    rowTiles < full_wave ? (columnTiles < full_wave ? columnTiles : full_wave) : rowTiles;
 
   typename fusedDistanceNN::Arguments arguments{
     problem_size,

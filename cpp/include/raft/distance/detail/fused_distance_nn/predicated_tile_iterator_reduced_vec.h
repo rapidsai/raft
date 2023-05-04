@@ -208,7 +208,7 @@ class PredicatedTileIteratorReducedVec {
             typename ValT,
             typename OutT>
   struct select_reduce {
-    /// Performs reduction and stores a reduced output to memory
+    /// Performs warp level reduction and stores a reduced output to memory
     CUTLASS_DEVICE
     select_reduce(OutT value,
                   ValT prev_red_val,
@@ -227,7 +227,7 @@ class PredicatedTileIteratorReducedVec {
   struct select_reduce<cg_reduce_op_t, cg_group_t, IdxT, float, raft::KeyValuePair<IdxT, float>> {
     using ValT = float;
     using Ty   = raft::KeyValuePair<IdxT, ValT>;
-
+    /// Performs warp level reduction of key value pair and stores a reduced output to memory
     CUTLASS_DEVICE
     select_reduce(Ty val_to_red,
                   float prev_red_val,
@@ -252,7 +252,7 @@ class PredicatedTileIteratorReducedVec {
   struct select_reduce<cg_reduce_op_t, cg_group_t, IdxT, double, raft::KeyValuePair<IdxT, double>> {
     using ValT = double;
     using Ty   = raft::KeyValuePair<IdxT, ValT>;
-
+    /// Performs warp level reduction of key value pair and stores a reduced output to memory
     CUTLASS_DEVICE
     select_reduce(Ty val_to_red,
                   double prev_red_val,
@@ -399,9 +399,6 @@ class PredicatedTileIteratorReducedVec {
     if (do_gmem_reduction_) {
       EpilogueOpParams const& user_params = params_.user_param;
 
-      auto gmem_ptr            = reinterpret_cast<Element*>(first_tile_byte_pointer_);
-      Element* shared_elem_arr = shared_storage_.data();
-
       // If this is not optimal grid size perform mutex based gmem reduce.
       if ((gridDim.x != ((extent_row_ - 1 + Shape::kRow) / Shape::kRow))) {
         const auto mutex_id = (block_start_row_first_tile_ / total_rows);
@@ -417,25 +414,34 @@ class PredicatedTileIteratorReducedVec {
 
         __syncthreads();
 
-        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-          if (block_start_row_first_tile_ + row < extent_row_) {
-            user_params.red_op_(0, &gmem_ptr[row], shared_elem_arr[row]);
-          }
-        }
+        store_output_shared_to_global();
 
         __threadfence();
         __syncthreads();
         if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
           // release mutex lock.
-          atomicCAS(user_params.mutexes_ + mutex_id, 1, 0);
+          // atomicCAS(user_params.mutexes_ + mutex_id, 1, 0);
+          atomicExch(user_params.mutexes_ + mutex_id, 0);
         }
       } else {
         __syncthreads();
-        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-          if (block_start_row_first_tile_ + row < extent_row_) {
-            gmem_ptr[row] = shared_elem_arr[row];
-          }
-        }
+        store_output_shared_to_global();
+      }
+    }
+  }
+
+  /// store the final shared mem output to global mem
+  CUTLASS_DEVICE
+  void store_output_shared_to_global()
+  {
+    EpilogueOpParams const& user_params = params_.user_param;
+    Element* shared_elem_arr            = shared_storage_.data();
+    auto gmem_ptr                       = reinterpret_cast<Element*>(first_tile_byte_pointer_);
+
+    for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+      OutIdxT g_row_id = block_start_row_first_tile_ + row;
+      if (g_row_id < extent_row_) {
+        user_params.red_op_(g_row_id, gmem_ptr + row, shared_elem_arr[row]);
       }
     }
   }
@@ -477,13 +483,15 @@ class PredicatedTileIteratorReducedVec {
           int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
                            cluster * ThreadMap::Delta::kCluster;
 
-          bool row_guard = ((row_offset + thread_start_row_) < extent_row_);
+          const OutIdxT row_id = row_offset + thread_start_row_;
+          bool row_guard       = (row_id < extent_row_);
 
           const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn * kElementsPerAccess;
           Element red_val;
           user_params.red_op_.init(&red_val, maxVal);
+
           if (row_guard) {
-            const int iter_row      = ((row_offset + thread_start_row_) % total_rows);
+            const int iter_row      = (row_id % total_rows);
             const auto prev_red_val = user_params.red_op_.get_value(shared_elem_arr[iter_row]);
 
             CUTLASS_PRAGMA_UNROLL
@@ -501,9 +509,11 @@ class PredicatedTileIteratorReducedVec {
                 Element this_val;
                 user_params.red_op_.init(&this_val, (*frag_ptr)[frag_col_idx]);
                 user_params.red_op_.init_key(this_val, key_id);
-                user_params.red_op_(key_id, &red_val, this_val);
+                user_params.red_op_(row_id, &red_val, this_val);
               }
             }
+            // select_reduce doesn't need to use `red_op_` as at the warp level we use cg_reduce_op,
+            // this satisfies the requirement of mst/single linkage of checking colors buffer.
             select_reduce<cg_reduce_t, tile32_t, OutIdxT, OutValT, Element> red_obj(
               red_val, prev_red_val, user_params.cg_reduce_op, tile32, shared_elem_arr[iter_row]);
           }
