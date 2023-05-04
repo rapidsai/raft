@@ -78,8 +78,7 @@ template <typename RowType, typename ColType, typename NZType>
 using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, false>;
 
 template <typename T>
-struct is_host_coo_matrix : std::false_type {
-};
+struct is_host_coo_matrix : std::false_type {};
 
 template <typename ElementType,
           typename RowType,
@@ -90,8 +89,7 @@ template <typename ElementType,
           SparsityType sparsity_type>
 struct is_host_coo_matrix<
   host_coo_matrix<ElementType, RowType, ColType, NZType, ContainerPolicy, sparsity_type>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 template <typename T>
 constexpr bool is_host_coo_matrix_v = is_host_coo_matrix<T>::value;

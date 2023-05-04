@@ -115,7 +115,7 @@ void cov(raft::device_resources const& handle,
 
 /** @} */  // end group stats_cov
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

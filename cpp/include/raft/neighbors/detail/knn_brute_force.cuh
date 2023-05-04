@@ -36,6 +36,7 @@
 #include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
+#include <raft/spatial/knn/detail/processing.cuh>
 #include <set>
 #include <thrust/iterator/transform_iterator.h>
 
@@ -159,7 +160,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
       // calculate the top-k elements for the current tile, by calculating the
       // full pairwise distance for the tile - and then selecting the top-k from that
       // note: we're using a int32 IndexType here on purpose in order to
-      // use the pairwise_distance specializations. Since the tile size will ensure
+      // use the pairwise_distance instantiations. Since the tile size will ensure
       // that the total memory is < 1GB per tile, this will not cause any issues
       distance::pairwise_distance<ElementType, int>(handle,
                                                     search + i * d,

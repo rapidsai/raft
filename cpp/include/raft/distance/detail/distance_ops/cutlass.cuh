@@ -30,13 +30,11 @@ namespace raft::distance::detail::ops {
 // This pattern is described in:
 // https://en.cppreference.com/w/cpp/types/void_t
 template <typename, typename = void>
-struct has_cutlass_op : std::false_type {
-};
+struct has_cutlass_op : std::false_type {};
 
 // Specialization recognizes types that do support CUTLASS
 template <typename T>
 struct has_cutlass_op<T, std::void_t<decltype(std::declval<T>().get_cutlass_op())>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 }  // namespace raft::distance::detail::ops

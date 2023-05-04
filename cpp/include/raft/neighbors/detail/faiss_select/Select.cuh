@@ -25,8 +25,7 @@ template <int NumWarps,
           int NumWarpQ,
           bool Dir,
           typename Comp>
-struct FinalBlockMerge {
-};
+struct FinalBlockMerge {};
 
 template <int NumThreads, typename K, typename V, int NumWarpQ, bool Dir, typename Comp>
 struct FinalBlockMerge<1, NumThreads, K, V, NumWarpQ, Dir, Comp> {

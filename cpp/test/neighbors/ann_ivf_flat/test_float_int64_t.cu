@@ -18,10 +18,6 @@
 
 #include "../ann_ivf_flat.cuh"
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 namespace raft::neighbors::ivf_flat {
 
 typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;

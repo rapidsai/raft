@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::common::nvtx::detail {
-
 #ifdef NVTX_ENABLED
 
 #include <cstdint>
@@ -29,6 +27,8 @@ namespace raft::common::nvtx::detail {
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+
+namespace raft::common::nvtx::detail {
 
 /**
  * @brief An internal struct to store associated state with the color
@@ -191,7 +191,11 @@ inline void pop_range()
   nvtxDomainRangePop(domain_store<Domain>::value());
 }
 
-#else  // NVTX_ENABLED
+}  // namespace raft::common::nvtx::detail
+
+#else   // NVTX_ENABLED
+
+namespace raft::common::nvtx::detail {
 
 template <typename Domain, typename... Args>
 inline void push_range(const char* format, Args... args)
@@ -203,6 +207,6 @@ inline void pop_range()
 {
 }
 
-#endif  // NVTX_ENABLED
-
 }  // namespace raft::common::nvtx::detail
+
+#endif  // NVTX_ENABLED
