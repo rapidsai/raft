@@ -103,16 +103,18 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
 }
 
 /**
- * @brief 1-D warp-level weighted random reduction which returns the rank.
- * used conditional probability to return the weighted random rank of the result.
+ * @brief warp-level weighted selection of an index.
+ * It selects an index with the given discrete probability
+ * distribution(represented by weights of each index)
  * @param rng random number generator, must have next_u32() function
  * @param weight weight of the rank/index.
  * @param idx index to be used as rank
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
-DI T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
+DI T warpWeightedSelect(rng_t& rng, T& weight, i_t& idx)
 {
+  static_assert(std::is_integral<T>::value, "The type T must be an integral type.");
 #pragma unroll
   for (i_t offset = raft::WarpSize / 2; offset > 0; offset /= 2) {
     T tmp_weight = shfl(weight, laneId() + offset);
@@ -127,8 +129,9 @@ DI T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
 }
 
 /**
- * @brief 1-D block-level weighted random reduction which returns the rank.
- * used conditional probability to return the weighted random rank of the result.
+ * @brief 1-D block-level weighted selection of an index.
+ * It selects an index with the given discrete probability
+ * distribution(represented by weights of each index)
  * @param rng random number generator, must have next_u32() function
  * @param shbuf shared memory region needed for storing intermediate results. It
  *             must alteast be of size: `(sizeof(T) + sizeof(i_t)) * WarpSize`
@@ -137,14 +140,13 @@ DI T warpRandomReduce(rng_t& rng, T& weight, i_t& idx)
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename rng_t, typename i_t = int>
-DI i_t
-blockRandomReduce(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
+DI i_t blockWeightedSelect(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
 {
   T* values    = shbuf;
   i_t* indices = (i_t*)&shbuf[WarpSize];
   i_t wid      = threadIdx.x / WarpSize;
   i_t nWarps   = (blockDim.x + WarpSize - 1) / WarpSize;
-  warpRandomReduce(rng, weight, idx);  // Each warp performs partial reduction
+  warpWeightedSelect(rng, weight, idx);  // Each warp performs partial reduction
   i_t lane = laneId();
   if (lane == 0) {
     values[wid]  = weight;  // Write reduced value to shared memory
@@ -175,9 +177,7 @@ blockRandomReduce(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadIdx.x)
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename ReduceLambda, typename i_t = int>
-DI void warpRankedReduce(T& val,
-                                            i_t& idx,
-                                            ReduceLambda reduce_op = raft::min_op{})
+DI void warpRankedReduce(T& val, i_t& idx, ReduceLambda reduce_op = raft::min_op{})
 {
 #pragma unroll
   for (i_t offset = WarpSize / 2; offset > 0; offset /= 2) {
@@ -197,14 +197,14 @@ DI void warpRankedReduce(T& val,
  * @param shbuf shared memory region needed for storing intermediate results. It
  *             must alteast be of size: `(sizeof(T) + sizeof(i_t)) * WarpSize`
  * @param idx index to be used as rank
- * @param reduce_op a binary reduction operation.
+ * @param reduce_op binary min or max operation.
  * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename ReduceLambda, typename i_t = int>
 DI std::pair<T, i_t> blockRankedReduce(T val,
-                                                          T* shbuf,
-                                                          i_t idx                = threadIdx.x,
-                                                          ReduceLambda reduce_op = raft::min_op{})
+                                       T* shbuf,
+                                       i_t idx                = threadIdx.x,
+                                       ReduceLambda reduce_op = raft::min_op{})
 {
   T* values    = shbuf;
   i_t* indices = (i_t*)&shbuf[WarpSize];
