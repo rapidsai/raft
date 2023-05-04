@@ -45,7 +45,7 @@ dependencies:
 - pytest-cov
 - recommonmark
 - rmm==23.6.*
-- scikit-build>=0.13.1
+- scikit-build>=0.13.1,<0.17.2
 - scikit-learn
 - scipy
 - sphinx-copybutton
