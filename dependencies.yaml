@@ -291,6 +291,13 @@ dependencies:
       - output_types: conda
         packages:
           - cupy>=12.0.0
+    specific:
       - output_types: pyproject
-        packages:
-          - cupy-cuda11x>=12.0.0
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cupy-cuda12x>=12.0.0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - cupy-cuda11x>=12.0.0
