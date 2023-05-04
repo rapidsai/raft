@@ -54,7 +54,7 @@ inline std::string format(const char* fmt, va_list& vl)
   return std::string(buf.data());
 }
 
-inline std::string format(const char* fmt, ...)
+RAFT_INLINE_CONDITIONAL std::string format(const char* fmt, ...)
 {
   va_list vl;
   va_start(vl, fmt);

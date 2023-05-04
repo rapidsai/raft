@@ -15,7 +15,7 @@ dependencies:
 - cuda-profiler-api=11.8.86
 - cuda-python >=11.7.1,<12.0
 - cudatoolkit=11.8
-- cupy
+- cupy>=12.0.0
 - cxx-compiler
 - cython>=0.29,<0.30
 - dask-core==2023.3.2
