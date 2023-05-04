@@ -1324,10 +1324,7 @@ void extend(raft::device_resources const& handle,
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource"); }
 
   rmm::mr::managed_memory_resource managed_memory_upstream;
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
@@ -1536,10 +1533,7 @@ auto build(raft::device_resources const& handle,
 
     rmm::mr::device_memory_resource* device_memory = nullptr;
     auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-    if (pool_guard) {
-      RAFT_LOG_DEBUG("ivf_pq::build: using pool memory resource with initial size %zu bytes",
-                     pool_guard->pool_size());
-    }
+    if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::build: using pool memory resource"); }
 
     rmm::mr::managed_memory_resource managed_memory_upstream;
     rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(

@@ -130,10 +130,7 @@ void build_knn_graph(raft::device_resources const& res,
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq using pool memory resource"); }
 
   raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(dataset.data_handle(),
                                                                             dataset.extent(0),
