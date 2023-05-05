@@ -18,7 +18,6 @@
 #include "./knn_utils.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
