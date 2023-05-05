@@ -34,7 +34,8 @@
 #include <raft/distance/detail/distance_ops/cutlass.cuh>           // ops::has_cutlass_op
 #include <raft/distance/detail/pairwise_matrix/dispatch_sm60.cuh>  // dispatch_sm60
 #include <raft/distance/detail/pairwise_matrix/params.cuh>         // pairwise_matrix_params
-#include <raft/util/arch.cuh>                                      // raft::util::arch::SM_*
+#include <raft/distance/distance_types.hpp>  // raft::distance::Compute_options
+#include <raft/util/arch.cuh>                // raft::util::arch::SM_*
 
 // NOTE: to minimize compile times, we do not include dispatch_sm80.cuh.
 // Including dispatch_sm80.cuh can slow down compile times (due to CUTLASS).
@@ -56,6 +57,7 @@ template <typename OpT,
           typename FinOpT,
           typename SM_compat_t>
 void pairwise_matrix_sm80_dispatch(OpT,
+                                   Compute_options,
                                    pairwise_matrix_params<IdxT, DataT, OutT, FinOpT>,
                                    SM_compat_t,
                                    cudaStream_t);
@@ -67,6 +69,7 @@ template <typename OpT,
           typename FinOpT,
           typename IdxT = int>
 void pairwise_matrix_dispatch(OpT distance_op,
+                              // Compute_options compute_options, TODO.
                               IdxT m,
                               IdxT n,
                               IdxT k,
@@ -118,7 +121,8 @@ void pairwise_matrix_dispatch(OpT distance_op,
 
     if (cutlass_range.contains(runtime_arch)) {
       // If device is SM_80 or later, use CUTLASS-based kernel.
-      pairwise_matrix_sm80_dispatch(distance_op, params, cutlass_range, stream);
+      pairwise_matrix_sm80_dispatch(
+        distance_op, Compute_options::Fast_Similar_Precision, params, cutlass_range, stream);
     } else {
       // Reuse kernel wrapper that we obtained above. This avoids performing the
       // dispatch twice.
