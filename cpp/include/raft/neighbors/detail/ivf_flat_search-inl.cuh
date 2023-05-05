@@ -216,7 +216,7 @@ inline void search(raft::device_resources const& handle,
   auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
   if (pool_guard) {
     RAFT_LOG_DEBUG("ivf_flat::search: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
+                   n_queries * n_probes * k * 16ull);
   }
 
   return search_impl<T, float, IdxT>(handle,
