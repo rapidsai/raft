@@ -106,6 +106,7 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
  * @brief warp-level weighted selection of an index.
  * It selects an index with the given discrete probability
  * distribution(represented by weights of each index)
+ * @todo benchmark whether a scan and then selecting within the ranges is more efficient.
  * @param rng random number generator, must have next_u32() function
  * @param weight weight of the rank/index.
  * @param idx index to be used as rank
@@ -134,7 +135,7 @@ DI T warpWeightedSelect(rng_t& rng, T& weight, i_t& idx)
  * distribution(represented by weights of each index)
  *
  * Let w_i be the weight stored on thread i.  We calculate the cumulative distribution function
- * F_i = \sum_{k=0..i} weight_i.
+ * F_i = sum_{k=0..i} weight_i.
  * Sequentially, we could select one of the elements with with the desired probability using the
  * following method. We can consider that each element has a subinterval assigned: [F_{i-1}, F_i).
  * We generate a uniform random number in the [0, F_i) range, and check which subinterval it falls.
