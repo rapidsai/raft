@@ -434,8 +434,9 @@ template <typename DataT,
           typename OutT,
           typename FinOpT,
           typename IdxT = int>
-void distance_impl_l2_expanded(  // NOTE: different name
-  bool perform_sqrt,             // dispatch on sqrt
+void distance_impl_l2_with_options(  // NOTE: different name
+  raft::resources const& handle,
+  L2_options dist_options,
   const DataT* x,
   const DataT* y,
   OutT* out,
@@ -445,34 +446,57 @@ void distance_impl_l2_expanded(  // NOTE: different name
   AccT* workspace,
   size_t worksize,
   FinOpT fin_op,
-  cudaStream_t stream,
   bool is_row_major)
 {
+  cudaStream_t stream                         = raft::resource::get_cuda_stream(handle);
+  bool perform_sqrt                           = !dist_options.squared;
+  constexpr bool fin_op_is_cutlass_compatible = std::is_same_v<FinOpT, raft::identity_op>;
+
   // raft distance support inputs as float/double and output as uint8_t/float/double.
   static_assert(!((sizeof(OutT) > 1) && (sizeof(AccT) != sizeof(OutT))),
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
-         "workspace size error");
-  ASSERT(workspace != nullptr, "workspace is null");
+  bool expanded = dist_options.compute_options != Compute_options::Precise;
 
-  DataT* x_norm = workspace;
-  DataT* y_norm = workspace;
-  if (x != y) {
-    y_norm += m;
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
-    raft::linalg::rowNorm(
-      y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+  if (expanded && fin_op_is_cutlass_compatible) {
+    ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
+           "workspace size error");
+    ASSERT(workspace != nullptr, "workspace is null");
+
+    DataT* x_norm = workspace;
+    DataT* y_norm = workspace;
+    if (x != y) {
+      y_norm += m;
+      raft::linalg::rowNorm(
+        x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+      raft::linalg::rowNorm(
+        y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+    } else {
+      raft::linalg::rowNorm(
+        x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
+    }
+
+    ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};
+    // Use if constexpr to prevent instantiation of CUTLASS templates with final
+    // operations like rbf_fin_op, which are somehow not compatible with
+    // CUTLASS (they lead to 5 page errors).
+    if constexpr (fin_op_is_cutlass_compatible) {
+      pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
+        distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+    } else {
+      // Unreachable (see outer if condition).
+    }
   } else {
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
-  }
+    ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
 
-  ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};
-  pairwise_matrix_dispatch<decltype(distance_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    distance_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+    // The unexpanded L2 does not require the norms of a and b to be calculated.
+    const DataT* x_norm = nullptr;
+    const DataT* y_norm = nullptr;
+
+    pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
+      l2_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+  }
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -490,10 +514,19 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt   = false;
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  distance_impl_l2_expanded(
-    perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
+  bool squared = true;
+  distance_impl_l2_with_options(handle,
+                                L2_options{squared, Compute_options::Fast_Similar_Precision},
+                                x,
+                                y,
+                                out,
+                                m,
+                                n,
+                                k,
+                                workspace,
+                                worksize,
+                                fin_op,
+                                is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -511,10 +544,19 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt   = true;
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  distance_impl_l2_expanded(
-    perform_sqrt, x, y, out, m, n, k, workspace, worksize, fin_op, stream, is_row_major);
+  bool squared = false;
+  distance_impl_l2_with_options(handle,
+                                L2_options{squared, Compute_options::Fast_Similar_Precision},
+                                x,
+                                y,
+                                out,
+                                m,
+                                n,
+                                k,
+                                workspace,
+                                worksize,
+                                fin_op,
+                                is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -526,23 +568,25 @@ void distance_impl(raft::resources const& handle,
                    IdxT m,
                    IdxT n,
                    IdxT k,
-                   AccT*,   // workspace unused
-                   size_t,  // worksize unused
+                   AccT* workspace,
+                   size_t worksize,
                    FinOpT fin_op,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt = false;
-  ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
-
-  // The unexpanded L2 does not require the norms of a and b to be calculated.
-  const DataT* x_norm = nullptr;
-  const DataT* y_norm = nullptr;
-
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    l2_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+  bool squared = true;
+  distance_impl_l2_with_options(handle,
+                                L2_options{squared, Compute_options::Precise},
+                                x,
+                                y,
+                                out,
+                                m,
+                                n,
+                                k,
+                                workspace,
+                                worksize,
+                                fin_op,
+                                is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -554,23 +598,25 @@ void distance_impl(raft::resources const& handle,
                    IdxT m,
                    IdxT n,
                    IdxT k,
-                   AccT*,   // workspace unused
-                   size_t,  // worksize unused
+                   AccT* workspace,
+                   size_t worksize,
                    FinOpT fin_op,
                    bool is_row_major,
                    DataT)  // metric_arg unused
 {
-  bool perform_sqrt = true;
-  ops::l2_unexp_distance_op<DataT, AccT, IdxT> l2_op(perform_sqrt);
-
-  // The unexpanded L2 does not require the norms of a and b to be calculated.
-  const DataT* x_norm = nullptr;
-  const DataT* y_norm = nullptr;
-
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
-  pairwise_matrix_dispatch<decltype(l2_op), DataT, AccT, OutT, FinOpT, IdxT>(
-    l2_op, m, n, k, x, y, x_norm, y_norm, out, fin_op, stream, is_row_major);
+  bool squared = false;
+  distance_impl_l2_with_options(handle,
+                                L2_options{squared, Compute_options::Fast_Similar_Precision},
+                                x,
+                                y,
+                                out,
+                                m,
+                                n,
+                                k,
+                                workspace,
+                                worksize,
+                                fin_op,
+                                is_row_major);
 }
 
 template <typename DataT, typename AccT, typename OutT, typename FinOpT, typename IdxT = int>
@@ -582,8 +628,8 @@ void distance_impl(raft::resources const& handle,
                    IdxT m,
                    IdxT n,
                    IdxT k,
-                   AccT*,   // workspace unused
-                   size_t,  // worksize unused
+                   AccT* workspace,
+                   size_t worksize,
                    FinOpT fin_op,
                    bool is_row_major,
                    DataT)  // metric_arg unused
