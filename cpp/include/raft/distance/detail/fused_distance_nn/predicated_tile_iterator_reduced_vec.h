@@ -420,7 +420,6 @@ class PredicatedTileIteratorReducedVec {
         __syncthreads();
         if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
           // release mutex lock.
-          // atomicCAS(user_params.mutexes_ + mutex_id, 1, 0);
           atomicExch(user_params.mutexes_ + mutex_id, 0);
         }
       } else {
