@@ -372,5 +372,13 @@ if(BUILD_TESTS)
   ConfigureTest(
     NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
     test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
+    test/util/get_cache_idx_1.cu
+    test/util/get_cache_idx_2.cu
   )
+  set_target_properties(
+      UTILS_TEST
+      PROPERTIES
+      CUDA_SEPARABLE_COMPILATION ON
+  )
+
 endif()
