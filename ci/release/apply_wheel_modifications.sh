@@ -20,6 +20,6 @@ sed -i "s/pylibraft/pylibraft${CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
 sed -i "s/ucx-py/ucx-py${CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
 
 if [[ $CUDA_SUFFIX == "-cu12" ]]; then
-    sed -i "/cuda-python/ s/>=11.7.1,<12.0/>=12.0,<13.0/g" python/pylibraft/pyproject.toml
-    sed -i "/cupy-cuda11x/ s/cupy-cuda11x/cupy-cuda12x/g" python/pylibraft/pyproject.toml
+    sed -i "s/cuda-python[<=>\.,0-9]*/cuda-python>=12.0,<13.0/g" python/pylibraft/pyproject.toml
+    sed -i "s/cupy-cuda11x/cupy-cuda12x/g" python/pylibraft/pyproject.toml
 fi
