@@ -246,7 +246,7 @@ constexpr bool operator<(const padded_float& x, const padded_float& y)
 }
 constexpr bool operator>(const padded_float& x, const padded_float& y)
 {
-  return x.value_ < y.value_;
+  return x.value_ > y.value_;
 }
 inline auto operator<<(std::ostream& os, const padded_float& x) -> std::ostream&
 {
