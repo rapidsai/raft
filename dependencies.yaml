@@ -132,7 +132,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cuda_python cuda-python >=11.7.1,<12.0
+          - &cuda_python cuda-python>=11.7.1,<12.0
           - &rmm rmm==23.6.*
   checks:
     common:
