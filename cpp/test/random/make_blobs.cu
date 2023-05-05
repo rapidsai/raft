@@ -18,6 +18,8 @@
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
