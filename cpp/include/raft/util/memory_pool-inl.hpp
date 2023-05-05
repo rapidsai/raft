@@ -36,7 +36,7 @@ namespace raft {
  *   void my_func(..., size_t n, rmm::mr::device_memory_resource* mr = nullptr) {
  *     auto pool_guard = raft::get_pool_memory_resource(mr, 2 * n * sizeof(float));
  *     if (pool_guard){
- *       RAFT_LOG_INFO("Created a pool %zu bytes", pool_guard->pool_size());
+ *       RAFT_LOG_INFO("Created a pool");
  *     } else {
  *       RAFT_LOG_INFO("Using the current default or explicitly passed device memory resource");
  *     }
