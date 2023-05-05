@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "raft/core/logger-macros.hpp"
+#include <cstdint>
 #include <cub/cub.cuh>
 
 #include <raft/core/error.hpp>
@@ -185,10 +187,13 @@ void batched_gather(raft::device_resources const& handle,
   auto exec_policy = handle.get_thrust_policy();
 
   value_idx n_batches = raft::ceildiv((value_idx)n, (value_idx)batch_size);
-
+  RAFT_LOG_INFO("n_batches %d", n_batches);
+  size_t free, total;
+  cudaMemGetInfo(&free, &total);
+  RAFT_LOG_INFO("Peak memory usage before batched gather: Free memory (MB) %zu; Used memory (MB) %zu", free / (1024 * 1024), (total - free) / (1024 * 1024));
   for (value_idx bid = 0; bid < n_batches; bid++) {
     value_idx batch_offset   = bid * batch_size;
-    value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - bid * batch_offset);
+    value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - batch_offset);
     auto scratch_space = raft::make_device_vector<value_t, value_idx>(handle, m * cols_per_batch);
 
     auto scatter_op =
@@ -211,7 +216,11 @@ void batched_gather(raft::device_resources const& handle,
     };
     auto counting = thrust::make_counting_iterator<value_idx>(0);
     thrust::for_each(exec_policy, counting, counting + m * batch_size, copy_op);
-  }
+    if (bid == n_batches - 1) {
+      cudaMemGetInfo(&free, &total);
+      RAFT_LOG_INFO("Peak memory usage during batched gather: Free memory (MB) %zu; Used memory (MB) %zu", free / (1024 * 1024), (total - free) / (1024 * 1024));
+    }
+    }
 }
 
 template <typename value_idx, typename value_t>
@@ -229,7 +238,7 @@ void batched_scatter(raft::device_resources const& handle,
 
   for (value_idx bid = 0; bid < n_batches; bid++) {
     value_idx batch_offset   = bid * batch_size;
-    value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - bid * batch_offset);
+    value_idx cols_per_batch = min((value_idx)batch_size, (value_idx)n - batch_offset);
     auto scratch_space = raft::make_device_vector<value_t, value_idx>(handle, m * cols_per_batch);
 
     auto scatter_op =
@@ -307,6 +316,7 @@ void perform_1nn(raft::device_resources const& handle,
   ParamT params{reduction_op, reduction_op, true, true};
 
   auto X_view = raft::make_device_matrix_view<const value_t, value_idx>(X, n_rows, n_cols);
+  uint32_t masked_nn_kernel_start = curTimeMillis();
   raft::distance::masked_l2_nn<value_t, OutT, value_idx, red_op, red_op>(
     handle,
     params,
@@ -317,7 +327,8 @@ void perform_1nn(raft::device_resources const& handle,
     adj.view(),
     raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
     kvp_view);
-
+  uint32_t masked_nn_kernel_end = curTimeMillis();
+  RAFT_LOG_INFO("Time taken by masked_nn function (ms) %zu", masked_nn_kernel_end - masked_nn_kernel_start);
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
 }
@@ -435,6 +446,7 @@ void connect_components(raft::device_resources const& handle,
                         size_t col_batch_size,
                         red_op reduction_op)
 {
+
   RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n_cols, "col_batch_size should be > 0 and <= n_cols");
   auto stream = handle.get_stream();
 
@@ -460,7 +472,7 @@ void connect_components(raft::device_resources const& handle,
 
   uint32_t sort_end = curTimeMillis();
 
-  RAFT_LOG_INFO("Time required to sort %zu", sort_end - sort_start);
+  RAFT_LOG_INFO("Time required to sort (ms) %zu", sort_end - sort_start);
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -519,7 +531,7 @@ void connect_components(raft::device_resources const& handle,
                           stream);
   uint32_t op_end = curTimeMillis();
 
-  RAFT_LOG_INFO("Time required for all operations between sort and unsort %zu", op_end - op_start);
+  RAFT_LOG_INFO("Time required for all operations between sort and unsort (ms) %zu", op_end - op_start);
 
   uint32_t unsort_start = curTimeMillis();
 
@@ -528,7 +540,7 @@ void connect_components(raft::device_resources const& handle,
 
   uint32_t unsort_end = curTimeMillis();
 
-  RAFT_LOG_INFO("Time required to unsort %zu", unsort_end - unsort_start);
+  RAFT_LOG_INFO("Time required to unsort (ms) %zu", unsort_end - unsort_start);
 
   /**
    * Symmetrize resulting edge list
