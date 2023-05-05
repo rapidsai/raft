@@ -85,7 +85,7 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-tests-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@unevaluated-string
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@cuda-120-pip
     with:
       build_type: pull-request
       package-name: raft_dask
@@ -95,7 +95,7 @@ jobs:
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@unevaluated-string
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120-pip
     with:
       build_type: pull-request
       package-name: raft_dask
