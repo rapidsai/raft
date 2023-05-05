@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

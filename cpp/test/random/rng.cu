@@ -20,9 +20,11 @@
 #include "../test_utils.cuh"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
