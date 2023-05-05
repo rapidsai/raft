@@ -213,7 +213,7 @@ struct padded_float {
 
   padded_float() = default;
   constexpr padded_float(const float& x) : value_(x), padding1(0), padding2(0) {}
-  constexpr padded_float(const padded_float&) = default;
+  constexpr padded_float(const padded_float&)            = default;
   constexpr padded_float& operator=(const padded_float&) = default;
   constexpr float abs() const { return std::abs(value_); }
 };
