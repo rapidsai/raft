@@ -15,6 +15,9 @@ Distance Types
 
 namespace *raft::distance*
 
+.. doxygenenum:: raft::distance::Compute_options
+.. doxygenenum:: raft::distance::L2_options
+
 .. doxygenenum:: raft::distance::DistanceType
    :project: RAFT
 

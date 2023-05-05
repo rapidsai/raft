@@ -19,6 +19,60 @@
 namespace raft {
 namespace distance {
 
+/**
+ * @brief Describes how precise and fast distance should be computed.
+ */
+enum class Compute_options {
+  /** The choice of speed and accuracy is left to the implementation.
+   *
+   *  This will use Fast_Similar_Precision by default. If the environment
+   *  variable `NVIDIA_TF32_OVERRIDE` is set, this will default to
+   *  Fast_Reduced_Precision.
+   *
+   * */
+  Unspecified,
+  /** Use the most numerically accurate option.
+   * */
+  Precise,
+  /** Use fast computation with similar precision.
+   *
+   *  - If possible, expand the norm computation for two points into the sum of
+   *  norms minus an inner product:
+   *
+   *  || x - y ||^2 = || x ||^2 + || y ||^2 - 2 <x , y>
+   *
+   *  The inner product becomes a matrix multiplication for many points.
+   *
+   *  - If possible, execute the matrix multiplication using 3xtfloat, as
+   *  described in [0].
+   *
+   *  [0] Ootomo H, Yokota R. Recovering single precision accuracy from Tensor Cores
+   *  while surpassing the FP32 theoretical peak performance. The International
+   *  Journal of High Performance Computing Applications. 2022;36(4):475-491.
+   *  doi:10.1177/10943420221090256
+   *
+   * */
+  Fast_Similar_Precision,
+  /** Use reduced precision to speed up computation.
+   *
+   *  1. Use inner product expansion, as described above.
+   *  2. Use tensor float precision instead of fp32 precision.
+   *
+   * */
+  Fast_Reduced_Precision
+};
+
+/**
+ * @brief Describes how the L2 norm should be computed.
+ *
+ */
+struct L2_options {
+  /** If true, compute squared L2 norm. */
+  bool squared;
+  /** Specify speed and precision of computation. */
+  Compute_options compute_options;
+};
+
 /** enum to tell how to compute distance */
 enum DistanceType : unsigned short {
 
