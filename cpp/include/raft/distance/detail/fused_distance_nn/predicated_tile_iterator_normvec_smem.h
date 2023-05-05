@@ -81,9 +81,6 @@ class PredicatedTileIteratorNormVecSmem {
   static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
   static int const kThreads           = ThreadMap::kThreads;
   static int const kIterations        = ThreadMap::Count::kTile;
-  // static int const total_rows = ThreadMap::kWarpCount * ThreadMap::Iterations::kRow *
-  //                               ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
-  //                               kIterations;
 
   static int const total_rows = ThreadMap::kWarpCount * ThreadMap::Iterations::kRow *
                                 ThreadMap::Iterations::kGroup * ThreadMap::Iterations::kCluster *
@@ -190,7 +187,7 @@ class PredicatedTileIteratorNormVecSmem {
 
   /// Byte-level pointer
   uint8_t* byte_pointer_;
-  // uint8_t* first_tile_byte_pointer_;
+
   /// Array of boolean values to contain steady-state predicates
   Mask mask_;
 
@@ -241,7 +238,6 @@ class PredicatedTileIteratorNormVecSmem {
                                     Element* pointer,
                                     TensorCoord extent,
                                     int thread_idx,
-                                    // const bool init_shmem,
                                     TensorCoord& threadblock_offset,
                                     int const* indices = nullptr)
     : params_(params), indices_(indices), shared_storage_(shared_storage)

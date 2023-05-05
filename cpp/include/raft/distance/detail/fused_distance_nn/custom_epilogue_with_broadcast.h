@@ -55,7 +55,8 @@ This file contains a customized version of EpilogueWithBroadcast from CUTLASS 2.
 (https://github.com/NVIDIA/cutlass/blob/v2.9.1/include/cutlass/epilogue/threadblock/epilogue_with_broadcast.h)
 
 Changes:
-- customized the compute_source_needed_() and apply_output_operator_() to suit the needs of per row reduction
+- customized the compute_source_needed_() and apply_output_operator_() to suit the needs of per row
+reduction
 */
 
 #pragma once

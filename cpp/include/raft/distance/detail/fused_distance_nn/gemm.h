@@ -47,8 +47,6 @@ template <
   typename ElementC_,
   /// Element type for internal accumulation
   typename ElementAccumulator,
-  /// Element type for final output
-  // typename ElementOutT,
   /// Epilogue output operator      - must satisfy concept of 'EpilogueWithBroadcastOp'
   typename EpilogueOutputOp,
   /// Number of stages used in the pipelined mainloop
