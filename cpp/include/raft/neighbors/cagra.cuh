@@ -52,8 +52,8 @@ namespace raft::neighbors::experimental::cagra {
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   // use default index parameters
- *   ivf_pq::index_params build_params;
- *   ivf_pq::search_params search_params
+ *   cagra::index_params build_params;
+ *   cagra::search_params search_params
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
@@ -86,6 +86,25 @@ void build_knn_graph(raft::device_resources const& res,
 
 /**
  * @brief Sort a KNN graph index.
+ * Preprocessing step for `cagra::prune`: If a KNN graph is not built using
+ * `cagra::build_knn_graph`, then it is necessary to call this function before calling
+ * `cagra::prune`. If the graph is built by `cagra::build_knn_graph`, it is already sorted and you
+ * do not need to call this function.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   cagra::index_params build_params;
+ *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
+ *   // build KNN graph not using `cagra::build_knn_graph`
+ *   // build(knn_graph, dataset, ...);
+ *   // sort graph index
+ *   sort_knn_graph(res, dataset.view(), knn_graph.view());
+ *   // prune graph
+ *   cagra::prune(res, dataset, knn_graph.view(), pruned_graph.view());
+ *   // Construct an index from dataset and pruned knn_graph
+ *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset, pruned_graph.view());
+ * @endcode
  *
  * @tparam DataT type of the data in the source dataset
  * @tparam IdxT type of the indices in the source dataset
@@ -156,11 +175,11 @@ void prune(raft::device_resources const& res,
  *   // create and fill the index from a [N, D] dataset
  *   auto index = cagra::build(res, index_params, dataset);
  *   // use default search parameters
- *   ivf_pq::search_params search_params;
+ *   cagra::search_params search_params;
  *   // search K nearest neighbours
  *   auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
  *   auto distances = raft::make_device_matrix<float>(res, n_queries, k);
- *   ivf_pq::search(res, search_params, index, queries, neighbors, distances);
+ *   cagra::search(res, search_params, index, queries, neighbors, distances);
  * @endcode
  *
  * @tparam T data element type
