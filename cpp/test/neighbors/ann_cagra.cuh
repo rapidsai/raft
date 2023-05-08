@@ -184,7 +184,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
-      handle_.sync_stream(stream_);
+      handle_.sync_stream();
     }
 
     {
@@ -230,7 +230,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
-        handle_.sync_stream(stream_);
+        handle_.sync_stream();
       }
       // for (int i = 0; i < ps.n_queries; i++) {
       //   //  std::cout << "query " << i << std::end;
@@ -277,12 +277,12 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
-    handle_.sync_stream(stream_);
+    handle_.sync_stream();
   }
 
   void TearDown() override
   {
-    handle_.sync_stream(stream_);
+    handle_.sync_stream();
     database.resize(0, stream_);
     search_queries.resize(0, stream_);
   }
@@ -327,14 +327,12 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
       };
 
-      handle_.sync_stream(stream_);
       handle_.sync_stream();
       ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
 
       RandomSuffle(knn_graph.view());
 
       cagra::sort_knn_graph(handle_, database_view, knn_graph.view());
-      handle_.sync_stream(stream_);
       handle_.sync_stream();
 
       ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
@@ -352,12 +350,12 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
     } else {
       r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
     }
-    handle_.sync_stream(stream_);
+    handle_.sync_stream();
   }
 
   void TearDown() override
   {
-    handle_.sync_stream(stream_);
+    handle_.sync_stream();
     database.resize(0, stream_);
   }
 
