@@ -15,30 +15,45 @@
  */
 #pragma once
 #include "owning_buffer_base.hpp"
+#include <raft/core/device_container_policy.hpp>
+#include "raft/core/mdspan_types.hpp"
+#include <raft/core/device_mdarray.hpp>
 #include <cuda_runtime_api.h>
 #include <raft/core/device_type.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <rmm/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace detail {
-template <typename T>
-struct owning_buffer<device_type::gpu, T> {
-  using value_type = std::remove_const_t<T>;
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy = layout_c_contiguous,
+          template <typename T>
+          typename ContainerPolicy = device_uvector_policy>
+struct owning_buffer<ElementType, device_type::gpu, Extents, LayoutPolicy, ContainerPolicy> {
+  using element_type     = std::remove_cv_t<ElementType>;
+  using index_type       = typename Extents::index_type;
+  using container_policy = ContainerPolicy<element_type>;
+  using owning_device_buffer = device_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
+  
   owning_buffer() : data_{} {}
 
-  owning_buffer(raft::resources const& handle,
-                std::size_t size) noexcept(false)
-    : data_{[&size, handle]() {
-        return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
+  owning_buffer(raft::resources const& handle, Extents extents) noexcept(false)
+    : extents_{extents}, data_{[&extents, handle]() {
+        // return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
+        typename owning_device_buffer::mapping_type layout{extents};
+        typename owning_device_buffer::container_policy_type policy{};
+      return owning_device_buffer{handle, layout, policy};
       }()}
   {
   }
 
-  auto* get() const { return reinterpret_cast<T*>(data_.data()); }
+  auto* get() const { return reinterpret_cast<ElementType*>(data_.data_handle()); }
 
  private:
-  mutable rmm::device_buffer data_;
+  Extents extents_;
+  owning_device_buffer data_;
 };
 }  // namespace detail
 }  // namespace raft

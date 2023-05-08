@@ -15,26 +15,40 @@
  */
 #pragma once
 #include "owning_buffer_base.hpp"
+#include <raft/core/host_mdarray.hpp>
 #include <memory>
 #include <raft/core/device_type.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <type_traits>
 
 namespace raft {
 namespace detail {
-template <typename T>
-struct owning_buffer<device_type::cpu, T> {
-  // TODO(wphicks): Assess need for buffers of const T
-  using value_type = std::remove_const_t<T>;
+template <typename ElementType,
+          typename Extents,
+          typename LayoutPolicy = layout_c_contiguous,
+          template <typename T>
+          typename ContainerPolicy = host_vector_policy>
+struct owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, ContainerPolicy> {
+  using element_type     = std::remove_cv_t<ElementType>;
+  using index_type       = typename Extents::index_type;
+  using container_policy = ContainerPolicy<element_type>;
+  using owning_host_buffer = host_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
+  owning_buffer(raft::resources const& handle, Extents extents) noexcept(false)
+    : extents_{extents}, data_{[&extents, handle]() {
+        // return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
+        typename owning_host_buffer::mapping_type layout{extents};
+        typename owning_host_buffer::container_policy_type policy{};
+      return owning_host_buffer{handle, layout, policy};
+      }()}
+  {
+  }
 
-  owning_buffer() : data_{std::unique_ptr<T[]>{nullptr}} {}
-
-  owning_buffer(std::size_t size) : data_{std::make_unique<T[]>(size)} {}
-
-  auto* get() const { return data_.get(); }
+   auto* get() const { return reinterpret_cast<ElementType*>(data_.data_handle()); }
 
  private:
   // TODO(wphicks): Back this with RMM-allocated host memory
-  std::unique_ptr<T[]> data_;
+  Extents extents_;
+  owning_host_buffer data_;
 };
 }  // namespace detail
 }  // namespace raft

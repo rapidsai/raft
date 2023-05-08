@@ -21,11 +21,15 @@
 namespace raft {
 namespace detail {
 
-template <device_type D, typename T>
+template <typename ElementType,
+          device_type D,
+          typename Extents,
+          typename LayoutPolicy = layout_c_contiguous,
+          template <typename T> typename ContainerPolicy>
 struct owning_buffer {
   owning_buffer() {}
-  owning_buffer(raft::resources const& handle, std::size_t size) {}
-  auto* get() const { return static_cast<T*>(nullptr); }
+  owning_buffer(raft::resources const& handle, Extents extents) {}
+  auto* get() const { return static_cast<ElementType*>(nullptr); }
 };
 
 }  // namespace detail
