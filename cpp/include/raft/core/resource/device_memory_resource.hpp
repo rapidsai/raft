@@ -18,6 +18,7 @@
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace raft::resource {
 class device_memory_resource : public resource {

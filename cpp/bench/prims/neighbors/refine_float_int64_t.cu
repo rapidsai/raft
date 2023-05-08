@@ -17,11 +17,6 @@
 #include "refine.cuh"
 #include <common/benchmark.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations/refine.cuh>
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
 using namespace raft::neighbors;
 
 namespace raft::bench::neighbors {

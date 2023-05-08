@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,40 @@
 #ifndef RAFT_INLINE_FUNCTION
 #define RAFT_INLINE_FUNCTION _RAFT_HOST_DEVICE _RAFT_FORCEINLINE
 #endif
+
+// The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
+// the inline specification when RAFT_COMPILED is defined.
+//
+// When RAFT_COMPILED is not defined, functions may be defined in multiple
+// translation units and we do not want that to lead to linker errors.
+//
+// When RAFT_COMPILED is defined, this serves two purposes:
+//
+// 1. It triggers a multiple definition error message when memory_pool-inl.hpp
+// (for instance) is accidentally included in multiple translation units.
+//
+// 2. We function definitions to be non-inline, because non-inline functions
+// symbols are always exported in the object symbol table. For inline functions,
+// the compiler may elide the external symbol, which results in linker errors.
+#ifdef RAFT_COMPILED
+#define RAFT_INLINE_CONDITIONAL
+#else
+#define RAFT_INLINE_CONDITIONAL inline
+#endif  // RAFT_COMPILED
+
+// The RAFT_WEAK_FUNCTION specificies that:
+//
+// 1. A function may be defined in multiple translation units (like inline)
+//
+// 2. Must still emit an external symbol (unlike inline). This enables declaring
+// a function signature in an `-ext` header and defining it in a source file.
+//
+// From
+// https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#Common-Function-Attributes:
+//
+// "The weak attribute causes a declaration of an external symbol to be emitted
+// as a weak symbol rather than a global."
+#define RAFT_WEAK_FUNCTION __attribute__((weak))
 
 /**
  * Some macro magic to remove optional parentheses of a macro argument.

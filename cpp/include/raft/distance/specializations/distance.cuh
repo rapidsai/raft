@@ -13,22 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include <raft/distance/specializations/detail/canberra.cuh>
-#include <raft/distance/specializations/detail/correlation.cuh>
-#include <raft/distance/specializations/detail/cosine.cuh>
-#include <raft/distance/specializations/detail/hamming_unexpanded.cuh>
-#include <raft/distance/specializations/detail/hellinger_expanded.cuh>
-#include <raft/distance/specializations/detail/inner_product.cuh>
-#include <raft/distance/specializations/detail/jensen_shannon.cuh>
-#include <raft/distance/specializations/detail/kernels.cuh>
-#include <raft/distance/specializations/detail/kl_divergence.cuh>
-#include <raft/distance/specializations/detail/l1.cuh>
-#include <raft/distance/specializations/detail/l2_expanded.cuh>
-#include <raft/distance/specializations/detail/l2_unexpanded.cuh>
-#include <raft/distance/specializations/detail/l_inf.cuh>
-#include <raft/distance/specializations/detail/lp_unexpanded.cuh>
-#include <raft/distance/specializations/detail/russel_rao.cuh>
-#include <raft/distance/specializations/fused_l2_nn_min.cuh>
+#pragma message(                                            \
+    __FILE__                                                \
+    " is deprecated and will be removed."                   \
+    " Including specializations is not necessary any more." \
+    " For more information, see: https://docs.rapids.ai/api/raft/nightly/using_libraft.html")

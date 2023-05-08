@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "../test_utils.cuh"
 #include "gram_base.cuh"
 #include <gtest/gtest.h>

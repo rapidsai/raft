@@ -21,8 +21,10 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_resources.hpp>
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

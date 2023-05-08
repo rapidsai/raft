@@ -25,6 +25,7 @@
 #include <stddef.h>
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -196,8 +197,9 @@ class mdarray
 #endif  // RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief The only constructor that can create storage, this is to make sure CUDA stream is being
-   * used.
+   * @brief The only constructor that can create storage, raft::resources is accepted
+   * so that the device implementation can make sure the relevant CUDA stream is
+   * being used for allocation.
    */
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
