@@ -120,9 +120,9 @@ void cutlassFusedDistanceNN(const DataT* x,
   constexpr int mmaShapeN = fusedDistanceNNKernel::Mma::Shape::kN;
   int columnTiles         = (problem_size.n() - 1 + mmaShapeN) / mmaShapeN;
   int rowTiles            = (problem_size.m() - 1 + mmaShapeM) / mmaShapeM;
-
+  int totalTiles          = columnTiles * rowTiles;
   int thread_blocks =
-    rowTiles < full_wave ? (columnTiles < full_wave ? columnTiles : full_wave) : rowTiles;
+    rowTiles < full_wave ? (totalTiles < full_wave ? totalTiles : full_wave) : rowTiles;
 
   typename fusedDistanceNN::Arguments arguments{
     problem_size,

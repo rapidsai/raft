@@ -307,6 +307,7 @@ const std::vector<Inputs<float>> inputsf = {
   {0.00001, 64, 128, 24, 1234ULL},
   {0.001f, 1805, 134, 25, 1234ULL},
   {0.006f, 8192, 1024, 25, 1234ULL},
+  {0.006f, 8192, 1024, 66, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result)
