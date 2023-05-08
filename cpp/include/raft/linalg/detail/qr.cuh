@@ -20,7 +20,7 @@
 #include "cusolver_wrappers.hpp"
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/detail/matrix.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -132,7 +132,7 @@ void qrGetQR(raft::resources const& handle,
                                     devInfo.data(),
                                     stream));
 
-  raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
+  raft::matrix::detail::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));

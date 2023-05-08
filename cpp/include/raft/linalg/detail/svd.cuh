@@ -24,8 +24,8 @@
 
 #include <raft/common/nvtx.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -285,15 +285,15 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
-  raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
+  raft::matrix::detail::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each
-  math_t normA = raft::matrix::getL2Norm(handle, A_d, m * n, stream);
-  math_t normU = raft::matrix::getL2Norm(handle, U, m * k, stream);
-  math_t normS = raft::matrix::getL2Norm(handle, S_mat.data(), k * k, stream);
-  math_t normV = raft::matrix::getL2Norm(handle, V, n * k, stream);
-  math_t normP = raft::matrix::getL2Norm(handle, P_d.data(), m * n, stream);
+  math_t normA = raft::matrix::detail::getL2Norm(handle, A_d, m * n, stream);
+  math_t normU = raft::matrix::detail::getL2Norm(handle, U, m * k, stream);
+  math_t normS = raft::matrix::detail::getL2Norm(handle, S_mat.data(), k * k, stream);
+  math_t normV = raft::matrix::detail::getL2Norm(handle, V, n * k, stream);
+  math_t normP = raft::matrix::detail::getL2Norm(handle, P_d.data(), m * n, stream);
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
@@ -315,7 +315,7 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                              m,
                              stream));
 
-  math_t norm_A_minus_P = raft::matrix::getL2Norm(handle, A_minus_P.data(), m * n, stream);
+  math_t norm_A_minus_P = raft::matrix::detail::getL2Norm(handle, A_minus_P.data(), m * n, stream);
   math_t percent_error  = 100.0 * norm_A_minus_P / normA;
   return (percent_error / 100.0 < tol);
 }

@@ -30,7 +30,7 @@
 
 #include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
@@ -94,14 +94,14 @@ void sample_landmarks(raft::device_resources const& handle,
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X().data_handle(),
-                                                     index.m,
-                                                     index.n,
-                                                     index.get_R().data_handle(),
-                                                     R_1nn_cols2.data(),
-                                                     index.n_landmarks,
-                                                     handle.get_stream(),
-                                                     true);
+  // index.get_X() returns the wrong indextype (uint32_t where we need value_idx), so need to
+  // create new device_matrix_view here
+  auto x = make_device_matrix_view<const value_t, value_idx>(
+    index.get_X().data_handle(), index.m, index.n);
+  auto r =
+    make_device_matrix_view<value_t, value_idx>(index.get_R().data_handle(), index.m, index.n);
+  raft::matrix::copy_rows<value_t, value_idx>(
+    handle, x, r, make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
 }
 
 /**

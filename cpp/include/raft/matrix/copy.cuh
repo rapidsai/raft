@@ -42,7 +42,7 @@ template <typename m_t, typename idx_t, typename layout>
 void copy_rows(raft::device_resources const& handle,
                raft::device_matrix_view<const m_t, idx_t, layout> in,
                raft::device_matrix_view<m_t, idx_t, layout> out,
-               raft::device_vector_view<idx_t, idx_t> indices)
+               raft::device_vector_view<const idx_t, idx_t> indices)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1),
                "Input and output matrices must have same number of columns");
