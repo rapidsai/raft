@@ -43,7 +43,7 @@ void matrixVectorOp(MatT* out,
       make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
       along_lines,
       op,
-      make_device_vector_view<const VecT, IdxType>(vec, along_lines ? N : D));
+      make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
   } else {
     matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
       handle,
@@ -51,7 +51,7 @@ void matrixVectorOp(MatT* out,
       make_device_matrix_view<MatT, IdxType, col_major>(out, D, N),
       along_lines,
       op,
-      make_device_vector_view<const VecT, IdxType>(vec, along_lines ? D : N));
+      make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? D : N));
   }
 }
 
@@ -77,12 +77,12 @@ void matrixVectorOp(MatT* out,
   if (rowMajor) {
     matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
       handle,
-      make_device_matrix_view<const MatT, IdxType, row_major>(matrix, D, N),
-      make_device_matrix_view<MatT, IdxType, row_major>(out, D, N),
+      make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
+      make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
       along_lines,
       op,
-      make_device_vector_view<const Vec1T, IdxType>(vec1, along_lines ? D : N),
-      make_device_vector_view<const Vec2T, IdxType>(vec2, along_lines ? D : N));
+      make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
+      make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));
   } else {
     matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
       handle,
@@ -90,8 +90,8 @@ void matrixVectorOp(MatT* out,
       make_device_matrix_view<MatT, IdxType, col_major>(out, D, N),
       along_lines,
       op,
-      make_device_vector_view<const Vec1T, IdxType>(vec1, along_lines ? D : N),
-      make_device_vector_view<const Vec2T, IdxType>(vec2, along_lines ? D : N));
+      make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? D : N),
+      make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? D : N));
   }
 }
 
