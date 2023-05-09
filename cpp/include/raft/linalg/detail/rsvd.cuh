@@ -24,6 +24,7 @@
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/reverse.cuh>
+#include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -204,15 +205,13 @@ void rsvdFixedRank(raft::device_resources const& handle,
                           true,
                           true,
                           stream);
-    raft::matrix::sliceMatrix(S_vec_tmp.data(),
-                              1,
-                              l,
-                              S_vec,
-                              0,
-                              0,
-                              1,
-                              k,
-                              stream);  // First k elements of S_vec
+
+    // First k elements of S_vec
+    raft::matrix::slice(
+      handle,
+      make_device_matrix_view<const math_t, int, col_major>(S_vec_tmp.data(), 1, l),
+      make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k),
+      raft::matrix::slice_coordinates(0, 0, 1, k));
 
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -286,16 +285,14 @@ void rsvdFixedRank(raft::device_resources const& handle,
     else
       raft::linalg::eigDC(handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream);
     raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
-    raft::matrix::sliceMatrix(S_vec_tmp.data(),
-                              1,
-                              l,
-                              S_vec,
-                              0,
-                              p,
-                              1,
-                              l,
-                              stream);  // Last k elements of S_vec
-    raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k));
+
+    auto S_vec_view = make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k);
+    raft::matrix::slice(
+      handle,
+      raft::make_device_matrix_view<const math_t, int, col_major>(S_vec_tmp.data(), 1, l),
+      S_vec_view,
+      raft::matrix::slice_coordinates(0, p, 1, l));  // Last k elements of S_vec
+    raft::matrix::col_reverse(handle, S_vec_view);
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
