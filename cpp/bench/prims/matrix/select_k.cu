@@ -42,7 +42,8 @@ using namespace raft::bench;  // NOLINT
 template <typename KeyT, typename IdxT, select::Algo Algo>
 struct selection : public fixture {
   explicit selection(const select::params& p)
-    : params_(p),
+    : fixture(true),
+      params_(p),
       in_dists_(p.batch_size * p.len, stream),
       in_ids_(p.batch_size * p.len, stream),
       out_dists_(p.batch_size * p.k, stream),
@@ -72,7 +73,6 @@ struct selection : public fixture {
   void run_benchmark(::benchmark::State& state) override  // NOLINT
   {
     device_resources handle{stream};
-    using_pool_memory_res res;
     try {
       std::ostringstream label_stream;
       label_stream << params_.batch_size << "#" << params_.len << "#" << params_.k;
