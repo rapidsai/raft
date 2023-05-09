@@ -22,6 +22,7 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
