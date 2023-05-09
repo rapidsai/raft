@@ -222,7 +222,8 @@ struct brute_force_knn {
 template <typename ValT, typename IdxT, typename ImplT>
 struct knn : public fixture {
   explicit knn(const params& p, const TransferStrategy& strategy, const Scope& scope)
-    : params_(p),
+    : fixture(true),
+      params_(p),
       strategy_(strategy),
       scope_(scope),
       dev_mem_res_(strategy == TransferStrategy::MANAGED),
@@ -273,8 +274,6 @@ struct knn : public fixture {
         "When benchmarking without index building (Scope::SEARCH), the data must be already on the "
         "device (TransferStrategy::NO_COPY)");
     }
-
-    using_pool_memory_res default_resource;
 
     try {
       std::ostringstream label_stream;
