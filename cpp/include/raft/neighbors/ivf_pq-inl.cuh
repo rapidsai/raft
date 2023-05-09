@@ -182,8 +182,7 @@ void search(raft::device_resources const& handle,
                         static_cast<std::uint32_t>(queries.extent(0)),
                         k,
                         neighbors.data_handle(),
-                        distances.data_handle(),
-                        handle.get_workspace_resource());
+                        distances.data_handle());
 }
 
 /** @} */  // end group ivf_pq
