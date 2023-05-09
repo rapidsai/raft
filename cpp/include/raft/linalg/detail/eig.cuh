@@ -19,7 +19,7 @@
 #include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
 #include <raft/core/device_resources.hpp>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -52,7 +52,9 @@ void eigDC_legacy(raft::device_resources const& handle,
   rmm::device_uvector<math_t> d_work(lwork, stream);
   rmm::device_scalar<int> d_dev_info(stream);
 
-  raft::copy_async(eig_vectors, in, n_rows * n_cols, stream);
+  raft::matrix::copy(handle,
+                     make_device_matrix_view<const math_t>(in, n_rows, n_cols),
+                     make_device_matrix_view<math_t>(eig_vectors, n_rows, n_cols));
 
   RAFT_CUSOLVER_TRY(cusolverDnsyevd(cusolverH,
                                     CUSOLVER_EIG_MODE_VECTOR,
@@ -108,7 +110,9 @@ void eigDC(raft::device_resources const& handle,
   rmm::device_scalar<int> d_dev_info(stream);
   std::vector<math_t> h_work(workspaceHost / sizeof(math_t));
 
-  raft::copy_async(eig_vectors, in, n_rows * n_cols, stream);
+  raft::matrix::copy(handle,
+                     make_device_matrix_view<const math_t>(in, n_rows, n_cols),
+                     make_device_matrix_view<math_t>(eig_vectors, n_rows, n_cols));
 
   RAFT_CUSOLVER_TRY(cusolverDnxsyevd(cusolverH,
                                      dn_params,
@@ -191,7 +195,9 @@ void eigSelDC(raft::device_resources const& handle,
                                        stream));
   } else if (memUsage == COPY_INPUT) {
     d_eig_vectors.resize(n_rows * n_cols, stream);
-    raft::copy_async(d_eig_vectors.data(), in, n_rows * n_cols, stream);
+    raft::matrix::copy(handle,
+                       make_device_matrix_view<const math_t>(in, n_rows, n_cols),
+                       make_device_matrix_view(eig_vectors, n_rows, n_cols));
 
     RAFT_CUSOLVER_TRY(cusolverDnsyevdx(cusolverH,
                                        CUSOLVER_EIG_MODE_VECTOR,
@@ -220,10 +226,16 @@ void eigSelDC(raft::device_resources const& handle,
          "This usually occurs when some of the features do not vary enough.");
 
   if (memUsage == OVERWRITE_INPUT) {
-    raft::matrix::detail::truncZeroOrigin(in, n_rows, eig_vectors, n_rows, n_eig_vals, stream);
+    raft::matrix::trunc_zero_origin(
+      handle,
+      make_device_matrix_view<const math_t, size_t, col_major>(in, n_rows, n_eig_vals),
+      make_device_matrix_view<math_t, size_t, col_major>(eig_vectors, n_rows, n_eig_vals));
   } else if (memUsage == COPY_INPUT) {
-    raft::matrix::detail::truncZeroOrigin(
-      d_eig_vectors.data(), n_rows, eig_vectors, n_rows, n_eig_vals, stream);
+    raft::matrix::trunc_zero_origin(
+      handle,
+      make_device_matrix_view<const math_t, size_t, col_major>(
+        d_eig_vectors.data(), n_rows, n_eig_vals),
+      make_device_matrix_view<math_t, size_t, col_major>(eig_vectors, n_rows, n_eig_vals));
   }
 }
 
@@ -259,7 +271,9 @@ void eigJacobi(raft::device_resources const& handle,
   rmm::device_uvector<math_t> d_work(lwork, stream);
   rmm::device_scalar<int> dev_info(stream);
 
-  raft::copy_async(eig_vectors, in, n_rows * n_cols, stream);
+  raft::matrix::copy(handle,
+                     make_device_matrix_view<const math_t>(in, n_rows, n_cols),
+                     make_device_matrix_view(eig_vectors, n_rows, n_cols));
 
   RAFT_CUSOLVER_TRY(cusolverDnsyevj(cusolverH,
                                     CUSOLVER_EIG_MODE_VECTOR,

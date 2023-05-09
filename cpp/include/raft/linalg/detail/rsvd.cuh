@@ -21,8 +21,8 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/detail/matrix.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -272,7 +272,12 @@ void rsvdFixedRank(raft::device_resources const& handle,
     RAFT_CUDA_TRY(cudaMemsetAsync(Uhat.data(), 0, sizeof(math_t) * l * l, stream));
     rmm::device_uvector<math_t> Uhat_dup(l * l, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
-    raft::matrix::detail::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
+
+    raft::matrix::upper_triangular(
+      handle,
+      make_device_matrix_view<const math_t, int, col_major>(BBt.data(), l, l),
+      make_device_matrix_view<math_t, int, col_major>(Uhat_dup.data(), l, l));
+
     if (use_jacobi)
       raft::linalg::eigJacobi(
         handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream, tol, max_sweeps);

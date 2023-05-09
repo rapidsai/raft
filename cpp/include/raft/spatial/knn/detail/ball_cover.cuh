@@ -96,12 +96,14 @@ void sample_landmarks(raft::device_resources const& handle,
 
   // index.get_X() returns the wrong indextype (uint32_t where we need value_idx), so need to
   // create new device_matrix_view here
-  auto x = make_device_matrix_view<const value_t, value_idx>(
-    index.get_X().data_handle(), index.m, index.n);
-  auto r =
-    make_device_matrix_view<value_t, value_idx>(index.get_R().data_handle(), index.m, index.n);
+  auto x = index.get_X();
+  auto r = index.get_R();
+
   raft::matrix::copy_rows<value_t, value_idx>(
-    handle, x, r, make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
+    handle,
+    make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
+    make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
+    make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
 }
 
 /**
