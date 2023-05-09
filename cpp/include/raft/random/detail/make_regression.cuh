@@ -29,7 +29,7 @@
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -83,8 +83,10 @@ static void _make_low_rank_matrix(raft::resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
   rmm::device_uvector<DataT> singular_mat(n * n, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
-  raft::matrix::detail::initializeDiagonalMatrix(
-    singular_vec.data(), singular_mat.data(), n, n, stream);
+
+  raft::matrix::set_diagonal(handle,
+                             make_device_vector_view<const DataT, IdxT>(singular_vec.data(), n),
+                             make_device_matrix_view<DataT, IdxT>(singular_mat.data(), n, n));
 
   // Generate the column-major matrix
   rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);

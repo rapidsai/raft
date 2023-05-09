@@ -24,7 +24,7 @@
 
 #include <raft/common/nvtx.hpp>
 #include <raft/core/device_resources.hpp>
-#include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -285,7 +285,9 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
-  raft::matrix::detail::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
+  raft::matrix::set_diagonal(handle,
+                             make_device_vector_view<const math_t>(S_vec, k),
+                             make_device_matrix_view<math_t>(S_mat.data(), k, k));
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each

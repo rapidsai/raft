@@ -21,6 +21,7 @@
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
@@ -321,8 +322,9 @@ void rsvdFixedRank(raft::device_resources const& handle,
       rmm::device_uvector<math_t> UhatSinv(l * k, stream);
       RAFT_CUDA_TRY(cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
       raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
-      raft::matrix::detail::initializeDiagonalMatrix(
-        S_vec_tmp.data() + p, Sinv.data(), k, k, stream);
+      raft::matrix::set_diagonal(handle,
+                                 make_device_vector_view<const math_t>(S_vec_tmp.data() + p, k),
+                                 make_device_matrix_view<math_t>(Sinv.data(), k, k));
 
       raft::linalg::gemm(handle,
                          Uhat.data() + p * l,
