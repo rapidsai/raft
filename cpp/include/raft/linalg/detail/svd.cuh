@@ -27,6 +27,7 @@
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/norm.cuh>
+#include <raft/matrix/reverse.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -140,8 +141,10 @@ void svdEig(raft::device_resources const& handle,
 
   raft::linalg::eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
-  raft::matrix::colReverse(V, n_cols, n_cols, stream);
-  raft::matrix::rowReverse(S, n_cols, idx_t(1), stream);
+  raft::matrix::col_reverse(handle,
+                            make_device_matrix_view<math_t, idx_t, col_major>(V, n_cols, n_cols));
+  raft::matrix::row_reverse(handle,
+                            make_device_matrix_view<math_t, idx_t, col_major>(S, n_cols, idx_t(1)));
 
   raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 

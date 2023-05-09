@@ -23,6 +23,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/matrix/reverse.cuh>
 #include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -294,7 +295,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
                               1,
                               l,
                               stream);  // Last k elements of S_vec
-    raft::matrix::colReverse(S_vec, 1, k, stream);
+    raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k));
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -311,7 +312,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
                          alpha,
                          beta,
                          stream);
-      raft::matrix::colReverse(U, m, k, stream);
+      raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(U, m, k));
     }
 
     // Merge step 14 & 15 by calculating V = B^T Uhat[:,(p+1):l] *
@@ -352,7 +353,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
                          alpha,
                          beta,
                          stream);
-      raft::matrix::colReverse(V, n, k, stream);
+      raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(V, n, k));
     }
   }
 }
