@@ -132,46 +132,101 @@ void pairwiseDistance(value_t* out,
   }
 }
 
+/**
+ * @defgroup sparse_distance Sparse Pairwise Distance
+ * @{
+ */
+
+/**
+ * @brief Compute pairwise distances between x and y, using the provided
+ * input configuration and distance function.
+ *
+ * @code{.cpp}
+ * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/device_coo_matrix.hpp>
+ * #include <raft/core/device_mdspan.hpp>
+ *
+ * int x_n_rows = 100000;
+ * int y_n_rows = 50000;
+ * int n_cols = 10000;
+ *
+ * raft::device_resources handle;
+ * auto x = raft::make_device_csr_matrix<float>(handle, x_n_rows, n_cols);
+ * auto y = raft::make_device_csr_matrix<float>(handle, y_n_rows, n_cols);
+ * ...
+ * // compute expected sparsity
+ * ...
+ * int x_nnz = 5000;
+ * int y_nnz = 10000;
+ * x.initialize_sparsity(nnz);
+ * y.initialize_sparsity(nnz);
+ * ...
+ * // populate data
+ * ...
+ *
+ * auto out = raft::make_device_matrix<float>(handle, x_nrows, y_nrows);
+ *
+ * raft::sparse::distance_pairwise_distance(handle, out, x, y,
+ * raft::distance::DistanceType::L2Expanded);
+ * @endcode
+ *
+ * @tparam DeviceCSRMatrix raft::device_csr_matrix or raft::device_csr_matrix_view
+ * @tparam ElementType data-type of inputs and output
+ * @tparam IndexType data-type for indexing
+ *
+ * @param[in] handle raft::device_resources
+ * @param[out] dist raft::device_matrix_view dense matrix
+ * @param[in] x raft::SparsityType::PRESERVING sparse matrix
+ * @param[in] y raft::SparsityType::PRESERVING sparse matrix
+ * @param[in] metric distance metric to use
+ * @param[in] metric_arg metric argument (used for Minkowski distance)
+ */
 template <typename DeviceCSRMatrix,
           typename ElementType,
           typename IndexType,
           typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
-void pairwise_distance(
-  raft::device_resources const& handle,
-  raft::device_matrix_view<ElementType, IndexType, raft::layout_c_contiguous> dist,
-  DeviceCSRMatrix x,
-  DeviceCSRMatrix y,
-  raft::distance::DistanceType metric,
-  float metric_arg = 2.0f)
+void pairwise_distance(raft::device_resources const& handle,
+                       raft::device_matrix_view<ElementType, IndexType, raft::row_major> dist,
+                       DeviceCSRMatrix x,
+                       DeviceCSRMatrix y,
+                       raft::distance::DistanceType metric,
+                       float metric_arg = 2.0f)
 {
-  RAFT_EXPECTS(x.get_n_cols() == y.get_n_cols(), "Number of columns must be equal");
-  RAFT_EXPECTS(dist.extent(0) == x.get_n_rows(),
+  auto x_structure = x.structure_view();
+  auto y_structure = y.structure_view();
+
+  RAFT_EXPECTS(x_structure.get_n_cols() == y_structure.get_n_cols(),
+               "Number of columns must be equal");
+
+  RAFT_EXPECTS(dist.extent(0) == x_structure.get_n_rows(),
                "Number of rows in output must be equal to "
                "number of rows in X");
-  RAFT_EXPECTS(dist.extent(1) == y.get_n_rows(),
+  RAFT_EXPECTS(dist.extent(1) == y_structure.get_n_rows(),
                "Number of columns in output must be equal to "
                "number of rows in Y");
 
-  detail::distances_config_t input_config(handle);
-  input_config.a_nrows   = x.get_n_rows();
-  input_config.a_ncols   = x.get_n_cols();
-  input_config.a_nnz     = x.get_nnz();
-  input_config.a_indptr  = x.get_indptr().data();
-  input_config.a_indices = x.get_indices().data();
-  input_config.a_data    = x.get_elements().data();
+  detail::distances_config_t<IndexType, ElementType> input_config(handle);
+  input_config.a_nrows   = x_structure.get_n_rows();
+  input_config.a_ncols   = x_structure.get_n_cols();
+  input_config.a_nnz     = x_structure.get_nnz();
+  input_config.a_indptr  = const_cast<IndexType*>(x_structure.get_indptr().data());
+  input_config.a_indices = const_cast<IndexType*>(x_structure.get_indices().data());
+  input_config.a_data    = const_cast<ElementType*>(x.get_elements().data());
 
-  input_config.b_nrows   = y.get_n_rows();
-  input_config.b_ncols   = y.get_n_cols();
-  input_config.b_nnz     = y.get_nnz();
-  input_config.b_indptr  = y.get_indptr().data();
-  input_config.b_indices = y.get_indices().data();
-  input_config.b_data    = y.get_elements().data();
+  input_config.b_nrows   = y_structure.get_n_rows();
+  input_config.b_ncols   = y_structure.get_n_cols();
+  input_config.b_nnz     = y_structure.get_nnz();
+  input_config.b_indptr  = const_cast<IndexType*>(y_structure.get_indptr().data());
+  input_config.b_indices = const_cast<IndexType*>(y_structure.get_indices().data());
+  input_config.b_data    = const_cast<ElementType*>(y.get_elements().data());
 
   pairwiseDistance(dist.data_handle(), input_config, metric, metric_arg);
 }
 
-};  // namespace distance
-};  // namespace sparse
-};  // namespace raft
+/** @} */  // end of sparse_distance
+
+};         // namespace distance
+};         // namespace sparse
+};         // namespace raft
 
 #endif

@@ -219,6 +219,7 @@ class csr_matrix_view
   using indptr_type  = IndptrType;
   using indices_type = IndicesType;
   using nnz_type     = NZType;
+  static constexpr auto get_sparsity_type() { return SparsityType::PRESERVING; }
   csr_matrix_view(
     raft::span<ElementType, is_device> element_span,
     compressed_structure_view<IndptrType, IndicesType, NZType, is_device> structure_view)
