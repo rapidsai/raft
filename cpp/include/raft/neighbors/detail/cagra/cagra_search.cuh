@@ -102,8 +102,8 @@ void search_main(raft::device_resources const& res,
                 "only float distances are supported at the moment");
   float* dist_out          = distances.data_handle();
   const DistanceT* dist_in = distances.data_handle();
-  // We're converting the data from T to DistanceT during distance computation;
-  // hence now we convert it back (DistanceT -> T).
+  // We're converting the data from T to DistanceT during distance computation
+  // and divide the values by kDivisor. Here we restore the original scale.
   constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
                            spatial::knn::detail::utils::config<DistanceT>::kDivisor;
   ivf_pq::detail::postprocess_distances(dist_out,
