@@ -138,9 +138,9 @@ template <typename DeviceCSRMatrix,
           typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
 void pairwise_distance(
   raft::device_resources const& handle,
+  raft::device_matrix_view<ElementType, IndexType, raft::layout_c_contiguous> dist,
   DeviceCSRMatrix x,
   DeviceCSRMatrix y,
-  raft::device_matrix_view<const ElementType, IndexType, raft::layout_c_contiguous> dist,
   raft::distance::DistanceType metric,
   float metric_arg = 2.0f)
 {
