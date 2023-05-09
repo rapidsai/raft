@@ -27,7 +27,7 @@
 #include <functional>
 #include <type_traits>
 
-#include <rmm/device_vector.hpp>
+#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
 /*
@@ -870,8 +870,7 @@ struct launch_setup {
 };
 
 template <template <int, bool, typename, typename> class WarpSortClass>
-struct LaunchThreshold {
-};
+struct LaunchThreshold {};
 
 template <>
 struct LaunchThreshold<warp_sort_filtered> {
@@ -960,7 +959,7 @@ void calc_launch_parameter(
       if (batch_size >= size_t(another_min_grid_size)  // still have enough work
           && another_block_size < block_size           // protect against an infinite loop
           && another_min_grid_size * another_block_size >
-               min_grid_size * block_size  // improve occupancy
+               min_grid_size * block_size              // improve occupancy
       ) {
         block_size    = another_block_size;
         min_grid_size = another_min_grid_size;
@@ -991,10 +990,7 @@ void select_k_(int num_of_block,
 {
   auto pool_guard = raft::get_pool_memory_resource(
     mr, num_of_block * k * batch_size * 2 * std::max(sizeof(T), sizeof(IdxT)));
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("warpsort::select_k: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  if (pool_guard) { RAFT_LOG_DEBUG("warpsort::select_k: using pool memory resource"); }
 
   rmm::device_uvector<T> tmp_val(num_of_block * k * batch_size, stream, mr);
   rmm::device_uvector<IdxT> tmp_idx(num_of_block * k * batch_size, stream, mr);

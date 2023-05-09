@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/core/logger.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -45,8 +44,7 @@ enum class pointer_residency {
 };
 
 template <typename... Types>
-struct pointer_residency_count {
-};
+struct pointer_residency_count {};
 
 template <>
 struct pointer_residency_count<> {
@@ -136,8 +134,7 @@ struct with_mapped_memory_t {
 };
 
 template <typename T>
-struct config {
-};
+struct config {};
 
 template <>
 struct config<float> {

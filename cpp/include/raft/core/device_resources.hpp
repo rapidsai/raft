@@ -69,7 +69,7 @@ class device_resources : public resources {
   }
 
   device_resources(const device_resources& handle) : resources{handle} {}
-  device_resources(device_resources&&) = delete;
+  device_resources(device_resources&&)            = delete;
   device_resources& operator=(device_resources&&) = delete;
 
   /**
@@ -246,7 +246,7 @@ class stream_syncer {
     handle_.sync_stream_pool();
   }
 
-  stream_syncer(const stream_syncer& other) = delete;
+  stream_syncer(const stream_syncer& other)            = delete;
   stream_syncer& operator=(const stream_syncer& other) = delete;
 
  private:

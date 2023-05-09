@@ -146,7 +146,7 @@ in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
 output = pairwise_distance(in1, in2, metric="euclidean")
 ```
 
-The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, and PyTorch that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
+The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, PyTorch and RAPIDS cuDF that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
 
 Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
 ```python
@@ -158,6 +158,11 @@ And converting to a PyTorch tensor:
 import torch
 
 torch_tensor = torch.as_tensor(output, device='cuda')
+```
+
+Or converting to a RAPIDS cuDF dataframe:
+```python
+cudf_dataframe = cudf.DataFrame(output)
 ```
 
 When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
@@ -198,7 +203,7 @@ RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https:
 
 The easiest way to install RAFT is through conda and several packages are provided.
 - `libraft-headers` RAFT headers
-- `libraft` (optional) shared library of pre-compiled template specializations and runtime APIs.
+- `libraft` (optional) shared library of pre-compiled template instantiations and runtime APIs.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
@@ -231,11 +236,11 @@ You can find an [example RAFT](cpp/template/README.md) project template in the `
 
 Additional CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
 
-| Component   | Target              | Description                                               | Base Dependencies                     |
-|-------------|---------------------|-----------------------------------------------------------|---------------------------------------|
-| n/a         | `raft::raft`        | Full RAFT header library                                  | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
-| compiled    | `raft::compiled`    | Pre-compiled template specializations and runtime library | raft::raft                            |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                       | raft::raft, UCX, NCCL                 |
+| Component   | Target              | Description                                              | Base Dependencies                      |
+|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
+| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
+| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL                  |
 
 ### Source
 
@@ -282,7 +287,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
     - `util`: Various reusable tools and utilities for accelerated algorithm development
   - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
   - `scripts`: Helpful scripts for development
-  - `src`: Compiled APIs and template specializations for the shared libraries
+  - `src`: Compiled APIs and template instantiations for the shared libraries
   - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
   - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)

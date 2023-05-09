@@ -67,8 +67,7 @@ TEST_P(DistanceEucExpTestD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestD, ::testing::ValuesIn(inputsd));
 
-class BigMatrixEucExp : public BigMatrixDistanceTest<raft::distance::DistanceType::L2Expanded> {
-};
+class BigMatrixEucExp : public BigMatrixDistanceTest<raft::distance::DistanceType::L2Expanded> {};
 TEST_F(BigMatrixEucExp, Result) {}
 }  // end namespace distance
 }  // end namespace raft

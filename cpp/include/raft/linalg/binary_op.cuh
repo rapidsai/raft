@@ -82,7 +82,7 @@ void binary_op(raft::device_resources const& handle, InType in1, InType in2, Out
 
 /** @} */  // end of group binary_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

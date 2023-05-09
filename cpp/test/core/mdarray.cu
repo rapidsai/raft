@@ -821,7 +821,7 @@ void test_mdspan_aligned_matrix()
   // manually aligning the above, using -1 as filler
   static constexpr int X = -1;
   long data_padded[]     = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  X, X, X, X, X, X,
-                        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, X, X, X, X, X, X};
+                            10, 11, 12, 13, 14, 15, 16, 17, 18, 19, X, X, X, X, X, X};
 
   auto my_aligned_host_span =
     make_host_aligned_matrix_view<long, int, layout_right_padded<long>>(data_padded, rows, cols);

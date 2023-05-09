@@ -19,7 +19,9 @@
 #include "cublas_wrappers.hpp"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -29,14 +31,14 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void transpose(raft::device_resources const& handle,
+void transpose(raft::resources const& handle,
                math_t* in,
                math_t* out,
                int n_rows,
                int n_cols,
                cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
   RAFT_CUBLAS_TRY(cublasSetStream(cublas_h, stream));
 
   int out_n_rows = n_cols;
@@ -83,7 +85,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
 
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
 void transpose_row_major_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
@@ -92,7 +94,7 @@ void transpose_row_major_impl(
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
 
-  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
+  CUBLAS_TRY(cublasgeam(resource::get_cublas_handle(handle),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,
                         out_n_cols,
@@ -105,12 +107,12 @@ void transpose_row_major_impl(
                         out.stride(0),
                         out.data_handle(),
                         out.stride(0),
-                        handle.get_stream()));
+                        resource::get_cuda_stream(handle)));
 }
 
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
 void transpose_col_major_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
   raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
 {
@@ -119,7 +121,7 @@ void transpose_col_major_impl(
   T constexpr kOne  = 1;
   T constexpr kZero = 0;
 
-  CUBLAS_TRY(cublasgeam(handle.get_cublas_handle(),
+  CUBLAS_TRY(cublasgeam(resource::get_cublas_handle(handle),
                         CUBLAS_OP_T,
                         CUBLAS_OP_N,
                         out_n_rows,
@@ -132,7 +134,7 @@ void transpose_col_major_impl(
                         out.stride(1),
                         out.data_handle(),
                         out.stride(1),
-                        handle.get_stream()));
+                        resource::get_cuda_stream(handle)));
 }
 };  // end namespace detail
 };  // end namespace linalg

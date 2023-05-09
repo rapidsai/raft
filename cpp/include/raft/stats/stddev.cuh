@@ -181,7 +181,7 @@ void vars(raft::device_resources const& handle,
 
 /** @} */  // end group stats_variance
 
-};  // namespace stats
-};  // namespace raft
+};         // namespace stats
+};         // namespace raft
 
 #endif

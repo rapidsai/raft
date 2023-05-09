@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 #include <cusparse.h>
 #include <raft/core/error.hpp>
 ///@todo: enable this once logging is enabled
-//#include <cuml/common/logger.hpp>
+// #include <cuml/common/logger.hpp>
 
 #define _CUSPARSE_ERR_TO_STR(err) \
   case err: return #err;

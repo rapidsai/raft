@@ -73,7 +73,7 @@ value_t kl_divergence(raft::device_resources const& handle,
 
 /** @} */  // end group kl_divergence
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

@@ -23,7 +23,7 @@
 #include "rng_device.cuh"
 
 #include <curand_kernel.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/detail/cub_wrappers.cuh>
@@ -259,7 +259,7 @@ class RngImpl {
 
   template <typename DataT, typename WeightsT, typename IdxT = int>
   METHOD_DEPR(sampleWithoutReplacement)
-  void sampleWithoutReplacement(raft::device_resources const& handle,
+  void sampleWithoutReplacement(raft::resources const& handle,
                                 DataT* out,
                                 IdxT* outIdx,
                                 const DataT* in,

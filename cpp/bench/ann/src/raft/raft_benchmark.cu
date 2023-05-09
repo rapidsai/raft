@@ -22,10 +22,6 @@
 #include <type_traits>
 #include <utility>
 
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include "../common/ann_types.hpp"
 #include "../common/benchmark_util.hpp"
 #undef WARP_SIZE

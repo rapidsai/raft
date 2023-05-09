@@ -25,6 +25,7 @@
 #include <stddef.h>
 
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
@@ -55,12 +56,10 @@ class array_interface {
 
 namespace detail {
 template <typename T, typename = void>
-struct is_array_interface : std::false_type {
-};
+struct is_array_interface : std::false_type {};
 template <typename T>
 struct is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
-  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
-};
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {};
 
 template <typename T>
 using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
@@ -75,16 +74,13 @@ inline constexpr bool is_array_interface_v = is_array_interface<std::remove_cons
 }  // namespace detail
 
 template <typename...>
-struct is_array_interface : std::true_type {
-};
+struct is_array_interface : std::true_type {};
 template <typename T1>
-struct is_array_interface<T1> : detail::is_array_interface_t<T1> {
-};
+struct is_array_interface<T1> : detail::is_array_interface_t<T1> {};
 template <typename T1, typename... Tn>
 struct is_array_interface<T1, Tn...> : std::conditional_t<detail::is_array_interface_v<T1>,
                                                           is_array_interface<Tn...>,
-                                                          std::false_type> {
-};
+                                                          std::false_type> {};
 /**
  * @\brief Boolean to determine if variadic template types Tn are raft::array_interface
  *         or derived type or any type that has a member function `view()` that returns either
@@ -177,9 +173,9 @@ class mdarray
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  constexpr auto operator                                               =(mdarray const&) noexcept(
+  constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
-  constexpr auto operator                                               =(mdarray&&) noexcept(
+  constexpr auto operator=(mdarray&&) noexcept(
     std::is_nothrow_move_assignable<container_type>::value) -> mdarray& = default;
 
   ~mdarray() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
@@ -201,8 +197,9 @@ class mdarray
 #endif  // RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief The only constructor that can create storage, this is to make sure CUDA stream is being
-   * used.
+   * @brief The only constructor that can create storage, raft::resources is accepted
+   * so that the device implementation can make sure the relevant CUDA stream is
+   * being used for allocation.
    */
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
