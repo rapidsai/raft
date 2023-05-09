@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -89,7 +92,8 @@ struct topk_by_radix_sort_base {
   static constexpr std::uint32_t vecLen           = 2;  // TODO
 };
 template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class = void>
-struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {};
+struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {
+};
 
 template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE>
 struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
@@ -256,8 +260,8 @@ __device__ inline void topk_by_bitonic_sort_1st(
 
 template <unsigned MAX_ITOPK, unsigned MULTI_WARPS = 0>
 __device__ inline void topk_by_bitonic_sort_2nd(
-  float* itopk_distances,            // [num_itopk]
-  std::uint32_t* itopk_indices,      // [num_itopk]
+  float* itopk_distances,        // [num_itopk]
+  std::uint32_t* itopk_indices,  // [num_itopk]
   const std::uint32_t num_itopk,
   float* candidate_distances,        // [num_candidates]
   std::uint32_t* candidate_indices,  // [num_candidates]
@@ -464,8 +468,8 @@ template <unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
           unsigned MULTI_WARPS_1,
           unsigned MULTI_WARPS_2>
-__device__ void topk_by_bitonic_sort(float* itopk_distances,            // [num_itopk]
-                                     std::uint32_t* itopk_indices,      // [num_itopk]
+__device__ void topk_by_bitonic_sort(float* itopk_distances,        // [num_itopk]
+                                     std::uint32_t* itopk_indices,  // [num_itopk]
                                      const std::uint32_t num_itopk,
                                      float* candidate_distances,        // [num_candidates]
                                      std::uint32_t* candidate_indices,  // [num_candidates]
@@ -526,7 +530,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
                      const std::uint32_t top_k,
-                     const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
+                     const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
                      const std::size_t dataset_dim,
                      const std::size_t dataset_size,
                      const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
@@ -534,7 +538,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const std::uint32_t graph_degree,
                      const unsigned num_distilation,
                      const uint64_t rand_xor_mask,
-                     const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+                     const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
                      const uint32_t num_seeds,
                      std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
                      const std::uint32_t internal_topk,
@@ -592,7 +596,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
-      query_buffer[j] = static_cast<float>(query_ptr[i]) * device::fragment_scale<DATA_T>();
+      query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
     } else {
       query_buffer[j] = 0.0;
     }
@@ -1109,9 +1113,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   void operator()(raft::device_resources const& res,
                   raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
-                  INDEX_T* const result_indices_ptr,             // [num_queries, topk]
-                  DISTANCE_T* const result_distances_ptr,        // [num_queries, topk]
-                  const DATA_T* const queries_ptr,               // [num_queries, dataset_dim]
+                  INDEX_T* const result_indices_ptr,       // [num_queries, topk]
+                  DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
+                  const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
                   const std::uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                   std::uint32_t* const num_executed_iterations,  // [num_queries]

@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include "device_common.hpp"
 #include "hashmap.hpp"
 #include "utils.hpp"
@@ -51,7 +53,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   INDEX_T* const result_indices_ptr,       // [num_pickup]
   DISTANCE_T* const result_distances_ptr,  // [num_pickup]
   const float* const query_buffer,
-  const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
   const std::size_t num_pickup,
@@ -102,7 +104,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
             const uint32_t kv = k + v;
             // if (kv >= dataset_dim) break;
             DISTANCE_T diff = query_buffer[device::swizzling(kv)];
-            diff -= static_cast<float>(dl_buff[e].data[v]) * device::fragment_scale<DATA_T>();
+            diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
             norm2 += diff * diff;
           }
         }
@@ -229,7 +231,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
             const unsigned kv = k + v;
             diff              = query_buffer[device::swizzling(kv)];
           }
-          diff -= static_cast<float>(dl_buff[e].data[v]) * device::fragment_scale<DATA_T>();
+          diff -= spatial::knn::detail::utils::mapping<float>{}(dl_buff[e].data[v]);
           norm2 += diff * diff;
         }
       }

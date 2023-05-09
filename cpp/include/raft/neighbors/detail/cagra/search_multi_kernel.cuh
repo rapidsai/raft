@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -93,7 +96,7 @@ __global__ void random_pickup_kernel(
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
   const uint32_t num_seeds,
   INDEX_T* const result_indices_ptr,         // [num_queries, ldr]
   DISTANCE_T* const result_distances_ptr,    // [num_queries, ldr]
@@ -124,10 +127,12 @@ __global__ void random_pickup_kernel(
       random_data_frag, dataset_ptr + (dataset_dim * seed_index), dataset_dim);
 
     // Compute the norm of two data
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(query_frag, random_data_frag, device::fragment_scale<DATA_T>()
-                                /*, scale*/
-      );
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      query_frag,
+      random_data_frag,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor)
+      /*, scale*/
+    );
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -162,7 +167,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                    const std::size_t num_pickup,
                    const unsigned num_distilation,
                    const uint64_t rand_xor_mask,
-                   const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+                   const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
                    const uint32_t num_seeds,
                    INDEX_T* const result_indices_ptr,         // [num_queries, ldr]
                    DISTANCE_T* const result_distances_ptr,    // [num_queries, ldr]
@@ -300,17 +305,17 @@ template <unsigned TEAM_SIZE,
 __global__ void compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, num_parents]
   const std::uint32_t num_parents,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
-  const INDEX_T* const neighbor_graph_ptr,   // [dataset_size, graph_degree]
+  const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
   const DATA_T* query_ptr,                   // [num_queries, data_dim]
   std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,         // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,    // [num_queries, ldd]
-  const std::uint32_t ldd                    // (*) ldd >= num_parents * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd                  // (*) ldd >= num_parents * graph_degree
 )
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
@@ -335,8 +340,10 @@ __global__ void compute_distance_to_child_nodes_kernel(
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_query;
     device::load_vector_sync(frag_query, query_ptr + blockIdx.y * data_dim, data_dim);
 
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(frag_target, frag_query, device::fragment_scale<DATA_T>());
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      frag_target,
+      frag_query,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor));
 
     if (threadIdx.x % TEAM_SIZE == 0) {
       result_indices_ptr[ldd * blockIdx.y + global_team_id]   = child_id;
@@ -357,18 +364,18 @@ template <unsigned TEAM_SIZE,
 void compute_distance_to_child_nodes(
   const INDEX_T* const parent_node_list,  // [num_queries, num_parents]
   const uint32_t num_parents,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
-  const INDEX_T* const neighbor_graph_ptr,   // [dataset_size, graph_degree]
+  const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
-  const DATA_T* query_ptr,                   // [num_queries, data_dim]
+  const DATA_T* query_ptr,  // [num_queries, data_dim]
   const std::uint32_t num_queries,
   std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,         // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,    // [num_queries, ldd]
-  const std::uint32_t ldd,                   // (*) ldd >= num_parents * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd,                 // (*) ldd >= num_parents * graph_degree
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -419,7 +426,7 @@ void remove_parent_bit(const std::uint32_t num_queries,
 }
 
 template <class T>
-__global__ void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_dst]
+__global__ void batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
                                       const uint64_t ld_dst,
                                       const T* const src,  // [batch_size, ld_src]
                                       const uint64_t ld_src,
@@ -434,7 +441,7 @@ __global__ void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_ds
 }
 
 template <class T>
-void batched_memcpy(T* const dst,        // [batch_size, ld_dst]
+void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
                     const uint64_t ld_dst,
                     const T* const src,  // [batch_size, ld_src]
                     const uint64_t ld_src,
@@ -578,9 +585,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   void operator()(raft::device_resources const& res,
                   raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
-                  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-                  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-                  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+                  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+                  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+                  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
                   const uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
                   uint32_t* const num_executed_iterations,  // [num_queries,]
