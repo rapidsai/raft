@@ -348,8 +348,12 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  if (mr != nullptr) { resource::set_workspace_resource(handle, mr); }
-  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances);
+  if (mr != nullptr) {
+    const device_resources res_local(handle, mr);
+    return detail::search(res_local, params, idx, queries, n_queries, k, neighbors, distances);
+  } else {
+    return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances);
+  }
 }
 
 }  // namespace raft::neighbors::ivf_pq
