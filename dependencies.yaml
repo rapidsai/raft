@@ -222,8 +222,8 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - gtest>=1.13.0.*
-          - gmock>=1.13.0.*
+          - gtest>=1.13.0
+          - gmock>=1.13.0
   docs:
     common:
       - output_types: [conda]
