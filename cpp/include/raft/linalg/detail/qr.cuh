@@ -135,7 +135,7 @@ void qrGetQR(raft::resources const& handle,
   raft::matrix::upper_triangular<math_t, int>(
     handle,
     make_device_matrix_view<const math_t, int, col_major>(R_full.data(), m, n),
-    make_device_matrix_view<math_t, int, col_major>(R, m, n));
+    make_device_matrix_view<math_t, int, col_major>(R, std::min(m, n), std::min(m, n)));
 
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));
