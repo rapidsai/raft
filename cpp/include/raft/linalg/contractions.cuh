@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ struct KernelPolicy {
     SmemSize = 2 * SmemPage * sizeof(DataT),
   };  // enum
 
-};  // struct KernelPolicy
+};    // struct KernelPolicy
 
 template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct ColKernelPolicy {
@@ -151,8 +151,7 @@ struct ColKernelPolicy {
  * @{
  */
 template <typename DataT, int _veclen>
-struct Policy4x4 {
-};
+struct Policy4x4 {};
 
 template <int _veclen>
 struct Policy4x4<float, _veclen> {
@@ -174,8 +173,7 @@ struct Policy4x4<double, _veclen> {
  *
  */
 template <typename DataT, int _veclen>
-struct Policy4x4Skinny {
-};
+struct Policy4x4Skinny {};
 
 template <int _veclen>
 struct Policy4x4Skinny<float, _veclen> {
@@ -194,8 +192,7 @@ struct Policy4x4Skinny<double, _veclen> {
  * @{
  */
 template <typename DataT, int _veclen = 1>
-struct Policy2x8 {
-};
+struct Policy2x8 {};
 
 template <int _veclen>
 struct Policy2x8<float, _veclen> {

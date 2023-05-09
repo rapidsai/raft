@@ -13,10 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include <common/benchmark.hpp>
 #include <memory>
 #include <raft/core/device_resources.hpp>

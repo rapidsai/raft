@@ -83,7 +83,7 @@ void sqrt(raft::device_resources const& handle, InType in, OutType out)
 
 /** @} */  // end of group add
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,7 @@ namespace distance {
 
 template <typename DataType>
 class DistanceJensenShannon
-  : public DistanceTest<raft::distance::DistanceType::JensenShannon, DataType> {
-};
+  : public DistanceTest<raft::distance::DistanceType::JensenShannon, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -66,8 +65,7 @@ TEST_P(DistanceJensenShannonD, Result)
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceJensenShannonD, ::testing::ValuesIn(inputsd));
 
 class BigMatrixJensenShannon
-  : public BigMatrixDistanceTest<raft::distance::DistanceType::JensenShannon> {
-};
+  : public BigMatrixDistanceTest<raft::distance::DistanceType::JensenShannon> {};
 TEST_F(BigMatrixJensenShannon, Result) {}
 }  // end namespace distance
 }  // end namespace raft

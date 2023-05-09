@@ -219,7 +219,7 @@ void eig_jacobi(raft::device_resources const& handle,
 
 /** @} */  // end of eig
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

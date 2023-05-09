@@ -159,7 +159,7 @@ void mean_add(raft::device_resources const& handle,
 
 /** @} */  // end group stats_mean_center
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif
