@@ -27,30 +27,6 @@ namespace device {
 // warpSize for compile time calculation
 constexpr unsigned warp_size = 32;
 
-// scaling factor for distance computation
-template <class T>
-_RAFT_HOST_DEVICE constexpr float fragment_scale();
-template <>
-_RAFT_HOST_DEVICE constexpr float fragment_scale<float>()
-{
-  return 1.0;
-};
-template <>
-_RAFT_HOST_DEVICE constexpr float fragment_scale<half>()
-{
-  return 1.0;
-};
-template <>
-_RAFT_HOST_DEVICE constexpr float fragment_scale<uint8_t>()
-{
-  return 1.0 / 256.0;
-};
-template <>
-_RAFT_HOST_DEVICE constexpr float fragment_scale<int8_t>()
-{
-  return 1.0 / 128.0;
-};
-
 /** Xorshift rondem number generator.
  *
  * See https://en.wikipedia.org/wiki/Xorshift#xorshift for reference.
