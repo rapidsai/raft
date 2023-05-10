@@ -202,6 +202,10 @@ INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestLeftVecF, ::testing::ValuesIn(inputsf2
 
 INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestLeftVecD, ::testing::ValuesIn(inputsd2));
 
+INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF, ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecD, ::testing::ValuesIn(inputsd2));
+
 // INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF,
 // ::testing::ValuesIn(inputsf2));
 
