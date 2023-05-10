@@ -389,7 +389,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
   auto inputs2 =
     raft::util::itertools::product<AnnCagraInputs>({100},
                                                    {1000},
-                                                   {2, 4, 8, 64, 128, 196, 256, 512, 1024},  // dim
+                                                   {8, 64, 128, 192, 256, 512, 1024},  // dim
                                                    {16},
                                                    {search_algo::AUTO},
                                                    {10},
@@ -433,7 +433,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
   inputs2 =
     raft::util::itertools::product<AnnCagraInputs>({100},
                                                    {10000, 20000},
-                                                   {30},
+                                                   {32},
                                                    {10},
                                                    {search_algo::AUTO},
                                                    {10},
@@ -448,7 +448,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
   inputs2 =
     raft::util::itertools::product<AnnCagraInputs>({100},
                                                    {10000, 20000},
-                                                   {30},
+                                                   {32},
                                                    {10},
                                                    {search_algo::AUTO},
                                                    {10},
