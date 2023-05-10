@@ -60,24 +60,22 @@ struct FusedDistanceNNGemm {
   // <- threadblock tile M = 32, N = 256, K = 16
   // this is more performant but note than for veclen = 1
   // this shape has register spills
-  using ThreadblockShape =
-    cutlass::gemm::GemmShape<32, 256, 16>; 
-
+  using ThreadblockShape = cutlass::gemm::GemmShape<32, 256, 16>;
 
   // <- threadblock tile M = 32, N = 128, K = 16
   // this shape has high occupancy but less perf
   // this is less performant but this shape has *no* register spills
   // for any veclens(1, 2, 4)
-  //using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;
+  // using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes tile size a warp will compute
   // <- warp tile M = 64, N = 64, K = 16
   using WarpShape =
     cutlass::gemm::GemmShape<32, 64, 16>;  // this is more performant for grouped GEMM
-  
+
   //  this shape has high occupancy but less perf used for 32x128x16
-  //using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;
+  // using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;
 
   /// Warp-level tile size (concept: GemmShape)
   // This code section describes the size of MMA op

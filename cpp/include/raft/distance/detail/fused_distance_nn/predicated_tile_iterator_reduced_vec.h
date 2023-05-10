@@ -89,8 +89,8 @@ class PredicatedTileIteratorReducedVec {
   using OutValT          = typename EpilogueOpParams::CGReduceT::AccTypeT;
 
   static int const kElementsPerAccess = ThreadMap::kElementsPerAccess;
-  static int const kThreads    = ThreadMap::kThreads;
-  static int const kIterations = ThreadMap::Count::kTile;
+  static int const kThreads           = ThreadMap::kThreads;
+  static int const kIterations        = ThreadMap::Count::kTile;
 
   static_assert(ThreadMap::Iterations::kRow > 0, "ThreadMap::Iterations::kRow must be > 0");
   static_assert(ThreadMap::Iterations::kGroup > 0, "ThreadMap::Iterations::kGroup must be > 0");
@@ -397,8 +397,8 @@ class PredicatedTileIteratorReducedVec {
   {
     if (do_gmem_reduction_) {
       EpilogueOpParams const& user_params = params_.user_param;
-      auto gmem_ptr            = reinterpret_cast<Element*>(first_tile_byte_pointer_);
-      Element* shared_elem_arr = shared_storage_.data();
+      auto gmem_ptr                       = reinterpret_cast<Element*>(first_tile_byte_pointer_);
+      Element* shared_elem_arr            = shared_storage_.data();
 
       // If this is not optimal grid size perform mutex based gmem reduce.
       if ((gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows))) {
@@ -417,7 +417,8 @@ class PredicatedTileIteratorReducedVec {
 
         for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
           if (block_start_row_first_tile_ + row < extent_row_) {
-            user_params.red_op_(block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
+            user_params.red_op_(
+              block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
           }
         }
         __threadfence();
@@ -430,7 +431,6 @@ class PredicatedTileIteratorReducedVec {
         __syncthreads();
         for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
           if (block_start_row_first_tile_ + row < extent_row_) {
-            //user_params.red_op_(block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
             gmem_ptr[row] = shared_elem_arr[row];
           }
         }
@@ -475,7 +475,7 @@ class PredicatedTileIteratorReducedVec {
           int row_offset = row * ThreadMap::Delta::kRow + group * ThreadMap::Delta::kGroup +
                            cluster * ThreadMap::Delta::kCluster;
 
-          const OutIdxT row_id    = row_offset + thread_start_row_;
+          const OutIdxT row_id = row_offset + thread_start_row_;
           bool row_guard       = (row_id < extent_row_);
 
           const int frag_idx = frag_row_idx * ThreadMap::Iterations::kColumn * kElementsPerAccess;
