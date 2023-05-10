@@ -273,5 +273,9 @@ INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiF, ::testing::ValuesIn(inputs
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiD, ::testing::ValuesIn(inputsd2));
 
+INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecCompareF, ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecCompareD, ::testing::ValuesIn(inputsd2));
+
 }  // namespace linalg
 }  // namespace raft
