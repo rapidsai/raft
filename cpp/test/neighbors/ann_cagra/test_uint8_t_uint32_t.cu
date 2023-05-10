@@ -23,6 +23,10 @@ namespace raft::neighbors::experimental::cagra {
 typedef AnnCagraTest<float, std::uint8_t, std::uint32_t> AnnCagraTestU8;
 TEST_P(AnnCagraTestU8, AnnCagra) { this->testCagra(); }
 
+typedef AnnCagraSortTest<float, std::uint8_t, std::uint32_t> AnnCagraSortTestU8;
+TEST_P(AnnCagraSortTestU8, AnnCagraSort) { this->testCagraSort(); }
+
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestU8, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestU8, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::experimental::cagra

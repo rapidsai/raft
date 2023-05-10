@@ -405,35 +405,142 @@ void shift_array(T* array, uint64_t num)
   }
 }
 
-/** Input arrays can be both host and device*/
-template <class DATA_T,
+template <typename DataT,
           typename IdxT = uint32_t,
           typename d_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::device>,
+            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+void sort_knn_graph(raft::device_resources const& res,
+                    mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+                    mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
+{
+  RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
+               "dataset size is expected to have the same number of graph index size");
+  const uint32_t dataset_size = dataset.extent(0);
+  const uint32_t dataset_dim  = dataset.extent(1);
+  const DataT* dataset_ptr    = dataset.data_handle();
+
+  const uint32_t input_graph_degree = knn_graph.extent(1);
+  uint32_t* input_graph_ptr         = (uint32_t*)knn_graph.data_handle();
+
+  // Setup GPUs
+  int num_gpus = 0;
+
+  // Setup GPUs
+  RAFT_CUDA_TRY(cudaGetDeviceCount(&num_gpus));
+  RAFT_LOG_DEBUG("# num_gpus: %d\n", num_gpus);
+  for (int self = 0; self < num_gpus; self++) {
+    RAFT_CUDA_TRY(cudaSetDevice(self));
+    for (int peer = 0; peer < num_gpus; peer++) {
+      if (self == peer) { continue; }
+      RAFT_CUDA_TRY(cudaDeviceEnablePeerAccess(peer, 0));
+    }
+  }
+  RAFT_CUDA_TRY(cudaSetDevice(0));
+
+  const uint32_t graph_size       = knn_graph.extent(0);
+  uint32_t*** d_input_graph_ptr   = NULL;  // [...][num_gpus][graph_chunk_size, input_graph_degree]
+  const uint32_t graph_chunk_size = (graph_size + num_gpus - 1) / num_gpus;
+  d_input_graph_ptr = mgpu_alloc<uint32_t>(num_gpus, graph_chunk_size, input_graph_degree);
+
+  DataT*** d_dataset_ptr            = NULL;  // [num_gpus+1][...][...]
+  const uint32_t dataset_chunk_size = (dataset_size + num_gpus - 1) / num_gpus;
+  assert(dataset_chunk_size == graph_chunk_size);
+  d_dataset_ptr = mgpu_alloc<DataT>(num_gpus, dataset_chunk_size, dataset_dim);
+
+  const float scale = 1.0f / raft::spatial::knn::detail::utils::config<DataT>::kDivisor;
+
+  mgpu_H2D<DataT>(
+    d_dataset_ptr, dataset_ptr, num_gpus, dataset_size, dataset_chunk_size, dataset_dim);
+
+  double time_sort_start = cur_time();
+  RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
+  mgpu_H2D<uint32_t>(d_input_graph_ptr,
+                     input_graph_ptr,
+                     num_gpus,
+                     dataset_size,
+                     graph_chunk_size,
+                     input_graph_degree);
+  void (*kernel_sort)(
+    DataT**, uint32_t, uint32_t, uint32_t, float, uint32_t**, uint32_t, uint32_t, uint32_t, int);
+  constexpr int numElementsPerThread = 4;
+  dim3 threads_sort(1, 1, 1);
+  if (input_graph_degree <= numElementsPerThread * 32) {
+    constexpr int blockDim_x = 32;
+    kernel_sort              = kern_sort<DataT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 64) {
+    constexpr int blockDim_x = 64;
+    kernel_sort              = kern_sort<DataT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 128) {
+    constexpr int blockDim_x = 128;
+    kernel_sort              = kern_sort<DataT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 256) {
+    constexpr int blockDim_x = 256;
+    kernel_sort              = kern_sort<DataT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else {
+    fprintf(stderr,
+            "[ERROR] The degree of input knn graph is too large (%u). "
+            "It must be equal to or small than %d.\n",
+            input_graph_degree,
+            numElementsPerThread * 256);
+    exit(-1);
+  }
+  dim3 blocks_sort(graph_chunk_size, 1, 1);
+  for (int i_gpu = 0; i_gpu < num_gpus; i_gpu++) {
+    RAFT_LOG_DEBUG(".");
+    RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
+    kernel_sort<<<blocks_sort, threads_sort>>>(d_dataset_ptr[i_gpu],
+                                               dataset_size,
+                                               dataset_chunk_size,
+                                               dataset_dim,
+                                               scale,
+                                               d_input_graph_ptr[i_gpu],
+                                               dataset_size,
+                                               graph_chunk_size,
+                                               input_graph_degree,
+                                               i_gpu);
+  }
+  RAFT_CUDA_TRY(cudaSetDevice(0));
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  RAFT_LOG_DEBUG(".");
+  mgpu_D2H<uint32_t>(d_input_graph_ptr,
+                     input_graph_ptr,
+                     num_gpus,
+                     dataset_size,
+                     graph_chunk_size,
+                     input_graph_degree);
+  RAFT_LOG_DEBUG("\n");
+  double time_sort_end = cur_time();
+  RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
+
+  mgpu_free<DataT>(d_dataset_ptr, num_gpus);
+}
+
+/** Input arrays can be both host and device*/
+template <typename IdxT = uint32_t,
+          typename g_accessor =
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void prune(raft::device_resources const& res,
-           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
   RAFT_LOG_DEBUG(
     "# Pruning kNN graph (size=%lu, degree=%lu)\n", knn_graph.extent(0), knn_graph.extent(1));
 
-  RAFT_EXPECTS(
-    dataset.extent(0) == knn_graph.extent(0) && knn_graph.extent(0) == new_graph.extent(0),
-    "Each input array is expected to have the same number of rows");
+  RAFT_EXPECTS(knn_graph.extent(0) == new_graph.extent(0),
+               "Each input array is expected to have the same number of rows");
   RAFT_EXPECTS(new_graph.extent(1) <= knn_graph.extent(1),
                "output graph cannot have more columns than input graph");
-  const uint32_t dataset_size        = dataset.extent(0);
-  const uint32_t dataset_dim         = dataset.extent(1);
   const uint32_t input_graph_degree  = knn_graph.extent(1);
   const uint32_t output_graph_degree = new_graph.extent(1);
-  const DATA_T* dataset_ptr          = dataset.data_handle();
   uint32_t* input_graph_ptr          = (uint32_t*)knn_graph.data_handle();
   uint32_t* output_graph_ptr         = new_graph.data_handle();
-  float scale                  = 1.0f / raft::spatial::knn::detail::utils::config<DATA_T>::kDivisor;
-  const std::size_t graph_size = dataset_size;
+  const std::size_t graph_size       = new_graph.extent(0);
   size_t array_size;
 
   // Setup GPUs
@@ -455,76 +562,6 @@ void prune(raft::device_resources const& res,
   uint32_t*** d_input_graph_ptr = NULL;  // [...][num_gpus][graph_chunk_size, input_graph_degree]
   graph_chunk_size              = (graph_size + num_gpus - 1) / num_gpus;
   d_input_graph_ptr = mgpu_alloc<uint32_t>(num_gpus, graph_chunk_size, input_graph_degree);
-
-  uint32_t dataset_chunk_size = dataset_size;
-  DATA_T*** d_dataset_ptr     = NULL;  // [num_gpus+1][...][...]
-  dataset_chunk_size          = (dataset_size + num_gpus - 1) / num_gpus;
-  assert(dataset_chunk_size == graph_chunk_size);
-  d_dataset_ptr = mgpu_alloc<DATA_T>(num_gpus, dataset_chunk_size, dataset_dim);
-
-  mgpu_H2D<DATA_T>(
-    d_dataset_ptr, dataset_ptr, num_gpus, dataset_size, dataset_chunk_size, dataset_dim);
-
-  //
-  // Sorting kNN graph
-  //
-  double time_sort_start = cur_time();
-  RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
-  mgpu_H2D<uint32_t>(
-    d_input_graph_ptr, input_graph_ptr, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
-  void (*kernel_sort)(
-    DATA_T**, uint32_t, uint32_t, uint32_t, float, uint32_t**, uint32_t, uint32_t, uint32_t, int);
-  constexpr int numElementsPerThread = 4;
-  dim3 threads_sort(1, 1, 1);
-  if (input_graph_degree <= numElementsPerThread * 32) {
-    constexpr int blockDim_x = 32;
-    kernel_sort              = kern_sort<DATA_T, blockDim_x, numElementsPerThread>;
-    threads_sort.x           = blockDim_x;
-  } else if (input_graph_degree <= numElementsPerThread * 64) {
-    constexpr int blockDim_x = 64;
-    kernel_sort              = kern_sort<DATA_T, blockDim_x, numElementsPerThread>;
-    threads_sort.x           = blockDim_x;
-  } else if (input_graph_degree <= numElementsPerThread * 128) {
-    constexpr int blockDim_x = 128;
-    kernel_sort              = kern_sort<DATA_T, blockDim_x, numElementsPerThread>;
-    threads_sort.x           = blockDim_x;
-  } else if (input_graph_degree <= numElementsPerThread * 256) {
-    constexpr int blockDim_x = 256;
-    kernel_sort              = kern_sort<DATA_T, blockDim_x, numElementsPerThread>;
-    threads_sort.x           = blockDim_x;
-  } else {
-    fprintf(stderr,
-            "[ERROR] The degree of input knn graph is too large (%u). "
-            "It must be equal to or small than %d.\n",
-            input_graph_degree,
-            numElementsPerThread * 256);
-    exit(-1);
-  }
-  dim3 blocks_sort(graph_chunk_size, 1, 1);
-  for (int i_gpu = 0; i_gpu < num_gpus; i_gpu++) {
-    RAFT_LOG_DEBUG(".");
-    RAFT_CUDA_TRY(cudaSetDevice(i_gpu));
-    kernel_sort<<<blocks_sort, threads_sort>>>(d_dataset_ptr[i_gpu],
-                                               dataset_size,
-                                               dataset_chunk_size,
-                                               dataset_dim,
-                                               scale,
-                                               d_input_graph_ptr[i_gpu],
-                                               graph_size,
-                                               graph_chunk_size,
-                                               input_graph_degree,
-                                               i_gpu);
-  }
-  RAFT_CUDA_TRY(cudaSetDevice(0));
-  RAFT_CUDA_TRY(cudaDeviceSynchronize());
-  RAFT_LOG_DEBUG(".");
-  mgpu_D2H<uint32_t>(
-    d_input_graph_ptr, input_graph_ptr, num_gpus, graph_size, graph_chunk_size, input_graph_degree);
-  RAFT_LOG_DEBUG("\n");
-  double time_sort_end = cur_time();
-  RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
-
-  mgpu_free<DATA_T>(d_dataset_ptr, num_gpus);
 
   //
   uint8_t* detour_count;  // [graph_size, input_graph_degree]
