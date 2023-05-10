@@ -976,7 +976,7 @@ void build_hierarchical(const raft::device_resources& handle,
     raft::get_pool_memory_resource(device_memory, mem_per_row * size_t(max_minibatch_size));
   if (pool_guard) {
     RAFT_LOG_DEBUG("build_hierarchical: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
+                   mem_per_row * size_t(max_minibatch_size));
   }
 
   // Precompute the L2 norm of the dataset if relevant.
