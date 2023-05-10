@@ -26,6 +26,8 @@
 #include <algorithm>
 #include <optional>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 #include "detail/make_regression.cuh"
 
@@ -67,7 +69,7 @@ namespace raft::random {
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(raft::device_resources const& handle,
+void make_regression(raft::resources const& handle,
                      DataT* out,
                      DataT* values,
                      IdxT n_rows,
@@ -138,7 +140,7 @@ void make_regression(raft::device_resources const& handle,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(raft::device_resources const& handle,
+void make_regression(raft::resources const& handle,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> out,
                      raft::device_matrix_view<DataT, IdxT, raft::row_major> values,
                      IdxT n_informative,
@@ -170,7 +172,7 @@ void make_regression(raft::device_resources const& handle,
                                  n_samples,
                                  n_features,
                                  n_informative,
-                                 handle.get_stream(),
+                                 resource::get_cuda_stream(handle),
                                  coef_ptr,
                                  n_targets,
                                  bias,

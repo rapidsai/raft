@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+// We set RAFT_ACTIVE_LEVEL to a value that would enable testing trace and debug logs
+// (otherwise trace and debug logs are desabled by default).
+#undef RAFT_ACTIVE_LEVEL
+#define RAFT_ACTIVE_LEVEL 6
+
 #include <gtest/gtest.h>
 #include <raft/core/logger.hpp>
 #include <string>
