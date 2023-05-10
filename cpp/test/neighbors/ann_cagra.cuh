@@ -40,7 +40,7 @@
 #include <vector>
 
 namespace raft::neighbors::experimental::cagra {
-
+namespace {
 // For sort_knn_graph test
 template <typename IdxT>
 void RandomSuffle(raft::host_matrix_view<IdxT, IdxT> index)
@@ -121,6 +121,7 @@ void GenerateRoundingErrorFreeDataset(float* const ptr,
   GenerateRoundingErrorFreeDataset_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
     ptr, size, resolution);
 }
+}  // namespace
 
 struct AnnCagraInputs {
   int n_queries;
