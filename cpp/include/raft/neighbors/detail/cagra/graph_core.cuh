@@ -64,16 +64,16 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
   return false;
 }
 
-template <class DATA_T, class INDEX_T, int blockDim_x, int numElementsPerThread>
+template <class DATA_T, class IdxT, int blockDim_x, int numElementsPerThread>
 __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
                           uint32_t dataset_size,
                           uint32_t dataset_dim,
-                          INDEX_T* knn_graph,  // [graph_chunk_size, graph_degree]
+                          IdxT* knn_graph,  // [graph_chunk_size, graph_degree]
                           uint32_t graph_size,
                           uint32_t graph_degree)
 {
   __shared__ float smem_keys[blockDim_x * numElementsPerThread];
-  __shared__ INDEX_T smem_vals[blockDim_x * numElementsPerThread];
+  __shared__ IdxT smem_vals[blockDim_x * numElementsPerThread];
 
   uint64_t srcNode = blockIdx.x;
   if (srcNode >= graph_size) { return; }
@@ -106,7 +106,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
   __syncthreads();
 
   float my_keys[numElementsPerThread];
-  INDEX_T my_vals[numElementsPerThread];
+  IdxT my_vals[numElementsPerThread];
   for (int i = 0; i < numElementsPerThread; i++) {
     int k = i + (numElementsPerThread * threadIdx.x);
     if (k < graph_degree) {
@@ -114,7 +114,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
       my_vals[i] = smem_vals[k];
     } else {
       my_keys[i] = FLT_MAX;
-      my_vals[i] = ~static_cast<INDEX_T>(0);
+      my_vals[i] = ~static_cast<IdxT>(0);
     }
   }
   __syncthreads();
@@ -125,12 +125,12 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
   for (int j = 0; j < numElementsPerThread; j += 2) {
 #pragma unroll
     for (int i = 0; i < numElementsPerThread; i += 2) {
-      swap_if_needed<float, INDEX_T>(
+      swap_if_needed<float, IdxT>(
         my_keys[i], my_keys[i + 1], my_vals[i], my_vals[i + 1], ascending);
     }
 #pragma unroll
     for (int i = 1; i < numElementsPerThread - 1; i += 2) {
-      swap_if_needed<float, INDEX_T>(
+      swap_if_needed<float, IdxT>(
         my_keys[i], my_keys[i + 1], my_vals[i], my_vals[i + 1], ascending);
     }
   }
@@ -154,7 +154,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
         for (int i = 0; i < numElementsPerThread; i++) {
           float opp_key    = smem_keys[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
           uint32_t opp_val = smem_vals[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
-          swap_if_needed<float, INDEX_T>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
+          swap_if_needed<float, IdxT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
         }
       } else {
 // intra warp
@@ -162,7 +162,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
         for (int i = 0; i < numElementsPerThread; i++) {
           float opp_key    = __shfl_xor_sync(0xffffffff, my_keys[i], curr_mask);
           uint32_t opp_val = __shfl_xor_sync(0xffffffff, my_vals[i], curr_mask);
-          swap_if_needed<float, INDEX_T>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
+          swap_if_needed<float, IdxT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
         }
       }
     }
@@ -174,7 +174,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
       for (int i = 0; i < numElementsPerThread; i++) {
         int j = i ^ curr_mask;
         if (i > j) continue;
-        swap_if_needed<float, INDEX_T>(my_keys[i], my_keys[j], my_vals[i], my_vals[j], ascending);
+        swap_if_needed<float, IdxT>(my_keys[i], my_keys[j], my_vals[i], my_vals[j], ascending);
       }
     }
     mask = next_mask;
@@ -187,16 +187,16 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
   }
 }
 
-template <int MAX_DEGREE>
-__global__ void kern_prune(uint32_t* knn_graph,  // [graph_chunk_size, graph_degree]
+template <int MAX_DEGREE, class IdxT>
+__global__ void kern_prune(IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
                            uint32_t graph_size,
                            uint32_t graph_degree,
                            uint32_t degree,
                            uint32_t batch_size,
                            uint32_t batch_id,
-                           uint8_t* detour_count,          // [graph_chunk_size, graph_degree]
-                           uint32_t* num_no_detour_edges,  // [graph_size]
-                           uint64_t* stats)
+                           uint8_t* const detour_count,          // [graph_chunk_size, graph_degree]
+                           uint32_t* const num_no_detour_edges,  // [graph_size]
+                           uint64_t* const stats)
 {
   __shared__ uint32_t smem_num_detour[MAX_DEGREE];
   uint64_t* const num_retain = stats;
@@ -250,9 +250,10 @@ __global__ void kern_prune(uint32_t* knn_graph,  // [graph_chunk_size, graph_deg
   }
 }
 
-__global__ void kern_make_rev_graph(const uint32_t* dest_nodes,  // [graph_size]
-                                    uint32_t* rev_graph,         // [size, degree]
-                                    uint32_t* rev_graph_count,   // [graph_size]
+template <class IdxT>
+__global__ void kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
+                                    IdxT* const rev_graph,            // [size, degree]
+                                    uint32_t* const rev_graph_count,  // [graph_size]
                                     const uint32_t graph_size,
                                     const uint32_t degree)
 {
@@ -260,7 +261,7 @@ __global__ void kern_make_rev_graph(const uint32_t* dest_nodes,  // [graph_size]
   const uint32_t tnum = blockDim.x * gridDim.x;
 
   for (uint32_t src_id = tid; src_id < graph_size; src_id += tnum) {
-    const uint32_t dest_id = dest_nodes[src_id];
+    const IdxT dest_id = dest_nodes[src_id];
     if (dest_id >= graph_size) continue;
 
     const uint32_t pos = atomicAdd(rev_graph_count + dest_id, 1);
@@ -418,12 +419,19 @@ void prune(raft::device_resources const& res,
                input_graph_ptr,
                graph_size * input_graph_degree,
                res.get_stream());
-    void (*kernel_prune)(
-      uint32_t*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint8_t*, uint32_t*, uint64_t*);
+    void (*kernel_prune)(IdxT* const,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint32_t,
+                         uint8_t* const,
+                         uint32_t* const,
+                         uint64_t* const);
 
     constexpr int MAX_DEGREE = 1024;
     if (input_graph_degree <= MAX_DEGREE) {
-      kernel_prune = kern_prune<MAX_DEGREE>;
+      kernel_prune = kern_prune<MAX_DEGREE, IdxT>;
     } else {
       fprintf(stderr,
               "[ERROR] The degree of input knn graph is too large (%u). "
