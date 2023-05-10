@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -204,7 +207,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
-      query_buffer[j] = static_cast<float>(query_ptr[i]) * device::fragment_scale<DATA_T>();
+      query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
     } else {
       query_buffer[j] = 0.0;
     }

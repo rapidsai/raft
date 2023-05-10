@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -124,10 +127,12 @@ __global__ void random_pickup_kernel(
       random_data_frag, dataset_ptr + (dataset_dim * seed_index), dataset_dim);
 
     // Compute the norm of two data
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(query_frag, random_data_frag, device::fragment_scale<DATA_T>()
-                                /*, scale*/
-      );
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      query_frag,
+      random_data_frag,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor)
+      /*, scale*/
+    );
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -335,8 +340,10 @@ __global__ void compute_distance_to_child_nodes_kernel(
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_query;
     device::load_vector_sync(frag_query, query_ptr + blockIdx.y * data_dim, data_dim);
 
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(frag_target, frag_query, device::fragment_scale<DATA_T>());
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      frag_target,
+      frag_query,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor));
 
     if (threadIdx.x % TEAM_SIZE == 0) {
       result_indices_ptr[ldd * blockIdx.y + global_team_id]   = child_id;
