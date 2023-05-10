@@ -66,9 +66,9 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
 
 template <class DATA_T, class IdxT, int blockDim_x, int numElementsPerThread>
 __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
-                          uint32_t dataset_size,
+                          IdxT dataset_size,
                           uint32_t dataset_dim,
-                          IdxT* knn_graph,  // [graph_chunk_size, graph_degree]
+                          IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
                           uint32_t graph_size,
                           uint32_t graph_degree)
 {
@@ -287,98 +287,108 @@ void shift_array(T* array, uint64_t num)
 }
 }  // namespace
 
-/** Input arrays can be both host and device*/
-template <class DATA_T,
+template <typename DataT,
           typename IdxT = uint32_t,
           typename d_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::device>,
+            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
-            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
+void sort_knn_graph(raft::device_resources const& res,
+                    mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+                    mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
+{
+  RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
+               "dataset size is expected to have the same number of graph index size");
+  const uint32_t dataset_size = dataset.extent(0);
+  const uint32_t dataset_dim  = dataset.extent(1);
+  const DataT* dataset_ptr    = dataset.data_handle();
+
+  const IdxT graph_size             = dataset_size;
+  const uint32_t input_graph_degree = knn_graph.extent(1);
+  IdxT* const input_graph_ptr       = knn_graph.data_handle();
+
+  auto d_input_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, input_graph_degree);
+
+  //
+  // Sorting kNN graph
+  //
+  const double time_sort_start = cur_time();
+  RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
+
+  auto d_dataset = raft::make_device_matrix<DataT, IdxT>(res, dataset_size, dataset_dim);
+  raft::copy(d_dataset.data_handle(), dataset_ptr, dataset_size * dataset_dim, res.get_stream());
+
+  raft::copy(d_input_graph.data_handle(),
+             input_graph_ptr,
+             graph_size * input_graph_degree,
+             res.get_stream());
+
+  void (*kernel_sort)(DataT*, IdxT, uint32_t, IdxT* const, uint32_t, uint32_t);
+  constexpr int numElementsPerThread = 4;
+  dim3 threads_sort(1, 1, 1);
+  if (input_graph_degree <= numElementsPerThread * 32) {
+    constexpr int blockDim_x = 32;
+    kernel_sort              = kern_sort<DataT, IdxT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 64) {
+    constexpr int blockDim_x = 64;
+    kernel_sort              = kern_sort<DataT, IdxT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 128) {
+    constexpr int blockDim_x = 128;
+    kernel_sort              = kern_sort<DataT, IdxT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else if (input_graph_degree <= numElementsPerThread * 256) {
+    constexpr int blockDim_x = 256;
+    kernel_sort              = kern_sort<DataT, IdxT, blockDim_x, numElementsPerThread>;
+    threads_sort.x           = blockDim_x;
+  } else {
+    fprintf(stderr,
+            "[ERROR] The degree of input knn graph is too large (%u). "
+            "It must be equal to or small than %d.\n",
+            input_graph_degree,
+            numElementsPerThread * 256);
+    exit(-1);
+  }
+  dim3 blocks_sort(graph_size, 1, 1);
+  RAFT_LOG_DEBUG(".");
+  kernel_sort<<<blocks_sort, threads_sort, 0, res.get_stream()>>>(d_dataset.data_handle(),
+                                                                  dataset_size,
+                                                                  dataset_dim,
+                                                                  d_input_graph.data_handle(),
+                                                                  graph_size,
+                                                                  input_graph_degree);
+  res.sync_stream();
+  RAFT_LOG_DEBUG(".");
+  raft::copy(input_graph_ptr,
+             d_input_graph.data_handle(),
+             graph_size * input_graph_degree,
+             res.get_stream());
+  RAFT_LOG_DEBUG("\n");
+
+  const double time_sort_end = cur_time();
+  RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
+}
+
+template <typename IdxT = uint32_t,
+          typename g_accessor =
+            host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void prune(raft::device_resources const& res,
-           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
   RAFT_LOG_DEBUG(
     "# Pruning kNN graph (size=%lu, degree=%lu)\n", knn_graph.extent(0), knn_graph.extent(1));
 
-  RAFT_EXPECTS(
-    dataset.extent(0) == knn_graph.extent(0) && knn_graph.extent(0) == new_graph.extent(0),
-    "Each input array is expected to have the same number of rows");
+  RAFT_EXPECTS(knn_graph.extent(0) == new_graph.extent(0),
+               "Each input array is expected to have the same number of rows");
   RAFT_EXPECTS(new_graph.extent(1) <= knn_graph.extent(1),
                "output graph cannot have more columns than input graph");
-  const uint32_t dataset_size        = dataset.extent(0);
-  const uint32_t dataset_dim         = dataset.extent(1);
   const uint32_t input_graph_degree  = knn_graph.extent(1);
   const uint32_t output_graph_degree = new_graph.extent(1);
-  const DATA_T* const dataset_ptr    = dataset.data_handle();
-  uint32_t* const input_graph_ptr    = (uint32_t*)knn_graph.data_handle();
-  uint32_t* const output_graph_ptr   = new_graph.data_handle();
-  const IdxT graph_size              = dataset_size;
-
-  auto d_input_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, input_graph_degree);
-
-  {
-    //
-    // Sorting kNN graph
-    //
-    const double time_sort_start = cur_time();
-    RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
-
-    auto d_dataset = raft::make_device_matrix<DATA_T, IdxT>(res, dataset_size, dataset_dim);
-    raft::copy(d_dataset.data_handle(), dataset_ptr, dataset_size * dataset_dim, res.get_stream());
-
-    raft::copy(d_input_graph.data_handle(),
-               input_graph_ptr,
-               graph_size * input_graph_degree,
-               res.get_stream());
-
-    void (*kernel_sort)(DATA_T*, uint32_t, uint32_t, IdxT*, uint32_t, uint32_t);
-    constexpr int numElementsPerThread = 4;
-    dim3 threads_sort(1, 1, 1);
-    if (input_graph_degree <= numElementsPerThread * 32) {
-      constexpr int blockDim_x = 32;
-      kernel_sort              = kern_sort<DATA_T, IdxT, blockDim_x, numElementsPerThread>;
-      threads_sort.x           = blockDim_x;
-    } else if (input_graph_degree <= numElementsPerThread * 64) {
-      constexpr int blockDim_x = 64;
-      kernel_sort              = kern_sort<DATA_T, IdxT, blockDim_x, numElementsPerThread>;
-      threads_sort.x           = blockDim_x;
-    } else if (input_graph_degree <= numElementsPerThread * 128) {
-      constexpr int blockDim_x = 128;
-      kernel_sort              = kern_sort<DATA_T, IdxT, blockDim_x, numElementsPerThread>;
-      threads_sort.x           = blockDim_x;
-    } else if (input_graph_degree <= numElementsPerThread * 256) {
-      constexpr int blockDim_x = 256;
-      kernel_sort              = kern_sort<DATA_T, IdxT, blockDim_x, numElementsPerThread>;
-      threads_sort.x           = blockDim_x;
-    } else {
-      fprintf(stderr,
-              "[ERROR] The degree of input knn graph is too large (%u). "
-              "It must be equal to or small than %d.\n",
-              input_graph_degree,
-              numElementsPerThread * 256);
-      exit(-1);
-    }
-    dim3 blocks_sort(graph_size, 1, 1);
-    RAFT_LOG_DEBUG(".");
-    kernel_sort<<<blocks_sort, threads_sort, 0, res.get_stream()>>>(d_dataset.data_handle(),
-                                                                    dataset_size,
-                                                                    dataset_dim,
-                                                                    d_input_graph.data_handle(),
-                                                                    graph_size,
-                                                                    input_graph_degree);
-    res.sync_stream();
-    RAFT_LOG_DEBUG(".");
-    raft::copy(input_graph_ptr,
-               d_input_graph.data_handle(),
-               graph_size * input_graph_degree,
-               res.get_stream());
-    RAFT_LOG_DEBUG("\n");
-
-    const double time_sort_end = cur_time();
-    RAFT_LOG_DEBUG("# Sorting kNN graph time: %.1lf sec\n", time_sort_end - time_sort_start);
-  }
+  auto input_graph_ptr               = knn_graph.data_handle();
+  auto output_graph_ptr              = new_graph.data_handle();
+  const IdxT graph_size              = new_graph.extent(0);
 
   auto pruned_graph = raft::make_host_matrix<IdxT, IdxT>(graph_size, output_graph_degree);
 
@@ -386,6 +396,8 @@ void prune(raft::device_resources const& res,
     //
     // Prune kNN graph
     //
+    auto d_input_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, input_graph_degree);
+
     auto detour_count = raft::make_host_matrix<uint8_t, IdxT>(graph_size, input_graph_degree);
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, IdxT>(res, graph_size, input_graph_degree);
