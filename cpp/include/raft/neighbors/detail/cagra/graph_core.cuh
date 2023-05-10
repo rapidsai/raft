@@ -68,7 +68,6 @@ template <class DATA_T, class INDEX_T, int blockDim_x, int numElementsPerThread>
 __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
                           uint32_t dataset_size,
                           uint32_t dataset_dim,
-                          float scale,
                           INDEX_T* knn_graph,  // [graph_chunk_size, graph_degree]
                           uint32_t graph_size,
                           uint32_t graph_degree)
@@ -88,8 +87,10 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
     uint64_t dstNode = knn_graph[k + ((uint64_t)graph_degree * srcNode)];
     float dist       = 0.0;
     for (int d = lane_id; d < dataset_dim; d += 32) {
-      float diff = (float)(dataset[d + ((uint64_t)dataset_dim * srcNode)]) * scale -
-                   (float)(dataset[d + ((uint64_t)dataset_dim * dstNode)]) * scale;
+      float diff = spatial::knn::detail::utils::mapping<float>{}(
+                     dataset[d + ((uint64_t)dataset_dim * srcNode)]) -
+                   spatial::knn::detail::utils::mapping<float>{}(
+                     dataset[d + ((uint64_t)dataset_dim * dstNode)]);
       dist += diff * diff;
     }
     dist += __shfl_xor_sync(0xffffffff, dist, 1);
@@ -312,8 +313,7 @@ void prune(raft::device_resources const& res,
   const DATA_T* const dataset_ptr    = dataset.data_handle();
   uint32_t* const input_graph_ptr    = (uint32_t*)knn_graph.data_handle();
   uint32_t* const output_graph_ptr   = new_graph.data_handle();
-  const float scale     = 1.0f / raft::spatial::knn::detail::utils::config<DATA_T>::kDivisor;
-  const IdxT graph_size = dataset_size;
+  const IdxT graph_size              = dataset_size;
 
   auto d_input_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, input_graph_degree);
 
@@ -332,7 +332,7 @@ void prune(raft::device_resources const& res,
                graph_size * input_graph_degree,
                res.get_stream());
 
-    void (*kernel_sort)(DATA_T*, uint32_t, uint32_t, float, IdxT*, uint32_t, uint32_t);
+    void (*kernel_sort)(DATA_T*, uint32_t, uint32_t, IdxT*, uint32_t, uint32_t);
     constexpr int numElementsPerThread = 4;
     dim3 threads_sort(1, 1, 1);
     if (input_graph_degree <= numElementsPerThread * 32) {
@@ -364,7 +364,6 @@ void prune(raft::device_resources const& res,
     kernel_sort<<<blocks_sort, threads_sort, 0, res.get_stream()>>>(d_dataset.data_handle(),
                                                                     dataset_size,
                                                                     dataset_dim,
-                                                                    scale,
                                                                     d_input_graph.data_handle(),
                                                                     graph_size,
                                                                     input_graph_degree);
