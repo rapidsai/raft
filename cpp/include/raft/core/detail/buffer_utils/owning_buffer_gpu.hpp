@@ -16,26 +16,18 @@
 #pragma once
 #include "owning_buffer_base.hpp"
 #include <raft/core/device_container_policy.hpp>
-#include "raft/core/mdspan_types.hpp"
 #include <raft/core/device_mdarray.hpp>
 #include <cuda_runtime_api.h>
 #include <raft/core/device_type.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <rmm/device_buffer.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace raft {
 namespace detail {
 template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy = layout_c_contiguous,
-          template <typename T>
-          typename ContainerPolicy = device_uvector_policy>
-struct owning_buffer<ElementType, device_type::gpu, Extents, LayoutPolicy, ContainerPolicy> {
+          typename Extents>
+struct owning_buffer<ElementType, device_type::gpu, Extents> {
   using element_type     = std::remove_cv_t<ElementType>;
-  using index_type       = typename Extents::index_type;
-  using container_policy = ContainerPolicy<element_type>;
-  using owning_device_buffer = device_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
+  using container_policy = device_uvector_policy<element_type>;
+  using owning_device_buffer = device_mdarray<element_type, Extents, layout_c_contiguous, container_policy>;
   
   owning_buffer() : data_{} {}
 

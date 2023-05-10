@@ -15,6 +15,7 @@
  */
 #pragma once
 #include "owning_buffer_base.hpp"
+#include "raft/core/mdspan.hpp"
 #include <raft/core/host_mdarray.hpp>
 #include <memory>
 #include <raft/core/device_type.hpp>
@@ -24,18 +25,13 @@
 namespace raft {
 namespace detail {
 template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy = layout_c_contiguous,
-          template <typename T>
-          typename ContainerPolicy = host_vector_policy>
-struct owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, ContainerPolicy> {
+          typename Extents>
+struct owning_buffer<ElementType, device_type::cpu, Extents> {
   using element_type     = std::remove_cv_t<ElementType>;
-  using index_type       = typename Extents::index_type;
-  using container_policy = ContainerPolicy<element_type>;
-  using owning_host_buffer = host_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
+  using container_policy = host_vector_policy<element_type>;
+  using owning_host_buffer = host_mdarray<element_type, Extents, layout_c_contiguous, container_policy>;
   owning_buffer(raft::resources const& handle, Extents extents) noexcept(false)
     : extents_{extents}, data_{[&extents, handle]() {
-        // return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
         typename owning_host_buffer::mapping_type layout{extents};
         typename owning_host_buffer::container_policy_type policy{};
       return owning_host_buffer{handle, layout, policy};
@@ -46,7 +42,6 @@ struct owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, Conta
    auto* get() const { return reinterpret_cast<ElementType*>(data_.data_handle()); }
 
  private:
-  // TODO(wphicks): Back this with RMM-allocated host memory
   Extents extents_;
   owning_host_buffer data_;
 };

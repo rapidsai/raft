@@ -16,6 +16,7 @@
 #pragma once
 #include "raft/core/logger.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <memory>
 #include <raft/core/detail/buffer_utils/buffer_copy.hpp>
@@ -35,23 +36,26 @@ namespace raft {
 /**
  * @brief A container which may or may not own its own data on host or device
  *
+ * @tparam ElementType type of the input
+ * @tparam LayoutPolicy layout of the input
+ * @tparam ContainerPolicy container to be used to own host/device memory if needed. Users must ensure that the container has the correct type (host/device). Exceptions due to a device container being used for a host buffer and vice versa are not caught by the buffer class.
+ * @tparam the index type of the extents
  */
-template <typename ElementType,
-          typename LayoutPolicy,
-          template <typename T>
-          typename ContainerPolicy,
-          typename IndexType = std::uint32_t>
+template <typename ElementType>
 struct buffer {
-  using data_store = std::variant<detail::non_owning_buffer<ElementType, device_type::cpu, IndexType, LayoutPolicy, ContainerPolicy>,
-                                  detail::non_owning_buffer<ElementType, device_type::gpu, IndexType, LayoutPolicy, ContainerPolicy>,
-                                  detail::owning_buffer<ElementType, device_type::cpu, IndexType, LayoutPolicy, ContainerPolicy>,
-                                  detail::owning_buffer<ElementType, device_type::gpu, IndexType, LayoutPolicy, ContainerPolicy>>;
+  using buffer_extent = vector_extent<size_t>;
+  using data_store = std::variant<detail::non_owning_buffer<ElementType, device_type::cpu, buffer_extent>,
+                                  detail::non_owning_buffer<ElementType, device_type::gpu, buffer_extent>,
+                                  detail::owning_buffer<ElementType, device_type::cpu, buffer_extent>,
+                                  detail::owning_buffer<ElementType, device_type::gpu, buffer_extent>>;
 
   buffer() : device_type_{}, data_{}, size_{}, memory_type_{memory_type::host} {}
 
-  /** Construct non-initialized owning buffer */
+  /** Construct non-initialized owning buffer. For owning buffers, managed memory is treated as
+   * device memory only. Therefore, users are discouraged from using managed memory for creating
+   * owning buffers. */
   buffer(raft::resources const& handle,
-         IndexType size,
+         size_t size,
          memory_type mem_type    = memory_type::host)
     : device_type_{[mem_type]() {
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
@@ -59,9 +63,9 @@ struct buffer {
       data_{[this, mem_type, size, handle]() {
         auto result = data_store{};
         if (is_device_accessible(mem_type)) {
-          result = detail::owning_buffer<ElementType, device_type::gpu, IndexType, LayoutPolicy, ContainerPolicy>{handle, size};
+          result = detail::owning_buffer<ElementType, device_type::gpu, buffer_extent>{handle, size};
         } else {
-          result = detail::owning_buffer<ElementType, device_type::cpu, IndexType, LayoutPolicy, ContainerPolicy>{handle, size};
+          result = detail::owning_buffer<ElementType, device_type::cpu, buffer_extent>{handle, size};
         }
         return result;
       }()},
@@ -80,8 +84,9 @@ struct buffer {
 
   /** Construct non-owning buffer. Currently, users must ensure that the input_data is on the same device_type as the requested mem_type.
       This cannot be asserted because checking the device id requires cuda headers (which is against the intended cuda-free build). If
-      the mem_type is different from the device_type of input_data, the input_data should first be copied to the appropriate location. */
-  buffer(raft::resources const& handle, ElementType* input_data, IndexType size, memory_type mem_type = memory_type::host)
+      the mem_type is different from the device_type of input_data, the input_data should first be copied to the appropriate location. For
+      managed memory_type, input_data should be a managed pointer. */
+  buffer(raft::resources const& handle, ElementType* input_data, size_t size, memory_type mem_type = memory_type::host)
     : device_type_{[mem_type]() {
         RAFT_LOG_INFO("Non owning constructor call started");
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
@@ -89,9 +94,9 @@ struct buffer {
       data_{[this, input_data, mem_type]() {
         auto result = data_store{};
         if (is_device_accessible(mem_type)) {
-          result = detail::non_owning_buffer<ElementType, device_type::gpu, IndexType, LayoutPolicy, ContainerPolicy>{input_data};
+          result = detail::non_owning_buffer<ElementType, device_type::gpu, buffer_extent>{input_data};
         } else {
-          result = detail::non_owning_buffer<ElementType, device_type::cpu, IndexType, LayoutPolicy, ContainerPolicy>{input_data};
+          result = detail::non_owning_buffer<ElementType, device_type::cpu, buffer_extent>{input_data};
         }
         return result;
       }()},
@@ -127,13 +132,13 @@ struct buffer {
         auto result_data = static_cast<ElementType*>(nullptr);
         if (is_device_accessible(mem_type)) {
           auto buf =
-            detail::owning_buffer<device_type::gpu, T>(handle, other.size());
+            detail::owning_buffer<ElementType, device_type::gpu, buffer_extent>(handle, other.size());
           result_data = buf.get();
           result      = std::move(buf);
           RAFT_LOG_INFO("gpu copy called");
           detail::buffer_copy(handle, result_data, other.data_handle(), other.size(), device_type::gpu, other.dev_type());   
         } else {
-          auto buf    = detail::owning_buffer<device_type::cpu, T>(other.size());
+          auto buf    = detail::owning_buffer<ElementType, device_type::cpu, buffer_extent>(other.size());
           result_data = buf.get();
           result      = std::move(buf);
           RAFT_LOG_INFO("cpu copy called");
@@ -144,7 +149,7 @@ struct buffer {
       size_{other.size()},
       memory_type_{mem_type},
       cached_ptr{[this]() {
-        auto result = static_cast<T*>(nullptr);
+        auto result = static_cast<ElementType*>(nullptr);
         switch (data_.index()) {
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
@@ -155,7 +160,7 @@ struct buffer {
     RAFT_LOG_INFO("Pointer to other's data %p\n", other.data_handle());
   }
 
-  friend void swap(buffer<T>& first, buffer<T>& second)
+  friend void swap(buffer<ElementType>& first, buffer<ElementType>& second)
   {
     using std::swap;
     swap(first.device_type_, second.device_type_);
@@ -164,7 +169,7 @@ struct buffer {
     swap(first.memory_type_, second.memory_type_);
     swap(first.cached_ptr, second.cached_ptr);
   }
-  buffer<T>& operator=(buffer<T> const& other) {
+  buffer<ElementType>& operator=(buffer<ElementType> const& other) {
     auto copy = other;
     swap(*this, copy);
     return *this;
@@ -174,7 +179,7 @@ struct buffer {
    * @brief Create owning copy of existing buffer with given stream
    * The device type of this new buffer will be the same as the original
    */
-  buffer(raft::resources const& handle, buffer<T> const& other) : buffer(handle, other, other.mem_type())
+  buffer(raft::resources const& handle, buffer<ElementType> const& other) : buffer(handle, other, other.mem_type())
   {
   }
 
@@ -182,7 +187,7 @@ struct buffer {
    * @brief Move from existing buffer unless a copy is necessary based on
    * memory location
    */
-  buffer(raft::resources const& handle, buffer<T>&& other, memory_type mem_type)
+  buffer(raft::resources const& handle, buffer<ElementType>&& other, memory_type mem_type)
     : device_type_{[mem_type]() {
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
       }()},
@@ -191,19 +196,18 @@ struct buffer {
         if (mem_type == other.mem_type()) {
           result = std::move(other.data_);
         } else {
-          auto* result_data = static_cast<T*>(nullptr);
+          auto* result_data = static_cast<ElementType*>(nullptr);
           if (is_device_accessible(mem_type)) {
-            auto buf    = detail::owning_buffer<device_type::gpu, T>{handle, other.size()};
-            auto buf = detail::owning_buffer<T,
+            auto buf = detail::owning_buffer<ElementType,
                   device_type::gpu,
-                  IndexType,
-          typename LayoutPolicy = layout_c_contiguous,
-          template <typename> typename ContainerPolicy>
+                  buffer_extent>{handle, other.size()};
             result_data = buf.get();
             result      = std::move(buf);
             detail::buffer_copy(handle, result_data, other.data_handle(), other.size(), device_type::gpu, other.dev_type());
           } else {
-            auto buf    = detail::owning_buffer<device_type::cpu, T>{other.size()};
+            auto buf = detail::owning_buffer<ElementType,
+                  device_type::cpu,
+                  buffer_extent>{other.size()};
             result_data = buf.get();
             result      = std::move(buf);
             detail::buffer_copy(handle, result_data, other.data_handle(), other.size(), device_type::cpu, other.dev_type());
@@ -214,7 +218,7 @@ struct buffer {
       size_{other.size()},
       memory_type_{mem_type},
       cached_ptr{[this]() {
-        auto result = static_cast<T*>(nullptr);
+        auto result = static_cast<ElementType*>(nullptr);
         switch (data_.index()) {
           case 0: result = std::get<0>(data_).get(); break;
           case 1: result = std::get<1>(data_).get(); break;
@@ -232,7 +236,7 @@ struct buffer {
   //   RAFT_LOG_INFO("copy constructor without stream and device called");
   // }
 
-  buffer(buffer<T>&& other) noexcept
+  buffer(buffer<ElementType>&& other) noexcept
     : device_type_{[&other]() {
         return is_device_accessible(other.mem_type()) ? device_type::gpu : device_type::cpu;
       }()},
@@ -244,7 +248,7 @@ struct buffer {
       size_{other.size()},
       memory_type_{other.mem_type()},
       cached_ptr{[this]() {
-        auto result = static_cast<T*>(nullptr);
+        auto result = static_cast<ElementType*>(nullptr);
         switch (data_.index()) {
           case 0: result = std::get<0>(data_).get(); break;
           case 1: result = std::get<1>(data_).get(); break;
@@ -256,7 +260,7 @@ struct buffer {
   {
     RAFT_LOG_INFO("trivial move called");
   }
-  buffer<T>& operator=(buffer<T>&& other) noexcept {
+  buffer<ElementType>& operator=(buffer<ElementType>&& other) noexcept {
     RAFT_LOG_INFO("operator= move called");
     data_ = std::move(other.data_);
     device_type_ = std::move(other.device_type_);
@@ -268,7 +272,7 @@ struct buffer {
 
   auto size() const noexcept { return size_; }
   HOST DEVICE auto* data_handle() const noexcept { 
-    auto result = static_cast<T*>(nullptr);
+    auto result = static_cast<ElementType*>(nullptr);
     switch (data_.index()) {
       case 0: result = std::get<0>(data_).get(); break;
       case 1: result = std::get<1>(data_).get(); break;
@@ -278,8 +282,6 @@ struct buffer {
       RAFT_LOG_INFO("data_handle() called: data %p; cached_ptr %p\n", result, cached_ptr);
         return result;}
 
-  auto device() const noexcept { return device_type_; }
-
   auto mem_type() const noexcept
   {
     return memory_type_;
@@ -287,9 +289,9 @@ struct buffer {
 
   ~buffer() = default;
 
-  auto view() -> view_type {
-  return make_mdspan<ElementType, IndexType, LayoutPolicy, is_host_accessible(this -> mem_type()), is_device_accessible(this -> mem_type())>(data_, make_extents<IndexType>(size_));
-  }
+  // auto view() -> view_type {
+  // return make_mdspan<ElementType, IndexType, LayoutPolicy, is_host_accessible(this -> mem_type()), is_device_accessible(this -> mem_type())>(data_, make_extents<IndexType>(size_));
+  // }
 
  private:
  auto dev_type() const noexcept
@@ -299,15 +301,14 @@ struct buffer {
 
   enum device_type device_type_;
   data_store data_;
-  IndexType size_;
+  size_t size_;
   enum memory_type memory_type_;
   ElementType* cached_ptr;
-  int device_id_;
 };
 
 template <bool bounds_check, typename T, typename U>
 detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
-                                         buffer<T>& dst,
+                                         buffer<T> & dst,
                                          buffer<U> const& src,
                                          size_t dst_offset,
                                          size_t src_offset,

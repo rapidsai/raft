@@ -23,9 +23,7 @@ namespace detail {
 
 template <typename ElementType,
           device_type D,
-          typename Extents,
-          typename LayoutPolicy = layout_c_contiguous,
-          template <typename T> typename ContainerPolicy>
+          typename Extents>
 struct owning_buffer {
   owning_buffer() {}
   owning_buffer(raft::resources const& handle, Extents extents) {}

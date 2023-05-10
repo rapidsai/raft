@@ -14,24 +14,20 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/core/host_container_policy.hpp"
 #include "raft/core/logger.hpp"
-#include "raft/core/mdspan.hpp"
+// #include "raft/core/mdspan.hpp"
 #include <memory>
 #include <raft/core/device_type.hpp>
-#include <raft/core/host_mdspan.hpp>
-#include <raft/core/device_mdspan.hpp>
+// #include <raft/core/host_mdspan.hpp>
+// #include <raft/core/device_mdspan.hpp>
 
 namespace raft {
 namespace detail {
 template <typename ElementType,
           device_type D,
-          typename Extents,
-          typename LayoutPolicy = layout_c_contiguous,
-          template <typename T> typename ContainerPolicy>
+          typename Extents>
 struct non_owning_buffer {
-  using element_type     = std::remove_cv_t<ElementType>;
-  using index_type       = typename Extents::index_type;
-  using container_policy = ContainerPolicy<element_type>;
 
   non_owning_buffer() : data_{nullptr} {}
 
@@ -44,5 +40,6 @@ struct non_owning_buffer {
   // TODO(wphicks): Back this with RMM-allocated host memory
   ElementType* data_;
 };
+
 }  // namespace detail
 }  // namespace raft
