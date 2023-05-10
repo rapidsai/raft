@@ -27,7 +27,7 @@
 
 #define instantiate_raft_neighbors_ivf_flat_extend(T, IdxT)                \
   template auto raft::neighbors::ivf_flat::extend<T, IdxT>(                \
-    raft::device_resources const& handle,                                  \
+    raft::resources const& handle,                                         \
     const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index,           \
     const T* new_vectors,                                                  \
     const IdxT* new_indices,                                               \
@@ -35,21 +35,21 @@
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                           \
                                                                            \
   template auto raft::neighbors::ivf_flat::extend<T, IdxT>(                \
-    raft::device_resources const& handle,                                  \
+    raft::resources const& handle,                                         \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
     const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index)           \
     ->raft::neighbors::ivf_flat::index<T, IdxT>;                           \
                                                                            \
   template void raft::neighbors::ivf_flat::extend<T, IdxT>(                \
-    raft::device_resources const& handle,                                  \
+    raft::resources const& handle,                                         \
     raft::neighbors::ivf_flat::index<T, IdxT>* index,                      \
     const T* new_vectors,                                                  \
     const IdxT* new_indices,                                               \
     IdxT n_rows);                                                          \
                                                                            \
   template void raft::neighbors::ivf_flat::extend<T, IdxT>(                \
-    raft::device_resources const& handle,                                  \
+    raft::resources const& handle,                                         \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
     raft::neighbors::ivf_flat::index<T, IdxT>* index);

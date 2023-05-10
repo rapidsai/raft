@@ -18,6 +18,7 @@
 
 #include "../ann_common.h"
 #include "../ivf_flat.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include "processing.cuh"
 #include <raft/core/operators.hpp>
@@ -38,7 +39,7 @@
 namespace raft::spatial::knn::detail {
 
 template <typename T = float, typename IntType = int>
-void approx_knn_build_index(raft::device_resources const& handle,
+void approx_knn_build_index(raft::resources const& handle,
                             knnIndex* index,
                             knnIndexParam* params,
                             raft::distance::DistanceType metric,
@@ -47,7 +48,7 @@ void approx_knn_build_index(raft::device_resources const& handle,
                             IntType n,
                             IntType D)
 {
-  auto stream      = handle.get_stream();
+  auto stream      = resource::get_cuda_stream(handle);
   index->metric    = metric;
   index->metricArg = metricArg;
   if (dynamic_cast<const IVFParam*>(params)) {
@@ -92,7 +93,7 @@ void approx_knn_build_index(raft::device_resources const& handle,
 }
 
 template <typename T = float, typename IntType = int>
-void approx_knn_search(raft::device_resources const& handle,
+void approx_knn_search(raft::resources const& handle,
                        float* distances,
                        int64_t* indices,
                        knnIndex* index,
@@ -138,7 +139,7 @@ void approx_knn_search(raft::device_resources const& handle,
     float p = 0.5;  // standard l2
     if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(
-      distances, distances, n * k, raft::pow_const_op<float>(p), handle.get_stream());
+      distances, distances, n * k, raft::pow_const_op<float>(p), resource::get_cuda_stream(handle));
   }
   if constexpr (std::is_same_v<T, float>) { index->metric_processor->postprocess(distances); }
 }

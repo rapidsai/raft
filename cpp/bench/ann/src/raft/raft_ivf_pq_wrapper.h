@@ -176,11 +176,14 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
       auto distances_host  = raft::make_host_matrix<float, IdxT>(batch_size, k);
 
-      raft::copy(queries_host.data_handle(), queries, queries_host.size(), handle_.get_stream());
+      raft::copy(queries_host.data_handle(),
+                 queries,
+                 queries_host.size(),
+                 resource::get_cuda_stream(handle_));
       raft::copy(candidates_host.data_handle(),
                  candidates.data_handle(),
                  candidates_host.size(),
-                 handle_.get_stream());
+                 resource::get_cuda_stream(handle_));
 
       auto dataset_v = raft::make_host_matrix_view<const T, IdxT>(
         dataset_.data_handle(), batch_size, index_->dim());
@@ -196,9 +199,11 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       raft::copy(neighbors,
                  (size_t*)neighbors_host.data_handle(),
                  neighbors_host.size(),
-                 handle_.get_stream());
-      raft::copy(
-        distances, distances_host.data_handle(), distances_host.size(), handle_.get_stream());
+                 resource::get_cuda_stream(handle_));
+      raft::copy(distances,
+                 distances_host.data_handle(),
+                 distances_host.size(),
+                 resource::get_cuda_stream(handle_));
     }
   } else {
     auto queries_v =
@@ -209,7 +214,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
   }
-  handle_.sync_stream();
+  resource::sync_stream(handle_);
   return;
 }
 }  // namespace raft::bench::ann

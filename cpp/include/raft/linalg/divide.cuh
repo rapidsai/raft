@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/divide.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -56,7 +57,7 @@ void divideScalar(OutT* out, const InT* in, InT scalar, IdxType len, cudaStream_
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in    Input
  * @param[in] scalar    raft::host_scalar_view
  * @param[out] out    Output
@@ -66,7 +67,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void divide_scalar(raft::device_resources const& handle,
+void divide_scalar(raft::resources const& handle,
                    InType in,
                    OutType out,
                    raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -83,13 +84,13 @@ void divide_scalar(raft::device_resources const& handle,
                                                          in.data_handle(),
                                                          *scalar.data_handle(),
                                                          static_cast<std::uint32_t>(out.size()),
-                                                         handle.get_stream());
+                                                         resource::get_cuda_stream(handle));
   } else {
     divideScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                          in.data_handle(),
                                                          *scalar.data_handle(),
                                                          static_cast<std::uint64_t>(out.size()),
-                                                         handle.get_stream());
+                                                         resource::get_cuda_stream(handle));
   }
 }
 

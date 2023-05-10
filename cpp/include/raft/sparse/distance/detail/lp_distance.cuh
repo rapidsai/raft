@@ -17,6 +17,7 @@
 #pragma once
 
 #include <limits.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/operators.cuh>
 #include <raft/core/operators.hpp>
@@ -52,13 +53,13 @@ void unexpanded_lp_distances(value_t* out_dists,
                              write_f write_func)
 {
   rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
-                                          config_->handle.get_stream());
+                                          resource::get_cuda_stream(config_->handle));
 
   raft::sparse::convert::csr_to_coo(config_->b_indptr,
                                     config_->b_nrows,
                                     coo_rows.data(),
                                     config_->b_nnz,
-                                    config_->handle.get_stream());
+                                    resource::get_cuda_stream(config_->handle));
 
   balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
     out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
@@ -67,7 +68,7 @@ void unexpanded_lp_distances(value_t* out_dists,
                                     config_->a_nrows,
                                     coo_rows.data(),
                                     config_->a_nnz,
-                                    config_->handle.get_stream());
+                                    resource::get_cuda_stream(config_->handle));
 
   balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(
     out_dists, *config_, coo_rows.data(), product_func, accum_func, write_func);
@@ -134,7 +135,7 @@ class l2_sqrt_unexpanded_distances_t : public l2_unexpanded_distances_t<value_id
         int neg = input < 0 ? -1 : 1;
         return raft::sqrt(abs(input) * neg);
       },
-      this->config_->handle.get_stream());
+      resource::get_cuda_stream(this->config_->handle));
   }
 };
 
@@ -207,7 +208,7 @@ class lp_unexpanded_distances_t : public distances_t<value_t> {
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
                                    raft::pow_const_op<value_t>(one_over_p),
-                                   config_->handle.get_stream());
+                                   resource::get_cuda_stream(config_->handle));
   }
 
  private:
@@ -233,7 +234,7 @@ class hamming_unexpanded_distances_t : public distances_t<value_t> {
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
                                    raft::mul_const_op<value_t>(n_cols),
-                                   config_->handle.get_stream());
+                                   resource::get_cuda_stream(config_->handle));
   }
 
  private:
@@ -275,7 +276,7 @@ class jensen_shannon_unexpanded_distances_t : public distances_t<value_t> {
       out_dists,
       config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return raft::sqrt(0.5 * input); },
-      config_->handle.get_stream());
+      resource::get_cuda_stream(config_->handle));
   }
 
  private:
@@ -294,13 +295,13 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
   void compute(value_t* out_dists)
   {
     rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
-                                            config_->handle.get_stream());
+                                            resource::get_cuda_stream(config_->handle));
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr,
                                       config_->b_nrows,
                                       coo_rows.data(),
                                       config_->b_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists,
@@ -314,7 +315,7 @@ class kl_divergence_unexpanded_distances_t : public distances_t<value_t> {
                                    out_dists,
                                    config_->a_nrows * config_->b_nrows,
                                    raft::mul_const_op<value_t>(0.5),
-                                   config_->handle.get_stream());
+                                   resource::get_cuda_stream(config_->handle));
   }
 
  private:

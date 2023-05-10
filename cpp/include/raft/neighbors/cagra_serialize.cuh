@@ -31,9 +31,9 @@ namespace raft::neighbors::experimental::cagra {
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // create an output stream
  * std::ostream os(std::cout.rdbuf());
@@ -50,7 +50,7 @@ namespace raft::neighbors::experimental::cagra {
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle, std::ostream& os, const index<T, IdxT>& index)
+void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index)
 {
   detail::serialize(handle, os, index);
 }
@@ -61,9 +61,9 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
@@ -80,7 +80,7 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle,
+void serialize(raft::resources const& handle,
                const std::string& filename,
                const index<T, IdxT>& index)
 {
@@ -93,9 +93,9 @@ void serialize(raft::device_resources const& handle,
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // create an input stream
  * std::istream is(std::cin.rdbuf());
@@ -113,7 +113,7 @@ void serialize(raft::device_resources const& handle,
  * @return raft::neighbors::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::device_resources const& handle, std::istream& is)
+index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
 {
   return detail::deserialize<T, IdxT>(handle, is);
 }
@@ -124,9 +124,9 @@ index<T, IdxT> deserialize(raft::device_resources const& handle, std::istream& i
  * Experimental, both the API and the serialization format are subject to change.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // create a string with a filepath
  * std::string filename("/path/to/index");
@@ -144,7 +144,7 @@ index<T, IdxT> deserialize(raft::device_resources const& handle, std::istream& i
  * @return raft::neighbors::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::device_resources const& handle, const std::string& filename)
+index<T, IdxT> deserialize(raft::resources const& handle, const std::string& filename)
 {
   return detail::deserialize<T, IdxT>(handle, filename);
 }

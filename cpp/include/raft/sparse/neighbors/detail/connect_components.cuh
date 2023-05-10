@@ -16,6 +16,8 @@
 #pragma once
 
 #include <cub/cub.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -320,7 +322,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::sparse::COO<value_t, value_idx>& out,
   const value_t* X,
   const value_idx* orig_colors,
@@ -329,7 +331,7 @@ void connect_components(
   red_op reduction_op,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Fixing connectivities for an unconnected k-NN graph only "
@@ -376,7 +378,7 @@ void connect_components(
   raft::sparse::op::compute_duplicates_mask(
     out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
 
-  thrust::exclusive_scan(handle.get_thrust_policy(),
+  thrust::exclusive_scan(resource::get_thrust_policy(handle),
                          out_index.data(),
                          out_index.data() + out_index.size(),
                          out_index.data());
@@ -384,7 +386,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   size++;
 

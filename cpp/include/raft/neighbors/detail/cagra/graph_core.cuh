@@ -411,7 +411,7 @@ template <typename DataT,
             host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void sort_knn_graph(raft::device_resources const& res,
+void sort_knn_graph(raft::resources const& res,
                     mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
                     mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
 {
@@ -525,7 +525,7 @@ void sort_knn_graph(raft::device_resources const& res,
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void prune(raft::device_resources const& res,
+void prune(raft::resources const& res,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {

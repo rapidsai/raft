@@ -15,12 +15,14 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
 #include "../test_utils.cuh"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/subtract.cuh>
 
@@ -46,7 +48,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
  public:
   MakeRegressionTest()
     : params(::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       values_ret(params.n_samples * params.n_targets, stream),
       values_prod(params.n_samples * params.n_targets, stream)
   {
@@ -86,7 +88,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
 
     // Calculate the values from the data and coefficients (column-major)
     T alpha = (T)1.0, beta = (T)0.0;
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(resource::get_cublas_handle(handle),
                                                      CUBLAS_OP_T,
                                                      CUBLAS_OP_T,
                                                      params.n_samples,
@@ -119,7 +121,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
 
   MakeRegressionInputs<T> params;
@@ -181,7 +183,7 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
  protected:
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     // Noise must be zero to compare the actual and expected values
     T noise = (T)0.0, tail_strength = (T)0.5;
@@ -218,7 +220,7 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
     // Calculate the values from the data and coefficients (column-major)
     T alpha{};
     T beta{};
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(handle.get_cublas_handle(),
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(resource::get_cublas_handle(handle),
                                                      CUBLAS_OP_T,
                                                      CUBLAS_OP_T,
                                                      params.n_samples,
@@ -253,9 +255,11 @@ class MakeRegressionMdspanTest : public ::testing::TestWithParam<MakeRegressionI
 
  private:
   MakeRegressionInputs<T> params{::testing::TestWithParam<MakeRegressionInputs<T>>::GetParam()};
-  raft::device_resources handle;
-  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets, handle.get_stream()};
-  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets, handle.get_stream()};
+  raft::resources handle;
+  rmm::device_uvector<T> values_ret{params.n_samples * params.n_targets,
+                                    resource::get_cuda_stream(handle)};
+  rmm::device_uvector<T> values_prod{params.n_samples * params.n_targets,
+                                     resource::get_cuda_stream(handle)};
   int zero_count = -1;
 };
 
@@ -271,7 +275,7 @@ TEST_P(MakeRegressionMdspanTestF, Result)
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<float>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
                         MakeRegressionMdspanTestF,
@@ -289,7 +293,7 @@ TEST_P(MakeRegressionMdspanTestD, Result)
                           params.n_samples,
                           params.n_targets,
                           raft::CompareApprox<double>(params.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 INSTANTIATE_TEST_CASE_P(MakeRegressionMdspanTests,
                         MakeRegressionMdspanTestD,

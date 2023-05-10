@@ -19,6 +19,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/batched/silhouette_score.cuh>
 #include <raft/stats/detail/silhouette_score.cuh>
 
@@ -44,7 +45,7 @@ namespace stats {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   DataT* X_in,
   int nRows,
   int nCols,
@@ -60,7 +61,7 @@ DataT silhouette_score(
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score_batched(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   value_t* X,
   value_idx n_rows,
   value_idx n_cols,
@@ -98,7 +99,7 @@ value_t silhouette_score_batched(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
@@ -120,7 +121,7 @@ value_t silhouette_score(
                                   labels.data_handle(),
                                   n_unique_labels,
                                   silhouette_score_per_sample_ptr,
-                                  handle.get_stream(),
+                                  resource::get_cuda_stream(handle),
                                   metric);
 }
 
@@ -144,7 +145,7 @@ value_t silhouette_score(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score_batched(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::optional<raft::device_vector_view<value_t, idx_t>> silhouette_score_per_sample,
@@ -187,7 +188,7 @@ value_t silhouette_score_batched(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_in,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::nullopt_t silhouette_score_per_sample,
@@ -207,7 +208,7 @@ value_t silhouette_score(
  */
 template <typename value_t, typename label_t, typename idx_t>
 value_t silhouette_score_batched(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_vector_view<const label_t, idx_t> labels,
   std::nullopt_t silhouette_score_per_sample,

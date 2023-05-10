@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::runtime::distance {
 
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        float* x,
                        float* y,
                        float* dists,
@@ -35,7 +35,7 @@ void pairwise_distance(raft::device_resources const& handle,
     handle, x, y, dists, m, n, k, metric, isRowMajor, metric_arg);
 }
 
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        double* x,
                        double* y,
                        double* dists,

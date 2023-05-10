@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/axpy.cuh>
 
 #include "../test_utils.cuh"
@@ -45,7 +46,7 @@ struct AxpyInputs {
 template <typename T, typename IndexType = int>
 class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   AxpyInputs<T, IndexType> params;
   rmm::device_uvector<T> refy;
   rmm::device_uvector<T> y_device_alpha;
@@ -54,11 +55,11 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
  public:
   AxpyTest()
     : testing::TestWithParam<AxpyInputs<T>>(),
-      refy(0, handle.get_stream()),
-      y_host_alpha(0, handle.get_stream()),
-      y_device_alpha(0, handle.get_stream())
+      refy(0, resource::get_cuda_stream(handle)),
+      y_host_alpha(0, resource::get_cuda_stream(handle)),
+      y_device_alpha(0, resource::get_cuda_stream(handle))
   {
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
@@ -66,7 +67,7 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
   {
     params = ::testing::TestWithParam<AxpyInputs<T>>::GetParam();
 
-    cudaStream_t stream = handle.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     raft::random::RngState r(params.seed);
 
@@ -145,7 +146,7 @@ class AxpyTest : public ::testing::TestWithParam<AxpyInputs<T>> {
            make_device_vector_view<T>(y_device_alpha.data(), params.len));
     }
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
   void TearDown() override {}

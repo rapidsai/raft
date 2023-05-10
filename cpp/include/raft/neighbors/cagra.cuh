@@ -21,9 +21,9 @@
 #include "detail/cagra/graph_core.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
@@ -74,7 +74,7 @@ namespace raft::neighbors::experimental::cagra {
  * @param[in] search_params (optional) ivf_pq search parameters
  */
 template <typename DataT, typename IdxT, typename accessor>
-void build_knn_graph(raft::device_resources const& res,
+void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
@@ -143,8 +143,14 @@ void sort_knn_graph(raft::device_resources const& res,
  */
 template <typename IdxT = uint32_t,
           typename g_accessor =
+<<<<<<< HEAD
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
 void prune(raft::device_resources const& res,
+=======
+            host_device_accessor<std::experimental::default_accessor<DATA_T>, memory_type::host>>
+void prune(raft::resources const& res,
+           mdspan<const DATA_T, matrix_extent<IdxT>, row_major, d_accessor> dataset,
+>>>>>>> b1afa654 (Migrate from raft::device_resources -> raft::resources)
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
@@ -195,7 +201,7 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<T, IdxT> build(raft::device_resources const& res,
+index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
@@ -239,7 +245,7 @@ index<T, IdxT> build(raft::device_resources const& res,
  * k]
  */
 template <typename T, typename IdxT>
-void search(raft::device_resources const& res,
+void search(raft::resources const& res,
             const search_params& params,
             const index<T, IdxT>& idx,
             raft::device_matrix_view<const T, IdxT, row_major> queries,

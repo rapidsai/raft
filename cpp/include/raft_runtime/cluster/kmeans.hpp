@@ -15,8 +15,8 @@
  */
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 #include <raft/cluster/kmeans_types.hpp>
@@ -28,7 +28,7 @@ namespace raft::runtime::cluster::kmeans {
  * @{
  */
 
-void update_centroids(raft::device_resources const& handle,
+void update_centroids(raft::resources const& handle,
                       const float* X,
                       int n_samples,
                       int n_features,
@@ -39,7 +39,7 @@ void update_centroids(raft::device_resources const& handle,
                       float* new_centroids,
                       float* weight_per_cluster);
 
-void update_centroids(raft::device_resources const& handle,
+void update_centroids(raft::resources const& handle,
                       const double* X,
                       int n_samples,
                       int n_features,
@@ -50,7 +50,7 @@ void update_centroids(raft::device_resources const& handle,
                       double* new_centroids,
                       double* weight_per_cluster);
 
-void fit(raft::device_resources const& handle,
+void fit(raft::resources const& handle,
          const raft::cluster::kmeans::KMeansParams& params,
          raft::device_matrix_view<const float, int, row_major> X,
          std::optional<raft::device_vector_view<const float, int>> sample_weight,
@@ -58,7 +58,7 @@ void fit(raft::device_resources const& handle,
          raft::host_scalar_view<float, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
 
-void fit(raft::device_resources const& handle,
+void fit(raft::resources const& handle,
          const raft::cluster::kmeans::KMeansParams& params,
          raft::device_matrix_view<const double, int, row_major> X,
          std::optional<raft::device_vector_view<const double, int>> sample_weight,
@@ -66,17 +66,17 @@ void fit(raft::device_resources const& handle,
          raft::host_scalar_view<double, int> inertia,
          raft::host_scalar_view<int, int> n_iter);
 
-void init_plus_plus(raft::device_resources const& handle,
+void init_plus_plus(raft::resources const& handle,
                     const raft::cluster::kmeans::KMeansParams& params,
                     raft::device_matrix_view<const float, int, row_major> X,
                     raft::device_matrix_view<float, int, row_major> centroids);
 
-void init_plus_plus(raft::device_resources const& handle,
+void init_plus_plus(raft::resources const& handle,
                     const raft::cluster::kmeans::KMeansParams& params,
                     raft::device_matrix_view<const double, int, row_major> X,
                     raft::device_matrix_view<double, int, row_major> centroids);
 
-void cluster_cost(raft::device_resources const& handle,
+void cluster_cost(raft::resources const& handle,
                   const float* X,
                   int n_samples,
                   int n_features,
@@ -84,7 +84,7 @@ void cluster_cost(raft::device_resources const& handle,
                   const float* centroids,
                   float* cost);
 
-void cluster_cost(raft::device_resources const& handle,
+void cluster_cost(raft::resources const& handle,
                   const double* X,
                   int n_samples,
                   int n_features,

@@ -15,15 +15,15 @@ First, an instance of `raft::comms_t` is passed through the `raft::device_resour
    #include <raft/util/cudart_utils.hpp>
 
    void test_allreduce(raft::device_resources const &handle, int root) {
-     raft::comms::comms_t const& communicator = handle.get_comms();
-     cudaStream_t stream = handle.get_stream();
+     raft::comms::comms_t const& communicator = resource::get_comms(handle);
+     cudaStream_t stream = resource::get_cuda_stream(handle);
      raft::device_scalar<int> temp_scalar(stream);
 
      int to_send = 1;
      raft::copy(temp_scalar.data(), &to_send, 1, stream);
      communicator.allreduce(temp_scalar.data(), temp_scalar.data(), 1,
                             raft::comms::opt_t::SUM, stream);
-     handle.sync_stream();
+     resource::sync_stream(handle);
    }
 
 This exact function can now be executed in several different types of GPU clusters. For example, it can be executed with MPI by initializing an instance of `raft::comms::mpi_comms` with the `MPI_Comm`:

@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/norm_types.hpp>
 #include <raft/sparse/linalg/detail/norm.cuh>
 
@@ -87,7 +88,7 @@ void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
  * @param fin_op the final lambda op
  */
 template <typename Type, typename IdxType = int, typename Lambda = raft::identity_op>
-void rowNormCsr(raft::device_resources const& handle,
+void rowNormCsr(raft::resources const& handle,
                 const IdxType* ia,
                 const Type* data,
                 const IdxType nnz,
@@ -96,7 +97,7 @@ void rowNormCsr(raft::device_resources const& handle,
                 raft::linalg::NormType type,
                 Lambda fin_op = raft::identity_op())
 {
-  detail::rowNormCsrCaller(ia, data, nnz, N, norm, type, fin_op, handle.get_stream());
+  detail::rowNormCsrCaller(ia, data, nnz, N, norm, type, fin_op, resource::get_cuda_stream(handle));
 }
 
 };  // end NAMESPACE linalg

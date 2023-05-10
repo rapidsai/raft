@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include <optional>
+
 #include <raft/core/device_mdspan.hpp>       // raft::device_matrix_view
-#include <raft/core/device_resources.hpp>    // raft::device_resources
 #include <raft/core/operators.hpp>           // raft::identity_op
+#include <raft/core/resources.hpp>           // raft::resources
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/util/raft_explicit.hpp>       // RAFT_EXPLICIT
 
@@ -28,7 +30,7 @@ namespace raft::neighbors::brute_force {
 
 template <typename value_t, typename idx_t>
 inline void knn_merge_parts(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
   raft::device_matrix_view<const idx_t, idx_t, row_major> in_values,
   raft::device_matrix_view<value_t, idx_t, row_major> out_keys,
@@ -42,7 +44,7 @@ template <typename idx_t,
           typename index_layout,
           typename search_layout,
           typename epilogue_op = raft::identity_op>
-void knn(raft::device_resources const& handle,
+void knn(raft::resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
@@ -53,7 +55,7 @@ void knn(raft::device_resources const& handle,
          epilogue_op distance_epilogue         = raft::identity_op()) RAFT_EXPLICIT;
 
 template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
-void fused_l2_knn(raft::device_resources const& handle,
+void fused_l2_knn(raft::resources const& handle,
                   raft::device_matrix_view<const value_t, idx_t, idx_layout> index,
                   raft::device_matrix_view<const value_t, idx_t, query_layout> query,
                   raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,
@@ -70,7 +72,7 @@ void fused_l2_knn(raft::device_resources const& handle,
   idx_t, value_t, matrix_idx, index_layout, search_layout, epilogue_op)                     \
   extern template void raft::neighbors::brute_force::                                       \
     knn<idx_t, value_t, matrix_idx, index_layout, search_layout, epilogue_op>(              \
-      raft::device_resources const& handle,                                                 \
+      raft::resources const& handle,                                                        \
       std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index, \
       raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,            \
       raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,                       \
@@ -94,7 +96,7 @@ instantiate_raft_neighbors_brute_force_knn(
 #define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
   value_t, idx_t, idx_layout, query_layout)                             \
   extern template void raft::neighbors::brute_force::fused_l2_knn(      \
-    raft::device_resources const& handle,                               \
+    raft::resources const& handle,                                      \
     raft::device_matrix_view<const value_t, idx_t, idx_layout> index,   \
     raft::device_matrix_view<const value_t, idx_t, query_layout> query, \
     raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,         \
