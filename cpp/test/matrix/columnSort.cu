@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/col_wise_sort.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>

@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+// XXX: the uint32_t instance is not compiled in libraft.so. So we allow
+// instantiating the template here.
+//
+// TODO: consider removing this test or consider adding an instantiation to the
+// library.
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include "../ann_ivf_pq.cuh"
 
 namespace raft::neighbors::ivf_pq {

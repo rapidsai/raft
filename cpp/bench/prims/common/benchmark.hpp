@@ -113,8 +113,19 @@ class fixture {
   raft::device_resources handle;
   rmm::cuda_stream_view stream;
 
-  fixture() : stream{handle.get_stream()}
+  fixture(bool use_pool_memory_resource = false) : stream{handle.get_stream()}
   {
+    // Cache memory pool between test runs, since it is expensive to create.
+    // This speeds up the time required to run the select_k bench by over 3x.
+    // This is part of the fixture class here so that the pool will get cleaned
+    // up, rather than outliving the benchmarks that require it.
+    static std::unique_ptr<using_pool_memory_res> memory_pool;
+    if (use_pool_memory_resource) {
+      if (!memory_pool) { memory_pool.reset(new using_pool_memory_res()); }
+    } else if (memory_pool) {
+      memory_pool.reset();
+    }
+
     int l2_cache_size = 0;
     int device_id     = 0;
     RAFT_CUDA_TRY(cudaGetDevice(&device_id));

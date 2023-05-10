@@ -65,8 +65,8 @@ __global__ void knn_merge_parts_kernel(const value_t* const inK,
 
   int col = i % k;
 
-  value_t* inKStart   = inK + (row_idx + col);
-  value_idx* inVStart = inV + (row_idx + col);
+  const value_t* inKStart   = inK + (row_idx + col);
+  const value_idx* inVStart = inV + (row_idx + col);
 
   int limit             = Pow2<WarpSize>::roundDown(total_k);
   value_idx translation = 0;

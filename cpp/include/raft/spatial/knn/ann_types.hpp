@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@
 namespace raft::spatial::knn {
 
 /** The base for approximate KNN index structures. */
-struct index {
-};
+struct index {};
 
 /** The base for KNN index parameters. */
 struct index_params {
@@ -41,7 +40,6 @@ struct index_params {
   bool add_data_on_build = true;
 };
 
-struct search_params {
-};
+struct search_params {};
 
 };  // namespace raft::spatial::knn

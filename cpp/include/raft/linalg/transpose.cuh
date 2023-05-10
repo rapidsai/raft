@@ -20,6 +20,7 @@
 
 #include "detail/transpose.cuh"
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -34,7 +35,7 @@ namespace linalg {
  * @param stream: cuda stream
  */
 template <typename math_t>
-void transpose(raft::device_resources const& handle,
+void transpose(raft::resources const& handle,
                math_t* in,
                math_t* out,
                int n_rows,
@@ -76,7 +77,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
  * @param[out] out    Output matirx, storage is pre-allocated by caller.
  */
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
-auto transpose(raft::device_resources const& handle,
+auto transpose(raft::resources const& handle,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> in,
                raft::mdspan<T, raft::matrix_extent<IndexType>, LayoutPolicy, AccessorPolicy> out)
   -> std::enable_if_t<std::is_floating_point_v<T>, void>
@@ -102,7 +103,7 @@ auto transpose(raft::device_resources const& handle,
 
 /** @} */  // end of group transpose
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

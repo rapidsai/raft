@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/temporary_device_buffer.hpp>
 
