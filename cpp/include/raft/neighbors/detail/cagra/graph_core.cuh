@@ -478,7 +478,7 @@ void prune(raft::device_resources const& res,
         d_num_no_detour_edges.data_handle(),
         dev_stats.data_handle());
       res.sync_stream();
-      RAFT_LOG_ERROR(
+      RAFT_LOG_DEBUG(
         "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
         (double)std::min<IdxT>((i_batch + 1) * batch_size, graph_size) / graph_size * 100);
     }
@@ -515,7 +515,7 @@ void prune(raft::device_resources const& res,
     // RAFT_LOG_DEBUG("# max_detour: %u\n", max_detour);
 
     const double time_prune_end = cur_time();
-    RAFT_LOG_ERROR(
+    RAFT_LOG_DEBUG(
       "# Pruning time: %.1lf sec, "
       "avg_no_detour_edges_per_node: %.2lf/%u, "
       "nodes_with_no_detour_at_all_edges: %.1lf%%\n",
@@ -632,7 +632,7 @@ void prune(raft::device_resources const& res,
         if (pos == output_graph_degree) { num_replaced_edges += 1; }
       }
     }
-    RAFT_LOG_ERROR("# Average number of replaced edges per node: %.2f",
+    RAFT_LOG_DEBUG("# Average number of replaced edges per node: %.2f",
                    (double)num_replaced_edges / graph_size);
   }
 }
