@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/core/device_resources.hpp>
+#include <raft/matrix/detail/linewise_op.cuh>
 
 namespace raft::matrix {
 

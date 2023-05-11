@@ -223,8 +223,11 @@ struct sparse_matrix_t {
     cusparseDnVecDescr_t vecX;
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(&vecX, size_x, x));
 
+    rmm::device_uvector<value_type> y_tmp(size_y, stream);
+    raft::copy(y_tmp.data(), y, size_y, stream);
+
     cusparseDnVecDescr_t vecY;
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(&vecY, size_y, y));
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednvec(&vecY, size_y, y_tmp.data()));
 
     // get (scratch) external device buffer size:
     //
@@ -241,6 +244,8 @@ struct sparse_matrix_t {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmv(
       cusparse_h, trans, &alpha, matA, vecX, &beta, vecY, spmv_alg, external_buffer.raw(), stream));
 
+    // FIXME: This is a workaround for a cusparse issue being encountered in CUDA 12
+    raft::copy(y, y_tmp.data(), size_y, stream);
     // free descriptors:
     //(TODO: maybe wrap them in a RAII struct?)
     //
