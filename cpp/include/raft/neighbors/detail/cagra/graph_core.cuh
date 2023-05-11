@@ -65,17 +65,17 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
 }
 
 template <class DATA_T, class IdxT, int blockDim_x, int numElementsPerThread>
-__global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
-                          IdxT dataset_size,
-                          uint32_t dataset_dim,
+__global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
+                          const IdxT dataset_size,
+                          const uint32_t dataset_dim,
                           IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
-                          uint32_t graph_size,
-                          uint32_t graph_degree)
+                          const uint32_t graph_size,
+                          const uint32_t graph_degree)
 {
   __shared__ float smem_keys[blockDim_x * numElementsPerThread];
   __shared__ IdxT smem_vals[blockDim_x * numElementsPerThread];
 
-  uint64_t srcNode = blockIdx.x;
+  const IdxT srcNode = blockIdx.x;
   if (srcNode >= graph_size) { return; }
 
   const uint32_t num_warps = blockDim_x / 32;
@@ -84,8 +84,8 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
 
   // Compute distance from a src node to its neighbors
   for (int k = warp_id; k < graph_degree; k += num_warps) {
-    uint64_t dstNode = knn_graph[k + ((uint64_t)graph_degree * srcNode)];
-    float dist       = 0.0;
+    const IdxT dstNode = knn_graph[k + ((uint64_t)graph_degree * srcNode)];
+    float dist         = 0.0;
     for (int d = lane_id; d < dataset_dim; d += 32) {
       float diff = spatial::knn::detail::utils::mapping<float>{}(
                      dataset[d + ((uint64_t)dataset_dim * srcNode)]) -
@@ -108,7 +108,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
   float my_keys[numElementsPerThread];
   IdxT my_vals[numElementsPerThread];
   for (int i = 0; i < numElementsPerThread; i++) {
-    int k = i + (numElementsPerThread * threadIdx.x);
+    const int k = i + (numElementsPerThread * threadIdx.x);
     if (k < graph_degree) {
       my_keys[i] = smem_keys[k];
       my_vals[i] = smem_vals[k];
@@ -137,7 +137,7 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
 
   // Bitonic Sorting
   while (mask < blockDim_x) {
-    uint32_t next_mask = mask << 1;
+    const uint32_t next_mask = mask << 1;
 
     for (uint32_t curr_mask = mask; curr_mask > 0; curr_mask >>= 1) {
       const bool ascending = ((threadIdx.x & curr_mask) == 0) == ((threadIdx.x & next_mask) == 0);
@@ -152,16 +152,16 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
         __syncthreads();
 #pragma unroll
         for (int i = 0; i < numElementsPerThread; i++) {
-          float opp_key    = smem_keys[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
-          uint32_t opp_val = smem_vals[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
+          float opp_key = smem_keys[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
+          IdxT opp_val  = smem_vals[(threadIdx.x ^ curr_mask) + (blockDim_x * i)];
           swap_if_needed<float, IdxT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
         }
       } else {
 // intra warp
 #pragma unroll
         for (int i = 0; i < numElementsPerThread; i++) {
-          float opp_key    = __shfl_xor_sync(0xffffffff, my_keys[i], curr_mask);
-          uint32_t opp_val = __shfl_xor_sync(0xffffffff, my_vals[i], curr_mask);
+          float opp_key = __shfl_xor_sync(0xffffffff, my_keys[i], curr_mask);
+          IdxT opp_val  = __shfl_xor_sync(0xffffffff, my_vals[i], curr_mask);
           swap_if_needed<float, IdxT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
         }
       }
@@ -182,18 +182,20 @@ __global__ void kern_sort(DATA_T* dataset,  // [dataset_chunk_size, dataset_dim]
 
   // Update knn_graph
   for (int i = 0; i < numElementsPerThread; i++) {
-    int k = i + (numElementsPerThread * threadIdx.x);
-    if (k < graph_degree) { knn_graph[k + ((uint64_t)graph_degree * srcNode)] = my_vals[i]; }
+    const int k = i + (numElementsPerThread * threadIdx.x);
+    if (k < graph_degree) {
+      knn_graph[k + (static_cast<uint64_t>(graph_degree) * srcNode)] = my_vals[i];
+    }
   }
 }
 
 template <int MAX_DEGREE, class IdxT>
-__global__ void kern_prune(IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
-                           uint32_t graph_size,
-                           uint32_t graph_degree,
-                           uint32_t degree,
-                           uint32_t batch_size,
-                           uint32_t batch_id,
+__global__ void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
+                           const uint32_t graph_size,
+                           const uint32_t graph_degree,
+                           const uint32_t degree,
+                           const uint32_t batch_size,
+                           const uint32_t batch_id,
                            uint8_t* const detour_count,          // [graph_chunk_size, graph_degree]
                            uint32_t* const num_no_detour_edges,  // [graph_size]
                            uint64_t* const stats)
@@ -323,7 +325,8 @@ void sort_knn_graph(raft::device_resources const& res,
              graph_size * input_graph_degree,
              res.get_stream());
 
-  void (*kernel_sort)(DataT*, IdxT, uint32_t, IdxT* const, uint32_t, uint32_t);
+  void (*kernel_sort)(
+    const DataT* const, const IdxT, const uint32_t, IdxT* const, const uint32_t, const uint32_t);
   constexpr int numElementsPerThread = 4;
   dim3 threads_sort(1, 1, 1);
   if (input_graph_degree <= numElementsPerThread * 32) {
@@ -431,12 +434,12 @@ void prune(raft::device_resources const& res,
                input_graph_ptr,
                graph_size * input_graph_degree,
                res.get_stream());
-    void (*kernel_prune)(IdxT* const,
-                         uint32_t,
-                         uint32_t,
-                         uint32_t,
-                         uint32_t,
-                         uint32_t,
+    void (*kernel_prune)(const IdxT* const,
+                         const uint32_t,
+                         const uint32_t,
+                         const uint32_t,
+                         const uint32_t,
+                         const uint32_t,
                          uint8_t* const,
                          uint32_t* const,
                          uint64_t* const);
