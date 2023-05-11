@@ -46,6 +46,17 @@
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+template <typename value_t, typename index_t>
+auto make_transpose_layout_view(raft::device_matrix_view<value_t, index_t, raft::row_major> mds)
+{
+  return raft::make_device_matrix_view<value_t, index_t, raft::col_major>(mds.data_handle(), mds.extent(1), mds.extent(0));
+}
+template <typename value_t, typename index_t>
+auto make_transpose_layout_view(raft::device_matrix_view<value_t, index_t, raft::col_major> mds)
+{
+  return raft::make_device_matrix_view<value_t, index_t, raft::row_major>(mds.data_handle(), mds.extent(1), mds.extent(0));
+}
+
 namespace raft::sparse::solver::detail {
 
 /**
@@ -416,11 +427,13 @@ bool eigh(const raft::handle_t& handle,
           raft::device_matrix_view<value_t, index_t, raft::col_major> eigVecs,
           raft::device_vector_view<value_t, index_t> eigVals)
 {
+  auto dim = A.extent(0);
+  auto AT  = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  raft::linalg::transpose(handle, A, AT.view());
   if (!B_opt.has_value()) {
-    raft::linalg::eig_dc(handle, raft::make_const_mdspan(A), eigVecs, eigVals);
+    raft::linalg::eig_dc(handle, raft::make_const_mdspan(AT.view()), eigVecs, eigVals);
     return true;
   }
-  auto dim         = A.extent(0);
   auto RTi         = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
   auto Ri          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
   auto RT          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
@@ -435,7 +448,7 @@ bool eigh(const raft::handle_t& handle,
   // Reuse the memory of matrix
   auto& ARi   = B;
   auto& Fvecs = RT;
-  raft::linalg::gemm(handle, A, Ri.view(), ARi);
+  raft::linalg::gemm(handle, AT.view(), Ri.view(), ARi);
   raft::linalg::gemm(handle, RTi.view(), ARi, F.view());
 
   raft::linalg::eig_dc(handle, raft::make_const_mdspan(F.view()), Fvecs.view(), eigVals);
@@ -591,9 +604,10 @@ void lobpcg(
   spmm(handle, A, X, AX.view());
   auto gramXAX =
     raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, size_x);
-  auto XT = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, size_x, n);
-  raft::linalg::transpose(handle, X, XT.view());
-  raft::linalg::gemm(handle, XT.view(), AX.view(), gramXAX.view());
+  auto XTRowView = make_transpose_layout_view(X);
+  raft::linalg::gemm(handle, 
+    XTRowView,
+    AX.view(), gramXAX.view());
   auto eigVectorBuffer = rmm::device_uvector<value_t>(size_x * size_x, stream); // rmm because of resize
   auto eigVectorView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(eigVectorBuffer.data(), size_x, size_x);
   auto eigLambda = raft::make_device_vector<value_t, index_t>(handle, size_x);
@@ -735,15 +749,14 @@ void lobpcg(
     }
     // B-orthogonalize the preconditioned residuals to X.
     if (B_opt.has_value()) {
-      auto BXT = raft::make_device_matrix<value_t, index_t, raft::col_major>(
-        handle, BX.extent(1), BX.extent(0));
       auto BXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(
-        handle, BXT.extent(0), activeR.extent(1));
+        handle, BX.extent(1), activeR.extent(1));
       auto XBXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(
         handle, X.extent(0), BXTR.extent(1));
 
-      raft::linalg::transpose(handle, BX.view(), BXT.view());
-      raft::linalg::gemm(handle, BXT.view(), activeR.view(), BXTR.view());
+      raft::linalg::gemm(handle, 
+        make_transpose_layout_view(BX.view()),
+        activeR.view(), BXTR.view());
       raft::linalg::gemm(handle, X, BXTR.view(), XBXTR.view());
       raft::linalg::subtract(handle,
                              raft::make_const_mdspan(activeR.view()),
@@ -751,11 +764,10 @@ void lobpcg(
                              activeR.view());
     } else {
       auto XTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(
-        handle, XT.extent(0), activeR.extent(1));
+        handle, X.extent(1), activeR.extent(1));
       auto XXTR = raft::make_device_matrix<value_t, index_t, raft::col_major>(
         handle, X.extent(0), XTR.extent(1));
-
-      raft::linalg::gemm(handle, XT.view(), activeR.view(), XTR.view());
+      raft::linalg::gemm(handle, XTRowView, activeR.view(), XTR.view());
       raft::linalg::gemm(handle, X, XTR.view(), XXTR.view());
       raft::linalg::subtract(handle,
                              raft::make_const_mdspan(activeR.view()),
@@ -839,15 +851,13 @@ void lobpcg(
     auto gramXBR =
       raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
     raft::linalg::gemm(handle,
-                       raft::make_device_matrix_view<value_t, index_t, row_major>(
-                         X.data_handle(), X.extent(1), X.extent(0)),  // transpose for gemm?
+                       XTRowView,
                        activeAR.view(),
                        gramXAR.view());
 
     raft::linalg::gemm(
       handle,
-      raft::make_device_matrix_view<value_t, index_t, row_major>(
-        activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+      make_transpose_layout_view(activeR.view()),
       activeAR.view(),
       gramRAR.view());
 
@@ -855,40 +865,34 @@ void lobpcg(
     if (explicitGramFlag) {
       raft::linalg::gemm(
         handle,
-        raft::make_device_matrix_view<value_t, index_t, row_major>(
-          gramRAR.data_handle(), gramRAR.extent(0), gramRAR.extent(1)),  // transpose for gemm
+        make_transpose_layout_view(gramRAR.view()),
         identView,
         gramRAR.view(),
         std::make_optional(device_half.view()),
         std::make_optional(device_half.view()));
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         XTRowView,
                          AX.view(),
                          gramXAX.view());
       raft::linalg::gemm(
         handle,
-        raft::make_device_matrix_view<value_t, index_t, row_major>(
-          gramXAX.data_handle(), gramXAX.extent(0), gramXAX.extent(1)),  // transpose for gemm
+        make_transpose_layout_view(gramXAX.view()),
         identView,
         gramXAX.view(),
         std::make_optional(device_half.view()),
         std::make_optional(device_half.view()));
 
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         XTRowView,
                          BX.view(),
                          gramXBX.view());
       raft::linalg::gemm(
         handle,
-        raft::make_device_matrix_view<value_t, index_t, row_major>(
-          activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+        make_transpose_layout_view(activeR.view()),
         activeBRView,
         gramRBR.view());
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         XTRowView,
                          activeBRView,
                          gramXBR.view());
     } else {
@@ -941,49 +945,38 @@ void lobpcg(
 
     if (!restart) {
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         XTRowView,
                          activeAPView,
                          gramXAP.view());
       raft::linalg::gemm(
         handle,
-        raft::make_device_matrix_view<value_t, index_t, row_major>(
-          activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+        make_transpose_layout_view(activeR.view()),
         activeAPView,
         gramRAP.view());
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           activePView.data_handle(),
-                           activePView.extent(0),
-                           activePView.extent(1)),  // transpose for gemm
+                         make_transpose_layout_view(activePView),
                          activeAPView,
                          gramPAP.view());
       raft::linalg::gemm(handle,
-                         raft::make_device_matrix_view<value_t, index_t, row_major>(
-                           X.data_handle(), X.extent(0), X.extent(1)),  // transpose for gemm
+                         XTRowView,
                          activeBPView,
                          gramXBP.view());
       raft::linalg::gemm(
         handle,
-        raft::make_device_matrix_view<value_t, index_t, row_major>(
-          activeR.data_handle(), activeR.extent(0), activeR.extent(1)),  // transpose for gemm
+        make_transpose_layout_view(activeR.view()),
         activeBPView,
         gramRBP.view());
 
       if (explicitGramFlag) {
         raft::linalg::gemm(
           handle,
-          raft::make_device_matrix_view<value_t, index_t, row_major>(
-            gramPAP.data_handle(), gramPAP.extent(0), gramPAP.extent(1)),  // transpose for gemm
+          make_transpose_layout_view(gramPAP.view()),
           identView,
           gramPAP.view(),
           std::make_optional(device_half.view()),
           std::make_optional(device_half.view()));
         raft::linalg::gemm(handle,
-                           raft::make_device_matrix_view<value_t, index_t, row_major>(
-                             activePView.data_handle(),
-                             activePView.extent(0),
-                             activePView.extent(1)),  // transpose for gemm
+                           make_transpose_layout_view(activePView),
                            activeBPView,
                            gramPBP.view());
       } else {

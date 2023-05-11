@@ -34,8 +34,8 @@ namespace sparse {
 
 template <typename math_t, typename idx_t>
 struct CSRMatrixVal {
-  std::vector<idx_t> row_ind;
   std::vector<idx_t> row_ind_ptr;
+  std::vector<idx_t> row_ind;
   std::vector<math_t> values;
 };
 
@@ -79,7 +79,7 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
       stream(handle.get_stream()),
       ind_a(params.matrix_a.row_ind.size(), stream),
       ind_ptr_a(params.matrix_a.row_ind_ptr.size(), stream),
-      values_a(params.matrix_a.row_ind_ptr.size(), stream),
+      values_a(params.matrix_a.values.size(), stream),
       exp_eigvals(params.exp_eigvals.size(), stream),
       exp_eigvecs(params.exp_eigvecs.size(), stream),
       act_eigvals(params.exp_eigvals.size(), stream),
@@ -90,8 +90,8 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
  protected:
   void SetUp() override
   {
-    n_rows_a = params.matrix_a.row_ind.size() - 1;
-    nnz_a    = params.matrix_a.row_ind_ptr.size();
+    n_rows_a = params.matrix_a.row_ind_ptr.size() - 1;
+    nnz_a    = params.matrix_a.values.size();
   }
 
   void test_selectcolsif()
@@ -173,14 +173,32 @@ class LOBPCGTest : public ::testing::TestWithParam<LOBPCGInputs<math_t, idx_t>> 
       hostVecMatch(vbv_inv_expected, vbv_inv_actual, raft::CompareApprox<math_t>(0.0001)));
   }
 
+  void test_eigh()
+  {
+    std::vector<math_t> in_cpu{1.73969722, 0.98719877, 0.73374337, 0.211756781};
+    std::vector<math_t> lambda_cpu{-0.27255666,  2.22401026};
+    std::vector<math_t> vector_cpu{-0.44044489,  0.89777965,  0.89777965,  0.44044489};
+    auto in_gpu = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    auto lambda_gpu = raft::make_device_vector<math_t, idx_t>(handle, 2);
+    auto vector_gpu = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 2, 2);
+    std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> empty_matrix_opt = std::nullopt;
+    
+    raft::copy(in_gpu.data_handle(), in_cpu.data(), 4, handle.get_stream());
+    raft::sparse::solver::detail::eigh(handle, in_gpu.view(), empty_matrix_opt, vector_gpu.view(), lambda_gpu.view());
+
+    ASSERT_TRUE(devArrMatchHost(lambda_cpu.data(), lambda_gpu.data_handle(), lambda_cpu.size(),  raft::CompareApprox<math_t>(0.0001), handle.get_stream()));
+    ASSERT_TRUE(devArrMatchHost(vector_cpu.data(), vector_gpu.data_handle(), vector_cpu.size(),  raft::CompareApprox<math_t>(0.0001), handle.get_stream()));
+  }
+
   void Run()
   {
+    test_eigh();
     test_bmat();
     test_selectcolsif();
     test_b_orthonormalize();
-    raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), n_rows_a, stream);
-    raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), nnz_a, stream);
-    raft::update_device(values_a.data(), params.matrix_a.values.data(), nnz_a, stream);
+    raft::update_device(ind_a.data(), params.matrix_a.row_ind.data(), params.matrix_a.row_ind.size(), stream);
+    raft::update_device(ind_ptr_a.data(), params.matrix_a.row_ind_ptr.data(), params.matrix_a.row_ind_ptr.size(), stream);
+    raft::update_device(values_a.data(), params.matrix_a.values.data(), params.matrix_a.values.size(), stream);
 
     raft::update_device(act_eigvecs.data(), params.init_eigvecs.data(), act_eigvecs.size(), stream);
 
