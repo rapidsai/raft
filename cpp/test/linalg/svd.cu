@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

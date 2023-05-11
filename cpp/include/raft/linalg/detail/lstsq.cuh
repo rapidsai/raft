@@ -28,7 +28,6 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
