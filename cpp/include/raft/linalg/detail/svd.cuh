@@ -24,8 +24,10 @@
 
 #include <raft/common/nvtx.hpp>
 #include <raft/core/device_resources.hpp>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/norm.cuh>
+#include <raft/matrix/reverse.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -139,8 +141,10 @@ void svdEig(raft::device_resources const& handle,
 
   raft::linalg::eigDC(handle, in_cross_mult.data(), n_cols, n_cols, V, S, stream);
 
-  raft::matrix::colReverse(V, n_cols, n_cols, stream);
-  raft::matrix::rowReverse(S, n_cols, idx_t(1), stream);
+  raft::matrix::col_reverse(handle,
+                            make_device_matrix_view<math_t, idx_t, col_major>(V, n_cols, n_cols));
+  raft::matrix::row_reverse(handle,
+                            make_device_matrix_view<math_t, idx_t, col_major>(S, n_cols, idx_t(1)));
 
   raft::matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
@@ -285,15 +289,19 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
-  raft::matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
+  raft::matrix::set_diagonal(handle,
+                             make_device_vector_view<const math_t>(S_vec, k),
+                             make_device_matrix_view<math_t>(S_mat.data(), k, k));
   svdReconstruction(handle, U, S_mat.data(), V, P_d.data(), m, n, k, stream);
 
   // get norms of each
-  math_t normA = raft::matrix::getL2Norm(handle, A_d, m * n, stream);
-  math_t normU = raft::matrix::getL2Norm(handle, U, m * k, stream);
-  math_t normS = raft::matrix::getL2Norm(handle, S_mat.data(), k * k, stream);
-  math_t normV = raft::matrix::getL2Norm(handle, V, n * k, stream);
-  math_t normP = raft::matrix::getL2Norm(handle, P_d.data(), m * n, stream);
+  math_t normA = raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(A_d, m, n));
+  math_t normU = raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(U, m, k));
+  math_t normS =
+    raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(S_mat.data(), k, k));
+  math_t normV = raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(V, n, k));
+  math_t normP =
+    raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(P_d.data(), m, n));
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
@@ -315,8 +323,9 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                              m,
                              stream));
 
-  math_t norm_A_minus_P = raft::matrix::getL2Norm(handle, A_minus_P.data(), m * n, stream);
-  math_t percent_error  = 100.0 * norm_A_minus_P / normA;
+  math_t norm_A_minus_P =
+    raft::matrix::l2_norm(handle, make_device_matrix_view<const math_t>(A_minus_P.data(), m, n));
+  math_t percent_error = 100.0 * norm_A_minus_P / normA;
   return (percent_error / 100.0 < tol);
 }
 
