@@ -346,11 +346,11 @@ void sort_knn_graph(raft::device_resources const& res,
     kernel_sort              = kern_sort<DataT, IdxT, blockDim_x, numElementsPerThread>;
     threads_sort.x           = blockDim_x;
   } else {
-    fprintf(stderr,
-            "[ERROR] The degree of input knn graph is too large (%u). "
-            "It must be equal to or small than %d.\n",
-            input_graph_degree,
-            numElementsPerThread * 256);
+    RAFT_LOG_ERROR(
+      "[ERROR] The degree of input knn graph is too large (%u). "
+      "It must be equal to or small than %d.\n",
+      input_graph_degree,
+      numElementsPerThread * 256);
     exit(-1);
   }
   dim3 blocks_sort(graph_size, 1, 1);
@@ -404,12 +404,14 @@ void prune(raft::device_resources const& res,
     auto detour_count = raft::make_host_matrix<uint8_t, IdxT>(graph_size, input_graph_degree);
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, IdxT>(res, graph_size, input_graph_degree);
-    RAFT_CUDA_TRY(cudaMemset(
-      d_detour_count.data_handle(), 0xff, graph_size * input_graph_degree * sizeof(uint8_t)));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_detour_count.data_handle(),
+                                  0xff,
+                                  graph_size * input_graph_degree * sizeof(uint8_t),
+                                  res.get_stream()));
 
     auto d_num_no_detour_edges = raft::make_device_vector<uint32_t, IdxT>(res, graph_size);
-    RAFT_CUDA_TRY(
-      cudaMemset(d_num_no_detour_edges.data_handle(), 0x00, graph_size * sizeof(uint32_t)));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_num_no_detour_edges.data_handle(), 0x00, graph_size * sizeof(uint32_t), res.get_stream()));
 
     auto dev_stats  = raft::make_device_vector<uint64_t>(res, 2);
     auto host_stats = raft::make_host_vector<uint64_t>(2);
@@ -448,11 +450,11 @@ void prune(raft::device_resources const& res,
     if (input_graph_degree <= MAX_DEGREE) {
       kernel_prune = kern_prune<MAX_DEGREE, IdxT>;
     } else {
-      fprintf(stderr,
-              "[ERROR] The degree of input knn graph is too large (%u). "
-              "It must be equal to or small than %d.\n",
-              input_graph_degree,
-              1024);
+      RAFT_LOG_ERROR(
+        "[ERROR] The degree of input knn graph is too large (%u). "
+        "It must be equal to or small than %d.\n",
+        input_graph_degree,
+        1024);
       exit(-1);
     }
     const uint32_t batch_size =
@@ -461,7 +463,8 @@ void prune(raft::device_resources const& res,
     const dim3 threads_prune(32, 1, 1);
     const dim3 blocks_prune(batch_size, 1, 1);
 
-    RAFT_CUDA_TRY(cudaMemset(dev_stats.data_handle(), 0, sizeof(uint64_t) * 2));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(dev_stats.data_handle(), 0, sizeof(uint64_t) * 2, res.get_stream()));
 
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
       kernel_prune<<<blocks_prune, threads_prune, 0, res.get_stream()>>>(
@@ -475,9 +478,9 @@ void prune(raft::device_resources const& res,
         d_num_no_detour_edges.data_handle(),
         dev_stats.data_handle());
       res.sync_stream();
-      fprintf(stderr,
-              "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
-              (double)std::min<IdxT>((i_batch + 1) * batch_size, graph_size) / graph_size * 100);
+      RAFT_LOG_ERROR(
+        "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
+        (double)std::min<IdxT>((i_batch + 1) * batch_size, graph_size) / graph_size * 100);
     }
     res.sync_stream();
     RAFT_LOG_DEBUG("\n");
@@ -512,14 +515,14 @@ void prune(raft::device_resources const& res,
     // RAFT_LOG_DEBUG("# max_detour: %u\n", max_detour);
 
     const double time_prune_end = cur_time();
-    fprintf(stderr,
-            "# Pruning time: %.1lf sec, "
-            "avg_no_detour_edges_per_node: %.2lf/%u, "
-            "nodes_with_no_detour_at_all_edges: %.1lf%%\n",
-            time_prune_end - time_prune_start,
-            (double)num_keep / graph_size,
-            output_graph_degree,
-            (double)num_full / graph_size * 100);
+    RAFT_LOG_ERROR(
+      "# Pruning time: %.1lf sec, "
+      "avg_no_detour_edges_per_node: %.2lf/%u, "
+      "nodes_with_no_detour_at_all_edges: %.1lf%%\n",
+      time_prune_end - time_prune_start,
+      (double)num_keep / graph_size,
+      output_graph_degree,
+      (double)num_full / graph_size * 100);
   }
 
   auto rev_graph       = raft::make_host_matrix<IdxT, IdxT>(graph_size, output_graph_degree);
@@ -532,11 +535,14 @@ void prune(raft::device_resources const& res,
     const double time_make_start = cur_time();
 
     auto d_rev_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, output_graph_degree);
-    RAFT_CUDA_TRY(
-      cudaMemset(d_rev_graph.data_handle(), 0xff, graph_size * output_graph_degree * sizeof(IdxT)));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph.data_handle(),
+                                  0xff,
+                                  graph_size * output_graph_degree * sizeof(IdxT),
+                                  res.get_stream()));
 
     auto d_rev_graph_count = raft::make_device_vector<uint32_t, IdxT>(res, graph_size);
-    RAFT_CUDA_TRY(cudaMemset(d_rev_graph_count.data_handle(), 0x00, graph_size * sizeof(uint32_t)));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      d_rev_graph_count.data_handle(), 0x00, graph_size * sizeof(uint32_t), res.get_stream()));
 
     auto dest_nodes   = raft::make_host_vector<IdxT, IdxT>(graph_size);
     auto d_dest_nodes = raft::make_device_vector<IdxT, IdxT>(res, graph_size);
@@ -626,9 +632,8 @@ void prune(raft::device_resources const& res,
         if (pos == output_graph_degree) { num_replaced_edges += 1; }
       }
     }
-    fprintf(stderr,
-            "# Average number of replaced edges per node: %.2f",
-            (double)num_replaced_edges / graph_size);
+    RAFT_LOG_ERROR("# Average number of replaced edges per node: %.2f",
+                   (double)num_replaced_edges / graph_size);
   }
 }
 
