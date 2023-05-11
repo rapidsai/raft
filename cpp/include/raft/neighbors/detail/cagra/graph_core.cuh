@@ -23,9 +23,9 @@
 #include <memory>
 #include <omp.h>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <random>
 #include <sys/time.h>

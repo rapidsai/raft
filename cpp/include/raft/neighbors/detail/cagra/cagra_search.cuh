@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -112,7 +114,7 @@ void search_main(raft::resources const& res,
                                         distances.extent(0),
                                         distances.extent(1),
                                         kScale,
-                                        res.get_stream());
+                                        resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 
