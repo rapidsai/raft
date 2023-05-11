@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 namespace raft {
 
 /**
- * @brief Exception thrown when a CUDA error is encountered.
+ * @brief Exception thrown when a CUTLASS error is encountered.
  */
 struct cutlass_error : public raft::exception {
   explicit cutlass_error(char const* const message) : raft::exception(message) {}
@@ -32,11 +32,10 @@ struct cutlass_error : public raft::exception {
 }  // namespace raft
 
 /**
- * @brief Error checking macro for CUDA runtime API functions.
+ * @brief Error checking macro for CUTLASS functions.
  *
- * Invokes a CUDA runtime API function call, if the call does not return
- * cudaSuccess, invokes cudaGetLastError() to clear the error and throws an
- * exception detailing the CUDA error that occurred
+ * Invokes a CUTLASS function call, if the call does not return cutlass::Status::kSuccess,
+ * throws an exception detailing the CUTLASS error that occurred.
  *
  */
 #define RAFT_CUTLASS_TRY(call)                        \

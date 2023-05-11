@@ -62,7 +62,12 @@ namespace gemm {
 namespace kernel {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-
+/*
+* This configuration is used for float inputs with veclen(kAlignmentA/B) = 2 or 4,
+* ideal threadblock tile shape is 32x256x16 for such cases as there is no
+* registers spills for it.
+* 
+*/
 template <
   /// Element type for A matrix operand
   typename ElementA_,
@@ -87,7 +92,7 @@ struct FusedDistanceNNGemm {
 
   /// Threadblock-level tile size (concept: GemmShape)
   // <- threadblock tile M = 32, N = 256, K = 16
-  // this is more performant but note than for veclen = 1
+  // this is more performant but note that for veclen = 1
   // this shape has register spills
   using ThreadblockShape = cutlass::gemm::GemmShape<32, 256, 16>;
 
@@ -148,6 +153,120 @@ struct FusedDistanceNNGemm {
                                                  LayoutB_,
                                                  cutlass::ComplexTransform::kNone,
                                                  kAlignmentB,
+                                                 ElementC_,
+                                                 LayoutOutput,
+                                                 ElementAccumulator,
+                                                 OperatorClass,
+                                                 ArchTag,
+                                                 ThreadblockShape,
+                                                 WarpShape,
+                                                 InstructionShape,
+                                                 EpilogueOutputOp,
+                                                 ThreadblockSwizzle,
+                                                 Stages,
+                                                 Operator>::GemmKernel;
+
+  // Replace epilogue
+  using Epilogue = typename cutlass::epilogue::threadblock::FusedDistanceNNEpilogue<
+    typename GemmBase::Epilogue::Shape,
+    typename GemmBase::Epilogue::WarpMmaOperator,
+    GemmBase::Epilogue::kPartitionsK,
+    ElementAccumulator,
+    typename EpilogueOutputOp::ElementT,
+    ElementAccumulator,
+    EpilogueOutputOp,
+    NormXLayout,
+    GemmBase::Epilogue::kElementsPerAccess>::Epilogue;
+
+  // Compose the GEMM kernel
+  using GemmKernel = FusedDistanceNNPersistent<typename GemmBase::Mma,
+                                               Epilogue,
+                                               ThreadblockSwizzle,
+                                               GroupScheduleMode::kDeviceOnly>;
+};
+
+/*
+* This configuration is used for float inputs with veclen(kAlignmentA/B) = 1,
+* ideal threadblock tile shape is 32x128x16 for such cases as there is no
+* registers spills for it.
+*
+*/
+template <
+  /// Element type for C and D matrix operands
+  typename ElementC_,
+  /// Element type for internal accumulation
+  typename ElementAccumulator,
+  /// Epilogue output operator      - must satisfy concept of 'EpilogueWithBroadcastOp'
+  typename EpilogueOutputOp,
+  /// Number of stages used in the pipelined mainloop
+  int Stages,
+  /// data layout row/column major of inputs
+  bool isRowMajor>
+struct FusedDistanceNNGemm<float,  /// Element type for A matrix operand
+                           1,      /// Layout type (veclen) for A matrix operand
+                           float,  /// Element type for B matrix operand
+                           1,      /// Layout type (veclen) for B matrix operand
+                           ElementC_,
+                           ElementAccumulator,
+                           EpilogueOutputOp,
+                           Stages,
+                           isRowMajor> {
+  // This struct is specialized for fp32/3xTF32
+  using ElementA_ = float;
+  using ElementB_ = float;
+
+  /// Threadblock-level tile size (concept: GemmShape)
+  // <- threadblock tile M = 32, N = 128, K = 16
+  // this shape has high occupancy and no register spills for veclen = 1.
+  using ThreadblockShape = cutlass::gemm::GemmShape<32, 128, 16>;
+
+  /// Warp-level tile size (concept: GemmShape)
+  // This code section describes tile size a warp will compute
+  // <- warp tile M = 32, N = 32, K = 16
+  using WarpShape = cutlass::gemm::GemmShape<32, 32, 16>;
+
+  /// Warp-level tile size (concept: GemmShape)
+  // This code section describes the size of MMA op
+  // <- MMA Op tile M = 16, N = 8, K = 4
+  using InstructionShape = cutlass::gemm::GemmShape<16, 8, 4>;
+
+  /// Operation performed by GEMM
+  using Operator = cutlass::arch::OpMultiplyAddFastF32;
+  // using Operator = cutlass::arch::OpMultiplyAdd; // this runs only 1xTF32 for float inputs
+
+  // This code section describes whether you want to use tensor cores or regular SIMT cores on GPU
+  // SM
+  using OperatorClass = cutlass::arch::OpClassTensorOp;
+
+  // This code section describes CUDA SM architecture number
+  using ArchTag = cutlass::arch::Sm80;
+
+  // This code section describes how threadblocks are scheduled on GPU
+  /// Threadblock-level swizzling operator
+  using ThreadblockSwizzle = cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;
+
+  /// data layout for final output matrix.
+  // we keep this same layout even for column major inputs
+  using LayoutOutput = cutlass::layout::RowMajor;
+
+  typedef typename std::conditional<isRowMajor,
+                                    cutlass::layout::RowMajor,
+                                    cutlass::layout::ColumnMajor>::type NormXLayout;
+
+  typedef typename std::
+    conditional<isRowMajor, cutlass::layout::RowMajor, cutlass::layout::ColumnMajor>::type LayoutA_;
+
+  typedef typename std::
+    conditional<isRowMajor, cutlass::layout::ColumnMajor, cutlass::layout::RowMajor>::type LayoutB_;
+
+  using GemmBase = typename DefaultGemmUniversal<ElementA_,
+                                                 LayoutA_,
+                                                 cutlass::ComplexTransform::kNone,
+                                                 1,
+                                                 ElementB_,
+                                                 LayoutB_,
+                                                 cutlass::ComplexTransform::kNone,
+                                                 1,
                                                  ElementC_,
                                                  LayoutOutput,
                                                  ElementAccumulator,
