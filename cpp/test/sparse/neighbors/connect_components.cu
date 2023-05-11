@@ -115,8 +115,15 @@ class ConnectComponentsTest
      * 3. connect_components to fix connectivities
      */
     raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(params.n_row);
-    raft::linkage::connect_components<value_idx, value_t>(
-      handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, params.n_col, red_op);
+    raft::linkage::connect_components<value_idx, value_t>(handle,
+                                                          out_edges,
+                                                          data.data(),
+                                                          colors.data(),
+                                                          params.n_row,
+                                                          params.n_col,
+                                                          red_op,
+                                                          params.n_row,
+                                                          params.n_col);
 
     /**
      * Construct final edge list

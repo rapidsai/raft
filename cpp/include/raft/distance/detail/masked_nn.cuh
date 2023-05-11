@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "raft/core/logger-macros.hpp"
 #include <limits>
 #include <stdint.h>
 
@@ -319,14 +318,8 @@ void masked_l2_nn_impl(raft::device_resources const& handle,
                                             pairRedOp,
                                             core_lambda,
                                             fin_op);
-  handle.sync_stream(stream);
-  uint32_t masked_nn_kernel_end = curTimeMillis();
-  RAFT_LOG_INFO("Time taken by masked nn kernel %zu", masked_nn_kernel_end - masked_nn_kernel_start);
 
   RAFT_CUDA_TRY(cudaGetLastError());
-  size_t free, total;
-  cudaMemGetInfo(&free, &total);
-  RAFT_LOG_INFO("Peak memory usage during masked nn: Free memory (MB) %zu; Used memory (MB) %zu", free / (1024 * 1024), (total - free) / (1024 * 1024));
 }
 
 }  // namespace detail
