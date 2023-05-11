@@ -205,6 +205,20 @@ class PredicatedTileIteratorNormVecSmem {
     Element* data() { return storage.data(); }
 
     SharedStorage() {}
+
+    CUTLASS_DEVICE
+    void initSmem(void *pointer, const Index &num_rows, const Index &tb_row_offset, const LongIndex &stride) {
+      Element* shared_elem_arr          = data();
+      uint8_t* first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
+                                  LongIndex(tb_row_offset) * LongIndex(stride);
+      const auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
+
+      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+        bool guard = (tb_row_offset + row) < num_rows;
+        cutlass::arch::cp_async<sizeof(Element)>(shared_elem_arr + row, gmem_ptr + row, guard);
+        cutlass::arch::cp_async_wait<0>();
+      }
+    }
   };
 
  private:
@@ -305,17 +319,7 @@ class PredicatedTileIteratorNormVecSmem {
     }
 
     if (threadblock_offset.column() == 0) {
-      Element* shared_elem_arr = shared_storage_.data();
-      uint8_t* first_tile_byte_pointer_ =
-        reinterpret_cast<uint8_t*>(pointer) +
-        LongIndex(threadblock_offset.row()) * LongIndex(params_.stride);
-      auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
-
-      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-        bool guard = (threadblock_offset.row() + row) < extent_row_;
-        cutlass::arch::cp_async<sizeof(Element)>(shared_elem_arr + row, gmem_ptr + row, guard);
-        cutlass::arch::cp_async_wait<0>();
-      }
+      shared_storage_.initSmem(pointer, extent_row_, threadblock_offset.row(), params_.stride);
     }
 
     // Initialize internal state counter

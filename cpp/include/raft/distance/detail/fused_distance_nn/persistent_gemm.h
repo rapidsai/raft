@@ -379,9 +379,6 @@ struct FusedDistanceNNPersistent {
     using LayoutB      = typename Mma::IteratorB::Layout;
     using ElementC     = typename Epilogue::OutputTileIterator::Element;
     using LayoutC      = typename Epilogue::OutputTileIterator::Layout;
-    using ElementOut   = typename Epilogue::TensorTileIterator::Element;
-    using LongIndexOut = typename Epilogue::TensorTileIterator::LongIndex;
-    using OutValTy     = typename Epilogue::TensorTileIterator::OutValT;
 
     const GemmCoord& problem_size = params.problem_size;
     const uint32_t problem_chunk =
@@ -390,35 +387,12 @@ struct FusedDistanceNNPersistent {
     const auto grid_shape_           = grid_shape(problem_size);
     typename LayoutB::Index column =
       ((blockIdx.x * problem_chunk) % grid_shape_.column()) * Mma::Shape::kN;
-    {
-      ElementOut* shared_elem_arr_ = shared_storage.reduced_store.data();
-      constexpr auto maxVal_       = std::numeric_limits<OutValTy>::max();
 
-      if (column) {
-        for (int row = threadIdx.x; row < Mma::Shape::kM; row += blockDim.x) {
-          params.output_op.red_op_.init(&shared_elem_arr_[row], maxVal_);
-        }
-      }
-    }
-
-    {
-      ElementC* shared_elem_arr = shared_storage.rownorm_store.data();
-      if (column) {
-        typename LayoutB::Index row =
-          ((blockIdx.x * problem_chunk) / grid_shape_.column()) * Mma::Shape::kM;
-
-        uint8_t* first_tile_byte_pointer_ =
-          reinterpret_cast<uint8_t*>(params.ptr_C) +
-          typename LayoutB::LongIndex(row) * typename LayoutB::LongIndex(sizeof(ElementC));
-        auto gmem_ptr = reinterpret_cast<ElementC*>(first_tile_byte_pointer_);
-
-        for (int row_local = threadIdx.x; row_local < Mma::Shape::kM; row_local += blockDim.x) {
-          bool guard = (row + row_local) < problem_size.m();
-          cutlass::arch::cp_async<sizeof(ElementC)>(
-            shared_elem_arr + row_local, gmem_ptr + row_local, guard);
-          cutlass::arch::cp_async_wait<0>();
-        }
-      }
+    typename LayoutB::Index row =
+      ((blockIdx.x * problem_chunk) / grid_shape_.column()) * Mma::Shape::kM;
+    if (column) {
+      shared_storage.reduced_store.initSmem(params.output_op);
+      shared_storage.rownorm_store.initSmem(params.ptr_C, problem_size.m(), row, sizeof(ElementC));
     }
 
     // Outer 'persistent' loop to iterate over tiles

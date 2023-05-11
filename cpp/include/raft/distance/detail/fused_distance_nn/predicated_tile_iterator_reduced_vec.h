@@ -229,6 +229,16 @@ class PredicatedTileIteratorReducedVec {
     Element* data() { return storage.data(); }
 
     SharedStorage() {}
+
+    CUTLASS_DEVICE
+    void initSmem(EpilogueOpParams const& user_params) {
+      Element* shared_elem_arr            = data();
+      constexpr auto maxVal               = std::numeric_limits<OutValT>::max();
+
+      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+        user_params.red_op_.init(&shared_elem_arr[row], maxVal);
+      }
+    }
   };
 
   template <typename cg_reduce_op_t,
@@ -394,13 +404,8 @@ class PredicatedTileIteratorReducedVec {
     }
 
     if (threadblock_offset.column() == 0) {
-      Element* shared_elem_arr            = shared_storage_.data();
       EpilogueOpParams const& user_params = params_.user_param;
-      constexpr auto maxVal               = std::numeric_limits<OutValT>::max();
-
-      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-        user_params.red_op_.init(&shared_elem_arr[row], maxVal);
-      }
+      shared_storage_.initSmem(user_params);
     }
 
     // Null pointer performs no accesses
