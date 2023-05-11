@@ -69,6 +69,13 @@ void fill(raft::device_resources const& handle,
   linalg::map(handle, inout, raft::const_op{scalar});
 }
 
+template <typename math_t, typename idx_t>
+void eye(const raft::handle_t& handle,
+         raft::device_matrix_view<math_t, idx_t, raft::col_major> inout)
+{
+  detail::createEye(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+}
+
 /** @} */  // end of group matrix_init
 
 }  // namespace raft::matrix

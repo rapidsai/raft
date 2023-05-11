@@ -19,6 +19,7 @@
 #include <raft/core/device_mdarray.hpp>
 
 #include <raft/matrix/copy.cuh>
+#include <raft/matrix/init.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -57,8 +58,20 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   }
 
  protected:
+  void test_eye()
+  {
+    auto eyemat = raft::make_device_matrix<math_t, idx_t, raft::col_major>(handle, 4, 5);
+    raft::matrix::eye(handle, eyemat.view());
+    std::vector<math_t> eye_exp{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0};
+    std::vector<math_t> eye_act(20);
+    raft::copy(eye_act.data(), eyemat.data_handle(), eye_act.size(), stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    ASSERT_TRUE(hostVecMatch(eye_exp, eye_act, raft::Compare<math_t>()));
+  }
+
   void SetUp() override
   {
+    test_eye();
     raft::random::RngState r(params.seed);
     int len = params.n_row * params.n_col;
     uniform(handle, r, in1.data(), len, T(-1.0), T(1.0));

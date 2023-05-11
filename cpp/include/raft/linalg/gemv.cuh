@@ -233,8 +233,8 @@ void gemv(raft::device_resources const& handle,
  * @tparam LayoutPolicyZ layout of Z
  * @param[in] handle raft handle
  * @param[in] A input raft::device_matrix_view of size (M, N)
- * @param[in] x input raft::device_matrix_view of size (N, 1) if A is raft::col_major, else (M, 1)
- * @param[out] y output raft::device_matrix_view of size (M, 1) if A is raft::col_major, else (N, 1)
+ * @param[in] x input raft::device_vector_view of size (N, 1) if A is raft::col_major, else (M, 1)
+ * @param[out] y output raft::device_vector_view of size (M, 1) if A is raft::col_major, else (N, 1)
  * @param[in] alpha optional raft::host_scalar_view or raft::device_scalar_view, default 1.0
  * @param[in] beta optional raft::host_scalar_view or raft::device_scalar_view, default 0.0
  */
