@@ -46,6 +46,12 @@
 
 /*! \file
     \brief Problem visitor for grouped GEMMs
+This file contains heavily customized version of GemmGrouped from CUTLASS 2.10.0
+(https://github.com/NVIDIA/cutlass/blob/v2.10.0/include/cutlass/gemm/kernel/gemm_grouped.h)
+
+Changes:
+- adds support for only single problem size to be launched persistently 
+  where each threablock processes more than one tile of the same problem.
 */
 
 #pragma once
