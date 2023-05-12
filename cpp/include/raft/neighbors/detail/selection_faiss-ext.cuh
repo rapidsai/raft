@@ -18,6 +18,7 @@
 
 #include <cstddef>                                            // size_t
 #include <cstdint>                                            // uint32_t
+#include <cuda_fp16.h>                                        // __half
 #include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMaxK
 #include <raft/util/raft_explicit.hpp>                        // RAFT_EXPLICIT
 
@@ -57,5 +58,10 @@ instantiate_raft_neighbors_detail_select_k(size_t, double);
 // test/neighbors/selection.cu
 instantiate_raft_neighbors_detail_select_k(int, double);
 instantiate_raft_neighbors_detail_select_k(size_t, float);
+
+instantiate_raft_neighbors_detail_select_k(uint32_t, double);
+instantiate_raft_neighbors_detail_select_k(int64_t, double);
+instantiate_raft_neighbors_detail_select_k(uint32_t, __half);
+instantiate_raft_neighbors_detail_select_k(int64_t, __half);
 
 #undef instantiate_raft_neighbors_detail_select_k

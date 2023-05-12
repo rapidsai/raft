@@ -21,7 +21,8 @@
 #include <cassert>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <type_traits>
 #include <variant>
 
@@ -93,7 +94,7 @@ using weight_t = typename weight_alias<T>::type;
  *   equals the number of inputs `in.extent(0)`.
  */
 template <typename DataT, typename IdxT, typename WeightsVectorType, class OutIndexVectorType>
-void sample_without_replacement(raft::device_resources const& handle,
+void sample_without_replacement(raft::resources const& handle,
                                 RngState& rng_state,
                                 raft::device_vector_view<const DataT, IdxT> in,
                                 WeightsVectorType&& weights_opt,
@@ -144,7 +145,7 @@ void sample_without_replacement(raft::device_resources const& handle,
                                    wts_ptr,
                                    sampledLen,
                                    len,
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 }
 
 /**

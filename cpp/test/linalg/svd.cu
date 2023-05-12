@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -201,6 +200,10 @@ INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestValD, ::testing::ValuesIn(inputsd2));
 INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestLeftVecF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestLeftVecD, ::testing::ValuesIn(inputsd2));
+
+INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF, ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecD, ::testing::ValuesIn(inputsd2));
 
 // INSTANTIATE_TEST_SUITE_P(SvdTests, SvdTestRightVecF,
 // ::testing::ValuesIn(inputsf2));

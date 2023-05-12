@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/device_resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>

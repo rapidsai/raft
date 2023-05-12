@@ -181,8 +181,12 @@ void select_residuals(raft::device_resources const& handle,
     dataset, utils::mapping<float>{});
   raft::matrix::gather(mapping_itr, (IdxT)dim, n_rows, row_ids, n_rows, tmp.data(), stream);
 
-  raft::matrix::linewiseOp(
-    tmp.data(), tmp.data(), IdxT(dim), n_rows, true, raft::sub_op{}, stream, center);
+  raft::matrix::linewise_op(handle,
+                            make_device_matrix_view<const T, IdxT>(tmp.data(), n_rows, dim),
+                            make_device_matrix_view<T, IdxT>(tmp.data(), n_rows, dim),
+                            true,
+                            raft::sub_op{},
+                            make_device_vector_view<const T, IdxT>(center, dim));
 
   float alpha = 1.0;
   float beta  = 0.0;
@@ -1324,10 +1328,7 @@ void extend(raft::device_resources const& handle,
 
   rmm::mr::device_memory_resource* device_memory = nullptr;
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::extend: using pool memory resource"); }
 
   rmm::mr::managed_memory_resource managed_memory_upstream;
   rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
@@ -1536,10 +1537,7 @@ auto build(raft::device_resources const& handle,
 
     rmm::mr::device_memory_resource* device_memory = nullptr;
     auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-    if (pool_guard) {
-      RAFT_LOG_DEBUG("ivf_pq::build: using pool memory resource with initial size %zu bytes",
-                     pool_guard->pool_size());
-    }
+    if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::build: using pool memory resource"); }
 
     rmm::mr::managed_memory_resource managed_memory_upstream;
     rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
