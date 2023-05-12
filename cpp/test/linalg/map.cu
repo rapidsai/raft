@@ -28,6 +28,58 @@
 namespace raft {
 namespace linalg {
 
+/*
+ * Padded_float is a 12 byte type that contains a single float. Two integers are
+ * used for padding. It is used to test types that are not power-of-two-sized.
+ */
+struct padded_float {
+  float value_;
+  int padding1;
+  int padding2;
+
+  padded_float() = default;
+  constexpr padded_float(const float& x) : value_(x), padding1(0), padding2(0) {}
+  constexpr padded_float(const padded_float&)            = default;
+  constexpr padded_float& operator=(const padded_float&) = default;
+  constexpr float abs() const { return std::abs(value_); }
+};
+
+constexpr padded_float operator+(const padded_float& x, const padded_float& y)
+{
+  return padded_float(x.value_ + y.value_);
+}
+
+constexpr padded_float operator-(const padded_float& x, const padded_float& y)
+{
+  return padded_float(x.value_ - y.value_);
+}
+constexpr padded_float operator*(const padded_float& x, const padded_float& y)
+{
+  return padded_float(x.value_ * y.value_);
+}
+constexpr padded_float operator*(const padded_float& x, const int& scalar)
+{
+  return padded_float(scalar * x.value_);
+}
+constexpr bool operator==(const padded_float& x, const padded_float& y)
+{
+  return x.value_ == y.value_;
+}
+
+constexpr bool operator<(const padded_float& x, const padded_float& y)
+{
+  return x.value_ < y.value_;
+}
+constexpr bool operator>(const padded_float& x, const padded_float& y)
+{
+  return x.value_ > y.value_;
+}
+inline auto operator<<(std::ostream& os, const padded_float& x) -> std::ostream&
+{
+  os << x.value_;
+  return os;
+}
+
 template <typename InType, typename IdxType, typename OutType>
 void mapLaunch(OutType* out,
                const InType* in1,
@@ -200,59 +252,6 @@ const std::vector<MapInputs<double, size_t>> inputsd_i64 = {
   {0.00000001, 1024 * 1024, 1234ULL, 5.2}};
 MAP_TEST((MapTest<double, size_t>), MapTestD_i64, inputsd_i64);
 MAP_TEST((MapOffsetTest<double, size_t>), MapOffsetTestD_i64, inputsd_i64);
-
-/*
- * Test for types that are not a power of two. Padded_float is a 12 byte type
- * that contains a single float. Two integers are used for padding.
- *
- */
-struct padded_float {
-  float value_;
-  int padding1;
-  int padding2;
-
-  padded_float() = default;
-  constexpr padded_float(const float& x) : value_(x), padding1(0), padding2(0) {}
-  constexpr padded_float(const padded_float&)            = default;
-  constexpr padded_float& operator=(const padded_float&) = default;
-  constexpr float abs() const { return std::abs(value_); }
-};
-
-constexpr padded_float operator+(const padded_float& x, const padded_float& y)
-{
-  return padded_float(x.value_ + y.value_);
-}
-
-constexpr padded_float operator-(const padded_float& x, const padded_float& y)
-{
-  return padded_float(x.value_ - y.value_);
-}
-constexpr padded_float operator*(const padded_float& x, const padded_float& y)
-{
-  return padded_float(x.value_ * y.value_);
-}
-constexpr padded_float operator*(const padded_float& x, const int& scalar)
-{
-  return padded_float(scalar * x.value_);
-}
-constexpr bool operator==(const padded_float& x, const padded_float& y)
-{
-  return x.value_ == y.value_;
-}
-
-constexpr bool operator<(const padded_float& x, const padded_float& y)
-{
-  return x.value_ < y.value_;
-}
-constexpr bool operator>(const padded_float& x, const padded_float& y)
-{
-  return x.value_ > y.value_;
-}
-inline auto operator<<(std::ostream& os, const padded_float& x) -> std::ostream&
-{
-  os << x.value_;
-  return os;
-}
 
 // This comparison structure is necessary, because it is not straight-forward to
 // add an overload of std::abs for padded_float.
