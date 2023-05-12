@@ -128,6 +128,11 @@ _RAFT_HOST_DEVICE inline std::uint32_t get_max_value<std::uint32_t>()
 {
   return 0xffffffffu;
 };
+template <>
+_RAFT_HOST_DEVICE inline std::uint64_t get_max_value<std::uint64_t>()
+{
+  return 0xfffffffffffffffflu;
+};
 
 template <int A, int B, class = void>
 struct constexpr_max {

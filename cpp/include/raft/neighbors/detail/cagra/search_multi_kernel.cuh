@@ -536,9 +536,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
 
   size_t result_buffer_allocation_size;
-  rmm::device_uvector<uint32_t> result_indices;  // results_indices_buffer
-  rmm::device_uvector<float> result_distances;   // result_distances_buffer
-  rmm::device_uvector<uint32_t> parent_node_list;
+  rmm::device_uvector<INDEX_T> result_indices;  // results_indices_buffer
+  rmm::device_uvector<float> result_distances;  // result_distances_buffer
+  rmm::device_uvector<INDEX_T> parent_node_list;
   rmm::device_uvector<uint32_t> topk_hint;
   rmm::device_scalar<uint32_t> terminate_flag;  // dev_terminate_flag, host_terminate_flag.;
   rmm::device_uvector<uint32_t> topk_workspace;

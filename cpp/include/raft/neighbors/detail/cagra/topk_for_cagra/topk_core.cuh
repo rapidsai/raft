@@ -493,14 +493,14 @@ __device__ __host__ inline uint32_t get_state_size(uint32_t len_x)
 }
 
 //
-template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads>
+template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
 __device__ inline void topk_cta_11_core(uint32_t topk,
                                         uint32_t len_x,
-                                        const uint32_t* _x,        // [size_batch, ld_x,]
-                                        const uint32_t* _in_vals,  // [size_batch, ld_iv,]
-                                        uint32_t* _y,              // [size_batch, ld_y,]
-                                        uint32_t* _out_vals,       // [size_batch, ld_ov,]
-                                        uint8_t* _state,           // [size_batch, ...,]
+                                        const uint32_t* _x,    // [size_batch, ld_x,]
+                                        const ValT* _in_vals,  // [size_batch, ld_iv,]
+                                        uint32_t* _y,          // [size_batch, ld_y,]
+                                        ValT* _out_vals,       // [size_batch, ld_ov,]
+                                        uint8_t* _state,       // [size_batch, ...,]
                                         uint32_t* _hint,
                                         bool sort,
                                         uint32_t* _smem)
@@ -514,11 +514,11 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   const uint32_t thread_id   = threadIdx.x;
   uint32_t nx                = len_x;
   const uint32_t* x          = _x;
-  const uint32_t* in_vals    = NULL;
+  const ValT* in_vals        = NULL;
   if (_in_vals) { in_vals = _in_vals; }
   uint32_t* y = NULL;
   if (_y) { y = _y; }
-  uint32_t* out_vals = NULL;
+  ValT* out_vals = NULL;
   if (_out_vals) { out_vals = _out_vals; }
   uint8_t* state = _state;
   uint32_t hint  = (_hint == NULL ? ~0u : *_hint);
@@ -616,7 +616,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
 
   constexpr int numTopkPerThread = maxTopk / numSortThreads;
   float my_keys[numTopkPerThread];
-  uint32_t my_vals[numTopkPerThread];
+  ValT my_vals[numTopkPerThread];
 
   // Read keys and values to registers
   if (thread_id < numSortThreads) {
@@ -632,7 +632,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
         }
       } else {
         my_keys[i] = FLT_MAX;
-        my_vals[i] = 0xffffffffU;
+        my_vals[i] = ~static_cast<ValT>(0);
       }
     }
   }
@@ -641,21 +641,21 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
 
   // Sorting by thread
   if (thread_id < numSortThreads) {
-    bool ascending = ((thread_id & mask) == 0);
+    const bool ascending = ((thread_id & mask) == 0);
     if (numTopkPerThread == 3) {
-      swap_if_needed<float, uint32_t>(my_keys[0], my_keys[1], my_vals[0], my_vals[1], ascending);
-      swap_if_needed<float, uint32_t>(my_keys[0], my_keys[2], my_vals[0], my_vals[2], ascending);
-      swap_if_needed<float, uint32_t>(my_keys[1], my_keys[2], my_vals[1], my_vals[2], ascending);
+      swap_if_needed<float, ValT>(my_keys[0], my_keys[1], my_vals[0], my_vals[1], ascending);
+      swap_if_needed<float, ValT>(my_keys[0], my_keys[2], my_vals[0], my_vals[2], ascending);
+      swap_if_needed<float, ValT>(my_keys[1], my_keys[2], my_vals[1], my_vals[2], ascending);
     } else {
       for (int j = 0; j < numTopkPerThread / 2; j += 1) {
 #pragma unroll
         for (int i = 0; i < numTopkPerThread; i += 2) {
-          swap_if_needed<float, uint32_t>(
+          swap_if_needed<float, ValT>(
             my_keys[i], my_keys[i + 1], my_vals[i], my_vals[i + 1], ascending);
         }
 #pragma unroll
         for (int i = 1; i < numTopkPerThread - 1; i += 2) {
-          swap_if_needed<float, uint32_t>(
+          swap_if_needed<float, ValT>(
             my_keys[i], my_keys[i + 1], my_vals[i], my_vals[i + 1], ascending);
         }
       }
@@ -667,11 +667,12 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     uint32_t next_mask = mask << 1;
 
     for (uint32_t curr_mask = mask; curr_mask > 0; curr_mask >>= 1) {
-      bool ascending = ((thread_id & curr_mask) == 0) == ((thread_id & next_mask) == 0);
+      const bool ascending = ((thread_id & curr_mask) == 0) == ((thread_id & next_mask) == 0);
       if (curr_mask >= 32) {
         // inter warp
-        uint32_t* smem_vals = _smem;  // [numTopkPerThread, numSortThreads]
-        float* smem_keys    = (float*)(_smem + numTopkPerThread * numSortThreads);
+        ValT* smem_vals = reinterpret_cast<ValT*>(_smem);  // [maxTopk]
+        float* smem_keys =
+          reinterpret_cast<float*>(smem_vals + maxTopk);   // [numTopkPerThread, numSortThreads]
         __syncthreads();
         if (thread_id < numSortThreads) {
 #pragma unroll
@@ -684,9 +685,9 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
         if (thread_id < numSortThreads) {
 #pragma unroll
           for (int i = 0; i < numTopkPerThread; i++) {
-            float opp_key    = smem_keys[(thread_id ^ curr_mask) + (numSortThreads * i)];
-            uint32_t opp_val = smem_vals[(thread_id ^ curr_mask) + (numSortThreads * i)];
-            swap_if_needed<float, uint32_t>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
+            float opp_key = smem_keys[(thread_id ^ curr_mask) + (numSortThreads * i)];
+            ValT opp_val  = smem_vals[(thread_id ^ curr_mask) + (numSortThreads * i)];
+            swap_if_needed<float, ValT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
           }
         }
       } else {
@@ -694,9 +695,9 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
         if (thread_id < numSortThreads) {
 #pragma unroll
           for (int i = 0; i < numTopkPerThread; i++) {
-            float opp_key    = __shfl_xor_sync(0xffffffff, my_keys[i], curr_mask);
-            uint32_t opp_val = __shfl_xor_sync(0xffffffff, my_vals[i], curr_mask);
-            swap_if_needed<float, uint32_t>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
+            float opp_key = __shfl_xor_sync(0xffffffff, my_keys[i], curr_mask);
+            ValT opp_val  = __shfl_xor_sync(0xffffffff, my_vals[i], curr_mask);
+            swap_if_needed<float, ValT>(my_keys[i], opp_key, my_vals[i], opp_val, ascending);
           }
         }
       }
@@ -705,9 +706,9 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     if (thread_id < numSortThreads) {
       bool ascending = ((thread_id & next_mask) == 0);
       if (numTopkPerThread == 3) {
-        swap_if_needed<float, uint32_t>(my_keys[0], my_keys[1], my_vals[0], my_vals[1], ascending);
-        swap_if_needed<float, uint32_t>(my_keys[0], my_keys[2], my_vals[0], my_vals[2], ascending);
-        swap_if_needed<float, uint32_t>(my_keys[1], my_keys[2], my_vals[1], my_vals[2], ascending);
+        swap_if_needed<float, ValT>(my_keys[0], my_keys[1], my_vals[0], my_vals[1], ascending);
+        swap_if_needed<float, ValT>(my_keys[0], my_keys[2], my_vals[0], my_vals[2], ascending);
+        swap_if_needed<float, ValT>(my_keys[1], my_keys[2], my_vals[1], my_vals[2], ascending);
       } else {
 #pragma unroll
         for (uint32_t curr_mask = numTopkPerThread / 2; curr_mask > 0; curr_mask >>= 1) {
@@ -715,8 +716,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
           for (int i = 0; i < numTopkPerThread; i++) {
             int j = i ^ curr_mask;
             if (i > j) continue;
-            swap_if_needed<float, uint32_t>(
-              my_keys[i], my_keys[j], my_vals[i], my_vals[j], ascending);
+            swap_if_needed<float, ValT>(my_keys[i], my_keys[j], my_vals[i], my_vals[j], ascending);
           }
         }
       }
@@ -729,7 +729,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     for (int i = 0; i < numTopkPerThread; i++) {
       int k = i + (numTopkPerThread * thread_id);
       if (k < topk) {
-        if (y) { y[k] = ((uint32_t*)my_keys)[i]; }
+        if (y) { y[k] = reinterpret_cast<float*>(my_keys)[i]; }
         if (out_vals) { out_vals[k] = my_vals[i]; }
       }
     }
@@ -755,28 +755,32 @@ int _get_vecLen(uint32_t maxSamples, int maxVecLen = MAX_VEC_LENGTH)
 }
 }  // unnamed namespace
 
-template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads>
+template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
 __launch_bounds__(1024, 1) __global__
   void kern_topk_cta_11(uint32_t topk,
                         uint32_t size_batch,
                         uint32_t len_x,
-                        const uint32_t* _x,        // [size_batch, ld_x,]
+                        const uint32_t* _x,    // [size_batch, ld_x,]
                         uint32_t ld_x,
-                        const uint32_t* _in_vals,  // [size_batch, ld_iv,]
+                        const ValT* _in_vals,  // [size_batch, ld_iv,]
                         uint32_t ld_iv,
-                        uint32_t* _y,              // [size_batch, ld_y,]
+                        uint32_t* _y,          // [size_batch, ld_y,]
                         uint32_t ld_y,
-                        uint32_t* _out_vals,       // [size_batch, ld_ov,]
+                        ValT* _out_vals,       // [size_batch, ld_ov,]
                         uint32_t ld_ov,
-                        uint8_t* _state,           // [size_batch, ...,]
-                        uint32_t* _hints,          // [size_batch,]
+                        uint8_t* _state,       // [size_batch, ...,]
+                        uint32_t* _hints,      // [size_batch,]
                         bool sort)
 {
   uint32_t i_batch = blockIdx.x;
   if (i_batch >= size_batch) return;
-  __shared__ uint32_t _smem[2 * maxTopk + 2048 + 8];
 
-  topk_cta_11_core<blockDim_x, stateBitLen, vecLen, maxTopk, numSortThreads>(
+  constexpr uint32_t smem_len = 2 * maxTopk + 2048 + 8;
+  static_assert(maxTopk * (1 + utils::size_of<ValT>() / utils::size_of<uint32_t>()) <= smem_len,
+                "maxTopk * sizeof(ValT) must be smaller or equal to 8192 byte");
+  __shared__ uint32_t _smem[smem_len];
+
+  topk_cta_11_core<blockDim_x, stateBitLen, vecLen, maxTopk, numSortThreads, ValT>(
     topk,
     len_x,
     (_x == NULL ? NULL : _x + i_batch * ld_x),
@@ -809,17 +813,18 @@ size_t inline _cuann_find_topk_bufferSize(uint32_t topK,
   return workspaceSize;
 }
 
+template <class ValT>
 inline void _cuann_find_topk(uint32_t topK,
                              uint32_t sizeBatch,
                              uint32_t numElements,
-                             const float* inputKeys,     // [sizeBatch, ldIK,]
-                             uint32_t ldIK,              // (*) ldIK >= numElements
-                             const uint32_t* inputVals,  // [sizeBatch, ldIV,]
-                             uint32_t ldIV,              // (*) ldIV >= numElements
-                             float* outputKeys,          // [sizeBatch, ldOK,]
-                             uint32_t ldOK,              // (*) ldOK >= topK
-                             uint32_t* outputVals,       // [sizeBatch, ldOV,]
-                             uint32_t ldOV,              // (*) ldOV >= topK
+                             const float* inputKeys,  // [sizeBatch, ldIK,]
+                             uint32_t ldIK,           // (*) ldIK >= numElements
+                             const ValT* inputVals,   // [sizeBatch, ldIV,]
+                             uint32_t ldIV,           // (*) ldIV >= numElements
+                             float* outputKeys,       // [sizeBatch, ldOK,]
+                             uint32_t ldOK,           // (*) ldOK >= topK
+                             ValT* outputVals,        // [sizeBatch, ldOV,]
+                             uint32_t ldOV,           // (*) ldOV >= topK
                              void* workspace,
                              bool sort,
                              uint32_t* hints,
@@ -845,48 +850,48 @@ inline void _cuann_find_topk(uint32_t topK,
                      uint32_t,
                      const uint32_t*,
                      uint32_t,
-                     const uint32_t*,
+                     const ValT*,
                      uint32_t,
                      uint32_t*,
                      uint32_t,
-                     uint32_t*,
+                     ValT*,
                      uint32_t,
                      uint8_t*,
                      uint32_t*,
                      bool) = nullptr;
 
   // V:vecLen, K:maxTopk, T:numSortThreads
-#define SET_KERNEL_VKT(V, K, T)                                      \
-  do {                                                               \
-    assert(numThreads >= T);                                         \
-    assert((K % T) == 0);                                            \
-    assert((K / T) <= 4);                                            \
-    cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, V, K, T>; \
+#define SET_KERNEL_VKT(V, K, T, ValT)                                      \
+  do {                                                                     \
+    assert(numThreads >= T);                                               \
+    assert((K % T) == 0);                                                  \
+    assert((K / T) <= 4);                                                  \
+    cta_kernel = kern_topk_cta_11<numThreads, stateBitLen, V, K, T, ValT>; \
   } while (0)
 
   // V: vecLen
-#define SET_KERNEL_V(V)                                                                      \
+#define SET_KERNEL_V(V, ValT)                                                                \
   do {                                                                                       \
     if (topK <= 32) {                                                                        \
-      SET_KERNEL_VKT(V, 32, 32);                                                             \
+      SET_KERNEL_VKT(V, 32, 32, ValT);                                                       \
     } else if (topK <= 64) {                                                                 \
-      SET_KERNEL_VKT(V, 64, 32);                                                             \
+      SET_KERNEL_VKT(V, 64, 32, ValT);                                                       \
     } else if (topK <= 96) {                                                                 \
-      SET_KERNEL_VKT(V, 96, 32);                                                             \
+      SET_KERNEL_VKT(V, 96, 32, ValT);                                                       \
     } else if (topK <= 128) {                                                                \
-      SET_KERNEL_VKT(V, 128, 32);                                                            \
+      SET_KERNEL_VKT(V, 128, 32, ValT);                                                      \
     } else if (topK <= 192) {                                                                \
-      SET_KERNEL_VKT(V, 192, 64);                                                            \
+      SET_KERNEL_VKT(V, 192, 64, ValT);                                                      \
     } else if (topK <= 256) {                                                                \
-      SET_KERNEL_VKT(V, 256, 64);                                                            \
+      SET_KERNEL_VKT(V, 256, 64, ValT);                                                      \
     } else if (topK <= 384) {                                                                \
-      SET_KERNEL_VKT(V, 384, 128);                                                           \
+      SET_KERNEL_VKT(V, 384, 128, ValT);                                                     \
     } else if (topK <= 512) {                                                                \
-      SET_KERNEL_VKT(V, 512, 128);                                                           \
+      SET_KERNEL_VKT(V, 512, 128, ValT);                                                     \
     } else if (topK <= 768) {                                                                \
-      SET_KERNEL_VKT(V, 768, 256);                                                           \
+      SET_KERNEL_VKT(V, 768, 256, ValT);                                                     \
     } else if (topK <= 1024) {                                                               \
-      SET_KERNEL_VKT(V, 1024, 256);                                                          \
+      SET_KERNEL_VKT(V, 1024, 256, ValT);                                                    \
     } \
         /* else if (topK <= 1536) { SET_KERNEL_VKT(V, 1536, 512); } */ \
         /* else if (topK <= 2048) { SET_KERNEL_VKT(V, 2048, 512); } */ \
@@ -901,9 +906,9 @@ inline void _cuann_find_topk(uint32_t topK,
 
   int _vecLen = _get_vecLen(ldIK, 2);
   if (_vecLen == 2) {
-    SET_KERNEL_V(2);
+    SET_KERNEL_V(2, ValT);
   } else if (_vecLen == 1) {
-    SET_KERNEL_V(1);
+    SET_KERNEL_V(1, ValT);
   }
 
   cta_kernel<<<blocks, threads, 0, stream>>>(topK,

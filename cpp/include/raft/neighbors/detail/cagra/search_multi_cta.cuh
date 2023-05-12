@@ -82,9 +82,9 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
 
-template <unsigned MAX_ELEMENTS>
+template <unsigned MAX_ELEMENTS, class INDEX_T>
 __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_elements]
-                                            uint32_t* indices,        // [num_elements]
+                                            INDEX_T* indices,         // [num_elements]
                                             const uint32_t num_elements,
                                             const uint32_t num_itopk  // num_itopk <= num_elements
 )
@@ -94,7 +94,7 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
   const unsigned lane_id = threadIdx.x % 32;
   constexpr unsigned N   = (MAX_ELEMENTS + 31) / 32;
   float key[N];
-  uint32_t val[N];
+  INDEX_T val[N];
   for (unsigned i = 0; i < N; i++) {
     unsigned j = lane_id + (32 * i);
     if (j < num_elements) {
@@ -102,11 +102,11 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
       val[i] = indices[j];
     } else {
       key[i] = utils::get_max_value<float>();
-      val[i] = utils::get_max_value<uint32_t>();
+      val[i] = utils::get_max_value<INDEX_T>();
     }
   }
   /* Warp Sort */
-  bitonic::warp_sort<float, uint32_t, N>(key, val);
+  bitonic::warp_sort<float, INDEX_T, N>(key, val);
   /* Store itopk sorted results */
   for (unsigned i = 0; i < N; i++) {
     unsigned j = (N * lane_id) + i;
@@ -192,7 +192,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto parent_indices_buffer =
-    reinterpret_cast<uint32_t*>(result_distances_buffer + result_buffer_size_32);
+    reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
   auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + num_parents);
 
 #if 0
@@ -244,10 +244,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   while (1) {
     // topk with bitonic sort
     _CLK_START();
-    topk_by_bitonic_sort<MAX_ELEMENTS>(result_distances_buffer,
-                                       result_indices_buffer,
-                                       itopk_size + (num_parents * graph_degree),
-                                       itopk_size);
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (num_parents * graph_degree),
+                                                itopk_size);
     _CLK_REC(clk_topk);
 
     if (iter + 1 == max_iteration) {
@@ -454,7 +454,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
 
   uint32_t num_cta_per_query;
-  rmm::device_uvector<uint32_t> intermediate_indices;
+  rmm::device_uvector<INDEX_T> intermediate_indices;
   rmm::device_uvector<float> intermediate_distances;
   size_t topk_workspace_size;
   rmm::device_uvector<uint32_t> topk_workspace;
