@@ -231,9 +231,10 @@ class PredicatedTileIteratorReducedVec {
     SharedStorage() {}
 
     CUTLASS_DEVICE
-    void initSmem(EpilogueOpParams const& user_params) {
-      Element* shared_elem_arr            = data();
-      constexpr auto maxVal               = std::numeric_limits<OutValT>::max();
+    void initSmem(EpilogueOpParams const& user_params)
+    {
+      Element* shared_elem_arr = data();
+      constexpr auto maxVal    = std::numeric_limits<OutValT>::max();
 
       for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
         user_params.red_op_.init(&shared_elem_arr[row], maxVal);
@@ -434,7 +435,7 @@ class PredicatedTileIteratorReducedVec {
       EpilogueOpParams const& user_params = params_.user_param;
       auto gmem_ptr                       = reinterpret_cast<Element*>(first_tile_byte_pointer_);
       Element* shared_elem_arr            = shared_storage_.data();
-      const uint32_t mutex_id = (block_start_row_first_tile_ / total_rows);
+      const uint32_t mutex_id             = (block_start_row_first_tile_ / total_rows);
       bool useGmemMutex = (gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows));
       // If this is not optimal grid size perform mutex based gmem reduce.
       if (useGmemMutex) {

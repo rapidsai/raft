@@ -207,10 +207,14 @@ class PredicatedTileIteratorNormVecSmem {
     SharedStorage() {}
 
     CUTLASS_DEVICE
-    void initSmem(void *pointer, const Index &num_rows, const Index &tb_row_offset, const LongIndex &stride) {
-      Element* shared_elem_arr          = data();
-      uint8_t* first_tile_byte_pointer_ = reinterpret_cast<uint8_t*>(pointer) +
-                                  LongIndex(tb_row_offset) * LongIndex(stride);
+    void initSmem(void* pointer,
+                  const Index& num_rows,
+                  const Index& tb_row_offset,
+                  const LongIndex& stride)
+    {
+      Element* shared_elem_arr = data();
+      uint8_t* first_tile_byte_pointer_ =
+        reinterpret_cast<uint8_t*>(pointer) + LongIndex(tb_row_offset) * LongIndex(stride);
       const auto gmem_ptr = reinterpret_cast<Element*>(first_tile_byte_pointer_);
 
       for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {

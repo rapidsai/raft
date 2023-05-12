@@ -24,8 +24,8 @@
 #include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/linalg/contractions.cuh>                     // Policy
-#include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
 #include <raft/util/arch.cuh>                               // raft::util::arch::SM_*
+#include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
 
 namespace raft {
 namespace distance {
@@ -311,7 +311,7 @@ void fusedL2NNImpl(OutT* min,
   }
 
   namespace arch = raft::util::arch;
-  using AccT = DataT;
+  using AccT     = DataT;
   ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
 
   raft::identity_op fin_op{};
@@ -344,34 +344,34 @@ void fusedL2NNImpl(OutT* min,
     lda = k, ldb = k, ldd = n;
 
     cutlassFusedDistanceNN<DataT,
-                          DataT,
-                          OutT,
-                          IdxT,
-                          P::Veclen,
-                          kvp_cg_min_reduce_op_,
-                          L2Op,
-                          ReduceOpT,
-                          KVPReduceOpT>(x,
-                                        y,
-                                        xn,
-                                        yn,
-                                        m,
-                                        n,
-                                        k,
-                                        lda,
-                                        ldb,
-                                        ldd,
-                                        min,
-                                        workspace,
-                                        cg_reduce_op,
-                                        L2_dist_op,
-                                        redOp,
-                                        pairRedOp,
-                                        stream);
+                           DataT,
+                           OutT,
+                           IdxT,
+                           P::Veclen,
+                           kvp_cg_min_reduce_op_,
+                           L2Op,
+                           ReduceOpT,
+                           KVPReduceOpT>(x,
+                                         y,
+                                         xn,
+                                         yn,
+                                         m,
+                                         n,
+                                         k,
+                                         lda,
+                                         ldb,
+                                         ldd,
+                                         min,
+                                         workspace,
+                                         cg_reduce_op,
+                                         L2_dist_op,
+                                         redOp,
+                                         pairRedOp,
+                                         stream);
   } else {
     // If device less than SM_80, use fp32 SIMT kernel.
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-    dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, kernel);
+    dim3 grid                  = launchConfigGenerator<P>(m, n, shmemSize, kernel);
 
     kernel<<<grid, blk, shmemSize, stream>>>(
       min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);

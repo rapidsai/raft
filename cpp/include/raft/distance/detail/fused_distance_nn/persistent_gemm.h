@@ -50,7 +50,7 @@ This file contains heavily customized version of GemmGrouped from CUTLASS 2.10.0
 (https://github.com/NVIDIA/cutlass/blob/v2.10.0/include/cutlass/gemm/kernel/gemm_grouped.h)
 
 Changes:
-- adds support for only single problem size to be launched persistently 
+- adds support for only single problem size to be launched persistently
   where each threablock processes more than one tile of the same problem.
 */
 
@@ -379,16 +379,16 @@ struct FusedDistanceNNPersistent {
     // These types shadow the type-level definitions and support the ability to implement
     // a 'transposed' GEMM that computes the transposed problems.
     //
-    using ElementA     = typename Mma::IteratorA::Element;
-    using LayoutA      = typename Mma::IteratorA::Layout;
-    using ElementB     = typename Mma::IteratorB::Element;
-    using LayoutB      = typename Mma::IteratorB::Layout;
-    using ElementC     = typename Epilogue::OutputTileIterator::Element;
-    using LayoutC      = typename Epilogue::OutputTileIterator::Layout;
+    using ElementA = typename Mma::IteratorA::Element;
+    using LayoutA  = typename Mma::IteratorA::Layout;
+    using ElementB = typename Mma::IteratorB::Element;
+    using LayoutB  = typename Mma::IteratorB::Layout;
+    using ElementC = typename Epilogue::OutputTileIterator::Element;
+    using LayoutC  = typename Epilogue::OutputTileIterator::Layout;
 
-    const GemmCoord& problem_size = params.problem_size;
-    const auto grid_shape_        = grid_shape(problem_size);
-    const uint32_t problem_chunk = (tile_count(grid_shape_) - 1 + gridDim.x) / gridDim.x;
+    const GemmCoord& problem_size    = params.problem_size;
+    const auto grid_shape_           = grid_shape(problem_size);
+    const uint32_t problem_chunk     = (tile_count(grid_shape_) - 1 + gridDim.x) / gridDim.x;
     const uint32_t problem_chunk_end = blockIdx.x * problem_chunk + problem_chunk;
     typename LayoutB::Index column =
       ((blockIdx.x * problem_chunk) % grid_shape_.column()) * Mma::Shape::kN;
