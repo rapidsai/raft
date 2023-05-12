@@ -381,10 +381,9 @@ struct FusedDistanceNNPersistent {
     using LayoutC      = typename Epilogue::OutputTileIterator::Layout;
 
     const GemmCoord& problem_size = params.problem_size;
-    const uint32_t problem_chunk =
-      (tile_count(grid_shape(problem_size)) - 1 + gridDim.x) / gridDim.x;
+    const auto grid_shape_        = grid_shape(problem_size);
+    const uint32_t problem_chunk = (tile_count(grid_shape_) - 1 + gridDim.x) / gridDim.x;
     const uint32_t problem_chunk_end = blockIdx.x * problem_chunk + problem_chunk;
-    const auto grid_shape_           = grid_shape(problem_size);
     typename LayoutB::Index column =
       ((blockIdx.x * problem_chunk) % grid_shape_.column()) * Mma::Shape::kN;
 

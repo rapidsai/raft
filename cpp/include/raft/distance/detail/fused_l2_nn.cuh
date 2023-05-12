@@ -254,8 +254,10 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
 #endif
 }
 
-// cg::reduce functor for FusedL2NN used in its cutlass version
+// cg::reduce functor for FusedDistanceNN used in its cutlass version
 // to output the min distance value & key(loc id).
+// This is used in fused_distance_nn/predicated_tile_iterator_reduced_vec.h
+// store_with_byte_offset() passed to cg::reduce() & select_reduce.
 template <typename AccType, typename Index, typename OutType>
 struct kvp_cg_min_reduce_op {
   typedef typename raft::KeyValuePair<Index, AccType> KVP;
@@ -323,7 +325,7 @@ void fusedL2NNImpl(OutT* min,
                                 decltype(distance_op),
                                 decltype(fin_op)>;
 
-  // Get pointer to SM60 kernel to determine the runtime architecture of the
+  // Get pointer to fp32 SIMT kernel to determine the runtime architecture of the
   // current system. Other methods to determine the architecture (that do not
   // require a pointer) can be error prone. See:
   // https://github.com/NVIDIA/cub/issues/545

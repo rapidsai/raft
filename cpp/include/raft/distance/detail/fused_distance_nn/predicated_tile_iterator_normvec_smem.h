@@ -184,14 +184,14 @@ class PredicatedTileIteratorNormVecSmem {
   };
 
   /// Shared storage allocation needed by the predicated tile
-  //  iterator for storing rowNorm chunk of di.
+  //  iterator for storing rowNorm chunk.
   struct SharedStorage {
     //
     // Type definitions
     //
     using Shape = MatrixShape<total_rows, 1>;
 
-    /// Shape of the shared memory allocation for the reduced values store
+    /// Shape of the shared memory allocation
     using StorageShape = MatrixShape<Shape::kRow, Shape::kColumn>;
 
     //
@@ -237,7 +237,6 @@ class PredicatedTileIteratorNormVecSmem {
 
   /// Extent of the matrix tile in rows
   Index extent_row_;
-  // Index block_start_row_first_tile_;
 
   /// Extent of the matrix tile in rows
   Index extent_column_;
