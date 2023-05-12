@@ -130,12 +130,10 @@ struct ratio_selector {
   {
     constexpr auto s = ignoring_alignment<T>();  // NOLINT
 
-    constexpr bool T_evenly_fits_in_cache_line = (kCoalescedVectorSize % sizeof(T)) == 0;
-
-    if constexpr (T_evenly_fits_in_cache_line) {
-      align = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
-    } else {
+    if constexpr (s.ratio == 1) {
       align = 0;
+    } else {
+      align = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
     }
     ratio = int(s.ratio);
   }
