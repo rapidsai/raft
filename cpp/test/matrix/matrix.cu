@@ -143,7 +143,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
       output.data(), n_selected, n_cols);
 
     auto indices_view =
-      raft::make_device_vector_view<idx_array_t, idx_array_t>(indices.data(), n_selected);
+      raft::make_device_vector_view<const idx_array_t, idx_array_t>(indices.data(), n_selected);
 
     raft::matrix::copy_rows(handle, input_view, output_view, indices_view);
 
