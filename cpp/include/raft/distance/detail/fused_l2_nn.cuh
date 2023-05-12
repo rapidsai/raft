@@ -25,6 +25,7 @@
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/linalg/contractions.cuh>                     // Policy
 #include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
+#include <raft/util/arch.cuh>                               // raft::util::arch::SM_*
 
 namespace raft {
 namespace distance {
@@ -153,6 +154,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                                                                   OpT distance_op,
                                                                   FinalLambda fin_op)
 {
+// compile only if below non-ampere arch.
+#if __CUDA_ARCH__ < 800
   extern __shared__ char smem[];
 
   typedef KeyValuePair<IdxT, DataT> KVPair;
@@ -248,6 +251,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
         fin_op,
         rowEpilog_lambda);
   obj.run();
+#endif
 }
 
 // cg::reduce functor for FusedL2NN used in its cutlass version
@@ -304,9 +308,31 @@ void fusedL2NNImpl(OutT* min,
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
-  const auto deviceVersion = getComputeCapability();
+  namespace arch = raft::util::arch;
+  using AccT = DataT;
+  ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
 
-  if (deviceVersion.first >= 8) {
+  raft::identity_op fin_op{};
+
+  auto kernel = fusedL2NNkernel<DataT,
+                                OutT,
+                                IdxT,
+                                P,
+                                ReduceOpT,
+                                KVPReduceOpT,
+                                decltype(distance_op),
+                                decltype(fin_op)>;
+
+  // Get pointer to SM60 kernel to determine the runtime architecture of the
+  // current system. Other methods to determine the architecture (that do not
+  // require a pointer) can be error prone. See:
+  // https://github.com/NVIDIA/cub/issues/545
+  void* kernel_ptr   = reinterpret_cast<void*>(kernel);
+  auto runtime_arch  = arch::kernel_runtime_arch(kernel_ptr);
+  auto cutlass_range = arch::SM_range(arch::SM_80(), arch::SM_future());
+
+  if (cutlass_range.contains(runtime_arch)) {
+    // If device is SM_80 or later, use CUTLASS-based kernel.
     using L2Op                  = raft::distance::detail::ops::l2_exp_cutlass_op<DataT, DataT>;
     using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
     kvp_cg_min_reduce_op_ cg_reduce_op;
@@ -316,47 +342,33 @@ void fusedL2NNImpl(OutT* min,
     lda = k, ldb = k, ldd = n;
 
     cutlassFusedDistanceNN<DataT,
-                           DataT,
-                           OutT,
-                           IdxT,
-                           P::Veclen,
-                           kvp_cg_min_reduce_op_,
-                           L2Op,
-                           ReduceOpT,
-                           KVPReduceOpT>(x,
-                                         y,
-                                         xn,
-                                         yn,
-                                         m,
-                                         n,
-                                         k,
-                                         lda,
-                                         ldb,
-                                         ldd,
-                                         min,
-                                         workspace,
-                                         cg_reduce_op,
-                                         L2_dist_op,
-                                         redOp,
-                                         pairRedOp,
-                                         stream);
+                          DataT,
+                          OutT,
+                          IdxT,
+                          P::Veclen,
+                          kvp_cg_min_reduce_op_,
+                          L2Op,
+                          ReduceOpT,
+                          KVPReduceOpT>(x,
+                                        y,
+                                        xn,
+                                        yn,
+                                        m,
+                                        n,
+                                        k,
+                                        lda,
+                                        ldb,
+                                        ldd,
+                                        min,
+                                        workspace,
+                                        cg_reduce_op,
+                                        L2_dist_op,
+                                        redOp,
+                                        pairRedOp,
+                                        stream);
   } else {
+    // If device less than SM_80, use fp32 SIMT kernel.
     constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-
-    using AccT = DataT;
-    ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
-
-    raft::identity_op fin_op{};
-
-    auto kernel = fusedL2NNkernel<DataT,
-                                  OutT,
-                                  IdxT,
-                                  P,
-                                  ReduceOpT,
-                                  KVPReduceOpT,
-                                  decltype(distance_op),
-                                  decltype(fin_op)>;
-
     dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, kernel);
 
     kernel<<<grid, blk, shmemSize, stream>>>(
