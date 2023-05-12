@@ -18,7 +18,8 @@
 
 #include "rmat_rectangular_generator_types.cuh"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
@@ -206,7 +207,7 @@ void rmat_rectangular_gen_caller(IdxT* out,
  * @param[in]  c_scale 2^c_scale represents the number of destination nodes
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen_impl(raft::device_resources const& handle,
+void rmat_rectangular_gen_impl(raft::resources const& handle,
                                raft::random::RngState& r,
                                raft::device_vector_view<const ProbT, IdxT> theta,
                                raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
@@ -247,7 +248,7 @@ void rmat_rectangular_gen_impl(raft::device_resources const& handle,
                               r_scale,
                               c_scale,
                               n_edges,
-                              handle.get_stream(),
+                              resource::get_cuda_stream(handle),
                               r);
 }
 
@@ -259,7 +260,7 @@ void rmat_rectangular_gen_impl(raft::device_resources const& handle,
  * `theta` parameter.
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen_impl(raft::device_resources const& handle,
+void rmat_rectangular_gen_impl(raft::resources const& handle,
                                raft::random::RngState& r,
                                raft::random::detail::rmat_rectangular_gen_output<IdxT> output,
                                ProbT a,
@@ -286,8 +287,17 @@ void rmat_rectangular_gen_impl(raft::device_resources const& handle,
   IdxT* out_dst_ptr            = out_dst_has_value ? (*out_dst).data_handle() : nullptr;
   const IdxT n_edges           = output.number_of_edges();
 
-  detail::rmat_rectangular_gen_caller(
-    out_ptr, out_src_ptr, out_dst_ptr, a, b, c, r_scale, c_scale, n_edges, handle.get_stream(), r);
+  detail::rmat_rectangular_gen_caller(out_ptr,
+                                      out_src_ptr,
+                                      out_dst_ptr,
+                                      a,
+                                      b,
+                                      c,
+                                      r_scale,
+                                      c_scale,
+                                      n_edges,
+                                      resource::get_cuda_stream(handle),
+                                      r);
 }
 
 }  // end namespace detail

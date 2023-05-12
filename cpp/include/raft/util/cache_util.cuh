@@ -303,9 +303,6 @@ __global__ void assign_cache_idx(const int* keys,
   }
 }
 
-/* Unnamed namespace is used to avoid multiple definition error for the
-  following non-template function */
-namespace {
 /**
  * @brief Get the cache indices for keys stored in the cache.
  *
@@ -331,15 +328,15 @@ namespace {
  * @param [out] is_cached whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-__global__ void get_cache_idx(int* keys,
-                              int n,
-                              int* cached_keys,
-                              int n_cache_sets,
-                              int associativity,
-                              int* cache_time,
-                              int* cache_idx,
-                              bool* is_cached,
-                              int time)
+__global__ inline void get_cache_idx(int* keys,
+                                     int n,
+                                     int* cached_keys,
+                                     int n_cache_sets,
+                                     int associativity,
+                                     int* cache_time,
+                                     int* cache_idx,
+                                     bool* is_cached,
+                                     int time)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
@@ -363,6 +360,5 @@ __global__ void get_cache_idx(int* keys,
     }
   }
 }
-};  // end unnamed namespace
 };  // namespace cache
 };  // namespace raft

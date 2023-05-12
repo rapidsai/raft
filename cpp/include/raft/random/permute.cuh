@@ -23,7 +23,8 @@
 
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <type_traits>
 
 namespace raft::random {
@@ -94,7 +95,7 @@ using perms_out_view_t = typename perms_out_view<T, InputOutputValueType, IdxTyp
  *   then we recommend Knuth Shuffle.
  */
 template <typename InputOutputValueType, typename IntType, typename IdxType, typename Layout>
-void permute(raft::device_resources const& handle,
+void permute(raft::resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              std::optional<raft::device_vector_view<IntType, IdxType>> permsOut,
              std::optional<raft::device_matrix_view<InputOutputValueType, IdxType, Layout>> out)
@@ -127,8 +128,13 @@ void permute(raft::device_resources const& handle,
   if (permsOut_ptr != nullptr || out_ptr != nullptr) {
     const IdxType N = in.extent(0);
     const IdxType D = in.extent(1);
-    detail::permute<InputOutputValueType, IntType, IdxType>(
-      permsOut_ptr, out_ptr, in.data_handle(), D, N, is_row_major, handle.get_stream());
+    detail::permute<InputOutputValueType, IntType, IdxType>(permsOut_ptr,
+                                                            out_ptr,
+                                                            in.data_handle(),
+                                                            D,
+                                                            N,
+                                                            is_row_major,
+                                                            resource::get_cuda_stream(handle));
   }
 }
 
@@ -141,7 +147,7 @@ template <typename InputOutputValueType,
           typename Layout,
           typename PermsOutType,
           typename OutType>
-void permute(raft::device_resources const& handle,
+void permute(raft::resources const& handle,
              raft::device_matrix_view<const InputOutputValueType, IdxType, Layout> in,
              PermsOutType&& permsOut,
              OutType&& out)
