@@ -33,15 +33,15 @@ struct owning_buffer<ElementType, device_type::gpu, Extents> {
 
   owning_buffer(raft::resources const& handle, Extents extents) noexcept(false)
     : extents_{extents}, data_{[&extents, handle]() {
-        // return rmm::device_buffer{size * sizeof(value_type), raft::resource::get_cuda_stream(handle)};
         typename owning_device_buffer::mapping_type layout{extents};
         typename owning_device_buffer::container_policy_type policy{};
-      return owning_device_buffer{handle, layout, policy};
+      owning_device_buffer device_data{handle, layout, policy};
+      return device_data;
       }()}
   {
   }
 
-  auto* get() const { return reinterpret_cast<ElementType*>(data_.data_handle()); }
+  auto* get() const { return const_cast<ElementType*>(data_.data_handle()); }
 
  private:
   Extents extents_;

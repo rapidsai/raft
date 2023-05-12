@@ -34,12 +34,13 @@ struct owning_buffer<ElementType, device_type::cpu, Extents> {
     : extents_{extents}, data_{[&extents, handle]() {
         typename owning_host_buffer::mapping_type layout{extents};
         typename owning_host_buffer::container_policy_type policy{};
-      return owning_host_buffer{handle, layout, policy};
+      owning_host_buffer host_data{handle, layout, policy};
+      return host_data;
       }()}
   {
   }
 
-   auto* get() const { return reinterpret_cast<ElementType*>(data_.data_handle()); }
+   auto* get() const { return const_cast<ElementType*>(data_.data_handle()); }
 
  private:
   Extents extents_;
