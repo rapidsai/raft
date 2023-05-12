@@ -729,7 +729,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     for (int i = 0; i < numTopkPerThread; i++) {
       int k = i + (numTopkPerThread * thread_id);
       if (k < topk) {
-        if (y) { y[k] = reinterpret_cast<float*>(my_keys)[i]; }
+        if (y) { y[k] = reinterpret_cast<uint32_t*>(my_keys)[i]; }
         if (out_vals) { out_vals[k] = my_vals[i]; }
       }
     }
