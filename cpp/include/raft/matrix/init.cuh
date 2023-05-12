@@ -20,7 +20,6 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/math.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
