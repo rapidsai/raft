@@ -434,10 +434,10 @@ class PredicatedTileIteratorReducedVec {
       EpilogueOpParams const& user_params = params_.user_param;
       auto gmem_ptr                       = reinterpret_cast<Element*>(first_tile_byte_pointer_);
       Element* shared_elem_arr            = shared_storage_.data();
-
+      const uint32_t mutex_id = (block_start_row_first_tile_ / total_rows);
+      bool useGmemMutex = (gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows));
       // If this is not optimal grid size perform mutex based gmem reduce.
-      if ((gridDim.x != ((extent_row_ - 1 + total_rows) / total_rows))) {
-        const auto mutex_id = (block_start_row_first_tile_ / total_rows);
+      if (useGmemMutex) {
         // single lock per block for multiple rows
         if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
           // acquire mutex lock.
@@ -447,27 +447,22 @@ class PredicatedTileIteratorReducedVec {
             if (ns < 256) { ns *= 2; }
           }
         }
+      }
 
-        __syncthreads();
-
-        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-          if (block_start_row_first_tile_ + row < extent_row_) {
-            user_params.red_op_(
-              block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
-          }
+      __syncthreads();
+      for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
+        if (block_start_row_first_tile_ + row < extent_row_) {
+          user_params.red_op_(
+            block_start_row_first_tile_ + row, &gmem_ptr[row], shared_elem_arr[row]);
         }
+      }
+
+      if (useGmemMutex) {
         __threadfence();
         __syncthreads();
         if (threadIdx.x == 0 && block_start_row_first_tile_ < extent_row_) {
           // release mutex lock.
           atomicExch(user_params.mutexes_ + mutex_id, 0);
-        }
-      } else {
-        __syncthreads();
-        for (int row = threadIdx.x; row < total_rows; row += blockDim.x) {
-          if (block_start_row_first_tile_ + row < extent_row_) {
-            gmem_ptr[row] = shared_elem_arr[row];
-          }
         }
       }
     }
