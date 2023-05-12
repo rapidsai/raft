@@ -237,7 +237,7 @@ __device__ inline void update_histogram(int itr,
     }
 #pragma unroll
     for (int v = 0; v < max(vecLen, stateBitLen); v += vecLen) {
-      int iv = i + (num_threads * v);
+      const int iv = i + (num_threads * v);
       if (iv >= nx) break;
 
       struct u32_vector x_u32_vec;
@@ -249,7 +249,7 @@ __device__ inline void update_histogram(int itr,
       }
 #pragma unroll
       for (int u = 0; u < vecLen; u++) {
-        int ivu = iv + u;
+        const int ivu = iv + u;
         if (ivu >= nx) break;
 
         uint8_t mask = (uint8_t)0x1 << (v + u);
@@ -270,7 +270,7 @@ __device__ inline void update_histogram(int itr,
             iState |= mask;
           }
         } else {
-          uint32_t k = (xi - threshold) >> shift;  // 0 <= k
+          const uint32_t k = (xi - threshold) >> shift;  // 0 <= k
           if (k >= num_bins) {
             if (stateBitLen == 8) { iState |= mask; }
           } else if (k + 1 < num_bins) {
@@ -287,15 +287,15 @@ __device__ inline void update_histogram(int itr,
 
 //
 template <int blockDim_x>
-__device__ inline void select_best_index_for_next_threshold(uint32_t topk,
-                                                            uint32_t threshold,
-                                                            uint32_t max_threshold,
-                                                            uint32_t nx_below_threshold,
-                                                            uint32_t num_bins,
-                                                            uint32_t shift,
-                                                            const uint32_t* hist,  // [num_bins]
-                                                            uint32_t* best_index,
-                                                            uint32_t* best_csum)
+__device__ inline void select_best_index_for_next_threshold(const uint32_t topk,
+                                                            const uint32_t threshold,
+                                                            const uint32_t max_threshold,
+                                                            const uint32_t nx_below_threshold,
+                                                            const uint32_t num_bins,
+                                                            const uint32_t shift,
+                                                            const uint32_t* const hist,  // [num_bins]
+                                                            uint32_t* const best_index,
+                                                            uint32_t* const best_csum)
 {
   // Scan the histogram ('hist') and compute csum. Then, find the largest
   // index under the condition that the sum of the number of elements found
@@ -311,7 +311,7 @@ __device__ inline void select_best_index_for_next_threshold(uint32_t topk,
     if (threadIdx.x < num_bins) { csum = hist[threadIdx.x]; }
     BlockScanT(temp_storage).InclusiveSum(csum, csum);
     if (threadIdx.x < num_bins) {
-      uint32_t index = threadIdx.x;
+      const uint32_t index = threadIdx.x;
       if ((nx_below_threshold + csum <= topk) && (threshold + (index << shift) <= max_threshold)) {
         my_index = index;
         my_csum  = csum;
@@ -327,7 +327,7 @@ __device__ inline void select_best_index_for_next_threshold(uint32_t topk,
       BlockScanT(temp_storage).InclusiveSum(csum, csum);
       for (int i = n_data - 1; i >= 0; i--) {
         if (nx_below_threshold + csum[i] > topk) continue;
-        uint32_t index = i + (n_data * threadIdx.x);
+        const uint32_t index = i + (n_data * threadIdx.x);
         if (threshold + (index << shift) > max_threshold) continue;
         my_index = index;
         my_csum  = csum[i];
@@ -342,7 +342,7 @@ __device__ inline void select_best_index_for_next_threshold(uint32_t topk,
       BlockScanT(temp_storage).InclusiveSum(csum, csum);
       for (int i = n_data - 1; i >= 0; i--) {
         if (nx_below_threshold + csum[i] > topk) continue;
-        uint32_t index = i + (n_data * threadIdx.x);
+        const uint32_t index = i + (n_data * threadIdx.x);
         if (threshold + (index << shift) > max_threshold) continue;
         my_index = index;
         my_csum  = csum[i];
@@ -351,9 +351,9 @@ __device__ inline void select_best_index_for_next_threshold(uint32_t topk,
     }
   }
   if (threadIdx.x < num_bins) {
-    int laneid = 31 - __clz(__ballot_sync(0xffffffff, (my_index != 0xffffffff)));
+    const int laneid = 31 - __clz(__ballot_sync(0xffffffff, (my_index != 0xffffffff)));
     if ((threadIdx.x & 0x1f) == laneid) {
-      uint32_t old_index = atomicMax(best_index, my_index);
+      const uint32_t old_index = atomicMax(best_index, my_index);
       if (old_index < my_index) { atomicMax(best_csum, my_csum); }
     }
   }
@@ -362,17 +362,17 @@ __device__ inline void select_best_index_for_next_threshold(uint32_t topk,
 
 //
 template <typename T, int stateBitLen, int vecLen>
-__device__ inline void output_index_below_threshold(uint32_t topk,
-                                                    uint32_t thread_id,
-                                                    uint32_t num_threads,
-                                                    uint32_t threshold,
-                                                    uint32_t nx_below_threshold,
-                                                    const T* x,  // [nx,]
-                                                    uint32_t nx,
+__device__ inline void output_index_below_threshold(const uint32_t topk,
+                                                    const uint32_t thread_id,
+                                                    const uint32_t num_threads,
+                                                    const uint32_t threshold,
+                                                    const uint32_t nx_below_threshold,
+                                                    const T* const x,  // [nx,]
+                                                    const uint32_t nx,
                                                     const uint8_t* state,
-                                                    uint32_t* output,  // [topk]
-                                                    uint32_t* output_count,
-                                                    uint32_t* output_count_eq)
+                                                    uint32_t* const output,  // [topk]
+                                                    uint32_t* const output_count,
+                                                    uint32_t* const output_count_eq)
 {
   int ii = 0;
   for (int i = thread_id * vecLen; i < nx; i += num_threads * max(vecLen, stateBitLen), ii++) {
@@ -383,7 +383,7 @@ __device__ inline void output_index_below_threshold(uint32_t topk,
     }
 #pragma unroll
     for (int v = 0; v < max(vecLen, stateBitLen); v += vecLen) {
-      int iv = i + (num_threads * v);
+      const int iv = i + (num_threads * v);
       if (iv >= nx) break;
 
       struct u32_vector u32_vec;
@@ -395,10 +395,10 @@ __device__ inline void output_index_below_threshold(uint32_t topk,
       }
 #pragma unroll
       for (int u = 0; u < vecLen; u++) {
-        int ivu = iv + u;
+        const int ivu = iv + u;
         if (ivu >= nx) break;
 
-        uint8_t mask = (uint8_t)0x1 << (v + u);
+        const uint8_t mask = (uint8_t)0x1 << (v + u);
         if ((stateBitLen == 8) && (iState & mask)) continue;
 
         uint32_t xi;
@@ -425,7 +425,7 @@ __device__ inline void output_index_below_threshold(uint32_t topk,
 template <typename T>
 __device__ inline void swap(T& val1, T& val2)
 {
-  T val0 = val1;
+  const T val0 = val1;
   val1   = val2;
   val2   = val0;
 }
@@ -505,15 +505,15 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
                                         bool sort,
                                         uint32_t* _smem)
 {
-  uint32_t* smem_out_vals = _smem;
-  uint32_t* hist          = &(_smem[2 * maxTopk]);
-  uint32_t* best_index    = &(_smem[2 * maxTopk + 2048]);
-  uint32_t* best_csum     = &(_smem[2 * maxTopk + 2048 + 3]);
+  uint32_t* const smem_out_vals = _smem;
+  uint32_t* const hist          = &(_smem[2 * maxTopk]);
+  uint32_t* const best_index    = &(_smem[2 * maxTopk + 2048]);
+  uint32_t* const best_csum     = &(_smem[2 * maxTopk + 2048 + 3]);
 
   const uint32_t num_threads = blockDim_x;
   const uint32_t thread_id   = threadIdx.x;
   uint32_t nx                = len_x;
-  const uint32_t* x          = _x;
+  const uint32_t* const x    = _x;
   const ValT* in_vals        = NULL;
   if (_in_vals) { in_vals = _in_vals; }
   uint32_t* y = NULL;
@@ -521,14 +521,14 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   ValT* out_vals = NULL;
   if (_out_vals) { out_vals = _out_vals; }
   uint8_t* state = _state;
-  uint32_t hint  = (_hint == NULL ? ~0u : *_hint);
+  const uint32_t hint  = (_hint == NULL ? ~0u : *_hint);
 
   // Initialize shared memory
   for (int i = 2 * maxTopk + thread_id; i < 2 * maxTopk + 2048 + 8; i += num_threads) {
     _smem[i] = 0;
   }
-  uint32_t* output_count      = &(_smem[2 * maxTopk + 2048 + 6]);
-  uint32_t* output_count_eq   = &(_smem[2 * maxTopk + 2048 + 7]);
+  uint32_t* const output_count      = &(_smem[2 * maxTopk + 2048 + 6]);
+  uint32_t* const output_count_eq   = &(_smem[2 * maxTopk + 2048 + 7]);
   uint32_t threshold          = 0;
   uint32_t nx_below_threshold = 0;
   __syncthreads();
@@ -601,7 +601,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
 
   if (!sort) {
     for (int k = thread_id; k < topk; k += blockDim_x) {
-      uint32_t i = smem_out_vals[k];
+      const uint32_t i = smem_out_vals[k];
       if (y) { y[k] = x[i]; }
       if (out_vals) {
         if (in_vals) {
@@ -621,9 +621,9 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   // Read keys and values to registers
   if (thread_id < numSortThreads) {
     for (int i = 0; i < numTopkPerThread; i++) {
-      int k = thread_id + (numSortThreads * i);
+      const int k = thread_id + (numSortThreads * i);
       if (k < topk) {
-        int j      = smem_out_vals[k];
+        const int j      = smem_out_vals[k];
         my_keys[i] = ((float*)x)[j];
         if (in_vals) {
           my_vals[i] = in_vals[j];
@@ -670,8 +670,8 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
       const bool ascending = ((thread_id & curr_mask) == 0) == ((thread_id & next_mask) == 0);
       if (curr_mask >= 32) {
         // inter warp
-        ValT* smem_vals = reinterpret_cast<ValT*>(_smem);  // [maxTopk]
-        float* smem_keys =
+        ValT* const smem_vals = reinterpret_cast<ValT*>(_smem);  // [maxTopk]
+        float* const smem_keys =
           reinterpret_cast<float*>(smem_vals + maxTopk);   // [numTopkPerThread, numSortThreads]
         __syncthreads();
         if (thread_id < numSortThreads) {
@@ -704,7 +704,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     }
 
     if (thread_id < numSortThreads) {
-      bool ascending = ((thread_id & next_mask) == 0);
+      const bool ascending = ((thread_id & next_mask) == 0);
       if (numTopkPerThread == 3) {
         swap_if_needed<float, ValT>(my_keys[0], my_keys[1], my_vals[0], my_vals[1], ascending);
         swap_if_needed<float, ValT>(my_keys[0], my_keys[2], my_vals[0], my_vals[2], ascending);
@@ -714,7 +714,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
         for (uint32_t curr_mask = numTopkPerThread / 2; curr_mask > 0; curr_mask >>= 1) {
 #pragma unroll
           for (int i = 0; i < numTopkPerThread; i++) {
-            int j = i ^ curr_mask;
+            const int j = i ^ curr_mask;
             if (i > j) continue;
             swap_if_needed<float, ValT>(my_keys[i], my_keys[j], my_vals[i], my_vals[j], ascending);
           }
@@ -727,7 +727,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   // Write sorted keys and values
   if (thread_id < numSortThreads) {
     for (int i = 0; i < numTopkPerThread; i++) {
-      int k = i + (numTopkPerThread * thread_id);
+      const int k = i + (numTopkPerThread * thread_id);
       if (k < topk) {
         if (y) { y[k] = reinterpret_cast<uint32_t*>(my_keys)[i]; }
         if (out_vals) { out_vals[k] = my_vals[i]; }
@@ -772,7 +772,7 @@ __launch_bounds__(1024, 1) __global__
                         uint32_t* _hints,      // [size_batch,]
                         bool sort)
 {
-  uint32_t i_batch = blockIdx.x;
+  const uint32_t i_batch = blockIdx.x;
   if (i_batch >= size_batch) return;
 
   constexpr uint32_t smem_len = 2 * maxTopk + 2048 + 8;
