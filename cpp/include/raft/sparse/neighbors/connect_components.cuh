@@ -79,8 +79,8 @@ void connect_components(raft::device_resources const& handle,
                         size_t n_rows,
                         size_t n_cols,
                         red_op reduction_op,
-                        size_t row_batch_size = 256,
-                        size_t col_batch_size = 32)
+                        size_t row_batch_size = 0,
+                        size_t col_batch_size = 0)
 {
   detail::connect_components(
     handle, out, X, orig_colors, n_rows, n_cols, reduction_op, row_batch_size, col_batch_size);

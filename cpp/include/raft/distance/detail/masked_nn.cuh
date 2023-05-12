@@ -298,8 +298,6 @@ void masked_l2_nn_impl(raft::device_resources const& handle,
   dim3 block(P::Nthreads);
   dim3 grid = launchConfigGenerator<P>(m, n, smemSize, kernel);
 
-  handle.sync_stream(stream);
-  uint32_t masked_nn_kernel_start = curTimeMillis();
   kernel<<<grid, block, smemSize, stream>>>(out,
                                             x,
                                             y,

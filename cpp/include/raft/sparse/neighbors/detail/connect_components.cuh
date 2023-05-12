@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#include "raft/core/device_mdarray.hpp"
+#include "raft/core/device_mdspan.hpp"
+#include "raft/linalg/map.cuh"
 #include <cstdint>
 #include <cub/cub.cuh>
 
@@ -52,9 +55,11 @@
 namespace raft::sparse::neighbors::detail {
 
 /**
- * Functor with reduction ops for performing fused 1-nn
- * computation and guaranteeing only cross-component
- * neighbors are considered.
+ * Functor with reduction ops for performing masked 1-nn
+ * computation. this change introduces a breaking change to
+ * the public API because colors are no longer a part of this
+ * op. The connect_components function internally ensures that
+ * only cross-component nearest neighbors are found.
  * @tparam value_idx
  * @tparam value_t
  */
@@ -208,8 +213,18 @@ void perform_1nn(raft::device_resources const& handle,
   raft::sparse::convert::sorted_coo_to_csr(
     colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
 
+  auto x_norm= raft::make_device_vector<value_t, value_idx>(handle, (value_idx)n_rows);
+    raft::linalg::rowNorm(x_norm.data_handle(),
+                          X,
+                          n_cols,
+                          n_rows,
+                          raft::linalg::L2Norm,
+                          true,
+                          stream);
   auto kvp_view =
     raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
+
+  auto adj     = raft::make_device_matrix<bool, value_idx>(handle, batch_size, n_components);
   using OutT   = raft::KeyValuePair<value_idx, value_t>;
   using ParamT = raft::distance::masked_l2_nn_params<red_op, red_op>;
 
@@ -219,19 +234,11 @@ void perform_1nn(raft::device_resources const& handle,
   for (size_t bid = 0; bid < n_batches; bid++) {
     size_t batch_offset   = bid * batch_size;
     size_t rows_per_batch = min(batch_size, n_rows - batch_offset);
-    auto x_norm           = raft::make_device_vector<value_t, value_idx>(handle, rows_per_batch);
-    raft::linalg::rowNorm(x_norm.data_handle(),
-                          X + batch_offset * n_cols,
-                          n_cols,
-                          rows_per_batch,
-                          raft::linalg::L2Norm,
-                          true,
-                          stream);
 
     auto X_view = raft::make_device_matrix_view<const value_t, value_idx>(
       X + batch_offset * n_cols, rows_per_batch, n_cols);
 
-    auto adj     = raft::make_device_matrix<bool, value_idx>(handle, rows_per_batch, n_components);
+    auto x_norm_view = raft::make_device_vector_view<value_t, value_idx>(x_norm.data_handle() + batch_offset, rows_per_batch);
     auto mask_op = [colors,
                     n_components = raft::util::FastIntDiv(n_components),
                     batch_offset] __device__(value_idx idx) {
@@ -239,19 +246,19 @@ void perform_1nn(raft::device_resources const& handle,
       value_idx col = idx % n_components;
       return colors[batch_offset + row] != col;
     };
-    raft::linalg::map_offset(handle, adj.view(), mask_op);
+    auto adj_view = raft::make_device_matrix_view<bool, value_idx>(adj.data_handle(), rows_per_batch, n_components);
+    raft::linalg::map_offset(handle, adj_view, mask_op);
 
     raft::distance::masked_l2_nn<value_t, OutT, value_idx, red_op, red_op>(
       handle,
       params,
       X_view,
       X_view,
-      x_norm.view(),
-      x_norm.view(),
-      adj.view(),
+      x_norm_view,
+      x_norm_view,
+      adj_view,
       raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
       kvp_view);
-    uint32_t masked_nn_kernel_end = curTimeMillis();
   }
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
@@ -365,11 +372,12 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * @param[in] row_batch_size the batch size for computing nearest neighbors. This parameter controls
  * the number of samples for which the nearest neighbors are computed at once. Therefore, it affects
  * the memory consumption mainly by reducing the size of the adjacency matrix for masked nearest
- * neighbors computation
+ * neighbors computation. default 0 indicates that no batching is done
  * @param[in] col_batch_size the input data is sorted and 'unsorted' based on color. An additional
  * scratch space buffer of shape (n_rows, col_batch_size) is created for this. Usually, this
  * parameter affects the memory consumption more drastically than the col_batch_size with a marginal
- * increase in compute time as the col_batch_size is reduced
+ * increase in compute time as the col_batch_size is reduced. default 0 indicates that no batching is
+ * done
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(raft::device_resources const& handle,
@@ -382,10 +390,16 @@ void connect_components(raft::device_resources const& handle,
                         size_t row_batch_size,
                         size_t col_batch_size)
 {
-  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n_cols,
-               "col_batch_size should be > 0 and <= n_cols");
-  RAFT_EXPECTS(0 < row_batch_size && row_batch_size <= n_rows,
-               "row_batch_size should be > 0 and <= n_rows");
+  RAFT_EXPECTS(col_batch_size <= n_cols,
+               "col_batch_size should be >= 0 and <= n_cols");
+  RAFT_EXPECTS(row_batch_size <= n_rows,
+               "row_batch_size should be >= 0 and <= n_rows");
+  if (row_batch_size == 0) {
+    row_batch_size = n_rows;
+  }
+  if (col_batch_size == 0) {
+    col_batch_size = n_cols;
+  }
   auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
@@ -394,22 +408,18 @@ void connect_components(raft::device_resources const& handle,
   // Normalize colors so they are drawn from a monotonically increasing set
   raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, true);
 
-  rmm::device_uvector<value_idx> sort_plan(n_rows, stream);
-  thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, sort_plan.data());
-
-  uint32_t sort_start = curTimeMillis();
+  auto sort_plan = raft::make_device_vector<value_idx>(handle, (value_idx)n_rows);
+  raft::linalg::map_offset(handle, sort_plan.view(), [] __device__(value_idx idx) {return idx;});
 
   thrust::sort_by_key(
-    handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data());
+    handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data_handle());
 
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
-  reduction_op.gather(handle, sort_plan.data());
+  reduction_op.gather(handle, sort_plan.data_handle());
 
+  auto X_mutable_view = raft::make_device_matrix_view<value_t, value_idx>(const_cast<value_t*>(X), n_rows, n_cols);
   raft::matrix::batched_gather(
-    handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
-
-  uint32_t sort_end = curTimeMillis();
+    handle, X_mutable_view, sort_plan.view(), col_batch_size);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -419,7 +429,6 @@ void connect_components(raft::device_resources const& handle,
   rmm::device_uvector<raft::KeyValuePair<value_idx, value_t>> temp_inds_dists(n_rows, stream);
   rmm::device_uvector<value_idx> src_indices(n_rows, stream);
 
-  uint32_t op_start = curTimeMillis();
   perform_1nn(handle,
               temp_inds_dists.data(),
               nn_colors.data(),
@@ -427,7 +436,7 @@ void connect_components(raft::device_resources const& handle,
               X,
               n_rows,
               n_cols,
-              n_rows,
+              row_batch_size,
               reduction_op);
 
   /**
@@ -464,14 +473,14 @@ void connect_components(raft::device_resources const& handle,
   min_components_by_color(min_edges,
                           out_index.data(),
                           src_indices.data(),
-                          sort_plan.data(),
+                          sort_plan.data_handle(),
                           temp_inds_dists.data(),
                           n_rows,
                           stream);
 
   raft::matrix::batched_scatter(
-    handle, const_cast<value_t*>(X), sort_plan.data(), n_rows, n_cols, col_batch_size);
-  reduction_op.scatter(handle, sort_plan.data());
+    handle, X_mutable_view, sort_plan.view(), col_batch_size);
+  reduction_op.scatter(handle, sort_plan.data_handle());
 
   /**
    * Symmetrize resulting edge list

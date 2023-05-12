@@ -125,7 +125,6 @@ void knn_graph(raft::device_resources const& handle,
   // pass value_idx through to knn.
   rmm::device_uvector<int64_t> int64_indices(nnz, stream);
 
-  uint32_t knn_start = curTimeMillis();
   raft::spatial::knn::brute_force_knn<int64_t, value_t, size_t>(handle,
                                                                 inputs,
                                                                 sizes,
