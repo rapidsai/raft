@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -34,7 +34,7 @@ namespace raft::matrix {
  * @param[out] matrix: matrix of size n_rows x n_cols
  */
 template <typename m_t, typename idx_t, typename layout>
-void set_diagonal(raft::device_resources const& handle,
+void set_diagonal(raft::resources const& handle,
                   raft::device_vector_view<const m_t, idx_t> vec,
                   raft::device_matrix_view<m_t, idx_t, layout> matrix)
 {
@@ -45,7 +45,7 @@ void set_diagonal(raft::device_resources const& handle,
                                    matrix.data_handle(),
                                    matrix.extent(0),
                                    matrix.extent(1),
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 }
 
 /**
@@ -55,7 +55,7 @@ void set_diagonal(raft::device_resources const& handle,
  * @param[out] vec: vector of length k = min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t, typename layout>
-void get_diagonal(raft::device_resources const& handle,
+void get_diagonal(raft::resources const& handle,
                   raft::device_matrix_view<const m_t, idx_t, layout> matrix,
                   raft::device_vector_view<m_t, idx_t> vec)
 {
@@ -65,7 +65,7 @@ void get_diagonal(raft::device_resources const& handle,
                             matrix.data_handle(),
                             matrix.extent(0),
                             matrix.extent(1),
-                            handle.get_stream());
+                            resource::get_cuda_stream(handle));
 }
 
 /**
@@ -74,12 +74,13 @@ void get_diagonal(raft::device_resources const& handle,
  * @param[inout] inout: square input matrix with size len x len
  */
 template <typename m_t, typename idx_t, typename layout>
-void invert_diagonal(raft::device_resources const& handle,
+void invert_diagonal(raft::resources const& handle,
                      raft::device_matrix_view<m_t, idx_t, layout> inout)
 {
   // TODO: Use get_diagonal for this to support rectangular
   RAFT_EXPECTS(inout.extent(0) == inout.extent(1), "Matrix must be square.");
-  detail::getDiagonalInverseMatrix(inout.data_handle(), inout.extent(0), handle.get_stream());
+  detail::getDiagonalInverseMatrix(
+    inout.data_handle(), inout.extent(0), resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group matrix_diagonal
