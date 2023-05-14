@@ -45,6 +45,15 @@ void extend(raft::device_resources const& handle,
             std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,
             index<IdxT>* idx) RAFT_EXPLICIT;
 
+template <typename T, typename IdxT, typename SampleFilterT>
+void search_with_filtering(raft::device_resources const& handle,
+            const search_params& params,
+            const index<IdxT>& idx,
+            raft::device_matrix_view<const T, IdxT, row_major> queries,
+            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::device_matrix_view<float, IdxT, row_major> distances,
+            SampleFilterT sample_filter) RAFT_EXPLICIT;
+
 template <typename T, typename IdxT>
 void search(raft::device_resources const& handle,
             const search_params& params,
@@ -73,6 +82,18 @@ void extend(raft::device_resources const& handle,
             const T* new_vectors,
             const IdxT* new_indices,
             IdxT n_rows) RAFT_EXPLICIT;
+
+template <typename T, typename IdxT, typename SampleFilterT>
+void search_with_filtering(raft::device_resources const& handle,
+            const raft::neighbors::ivf_pq::search_params& params,
+            const index<IdxT>& idx,
+            const T* queries,
+            uint32_t n_queries,
+            uint32_t k,
+            IdxT* neighbors,
+            float* distances,
+            rmm::mr::device_memory_resource* mr = nullptr,
+            SampleFilterT sample_filter = SampleFilterT()) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
 void search(raft::device_resources const& handle,

@@ -27,8 +27,8 @@
 #include <raft/neighbors/detail/ivf_pq_compute_similarity-inl.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
 
-#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT)  \
-  template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT>( \
+#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT, SampleFilterT)  \
+  template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT, SampleFilterT>( \
     const cudaDeviceProp& dev_props,                                                    \
     bool manage_local_topk,                                                             \
     int locality_hint,                                                                  \
@@ -39,10 +39,10 @@
     uint32_t n_queries,                                                                 \
     uint32_t n_probes,                                                                  \
     uint32_t topk)                                                                      \
-    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT>;                            \
+    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT>;                            \
                                                                                         \
-  template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT>(    \
-    raft::neighbors::ivf_pq::detail::selected<OutT, LutT> s,                            \
+  template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, SampleFilterT>(    \
+    raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT> s,                            \
     rmm::cuda_stream_view stream,                                                       \
     uint32_t n_rows,                                                                    \
     uint32_t dim,                                                                       \
@@ -61,12 +61,13 @@
     const float* queries,                                                               \
     const uint32_t* index_list,                                                         \
     float* query_kths,                                                                  \
+    SampleFilterT sample_filter,                                                        \
     LutT* lut_scores,                                                                   \
     OutT* _out_scores,                                                                  \
     uint32_t* _out_indices);
 
 #define COMMA ,
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 
 #undef COMMA
 

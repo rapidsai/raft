@@ -20,6 +20,7 @@
 #include <raft/core/detail/macros.hpp>               // RAFT_WEAK_FUNCTION
 #include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
+#include <raft/neighbors/detail/sample_filter.cuh>   // NoneSampleFilter
 #include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
@@ -36,6 +37,7 @@ auto RAFT_WEAK_FUNCTION is_local_topk_feasible(uint32_t k, uint32_t n_probes, ui
 
 template <typename OutT,
           typename LutT,
+          typename SampleFilterT,
           uint32_t PqBits,
           int Capacity,
           bool PrecompBaseDiff,
@@ -57,26 +59,27 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
                                           const float* queries,
                                           const uint32_t* index_list,
                                           float* query_kths,
+                                          SampleFilterT sample_filter,
                                           LutT* lut_scores,
                                           OutT* _out_scores,
                                           uint32_t* _out_indices) RAFT_EXPLICIT;
 
 // The signature of the kernel defined by a minimal set of template parameters
-template <typename OutT, typename LutT>
+template <typename OutT, typename LutT, typename SampleFilterT>
 using compute_similarity_kernel_t =
-  decltype(&compute_similarity_kernel<OutT, LutT, 8, 0, true, true>);
+  decltype(&compute_similarity_kernel<OutT, LutT, SampleFilterT, 8, 0, true, true>);
 
-template <typename OutT, typename LutT>
+template <typename OutT, typename LutT, typename SampleFilterT>
 struct selected {
-  compute_similarity_kernel_t<OutT, LutT> kernel;
+  compute_similarity_kernel_t<OutT, LutT, SampleFilterT> kernel;
   dim3 grid_dim;
   dim3 block_dim;
   size_t smem_size;
   size_t device_lut_size;
 };
 
-template <typename OutT, typename LutT>
-void compute_similarity_run(selected<OutT, LutT> s,
+template <typename OutT, typename LutT, typename SampleFilterT>
+void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                             rmm::cuda_stream_view stream,
                             uint32_t n_rows,
                             uint32_t dim,
@@ -95,6 +98,7 @@ void compute_similarity_run(selected<OutT, LutT> s,
                             const float* queries,
                             const uint32_t* index_list,
                             float* query_kths,
+                            SampleFilterT sample_filter,
                             LutT* lut_scores,
                             OutT* _out_scores,
                             uint32_t* _out_indices) RAFT_EXPLICIT;
@@ -113,7 +117,7 @@ void compute_similarity_run(selected<OutT, LutT> s,
  *    beyond this limit do not consider increasing the number of active blocks per SM
  *    would improve locality anymore.
  */
-template <typename OutT, typename LutT>
+template <typename OutT, typename LutT, typename SampleFilterT>
 auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                bool manage_local_topk,
                                int locality_hint,
@@ -123,14 +127,14 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                uint32_t precomp_data_count,
                                uint32_t n_queries,
                                uint32_t n_probes,
-                               uint32_t topk) -> selected<OutT, LutT> RAFT_EXPLICIT;
+                               uint32_t topk) -> selected<OutT, LutT, SampleFilterT> RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ivf_pq::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT)         \
-  extern template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT>( \
+#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT, SampleFilterT)         \
+  extern template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT, SampleFilterT>( \
     const cudaDeviceProp& dev_props,                                                           \
     bool manage_local_topk,                                                                    \
     int locality_hint,                                                                         \
@@ -141,9 +145,9 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
     uint32_t n_queries,                                                                        \
     uint32_t n_probes,                                                                         \
     uint32_t topk)                                                                             \
-    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT>;                                   \
+    ->raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT>;                                   \
                                                                                                \
-  extern template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT>(    \
+  extern template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, SampleFilterT>(    \
     raft::neighbors::ivf_pq::detail::selected<OutT, LutT> s,                                   \
     rmm::cuda_stream_view stream,                                                              \
     uint32_t n_rows,                                                                           \
@@ -163,22 +167,23 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
     const float* queries,                                                                      \
     const uint32_t* index_list,                                                                \
     float* query_kths,                                                                         \
+    SampleFilterT sample_filter,                                                               \
     LutT* lut_scores,                                                                          \
     OutT* _out_scores,                                                                         \
     uint32_t* _out_indices);
 
 #define COMMA ,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>);
+  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(half, half);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, float);
+  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(half, half, NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half, NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, float, NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>);
+  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>);
+  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, NoneSampleFilter);
 
 #undef COMMA
 
