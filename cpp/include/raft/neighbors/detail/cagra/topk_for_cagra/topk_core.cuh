@@ -287,15 +287,16 @@ __device__ inline void update_histogram(int itr,
 
 //
 template <int blockDim_x>
-__device__ inline void select_best_index_for_next_threshold(const uint32_t topk,
-                                                            const uint32_t threshold,
-                                                            const uint32_t max_threshold,
-                                                            const uint32_t nx_below_threshold,
-                                                            const uint32_t num_bins,
-                                                            const uint32_t shift,
-                                                            const uint32_t* const hist,  // [num_bins]
-                                                            uint32_t* const best_index,
-                                                            uint32_t* const best_csum)
+__device__ inline void select_best_index_for_next_threshold(
+  const uint32_t topk,
+  const uint32_t threshold,
+  const uint32_t max_threshold,
+  const uint32_t nx_below_threshold,
+  const uint32_t num_bins,
+  const uint32_t shift,
+  const uint32_t* const hist,  // [num_bins]
+  uint32_t* const best_index,
+  uint32_t* const best_csum)
 {
   // Scan the histogram ('hist') and compute csum. Then, find the largest
   // index under the condition that the sum of the number of elements found
@@ -426,8 +427,8 @@ template <typename T>
 __device__ inline void swap(T& val1, T& val2)
 {
   const T val0 = val1;
-  val1   = val2;
-  val2   = val0;
+  val1         = val2;
+  val2         = val0;
 }
 
 //
@@ -520,17 +521,17 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   if (_y) { y = _y; }
   ValT* out_vals = NULL;
   if (_out_vals) { out_vals = _out_vals; }
-  uint8_t* state = _state;
-  const uint32_t hint  = (_hint == NULL ? ~0u : *_hint);
+  uint8_t* state      = _state;
+  const uint32_t hint = (_hint == NULL ? ~0u : *_hint);
 
   // Initialize shared memory
   for (int i = 2 * maxTopk + thread_id; i < 2 * maxTopk + 2048 + 8; i += num_threads) {
     _smem[i] = 0;
   }
-  uint32_t* const output_count      = &(_smem[2 * maxTopk + 2048 + 6]);
-  uint32_t* const output_count_eq   = &(_smem[2 * maxTopk + 2048 + 7]);
-  uint32_t threshold          = 0;
-  uint32_t nx_below_threshold = 0;
+  uint32_t* const output_count    = &(_smem[2 * maxTopk + 2048 + 6]);
+  uint32_t* const output_count_eq = &(_smem[2 * maxTopk + 2048 + 7]);
+  uint32_t threshold              = 0;
+  uint32_t nx_below_threshold     = 0;
   __syncthreads();
 
   //
@@ -623,8 +624,8 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
     for (int i = 0; i < numTopkPerThread; i++) {
       const int k = thread_id + (numSortThreads * i);
       if (k < topk) {
-        const int j      = smem_out_vals[k];
-        my_keys[i] = ((float*)x)[j];
+        const int j = smem_out_vals[k];
+        my_keys[i]  = ((float*)x)[j];
         if (in_vals) {
           my_vals[i] = in_vals[j];
         } else {
@@ -672,7 +673,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
         // inter warp
         ValT* const smem_vals = reinterpret_cast<ValT*>(_smem);  // [maxTopk]
         float* const smem_keys =
-          reinterpret_cast<float*>(smem_vals + maxTopk);   // [numTopkPerThread, numSortThreads]
+          reinterpret_cast<float*>(smem_vals + maxTopk);  // [numTopkPerThread, numSortThreads]
         __syncthreads();
         if (thread_id < numSortThreads) {
 #pragma unroll
