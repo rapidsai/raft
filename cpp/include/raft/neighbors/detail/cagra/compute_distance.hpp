@@ -79,7 +79,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
     DISTANCE_T best_norm2_team_local = utils::get_max_value<DISTANCE_T>();
     for (uint32_t j = 0; j < num_distilation; j++) {
       // Select a node randomly and compute the distance to it
-      uint32_t seed_index;
+      INDEX_T seed_index;
       DISTANCE_T norm2 = 0.0;
       if (valid_i) {
         // uint32_t gid = i + (num_pickup * (j + (num_distilation * block_id)));
