@@ -592,7 +592,7 @@ void prune(raft::device_resources const& res,
 
     memcpy(output_graph_ptr,
            pruned_graph.data_handle(),
-           sizeof(uint32_t) * graph_size * output_graph_degree);
+           sizeof(IdxT) * graph_size * output_graph_degree);
 
     constexpr int _omp_chunk = 1024;
 #pragma omp parallel for schedule(dynamic, _omp_chunk)
