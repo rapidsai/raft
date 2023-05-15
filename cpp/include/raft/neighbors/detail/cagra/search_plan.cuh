@@ -82,7 +82,7 @@ struct search_plan_impl : public search_plan_impl_base {
 
   rmm::device_uvector<INDEX_T> hashmap;
   rmm::device_uvector<uint32_t> num_executed_iterations;  // device or managed?
-  rmm::device_uvector<INDEX_T> dev_seed;                  // IdxT
+  rmm::device_uvector<INDEX_T> dev_seed;
 
   search_plan_impl(raft::device_resources const& res,
                    search_params params,
