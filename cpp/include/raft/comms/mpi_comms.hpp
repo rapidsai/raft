@@ -60,7 +60,7 @@ using mpi_comms = detail::mpi_comms;
 inline void initialize_mpi_comms(resources* handle, MPI_Comm comm)
 {
   auto communicator = std::make_shared<comms_t>(
-    std::unique_ptr<comms_iface>(new mpi_comms(comm, false, handle->get_stream())));
+    std::unique_ptr<comms_iface>(new mpi_comms(comm, false, resource::get_cuda_stream(*handle))));
   resource::set_comms(*handle, communicator)
 };
 
