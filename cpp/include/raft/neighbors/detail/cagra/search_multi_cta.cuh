@@ -140,9 +140,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,              // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
   const uint32_t num_seeds,
-  uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
   const uint32_t itopk_size,
   const uint32_t num_parents,
@@ -213,7 +213,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     }
   }
   if (threadIdx.x == 0) { terminate_flag[0] = 0; }
-  uint32_t* local_visited_hashmap_ptr =
+  INDEX_T* const local_visited_hashmap_ptr =
     visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);
   __syncthreads();
   _CLK_REC(clk_init);
@@ -366,7 +366,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
                                   const uint64_t rand_xor_mask,             \
                                   const INDEX_T* seed_ptr,                  \
                                   const uint32_t num_seeds,                 \
-                                  uint32_t* const visited_hashmap_ptr,      \
+                                  INDEX_T* const visited_hashmap_ptr,       \
                                   const uint32_t hash_bitlen,               \
                                   const uint32_t itopk_size,                \
                                   const uint32_t num_parents,               \
@@ -581,7 +581,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     // Initialize hash table
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
-      hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);
+      hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
 
     dim3 block_dims(block_size, 1, 1);
     dim3 grid_dims(num_cta_per_query, num_queries, 1);

@@ -59,9 +59,9 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,  // [num_seeds]
+  const INDEX_T* const seed_ptr,  // [num_seeds]
   const uint32_t num_seeds,
-  uint32_t* const visited_hash_ptr,
+  INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
@@ -150,7 +150,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   const INDEX_T* const knn_graph,
                                                   const std::uint32_t knn_k,
                                                   // hashmap
-                                                  std::uint32_t* const visited_hashmap_ptr,
+                                                  INDEX_T* const visited_hashmap_ptr,
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
                                                   const std::uint32_t num_parents)

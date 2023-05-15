@@ -96,12 +96,12 @@ __global__ void random_pickup_kernel(
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,                 // [num_queries, num_seeds]
   const uint32_t num_seeds,
-  INDEX_T* const result_indices_ptr,         // [num_queries, ldr]
-  DISTANCE_T* const result_distances_ptr,    // [num_queries, ldr]
-  const std::uint32_t ldr,                   // (*) ldr >= num_pickup
-  std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
+  const std::uint32_t ldr,                 // (*) ldr >= num_pickup
+  INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
   const std::uint32_t hash_bitlen)
 {
   const auto ldb               = hashmap::get_size(hash_bitlen);
@@ -167,12 +167,12 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                    const std::size_t num_pickup,
                    const unsigned num_distilation,
                    const uint64_t rand_xor_mask,
-                   const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+                   const INDEX_T* seed_ptr,                 // [num_queries, num_seeds]
                    const uint32_t num_seeds,
-                   INDEX_T* const result_indices_ptr,         // [num_queries, ldr]
-                   DISTANCE_T* const result_distances_ptr,    // [num_queries, ldr]
-                   const std::size_t ldr,                     // (*) ldr >= num_pickup
-                   std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << bitlen]
+                   INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
+                   DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
+                   const std::size_t ldr,                   // (*) ldr >= num_pickup
+                   INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
                    const std::uint32_t hash_bitlen,
                    cudaStream_t const cuda_stream = 0)
 {
@@ -203,7 +203,7 @@ __global__ void pickup_next_parents_kernel(
   INDEX_T* const parent_candidates_ptr,        // [num_queries, lds]
   const std::size_t lds,                       // (*) lds >= parent_candidates_size
   const std::uint32_t parent_candidates_size,  //
-  std::uint32_t* const visited_hashmap_ptr,    // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,          // [num_queries, 1 << hash_bitlen]
   const std::size_t hash_bitlen,
   const std::uint32_t small_hash_bitlen,
   INDEX_T* const parent_list_ptr,      // [num_queries, ldd]
@@ -262,19 +262,18 @@ __global__ void pickup_next_parents_kernel(
 }
 
 template <class INDEX_T>
-void pickup_next_parents(
-  INDEX_T* const parent_candidates_ptr,      // [num_queries, lds]
-  const std::size_t lds,                     // (*) lds >= parent_candidates_size
-  const std::size_t parent_candidates_size,  //
-  const std::size_t num_queries,
-  std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
-  const std::size_t hash_bitlen,
-  const std::size_t small_hash_bitlen,
-  INDEX_T* const parent_list_ptr,      // [num_queries, ldd]
-  const std::size_t ldd,               // (*) ldd >= parent_list_size
-  const std::size_t parent_list_size,  //
-  std::uint32_t* const terminate_flag,
-  cudaStream_t cuda_stream = 0)
+void pickup_next_parents(INDEX_T* const parent_candidates_ptr,  // [num_queries, lds]
+                         const std::size_t lds,                 // (*) lds >= parent_candidates_size
+                         const std::size_t parent_candidates_size,  //
+                         const std::size_t num_queries,
+                         INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+                         const std::size_t hash_bitlen,
+                         const std::size_t small_hash_bitlen,
+                         INDEX_T* const parent_list_ptr,      // [num_queries, ldd]
+                         const std::size_t ldd,               // (*) ldd >= parent_list_size
+                         const std::size_t parent_list_size,  //
+                         std::uint32_t* const terminate_flag,
+                         cudaStream_t cuda_stream = 0)
 {
   std::uint32_t block_size = 32;
   if (small_hash_bitlen) {
@@ -308,14 +307,14 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
-  const INDEX_T* const neighbor_graph_ptr,   // [dataset_size, graph_degree]
+  const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
-  const DATA_T* query_ptr,                   // [num_queries, data_dim]
-  std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  const DATA_T* query_ptr,                  // [num_queries, data_dim]
+  INDEX_T* const visited_hashmap_ptr,       // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,         // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,    // [num_queries, ldd]
-  const std::uint32_t ldd                    // (*) ldd >= num_parents * graph_degree
+  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
+  const std::uint32_t ldd                   // (*) ldd >= num_parents * graph_degree
 )
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
@@ -333,7 +332,8 @@ __global__ void compute_distance_to_child_nodes_kernel(
 
   const std::size_t child_id = neighbor_list_head_ptr[global_team_id % graph_degree];
 
-  if (hashmap::insert<TEAM_SIZE>(visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)) {
+  if (hashmap::insert<TEAM_SIZE, INDEX_T>(
+        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)) {
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_target;
     device::load_vector_sync(frag_target, dataset_ptr + (data_dim * child_id), data_dim);
 
@@ -367,15 +367,15 @@ void compute_distance_to_child_nodes(
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
-  const INDEX_T* const neighbor_graph_ptr,   // [dataset_size, graph_degree]
+  const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
-  const DATA_T* query_ptr,                   // [num_queries, data_dim]
+  const DATA_T* query_ptr,                  // [num_queries, data_dim]
   const std::uint32_t num_queries,
-  std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,       // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,         // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,    // [num_queries, ldd]
-  const std::uint32_t ldd,                   // (*) ldd >= num_parents * graph_degree
+  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
+  const std::uint32_t ldd,                  // (*) ldd >= num_parents * graph_degree
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -597,7 +597,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     cudaStream_t stream      = res.get_stream();
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
-      hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);
+      hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
     // Init topk_hint
     if (topk_hint.size() > 0) { set_value(topk_hint.data(), 0xffffffffu, num_queries, stream); }
 

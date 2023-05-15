@@ -80,7 +80,7 @@ struct search_plan_impl : public search_plan_impl_base {
   uint32_t topk;
   uint32_t num_seeds;
 
-  rmm::device_uvector<uint32_t> hashmap;
+  rmm::device_uvector<INDEX_T> hashmap;
   rmm::device_uvector<uint32_t> num_executed_iterations;  // device or managed?
   rmm::device_uvector<INDEX_T> dev_seed;                  // IdxT
 
@@ -242,7 +242,7 @@ struct search_plan_impl : public search_plan_impl_base {
     if (small_hash_bitlen > 0) {
       RAFT_LOG_DEBUG("# small_hash_reset_interval = %lu", small_hash_reset_interval);
     }
-    hashmap_size = sizeof(std::uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+    hashmap_size = sizeof(INDEX_T) * max_queries * hashmap::get_size(hash_bitlen);
     RAFT_LOG_DEBUG("# hashmap size: %lu", hashmap_size);
     if (hashmap_size >= 1024 * 1024 * 1024) {
       RAFT_LOG_DEBUG(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));

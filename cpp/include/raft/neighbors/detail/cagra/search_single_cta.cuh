@@ -496,7 +496,7 @@ __device__ void topk_by_bitonic_sort(float* itopk_distances,      // [num_itopk]
 }
 
 template <unsigned FIRST_TID, unsigned LAST_TID, class INDEX_T>
-__device__ inline void hashmap_restore(uint32_t* hashmap_ptr,
+__device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
                                        const size_t hashmap_bitlen,
                                        const INDEX_T* itopk_indices,
                                        uint32_t itopk_size)
@@ -540,9 +540,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const std::uint32_t graph_degree,
                      const unsigned num_distilation,
                      const uint64_t rand_xor_mask,
-                     const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+                     const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
                      const uint32_t num_seeds,
-                     std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+                     INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
                      const std::uint32_t internal_topk,
                      const std::uint32_t num_parents,
                      const std::uint32_t min_iteration,
@@ -588,7 +588,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto visited_hash_buffer =
-    reinterpret_cast<std::uint32_t*>(result_distances_buffer + result_buffer_size_32);
+    reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
   auto parent_list_buffer = reinterpret_cast<INDEX_T*>(visited_hash_buffer + small_hash_size);
   auto topk_ws            = reinterpret_cast<std::uint32_t*>(parent_list_buffer + num_parents);
   auto terminate_flag     = reinterpret_cast<std::uint32_t*>(topk_ws + 3);
@@ -609,7 +609,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   }
 
   // Init hashmap
-  uint32_t* local_visited_hashmap_ptr;
+  INDEX_T* local_visited_hashmap_ptr;
   if (small_hash_bitlen) {
     local_visited_hashmap_ptr = visited_hash_buffer;
   } else {
@@ -869,7 +869,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                   const uint64_t rand_xor_mask,                   \
                                   const INDEX_T* seed_ptr,                        \
                                   const uint32_t num_seeds,                       \
-                                  std::uint32_t* const visited_hashmap_ptr,       \
+                                  INDEX_T* const visited_hashmap_ptr,             \
                                   const std::uint32_t itopk_size,                 \
                                   const std::uint32_t num_parents,                \
                                   const std::uint32_t min_iteration,              \
@@ -1000,7 +1000,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     const std::uint32_t topk_ws_size = 3;
     const std::uint32_t base_smem_size =
       sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
-      sizeof(std::uint32_t) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * num_parents +
+      sizeof(INDEX_T) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * num_parents +
       sizeof(std::uint32_t) * topk_ws_size + sizeof(std::uint32_t);
     smem_size = base_smem_size;
     if (num_itopk_candidates > 256) {
@@ -1113,7 +1113,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
     hashmap_size = 0;
     if (small_hash_bitlen == 0) {
-      hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+      hashmap_size = sizeof(INDEX_T) * max_queries * hashmap::get_size(hash_bitlen);
       hashmap.resize(hashmap_size, res.get_stream());
     }
     RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);
