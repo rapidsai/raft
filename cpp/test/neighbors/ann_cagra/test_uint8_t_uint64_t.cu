@@ -16,16 +16,18 @@
 
 #include <gtest/gtest.h>
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "../ann_cagra.cuh"
 
 namespace raft::neighbors::experimental::cagra {
 
-typedef AnnCagraTest<float, std::int8_t, std::uint32_t> AnnCagraTestI8_U32;
-TEST_P(AnnCagraTestI8_U32, AnnCagra) { this->testCagra(); }
-typedef AnnCagraSortTest<float, std::int8_t, std::uint32_t> AnnCagraSortTestI8_U32;
-TEST_P(AnnCagraSortTestI8_U32, AnnCagraSort) { this->testCagraSort(); }
+typedef AnnCagraTest<float, std::uint8_t, std::uint64_t> AnnCagraTestU8_U64;
+TEST_P(AnnCagraTestU8_U64, AnnCagra) { this->testCagra(); }
 
-INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestI8_U32, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestI8_U32, ::testing::ValuesIn(inputs));
+typedef AnnCagraSortTest<float, std::uint8_t, std::uint64_t> AnnCagraSortTestU8_U64;
+TEST_P(AnnCagraSortTestU8_U64, AnnCagraSort) { this->testCagraSort(); }
+
+INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestU8_U64, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestU8_U64, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::experimental::cagra
