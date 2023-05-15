@@ -46,6 +46,7 @@ files:
   docs:
     output: none
     includes:
+      - test_pylibraft
       - cudatoolkit
       - docs
       - py_version
