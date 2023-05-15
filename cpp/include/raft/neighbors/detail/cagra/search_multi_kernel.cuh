@@ -211,6 +211,8 @@ __global__ void pickup_next_parents_kernel(
   const std::size_t parent_list_size,  //
   std::uint32_t* const terminate_flag)
 {
+  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                       << (utils::size_of<INDEX_T>() * 8 - 1);
   const std::size_t ldb   = hashmap::get_size(hash_bitlen);
   const uint32_t query_id = blockIdx.x;
   if (threadIdx.x < 32) {
@@ -228,7 +230,7 @@ __global__ void pickup_next_parents_kernel(
       int new_parent = 0;
       if (j < parent_candidates_size) {
         index = parent_candidates_ptr[j + (lds * query_id)];
-        if ((index & 0x80000000) == 0) {  // check most significant bit
+        if ((index & index_msb_1_mask) == 0) {  // check most significant bit
           new_parent = 1;
         }
       }
@@ -238,7 +240,7 @@ __global__ void pickup_next_parents_kernel(
         if (i < parent_list_size) {
           parent_list_ptr[i + (ldd * query_id)] = index;
           parent_candidates_ptr[j + (lds * query_id)] |=
-            0x80000000;  // set most significant bit as used node
+            index_msb_1_mask;  // set most significant bit as used node
         }
       }
       num_new_parents += __popc(ballot_mask);
@@ -254,8 +256,8 @@ __global__ void pickup_next_parents_kernel(
     __syncthreads();
     // insert internal-topk indices into small-hash
     for (unsigned i = threadIdx.x; i < parent_candidates_size; i += blockDim.x) {
-      auto key =
-        parent_candidates_ptr[i + (lds * query_id)] & ~0x80000000;  // clear most significant bit
+      auto key = parent_candidates_ptr[i + (lds * query_id)] &
+                 ~index_msb_1_mask;  // clear most significant bit
       hashmap::insert(visited_hashmap_ptr + (ldb * query_id), hash_bitlen, key);
     }
   }
@@ -404,11 +406,14 @@ __global__ void remove_parent_bit_kernel(const std::uint32_t num_queries,
                                          INDEX_T* const topk_indices_ptr,  // [ld, num_queries]
                                          const std::uint32_t ld)
 {
+  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+
   uint32_t i_query = blockIdx.x;
   if (i_query >= num_queries) return;
 
   for (unsigned i = threadIdx.x; i < num_topk; i += blockDim.x) {
-    topk_indices_ptr[i + (ld * i_query)] &= ~0x80000000;  // clear most significant bit
+    topk_indices_ptr[i + (ld * i_query)] &= ~index_msb_1_mask;  // clear most significant bit
   }
 }
 

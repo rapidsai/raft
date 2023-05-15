@@ -50,6 +50,8 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
+  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                       << (utils::size_of<INDEX_T>() * 8 - 1);
   const unsigned warp_id = threadIdx.x / 32;
   if (warp_id > 0) { return; }
   const unsigned lane_id = threadIdx.x % 32;
@@ -64,7 +66,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
     int new_parent = 0;
     if (j < num_itopk) {
       index = itopk_indices[j];
-      if ((index & 0x80000000) == 0) {  // check if most significant bit is set
+      if ((index & index_msb_1_mask) == 0) {  // check if most significant bit is set
         new_parent = 1;
       }
     }
@@ -73,7 +75,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < num_parents) {
         next_parent_indices[i] = index;
-        itopk_indices[j] |= 0x80000000;  // set most significant bit as used node
+        itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
     num_new_parents += __popc(ballot_mask);
@@ -290,7 +292,11 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
-    result_indices_ptr[j] = result_indices_buffer[i] & ~0x80000000;  // clear most significant bit
+
+    constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                         << (utils::size_of<INDEX_T>() * 8 - 1);
+    result_indices_ptr[j] =
+      result_indices_buffer[i] & ~index_msb_1_mask;  // clear most significant bit
   }
 
   if (threadIdx.x == 0 && cta_id == 0 && num_executed_iterations != nullptr) {

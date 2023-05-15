@@ -51,6 +51,8 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
                                     const std::size_t dataset_size,
                                     const std::uint32_t num_parents)
 {
+  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                       << (utils::size_of<INDEX_T>() * 8 - 1);
   // if (threadIdx.x >= 32) return;
 
   for (std::uint32_t i = threadIdx.x; i < num_parents; i += 32) {
@@ -66,7 +68,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
     int new_parent = 0;
     if (j < internal_topk_size) {
       index = internal_topk_indices[jj];
-      if ((index & 0x80000000) == 0) {  // check if most significant bit is set
+      if ((index & index_msb_1_mask) == 0) {  // check if most significant bit is set
         new_parent = 1;
       }
     }
@@ -76,7 +78,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
       if (i < num_parents) {
         next_parent_indices[i] = index;
         // set most significant bit as used node
-        internal_topk_indices[jj] |= 0x80000000;
+        internal_topk_indices[jj] |= index_msb_1_mask;
       }
     }
     num_new_parents += __popc(ballot_mask);
@@ -501,9 +503,11 @@ __device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
                                        const INDEX_T* itopk_indices,
                                        uint32_t itopk_size)
 {
+  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                       << (utils::size_of<INDEX_T>() * 8 - 1);
   if (threadIdx.x < FIRST_TID || threadIdx.x >= LAST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < itopk_size; i += LAST_TID - FIRST_TID) {
-    auto key = itopk_indices[i] & ~0x80000000;  // clear most significant bit
+    auto key = itopk_indices[i] & ~index_msb_1_mask;  // clear most significant bit
     hashmap::insert(hashmap_ptr, hashmap_bitlen, key);
   }
 }
@@ -769,7 +773,11 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     unsigned ii = i;
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[ii]; }
-    result_indices_ptr[j] = result_indices_buffer[ii] & ~0x80000000;  // clear most significant bit
+
+    constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
+                                         << (utils::size_of<INDEX_T>() * 8 - 1);
+    result_indices_ptr[j] =
+      result_indices_buffer[ii] & ~index_msb_1_mask;  // clear most significant bit
   }
   if (threadIdx.x == 0 && num_executed_iterations != nullptr) {
     num_executed_iterations[query_id] = iter + 1;
