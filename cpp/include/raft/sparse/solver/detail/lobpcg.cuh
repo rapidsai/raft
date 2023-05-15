@@ -39,6 +39,7 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/init.cuh>
+#include <raft/matrix/print.cuh>
 #include <raft/matrix/reverse.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/matrix/triangular.cuh>
@@ -715,9 +716,19 @@ void lobpcg(
 
     if (currentBlockSize == 0) break;
     if (verbosityLevel > 0) {
-      // TODO add verb
+      printf("Iteration: %i\n", iteration_number);
+      printf("current block size: %d\n", currentBlockSize);
+      raft::matrix::print_separators ps{};
+      printf("lambda:\n");
+      raft::matrix::print(handle, raft::make_device_matrix_view<const value_t, index_t, col_major>(eigLambda.data_handle(), 1, eigLambda.extent(0)), ps);
+      printf("residual norms:\n");
+      raft::matrix::print(handle, raft::make_device_matrix_view<const value_t, index_t, col_major>(residual_norms.data_handle(), 1, residual_norms.extent(0)), ps);
+      if (verbosityLevel > 10) {
+        printf("eigBlockVector:\n");
+        raft::matrix::print(handle, make_const_mdspan(eigVectorView), ps);
+      
+      }
     }
-    auto activeR =
       raft::make_device_matrix<value_t, index_t, col_major>(handle, n, currentBlockSize);
 
     selectColsIf(handle, R.view(), active_mask.view(), activeR.view());
@@ -789,7 +800,7 @@ void lobpcg(
         handle, activePView.extent(1), activePView.extent(1));
       auto normal = raft::make_device_vector<value_t, index_t>(handle, activePView.extent(1));
       bool b_orth_success = true;
-      if (B_opt.has_value()) {
+      if (!B_opt.has_value()) {
         auto BP = raft::make_device_matrix<value_t, index_t, raft::col_major>(
           handle, activePView.extent(0), activePView.extent(1));
         b_orth_success = b_orthonormalize(handle,
@@ -1028,6 +1039,16 @@ void lobpcg(
     raft::copy(eigLambda.data_handle(), eigLambdaTempView.data_handle(), size_x, stream);
 
     // Verbosity print
+    if (verbosityLevel > 10) {
+      raft::matrix::print_separators ps{};
+      printf("gramA:\n");
+      raft::matrix::print(handle, make_const_mdspan(gramAView), ps);
+      printf("gramB:\n");
+      raft::matrix::print(handle, make_const_mdspan(gramBView), ps);
+      printf("lambdaPostGram:\n");
+      raft::matrix::print(handle, raft::make_device_matrix_view<const value_t, index_t, col_major>(eigLambdaTempView.data_handle(), 1, eigLambdaTempView.extent(0)), ps);
+
+    }
 
     // Compute Ritz vectors.
     auto d_one = raft::make_device_scalar<value_t>(handle, 1);
