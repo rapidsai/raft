@@ -47,6 +47,7 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
                                           uint32_t n_probes,
                                           uint32_t pq_dim,
                                           uint32_t n_queries,
+                                          uint32_t queries_offset,
                                           distance::DistanceType metric,
                                           codebook_gen codebook_kind,
                                           uint32_t topk,
@@ -86,6 +87,7 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                             uint32_t n_probes,
                             uint32_t pq_dim,
                             uint32_t n_queries,
+                            uint32_t queries_offset,
                             distance::DistanceType metric,
                             codebook_gen codebook_kind,
                             uint32_t topk,
@@ -155,6 +157,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
     uint32_t n_probes,                                                                         \
     uint32_t pq_dim,                                                                           \
     uint32_t n_queries,                                                                        \
+    uint32_t queries_offset,                                                                   \
     raft::distance::DistanceType metric,                                                       \
     raft::neighbors::ivf_pq::codebook_gen codebook_kind,                                       \
     uint32_t topk,                                                                             \

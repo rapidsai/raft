@@ -419,6 +419,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                          uint32_t n_probes,
                          uint32_t topK,
                          uint32_t n_queries,
+                         uint32_t queries_offset,            // needed for filtering
                          const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                          const float* query,                 // [n_queries, rot_dim]
                          IdxT* neighbors,                    // [n_queries, topK]
@@ -556,6 +557,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                          n_probes,
                          index.pq_dim(),
                          n_queries,
+                         queries_offset,
                          index.metric(),
                          index.codebook_kind(),
                          topK,
@@ -830,6 +832,7 @@ inline void search(raft::device_resources const& handle,
                       n_probes,
                       k,
                       batch_size,
+                      offset_q + offset_b,
                       clusters_to_probe.data() + uint64_t(n_probes) * offset_b,
                       rot_queries.data() + uint64_t(index.rot_dim()) * offset_b,
                       neighbors + uint64_t(k) * (offset_q + offset_b),

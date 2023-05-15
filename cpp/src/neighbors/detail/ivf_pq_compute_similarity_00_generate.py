@@ -62,6 +62,7 @@ header = """
         uint32_t n_probes,                                              \\
         uint32_t pq_dim,                                                \\
         uint32_t n_queries,                                             \\
+        uint32_t queries_offset,                                        \\
         raft::distance::DistanceType metric,                                  \\
         raft::neighbors::ivf_pq::codebook_gen codebook_kind,            \\
         uint32_t topk,                                                  \\

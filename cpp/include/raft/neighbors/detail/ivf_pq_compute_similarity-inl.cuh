@@ -201,6 +201,9 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  * @param pq_dim
  *   The dimensionality of an encoded vector after compression by PQ.
  * @param n_queries the number of queries.
+ * @param queries_offset
+ *   An offset of the current query batch. It is used for feeding sample_filter with the
+ *   correct query index.
  * @param metric the distance type.
  * @param codebook_kind Defines the way PQ codebooks have been trained.
  * @param topk the `k` in the select top-k.
@@ -223,7 +226,8 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   An optional device pointer to the enforced order of search [n_queries, n_probes].
  *   One can pass reordered indices here to try to improve data reading locality.
  * @param query_kth
- *   (TODO)
+ *   query_kths keep the current state of the filtering - atomically updated distances to the
+ *   k-th closest neighbors for each query [n_queries].
  * @param sample_filter
  *   A filter that selects samples for a given query. Use an instance of NoneSampleFilter to
  *   provide a green light for every sample.
@@ -252,6 +256,7 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
                                           uint32_t n_probes,
                                           uint32_t pq_dim,
                                           uint32_t n_queries,
+                                          uint32_t queries_offset,
                                           distance::DistanceType metric,
                                           codebook_gen codebook_kind,
                                           uint32_t topk,
@@ -455,19 +460,13 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
          i += blockDim.x, pq_thread_data += pq_line_width) {
       OutT score = kDummy;
       bool valid = i < n_samples;
-      if (valid) {
-        // Use the filter.
-        // The purpose of the filter is to decide whether a certain sample acceptable
-        // for a given query.
-        // Technically, a more sophisticated filter may be used that takes
-        // the computed score into account.
-        if (sample_filter(query_ix, label, i)) {
-          score = ivfpq_compute_score<OutT, LutT, vec_t, PqBits>(
-            pq_dim,
-            reinterpret_cast<const vec_t::io_t*>(pq_thread_data),
-            lut_scores,
-            early_stop_limit);
-        }
+      // Check bounds and that the sample is acceptable for the query
+      if (valid && sample_filter(queries_offset + query_ix, label, i)) {
+        score = ivfpq_compute_score<OutT, LutT, vec_t, PqBits>(
+          pq_dim,
+          reinterpret_cast<const vec_t::io_t*>(pq_thread_data),
+          lut_scores,
+          early_stop_limit);
       }
       if constexpr (kManageLocalTopK) {
         block_topk.add(score, sample_offset + i);
@@ -585,6 +584,7 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                             uint32_t n_probes,
                             uint32_t pq_dim,
                             uint32_t n_queries,
+                            uint32_t queries_offset,
                             distance::DistanceType metric,
                             codebook_gen codebook_kind,
                             uint32_t topk,
@@ -607,6 +607,7 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                                                              n_probes,
                                                              pq_dim,
                                                              n_queries,
+                                                             queries_offset,
                                                              metric,
                                                              codebook_kind,
                                                              topk,
