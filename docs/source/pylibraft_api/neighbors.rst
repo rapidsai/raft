@@ -8,6 +8,28 @@ This page provides pylibraft class references for the publicly-exposed elements 
    :class: highlight
 
 
+Brute Force
+###########
+
+.. autofunction:: pylibraft.neighbors.brute_force.knn
+
+
+IVF-Flat
+########
+
+.. autoclass:: pylibraft.neighbors.ivf_flat.IndexParams
+    :members:
+
+.. autofunction:: pylibraft.neighbors.ivf_flat.build
+
+.. autofunction:: pylibraft.neighbors.ivf_flat.extend
+
+.. autoclass:: pylibraft.neighbors.ivf_flat.SearchParams
+    :members:
+
+.. autofunction:: pylibraft.neighbors.ivf_flat.search
+
+
 IVF-PQ
 ######
 

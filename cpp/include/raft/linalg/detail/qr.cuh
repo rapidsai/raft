@@ -18,7 +18,9 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
-#include <raft/matrix/matrix.cuh>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/matrix/triangular.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -42,10 +44,10 @@ namespace detail {
  */
 template <typename math_t>
 void qrGetQ_inplace(
-  raft::device_resources const& handle, math_t* Q, int n_rows, int n_cols, cudaStream_t stream)
+  raft::resources const& handle, math_t* Q, int n_rows, int n_cols, cudaStream_t stream)
 {
   RAFT_EXPECTS(n_rows >= n_cols, "QR decomposition expects n_rows >= n_cols.");
-  cusolverDnHandle_t cusolver = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolver = resource::get_cusolver_dn_handle(handle);
 
   rmm::device_uvector<math_t> tau(n_cols, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * n_cols, stream));
@@ -83,7 +85,7 @@ void qrGetQ_inplace(
 }
 
 template <typename math_t>
-void qrGetQ(raft::device_resources const& handle,
+void qrGetQ(raft::resources const& handle,
             const math_t* M,
             math_t* Q,
             int n_rows,
@@ -95,7 +97,7 @@ void qrGetQ(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void qrGetQR(raft::device_resources const& handle,
+void qrGetQR(raft::resources const& handle,
              math_t* M,
              math_t* Q,
              math_t* R,
@@ -103,7 +105,7 @@ void qrGetQR(raft::device_resources const& handle,
              int n_cols,
              cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   int m = n_rows, n = n_cols;
   rmm::device_uvector<math_t> R_full(m * n, stream);
@@ -130,7 +132,10 @@ void qrGetQR(raft::device_resources const& handle,
                                     devInfo.data(),
                                     stream));
 
-  raft::matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
+  raft::matrix::upper_triangular<math_t, int>(
+    handle,
+    make_device_matrix_view<const math_t, int, col_major>(R_full.data(), m, n),
+    make_device_matrix_view<math_t, int, col_major>(R, std::min(m, n), std::min(m, n)));
 
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice, stream));

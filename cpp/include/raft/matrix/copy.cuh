@@ -42,7 +42,7 @@ template <typename m_t, typename idx_t, typename layout>
 void copy_rows(raft::device_resources const& handle,
                raft::device_matrix_view<const m_t, idx_t, layout> in,
                raft::device_matrix_view<m_t, idx_t, layout> out,
-               raft::device_vector_view<idx_t, idx_t> indices)
+               raft::device_vector_view<const idx_t, idx_t> indices)
 {
   RAFT_EXPECTS(in.extent(1) == out.extent(1),
                "Input and output matrices must have same number of columns");
@@ -56,6 +56,24 @@ void copy_rows(raft::device_resources const& handle,
                    indices.extent(0),
                    handle.get_stream(),
                    raft::is_row_major(in));
+}
+
+/**
+ * @brief copy matrix operation for row major matrices.
+ * @param[in] handle: raft handle
+ * @param[in] in: input matrix
+ * @param[out] out: output matrix
+ */
+template <typename m_t, typename matrix_idx_t>
+void copy(raft::device_resources const& handle,
+          raft::device_matrix_view<const m_t, matrix_idx_t, row_major> in,
+          raft::device_matrix_view<m_t, matrix_idx_t, row_major> out)
+{
+  RAFT_EXPECTS(in.extent(0) == out.extent(0) && in.extent(1) == out.extent(1),
+               "Input and output matrix shapes must match.");
+
+  raft::copy_async(
+    out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
 }
 
 /**

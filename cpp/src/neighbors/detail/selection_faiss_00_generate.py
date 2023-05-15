@@ -57,6 +57,10 @@ header = """
 
 types = dict(
     uint32_t_float=("uint32_t", "float"),
+    uint32_t_double=("uint32_t", "double"),
+    uint32_t_half=("uint32_t", "half"),
+    int64_t_double=("int64_t", "double"),
+    int64_t_half=("int64_t", "half"),
     int32_t_float=("int32_t", "float"),
     long_float=("long", "float"),
     size_t_double=("size_t", "double"),
