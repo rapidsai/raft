@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
 
@@ -24,8 +24,12 @@ namespace raft::distance::detail::ops {
 //
 // Fill in the TODO items.
 
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct template_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   TODO member;
 
   template_distance_op(TODO member_) noexcept : member(member_) {}
@@ -38,8 +42,8 @@ struct template_distance_op {
 
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
-  template <typename Policy, typename DataT>
-  constexpr size_t shared_mem_size()
+  template <typename Policy>
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize + TODO;
   }
@@ -55,6 +59,10 @@ struct template_distance_op {
   {
     TODO;
   }
+
+  // If exist, returns a cutlass op that performs the same operation.
+  // See cosine and l2_exp distance ops for an example.
+  constexpr l2_exp_cutlass_op<DataT, AccT> get_cutlass_op() const { TODO; }
 };
 
 }  // namespace raft::distance::detail::ops

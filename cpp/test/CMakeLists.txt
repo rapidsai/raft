@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL DIST NN)
+  set(options OPTIONAL LIB)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -33,8 +33,7 @@ function(ConfigureTest)
     ${TEST_NAME}
     PRIVATE raft::raft
             raft_internal
-            $<$<BOOL:${ConfigureTest_DIST}>:raft::distance>
-            $<$<BOOL:${ConfigureTest_NN}>:raft::nn>
+            $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
@@ -87,8 +86,7 @@ if(BUILD_TESTS)
     test/cluster/linkage.cu
     test/cluster/kmeans_find_k.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(
@@ -107,6 +105,8 @@ if(BUILD_TESTS)
     test/core/mdspan_utils.cu
     test/core/numpy_serializer.cu
     test/core/memory_type.cpp
+    test/core/sparse_matrix.cu
+    test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
     test/core/temporary_device_buffer.cu
@@ -138,7 +138,7 @@ if(BUILD_TESTS)
     test/distance/fused_l2_nn.cu
     test/distance/gram.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -200,7 +200,7 @@ if(BUILD_TESTS)
     test/matrix/triangular.cu
     test/sparse/spectral_matrix.cu
     OPTIONAL
-    DIST
+    LIB
   )
 
   ConfigureTest(
@@ -220,7 +220,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL DIST
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB
   )
 
   ConfigureTest(
@@ -244,19 +244,19 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL DIST
-    NN
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL LIB
   )
 
   ConfigureTest(
     NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL DIST NN
+    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL LIB
   )
 
   ConfigureTest(
     NAME
     NEIGHBORS_TEST
     PATH
+    test/neighbors/ann_cagra/test_float_uint32_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
@@ -267,15 +267,14 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     test/neighbors/knn.cu
     test/neighbors/fused_l2_knn.cu
+    test/neighbors/tiled_knn.cu
     test/neighbors/haversine.cu
     test/neighbors/ball_cover.cu
     test/neighbors/epsilon_neighborhood.cu
-    test/neighbors/faiss_mr.cu
     test/neighbors/refine.cu
     test/neighbors/selection.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(
@@ -308,8 +307,7 @@ if(BUILD_TESTS)
     test/stats/weighted_mean.cu
     test/stats/v_measure.cu
     OPTIONAL
-    DIST
-    NN
+    LIB
   )
 
   ConfigureTest(

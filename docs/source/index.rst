@@ -1,5 +1,5 @@
-Welcome to RAFT's documentation!
-=================================
+RAPIDS RAFT: Reusable Accelerated Functions and Tools
+=====================================================
 
 RAFT contains fundamental widely-used algorithms and primitives for scientific computing, data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
 
@@ -44,6 +44,7 @@ While not exhaustive, the following general categories help summarize the accele
    developer_guide.md
    cpp_api.rst
    pylibraft_api.rst
+   cuda_ann_benchmarks.md
    raft_dask_api.rst
    using_comms.rst
    using_libraft.md

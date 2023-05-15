@@ -20,8 +20,9 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
-#if defined RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
+
+#ifdef RAFT_COMPILED
+#include <raft/neighbors/specializations.cuh>
 #endif
 
 #include <rmm/device_buffer.hpp>
@@ -95,7 +96,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
       raft::make_device_matrix_view<T, IdxT, row_major>(distances_.data(), rows_, k_);
 
     auto metric = raft::distance::DistanceType::L2Unexpanded;
-    knn(handle, index, search, indices, distances, k_, metric, std::make_optional<IdxT>(0));
+    knn(handle, index, search, indices, distances, metric, std::make_optional<IdxT>(0));
 
     build_actual_output<<<raft::ceildiv(rows_ * k_, 32), 32, 0, stream>>>(
       actual_labels_.data(), rows_, k_, search_labels_.data(), indices_.data());
@@ -188,12 +189,12 @@ const std::vector<KNNInputs> inputs = {
    2,
    {0, 0, 0, 0, 0, 1, 1, 1, 1, 1}}};
 
-typedef KNNTest<float, int64_t> KNNTestFint64_t;
-TEST_P(KNNTestFint64_t, BruteForce) { this->testBruteForce(); }
+typedef KNNTest<float, int> KNNTestFint32_t;
+TEST_P(KNNTestFint32_t, BruteForce) { this->testBruteForce(); }
 typedef KNNTest<float, uint32_t> KNNTestFuint32_t;
 TEST_P(KNNTestFuint32_t, BruteForce) { this->testBruteForce(); }
 
-INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFint64_t, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFint32_t, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(KNNTest, KNNTestFuint32_t, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::brute_force

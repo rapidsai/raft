@@ -15,7 +15,8 @@
  */
 
 #pragma once
-#include <raft/util/cuda_utils.cuh>
+#include <raft/core/operators.hpp>            // raft::pow, raft::abs
+#include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
 
@@ -26,8 +27,12 @@ namespace raft::distance::detail::ops {
  *
  *   c_ij = (sum_k |x_ik - y_jk|^p)^(1/p)
  */
-template <typename DataT, typename AccT, typename IdxT>
+template <typename DataType, typename AccType, typename IdxType>
 struct lp_unexp_distance_op {
+  using DataT = DataType;
+  using AccT  = AccType;
+  using IdxT  = IdxType;
+
   DataT p;
 
   lp_unexp_distance_op(DataT p_) noexcept : p(p_) {}
@@ -41,7 +46,7 @@ struct lp_unexp_distance_op {
   // Size of shared memory. This is normally decided by the kernel policy, but
   // some ops such as correlation_distance_op use more.
   template <typename Policy>
-  constexpr size_t shared_mem_size()
+  static constexpr size_t shared_mem_size()
   {
     return Policy::SmemSize;
   }
