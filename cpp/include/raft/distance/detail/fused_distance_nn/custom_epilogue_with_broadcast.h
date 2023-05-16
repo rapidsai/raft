@@ -357,7 +357,6 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
   };
 
  public:
-
   static_assert(SharedLoadIterator::Fragment::kElements == TensorTileIterator::Fragment::kElements,
                 "Mismatch between shared load iterator and output tile iterator.");
 
