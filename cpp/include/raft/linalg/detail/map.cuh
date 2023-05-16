@@ -118,15 +118,26 @@ struct ratio_selector {
   template <typename T>
   constexpr static auto ignoring_alignment() -> ratio_selector
   {
-    return ratio_selector{raft::div_rounding_up_safe<size_t>(kCoalescedVectorSize, sizeof(T)), 0};
+    constexpr bool T_evenly_fits_in_cache_line = (kCoalescedVectorSize % sizeof(T)) == 0;
+
+    if constexpr (T_evenly_fits_in_cache_line) {
+      return ratio_selector{size_t(kCoalescedVectorSize / sizeof(T)), 0};
+    } else {
+      return ratio_selector{1, 0};
+    }
   }
 
   template <typename T>
   explicit ratio_selector(const T* ptr)
   {
     constexpr auto s = ignoring_alignment<T>();  // NOLINT
-    align            = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
-    ratio            = int(s.ratio);
+
+    if constexpr (s.ratio == 1) {
+      align = 0;
+    } else {
+      align = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
+    }
+    ratio = int(s.ratio);
   }
 };
 
