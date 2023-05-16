@@ -5,7 +5,7 @@ RAFT provides a communications abstraction for writing distributed algorithms wh
 
 While users of RAFT’s communications layer largely get MPI integration for free just by installing MPI and using `mpirun` to run their applications, the `raft-dask` Python package provides a mechanism for executing algorithms written using RAFT’s communications layer in a Dask cluster. It will help to walk through a small example of how one would build an algorithm with RAFT’s communications layer.
 
-First, an instance of `raft::comms_t` is passed through the `raft::device_resources` instance and code is written to utilize collective and/or point-to-point communications as needed.
+First, an instance of `raft::comms_t` is passed through the `raft::resources` instance and code is written to utilize collective and/or point-to-point communications as needed.
 
 .. code-block:: cpp
    :caption: Example function written with the RAFT comms API
@@ -14,7 +14,7 @@ First, an instance of `raft::comms_t` is passed through the `raft::device_resour
    #include <raft/core/device_mdspan.hpp>
    #include <raft/util/cudart_utils.hpp>
 
-   void test_allreduce(raft::device_resources const &handle, int root) {
+   void test_allreduce(raft::resources const &handle, int root) {
      raft::comms::comms_t const& communicator = resource::get_comms(handle);
      cudaStream_t stream = resource::get_cuda_stream(handle);
      raft::device_scalar<int> temp_scalar(stream);
@@ -32,9 +32,9 @@ This exact function can now be executed in several different types of GPU cluste
    :caption: Example of running test_allreduce() in MPI
 
    #include <raft/core/mpi_comms.hpp>
-   #include <raft/core/device_resources.hpp>
+   #include <raft/core/resources.hpp>
 
-   raft::device_resources resource_handle;
+   raft::resources resource_handle;
    // ...
    // initialize MPI_Comm
    // ...
