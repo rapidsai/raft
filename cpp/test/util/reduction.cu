@@ -16,8 +16,8 @@
 
 #include "../test_utils.cuh"
 
-#include <raft/random/device/sample.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/random/sample_device.cuh>
 #include <raft/util/reduction.cuh>
 
 #include <rmm/device_scalar.hpp>
