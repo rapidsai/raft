@@ -149,7 +149,7 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
  * Symmetrizes a COO matrix
  */
 template <typename value_idx, typename value_t>
-void symmetrize(raft::device_resources const& handle,
+void symmetrize(raft::resources const& handle,
                 const value_idx* rows,
                 const value_idx* cols,
                 const value_t* vals,

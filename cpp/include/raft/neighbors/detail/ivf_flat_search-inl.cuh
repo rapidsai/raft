@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>                       // raft::device_resources
 #include <raft/core/logger.hpp>                                 // RAFT_LOG_TRACE
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>                              // raft::resources
 #include <raft/distance/distance_types.hpp>                     // is_min_close, DistanceType
 #include <raft/linalg/gemm.cuh>                                 // raft::linalg::gemm
 #include <raft/linalg/norm.cuh>                                 // raft::linalg::norm
@@ -33,7 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <typename T, typename AccT, typename IdxT>
-void search_impl(raft::device_resources const& handle,
+void search_impl(raft::resources const& handle,
                  const raft::neighbors::ivf_flat::index<T, IdxT>& index,
                  const T* queries,
                  uint32_t n_queries,
@@ -44,7 +45,7 @@ void search_impl(raft::device_resources const& handle,
                  AccT* distances,
                  rmm::mr::device_memory_resource* search_mr)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
@@ -196,7 +197,7 @@ void search_impl(raft::device_resources const& handle,
 
 /** See raft::neighbors::ivf_flat::search docs */
 template <typename T, typename IdxT>
-inline void search(raft::device_resources const& handle,
+inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<T, IdxT>& index,
                    const T* queries,

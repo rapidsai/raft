@@ -18,7 +18,8 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/minmax.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -92,11 +93,15 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan)
 template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
-  MinMaxTest() : minmax_act(0, handle.get_stream()), minmax_ref(0, handle.get_stream()) {}
+  MinMaxTest()
+    : minmax_act(0, resource::get_cuda_stream(handle)),
+      minmax_ref(0, resource::get_cuda_stream(handle))
+  {
+  }
 
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     params      = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.rows * params.cols;
@@ -131,7 +136,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   MinMaxInputs<T> params;
   rmm::device_uvector<T> minmax_act;
   rmm::device_uvector<T> minmax_ref;

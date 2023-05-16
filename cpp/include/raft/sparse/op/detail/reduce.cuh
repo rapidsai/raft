@@ -17,6 +17,8 @@
 #pragma once
 
 #include <cusparse_v2.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
@@ -124,7 +126,7 @@ void compute_duplicates_mask(
  * @param[in] stream cuda ops will be ordered wrt this stream
  */
 template <typename value_idx, typename value_t>
-void max_duplicates(raft::device_resources const& handle,
+void max_duplicates(raft::resources const& handle,
                     raft::sparse::COO<value_t, value_idx>& out,
                     const value_idx* rows,
                     const value_idx* cols,
@@ -133,8 +135,8 @@ void max_duplicates(raft::device_resources const& handle,
                     size_t m,
                     size_t n)
 {
-  auto stream        = handle.get_stream();
-  auto thrust_policy = handle.get_thrust_policy();
+  auto stream        = resource::get_cuda_stream(handle);
+  auto thrust_policy = resource::get_thrust_policy(handle);
 
   // compute diffs & take exclusive scan
   rmm::device_uvector<value_idx> diff(nnz + 1, stream);
@@ -146,7 +148,7 @@ void max_duplicates(raft::device_resources const& handle,
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, diff.data() + (diff.size() - 1), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
   size++;
 
   out.allocate(size, m, n, true, stream);

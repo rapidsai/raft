@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 #include <cub/cub.cuh>
 #include <raft/core/operators.hpp>
@@ -194,7 +194,7 @@ void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_
 
 template <typename math_t, typename IdxType = int>
 void ratio(
-  raft::device_resources const& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
+  raft::resources const& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
 {
   auto d_src  = src;
   auto d_dest = dest;

@@ -23,7 +23,7 @@ namespace raft::runtime::distance {
  * @{
  */
 
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        float* x,
                        float* y,
                        float* dists,
@@ -34,7 +34,7 @@ void pairwise_distance(raft::device_resources const& handle,
                        bool isRowMajor,
                        float metric_arg);
 
-void pairwise_distance(raft::device_resources const& handle,
+void pairwise_distance(raft::resources const& handle,
                        double* x,
                        double* y,
                        double* dists,

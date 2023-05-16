@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "coo_spmv_strategies/dense_smem_strategy.cuh"
 #include "coo_spmv_strategies/hash_strategy.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
@@ -58,7 +59,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
   RAFT_CUDA_TRY(cudaMemsetAsync(out_dists,
                                 0,
                                 sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-                                config_.handle.get_stream()));
+                                resource::get_cuda_stream(config_.handle)));
 
   strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
 };
@@ -114,7 +115,7 @@ inline void balanced_coo_pairwise_generalized_spmv(
   RAFT_CUDA_TRY(cudaMemsetAsync(out_dists,
                                 0,
                                 sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-                                config_.handle.get_stream()));
+                                resource::get_cuda_stream(config_.handle)));
 
   int max_cols = max_cols_per_block<value_idx, value_t>();
 

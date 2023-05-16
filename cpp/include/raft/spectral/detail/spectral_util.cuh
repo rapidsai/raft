@@ -16,7 +16,10 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -116,14 +119,14 @@ cudaError_t scale_obs(index_type_t m, index_type_t n, value_type_t* obs)
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-void transform_eigen_matrix(raft::device_resources const& handle,
+void transform_eigen_matrix(raft::resources const& handle,
                             edge_t n,
                             vertex_t nEigVecs,
                             weight_t* eigVecs)
 {
-  auto stream             = handle.get_stream();
-  auto cublas_h           = handle.get_cublas_handle();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto cublas_h           = resource::get_cublas_handle(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   const weight_t zero{0.0};
   const weight_t one{1.0};
@@ -210,7 +213,7 @@ struct equal_to_i_op {
 // Construct indicator vector for ith partition
 //
 template <typename vertex_t, typename edge_t, typename weight_t>
-bool construct_indicator(raft::device_resources const& handle,
+bool construct_indicator(raft::resources const& handle,
                          edge_t index,
                          edge_t n,
                          weight_t& clustersize,
@@ -220,9 +223,9 @@ bool construct_indicator(raft::device_resources const& handle,
                          raft::spectral::matrix::vector_t<weight_t>& Bx,
                          raft::spectral::matrix::laplacian_matrix_t<vertex_t, weight_t> const& B)
 {
-  auto stream             = handle.get_stream();
-  auto cublas_h           = handle.get_cublas_handle();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto cublas_h           = resource::get_cublas_handle(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   thrust::for_each(
     thrust_exec_policy,

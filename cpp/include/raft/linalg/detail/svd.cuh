@@ -18,12 +18,15 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/transpose.cuh>
 
 #include <raft/common/nvtx.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/norm.cuh>
@@ -38,7 +41,7 @@ namespace linalg {
 namespace detail {
 
 template <typename T>
-void svdQR(raft::device_resources const& handle,
+void svdQR(raft::resources const& handle,
            T* in,
            int n_rows,
            int n_cols,
@@ -52,8 +55,8 @@ void svdQR(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::svdQR(%d, %d)", n_rows, n_cols);
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
+  cublasHandle_t cublasH       = resource::get_cublas_handle(handle);
 
   const int m = n_rows;
   const int n = n_cols;
@@ -98,14 +101,14 @@ void svdQR(raft::device_resources const& handle,
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data(), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
   ASSERT(dev_info == 0,
          "svd.cuh: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 }
 
 template <typename math_t, typename idx_t>
-void svdEig(raft::device_resources const& handle,
+void svdEig(raft::resources const& handle,
             math_t* in,
             idx_t n_rows,
             idx_t n_cols,
@@ -117,8 +120,8 @@ void svdEig(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::svdEig(%d, %d)", n_rows, n_cols);
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
+  cublasHandle_t cublasH       = resource::get_cublas_handle(handle);
 
   auto len = n_cols * n_cols;
   rmm::device_uvector<math_t> in_cross_mult(len, stream);
@@ -167,7 +170,7 @@ void svdEig(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void svdJacobi(raft::device_resources const& handle,
+void svdJacobi(raft::resources const& handle,
                math_t* in,
                int n_rows,
                int n_cols,
@@ -182,7 +185,7 @@ void svdJacobi(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "raft::linalg::svdJacobi(%d, %d)", n_rows, n_cols);
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   gesvdjInfo_t gesvdj_params = NULL;
 
@@ -237,7 +240,7 @@ void svdJacobi(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void svdReconstruction(raft::device_resources const& handle,
+void svdReconstruction(raft::resources const& handle,
                        math_t* U,
                        math_t* S,
                        math_t* V,
@@ -268,7 +271,7 @@ void svdReconstruction(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-bool evaluateSVDByL2Norm(raft::device_resources const& handle,
+bool evaluateSVDByL2Norm(raft::resources const& handle,
                          math_t* A_d,
                          math_t* U,
                          math_t* S_vec,
@@ -279,7 +282,7 @@ bool evaluateSVDByL2Norm(raft::device_resources const& handle,
                          math_t tol,
                          cudaStream_t stream)
 {
-  cublasHandle_t cublasH = handle.get_cublas_handle();
+  cublasHandle_t cublasH = resource::get_cublas_handle(handle);
 
   int m = n_rows, n = n_cols;
 

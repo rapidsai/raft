@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/kl_divergence.cuh>
 
 namespace raft {
@@ -60,15 +61,17 @@ DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, 
  * @return the KL Divergence value
  */
 template <typename value_t, typename idx_t>
-value_t kl_divergence(raft::device_resources const& handle,
+value_t kl_divergence(raft::resources const& handle,
                       raft::device_vector_view<const value_t, idx_t> modelPDF,
                       raft::device_vector_view<const value_t, idx_t> candidatePDF)
 {
   RAFT_EXPECTS(modelPDF.size() == candidatePDF.size(), "Size mismatch");
   RAFT_EXPECTS(modelPDF.is_exhaustive(), "modelPDF must be contiguous");
   RAFT_EXPECTS(candidatePDF.is_exhaustive(), "candidatePDF must be contiguous");
-  return detail::kl_divergence(
-    modelPDF.data_handle(), candidatePDF.data_handle(), modelPDF.extent(0), handle.get_stream());
+  return detail::kl_divergence(modelPDF.data_handle(),
+                               candidatePDF.data_handle(),
+                               modelPDF.extent(0),
+                               resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group kl_divergence

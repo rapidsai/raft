@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::neighbors::ivf_pq::helpers {
 /**
@@ -60,13 +61,14 @@ namespace codepacker {
  *   it must be smaller than the list size.
  */
 inline void unpack(
-  raft::device_resources const& res,
+  raft::resources const& res,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   uint32_t pq_bits,
   uint32_t offset,
   device_matrix_view<uint8_t, uint32_t, row_major> codes)
 {
-  ivf_pq::detail::unpack_list_data(codes, list_data, offset, pq_bits, res.get_stream());
+  ivf_pq::detail::unpack_list_data(
+    codes, list_data, offset, pq_bits, resource::get_cuda_stream(res));
 }
 
 /**
@@ -92,13 +94,13 @@ inline void unpack(
  * @param[in] list_data block to write into
  */
 inline void pack(
-  raft::device_resources const& res,
+  raft::resources const& res,
   device_matrix_view<const uint8_t, uint32_t, row_major> codes,
   uint32_t pq_bits,
   uint32_t offset,
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data)
 {
-  ivf_pq::detail::pack_list_data(list_data, codes, offset, pq_bits, res.get_stream());
+  ivf_pq::detail::pack_list_data(list_data, codes, offset, pq_bits, resource::get_cuda_stream(res));
 }
 }  // namespace codepacker
 
@@ -127,7 +129,7 @@ inline void pack(
  * @param[in] offset how many records to skip before writing the data into the list
  */
 template <typename IdxT>
-void pack_list_data(raft::device_resources const& res,
+void pack_list_data(raft::resources const& res,
                     index<IdxT>* index,
                     device_matrix_view<const uint8_t, uint32_t, row_major> codes,
                     uint32_t label,
@@ -146,8 +148,8 @@ void pack_list_data(raft::device_resources const& res,
  *   uint32_t label = 3;
  *   // Get the list size
  *   uint32_t list_size = 0;
- *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1, res.get_stream());
- *   res.sync_stream();
+ *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
+ * resource::get_cuda_stream(res)); resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto codes = raft::make_device_matrix<float>(res, list_size, index.pq_dim());
  *   // unpack the whole list
@@ -168,7 +170,7 @@ void pack_list_data(raft::device_resources const& res,
  *   How many records in the list to skip.
  */
 template <typename IdxT>
-void unpack_list_data(raft::device_resources const& res,
+void unpack_list_data(raft::resources const& res,
                       const index<IdxT>& index,
                       device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
                       uint32_t label,
@@ -188,7 +190,7 @@ void unpack_list_data(raft::device_resources const& res,
  *   // Create the selection vector
  *   auto selected_indices = raft::make_device_vector<uint32_t>(res, 4);
  *   ... fill the indices ...
- *   res.sync_stream();
+ *   resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto codes = raft::make_device_matrix<float>(res, selected_indices.size(), index.pq_dim());
  *   // decode the whole list
@@ -210,7 +212,7 @@ void unpack_list_data(raft::device_resources const& res,
  *   The id of the list (cluster) to decode.
  */
 template <typename IdxT>
-void unpack_list_data(raft::device_resources const& res,
+void unpack_list_data(raft::resources const& res,
                       const index<IdxT>& index,
                       device_vector_view<const uint32_t> in_cluster_indices,
                       device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
@@ -229,8 +231,8 @@ void unpack_list_data(raft::device_resources const& res,
  *   uint32_t label = 3;
  *   // Get the list size
  *   uint32_t list_size = 0;
- *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1, res.get_stream());
- *   res.sync_stream();
+ *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
+ * resource::get_cuda_stream(res)); resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto decoded_vectors = raft::make_device_matrix<float>(res, list_size, index.dim());
  *   // decode the whole list
@@ -252,7 +254,7 @@ void unpack_list_data(raft::device_resources const& res,
  *   How many records in the list to skip.
  */
 template <typename T, typename IdxT>
-void reconstruct_list_data(raft::device_resources const& res,
+void reconstruct_list_data(raft::resources const& res,
                            const index<IdxT>& index,
                            device_matrix_view<T, uint32_t, row_major> out_vectors,
                            uint32_t label,
@@ -272,7 +274,7 @@ void reconstruct_list_data(raft::device_resources const& res,
  *   // Create the selection vector
  *   auto selected_indices = raft::make_device_vector<uint32_t>(res, 4);
  *   ... fill the indices ...
- *   res.sync_stream();
+ *   resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto decoded_vectors = raft::make_device_matrix<float>(
  *                             res, selected_indices.size(), index.dim());
@@ -296,7 +298,7 @@ void reconstruct_list_data(raft::device_resources const& res,
  *   The id of the list (cluster) to decode.
  */
 template <typename T, typename IdxT>
-void reconstruct_list_data(raft::device_resources const& res,
+void reconstruct_list_data(raft::resources const& res,
                            const index<IdxT>& index,
                            device_vector_view<const uint32_t> in_cluster_indices,
                            device_matrix_view<T, uint32_t, row_major> out_vectors,
@@ -335,7 +337,7 @@ void reconstruct_list_data(raft::device_resources const& res,
  * @param[in] label the id of the target list (cluster).
  */
 template <typename IdxT>
-void extend_list_with_codes(raft::device_resources const& res,
+void extend_list_with_codes(raft::resources const& res,
                             index<IdxT>* index,
                             device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
                             device_vector_view<const IdxT, uint32_t, row_major> new_indices,
@@ -376,7 +378,7 @@ void extend_list_with_codes(raft::device_resources const& res,
  *
  */
 template <typename T, typename IdxT>
-void extend_list(raft::device_resources const& res,
+void extend_list(raft::resources const& res,
                  index<IdxT>* index,
                  device_matrix_view<const T, uint32_t, row_major> new_vectors,
                  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
@@ -400,7 +402,7 @@ void extend_list(raft::device_resources const& res,
  * @param[in] label the id of the target list (cluster).
  */
 template <typename IdxT>
-void erase_list(raft::device_resources const& res, index<IdxT>* index, uint32_t label)
+void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
 {
   ivf_pq::detail::erase_list(res, index, label);
 }

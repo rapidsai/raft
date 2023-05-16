@@ -17,8 +17,10 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 
 namespace raft {
@@ -117,7 +119,7 @@ cusparseSpMatDescr_t create_descriptor(
  * @param[out] descr_z output dense descriptor
  */
 template <typename ValueType>
-void spmm(raft::device_resources const& handle,
+void spmm(raft::resources const& handle,
           const bool trans_x,
           const bool trans_y,
           const bool is_row_major,
@@ -131,23 +133,24 @@ void spmm(raft::device_resources const& handle,
   auto opY = trans_y ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE;
   auto alg = is_row_major ? CUSPARSE_SPMM_CSR_ALG2 : CUSPARSE_SPMM_CSR_ALG1;
   size_t bufferSize;
-  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm_bufferSize(handle.get_cusparse_handle(),
-                                                                  opX,
-                                                                  opY,
-                                                                  alpha,
-                                                                  descr_x,
-                                                                  descr_y,
-                                                                  beta,
-                                                                  descr_z,
-                                                                  alg,
-                                                                  &bufferSize,
-                                                                  handle.get_stream()));
+  RAFT_CUSPARSE_TRY(
+    raft::sparse::detail::cusparsespmm_bufferSize(resource::get_cusparse_handle(handle),
+                                                  opX,
+                                                  opY,
+                                                  alpha,
+                                                  descr_x,
+                                                  descr_y,
+                                                  beta,
+                                                  descr_z,
+                                                  alg,
+                                                  &bufferSize,
+                                                  resource::get_cuda_stream(handle)));
 
-  raft::interruptible::synchronize(handle.get_stream());
+  raft::interruptible::synchronize(resource::get_cuda_stream(handle));
 
-  rmm::device_uvector<ValueType> tmp(bufferSize, handle.get_stream());
+  rmm::device_uvector<ValueType> tmp(bufferSize, resource::get_cuda_stream(handle));
 
-  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(handle.get_cusparse_handle(),
+  RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(resource::get_cusparse_handle(handle),
                                                        opX,
                                                        opY,
                                                        alpha,
@@ -157,7 +160,7 @@ void spmm(raft::device_resources const& handle,
                                                        descr_z,
                                                        alg,
                                                        tmp.data(),
-                                                       handle.get_stream()));
+                                                       resource::get_cuda_stream(handle)));
 }
 
 }  // end namespace detail

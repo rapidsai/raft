@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/power.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -72,10 +73,10 @@ template <typename T>
 class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
  protected:
   PowerTest()
-    : in1(0, handle.get_stream()),
-      in2(0, handle.get_stream()),
-      out_ref(0, handle.get_stream()),
-      out(0, handle.get_stream())
+    : in1(0, resource::get_cuda_stream(handle)),
+      in2(0, resource::get_cuda_stream(handle)),
+      out_ref(0, resource::get_cuda_stream(handle)),
+      out(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -85,7 +86,7 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     raft::random::RngState r(params.seed);
     int len = params.len;
 
-    cudaStream_t stream = handle.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     in1.resize(len, stream);
     in2.resize(len, stream);
@@ -109,11 +110,11 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
     power(handle, const_in1_view, const_in2_view, in1_view);
     power_scalar(handle, const_in1_view, in1_view, scalar_view);
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   PowerInputs<T> params;
   rmm::device_uvector<T> in1, in2, out_ref, out;
   int device_count = 0;

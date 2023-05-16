@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <utility>
 
 #include <raft/cluster/detail/kmeans_balanced.cuh>
@@ -72,7 +73,7 @@ namespace raft::cluster::kmeans_balanced {
  *                        datatype. If DataT == MathT, this must be the identity.
  */
 template <typename DataT, typename MathT, typename IndexT, typename MappingOpT = raft::identity_op>
-void fit(const raft::device_resources& handle,
+void fit(const raft::resources& handle,
          kmeans_balanced_params const& params,
          raft::device_matrix_view<const DataT, IndexT> X,
          raft::device_matrix_view<MathT, IndexT> centroids,
@@ -130,7 +131,7 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void predict(const raft::device_resources& handle,
+void predict(const raft::resources& handle,
              kmeans_balanced_params const& params,
              raft::device_matrix_view<const DataT, IndexT> X,
              raft::device_matrix_view<const MathT, IndexT> centroids,
@@ -195,7 +196,7 @@ template <typename DataT,
           typename IndexT,
           typename LabelT,
           typename MappingOpT = raft::identity_op>
-void fit_predict(const raft::device_resources& handle,
+void fit_predict(const raft::resources& handle,
                  kmeans_balanced_params const& params,
                  raft::device_matrix_view<const DataT, IndexT> X,
                  raft::device_matrix_view<MathT, IndexT> centroids,
@@ -254,7 +255,7 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-void build_clusters(const raft::device_resources& handle,
+void build_clusters(const raft::resources& handle,
                     const kmeans_balanced_params& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<MathT, IndexT> centroids,
@@ -280,7 +281,7 @@ void build_clusters(const raft::device_resources& handle,
                          labels.data_handle(),
                          cluster_sizes.data_handle(),
                          mapping_op,
-                         handle.get_workspace_resource(),
+                         resource::get_workspace_resource(handle),
                          X_norm.has_value() ? X_norm.value().data_handle() : nullptr);
 }
 
@@ -333,7 +334,7 @@ template <typename DataT,
           typename LabelT,
           typename CounterT,
           typename MappingOpT = raft::identity_op>
-void calc_centers_and_sizes(const raft::device_resources& handle,
+void calc_centers_and_sizes(const raft::resources& handle,
                             raft::device_matrix_view<const DataT, IndexT> X,
                             raft::device_vector_view<const LabelT, IndexT> labels,
                             raft::device_matrix_view<MathT, IndexT> centroids,
