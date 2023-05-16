@@ -16,12 +16,12 @@
 #pragma once
 
 #include <cstdint>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/util/fast_int_div.cuh>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/util/cuda_dev_essentials.cuh>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/fast_int_div.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
@@ -52,8 +52,8 @@ void scatter(raft::device_resources const& handle,
              raft::device_vector_view<const MapIteratorT, IndexT, raft::layout_c_contiguous> map,
              IndexT batch_size)
 {
-  IndexT m          = in.extent(0);
-  IndexT n          = in.extent(1);
+  IndexT m = in.extent(0);
+  IndexT n = in.extent(1);
 
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -63,24 +63,27 @@ void scatter(raft::device_resources const& handle,
   for (IndexT bid = 0; bid < n_batches; bid++) {
     IndexT batch_offset   = bid * batch_size;
     IndexT cols_per_batch = min(batch_size, n - batch_offset);
-    auto scratch_space = raft::make_device_vector<InputIteratorT, IndexT>(handle, m * cols_per_batch);
+    auto scratch_space =
+      raft::make_device_vector<InputIteratorT, IndexT>(handle, m * cols_per_batch);
 
-    auto scatter_op =
-      [in = in.data_handle(), map = map.data_handle(), batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n] __device__(
-        auto idx) {
-        IndexT row = idx / cols_per_batch;
-        IndexT col = idx % cols_per_batch;
-        return in[row * n + batch_offset + col];
-      };
+    auto scatter_op = [in  = in.data_handle(),
+                       map = map.data_handle(),
+                       batch_offset,
+                       cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                       n] __device__(auto idx) {
+      IndexT row = idx / cols_per_batch;
+      IndexT col = idx % cols_per_batch;
+      return in[row * n + batch_offset + col];
+    };
     raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
-    auto copy_op = [in = in.data_handle(),
-                    map = map.data_handle(),
+    auto copy_op = [in            = in.data_handle(),
+                    map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),
                     batch_offset,
                     cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
                     n] __device__(auto idx) {
-      IndexT row                        = idx / cols_per_batch;
-      IndexT col                        = idx % cols_per_batch;
+      IndexT row                            = idx / cols_per_batch;
+      IndexT col                            = idx % cols_per_batch;
       in[map[row] * n + batch_offset + col] = scratch_space[idx];
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);

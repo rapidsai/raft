@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+/**
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace raft::matrix {
  * is created. For each batch, chunks of columns from each row are copied
  * into the appropriate location in the scratch space and copied back to
  * the corresponding locations in the input matrix.
- * 
+ *
  * @tparam matrix_t
  * @tparam map_t
  * @tparam idx_t
@@ -40,24 +40,19 @@ namespace raft::matrix {
  * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
  * @param[in] col_batch_size column batch size
  */
-template <typename matrix_t,
-          typename map_t,
-          typename idx_t>
+template <typename matrix_t, typename map_t, typename idx_t>
 void scatter(raft::device_resources const& handle,
-            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> in,
-            raft::device_vector_view<map_t, idx_t, raft::layout_c_contiguous> map,
-            idx_t col_batch_size)
+             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> in,
+             raft::device_vector_view<map_t, idx_t, raft::layout_c_contiguous> map,
+             idx_t col_batch_size)
 {
-  idx_t m          = in.extent(0);
-  idx_t n          = in.extent(1);
-  idx_t map_len    = map.extent(0);
+  idx_t m       = in.extent(0);
+  idx_t n       = in.extent(1);
+  idx_t map_len = map.extent(0);
   RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n, "col_batch_size should be > 0 and <= n");
   RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
-  
-  detail::scatter(handle,
-                 in,
-                 map,
-                 col_batch_size);
+
+  detail::scatter(handle, in, map, col_batch_size);
 }
 
-}
+}  // namespace raft::matrix

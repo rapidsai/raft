@@ -31,7 +31,7 @@ namespace matrix {
  * of columns from each row are copied into the appropriate location
  * in the scratch space and copied back to the corresponding locations
  * in the input matrix
- * 
+ *
  * @tparam value_idx
  * @tparam value_t
  *
@@ -46,18 +46,14 @@ void batched_gather(raft::device_resources const& handle,
                     raft::device_vector_view<IdxT, IdxT, raft::layout_c_contiguous> map,
                     size_t col_batch_size)
 {
-  IdxT m          = in.extent(0);
-  IdxT n          = in.extent(1);
-  IdxT map_len    = map.extent(0);
-  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= (size_t)n, "col_batch_size should be > 0 and <= n");
+  IdxT m       = in.extent(0);
+  IdxT n       = in.extent(1);
+  IdxT map_len = map.extent(0);
+  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= (size_t)n,
+               "col_batch_size should be > 0 and <= n");
   RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
-  
-  detail::batched_gather(handle,
-                         in.data_handle(),
-                         map.data_handle(),
-                         n,
-                         m,
-                         col_batch_size);
+
+  detail::batched_gather(handle, in.data_handle(), map.data_handle(), n, m, col_batch_size);
 }
 
 /**
@@ -68,7 +64,7 @@ void batched_gather(raft::device_resources const& handle,
  * of columns from each row are copied into the appropriate location
  * in the scratch space and copied back to the corresponding locations
  * in the input matrix
- * 
+ *
  * @tparam value_idx
  * @tparam value_t
  *
@@ -83,18 +79,14 @@ void batched_scatter(raft::device_resources const& handle,
                      raft::device_vector_view<IdxT, IdxT, raft::layout_c_contiguous> map,
                      size_t col_batch_size)
 {
-  IdxT m          = in.extent(0);
-  IdxT n          = in.extent(1);
-  IdxT map_len    = map.extent(0);
-  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= (size_t)n, "col_batch_size should be > 0 and <= n");
+  IdxT m       = in.extent(0);
+  IdxT n       = in.extent(1);
+  IdxT map_len = map.extent(0);
+  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= (size_t)n,
+               "col_batch_size should be > 0 and <= n");
   RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
-  
-  detail::batched_scatter(handle,
-                          in.data_handle(),
-                          map.data_handle(),
-                          n,
-                          m,
-                          col_batch_size);
+
+  detail::batched_scatter(handle, in.data_handle(), map.data_handle(), n, m, col_batch_size);
 }
 };  // end namespace matrix
 };  // end namespace raft
