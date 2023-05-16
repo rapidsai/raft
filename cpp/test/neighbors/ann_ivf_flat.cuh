@@ -333,6 +333,7 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
 
   // test splitting the big query batches  (> max gridDim.y) into smaller batches
   {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {1000000, 1024, 32, 10, 256, 256, raft::distance::DistanceType::InnerProduct, false},
   {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, true},
 
   // test radix_sort for getting the cluster selection
