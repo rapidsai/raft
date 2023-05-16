@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,9 @@ template <
   /// Number of stages used in the pipelined mainloop
   int Stages,
   /// data layout row/column major of inputs
-  bool isRowMajor>
+  bool isRowMajor,
+  /// Whether to use 3xtfloat or 1xtfloat:
+  bool use_1xtfloat>
 struct PairwiseDistanceGemm {
   // This struct is specialized for fp32/3xTF32
 
@@ -69,7 +71,10 @@ struct PairwiseDistanceGemm {
     cutlass::gemm::GemmShape<16, 8, 4>;  // <- MMA Op tile M = 16, N = 8, K = 4
 
   /// Operation performed by GEMM
-  using Operator = cutlass::arch::OpMultiplyAddFastF32;
+  using Operator =
+    std::conditional_t<use_1xtfloat,
+                       cutlass::arch::OpMultiplyAdd,          // This implies tensorfloat
+                       cutlass::arch::OpMultiplyAddFastF32>;  // This implies 3xtfloat
 
   // This code section describes whether you want to use tensor cores or regular SIMT cores on GPU
   // SM
@@ -147,16 +152,19 @@ template <
   /// Number of stages used in the pipelined mainloop
   int Stages,
   /// data layout row/column major of inputs
-  bool isRowMajor>
-struct PairwiseDistanceGemm<double,
+  bool isRowMajor,
+  /// Whether to use 3xtfloat or 1xtfloat:
+  bool use_1xtfloat>
+struct PairwiseDistanceGemm<double,  // Specialize for double
                             kAlignmentA,
-                            double,
+                            double,  // Specialize for double
                             kAlignmentB,
                             ElementC_,
                             ElementAccumulator,
                             EpilogueOutputOp,
                             Stages,
-                            isRowMajor> {
+                            isRowMajor,
+                            use_1xtfloat> {
   // using Transform = cutlass::ComplexTransform::kNone;
   // Threadblock-level tile size (concept: GemmShape)
   using ThreadblockShape =
@@ -168,7 +176,9 @@ struct PairwiseDistanceGemm<double,
   // This code section describes the size of MMA op
   using InstructionShape = cutlass::gemm::GemmShape<8, 8, 4>;
 
-  // Operation performed by GEMM
+  // Operation performed by GEMM. Regardless of the value of use_1xtfloat, we do
+  // OpMultiplyAdd with a TensorOp. So we are using tensor cores for double
+  // precision.
   using Operator = cutlass::arch::OpMultiplyAdd;
   // This code section describes whether you want to use tensor cores or regular SIMT cores on GPU
   // SM

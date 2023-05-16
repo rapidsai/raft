@@ -38,6 +38,7 @@
 #include <cutlass/tensor_view.h>
 
 #include <raft/distance/detail/distance_ops/cutlass.cuh>
+#include <raft/distance/distance_types.hpp>  // Compute_options
 
 #include "./pairwise_distance_epilogue_elementwise.h"
 #include "./pairwise_distance_gemm.h"
@@ -64,20 +65,22 @@ template <typename DataT,
           typename FinalLambda,
           typename OpT,
           bool isRowMajor>
-std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const DataT* x,
-                                                                        const DataT* y,
-                                                                        const DataT* xn,
-                                                                        const DataT* yn,
-                                                                        IdxT m,
-                                                                        IdxT n,
-                                                                        IdxT k,
-                                                                        IdxT lda,
-                                                                        IdxT ldb,
-                                                                        IdxT ldd,
-                                                                        OutT* dOutput,
-                                                                        FinalLambda fin_op,
-                                                                        OpT distance_op,
-                                                                        cudaStream_t stream)
+std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(
+  const DataT* x,
+  const DataT* y,
+  const DataT* xn,
+  const DataT* yn,
+  IdxT m,
+  IdxT n,
+  IdxT k,
+  IdxT lda,
+  IdxT ldb,
+  IdxT ldd,
+  OutT* dOutput,
+  FinalLambda fin_op,
+  OpT distance_op,
+  Compute_options compute_options,
+  cudaStream_t stream)
 {
   static_assert(!(std::is_same<OutT, bool>::value),
                 "OutType bool is not supported use uint8_t instead");
@@ -110,20 +113,6 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
 
   // default initialize problem size with row major inputs
   auto problem_size = cutlass::gemm::GemmCoord(n, m, k);
-
-  using cutlassDistKernel =
-    typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
-                                                         Alignment,
-                                                         DataT,
-                                                         Alignment,
-                                                         AccT,
-                                                         AccT,
-                                                         EpilogueOutputOp,
-                                                         NumStages,  // Number of pipeline stages
-                                                         isRowMajor>::GemmKernel;
-
-  using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
-
   if constexpr (isRowMajor) {
     a        = y;
     b        = x;
@@ -137,41 +126,65 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
     gemm_ldb     = ldb;
   }
 
-  typename cutlassDist::Arguments arguments{
-    mode,       problem_size, batch_count, epilog_op_param, a, b,
-    xn,          // C matrix eq vector param, which here is A norm
-    nullptr,     // tensor_Z,
-    (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
-    dOutput,     // Output distance matrix
-    (int64_t)0,  // batch stride A
-    (int64_t)0,  // batch stride B
-    (int64_t)0,  // batch stride Norm A
-    (int64_t)0,
-    (int64_t)0,  // batch stride Norm B
-    (int64_t)0,  // batch stride Output
-    gemm_lda,    // stride A
-    gemm_ldb,    // stride B
-    1,           // stride A norm
-    0,           // this is no-op for Z
-    0,           // This must be zero
-    ldd          // stride Output matrix
+  // lambda takes a compile-time constant boolean to determine whether to
+  // execute with 1xtfloat or 3xtfloat.
+  auto lambda = [&](auto use_1xtfloat) {
+    using cutlassDistKernel =
+      typename cutlass::gemm::kernel::PairwiseDistanceGemm<DataT,
+                                                           Alignment,
+                                                           DataT,
+                                                           Alignment,
+                                                           AccT,
+                                                           AccT,
+                                                           EpilogueOutputOp,
+                                                           NumStages,  // Number of pipeline stages
+                                                           isRowMajor,
+                                                           use_1xtfloat>::GemmKernel;
+
+    using cutlassDist = cutlass::gemm::device::GemmUniversalAdapter<cutlassDistKernel>;
+
+    typename cutlassDist::Arguments arguments{
+      mode,       problem_size, batch_count, epilog_op_param, a, b,
+      xn,          // C matrix eq vector param, which here is A norm
+      nullptr,     // tensor_Z,
+      (DataT*)yn,  // this is broadcast vec, which is required to be non-const param
+      dOutput,     // Output distance matrix
+      (int64_t)0,  // batch stride A
+      (int64_t)0,  // batch stride B
+      (int64_t)0,  // batch stride Norm A
+      (int64_t)0,
+      (int64_t)0,  // batch stride Norm B
+      (int64_t)0,  // batch stride Output
+      gemm_lda,    // stride A
+      gemm_ldb,    // stride B
+      1,           // stride A norm
+      0,           // this is no-op for Z
+      0,           // This must be zero
+      ldd          // stride Output matrix
+    };
+
+    // Using the arguments, query for extra workspace required for matrix multiplication computation
+    size_t workspace_size = cutlassDist::get_workspace_size(arguments);
+    // Allocate workspace memory
+    rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
+    // Instantiate CUTLASS kernel depending on templates
+    cutlassDist cutlassDist_op;
+    // Check the problem size is supported or not
+    cutlass::Status status = cutlassDist_op.can_implement(arguments);
+    CUTLASS_CHECK(status);
+    // Initialize CUTLASS kernel with arguments and workspace pointer
+    status = cutlassDist_op.initialize(arguments, workspace.data(), stream);
+    CUTLASS_CHECK(status);
+    // Launch initialized CUTLASS kernel
+    status = cutlassDist_op();
+    CUTLASS_CHECK(status);
   };
 
-  // Using the arguments, query for extra workspace required for matrix multiplication computation
-  size_t workspace_size = cutlassDist::get_workspace_size(arguments);
-  // Allocate workspace memory
-  rmm::device_uvector<uint8_t> workspace(workspace_size, stream);
-  // Instantiate CUTLASS kernel depending on templates
-  cutlassDist cutlassDist_op;
-  // Check the problem size is supported or not
-  cutlass::Status status = cutlassDist_op.can_implement(arguments);
-  CUTLASS_CHECK(status);
-  // Initialize CUTLASS kernel with arguments and workspace pointer
-  status = cutlassDist_op.initialize(arguments, workspace.data(), stream);
-  CUTLASS_CHECK(status);
-  // Launch initialized CUTLASS kernel
-  status = cutlassDist_op();
-  CUTLASS_CHECK(status);
+  if (compute_options == Compute_options::Fast_Reduced_Precision) {
+    lambda(std::true_type{});
+  } else {
+    lambda(std::false_type{});
+  }
 }
 
 };  // namespace detail
