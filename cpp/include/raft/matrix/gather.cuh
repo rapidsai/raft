@@ -289,13 +289,15 @@ void gather_if(const raft::device_resources& handle,
 }
 
 /**
- * @brief In-place gather elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows.
+ * In-place gather elements in a row-major matrix according to a
+ * map. The length of the map is equal to the number of rows. The
+ * map specifies new order in which rows are arranged, i.e. in the
+ * resulting matrix, row[i] would be replaced by row[matrix[i]].
  * Batching is done on columns and an additional scratch space of
  * shape n_rows * cols_batch_size is created. For each batch, chunks
  * of columns from each row are copied into the appropriate location
  * in the scratch space and copied back to the corresponding locations
- * in the input matrix
+ * in the input matrix.
  * 
  * @tparam matrix_t
  * @tparam map_t

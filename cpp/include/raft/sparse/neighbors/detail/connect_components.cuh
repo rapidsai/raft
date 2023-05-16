@@ -231,7 +231,9 @@ void perform_1nn(raft::device_resources const& handle,
   using OutT   = raft::KeyValuePair<value_idx, value_t>;
   using ParamT = raft::distance::masked_l2_nn_params<red_op, red_op>;
 
-  ParamT params{reduction_op, reduction_op, true, true};
+  bool apply_sqrt = true;
+  bool init_out_buffer = true;
+  ParamT params{reduction_op, reduction_op, apply_sqrt, init_out_buffer};
 
   size_t n_batches = raft::ceildiv(n_rows, batch_size);
   for (size_t bid = 0; bid < n_batches; bid++) {
@@ -326,9 +328,7 @@ __global__ void min_components_by_color_kernel(value_idx* out_rows,
  * @tparam value_idx
  * @tparam value_t
  * @param[out] coo output edge list
- * @param[in] out_indptr output indptr for ordering edge list
- * @param[in] colors_indptr indptr of source components
- * @param[in] colors_nn components of nearest neighbors to each source component
+ * @param[in] out_index output indptr for ordering edge list
  * @param[in] indices indices of source vertices for each component
  * @param[in] kvp indices and distances of each destination vertex for each component
  * @param[in] n_colors number of components

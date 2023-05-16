@@ -30,23 +30,25 @@ namespace detail {
 
 /**
  * In-place scatter elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows.
- * Batching is done on columns and an additional scratch space of
- * shape n_rows * cols_batch_size is created. For each batch, chunks
- * of columns from each row are copied into the appropriate location
- * in the scratch space and copied back to the corresponding locations
- * in the input matrix.
+ * map. The length of the map is equal to the number of rows. The
+ * map specifies the destination index for each row, i.e. in the
+ * resulting matrix, row[map[i]] would be row[i]. Batching is done on
+ * columns and an additional scratch space of shape n_rows * cols_batch_size
+ * is created. For each batch, chunks of columns from each row are copied
+ * into the appropriate location in the scratch space and copied back to
+ * the corresponding locations in the input matrix.
  * @tparam InputIteratorT
+ * @tparam MapIteratorT
  * @tparam IndexT
  *
  * @param[in] handle raft handle
- * @param[inout] in input matrix (n_rows * n_cols)
+ * @param[inout] inout input matrix (n_rows * n_cols)
  * @param[in] map map containing the destination index for each row (n_rows)
  * @param[in] batch_size column batch size
  */
 template <typename InputIteratorT, typename MapIteratorT, typename IndexT>
 void scatter(raft::device_resources const& handle,
-             raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> in,
+             raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> inout,
              raft::device_vector_view<const MapIteratorT, IndexT, raft::layout_c_contiguous> map,
              IndexT batch_size)
 {

@@ -22,13 +22,14 @@
 
 namespace raft::matrix {
 /**
- * @brief In-place scatter elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows.
- * Batching is done on columns and an additional scratch space of
- * shape n_rows * cols_batch_size is created. For each batch, chunks
- * of columns from each row are copied into the appropriate location
- * in the scratch space and copied back to the corresponding locations
- * in the input matrix.
+ * In-place scatter elements in a row-major matrix according to a
+ * map. The length of the map is equal to the number of rows. The
+ * map specifies the destination index for each row, i.e. in the
+ * resulting matrix, row[map[i]] would be row[i]. Batching is done on
+ * columns and an additional scratch space of shape n_rows * cols_batch_size
+ * is created. For each batch, chunks of columns from each row are copied
+ * into the appropriate location in the scratch space and copied back to
+ * the corresponding locations in the input matrix.
  * 
  * @tparam matrix_t
  * @tparam map_t

@@ -351,18 +351,22 @@ void gather_if(const InputIteratorT in,
 
 /**
  * In-place gather elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows.
+ * map. The length of the map is equal to the number of rows. The
+ * map specifies new order in which rows are arranged, i.e. in the
+ * resulting matrix, row[i] would be replaced by row[matrix[i]].
  * Batching is done on columns and an additional scratch space of
  * shape n_rows * cols_batch_size is created. For each batch, chunks
  * of columns from each row are copied into the appropriate location
  * in the scratch space and copied back to the corresponding locations
  * in the input matrix.
- * @tparam value_idx
- * @tparam value_t
+ * @tparam InputIteratorT
+ * @tparam MapIteratorT
+ * @tparam IndexT
+ *
  * @param[in] handle raft handle
  * @param[inout] in input matrix (n_rows * n_cols)
  * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
- * @param batch_size column batch size
+ * @param[in] batch_size column batch size
  */
 template <typename InputIteratorT, typename MapIteratorT, typename IndexT>
 void gather(raft::device_resources const& handle,
