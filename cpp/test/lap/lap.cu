@@ -23,6 +23,7 @@
  *
  */
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -66,7 +67,7 @@ void hungarian_test(int problemsize,
                     weight_t epsilon,
                     bool verbose = false)
 {
-  raft::device_resources handle;
+  raft::resources handle;
 
   weight_t* h_cost = new weight_t[batchsize * problemsize * problemsize];
 
@@ -74,12 +75,16 @@ void hungarian_test(int problemsize,
     generateProblem(h_cost, batchsize, problemsize, costrange);
 
     rmm::device_uvector<weight_t> elements_v(batchsize * problemsize * problemsize,
-                                             handle.get_stream());
-    rmm::device_uvector<vertex_t> row_assignment_v(batchsize * problemsize, handle.get_stream());
-    rmm::device_uvector<vertex_t> col_assignment_v(batchsize * problemsize, handle.get_stream());
+                                             resource::get_cuda_stream(handle));
+    rmm::device_uvector<vertex_t> row_assignment_v(batchsize * problemsize,
+                                                   resource::get_cuda_stream(handle));
+    rmm::device_uvector<vertex_t> col_assignment_v(batchsize * problemsize,
+                                                   resource::get_cuda_stream(handle));
 
-    raft::update_device(
-      elements_v.data(), h_cost, batchsize * problemsize * problemsize, handle.get_stream());
+    raft::update_device(elements_v.data(),
+                        h_cost,
+                        batchsize * problemsize * problemsize,
+                        resource::get_cuda_stream(handle));
 
     for (int i = 0; i < repetitions; i++) {
       float start = omp_get_wtime();

@@ -15,8 +15,10 @@
  */
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/kvp.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
@@ -35,7 +37,7 @@ struct KeyValueIndexOp {
 };
 
 template <typename value_t, typename idx_t>
-void compute_fused_l2_nn_min_arg(raft::device_resources const& handle,
+void compute_fused_l2_nn_min_arg(raft::resources const& handle,
                                  idx_t* min,
                                  const value_t* x,
                                  const value_t* y,
@@ -44,13 +46,15 @@ void compute_fused_l2_nn_min_arg(raft::device_resources const& handle,
                                  idx_t k,
                                  bool sqrt)
 {
-  rmm::device_uvector<int> workspace(m, handle.get_stream());
+  rmm::device_uvector<int> workspace(m, resource::get_cuda_stream(handle));
   auto kvp = raft::make_device_vector<raft::KeyValuePair<idx_t, value_t>>(handle, m);
 
-  rmm::device_uvector<value_t> x_norms(m, handle.get_stream());
-  rmm::device_uvector<value_t> y_norms(n, handle.get_stream());
-  raft::linalg::rowNorm(x_norms.data(), x, k, m, raft::linalg::L2Norm, true, handle.get_stream());
-  raft::linalg::rowNorm(y_norms.data(), y, k, n, raft::linalg::L2Norm, true, handle.get_stream());
+  rmm::device_uvector<value_t> x_norms(m, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_t> y_norms(n, resource::get_cuda_stream(handle));
+  raft::linalg::rowNorm(
+    x_norms.data(), x, k, m, raft::linalg::L2Norm, true, resource::get_cuda_stream(handle));
+  raft::linalg::rowNorm(
+    y_norms.data(), y, k, n, raft::linalg::L2Norm, true, resource::get_cuda_stream(handle));
 
   raft::distance::fusedL2NNMinReduce(kvp.data_handle(),
                                      x,
@@ -63,15 +67,18 @@ void compute_fused_l2_nn_min_arg(raft::device_resources const& handle,
                                      (void*)workspace.data(),
                                      sqrt,
                                      true,
-                                     handle.get_stream());
+                                     resource::get_cuda_stream(handle));
 
   KeyValueIndexOp<idx_t, value_t> conversion_op;
-  thrust::transform(
-    handle.get_thrust_policy(), kvp.data_handle(), kvp.data_handle() + m, min, conversion_op);
-  handle.sync_stream();
+  thrust::transform(resource::get_thrust_policy(handle),
+                    kvp.data_handle(),
+                    kvp.data_handle() + m,
+                    min,
+                    conversion_op);
+  resource::sync_stream(handle);
 }
 
-void fused_l2_nn_min_arg(raft::device_resources const& handle,
+void fused_l2_nn_min_arg(raft::resources const& handle,
                          int* min,
                          const float* x,
                          const float* y,
@@ -83,7 +90,7 @@ void fused_l2_nn_min_arg(raft::device_resources const& handle,
   compute_fused_l2_nn_min_arg<float, int>(handle, min, x, y, m, n, k, sqrt);
 }
 
-void fused_l2_nn_min_arg(raft::device_resources const& handle,
+void fused_l2_nn_min_arg(raft::resources const& handle,
                          int* min,
                          const double* x,
                          const double* y,

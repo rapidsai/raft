@@ -17,7 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/detail/gather.cuh>
 #include <raft/util/itertools.hpp>
 
@@ -210,7 +211,7 @@ template <typename matrix_t,
           typename map_t,
           typename idx_t,
           typename map_xform_t = raft::identity_op>
-void gather(const raft::device_resources& handle,
+void gather(const raft::resources& handle,
             raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
             raft::device_vector_view<const map_t, idx_t> map,
             raft::device_matrix_view<matrix_t, idx_t, row_major> out,
@@ -229,7 +230,7 @@ void gather(const raft::device_resources& handle,
     map.extent(0),
     out.data_handle(),
     transform_op,
-    handle.get_stream());
+    resource::get_cuda_stream(handle));
 }
 
 /**
@@ -261,7 +262,7 @@ template <typename matrix_t,
           typename unary_pred_t,
           typename idx_t,
           typename map_xform_t = raft::identity_op>
-void gather_if(const raft::device_resources& handle,
+void gather_if(const raft::resources& handle,
                raft::device_matrix_view<const matrix_t, idx_t, row_major> in,
                raft::device_matrix_view<matrix_t, idx_t, row_major> out,
                raft::device_vector_view<const map_t, idx_t> map,
@@ -285,7 +286,7 @@ void gather_if(const raft::device_resources& handle,
                     out.data_handle(),
                     pred_op,
                     transform_op,
-                    handle.get_stream());
+                    resource::get_cuda_stream(handle));
 }
 
 /**
@@ -304,23 +305,23 @@ void gather_if(const raft::device_resources& handle,
  * @tparam idx_t
  *
  * @param[in] handle raft handle
- * @param[inout] in input matrix (n_rows * n_cols)
+ * @param[inout] inout input matrix (n_rows * n_cols)
  * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
  * @param[in] col_batch_size column batch size
  */
 template <typename matrix_t, typename map_t, typename idx_t>
-void gather(raft::device_resources const& handle,
-            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> in,
+void gather(raft::resources const& handle,
+            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
             raft::device_vector_view<map_t, idx_t, raft::layout_c_contiguous> map,
             idx_t col_batch_size)
 {
-  idx_t m       = in.extent(0);
-  idx_t n       = in.extent(1);
+  idx_t m       = inout.extent(0);
+  idx_t n       = inout.extent(1);
   idx_t map_len = map.extent(0);
   RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n, "col_batch_size should be > 0 and <= n");
   RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
 
-  detail::gather(handle, in, map, col_batch_size);
+  detail::gather(handle, inout, map, col_batch_size);
 }
 
 /** @} */  // end of group matrix_gather

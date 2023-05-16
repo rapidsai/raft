@@ -17,6 +17,8 @@
 
 #include <cstdint>
 #include <cub/cub.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -93,9 +95,9 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void gather(raft::device_resources const& handle, value_idx* map) {}
+  void gather(raft::resources const& handle, value_idx* map) {}
 
-  void scatter(raft::device_resources const& handle, value_idx* map) {}
+  void scatter(raft::resources const& handle, value_idx* map) {}
 };
 
 /**
@@ -194,7 +196,7 @@ struct LookupColorOp {
  * @param[in] reduction_op reduction operation for computing nearest neighbors
  */
 template <typename value_idx, typename value_t, typename red_op>
-void perform_1nn(raft::device_resources const& handle,
+void perform_1nn(raft::resources const& handle,
                  raft::KeyValuePair<value_idx, value_t>* kvp,
                  value_idx* nn_colors,
                  value_idx* colors,
@@ -204,7 +206,7 @@ void perform_1nn(raft::device_resources const& handle,
                  size_t batch_size,
                  red_op reduction_op)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   value_idx n_components = get_n_components(colors, n_rows, stream);
 
@@ -380,7 +382,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * is done
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(raft::device_resources const& handle,
+void connect_components(raft::resources const& handle,
                         raft::sparse::COO<value_t, value_idx>& out,
                         const value_t* X,
                         const value_idx* orig_colors,
@@ -394,7 +396,7 @@ void connect_components(raft::device_resources const& handle,
   RAFT_EXPECTS(row_batch_size <= n_rows, "row_batch_size should be >= 0 and <= n_rows");
   if (row_batch_size == 0) { row_batch_size = n_rows; }
   if (col_batch_size == 0) { col_batch_size = n_cols; }
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
 
@@ -406,8 +408,10 @@ void connect_components(raft::device_resources const& handle,
   auto sort_plan = raft::make_device_vector<value_idx>(handle, (value_idx)n_rows);
   raft::linalg::map_offset(handle, sort_plan.view(), [] __device__(value_idx idx) { return idx; });
 
-  thrust::sort_by_key(
-    handle.get_thrust_policy(), colors.data(), colors.data() + n_rows, sort_plan.data_handle());
+  thrust::sort_by_key(resource::get_thrust_policy(handle),
+                      colors.data(),
+                      colors.data() + n_rows,
+                      sort_plan.data_handle());
 
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
   reduction_op.gather(handle, sort_plan.data_handle());
@@ -452,7 +456,7 @@ void connect_components(raft::device_resources const& handle,
   raft::sparse::op::compute_duplicates_mask(
     out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
 
-  thrust::exclusive_scan(handle.get_thrust_policy(),
+  thrust::exclusive_scan(resource::get_thrust_policy(handle),
                          out_index.data(),
                          out_index.data() + out_index.size(),
                          out_index.data());
@@ -460,7 +464,7 @@ void connect_components(raft::device_resources const& handle,
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   size++;
 

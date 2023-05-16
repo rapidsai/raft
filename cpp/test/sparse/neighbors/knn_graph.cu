@@ -16,6 +16,7 @@
 
 #include "../../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -61,7 +62,7 @@ class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, v
  public:
   KNNGraphTest()
     : params(::testing::TestWithParam<KNNGraphInputs<value_idx, value_t>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       X(0, stream)
   {
     X.resize(params.X.size(), stream);
@@ -87,13 +88,13 @@ class KNNGraphTest : public ::testing::TestWithParam<KNNGraphInputs<value_idx, v
       out->rows(), out->cols(), out->vals(), out->nnz, sum.data());
 
     sum_h = sum.value(stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void TearDown() override { delete out; }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   // input data

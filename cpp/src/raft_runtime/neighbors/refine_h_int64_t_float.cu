@@ -19,7 +19,7 @@
 
 namespace raft::runtime::neighbors {
 
-void refine(raft::device_resources const& handle,
+void refine(raft::resources const& handle,
             raft::host_matrix_view<const float, int64_t, row_major> dataset,
             raft::host_matrix_view<const float, int64_t, row_major> queries,
             raft::host_matrix_view<const int64_t, int64_t, row_major> neighbor_candidates,

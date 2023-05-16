@@ -24,7 +24,7 @@ namespace knn {
 namespace detail {
 
 extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 2>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,
@@ -38,7 +38,7 @@ extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 2>
   std::uint32_t* dists_counter);
 
 extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,
@@ -52,7 +52,7 @@ extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 2>
   std::uint32_t* post_dists_counter);
 
 extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,
@@ -66,7 +66,7 @@ extern template void rbc_low_dim_pass_one<std::int64_t, float, std::uint32_t, 3>
   std::uint32_t* dists_counter);
 
 extern template void rbc_low_dim_pass_two<std::int64_t, float, std::uint32_t, 3>(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const BallCoverIndex<std::int64_t, float, std::uint32_t>& index,
   const float* query,
   const std::uint32_t n_query_rows,

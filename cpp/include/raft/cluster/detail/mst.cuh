@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -67,7 +68,7 @@ void merge_msts(sparse::solver::Graph_COO<value_idx, value_idx, value_t>& coo1,
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_knn_graph(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const value_t* X,
   sparse::solver::Graph_COO<value_idx, value_idx, value_t>& msf,
   size_t m,
@@ -76,7 +77,7 @@ void connect_knn_graph(
   red_op reduction_op,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
@@ -137,7 +138,7 @@ void connect_knn_graph(
  */
 template <typename value_idx, typename value_t, typename red_op>
 void build_sorted_mst(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const value_t* X,
   const value_idx* indptr,
   const value_idx* indices,
@@ -153,7 +154,7 @@ void build_sorted_mst(
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded,
   int max_iter                        = 10)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   // We want to have MST initialize colors on first call.
   auto mst_coo = raft::sparse::solver::mst<value_idx, value_idx, value_t, double>(

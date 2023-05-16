@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -45,7 +45,7 @@ template <typename value_idx,
           typename matrix_idx = std::uint32_t>
 class BallCoverIndex {
  public:
-  explicit BallCoverIndex(raft::device_resources const& handle_,
+  explicit BallCoverIndex(raft::resources const& handle_,
                           const value_t* X_,
                           value_int m_,
                           value_int n_,
@@ -71,7 +71,7 @@ class BallCoverIndex {
   {
   }
 
-  explicit BallCoverIndex(raft::device_resources const& handle_,
+  explicit BallCoverIndex(raft::resources const& handle_,
                           raft::device_matrix_view<const value_t, matrix_idx, row_major> X_,
                           raft::distance::DistanceType metric_)
     : handle(handle_),
@@ -139,7 +139,7 @@ class BallCoverIndex {
   // This should only be set by internal functions
   void set_index_trained() { index_trained = true; }
 
-  raft::device_resources const& handle;
+  raft::resources const& handle;
 
   value_int m;
   value_int n;

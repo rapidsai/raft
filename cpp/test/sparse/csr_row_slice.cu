@@ -15,7 +15,8 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
@@ -57,7 +58,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
  public:
   CSRRowSliceTest()
     : params(::testing::TestWithParam<CSRRowSliceInputs<value_idx, value_t>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       indptr(0, stream),
       indices(0, stream),
       data(0, stream),
@@ -98,7 +99,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
     update_device(
       out_indices_ref.data(), out_indices_ref_h.data(), out_indices_ref_h.size(), stream);
     update_device(out_data_ref.data(), out_data_ref_h.data(), out_data_ref_h.size(), stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void SetUp() override
@@ -124,7 +125,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
                                              out_data.data(),
                                              stream);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void compare()
@@ -142,7 +143,7 @@ class CSRRowSliceTest : public ::testing::TestWithParam<CSRRowSliceInputs<value_
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   // input data

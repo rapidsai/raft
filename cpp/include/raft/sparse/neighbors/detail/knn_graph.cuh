@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -94,7 +95,7 @@ void conv_indices(in_t* inds, out_t* out, size_t size, cudaStream_t stream)
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(raft::device_resources const& handle,
+void knn_graph(raft::resources const& handle,
                const value_t* X,
                size_t m,
                size_t n,
@@ -104,7 +105,7 @@ void knn_graph(raft::device_resources const& handle,
 {
   size_t k = build_k(m, c);
 
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   size_t nnz = m * k;
 

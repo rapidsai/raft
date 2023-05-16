@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
@@ -127,7 +128,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
   FusedL2NNTest()
     : params(::testing::TestWithParam<Inputs<DataT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       x(params.m * params.k, stream),
       y(params.n * params.k, stream),
       xn(params.m, stream),
@@ -154,7 +155,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
@@ -361,7 +362,7 @@ INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt, ::testing::ValuesIn
 template <typename DataT, bool Sqrt>
 class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
  public:
-  FusedL2NNDetTest() : stream(handle.get_stream()), min1(0, stream) {}
+  FusedL2NNDetTest() : stream(resource::get_cuda_stream(handle)), min1(0, stream) {}
 
   void SetUp() override
   {
@@ -374,7 +375,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;

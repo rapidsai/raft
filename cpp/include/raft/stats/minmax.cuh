@@ -20,6 +20,7 @@
 
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/minmax.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -97,7 +98,7 @@ void minmax(const T* data,
  *    in shared memory
  */
 template <typename value_t, typename idx_t>
-void minmax(raft::device_resources const& handle,
+void minmax(raft::resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
             std::optional<raft::device_vector_view<const unsigned, idx_t>> rowids,
             std::optional<raft::device_vector_view<const unsigned, idx_t>> colids,
@@ -133,7 +134,7 @@ void minmax(raft::device_resources const& handle,
                           globalmin.data_handle(),
                           globalmax.data_handle(),
                           sampledcols_ptr,
-                          handle.get_stream());
+                          resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_minmax

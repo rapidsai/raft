@@ -15,6 +15,7 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
@@ -62,7 +63,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  public:
   KNNTest()
     : params_(::testing::TestWithParam<KNNInputs>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       actual_labels_(0, stream),
       expected_labels_(0, stream),
       input_(0, stream),
@@ -147,11 +148,11 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     raft::copy(input_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_data_.data(), input_ptr, rows_ * cols_, stream);
     raft::copy(search_labels_.data(), labels_ptr, rows_, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  private:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   KNNInputs params_;

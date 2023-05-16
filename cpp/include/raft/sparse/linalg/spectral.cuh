@@ -16,7 +16,7 @@
 #ifndef __SPARSE_SPECTRAL_H
 #define __SPARSE_SPECTRAL_H
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/linalg/detail/spectral.cuh>
 
 namespace raft {
@@ -24,7 +24,7 @@ namespace sparse {
 namespace spectral {
 
 template <typename T>
-void fit_embedding(raft::device_resources const& handle,
+void fit_embedding(raft::resources const& handle,
                    int* rows,
                    int* cols,
                    T* vals,

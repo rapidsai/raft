@@ -17,6 +17,8 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/matrix/copy.cuh>
 #include <raft/random/rng.cuh>
@@ -49,7 +51,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
  public:
   MatrixTest()
     : params(::testing::TestWithParam<MatrixInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.n_row * params.n_col, stream),
       in2(params.n_row * params.n_col, stream),
       in1_revr(params.n_row * params.n_col, stream)
@@ -76,11 +78,11 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
     auto out_trunc_view = raft::make_device_matrix_view<T, int, col_major>(outTrunc.data(), 3, 2);
     trunc_zero_origin<T, int>(handle, in1_view, out_trunc_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MatrixInputs<T> params;
@@ -123,16 +125,16 @@ class MatrixCopyRowsTest : public ::testing::Test {
 
  protected:
   MatrixCopyRowsTest()
-    : stream(handle.get_stream()),
-      input(n_cols * n_rows, handle.get_stream()),
-      indices(n_selected, handle.get_stream()),
-      output(n_cols * n_selected, handle.get_stream())
+    : stream(resource::get_cuda_stream(handle)),
+      input(n_cols * n_rows, resource::get_cuda_stream(handle)),
+      indices(n_selected, resource::get_cuda_stream(handle)),
+      output(n_cols * n_selected, resource::get_cuda_stream(handle))
   {
     raft::update_device(indices.data(), indices_host, n_selected, stream);
     // Init input array
     thrust::counting_iterator<idx_t> first(0);
     thrust::device_ptr<math_t> ptr(input.data());
-    thrust::copy(handle.get_thrust_policy(), first, first + n_cols * n_rows, ptr);
+    thrust::copy(resource::get_thrust_policy(handle), first, first + n_cols * n_rows, ptr);
   }
 
   void testCopyRows()
@@ -161,7 +163,7 @@ class MatrixCopyRowsTest : public ::testing::Test {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   int n_rows     = 10;

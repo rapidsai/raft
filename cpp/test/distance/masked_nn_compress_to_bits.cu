@@ -22,6 +22,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/compress_to_bits.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/random/rng.cuh>
@@ -85,7 +86,7 @@ __global__ void decompress_bits_kernel(const T* in, int in_rows, int in_cols, bo
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
 void decompress_bits(const raft::handle_t& handle, const T* in, int in_rows, int in_cols, bool* out)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   dim3 grid(raft::ceildiv(in_cols, 32), raft::ceildiv(in_rows, 32));
   dim3 block(32, 32);
   decompress_bits_kernel<<<grid, block, 0, stream>>>(in, in_rows, in_cols, out);
@@ -129,18 +130,18 @@ void check_invertible(const Params& p)
   auto tmp = raft::make_device_matrix<T, int>(handle, tmp_m, n);
   auto out = raft::make_device_matrix<bool, int>(handle, out_m, n);
 
-  handle.sync_stream();
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   ASSERT_EQ(in.extent(0), out.extent(0)) << "M does not match";
   ASSERT_EQ(in.extent(1), out.extent(1)) << "N does not match";
 
   compress_to_bits(handle, in.view(), tmp.view());
-  handle.sync_stream();
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   decompress_bits(handle, tmp.data_handle(), tmp.extent(0), tmp.extent(1), out.data_handle());
-  handle.sync_stream();
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   // Check for differences.
@@ -148,8 +149,8 @@ void check_invertible(const Params& p)
                                 out.data_handle(),
                                 in.extent(0) * in.extent(1),
                                 raft::Compare<bool>(),
-                                handle.get_stream()));
-  handle.sync_stream();
+                                resource::get_cuda_stream(handle)));
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 
@@ -170,11 +171,11 @@ void check_all_true(const Params& p)
 
   int tmp_m = raft::ceildiv(m, bits_per_elem);
   auto tmp  = raft::make_device_matrix<T, int>(handle, tmp_m, n);
-  handle.sync_stream();
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   compress_to_bits(handle, in.view(), tmp.view());
-  handle.sync_stream();
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   auto expected = raft::make_device_matrix<T, int>(handle, tmp_m, n);
@@ -185,8 +186,8 @@ void check_all_true(const Params& p)
                                 tmp.data_handle(),
                                 tmp.extent(0) * tmp.extent(1),
                                 raft::Compare<T>(),
-                                handle.get_stream()));
-  handle.sync_stream();
+                                resource::get_cuda_stream(handle)));
+  resource::sync_stream(handle);
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 

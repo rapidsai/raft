@@ -73,7 +73,7 @@ using device_matrix = device_mdarray<ElementType, matrix_extent<IndexType>, Layo
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray
  */
@@ -96,7 +96,7 @@ auto make_device_mdarray(raft::resources const& handle, extents<IndexType, Exten
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
  * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param mr rmm memory resource used for allocating the memory for the array
  * @param exts dimensionality of the array (series of integers)
  * @return raft::device_mdarray

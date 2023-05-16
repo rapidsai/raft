@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/reduce_cols_by_key.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -75,8 +76,8 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T, IdxT>
   {
     params = ::testing::TestWithParam<ReduceColsInputs<T, IdxT>>::GetParam();
     raft::random::RngState r(params.seed);
-    raft::device_resources handle;
-    auto stream = handle.get_stream();
+    raft::resources handle;
+    auto stream = resource::get_cuda_stream(handle);
     auto nrows  = params.rows;
     auto ncols  = params.cols;
     auto nkeys  = params.nkeys;

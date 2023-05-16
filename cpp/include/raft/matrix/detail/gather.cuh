@@ -369,7 +369,7 @@ void gather_if(const InputIteratorT in,
  * @param[in] batch_size column batch size
  */
 template <typename InputIteratorT, typename MapIteratorT, typename IndexT>
-void gather(raft::device_resources const& handle,
+void gather(raft::resources const& handle,
             raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> in,
             raft::device_vector_view<const MapIteratorT, IndexT, raft::layout_c_contiguous> map,
             IndexT batch_size)
@@ -377,7 +377,7 @@ void gather(raft::device_resources const& handle,
   IndexT m = in.extent(0);
   IndexT n = in.extent(1);
 
-  auto exec_policy = handle.get_thrust_policy();
+  auto exec_policy = resource::get_thrust_policy(handle);
   IndexT n_batches = raft::ceildiv(n, batch_size);
   for (IndexT bid = 0; bid < n_batches; bid++) {
     IndexT batch_offset   = bid * batch_size;
