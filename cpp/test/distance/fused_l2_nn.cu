@@ -276,6 +276,8 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 128, 65, 1234ULL},
   {0.001f, 64, 128, 129, 1234ULL},
   {0.006f, 1805, 134, 2, 1234ULL},
+  {0.006f, 8192, 1024, 64, 1234ULL},
+  {0.006f, 8192, 1025, 64, 1234ULL},
 
   // Repeat with smaller values of k
   {0.006f, 32, 32, 1, 1234ULL},
@@ -305,6 +307,8 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 128, 23, 1234ULL},
   {0.00001, 64, 128, 24, 1234ULL},
   {0.001f, 1805, 134, 25, 1234ULL},
+  {0.006f, 8192, 1024, 25, 1234ULL},
+  {0.006f, 8192, 1024, 66, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result)
@@ -339,7 +343,7 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
 
-  {0.00001, 1805, 134, 2, 1234ULL},
+  {0.00001, 1805, 134, 2, 1234ULL}, {0.00001, 8192, 1024, 25, 1234ULL},
 };
 typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
 TEST_P(FusedL2NNTestD_Sq, Result)
