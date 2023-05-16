@@ -25,7 +25,8 @@
 #include <raft/distance/masked_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/matrix/batched_rearrange.cuh>
+#include <raft/matrix/gather.cuh>
+#include <raft/matrix/scatter.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
@@ -37,7 +38,6 @@
 #include <rmm/exec_policy.hpp>
 
 #include <raft/core/kvp.hpp>
-#include <raft/core/nvtx.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
@@ -78,9 +78,7 @@ struct FixConnectivitiesRedOp {
     }
   }
 
-  DI KVP
-
-  operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
   {
     if (rit < m && a.value < b.value) {
       return a;
@@ -209,6 +207,11 @@ void perform_1nn(raft::device_resources const& handle,
   auto stream = handle.get_stream();
 
   value_idx n_components = get_n_components(colors, n_rows, stream);
+
+  // colors_group_idxs is an array containing the *end* indices of each color
+  // component in colors. That is, the value of colors_group_idxs[j] indicates
+  // the start of color j + 1, i.e., it is the inclusive scan of the sizes of
+  // the color components.
   auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx>(handle, n_components + 1);
   raft::sparse::convert::sorted_coo_to_csr(
     colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
@@ -403,10 +406,10 @@ void connect_components(raft::device_resources const& handle,
   auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
-  raft::copy_async(colors.data(), orig_colors, n_rows, stream);
 
   // Normalize colors so they are drawn from a monotonically increasing set
-  raft::label::make_monotonic(colors.data(), colors.data(), n_rows, stream, true);
+  bool zero_based = true;
+  raft::label::make_monotonic(colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
 
   auto sort_plan = raft::make_device_vector<value_idx>(handle, (value_idx)n_rows);
   raft::linalg::map_offset(handle, sort_plan.view(), [] __device__(value_idx idx) {return idx;});
@@ -418,8 +421,9 @@ void connect_components(raft::device_resources const& handle,
   reduction_op.gather(handle, sort_plan.data_handle());
 
   auto X_mutable_view = raft::make_device_matrix_view<value_t, value_idx>(const_cast<value_t*>(X), n_rows, n_cols);
-  raft::matrix::batched_gather(
-    handle, X_mutable_view, sort_plan.view(), col_batch_size);
+  auto sort_plan_const_view = raft::make_device_vector_view<const value_idx, value_idx>(sort_plan.data_handle(), n_rows);
+  raft::matrix::gather(
+    handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -478,8 +482,8 @@ void connect_components(raft::device_resources const& handle,
                           n_rows,
                           stream);
 
-  raft::matrix::batched_scatter(
-    handle, X_mutable_view, sort_plan.view(), col_batch_size);
+  raft::matrix::scatter(
+    handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
   reduction_op.scatter(handle, sort_plan.data_handle());
 
   /**

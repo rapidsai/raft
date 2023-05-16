@@ -68,7 +68,7 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  * neighbors computation
  * @param[in] col_batch_size the input data is sorted and 'unsorted' based on color. An additional
  * scratch space buffer of shape (n_rows, col_batch_size) is created for this. Usually, this
- * parameter affects the memory consumption more drastically than the col_batch_size with a marginal
+ * parameter affects the memory consumption more drastically than the row_batch_size with a marginal
  * increase in compute time as the col_batch_size is reduced
  */
 template <typename value_idx, typename value_t, typename red_op>

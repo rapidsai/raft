@@ -13,11 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include <raft/core/operators.hpp>
 #include <raft/util/cudart_utils.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/util/cuda_dev_essentials.cuh>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/util/fast_int_div.cuh>
+#include <raft/linalg/map.cuh>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
 namespace matrix {
@@ -343,6 +348,61 @@ void gather_if(const InputIteratorT in,
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
 }
+
+/**
+ * In-place gather elements in a row-major matrix according to a
+ * map. The length of the map is equal to the number of rows.
+ * Batching is done on columns and an additional scratch space of
+ * shape n_rows * cols_batch_size is created. For each batch, chunks
+ * of columns from each row are copied into the appropriate location
+ * in the scratch space and copied back to the corresponding locations
+ * in the input matrix.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle
+ * @param[inout] in input matrix (n_rows * n_cols)
+ * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
+ * @param batch_size column batch size
+ */
+template <typename InputIteratorT, typename MapIteratorT, typename IndexT>
+void gather(raft::device_resources const& handle,
+            raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> in,
+            raft::device_vector_view<const MapIteratorT, IndexT, raft::layout_c_contiguous> map,
+            IndexT batch_size)
+{
+  IndexT m          = in.extent(0);
+  IndexT n          = in.extent(1);
+
+  auto exec_policy = handle.get_thrust_policy();
+  IndexT n_batches = raft::ceildiv(n, batch_size);
+  for (IndexT bid = 0; bid < n_batches; bid++) {
+    IndexT batch_offset   = bid * batch_size;
+    IndexT cols_per_batch = min(batch_size, n - batch_offset);
+    auto scratch_space = raft::make_device_vector<InputIteratorT, IndexT>(handle, n * cols_per_batch);
+
+    auto scatter_op =
+      [in = in.data_handle(), map = map.data_handle(), batch_offset, cols_per_batch = raft::util::FastIntDiv(cols_per_batch), n] __device__(
+        auto idx) {
+        IndexT row = idx / cols_per_batch;
+        IndexT col = idx % cols_per_batch;
+        return in[map[row] * n + batch_offset + col];
+      };
+    raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
+    auto copy_op = [in = in.data_handle(),
+                    map = map.data_handle(),
+                    scratch_space = scratch_space.data_handle(),
+                    batch_offset,
+                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                    n] __device__(auto idx) {
+      IndexT row                          = idx / cols_per_batch;
+      IndexT col                          = idx % cols_per_batch;
+      return in[row * n + batch_offset + col] = scratch_space[idx];
+    };
+    auto counting = thrust::make_counting_iterator<IndexT>(0);
+    thrust::for_each(exec_policy, counting, counting + n * batch_size, copy_op);
+    }
+}
+
 }  // namespace detail
 }  // namespace matrix
 }  // namespace raft
