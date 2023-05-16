@@ -19,7 +19,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
