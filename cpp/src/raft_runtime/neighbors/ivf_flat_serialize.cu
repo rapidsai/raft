@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ivf_flat_serialize.cuh>
-#include <raft/neighbors/ivf_flat_types.cuh>
+#include <string>
 
+#include <raft/core/device_resources.hpp>
+#include <raft/neighbors/ivf_flat_serialize.cuh>
+#include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft_runtime/neighbors/ivf_flat.hpp>
 
 namespace raft::runtime::neighbors::ivf_flat {
@@ -26,7 +28,7 @@ namespace raft::runtime::neighbors::ivf_flat {
                  const std::string& filename,                                          \
                  const raft::neighbors::ivf_flat::index<DTYPE, int64_t>& index)        \
   {                                                                                    \
-    raft::neighbors::ivf_pq::serialize(handle, filename, index);                       \
+    raft::neighbors::ivf_flat::serialize(handle, filename, index);                     \
   };                                                                                   \
                                                                                        \
   void deserialize(raft::device_resources const& handle,                               \
@@ -38,8 +40,8 @@ namespace raft::runtime::neighbors::ivf_flat {
   };
 
 RAFT_IVF_FLAT_SERIALIZE_INST(float);
-RAFT_IVF_FLAT_SERIALIZE_INST(int8);
-RAFT_IVF_FLAT_SERIALIZE_INST(uint8);
+RAFT_IVF_FLAT_SERIALIZE_INST(int8_t);
+RAFT_IVF_FLAT_SERIALIZE_INST(uint8_t);
 
 #undef RAFT_IVF_FLAT_SERIALIZE_INST
 }  // namespace raft::runtime::neighbors::ivf_flat

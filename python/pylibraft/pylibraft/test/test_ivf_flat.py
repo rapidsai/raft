@@ -165,9 +165,7 @@ def run_ivf_flat_build_search_test(
         "inner_product": "cosine",
         "euclidean": "euclidean",
     }[metric]
-    nn_skl = NearestNeighbors(
-        n_neighbors=k, algorithm="brute", metric=skl_metric
-    )
+    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -184,9 +182,7 @@ def run_ivf_flat_build_search_test(
 @pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 @pytest.mark.parametrize("array_type", ["device"])
-def test_ivf_pq_dtypes(
-    n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
-):
+def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
     run_ivf_flat_build_search_test(
@@ -236,9 +232,7 @@ def test_ivf_flat_n(params):
     )
 
 
-@pytest.mark.parametrize(
-    "metric", ["sqeuclidean", "inner_product", "euclidean"]
-)
+@pytest.mark.parametrize("metric", ["sqeuclidean", "inner_product", "euclidean"])
 @pytest.mark.parametrize("dtype", [np.float32])
 def test_ivf_flat_build_params(metric, dtype):
     run_ivf_flat_build_search_test(
@@ -419,9 +413,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data(
-        (n_queries, params.get("q_cols", n_cols)), q_dt
-    ).astype(q_dt, order=q_order)
+    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
+        q_dt, order=q_order
+    )
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.int64)
@@ -461,3 +455,51 @@ def test_search_inputs(params):
             out_idx_device,
             out_dist_device,
         )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])
+def test_save_load(dtype):
+    n_rows = 10000
+    n_cols = 50
+    n_queries = 1000
+
+    dataset = generate_data((n_rows, n_cols), dtype)
+    dataset_device = device_ndarray(dataset)
+
+    build_params = ivf_flat.IndexParams(n_lists=100, metric="sqeuclidean")
+    index = ivf_flat.build(build_params, dataset_device)
+
+    assert index.trained
+    filename = "my_index.bin"
+    ivf_flat.save(filename, index)
+    loaded_index = ivf_flat.load(filename, dtype)
+
+    assert index.metric == loaded_index.metric
+    assert index.n_lists == loaded_index.n_lists
+    assert index.dim == loaded_index.dim
+    assert index.adaptive_centers == loaded_index.adaptive_centers
+    # assert index.size == loaded_index.size
+
+    queries = generate_data((n_queries, n_cols), dtype)
+
+    queries_device = device_ndarray(queries)
+    search_params = ivf_flat.SearchParams(n_probes=100)
+    k = 10
+
+    distance_dev, neighbors_dev = ivf_flat.search(
+        search_params, index, queries_device, k
+    )
+
+    neighbors = neighbors_dev.copy_to_host()
+    dist = distance_dev.copy_to_host()
+    del index
+
+    distance_dev, neighbors_dev = ivf_flat.search(
+        search_params, loaded_index, queries_device, k
+    )
+
+    neighbors2 = neighbors_dev.copy_to_host()
+    dist2 = distance_dev.copy_to_host()
+
+    assert np.all(neighbors == neighbors2)
+    assert np.allclose(dist, dist2, rtol=1e-6)
