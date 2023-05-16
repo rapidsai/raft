@@ -19,6 +19,8 @@
 #pragma once
 
 #include "detail/qr.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -33,7 +35,7 @@ namespace linalg {
  * @param stream cuda stream
  */
 template <typename math_t>
-void qrGetQ(raft::device_resources const& handle,
+void qrGetQ(raft::resources const& handle,
             const math_t* M,
             math_t* Q,
             int n_rows,
@@ -54,7 +56,7 @@ void qrGetQ(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void qrGetQR(raft::device_resources const& handle,
+void qrGetQR(raft::resources const& handle,
              math_t* M,
              math_t* Q,
              math_t* R,
@@ -77,13 +79,18 @@ void qrGetQR(raft::device_resources const& handle,
  * @param[out] Q Output raft::device_matrix_view
  */
 template <typename ElementType, typename IndexType>
-void qr_get_q(raft::device_resources const& handle,
+void qr_get_q(raft::resources const& handle,
               raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
               raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q)
 {
   RAFT_EXPECTS(Q.size() == M.size(), "Size mismatch between Output and Input");
 
-  qrGetQ(handle, M.data_handle(), Q.data_handle(), M.extent(0), M.extent(1), handle.get_stream());
+  qrGetQ(handle,
+         M.data_handle(),
+         Q.data_handle(),
+         M.extent(0),
+         M.extent(1),
+         resource::get_cuda_stream(handle));
 }
 
 /**
@@ -94,7 +101,7 @@ void qr_get_q(raft::device_resources const& handle,
  * @param[out] R Output raft::device_matrix_view
  */
 template <typename ElementType, typename IndexType>
-void qr_get_qr(raft::device_resources const& handle,
+void qr_get_qr(raft::resources const& handle,
                raft::device_matrix_view<const ElementType, IndexType, raft::col_major> M,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> Q,
                raft::device_matrix_view<ElementType, IndexType, raft::col_major> R)
@@ -107,7 +114,7 @@ void qr_get_qr(raft::device_resources const& handle,
           R.data_handle(),
           M.extent(0),
           M.extent(1),
-          handle.get_stream());
+          resource::get_cuda_stream(handle));
 }
 
 /** @} */

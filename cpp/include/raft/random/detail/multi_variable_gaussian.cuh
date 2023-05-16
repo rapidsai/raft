@@ -20,7 +20,10 @@
 #include <memory>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -139,18 +142,16 @@ class multi_variable_gaussian_impl {
   int *info, Lwork, info_h;
   syevjInfo_t syevj_params = NULL;
   curandGenerator_t gen;
-  raft::device_resources const& handle;
+  raft::resources const& handle;
   cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR;
   bool deinitilized      = false;
 
  public:  // functions
   multi_variable_gaussian_impl() = delete;
-  multi_variable_gaussian_impl(raft::device_resources const& handle,
-                               const int dim,
-                               Decomposer method)
+  multi_variable_gaussian_impl(raft::resources const& handle, const int dim, Decomposer method)
     : handle(handle), dim(dim), method(method)
   {
-    auto cusolverHandle = handle.get_cusolver_dn_handle();
+    auto cusolverHandle = resource::get_cusolver_dn_handle(handle);
 
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28));  // SEED
@@ -191,9 +192,9 @@ class multi_variable_gaussian_impl {
 
   void give_gaussian(const int nPoints, T* P, T* X, const T* x = 0)
   {
-    auto cusolverHandle = handle.get_cusolver_dn_handle();
-    auto cublasHandle   = handle.get_cublas_handle();
-    auto cudaStream     = handle.get_stream();
+    auto cusolverHandle = resource::get_cusolver_dn_handle(handle);
+    auto cublasHandle   = resource::get_cublas_handle(handle);
+    auto cudaStream     = resource::get_cuda_stream(handle);
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
       RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(
@@ -299,7 +300,7 @@ class multi_variable_gaussian_setup_token;
 
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method);
@@ -315,7 +316,7 @@ template <typename ValueType>
 class multi_variable_gaussian_setup_token {
   template <typename T>
   friend multi_variable_gaussian_setup_token<T> build_multi_variable_gaussian_token_impl(
-    raft::device_resources const& handle,
+    raft::resources const& handle,
     rmm::mr::device_memory_resource& mem_resource,
     const int dim,
     const multi_variable_gaussian_decomposition_method method);
@@ -342,7 +343,7 @@ class multi_variable_gaussian_setup_token {
 
   // Constructor, only for use by friend functions.
   // Hiding this will let us change the implementation in the future.
-  multi_variable_gaussian_setup_token(raft::device_resources const& handle,
+  multi_variable_gaussian_setup_token(raft::resources const& handle,
                                       rmm::mr::device_memory_resource& mem_resource,
                                       const int dim,
                                       const multi_variable_gaussian_decomposition_method method)
@@ -399,14 +400,15 @@ class multi_variable_gaussian_setup_token {
 
  private:
   std::unique_ptr<multi_variable_gaussian_impl<ValueType>> impl_;
-  raft::device_resources const& handle_;
+  raft::resources const& handle_;
   rmm::mr::device_memory_resource& mem_resource_;
   int dim_ = 0;
 
   auto allocate_workspace() const
   {
     const auto num_elements = impl_->get_workspace_size();
-    return rmm::device_uvector<ValueType>{num_elements, handle_.get_stream(), &mem_resource_};
+    return rmm::device_uvector<ValueType>{
+      num_elements, resource::get_cuda_stream(handle_), &mem_resource_};
   }
 
   int dim() const { return dim_; }
@@ -414,7 +416,7 @@ class multi_variable_gaussian_setup_token {
 
 template <typename ValueType>
 multi_variable_gaussian_setup_token<ValueType> build_multi_variable_gaussian_token_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   const int dim,
   const multi_variable_gaussian_decomposition_method method)
@@ -434,7 +436,7 @@ void compute_multi_variable_gaussian_impl(
 
 template <typename ValueType>
 void compute_multi_variable_gaussian_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   rmm::mr::device_memory_resource& mem_resource,
   std::optional<raft::device_vector_view<const ValueType, int>> x,
   raft::device_matrix_view<ValueType, int, raft::col_major> P,
@@ -455,7 +457,7 @@ class multi_variable_gaussian : public detail::multi_variable_gaussian_impl<T> {
   // using detail::multi_variable_gaussian_impl<T>::Decomposer::qr;
 
   multi_variable_gaussian() = delete;
-  multi_variable_gaussian(raft::device_resources const& handle,
+  multi_variable_gaussian(raft::resources const& handle,
                           const int dim,
                           typename detail::multi_variable_gaussian_impl<T>::Decomposer method)
     : detail::multi_variable_gaussian_impl<T>{handle, dim, method}

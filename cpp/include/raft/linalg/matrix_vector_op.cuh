@@ -22,6 +22,7 @@
 #include "linalg_types.hpp"
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -238,7 +239,7 @@ void matrix_vector_op(raft::device_resources const& handle,
 
 /** @} */  // end of group matrix_vector_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

@@ -18,9 +18,11 @@
 #include <algorithm>
 #include <cmath>
 #include <gtest/gtest.h>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>

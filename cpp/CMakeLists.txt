@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.04")
-set(RAFT_VERSION "23.04.00")
+set(RAPIDS_VERSION "23.06")
+set(RAFT_VERSION "23.06.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -70,15 +70,10 @@ option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
 
-if(BUILD_TESTS
-   OR BUILD_PRIMS_BENCH
-   OR BUILD_ANN_BENCH
-)
-  # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
-  # to have different values for the `Threads::Threads` target. Setting this flag ensures
-  # `Threads::Threads` is the same value in first run and subsequent runs.
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-endif()
+# Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
+# have different values for the `Threads::Threads` target. Setting this flag ensures
+# `Threads::Threads` is the same value across all builds so that cache hits occur
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 include(CMakeDependentOption)
 # cmake_dependent_option( RAFT_USE_FAISS_STATIC "Build and statically link the FAISS library for
@@ -182,22 +177,21 @@ target_include_directories(
 )
 
 # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(
-  raft
-  INTERFACE rmm::rmm
-            cuco::cuco
-            nvidia::cutlass::cutlass
-            CUDA::cublas${_ctk_static_suffix}
-            CUDA::curand${_ctk_static_suffix}
-            CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cusparse${_ctk_static_suffix}
-            raft::Thrust
-)
+target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
   raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
                  --expt-relaxed-constexpr>
+)
+
+set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
+set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
+set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
+set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
+
+set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
+                               ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
 )
 
 # Endian detection
@@ -269,180 +263,139 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 if(RAFT_COMPILE_LIBRARY)
   add_library(
     raft_lib
-    src/distance/pairwise_distance.cu
-    src/distance/fused_l2_min_arg.cu
-    src/cluster/update_centroids_float.cu
-    src/cluster/update_centroids_double.cu
-    src/cluster/cluster_cost_float.cu
-    src/cluster/cluster_cost_double.cu
-    src/neighbors/refine_d_int64_t_float.cu
-    src/neighbors/refine_d_int64_t_int8_t.cu
-    src/neighbors/refine_d_int64_t_uint8_t.cu
-    src/neighbors/refine_h_int64_t_float.cu
-    src/neighbors/refine_h_int64_t_int8_t.cu
-    src/neighbors/refine_h_int64_t_uint8_t.cu
-    src/neighbors/specializations/refine_d_int64_t_float.cu
-    src/neighbors/specializations/refine_d_int64_t_int8_t.cu
-    src/neighbors/specializations/refine_d_int64_t_uint8_t.cu
-    src/neighbors/specializations/refine_h_int64_t_float.cu
-    src/neighbors/specializations/refine_h_int64_t_int8_t.cu
-    src/neighbors/specializations/refine_h_int64_t_uint8_t.cu
-    src/cluster/kmeans_fit_float.cu
-    src/cluster/kmeans_fit_double.cu
-    src/cluster/kmeans_init_plus_plus_double.cu
-    src/cluster/kmeans_init_plus_plus_float.cu
-    src/distance/specializations/detail/canberra_double_double_double_int.cu
-    src/distance/specializations/detail/canberra_float_float_float_int.cu
-    src/distance/specializations/detail/correlation_double_double_double_int.cu
-    src/distance/specializations/detail/correlation_float_float_float_int.cu
-    src/distance/specializations/detail/cosine_double_double_double_int.cu
-    src/distance/specializations/detail/cosine_float_float_float_int.cu
-    src/distance/specializations/detail/hamming_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/hamming_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/hellinger_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/hellinger_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/inner_product_float_float_float_int.cu
-    src/distance/specializations/detail/inner_product_double_double_double_int.cu
-    src/distance/specializations/detail/jensen_shannon_float_float_float_int.cu
-    src/distance/specializations/detail/jensen_shannon_double_double_double_int.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_double.cu
-    src/distance/specializations/detail/kernels/gram_matrix_base_float.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_double_int.cu
-    src/distance/specializations/detail/kernels/polynomial_kernel_float_int.cu
-    # These are somehow missing a kernel definition which is causing a compile error.
-    # src/distance/specializations/detail/kernels/rbf_kernel_double.cu
-    # src/distance/specializations/detail/kernels/rbf_kernel_float.cu
-    src/neighbors/brute_force_knn_int64_t_float.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_double.cu
-    src/distance/specializations/detail/kernels/tanh_kernel_float.cu
-    src/distance/specializations/detail/kl_divergence_float_float_float_int.cu
-    src/distance/specializations/detail/kl_divergence_double_double_double_int.cu
-    src/distance/specializations/detail/l1_float_float_float_int.cu
-    src/distance/specializations/detail/l1_double_double_double_int.cu
-    src/distance/specializations/detail/l2_expanded_float_float_float_int.cu
-    src/distance/specializations/detail/l2_expanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/l2_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/l_inf_double_double_double_int.cu
-    src/distance/specializations/detail/l_inf_float_float_float_int.cu
-    src/distance/specializations/detail/lp_unexpanded_double_double_double_int.cu
-    src/distance/specializations/detail/lp_unexpanded_float_float_float_int.cu
-    src/distance/specializations/detail/russel_rao_double_double_double_int.cu
-    src/distance/specializations/detail/russel_rao_float_float_float_int.cu
-    src/distance/specializations/fused_l2_nn_double_int.cu
-    src/distance/specializations/fused_l2_nn_double_int64.cu
-    src/distance/specializations/fused_l2_nn_float_int.cu
-    src/distance/specializations/fused_l2_nn_float_int64.cu
-    src/matrix/specializations/detail/select_k_float_uint32_t.cu
-    src/matrix/specializations/detail/select_k_float_int64_t.cu
-    src/matrix/specializations/detail/select_k_half_uint32_t.cu
-    src/matrix/specializations/detail/select_k_half_int64_t.cu
-    src/neighbors/ivfpq_build.cu
-    src/neighbors/ivfpq_deserialize.cu
-    src/neighbors/ivfpq_serialize.cu
+    src/core/logger.cpp
+    src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_correlation_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_correlation_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_cosine_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_cosine_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hamming_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_hellinger_expanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_jensen_shannon_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_kl_divergence_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l1_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l1_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_expanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l2_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l_inf_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_l_inf_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_lp_unexpanded_float_float_float_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_rbf.cu
+    src/distance/detail/pairwise_matrix/dispatch_russel_rao_double_double_double_int.cu
+    src/distance/detail/pairwise_matrix/dispatch_russel_rao_float_float_float_int.cu
+    src/distance/distance.cu
+    src/distance/fused_l2_nn.cu
+    src/linalg/detail/coalesced_reduction.cu
+    src/matrix/detail/select_k_double_int64_t.cu
+    src/matrix/detail/select_k_double_uint32_t.cu
+    src/matrix/detail/select_k_float_int64_t.cu
+    src/matrix/detail/select_k_float_uint32_t.cu
+    src/matrix/detail/select_k_half_int64_t.cu
+    src/matrix/detail/select_k_half_uint32_t.cu
+    src/neighbors/ball_cover.cu
+    src/neighbors/brute_force_fused_l2_knn_float_int64_t.cu
+    src/neighbors/brute_force_knn_int64_t_float_int64_t.cu
+    src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
+    src/neighbors/brute_force_knn_int_float_int.cu
+    src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
+    src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
+    src/neighbors/detail/ivf_flat_search.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_float.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_float_half.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
+    src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
+    src/neighbors/detail/selection_faiss_int32_t_float.cu
+    src/neighbors/detail/selection_faiss_int_double.cu
+    src/neighbors/detail/selection_faiss_long_float.cu
+    src/neighbors/detail/selection_faiss_size_t_double.cu
+    src/neighbors/detail/selection_faiss_size_t_float.cu
+    src/neighbors/detail/selection_faiss_uint32_t_float.cu
+    src/neighbors/detail/selection_faiss_int64_t_double.cu
+    src/neighbors/detail/selection_faiss_int64_t_half.cu
+    src/neighbors/detail/selection_faiss_uint32_t_double.cu
+    src/neighbors/detail/selection_faiss_uint32_t_half.cu
+    src/neighbors/ivf_flat_build_float_int64_t.cu
+    src/neighbors/ivf_flat_build_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_float_int64_t.cu
+    src/neighbors/ivf_flat_extend_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_extend_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_float_int64_t.cu
+    src/neighbors/ivf_flat_search_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
+    src/neighbors/ivfpq_build_float_int64_t.cu
+    src/neighbors/ivfpq_build_int8_t_int64_t.cu
+    src/neighbors/ivfpq_build_uint8_t_int64_t.cu
+    src/neighbors/ivfpq_extend_float_int64_t.cu
+    src/neighbors/ivfpq_extend_int8_t_int64_t.cu
+    src/neighbors/ivfpq_extend_uint8_t_int64_t.cu
     src/neighbors/ivfpq_search_float_int64_t.cu
     src/neighbors/ivfpq_search_int8_t_int64_t.cu
     src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/detail/brute_force_knn_impl_long_float_int.cu
-    src/neighbors/specializations/detail/brute_force_knn_impl_long_float_uint.cu
-    src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_int.cu
-    src/neighbors/specializations/detail/brute_force_knn_impl_uint_float_uint.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
-    src/random/rmat_rectangular_generator_int_double.cu
-    src/random/rmat_rectangular_generator_int64_double.cu
-    src/random/rmat_rectangular_generator_int_float.cu
-    src/random/rmat_rectangular_generator_int64_float.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_2d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_2d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_one_3d.cu
-    src/neighbors/specializations/detail/ball_cover_lowdim_pass_two_3d.cu
-    src/neighbors/specializations/ball_cover_all_knn_query.cu
-    src/neighbors/specializations/ball_cover_build_index.cu
-    src/neighbors/specializations/ball_cover_knn_query.cu
-    src/neighbors/specializations/fused_l2_knn_long_float_true.cu
-    src/neighbors/specializations/fused_l2_knn_long_float_false.cu
-    src/neighbors/specializations/fused_l2_knn_int_float_true.cu
-    src/neighbors/specializations/fused_l2_knn_int_float_false.cu
-    src/neighbors/ivf_flat_search.cu
-    src/neighbors/ivf_flat_build.cu
-    src/neighbors/specializations/ivfflat_build_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_float_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfflat_search_uint8_t_int64_t.cu
-    src/neighbors/ivfpq_build.cu
-    src/neighbors/ivfpq_deserialize.cu
-    src/neighbors/ivfpq_serialize.cu
-    src/neighbors/ivfpq_search_float_int64_t.cu
-    src/neighbors/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_build_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_extend_uint8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_float_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_int8_t_int64_t.cu
-    src/neighbors/specializations/ivfpq_search_uint8_t_int64_t.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_float_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_float_half_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8s_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_fp8u_no_smem_lut.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_fast.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_basediff.cu
-    src/neighbors/specializations/detail/compute_similarity_half_half_no_smem_lut.cu
-    src/random/rmat_rectangular_generator_int_double.cu
-    src/random/rmat_rectangular_generator_int64_double.cu
-    src/random/rmat_rectangular_generator_int_float.cu
-    src/random/rmat_rectangular_generator_int64_float.cu
+    src/neighbors/refine_float_float.cu
+    src/neighbors/refine_int8_t_float.cu
+    src/neighbors/refine_uint8_t_float.cu
+    src/raft_runtime/cluster/cluster_cost.cuh
+    src/raft_runtime/cluster/cluster_cost_double.cu
+    src/raft_runtime/cluster/cluster_cost_float.cu
+    src/raft_runtime/cluster/kmeans_fit_double.cu
+    src/raft_runtime/cluster/kmeans_fit_float.cu
+    src/raft_runtime/cluster/kmeans_init_plus_plus_double.cu
+    src/raft_runtime/cluster/kmeans_init_plus_plus_float.cu
+    src/raft_runtime/cluster/update_centroids.cuh
+    src/raft_runtime/cluster/update_centroids_double.cu
+    src/raft_runtime/cluster/update_centroids_float.cu
+    src/raft_runtime/distance/fused_l2_min_arg.cu
+    src/raft_runtime/distance/pairwise_distance.cu
+    src/raft_runtime/matrix/select_k_float_int64_t.cu
+    src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
+    src/raft_runtime/neighbors/ivf_flat_build.cu
+    src/raft_runtime/neighbors/ivf_flat_search.cu
+    src/raft_runtime/neighbors/ivfpq_build.cu
+    src/raft_runtime/neighbors/ivfpq_deserialize.cu
+    src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_search_int8_t_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_search_uint8_t_int64_t.cu
+    src/raft_runtime/neighbors/ivfpq_serialize.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_float.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_int8_t.cu
+    src/raft_runtime/neighbors/refine_d_int64_t_uint8_t.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_float.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_int8_t.cu
+    src/raft_runtime/neighbors/refine_h_int64_t_uint8_t.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int64_double.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int64_float.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int_double.cu
+    src/raft_runtime/random/rmat_rectangular_generator_int_float.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_2d_haversine.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_one_3d_haversine.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_2d_haversine.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_dist.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_euclidean.cu
+    src/spatial/knn/detail/ball_cover/registers_pass_two_3d_haversine.cu
+    src/spatial/knn/detail/fused_l2_knn_int32_t_float.cu
+    src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
+    src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
+    src/util/memory_pool.cpp
   )
   set_target_properties(
     raft_lib
@@ -457,12 +410,24 @@ if(RAFT_COMPILE_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(raft_lib PUBLIC raft::raft $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
+  target_link_libraries(
+    raft_lib
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                         # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
   target_compile_options(
     raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
-  target_compile_definitions(raft_lib INTERFACE "RAFT_COMPILED")
+
+  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
+  # "PUBLIC")
+  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
+
+  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
+  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
@@ -609,13 +574,39 @@ if(TARGET raft_lib)
   list(APPEND raft_export_sets raft-compiled-lib-exports)
 endif()
 
+string(
+  APPEND
+  code_string
+  [=[
+ option(RAFT_ENABLE_CUSOLVER_DEPENDENCY "Enable cusolver dependency" ON)
+ option(RAFT_ENABLE_CUBLAS_DEPENDENCY "Enable cublas dependency" ON)
+ option(RAFT_ENABLE_CURAND_DEPENDENCY "Enable curand dependency" ON)
+ option(RAFT_ENABLE_CUSPARSE_DEPENDENCY "Enable cusparse dependency" ON)
+
+mark_as_advanced(RAFT_ENABLE_CUSOLVER_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUBLAS_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CURAND_DEPENDENCY)
+mark_as_advanced(RAFT_ENABLE_CUSPARSE_DEPENDENCY)
+
+target_link_libraries(raft::raft INTERFACE
+  $<$<BOOL:${RAFT_ENABLE_CUSOLVER_DEPENDENCY}>:${RAFT_CUSOLVER_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUBLAS_DEPENDENCY}>:${RAFT_CUBLAS_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CUSPARSE_DEPENDENCY}>:${RAFT_CUSPARSE_DEPENDENCY}>
+  $<$<BOOL:${RAFT_ENABLE_CURAND_DEPENDENCY}>:${RAFT_CURAND_DEPENDENCY}>
+)
+]=]
+)
+
+# Use `rapids_export` for 22.04 as it will have COMPONENT support
 rapids_export(
   INSTALL raft
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
-  NAMESPACE raft:: DOCUMENTATION doc_string FINAL_CODE_BLOCK code_string
+  NAMESPACE raft::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################
@@ -625,8 +616,10 @@ rapids_export(
   EXPORT_SET raft-exports
   COMPONENTS ${raft_components}
   COMPONENTS_EXPORT_SET ${raft_export_sets}
-  GLOBAL_TARGETS raft
-  compiled distributed DOCUMENTATION doc_string NAMESPACE raft:: FINAL_CODE_BLOCK code_string
+  GLOBAL_TARGETS raft compiled distributed
+  DOCUMENTATION doc_string
+  NAMESPACE raft::
+  FINAL_CODE_BLOCK code_string
 )
 
 # ##################################################################################################

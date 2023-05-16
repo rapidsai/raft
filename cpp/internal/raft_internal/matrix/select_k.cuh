@@ -16,15 +16,11 @@
 
 #pragma once
 
+#include <raft/core/device_resources.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
-
-#ifdef RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
-#include <raft/core/device_resources.hpp>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::matrix::select {
 
@@ -57,7 +53,8 @@ enum class Algo {
   kWarpImmediate,
   kWarpFiltered,
   kWarpDistributed,
-  kWarpDistributedShm
+  kWarpDistributedShm,
+  kFaissBlockSelect
 };
 
 inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
@@ -72,6 +69,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kWarpFiltered: return os << "kWarpFiltered";
     case Algo::kWarpDistributed: return os << "kWarpDistributed";
     case Algo::kWarpDistributedShm: return os << "kWarpDistributedShm";
+    case Algo::kFaissBlockSelect: return os << "kFaissBlockSelect";
     default: return os << "unknown enum value";
   }
 }
@@ -91,12 +89,13 @@ void select_k_impl(const device_resources& handle,
   auto stream = handle.get_stream();
   switch (algo) {
     case Algo::kPublicApi: {
-      auto in_extent   = make_extents<size_t>(batch_size, len);
-      auto out_extent  = make_extents<size_t>(batch_size, k);
-      auto in_span     = make_mdspan<const T, size_t, row_major, false, true>(in, in_extent);
-      auto in_idx_span = make_mdspan<const IdxT, size_t, row_major, false, true>(in_idx, in_extent);
-      auto out_span    = make_mdspan<T, size_t, row_major, false, true>(out, out_extent);
-      auto out_idx_span = make_mdspan<IdxT, size_t, row_major, false, true>(out_idx, out_extent);
+      auto in_extent  = make_extents<int64_t>(batch_size, len);
+      auto out_extent = make_extents<int64_t>(batch_size, k);
+      auto in_span    = make_mdspan<const T, int64_t, row_major, false, true>(in, in_extent);
+      auto in_idx_span =
+        make_mdspan<const IdxT, int64_t, row_major, false, true>(in_idx, in_extent);
+      auto out_span     = make_mdspan<T, int64_t, row_major, false, true>(out, out_extent);
+      auto out_idx_span = make_mdspan<IdxT, int64_t, row_major, false, true>(out_idx, out_extent);
       if (in_idx == nullptr) {
         // NB: std::nullopt prevents automatic inference of the template parameters.
         return matrix::select_k<T, IdxT>(
@@ -158,7 +157,9 @@ void select_k_impl(const device_resources& handle,
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
           in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+    case Algo::kFaissBlockSelect:
+      return neighbors::detail::select_k(
+        in, in_idx, batch_size, len, out, out_idx, select_min, k, stream);
   }
 }
-
 }  // namespace raft::matrix::select

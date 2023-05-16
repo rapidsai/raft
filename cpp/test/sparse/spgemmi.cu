@@ -63,20 +63,20 @@ class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
     int hB_rows[]       = {0, 2, 3, 1, 0, 2, 3, 1, 3};
     float hB_values[]   = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
     float hA[]          = {1.0f,
-                  2.0f,
-                  3.0f,
-                  4.0f,
-                  5.0f,
-                  6.0f,
-                  7.0f,
-                  8.0f,
-                  9.0f,
-                  10.0f,
-                  11.0f,
-                  12.0f,
-                  13.0f,
-                  14.0f,
-                  15.0f};
+                           2.0f,
+                           3.0f,
+                           4.0f,
+                           5.0f,
+                           6.0f,
+                           7.0f,
+                           8.0f,
+                           9.0f,
+                           10.0f,
+                           11.0f,
+                           12.0f,
+                           13.0f,
+                           14.0f,
+                           15.0f};
     std::vector<float> hC(C_size);
     std::vector<float> hC_expected{23, 26, 29, 32,  35,  24, 28, 32, 36, 40,
                                    71, 82, 93, 104, 115, 48, 56, 64, 72, 80};

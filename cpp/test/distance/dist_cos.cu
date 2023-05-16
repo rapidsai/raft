@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,8 +64,7 @@ TEST_P(DistanceExpCosD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosD, ::testing::ValuesIn(inputsd));
 
-class BigMatrixCos : public BigMatrixDistanceTest<raft::distance::DistanceType::CosineExpanded> {
-};
+class BigMatrixCos : public BigMatrixDistanceTest<raft::distance::DistanceType::CosineExpanded> {};
 TEST_F(BigMatrixCos, Result) {}
 
 }  // end namespace distance

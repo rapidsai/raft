@@ -16,8 +16,10 @@
 
 #include "../test_utils.cuh"
 #include <algorithm>
+#include <raft/core/device_resources.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>

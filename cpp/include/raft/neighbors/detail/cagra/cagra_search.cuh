@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
@@ -94,6 +97,22 @@ void search_main(raft::device_resources const& res,
             _num_executed_iterations,
             topk);
   }
+
+  static_assert(std::is_same_v<DistanceT, float>,
+                "only float distances are supported at the moment");
+  float* dist_out          = distances.data_handle();
+  const DistanceT* dist_in = distances.data_handle();
+  // We're converting the data from T to DistanceT during distance computation
+  // and divide the values by kDivisor. Here we restore the original scale.
+  constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
+                           spatial::knn::detail::utils::config<DistanceT>::kDivisor;
+  ivf_pq::detail::postprocess_distances(dist_out,
+                                        dist_in,
+                                        index.metric(),
+                                        distances.extent(0),
+                                        distances.extent(1),
+                                        kScale,
+                                        res.get_stream());
 }
 /** @} */  // end group cagra
 

@@ -22,13 +22,14 @@
 
 #include <algorithm>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -52,7 +53,7 @@ static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_s
 
 /* Internal auxiliary function to generate a low-rank matrix */
 template <typename DataT, typename IdxT>
-static void _make_low_rank_matrix(raft::device_resources const& handle,
+static void _make_low_rank_matrix(raft::resources const& handle,
                                   DataT* out,
                                   IdxT n_rows,
                                   IdxT n_cols,
@@ -61,8 +62,7 @@ static void _make_low_rank_matrix(raft::device_resources const& handle,
                                   raft::random::RngState& r,
                                   cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle       = handle.get_cublas_handle();
+  cublasHandle_t cublas_handle = resource::get_cublas_handle(handle);
 
   IdxT n = std::min(n_rows, n_cols);
 
@@ -83,7 +83,10 @@ static void _make_low_rank_matrix(raft::device_resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
   rmm::device_uvector<DataT> singular_mat(n * n, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
-  raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n, n, stream);
+
+  raft::matrix::set_diagonal(handle,
+                             make_device_vector_view<const DataT, IdxT>(singular_vec.data(), n),
+                             make_device_matrix_view<DataT, IdxT>(singular_mat.data(), n, n));
 
   // Generate the column-major matrix
   rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);
@@ -143,7 +146,7 @@ static __global__ void _gather2d_kernel(
 }
 
 template <typename DataT, typename IdxT>
-void make_regression_caller(raft::device_resources const& handle,
+void make_regression_caller(raft::resources const& handle,
                             DataT* out,
                             DataT* values,
                             IdxT n_rows,
@@ -162,8 +165,7 @@ void make_regression_caller(raft::device_resources const& handle,
 {
   n_informative = std::min(n_informative, n_cols);
 
-  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle       = handle.get_cublas_handle();
+  cublasHandle_t cublas_handle = resource::get_cublas_handle(handle);
 
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
   raft::random::RngState r(seed, type);

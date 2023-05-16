@@ -18,7 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
-//#include <raft/core/host_mdspan.hpp>
+// #include <raft/core/host_mdspan.hpp>
 
 namespace raft::runtime::neighbors {
 

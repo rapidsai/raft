@@ -24,10 +24,6 @@
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/spatial/knn/knn.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
@@ -226,7 +222,8 @@ struct brute_force_knn {
 template <typename ValT, typename IdxT, typename ImplT>
 struct knn : public fixture {
   explicit knn(const params& p, const TransferStrategy& strategy, const Scope& scope)
-    : params_(p),
+    : fixture(true),
+      params_(p),
       strategy_(strategy),
       scope_(scope),
       dev_mem_res_(strategy == TransferStrategy::MANAGED),
@@ -277,8 +274,6 @@ struct knn : public fixture {
         "When benchmarking without index building (Scope::SEARCH), the data must be already on the "
         "device (TransferStrategy::NO_COPY)");
     }
-
-    using_pool_memory_res default_resource;
 
     try {
       std::ostringstream label_stream;
@@ -384,11 +379,10 @@ inline const std::vector<TransferStrategy> kNoCopyOnly{TransferStrategy::NO_COPY
 inline const std::vector<Scope> kScopeFull{Scope::BUILD_SEARCH};
 inline const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::BUILD};
 
-#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                   \
-  namespace BENCHMARK_PRIVATE_NAME(knn)                                          \
-  {                                                                              \
-    using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
-    RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
+#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                 \
+  namespace BENCHMARK_PRIVATE_NAME(knn) {                                      \
+  using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
+  RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
   }
 
 }  // namespace raft::bench::spatial

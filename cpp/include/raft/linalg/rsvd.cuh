@@ -847,7 +847,7 @@ void rsvd_perc_symmetric_jacobi(Args... args)
 
 /** @} */  // end of group rsvd
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

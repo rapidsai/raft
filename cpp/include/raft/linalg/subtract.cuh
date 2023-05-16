@@ -222,7 +222,7 @@ void subtract_scalar(
 
 /** @} */  // end of group subtract
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif
