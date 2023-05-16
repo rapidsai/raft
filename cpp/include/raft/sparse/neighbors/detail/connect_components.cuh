@@ -69,10 +69,13 @@ template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
   value_idx m;
 
+  // default constructor for cutlass
+  DI FixConnectivitiesRedOp() : m(0) {}
+
   FixConnectivitiesRedOp(value_idx m_) : m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other)
+  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
     if (rit < m && other.value < out->value) {
       out->key   = other.key;
@@ -88,12 +91,19 @@ struct FixConnectivitiesRedOp {
       return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
   {
     out->key   = -1;
     out->value = maxVal;
   }
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+
+  DI value_t get_value(value_t& out) const { return out; }
 
   void gather(raft::resources const& handle, value_idx* map) {}
 
