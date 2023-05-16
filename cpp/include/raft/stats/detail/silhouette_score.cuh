@@ -22,6 +22,7 @@
 #include <math.h>
 #include <numeric>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
@@ -191,7 +192,7 @@ struct SilOp {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const DataT* X_in,
   int nRows,
   int nCols,
@@ -307,7 +308,7 @@ DataT silhouette_score(
 
   DataT avgSilhouetteScore = d_avgSilhouetteScore.value(stream);
 
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   avgSilhouetteScore /= nRows;
 

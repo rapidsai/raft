@@ -238,7 +238,7 @@ class stream_syncer {
  public:
   explicit stream_syncer(const device_resources& handle) : handle_(handle)
   {
-    handle_.sync_stream();
+    resource::sync_stream(handle_);
   }
   ~stream_syncer()
   {

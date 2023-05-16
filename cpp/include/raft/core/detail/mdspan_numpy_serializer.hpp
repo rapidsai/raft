@@ -17,14 +17,15 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 
 #include <algorithm>
 #include <complex>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <type_traits>

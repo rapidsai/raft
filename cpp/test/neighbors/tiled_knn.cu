@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "./ann_utils.cuh"
 #include "./knn_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
@@ -60,7 +61,7 @@ template <typename T>
 class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
  public:
   TiledKNNTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       params_(::testing::TestWithParam<TiledKNNInputs>::GetParam()),
       database(params_.num_db_vecs * params_.dim, stream_),
       search_queries(params_.num_queries * params_.dim, stream_),
@@ -198,7 +199,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   cudaStream_t stream_ = 0;
   TiledKNNInputs params_;
   int num_queries;

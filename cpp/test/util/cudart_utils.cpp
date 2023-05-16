@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>
 
@@ -90,11 +91,11 @@ TEST(Raft, Utils)
 
 TEST(Raft, GetDeviceForAddress)
 {
-  device_resources handle;
+  resources handle;
   std::vector<int> h(1);
   ASSERT_EQ(-1, raft::get_device_for_address(h.data()));
 
-  rmm::device_uvector<int> d(1, handle.get_stream());
+  rmm::device_uvector<int> d(1, resource::get_cuda_stream(handle));
   ASSERT_EQ(0, raft::get_device_for_address(d.data()));
 }
 

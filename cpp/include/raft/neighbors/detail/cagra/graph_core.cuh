@@ -23,9 +23,10 @@
 #include <memory>
 #include <omp.h>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <random>
 #include <sys/time.h>
@@ -295,7 +296,7 @@ template <typename DataT,
             host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void sort_knn_graph(raft::device_resources const& res,
+void sort_knn_graph(raft::resources const& res,
                     mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
                     mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
 {
@@ -318,12 +319,15 @@ void sort_knn_graph(raft::device_resources const& res,
   RAFT_LOG_DEBUG("# Sorting kNN Graph on GPUs ");
 
   auto d_dataset = raft::make_device_matrix<DataT, IdxT>(res, dataset_size, dataset_dim);
-  raft::copy(d_dataset.data_handle(), dataset_ptr, dataset_size * dataset_dim, res.get_stream());
+  raft::copy(d_dataset.data_handle(),
+             dataset_ptr,
+             dataset_size * dataset_dim,
+             resource::get_cuda_stream(res));
 
   raft::copy(d_input_graph.data_handle(),
              input_graph_ptr,
              graph_size * input_graph_degree,
-             res.get_stream());
+             resource::get_cuda_stream(res));
 
   void (*kernel_sort)(
     const DataT* const, const IdxT, const uint32_t, IdxT* const, const uint32_t, const uint32_t);
@@ -355,18 +359,19 @@ void sort_knn_graph(raft::device_resources const& res,
   }
   dim3 blocks_sort(graph_size, 1, 1);
   RAFT_LOG_DEBUG(".");
-  kernel_sort<<<blocks_sort, threads_sort, 0, res.get_stream()>>>(d_dataset.data_handle(),
-                                                                  dataset_size,
-                                                                  dataset_dim,
-                                                                  d_input_graph.data_handle(),
-                                                                  graph_size,
-                                                                  input_graph_degree);
-  res.sync_stream();
+  kernel_sort<<<blocks_sort, threads_sort, 0, resource::get_cuda_stream(res)>>>(
+    d_dataset.data_handle(),
+    dataset_size,
+    dataset_dim,
+    d_input_graph.data_handle(),
+    graph_size,
+    input_graph_degree);
+  resource::sync_stream(res);
   RAFT_LOG_DEBUG(".");
   raft::copy(input_graph_ptr,
              d_input_graph.data_handle(),
              graph_size * input_graph_degree,
-             res.get_stream());
+             resource::get_cuda_stream(res));
   RAFT_LOG_DEBUG("\n");
 
   const double time_sort_end = cur_time();
@@ -376,7 +381,7 @@ void sort_knn_graph(raft::device_resources const& res,
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void prune(raft::device_resources const& res,
+void prune(raft::resources const& res,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
@@ -407,11 +412,13 @@ void prune(raft::device_resources const& res,
     RAFT_CUDA_TRY(cudaMemsetAsync(d_detour_count.data_handle(),
                                   0xff,
                                   graph_size * input_graph_degree * sizeof(uint8_t),
-                                  res.get_stream()));
+                                  resource::get_cuda_stream(res)));
 
     auto d_num_no_detour_edges = raft::make_device_vector<uint32_t, IdxT>(res, graph_size);
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      d_num_no_detour_edges.data_handle(), 0x00, graph_size * sizeof(uint32_t), res.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_num_no_detour_edges.data_handle(),
+                                  0x00,
+                                  graph_size * sizeof(uint32_t),
+                                  resource::get_cuda_stream(res)));
 
     auto dev_stats  = raft::make_device_vector<uint64_t>(res, 2);
     auto host_stats = raft::make_host_vector<uint64_t>(2);
@@ -435,7 +442,7 @@ void prune(raft::device_resources const& res,
     raft::copy(d_input_graph.data_handle(),
                input_graph_ptr,
                graph_size * input_graph_degree,
-               res.get_stream());
+               resource::get_cuda_stream(res));
     void (*kernel_prune)(const IdxT* const,
                          const uint32_t,
                          const uint32_t,
@@ -463,11 +470,11 @@ void prune(raft::device_resources const& res,
     const dim3 threads_prune(32, 1, 1);
     const dim3 blocks_prune(batch_size, 1, 1);
 
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(dev_stats.data_handle(), 0, sizeof(uint64_t) * 2, res.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      dev_stats.data_handle(), 0, sizeof(uint64_t) * 2, resource::get_cuda_stream(res)));
 
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
-      kernel_prune<<<blocks_prune, threads_prune, 0, res.get_stream()>>>(
+      kernel_prune<<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
         d_input_graph.data_handle(),
         graph_size,
         input_graph_degree,
@@ -477,20 +484,21 @@ void prune(raft::device_resources const& res,
         d_detour_count.data_handle(),
         d_num_no_detour_edges.data_handle(),
         dev_stats.data_handle());
-      res.sync_stream();
+      resource::sync_stream(res);
       RAFT_LOG_DEBUG(
         "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
         (double)std::min<IdxT>((i_batch + 1) * batch_size, graph_size) / graph_size * 100);
     }
-    res.sync_stream();
+    resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
     raft::copy(detour_count.data_handle(),
                d_detour_count.data_handle(),
                graph_size * input_graph_degree,
-               res.get_stream());
+               resource::get_cuda_stream(res));
 
-    raft::copy(host_stats.data_handle(), dev_stats.data_handle(), 2, res.get_stream());
+    raft::copy(
+      host_stats.data_handle(), dev_stats.data_handle(), 2, resource::get_cuda_stream(res));
     const auto num_keep = host_stats.data_handle()[0];
     const auto num_full = host_stats.data_handle()[1];
 
@@ -538,11 +546,13 @@ void prune(raft::device_resources const& res,
     RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph.data_handle(),
                                   0xff,
                                   graph_size * output_graph_degree * sizeof(IdxT),
-                                  res.get_stream()));
+                                  resource::get_cuda_stream(res)));
 
     auto d_rev_graph_count = raft::make_device_vector<uint32_t, IdxT>(res, graph_size);
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      d_rev_graph_count.data_handle(), 0x00, graph_size * sizeof(uint32_t), res.get_stream()));
+    RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph_count.data_handle(),
+                                  0x00,
+                                  graph_size * sizeof(uint32_t),
+                                  resource::get_cuda_stream(res)));
 
     auto dest_nodes   = raft::make_host_vector<IdxT, IdxT>(graph_size);
     auto d_dest_nodes = raft::make_device_vector<IdxT, IdxT>(res, graph_size);
@@ -552,30 +562,35 @@ void prune(raft::device_resources const& res,
       for (uint64_t i = 0; i < graph_size; i++) {
         dest_nodes.data_handle()[i] = pruned_graph.data_handle()[k + (output_graph_degree * i)];
       }
-      res.sync_stream();
+      resource::sync_stream(res);
 
-      raft::copy(
-        d_dest_nodes.data_handle(), dest_nodes.data_handle(), graph_size, res.get_stream());
+      raft::copy(d_dest_nodes.data_handle(),
+                 dest_nodes.data_handle(),
+                 graph_size,
+                 resource::get_cuda_stream(res));
 
       dim3 threads(256, 1, 1);
       dim3 blocks(1024, 1, 1);
-      kern_make_rev_graph<<<blocks, threads, 0, res.get_stream()>>>(d_dest_nodes.data_handle(),
-                                                                    d_rev_graph.data_handle(),
-                                                                    d_rev_graph_count.data_handle(),
-                                                                    graph_size,
-                                                                    output_graph_degree);
+      kern_make_rev_graph<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(
+        d_dest_nodes.data_handle(),
+        d_rev_graph.data_handle(),
+        d_rev_graph_count.data_handle(),
+        graph_size,
+        output_graph_degree);
       RAFT_LOG_DEBUG("# Making reverse graph on GPUs: %lu / %u    \r", k, output_graph_degree);
     }
 
-    res.sync_stream();
+    resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
     raft::copy(rev_graph.data_handle(),
                d_rev_graph.data_handle(),
                graph_size * output_graph_degree,
-               res.get_stream());
-    raft::copy(
-      rev_graph_count.data_handle(), d_rev_graph_count.data_handle(), graph_size, res.get_stream());
+               resource::get_cuda_stream(res));
+    raft::copy(rev_graph_count.data_handle(),
+               d_rev_graph_count.data_handle(),
+               graph_size,
+               resource::get_cuda_stream(res));
 
     const double time_make_end = cur_time();
     RAFT_LOG_DEBUG("# Making reverse graph time: %.1lf sec", time_make_end - time_make_start);

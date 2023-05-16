@@ -17,15 +17,16 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <raft/core/resource/cublas_handle.hpp>
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::linalg::detail {
 
 template <typename T, bool DevicePointerMode = false>
-void axpy(raft::device_resources const& handle,
+void axpy(raft::resources const& handle,
           const int n,
           const T* alpha,
           const T* x,
@@ -34,7 +35,7 @@ void axpy(raft::device_resources const& handle,
           const int incy,
           cudaStream_t stream)
 {
-  auto cublas_h = handle.get_cublas_handle();
+  auto cublas_h = resource::get_cublas_handle(handle);
   cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
   RAFT_CUBLAS_TRY(cublasaxpy(cublas_h, n, alpha, x, incx, y, incy, stream));
 }

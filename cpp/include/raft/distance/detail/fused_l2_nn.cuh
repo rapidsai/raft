@@ -21,8 +21,10 @@
 #include <raft/core/kvp.hpp>                                // raft::KeyValuePair
 #include <raft/core/operators.hpp>                          // raft::identity_op
 #include <raft/distance/detail/distance_ops/l2_exp.cuh>     // ops::l2_exp_distance_op
+#include <raft/distance/detail/fused_distance_nn/cutlass_base.cuh>
 #include <raft/distance/detail/pairwise_distance_base.cuh>  // PairwiseDistances
 #include <raft/linalg/contractions.cuh>                     // Policy
+#include <raft/util/arch.cuh>                               // raft::util::arch::SM_*
 #include <raft/util/cuda_utils.cuh>                         // raft::ceildiv, raft::shfl
 
 namespace raft {
@@ -41,7 +43,7 @@ struct KVPMinReduceImpl {
 template <typename LabelT, typename DataT>
 struct MinAndDistanceReduceOpImpl {
   typedef typename raft::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(LabelT rid, KVP* out, const KVP& other)
+  DI void operator()(LabelT rid, KVP* out, const KVP& other) const
   {
     if (other.value < out->value) {
       out->key   = other.key;
@@ -49,17 +51,28 @@ struct MinAndDistanceReduceOpImpl {
     }
   }
 
-  DI void operator()(LabelT rid, DataT* out, const KVP& other)
+  DI void operator()(LabelT rid, DataT* out, const KVP& other) const
   {
     if (other.value < *out) { *out = other.value; }
   }
 
-  DI void init(DataT* out, DataT maxVal) { *out = maxVal; }
-  DI void init(KVP* out, DataT maxVal)
+  DI void operator()(LabelT rid, DataT* out, const DataT& other) const
   {
-    out->key   = 0;
-    out->value = maxVal;
+    if (other < *out) { *out = other; }
   }
+
+  DI void init(DataT* out, DataT maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, DataT maxVal) const { out->value = maxVal; }
+
+  DI void init_key(DataT& out, LabelT idx) const { return; }
+  DI void init_key(KVP& out, LabelT idx) const { out.key = idx; }
+
+  DI DataT get_value(KVP& out) const
+  {
+    return out.value;
+    ;
+  }
+  DI DataT get_value(DataT& out) const { return out; }
 };
 
 template <typename LabelT, typename DataT>
@@ -141,6 +154,8 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                                                                   OpT distance_op,
                                                                   FinalLambda fin_op)
 {
+// compile only if below non-ampere arch.
+#if __CUDA_ARCH__ < 800
   extern __shared__ char smem[];
 
   typedef KeyValuePair<IdxT, DataT> KVPair;
@@ -236,7 +251,28 @@ __global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
         fin_op,
         rowEpilog_lambda);
   obj.run();
+#endif
 }
+
+// cg::reduce functor for FusedDistanceNN used in its cutlass version
+// to output the min distance value & key(loc id).
+// This is used in fused_distance_nn/predicated_tile_iterator_reduced_vec.h
+// store_with_byte_offset() passed to cg::reduce() & select_reduce.
+template <typename AccType, typename Index, typename OutType>
+struct kvp_cg_min_reduce_op {
+  typedef typename raft::KeyValuePair<Index, AccType> KVP;
+
+  __host__ __device__ kvp_cg_min_reduce_op() noexcept {};
+
+  using AccTypeT = AccType;
+  using IndexT   = Index;
+  // functor signature.
+  __host__ __device__ KVP operator()(KVP a, KVP b) const { return a.value < b.value ? a : b; }
+
+  __host__ __device__ AccType operator()(AccType a, AccType b) const { return min(a, b); }
+
+  __host__ __device__ bool isAmin(AccType a, AccType b) const { return a < b ? true : false; }
+};
 
 template <typename DataT,
           typename OutT,
@@ -274,9 +310,8 @@ void fusedL2NNImpl(OutT* min,
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 
-  constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
-
-  using AccT = DataT;
+  namespace arch = raft::util::arch;
+  using AccT     = DataT;
   ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{sqrt};
 
   raft::identity_op fin_op{};
@@ -290,11 +325,58 @@ void fusedL2NNImpl(OutT* min,
                                 decltype(distance_op),
                                 decltype(fin_op)>;
 
-  dim3 grid = launchConfigGenerator<P>(m, n, shmemSize, kernel);
+  // Get pointer to fp32 SIMT kernel to determine the runtime architecture of the
+  // current system. Other methods to determine the architecture (that do not
+  // require a pointer) can be error prone. See:
+  // https://github.com/NVIDIA/cub/issues/545
+  void* kernel_ptr   = reinterpret_cast<void*>(kernel);
+  auto runtime_arch  = arch::kernel_runtime_arch(kernel_ptr);
+  auto cutlass_range = arch::SM_range(arch::SM_80(), arch::SM_future());
 
-  kernel<<<grid, blk, shmemSize, stream>>>(
-    min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);
-  RAFT_CUDA_TRY(cudaGetLastError());
+  if (cutlass_range.contains(runtime_arch)) {
+    // If device is SM_80 or later, use CUTLASS-based kernel.
+    using L2Op                  = raft::distance::detail::ops::l2_exp_cutlass_op<DataT, DataT>;
+    using kvp_cg_min_reduce_op_ = kvp_cg_min_reduce_op<DataT, IdxT, OutT>;
+    kvp_cg_min_reduce_op_ cg_reduce_op;
+    L2Op L2_dist_op(sqrt);
+
+    IdxT lda, ldb, ldd;
+    lda = k, ldb = k, ldd = n;
+
+    cutlassFusedDistanceNN<DataT,
+                           DataT,
+                           OutT,
+                           IdxT,
+                           P::Veclen,
+                           kvp_cg_min_reduce_op_,
+                           L2Op,
+                           ReduceOpT,
+                           KVPReduceOpT>(x,
+                                         y,
+                                         xn,
+                                         yn,
+                                         m,
+                                         n,
+                                         k,
+                                         lda,
+                                         ldb,
+                                         ldd,
+                                         min,
+                                         workspace,
+                                         cg_reduce_op,
+                                         L2_dist_op,
+                                         redOp,
+                                         pairRedOp,
+                                         stream);
+  } else {
+    // If device less than SM_80, use fp32 SIMT kernel.
+    constexpr size_t shmemSize = P::SmemSize + ((P::Mblk + P::Nblk) * sizeof(DataT));
+    dim3 grid                  = launchConfigGenerator<P>(m, n, shmemSize, kernel);
+
+    kernel<<<grid, blk, shmemSize, stream>>>(
+      min, x, y, xn, yn, m, n, k, maxVal, workspace, redOp, pairRedOp, distance_op, fin_op);
+    RAFT_CUDA_TRY(cudaGetLastError());
+  }
 }
 
 }  // namespace detail

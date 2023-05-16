@@ -15,7 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
@@ -32,16 +34,16 @@ template <typename math_t>
 class CholeskyR1Test : public ::testing::Test {
  protected:
   CholeskyR1Test()
-    : G(n_rows * n_rows, handle.get_stream()),
-      L(n_rows * n_rows, handle.get_stream()),
-      L_exp(n_rows * n_rows, handle.get_stream()),
-      devInfo(handle.get_stream()),
-      workspace(0, handle.get_stream())
+    : G(n_rows * n_rows, resource::get_cuda_stream(handle)),
+      L(n_rows * n_rows, resource::get_cuda_stream(handle)),
+      L_exp(n_rows * n_rows, resource::get_cuda_stream(handle)),
+      devInfo(resource::get_cuda_stream(handle)),
+      workspace(0, resource::get_cuda_stream(handle))
   {
-    raft::update_device(G.data(), G_host, n_rows * n_rows, handle.get_stream());
+    raft::update_device(G.data(), G_host, n_rows * n_rows, resource::get_cuda_stream(handle));
 
     // Allocate workspace
-    solver_handle = handle.get_cusolver_dn_handle();
+    solver_handle = resource::get_cusolver_dn_handle(handle);
     // TODO: Call from public API when ready
     RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf_bufferSize(
       solver_handle, CUBLAS_FILL_MODE_LOWER, n_rows, L.data(), n_rows, &Lwork));
@@ -55,9 +57,9 @@ class CholeskyR1Test : public ::testing::Test {
                                       nullptr,
                                       &n_bytes,
                                       CUBLAS_FILL_MODE_LOWER,
-                                      handle.get_stream());
+                                      resource::get_cuda_stream(handle));
     Lwork = std::max(Lwork * sizeof(math_t), (size_t)n_bytes);
-    workspace.resize(Lwork, handle.get_stream());
+    workspace.resize(Lwork, resource::get_cuda_stream(handle));
   }
 
   void testR1Update()
@@ -65,14 +67,14 @@ class CholeskyR1Test : public ::testing::Test {
     int n = n_rows * n_rows;
     std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER, CUBLAS_FILL_MODE_UPPER};
     for (auto uplo : fillmode) {
-      raft::copy(L.data(), G.data(), n, handle.get_stream());
+      raft::copy(L.data(), G.data(), n, resource::get_cuda_stream(handle));
       for (int rank = 1; rank <= n_rows; rank++) {
         std::stringstream ss;
         ss << "Rank " << rank << ((uplo == CUBLAS_FILL_MODE_LOWER) ? ", lower" : ", upper");
         SCOPED_TRACE(ss.str());
 
         // Expected solution using Cholesky factorization from scratch
-        raft::copy(L_exp.data(), G.data(), n, handle.get_stream());
+        raft::copy(L_exp.data(), G.data(), n, resource::get_cuda_stream(handle));
         // TODO: Call from public API when ready
         RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDnpotrf(solver_handle,
                                                                 uplo,
@@ -82,40 +84,59 @@ class CholeskyR1Test : public ::testing::Test {
                                                                 (math_t*)workspace.data(),
                                                                 Lwork,
                                                                 devInfo.data(),
-                                                                handle.get_stream()));
+                                                                resource::get_cuda_stream(handle)));
 
         // Incremental Cholesky factorization using rank one updates.
-        raft::linalg::choleskyRank1Update(
-          handle, L.data(), rank, n_rows, workspace.data(), &Lwork, uplo, handle.get_stream());
+        raft::linalg::choleskyRank1Update(handle,
+                                          L.data(),
+                                          rank,
+                                          n_rows,
+                                          workspace.data(),
+                                          &Lwork,
+                                          uplo,
+                                          resource::get_cuda_stream(handle));
 
         ASSERT_TRUE(raft::devArrMatch(L_exp.data(),
                                       L.data(),
                                       n_rows * rank,
                                       raft::CompareApprox<math_t>(3e-3),
-                                      handle.get_stream()));
+                                      resource::get_cuda_stream(handle)));
       }
     }
   }
 
   void testR1Error()
   {
-    raft::update_device(G.data(), G2_host, 4, handle.get_stream());
+    raft::update_device(G.data(), G2_host, 4, resource::get_cuda_stream(handle));
     std::vector<cublasFillMode_t> fillmode{CUBLAS_FILL_MODE_LOWER, CUBLAS_FILL_MODE_UPPER};
     for (auto uplo : fillmode) {
-      raft::copy(L.data(), G.data(), 4, handle.get_stream());
+      raft::copy(L.data(), G.data(), 4, resource::get_cuda_stream(handle));
       ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(
-        handle, L.data(), 1, 2, workspace.data(), &Lwork, uplo, handle.get_stream()));
-      ASSERT_THROW(raft::linalg::choleskyRank1Update(
-                     handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, handle.get_stream()),
+        handle, L.data(), 1, 2, workspace.data(), &Lwork, uplo, resource::get_cuda_stream(handle)));
+      ASSERT_THROW(raft::linalg::choleskyRank1Update(handle,
+                                                     L.data(),
+                                                     2,
+                                                     2,
+                                                     workspace.data(),
+                                                     &Lwork,
+                                                     uplo,
+                                                     resource::get_cuda_stream(handle)),
                    raft::exception);
 
       math_t eps = std::numeric_limits<math_t>::epsilon();
-      ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(
-        handle, L.data(), 2, 2, workspace.data(), &Lwork, uplo, handle.get_stream(), eps));
+      ASSERT_NO_THROW(raft::linalg::choleskyRank1Update(handle,
+                                                        L.data(),
+                                                        2,
+                                                        2,
+                                                        workspace.data(),
+                                                        &Lwork,
+                                                        uplo,
+                                                        resource::get_cuda_stream(handle),
+                                                        eps));
     }
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   cusolverDnHandle_t solver_handle;

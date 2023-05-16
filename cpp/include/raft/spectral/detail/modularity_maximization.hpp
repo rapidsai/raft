@@ -17,6 +17,8 @@
 #pragma once
 
 #include <math.h>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <stdio.h>
 
 #include <cuda.h>
@@ -63,7 +65,7 @@ namespace detail {
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
@@ -75,8 +77,8 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-  auto stream   = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
+  auto stream   = resource::get_cuda_stream(handle);
+  auto cublas_h = resource::get_cublas_handle(handle);
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  // # iters eigen solver, cluster solver residual, # iters cluster solver
@@ -122,7 +124,7 @@ std::tuple<vertex_t, weight_t, vertex_t> modularity_maximization(
  *  @param modularity On exit, modularity
  */
 template <typename vertex_t, typename weight_t>
-void analyzeModularity(raft::device_resources const& handle,
+void analyzeModularity(raft::resources const& handle,
                        raft::spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                        vertex_t nClusters,
                        vertex_t const* __restrict__ clusters,
@@ -134,8 +136,8 @@ void analyzeModularity(raft::device_resources const& handle,
   vertex_t n = csr_m.nrows_;
   weight_t partModularity, clustersize;
 
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto stream   = resource::get_cuda_stream(handle);
 
   // Device memory
   raft::spectral::matrix::vector_t<weight_t> part_i(handle, n);

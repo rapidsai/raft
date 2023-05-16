@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -40,7 +42,7 @@ namespace raft::cluster::detail {
 
 template <raft::cluster::LinkageDistance dist_type, typename value_idx, typename value_t>
 struct distance_graph_impl {
-  void run(raft::device_resources const& handle,
+  void run(raft::resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -58,7 +60,7 @@ struct distance_graph_impl {
  */
 template <typename value_idx, typename value_t>
 struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx, value_t> {
-  void run(raft::device_resources const& handle,
+  void run(raft::resources const& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -68,8 +70,8 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
            rmm::device_uvector<value_t>& data,
            int c)
   {
-    auto stream        = handle.get_stream();
-    auto thrust_policy = handle.get_thrust_policy();
+    auto stream        = resource::get_cuda_stream(handle);
+    auto thrust_policy = resource::get_thrust_policy(handle);
 
     // Need to symmetrize knn into undirected graph
     raft::sparse::COO<value_t, value_idx> knn_graph_coo(stream);
@@ -127,7 +129,7 @@ __global__ void fill_indices2(value_idx* indices, size_t m, size_t nnz)
  * @param[out] data
  */
 template <typename value_idx, typename value_t>
-void pairwise_distances(const raft::device_resources& handle,
+void pairwise_distances(const raft::resources& handle,
                         const value_t* X,
                         size_t m,
                         size_t n,
@@ -136,8 +138,8 @@ void pairwise_distances(const raft::device_resources& handle,
                         value_idx* indices,
                         value_t* data)
 {
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
+  auto stream      = resource::get_cuda_stream(handle);
+  auto exec_policy = resource::get_thrust_policy(handle);
 
   value_idx nnz = m * m;
 
@@ -175,7 +177,7 @@ void pairwise_distances(const raft::device_resources& handle,
  */
 template <typename value_idx, typename value_t>
 struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, value_t> {
-  void run(const raft::device_resources& handle,
+  void run(const raft::resources& handle,
            const value_t* X,
            size_t m,
            size_t n,
@@ -185,7 +187,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, 
            rmm::device_uvector<value_t>& data,
            int c)
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     size_t nnz = m * m;
 
@@ -213,7 +215,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::PAIRWISE, value_idx, 
  *             which will guarantee k <= log(n) + c
  */
 template <typename value_idx, typename value_t, raft::cluster::LinkageDistance dist_type>
-void get_distance_graph(raft::device_resources const& handle,
+void get_distance_graph(raft::resources const& handle,
                         const value_t* X,
                         size_t m,
                         size_t n,
@@ -223,7 +225,7 @@ void get_distance_graph(raft::device_resources const& handle,
                         rmm::device_uvector<value_t>& data,
                         int c)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   indptr.resize(m + 1, stream);
 

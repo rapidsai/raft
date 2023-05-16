@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/homogeneity_score.cuh>
 #include <raft/stats/v_measure.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -65,7 +66,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     // allocating and initializing memory to the GPU
 
-    stream = handle.get_stream();
+    stream = resource::get_cuda_stream(handle);
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
@@ -103,7 +104,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements           = 0;

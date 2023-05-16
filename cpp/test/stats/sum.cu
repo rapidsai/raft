@@ -15,8 +15,9 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -46,7 +47,7 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
  public:
   SumTest()
     : params(::testing::TestWithParam<SumInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
@@ -68,11 +69,11 @@ class SumTest : public ::testing::TestWithParam<SumInputs<T>> {
     sum(handle,
         raft::make_device_matrix_view<const T>(data.data(), rows, cols),
         raft::make_device_vector_view(sum_act.data(), cols));
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SumInputs<T> params;

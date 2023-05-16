@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -46,7 +47,7 @@ template <typename T, typename IdxType>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void matrix_vector_op_launch(const raft::device_resources& handle,
+void matrix_vector_op_launch(const raft::resources& handle,
                              T* in,
                              const T* vec1,
                              IdxType D,
@@ -98,7 +99,7 @@ void matrix_vector_op_launch(const raft::device_resources& handle,
 }
 
 template <typename T, typename IdxType>
-void naive_matrix_vector_op_launch(const raft::device_resources& handle,
+void naive_matrix_vector_op_launch(const raft::resources& handle,
                                    T* in,
                                    const T* vec1,
                                    IdxType D,
@@ -107,7 +108,7 @@ void naive_matrix_vector_op_launch(const raft::device_resources& handle,
                                    bool bcast_along_rows,
                                    int operation_type)
 {
-  auto stream                       = handle.get_stream();
+  auto stream                       = resource::get_cuda_stream(handle);
   auto operation_bin_mult_skip_zero = [] __device__(T mat_element, T vec_element) {
     if (vec_element != T(0)) {
       return mat_element * vec_element;
@@ -144,7 +145,7 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
  public:
   MatrixVectorTest()
     : params(::testing::TestWithParam<MatrixVectorInputs<T, IdxType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.rows * params.cols, stream),
       out_ref(params.rows * params.cols, stream),
       out(params.rows * params.cols, stream),
@@ -161,8 +162,8 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
     IdxType vecLen = params.bcast_along_rows ? D : N;
     uniform(handle, r, in.data(), len, (T)-1.0, (T)1.0);
     uniform(handle, r, vec1.data(), vecLen, (T)-1.0, (T)1.0);
-    raft::copy(out_ref.data(), in.data(), len, handle.get_stream());
-    raft::copy(out.data(), in.data(), len, handle.get_stream());
+    raft::copy(out_ref.data(), in.data(), len, resource::get_cuda_stream(handle));
+    raft::copy(out.data(), in.data(), len, resource::get_cuda_stream(handle));
     naive_matrix_vector_op_launch(handle,
                                   out_ref.data(),
                                   vec1.data(),
@@ -179,11 +180,11 @@ class MatrixVectorTest : public ::testing::TestWithParam<MatrixVectorInputs<T, I
                             params.row_major,
                             params.bcast_along_rows,
                             params.operation_type);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MatrixVectorInputs<T, IdxType> params;

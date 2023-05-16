@@ -145,7 +145,7 @@ struct masked_l2_nn_params {
  *                           (on device)
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void masked_l2_nn(raft::device_resources const& handle,
+void masked_l2_nn(raft::resources const& handle,
                   raft::distance::masked_l2_nn_params<ReduceOpT, KVPReduceOpT> params,
                   raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> x,
                   raft::device_matrix_view<const DataT, IdxT, raft::layout_c_contiguous> y,

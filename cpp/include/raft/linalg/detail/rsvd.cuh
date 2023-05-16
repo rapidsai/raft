@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
@@ -147,7 +149,7 @@ void randomized_svd(const raft::device_resources& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdFixedRank(raft::device_resources const& handle,
+void rsvdFixedRank(raft::resources const& handle,
                    math_t* M,
                    int n_rows,
                    int n_cols,
@@ -164,8 +166,8 @@ void rsvdFixedRank(raft::device_resources const& handle,
                    int max_sweeps,
                    cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
+  cublasHandle_t cublasH       = resource::get_cublas_handle(handle);
 
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
@@ -467,7 +469,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdPerc(raft::device_resources const& handle,
+void rsvdPerc(raft::resources const& handle,
               math_t* M,
               int n_rows,
               int n_cols,

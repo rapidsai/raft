@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/weighted_mean.cuh>
 
 namespace raft {
@@ -112,7 +113,7 @@ void colWeightedMean(
  * @param[in]  along_rows whether to reduce along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void weighted_mean(raft::device_resources const& handle,
+void weighted_mean(raft::resources const& handle,
                    raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                    raft::device_vector_view<const value_t, idx_t> weights,
                    raft::device_vector_view<value_t, idx_t> mu,
@@ -138,7 +139,7 @@ void weighted_mean(raft::device_resources const& handle,
                        data.extent(0),
                        is_row_major,
                        along_rows,
-                       handle.get_stream());
+                       resource::get_cuda_stream(handle));
 }
 
 /**
@@ -154,7 +155,7 @@ void weighted_mean(raft::device_resources const& handle,
  * @param[out] mu the output mean vector of size nrows
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void row_weighted_mean(raft::device_resources const& handle,
+void row_weighted_mean(raft::resources const& handle,
                        raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)
@@ -175,7 +176,7 @@ void row_weighted_mean(raft::device_resources const& handle,
  * @param[out] mu the output mean vector of size ncols
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void col_weighted_mean(raft::device_resources const& handle,
+void col_weighted_mean(raft::resources const& handle,
                        raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                        raft::device_vector_view<const value_t, idx_t> weights,
                        raft::device_vector_view<value_t, idx_t> mu)

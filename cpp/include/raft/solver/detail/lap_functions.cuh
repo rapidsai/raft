@@ -24,9 +24,10 @@
  */
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/solver/linear_assignment_types.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/solver/detail/lap_kernels.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -98,7 +99,7 @@ inline void calculateRectangularDims(
 }
 
 template <typename vertex_t, typename weight_t>
-inline void initialReduction(raft::device_resources const& handle,
+inline void initialReduction(raft::resources const& handle,
                              weight_t const* d_costs,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              int SP,
@@ -110,22 +111,25 @@ inline void initialReduction(raft::device_resources const& handle,
 
   detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
-  kernel_rowReduction<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_rowReduction<<<blocks_per_grid, threads_per_block, 0, resource::get_cuda_stream(handle)>>>(
     d_costs, d_vertices_dev.row_duals, SP, N, std::numeric_limits<weight_t>::max());
 
-  RAFT_CHECK_CUDA(handle.get_stream());
-  kernel_columnReduction<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
+  kernel_columnReduction<<<blocks_per_grid,
+                           threads_per_block,
+                           0,
+                           resource::get_cuda_stream(handle)>>>(
     d_costs,
     d_vertices_dev.row_duals,
     d_vertices_dev.col_duals,
     SP,
     N,
     std::numeric_limits<weight_t>::max());
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
 template <typename vertex_t, typename weight_t>
-inline void computeInitialAssignments(raft::device_resources const& handle,
+inline void computeInitialAssignments(raft::resources const& handle,
                                       weight_t const* d_costs,
                                       Vertices<vertex_t, weight_t>& d_vertices,
                                       int SP,
@@ -138,8 +142,8 @@ inline void computeInitialAssignments(raft::device_resources const& handle,
 
   std::size_t size = SP * N;
 
-  rmm::device_uvector<int> row_lock_v(size, handle.get_stream());
-  rmm::device_uvector<int> col_lock_v(size, handle.get_stream());
+  rmm::device_uvector<int> row_lock_v(size, resource::get_cuda_stream(handle));
+  rmm::device_uvector<int> col_lock_v(size, resource::get_cuda_stream(handle));
 
   thrust::fill_n(thrust::device, d_vertices.row_assignments, size, -1);
   thrust::fill_n(thrust::device, d_vertices.col_assignments, size, -1);
@@ -148,7 +152,10 @@ inline void computeInitialAssignments(raft::device_resources const& handle,
 
   detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
-  kernel_computeInitialAssignments<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_computeInitialAssignments<<<blocks_per_grid,
+                                     threads_per_block,
+                                     0,
+                                     resource::get_cuda_stream(handle)>>>(
     d_costs,
     d_vertices.row_duals,
     d_vertices.col_duals,
@@ -159,12 +166,12 @@ inline void computeInitialAssignments(raft::device_resources const& handle,
     SP,
     N,
     epsilon);
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
 // Function for finding row cover on individual devices.
 template <typename vertex_t, typename weight_t>
-inline int computeRowCovers(raft::device_resources const& handle,
+inline int computeRowCovers(raft::resources const& handle,
                             Vertices<vertex_t, weight_t>& d_vertices,
                             VertexData<vertex_t>& d_row_data,
                             VertexData<vertex_t>& d_col_data,
@@ -188,17 +195,20 @@ inline int computeRowCovers(raft::device_resources const& handle,
   thrust::fill_n(thrust::device, d_col_data.children, size, vertex_t{-1});
 
   detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
-  kernel_computeRowCovers<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_computeRowCovers<<<blocks_per_grid,
+                            threads_per_block,
+                            0,
+                            resource::get_cuda_stream(handle)>>>(
     d_vertices.row_assignments, d_vertices.row_covers, d_row_data.is_visited, SP, N);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
   return thrust::reduce(thrust::device, d_vertices.row_covers, d_vertices.row_covers + size);
 }
 
 // Function for covering the zeros in uncovered rows and expanding the frontier.
 template <typename vertex_t, typename weight_t>
-inline void coverZeroAndExpand(raft::device_resources const& handle,
+inline void coverZeroAndExpand(raft::resources const& handle,
                                weight_t const* d_costs_dev,
                                vertex_t const* d_rows_csr_neighbors,
                                vertex_t const* d_rows_csr_ptrs,
@@ -216,21 +226,23 @@ inline void coverZeroAndExpand(raft::device_resources const& handle,
 
   detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
 
-  kernel_coverAndExpand<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
-    d_flag,
-    d_rows_csr_ptrs,
-    d_rows_csr_neighbors,
-    d_costs_dev,
-    d_vertices_dev,
-    d_row_data_dev,
-    d_col_data_dev,
-    SP,
-    N,
-    epsilon);
+  kernel_coverAndExpand<<<blocks_per_grid,
+                          threads_per_block,
+                          0,
+                          resource::get_cuda_stream(handle)>>>(d_flag,
+                                                               d_rows_csr_ptrs,
+                                                               d_rows_csr_neighbors,
+                                                               d_costs_dev,
+                                                               d_vertices_dev,
+                                                               d_row_data_dev,
+                                                               d_col_data_dev,
+                                                               SP,
+                                                               N,
+                                                               epsilon);
 }
 
 template <typename vertex_t, typename weight_t>
-inline vertex_t zeroCoverIteration(raft::device_resources const& handle,
+inline vertex_t zeroCoverIteration(raft::resources const& handle,
                                    weight_t const* d_costs_dev,
                                    Vertices<vertex_t, weight_t>& d_vertices_dev,
                                    VertexData<vertex_t>& d_row_data_dev,
@@ -242,21 +254,21 @@ inline vertex_t zeroCoverIteration(raft::device_resources const& handle,
 {
   vertex_t M;
 
-  rmm::device_uvector<vertex_t> csr_ptrs_v(0, handle.get_stream());
-  rmm::device_uvector<vertex_t> csr_neighbors_v(0, handle.get_stream());
+  rmm::device_uvector<vertex_t> csr_ptrs_v(0, resource::get_cuda_stream(handle));
+  rmm::device_uvector<vertex_t> csr_neighbors_v(0, resource::get_cuda_stream(handle));
 
   {
     dim3 blocks_per_grid;
     dim3 threads_per_block;
     int total_blocks = 0;
 
-    rmm::device_uvector<bool> predicates_v(SP * N, handle.get_stream());
-    rmm::device_uvector<vertex_t> addresses_v(SP * N, handle.get_stream());
+    rmm::device_uvector<bool> predicates_v(SP * N, resource::get_cuda_stream(handle));
+    rmm::device_uvector<vertex_t> addresses_v(SP * N, resource::get_cuda_stream(handle));
 
     thrust::fill_n(thrust::device, predicates_v.data(), SP * N, false);
     thrust::fill_n(thrust::device, addresses_v.data(), SP * N, vertex_t{0});
 
-    csr_ptrs_v.resize(SP + 1, handle.get_stream());
+    csr_ptrs_v.resize(SP + 1, resource::get_cuda_stream(handle));
 
     thrust::fill_n(thrust::device, csr_ptrs_v.data(), (SP + 1), vertex_t{-1});
 
@@ -266,27 +278,29 @@ inline vertex_t zeroCoverIteration(raft::device_resources const& handle,
     kernel_rowPredicateConstructionCSR<<<blocks_per_grid,
                                          threads_per_block,
                                          0,
-                                         handle.get_stream()>>>(
+                                         resource::get_cuda_stream(handle)>>>(
       predicates_v.data(), addresses_v.data(), d_row_data_dev.is_visited, SP, N);
-    RAFT_CHECK_CUDA(handle.get_stream());
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
     M = thrust::reduce(thrust::device, addresses_v.begin(), addresses_v.end());
     thrust::exclusive_scan(
       thrust::device, addresses_v.begin(), addresses_v.end(), addresses_v.begin());
 
     if (M > 0) {
-      csr_neighbors_v.resize(M, handle.get_stream());
+      csr_neighbors_v.resize(M, resource::get_cuda_stream(handle));
 
-      kernel_rowScatterCSR<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
-        predicates_v.data(),
-        addresses_v.data(),
-        csr_neighbors_v.data(),
-        csr_ptrs_v.data(),
-        M,
-        SP,
-        N);
+      kernel_rowScatterCSR<<<blocks_per_grid,
+                             threads_per_block,
+                             0,
+                             resource::get_cuda_stream(handle)>>>(predicates_v.data(),
+                                                                  addresses_v.data(),
+                                                                  csr_neighbors_v.data(),
+                                                                  csr_ptrs_v.data(),
+                                                                  M,
+                                                                  SP,
+                                                                  N);
 
-      RAFT_CHECK_CUDA(handle.get_stream());
+      RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
     }
   }
 
@@ -310,7 +324,7 @@ inline vertex_t zeroCoverIteration(raft::device_resources const& handle,
 // Function for executing recursive zero cover. Returns the next step (Step 4 or Step 5) depending
 // on the presence of uncovered zeros.
 template <typename vertex_t, typename weight_t>
-inline void executeZeroCover(raft::device_resources const& handle,
+inline void executeZeroCover(raft::resources const& handle,
                              weight_t const* d_costs_dev,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              VertexData<vertex_t>& d_row_data_dev,
@@ -329,7 +343,7 @@ inline void executeZeroCover(raft::device_resources const& handle,
 
 // Function for executing reverse pass of the maximum matching.
 template <typename vertex_t>
-inline void reversePass(raft::device_resources const& handle,
+inline void reversePass(raft::resources const& handle,
                         VertexData<vertex_t>& d_row_data_dev,
                         VertexData<vertex_t>& d_col_data_dev,
                         int SP,
@@ -343,8 +357,8 @@ inline void reversePass(raft::device_resources const& handle,
 
   detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, size);
 
-  rmm::device_uvector<bool> predicates_v(size, handle.get_stream());
-  rmm::device_uvector<vertex_t> addresses_v(size, handle.get_stream());
+  rmm::device_uvector<bool> predicates_v(size, resource::get_cuda_stream(handle));
+  rmm::device_uvector<vertex_t> addresses_v(size, resource::get_cuda_stream(handle));
 
   thrust::fill_n(thrust::device, predicates_v.data(), size, false);
   thrust::fill_n(thrust::device, addresses_v.data(), size, vertex_t{0});
@@ -353,10 +367,10 @@ inline void reversePass(raft::device_resources const& handle,
   kernel_augmentPredicateConstruction<<<blocks_per_grid,
                                         threads_per_block,
                                         0,
-                                        handle.get_stream()>>>(
+                                        resource::get_cuda_stream(handle)>>>(
     predicates_v.data(), addresses_v.data(), d_col_data_dev.is_visited, size);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
   // calculate total number of vertices.
   std::size_t csr_size = thrust::reduce(thrust::device, addresses_v.begin(), addresses_v.end());
@@ -370,22 +384,28 @@ inline void reversePass(raft::device_resources const& handle,
     dim3 threads_per_block_1;
     detail::calculateLinearDims(blocks_per_grid_1, threads_per_block_1, total_blocks_1, csr_size);
 
-    rmm::device_uvector<vertex_t> elements_v(csr_size, handle.get_stream());
+    rmm::device_uvector<vertex_t> elements_v(csr_size, resource::get_cuda_stream(handle));
 
-    kernel_augmentScatter<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+    kernel_augmentScatter<<<blocks_per_grid,
+                            threads_per_block,
+                            0,
+                            resource::get_cuda_stream(handle)>>>(
       elements_v.data(), predicates_v.data(), addresses_v.data(), size);
 
-    RAFT_CHECK_CUDA(handle.get_stream());
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
-    kernel_reverseTraversal<<<blocks_per_grid_1, threads_per_block_1, 0, handle.get_stream()>>>(
+    kernel_reverseTraversal<<<blocks_per_grid_1,
+                              threads_per_block_1,
+                              0,
+                              resource::get_cuda_stream(handle)>>>(
       elements_v.data(), d_row_data_dev, d_col_data_dev, csr_size);
-    RAFT_CHECK_CUDA(handle.get_stream());
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
   }
 }
 
 // Function for executing augmentation pass of the maximum matching.
 template <typename vertex_t, typename weight_t>
-inline void augmentationPass(raft::device_resources const& handle,
+inline void augmentationPass(raft::resources const& handle,
                              Vertices<vertex_t, weight_t>& d_vertices_dev,
                              VertexData<vertex_t>& d_row_data_dev,
                              VertexData<vertex_t>& d_col_data_dev,
@@ -397,8 +417,8 @@ inline void augmentationPass(raft::device_resources const& handle,
   dim3 threads_per_block;
   detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP * N);
 
-  rmm::device_uvector<bool> predicates_v(SP * N, handle.get_stream());
-  rmm::device_uvector<vertex_t> addresses_v(SP * N, handle.get_stream());
+  rmm::device_uvector<bool> predicates_v(SP * N, resource::get_cuda_stream(handle));
+  rmm::device_uvector<vertex_t> addresses_v(SP * N, resource::get_cuda_stream(handle));
 
   thrust::fill_n(thrust::device, predicates_v.data(), SP * N, false);
   thrust::fill_n(thrust::device, addresses_v.data(), SP * N, vertex_t{0});
@@ -407,10 +427,10 @@ inline void augmentationPass(raft::device_resources const& handle,
   kernel_augmentPredicateConstruction<<<blocks_per_grid,
                                         threads_per_block,
                                         0,
-                                        handle.get_stream()>>>(
+                                        resource::get_cuda_stream(handle)>>>(
     predicates_v.data(), addresses_v.data(), d_row_data_dev.is_visited, SP * N);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
   // calculate total number of vertices.
   // TODO: should be vertex_t
@@ -427,28 +447,33 @@ inline void augmentationPass(raft::device_resources const& handle,
     detail::calculateLinearDims(
       blocks_per_grid_1, threads_per_block_1, total_blocks_1, row_ids_csr_size);
 
-    rmm::device_uvector<vertex_t> elements_v(row_ids_csr_size, handle.get_stream());
+    rmm::device_uvector<vertex_t> elements_v(row_ids_csr_size, resource::get_cuda_stream(handle));
 
-    kernel_augmentScatter<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+    kernel_augmentScatter<<<blocks_per_grid,
+                            threads_per_block,
+                            0,
+                            resource::get_cuda_stream(handle)>>>(
       elements_v.data(), predicates_v.data(), addresses_v.data(), vertex_t{SP * N});
 
-    RAFT_CHECK_CUDA(handle.get_stream());
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
-    kernel_augmentation<<<blocks_per_grid_1, threads_per_block_1, 0, handle.get_stream()>>>(
-      d_vertices_dev.row_assignments,
-      d_vertices_dev.col_assignments,
-      elements_v.data(),
-      d_row_data_dev,
-      d_col_data_dev,
-      vertex_t{N},
-      row_ids_csr_size);
+    kernel_augmentation<<<blocks_per_grid_1,
+                          threads_per_block_1,
+                          0,
+                          resource::get_cuda_stream(handle)>>>(d_vertices_dev.row_assignments,
+                                                               d_vertices_dev.col_assignments,
+                                                               elements_v.data(),
+                                                               d_row_data_dev,
+                                                               d_col_data_dev,
+                                                               vertex_t{N},
+                                                               row_ids_csr_size);
 
-    RAFT_CHECK_CUDA(handle.get_stream());
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
   }
 }
 
 template <typename vertex_t, typename weight_t>
-inline void dualUpdate(raft::device_resources const& handle,
+inline void dualUpdate(raft::resources const& handle,
                        Vertices<vertex_t, weight_t>& d_vertices_dev,
                        VertexData<vertex_t>& d_row_data_dev,
                        VertexData<vertex_t>& d_col_data_dev,
@@ -460,10 +485,10 @@ inline void dualUpdate(raft::device_resources const& handle,
   dim3 threads_per_block;
   int total_blocks;
 
-  rmm::device_uvector<weight_t> sp_min_v(SP, handle.get_stream());
+  rmm::device_uvector<weight_t> sp_min_v(SP, resource::get_cuda_stream(handle));
 
   detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
-  kernel_dualUpdate_1<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_dualUpdate_1<<<blocks_per_grid, threads_per_block, 0, resource::get_cuda_stream(handle)>>>(
     sp_min_v.data(),
     d_vertices_dev.col_slacks,
     d_vertices_dev.col_covers,
@@ -471,10 +496,10 @@ inline void dualUpdate(raft::device_resources const& handle,
     N,
     std::numeric_limits<weight_t>::max());
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 
   detail::calculateRectangularDims(blocks_per_grid, threads_per_block, total_blocks, N, SP);
-  kernel_dualUpdate_2<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_dualUpdate_2<<<blocks_per_grid, threads_per_block, 0, resource::get_cuda_stream(handle)>>>(
     sp_min_v.data(),
     d_vertices_dev.row_duals,
     d_vertices_dev.col_duals,
@@ -488,12 +513,12 @@ inline void dualUpdate(raft::device_resources const& handle,
     std::numeric_limits<weight_t>::max(),
     epsilon);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
 // Function for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-inline void calcObjValDual(raft::device_resources const& handle,
+inline void calcObjValDual(raft::resources const& handle,
                            weight_t* d_obj_val,
                            Vertices<vertex_t, weight_t>& d_vertices_dev,
                            int SP,
@@ -505,15 +530,18 @@ inline void calcObjValDual(raft::device_resources const& handle,
 
   detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
 
-  kernel_calcObjValDual<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_calcObjValDual<<<blocks_per_grid,
+                          threads_per_block,
+                          0,
+                          resource::get_cuda_stream(handle)>>>(
     d_obj_val, d_vertices_dev.row_duals, d_vertices_dev.col_duals, SP, N);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
 // Function for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-inline void calcObjValPrimal(raft::device_resources const& handle,
+inline void calcObjValPrimal(raft::resources const& handle,
                              weight_t* d_obj_val,
                              weight_t const* d_costs,
                              vertex_t const* d_row_assignments,
@@ -526,10 +554,13 @@ inline void calcObjValPrimal(raft::device_resources const& handle,
 
   detail::calculateLinearDims(blocks_per_grid, threads_per_block, total_blocks, SP);
 
-  kernel_calcObjValPrimal<<<blocks_per_grid, threads_per_block, 0, handle.get_stream()>>>(
+  kernel_calcObjValPrimal<<<blocks_per_grid,
+                            threads_per_block,
+                            0,
+                            resource::get_cuda_stream(handle)>>>(
     d_obj_val, d_costs, d_row_assignments, SP, N);
 
-  RAFT_CHECK_CUDA(handle.get_stream());
+  RAFT_CHECK_CUDA(resource::get_cuda_stream(handle));
 }
 
 }  // namespace raft::solver::detail

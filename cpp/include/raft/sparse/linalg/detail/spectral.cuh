@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/spectral/cluster_solvers.cuh>
@@ -31,7 +32,7 @@ namespace spectral {
 namespace detail {
 
 template <typename T>
-void fit_embedding(raft::device_resources const& handle,
+void fit_embedding(raft::resources const& handle,
                    int* rows,
                    int* cols,
                    T* vals,
@@ -41,7 +42,7 @@ void fit_embedding(raft::device_resources const& handle,
                    T* out,
                    unsigned long long seed = 1234567)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);
@@ -52,7 +53,7 @@ void fit_embedding(raft::device_resources const& handle,
   rmm::device_uvector<T> eigVecs(n * (n_components + 1), stream);
   rmm::device_uvector<int> labels(n, stream);
 
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   /**
    * Raft spectral clustering
@@ -88,7 +89,7 @@ void fit_embedding(raft::device_resources const& handle,
     using size_type_t  = index_type;
     using value_type_t = value_type;
 
-    std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
+    std::pair<value_type_t, index_type_t> solve(raft::resources const& handle,
                                                 size_type_t n_obs_vecs,
                                                 size_type_t dim,
                                                 value_type_t const* __restrict__ obs,

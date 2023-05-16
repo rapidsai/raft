@@ -17,6 +17,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <thrust/host_vector.h>
 
 #include <raft/core/logger.hpp>
@@ -25,13 +26,13 @@
 
 #include <raft/core/error.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/dispersion.cuh>
 
 namespace raft::cluster::detail {
 
 template <typename value_t, typename idx_t>
-void compute_dispersion(raft::device_resources const& handle,
+void compute_dispersion(raft::resources const& handle,
                         raft::device_matrix_view<const value_t, idx_t> X,
                         KMeansParams& params,
                         raft::device_matrix_view<value_t, idx_t> centroids_view,
@@ -66,7 +67,7 @@ void compute_dispersion(raft::device_resources const& handle,
 }
 
 template <typename idx_t, typename value_t>
-void find_k(raft::device_resources const& handle,
+void find_k(raft::resources const& handle,
             raft::device_matrix_view<const value_t, idx_t> X,
             raft::host_scalar_view<idx_t> best_k,
             raft::host_scalar_view<value_t> residual,
@@ -92,7 +93,7 @@ void find_k(raft::device_resources const& handle,
   auto clusterSizes = raft::make_device_vector<idx_t>(handle, kmax);
   auto labels       = raft::make_device_vector<idx_t>(handle, n);
 
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  rmm::device_uvector<char> workspace(0, resource::get_cuda_stream(handle));
 
   idx_t* clusterSizes_ptr = clusterSizes.data_handle();
 

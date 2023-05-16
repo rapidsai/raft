@@ -15,11 +15,11 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::runtime::cluster::kmeans {
 
-void fit(raft::device_resources const& handle,
+void fit(raft::resources const& handle,
          const raft::cluster::kmeans::KMeansParams& params,
          raft::device_matrix_view<const float, int> X,
          std::optional<raft::device_vector_view<const float, int>> sample_weight,

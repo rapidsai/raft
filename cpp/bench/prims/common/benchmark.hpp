@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -113,7 +114,7 @@ class fixture {
   raft::device_resources handle;
   rmm::cuda_stream_view stream;
 
-  fixture(bool use_pool_memory_resource = false) : stream{handle.get_stream()}
+  fixture(bool use_pool_memory_resource = false) : stream{resource::get_cuda_stream(handle)}
   {
     // Cache memory pool between test runs, since it is expensive to create.
     // This speeds up the time required to run the select_k bench by over 3x.
@@ -209,7 +210,7 @@ class BlobsFixture : public fixture {
                                         (T)blobs_params.center_box_min,
                                         (T)blobs_params.center_box_max,
                                         blobs_params.seed);
-    this->handle.sync_stream(stream);
+    resource::sync_stream(this->handle, stream);
   }
 
  protected:
