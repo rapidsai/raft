@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from .ivf_flat import Index, IndexParams, SearchParams, build, extend, search
+from .ivf_flat import Index, IndexParams, SearchParams, build, extend, search, save, load
 
 __all__ = [
     "Index",
@@ -22,4 +22,6 @@ __all__ = [
     "build",
     "extend",
     "search",
+    "save",
+    "load"
 ]

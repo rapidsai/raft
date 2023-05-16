@@ -43,7 +43,15 @@ namespace raft::runtime::neighbors::ivf_flat {
   void extend(raft::device_resources const& handle,                                  \
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
-              raft::neighbors::ivf_flat::index<T, IdxT>* idx);
+              raft::neighbors::ivf_flat::index<T, IdxT>* idx);                       \
+                                                                                     \
+  void serialize(raft::device_resources const& handle,                               \
+                 const std::string& filename,                                        \
+                 const raft::neighbors::ivf_flat::index<T, IdxT>& index);            \
+                                                                                     \
+  void deserialize(raft::device_resources const& handle,                             \
+                   const std::string& filename,                                      \
+                   raft::neighbors::ivf_flat::index<T, IdxT>* index);
 
 RAFT_INST_BUILD_EXTEND(float, int64_t)
 RAFT_INST_BUILD_EXTEND(int8_t, int64_t)
