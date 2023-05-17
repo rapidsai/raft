@@ -41,7 +41,7 @@ using namespace raft::bench;  // NOLINT
 template <typename KeyT, typename IdxT, select::Algo Algo>
 struct selection : public fixture {
   explicit selection(const select::params& p)
-    : fixture(true),
+    : fixture(p.use_memory_pool),
       params_(p),
       in_dists_(p.batch_size * p.len, stream),
       in_ids_(p.batch_size * p.len, stream),
@@ -193,7 +193,8 @@ SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);     // NOLINT
     using SelectK = selection<KeyT, IdxT, select::Algo::A>;                               \
     std::stringstream name;                                                               \
     name << "SelectKDataset/" << #KeyT "/" #IdxT "/" #A << "/" << input.batch_size << "/" \
-         << input.len << "/" << input.k << "/" << input.use_index_input;                  \
+         << input.len << "/" << input.k << "/" << input.use_index_input << "/"            \
+         << input.use_memory_pool;                                                        \
     auto* b = ::benchmark::internal::RegisterBenchmarkInternal(                           \
       new raft::bench::internal::Fixture<SelectK, select::params>(name.str(), input));    \
     b->UseManualTime();                                                                   \
@@ -261,6 +262,15 @@ void add_select_k_dataset_benchmarks()
   }
 
   for (auto& input : inputs) {
+    SELECTION_REGISTER_INPUT(double, int64_t, input);
+    SELECTION_REGISTER_INPUT(double, uint32_t, input);
+    SELECTION_REGISTER_INPUT(float, int64_t, input);
+    SELECTION_REGISTER_INPUT(float, uint32_t, input);
+  }
+
+  // also try again without a memory pool to see if there are significant differences
+  for (auto input : inputs) {
+    input.use_memory_pool = false;
     SELECTION_REGISTER_INPUT(double, int64_t, input);
     SELECTION_REGISTER_INPUT(double, uint32_t, input);
     SELECTION_REGISTER_INPUT(float, int64_t, input);
