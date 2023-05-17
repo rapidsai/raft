@@ -15,12 +15,12 @@
  */
 
 #include "update_centroids.cuh"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::runtime::cluster::kmeans {
 
-void update_centroids(raft::device_resources const& handle,
+void update_centroids(raft::resources const& handle,
                       const float* X,
                       int n_samples,
                       int n_features,

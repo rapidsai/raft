@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/homogeneity_score.cuh>
 #include <raft/stats/mutual_info_score.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -47,7 +48,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
-    stream          = handle.get_stream();
+    stream          = resource::get_cuda_stream(handle);
 
     // generating random value test input
     std::vector<int> arr1(nElements, 0);
@@ -98,7 +99,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements              = 0;

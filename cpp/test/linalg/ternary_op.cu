@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/ternary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -41,7 +42,7 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
  public:
   ternaryOpTest()
     : params(::testing::TestWithParam<BinaryOpInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       out_add_ref(params.len, stream),
       out_add(params.len, stream),
       out_mul_ref(params.len, stream),
@@ -77,7 +78,7 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
 
  protected:
   BinaryOpInputs<T> params;
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
 
   rmm::device_uvector<T> out_add_ref, out_add, out_mul_ref, out_mul;

@@ -16,6 +16,7 @@
 
 #include <cusparse_v2.h>
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include "../../test_utils.cuh"
 #include <raft/distance/distance_types.hpp>
@@ -60,13 +61,13 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
  public:
   SparseKNNTest()
     : params(::testing::TestWithParam<SparseKNNInputs<value_idx, value_t>>::GetParam()),
-      indptr(0, handle.get_stream()),
-      indices(0, handle.get_stream()),
-      data(0, handle.get_stream()),
-      out_indices(0, handle.get_stream()),
-      out_dists(0, handle.get_stream()),
-      out_indices_ref(0, handle.get_stream()),
-      out_dists_ref(0, handle.get_stream())
+      indptr(0, resource::get_cuda_stream(handle)),
+      indices(0, resource::get_cuda_stream(handle)),
+      data(0, resource::get_cuda_stream(handle)),
+      out_indices(0, resource::get_cuda_stream(handle)),
+      out_dists(0, resource::get_cuda_stream(handle)),
+      out_indices_ref(0, resource::get_cuda_stream(handle)),
+      out_dists_ref(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -99,7 +100,7 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
                                                                  params.batch_size_query,
                                                                  params.metric);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(resource::get_cuda_stream(handle)));
   }
 
   void compare()
@@ -117,7 +118,7 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h      = params.data_h;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     indptr.resize(indptr_h.size(), stream);
     indices.resize(indices_h.size(), stream);
     data.resize(data_h.size(), stream);
@@ -140,7 +141,7 @@ class SparseKNNTest : public ::testing::TestWithParam<SparseKNNInputs<value_idx,
     out_indices.resize(n_rows * k, stream);
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
 
   int n_rows, nnz, k;
 

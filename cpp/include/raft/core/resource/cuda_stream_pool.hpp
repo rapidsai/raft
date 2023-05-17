@@ -173,6 +173,10 @@ inline void sync_stream_pool(const resources& res, const std::vector<std::size_t
  */
 inline void wait_stream_pool_on_stream(const resources& res)
 {
+  if (!res.has_resource_factory(resource_type::CUDA_STREAM_POOL)) {
+    res.add_resource_factory(std::make_shared<cuda_stream_pool_resource_factory>());
+  }
+
   cudaEvent_t event = detail::get_cuda_stream_sync_event(res);
   RAFT_CUDA_TRY(cudaEventRecord(event, get_cuda_stream(res)));
   for (std::size_t i = 0; i < get_stream_pool_size(res); i++) {

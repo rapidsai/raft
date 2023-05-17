@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -28,7 +29,10 @@ namespace stats {
 
 class TrustworthinessScoreTest : public ::testing::Test {
  public:
-  TrustworthinessScoreTest() : d_X(0, handle.get_stream()), d_X_embedded(0, handle.get_stream()) {}
+  TrustworthinessScoreTest()
+    : d_X(0, resource::get_cuda_stream(handle)), d_X_embedded(0, resource::get_cuda_stream(handle))
+  {
+  }
 
  protected:
   void basicTest()
@@ -310,7 +314,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
       -0.02323332, 0.04292452,  0.39291084,  -0.94897962, -0.63863206, -0.16546988, 0.23698957,
       -0.30633628};
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     d_X.resize(X.size(), stream);
     d_X_embedded.resize(X_embedded.size(), stream);
@@ -334,7 +338,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
   void TearDown() override {}
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
 
   rmm::device_uvector<float> d_X;
   rmm::device_uvector<float> d_X_embedded;

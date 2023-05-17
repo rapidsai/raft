@@ -295,7 +295,7 @@ void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_
  */
 template <typename math_t, typename IdxType = int>
 void ratio(
-  raft::device_resources const& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
+  raft::resources const& handle, math_t* src, math_t* dest, IdxType len, cudaStream_t stream)
 {
   detail::ratio(handle, src, dest, len, stream);
 }

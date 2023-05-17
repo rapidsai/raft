@@ -19,9 +19,10 @@
 #pragma once
 
 #include "detail/reduce_rows_by_key.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -136,7 +137,7 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  * @tparam KeyType data-type of keys
  * @tparam WeightType data-type of weights
  * @tparam IndexType index type
- * @param[in]  handle      raft::device_resources
+ * @param[in]  handle      raft::resources
  * @param[in]  d_A         Input raft::device_mdspan (ncols * nrows)
  * @param[in]  d_keys      Keys for each row raft::device_vector_view (1 x nrows)
  * @param[out] d_sums      Row sums by key raft::device_matrix_view (ncols x d_keys)
@@ -148,7 +149,7 @@ void reduce_rows_by_key(const DataIteratorT d_A,
  */
 template <typename ElementType, typename KeyType, typename WeightType, typename IndexType>
 void reduce_rows_by_key(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const ElementType, IndexType, raft::row_major> d_A,
   raft::device_vector_view<const KeyType, IndexType> d_keys,
   raft::device_matrix_view<ElementType, IndexType, raft::row_major> d_sums,
@@ -173,7 +174,7 @@ void reduce_rows_by_key(
                        d_A.extent(0),
                        n_unique_keys,
                        d_sums.data_handle(),
-                       handle.get_stream(),
+                       resource::get_cuda_stream(handle),
                        reset_sums);
   } else {
     reduce_rows_by_key(d_A.data_handle(),
@@ -184,7 +185,7 @@ void reduce_rows_by_key(
                        d_A.extent(0),
                        n_unique_keys,
                        d_sums.data_handle(),
-                       handle.get_stream(),
+                       resource::get_cuda_stream(handle),
                        reset_sums);
   }
 }

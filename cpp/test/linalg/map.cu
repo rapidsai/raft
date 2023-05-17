@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/init.cuh>
@@ -89,7 +90,8 @@ void mapLaunch(OutType* out,
                IdxType len,
                cudaStream_t stream)
 {
-  raft::device_resources handle{stream};
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
   auto out_view = raft::make_device_vector_view(out, len);
   auto in1_view = raft::make_device_vector_view(in1, len);
   auto in2_view = raft::make_device_vector_view(in2, len);
@@ -132,7 +134,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
  public:
   MapTest()
     : params(::testing::TestWithParam<MapInputs<InType, IdxType, OutType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.len, stream),
       in2(params.len, stream),
       in3(params.len, stream),
@@ -180,7 +182,7 @@ class MapTest : public ::testing::TestWithParam<MapInputs<InType, IdxType, OutTy
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MapInputs<InType, IdxType, OutType> params;
@@ -193,7 +195,7 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
  public:
   MapOffsetTest()
     : params(::testing::TestWithParam<MapInputs<OutType, IdxType, OutType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       out_ref(params.len, stream),
       out(params.len, stream)
   {
@@ -214,7 +216,7 @@ class MapOffsetTest : public ::testing::TestWithParam<MapInputs<OutType, IdxType
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MapInputs<OutType, IdxType, OutType> params;
