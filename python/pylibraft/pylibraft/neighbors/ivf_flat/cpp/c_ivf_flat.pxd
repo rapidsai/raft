@@ -134,7 +134,6 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
         device_matrix_view[int64_t, int64_t, row_major] neighbors,
         device_matrix_view[float, int64_t, row_major] distances) except +
 
-
     cdef void serialize(const device_resources& handle,
                         const string& filename,
                         const index[float, int64_t]& index) except +

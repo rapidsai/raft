@@ -709,6 +709,7 @@ def search(SearchParams search_params,
 
     return (distances, neighbors)
 
+
 @auto_sync_handle
 def save(filename, Index index, handle=None):
     """
@@ -758,15 +759,19 @@ def save(filename, Index index, handle=None):
 
     if index.active_index_type == "float32":
         idx_float = index
-        c_ivf_flat.serialize(deref(handle_), c_filename, deref(idx_float.index))
+        c_ivf_flat.serialize(
+            deref(handle_), c_filename, deref(idx_float.index))
     elif index.active_index_type == "byte":
         idx_int8 = index
-        c_ivf_flat.serialize(deref(handle_), c_filename, deref(idx_int8.index))
+        c_ivf_flat.serialize(
+            deref(handle_), c_filename, deref(idx_int8.index))
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
-        c_ivf_flat.serialize(deref(handle_), c_filename, deref(idx_uint8.index))
+        c_ivf_flat.serialize(
+            deref(handle_), c_filename, deref(idx_uint8.index))
     else:
-        raise ValueError("Index dtype %s not supported" % index.active_index_type)
+        raise ValueError(
+            "Index dtype %s not supported" % index.active_index_type)
 
 
 @auto_sync_handle
@@ -848,4 +853,3 @@ def load(filename, dtype, handle=None):
         return idx_uint8
     else:
         raise ValueError("Index dtype %s not supported" % dtype)
-

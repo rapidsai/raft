@@ -165,7 +165,9 @@ def run_ivf_flat_build_search_test(
         "inner_product": "cosine",
         "euclidean": "euclidean",
     }[metric]
-    nn_skl = NearestNeighbors(n_neighbors=k, algorithm="brute", metric=skl_metric)
+    nn_skl = NearestNeighbors(
+        n_neighbors=k, algorithm="brute", metric=skl_metric
+    )
     nn_skl.fit(dataset)
     skl_idx = nn_skl.kneighbors(queries, return_distance=False)
 
@@ -182,7 +184,9 @@ def run_ivf_flat_build_search_test(
 @pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
 @pytest.mark.parametrize("array_type", ["device"])
-def test_ivf_pq_dtypes(n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type):
+def test_ivf_pq_dtypes(
+    n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
+):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
     run_ivf_flat_build_search_test(
@@ -232,7 +236,9 @@ def test_ivf_flat_n(params):
     )
 
 
-@pytest.mark.parametrize("metric", ["sqeuclidean", "inner_product", "euclidean"])
+@pytest.mark.parametrize(
+    "metric", ["sqeuclidean", "inner_product", "euclidean"]
+)
 @pytest.mark.parametrize("dtype", [np.float32])
 def test_ivf_flat_build_params(metric, dtype):
     run_ivf_flat_build_search_test(
@@ -413,9 +419,9 @@ def test_search_inputs(params):
 
     q_dt = params.get("q_dt", np.float32)
     q_order = params.get("q_order", "C")
-    queries = generate_data((n_queries, params.get("q_cols", n_cols)), q_dt).astype(
-        q_dt, order=q_order
-    )
+    queries = generate_data(
+        (n_queries, params.get("q_cols", n_cols)), q_dt
+    ).astype(q_dt, order=q_order)
     queries_device = device_ndarray(queries)
 
     idx_dt = params.get("idx_dt", np.int64)
