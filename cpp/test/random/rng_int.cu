@@ -17,7 +17,8 @@
 #include "../test_utils.cuh"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -73,7 +74,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  public:
   RngTest()
     : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(0, stream),
       stats(2, stream)
   {
@@ -95,10 +96,10 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
       stats.data(), data.data(), params.len);
     update_host<float>(h_stats, stats.data(), 2, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void getExpectedMeanVar(float meanvar[2])
@@ -113,7 +114,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
@@ -127,7 +128,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
  public:
   RngMdspanTest()
     : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(0, stream),
       stats(2, stream)
   {
@@ -148,10 +149,10 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
     meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
       stats.data(), data.data(), params.len);
     update_host<float>(h_stats, stats.data(), 2, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void getExpectedMeanVar(float meanvar[2])
@@ -166,7 +167,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;

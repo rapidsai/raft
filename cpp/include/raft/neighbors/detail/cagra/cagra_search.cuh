@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
@@ -51,7 +53,7 @@ namespace raft::neighbors::experimental::cagra::detail {
  */
 
 template <typename T, typename IdxT = uint32_t, typename DistanceT = float>
-void search_main(raft::device_resources const& res,
+void search_main(raft::resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
                  raft::device_matrix_view<const T, IdxT, row_major> queries,
@@ -112,7 +114,7 @@ void search_main(raft::device_resources const& res,
                                         distances.extent(0),
                                         distances.extent(1),
                                         kScale,
-                                        res.get_stream());
+                                        resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 

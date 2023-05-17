@@ -25,6 +25,9 @@
 #include <cmath>
 #include <cstdio>
 #include <ctime>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <cuda.h>
 #include <thrust/binary_search.h>
@@ -42,7 +45,7 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
@@ -360,7 +363,7 @@ static __global__ void divideCentroids(index_type_t d,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int chooseNewCentroid(raft::device_resources const& handle,
+static int chooseNewCentroid(raft::resources const& handle,
                              index_type_t n,
                              index_type_t d,
                              value_type_t rand,
@@ -375,8 +378,8 @@ static int chooseNewCentroid(raft::device_resources const& handle,
   // Observation vector that is chosen as new centroid
   index_type_t obsIndex;
 
-  auto stream             = handle.get_stream();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   // Compute cumulative sum of distances
   thrust::inclusive_scan(thrust_exec_policy,
@@ -457,7 +460,7 @@ static int chooseNewCentroid(raft::device_resources const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int initializeCentroids(raft::device_resources const& handle,
+static int initializeCentroids(raft::resources const& handle,
                                index_type_t n,
                                index_type_t d,
                                index_type_t k,
@@ -479,8 +482,8 @@ static int initializeCentroids(raft::device_resources const& handle,
   thrust::default_random_engine rng(seed);
   thrust::uniform_real_distribution<value_type_t> uniformDist(0, 1);
 
-  auto stream             = handle.get_stream();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   constexpr unsigned grid_lower_bound{65535};
 
@@ -568,7 +571,7 @@ static int initializeCentroids(raft::device_resources const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int assignCentroids(raft::device_resources const& handle,
+static int assignCentroids(raft::resources const& handle,
                            index_type_t n,
                            index_type_t d,
                            index_type_t k,
@@ -579,8 +582,8 @@ static int assignCentroids(raft::device_resources const& handle,
                            index_type_t* __restrict__ clusterSizes,
                            value_type_t* residual_host)
 {
-  auto stream             = handle.get_stream();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   // Compute distance between centroids and observation vectors
   RAFT_CUDA_TRY(cudaMemsetAsync(dists, 0, n * k * sizeof(value_type_t), stream));
@@ -640,7 +643,7 @@ static int assignCentroids(raft::device_resources const& handle,
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-static int updateCentroids(raft::device_resources const& handle,
+static int updateCentroids(raft::resources const& handle,
                            index_type_t n,
                            index_type_t d,
                            index_type_t k,
@@ -661,9 +664,9 @@ static int updateCentroids(raft::device_resources const& handle,
 
   constexpr unsigned grid_lower_bound{65535};
 
-  auto stream             = handle.get_stream();
-  auto cublas_h           = handle.get_cublas_handle();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto cublas_h           = resource::get_cublas_handle(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   // Device memory
   thrust::device_ptr<value_type_t> obs_copy(work);
@@ -783,7 +786,7 @@ static int updateCentroids(raft::device_resources const& handle,
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(raft::device_resources const& handle,
+int kmeans(raft::resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,
@@ -819,9 +822,9 @@ int kmeans(raft::device_resources const& handle,
   // Initialization
   // -------------------------------------------------------
 
-  auto stream             = handle.get_stream();
-  auto cublas_h           = handle.get_cublas_handle();
-  auto thrust_exec_policy = handle.get_thrust_policy();
+  auto stream             = resource::get_cuda_stream(handle);
+  auto cublas_h           = resource::get_cublas_handle(handle);
+  auto thrust_exec_policy = resource::get_thrust_policy(handle);
 
   // Trivial cases
   if (k == 1) {
@@ -950,7 +953,7 @@ int kmeans(raft::device_resources const& handle,
  *  @return error flag
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(raft::device_resources const& handle,
+int kmeans(raft::resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,

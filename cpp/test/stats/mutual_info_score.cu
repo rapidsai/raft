@@ -17,7 +17,8 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/mutual_info_score.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -104,7 +105,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
     truthmutualInfo /= nElements;
 
     // allocating and initializing memory to the GPU
-    stream = handle.get_stream();
+    stream = resource::get_cuda_stream(handle);
 
     rmm::device_uvector<T> firstClusterArray(nElements, stream);
     rmm::device_uvector<T> secondClusterArray(nElements, stream);
@@ -126,7 +127,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   mutualInfoParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements             = 0;

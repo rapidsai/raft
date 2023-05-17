@@ -21,7 +21,7 @@
 #include "detail/map.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::linalg {
 
@@ -76,7 +76,7 @@ template <typename InType,
  * Usage example:
  * @code{.cpp}
  *  #include <raft/core/device_mdarray.hpp>
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/core/operators.hpp>
  *  #include <raft/linalg/map.cuh>
  *
@@ -90,7 +90,7 @@ template <typename InType,
  * @tparam Func the device-lambda performing the actual operation
  * @tparam InTypes data-types of the inputs (device_mdspan)
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
  *                 (InTypes::value_type xs...) -> OutType::value_type
@@ -101,7 +101,7 @@ template <typename OutType,
           typename... InTypes,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InTypes...>>
-void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
+void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
 {
   return detail::map<false>(res, out, f, ins...);
 }
@@ -113,7 +113,7 @@ void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input (the same size as the output) (device_mdspan)
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
@@ -124,7 +124,7 @@ template <typename InType1,
           typename Func,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1>>
-void map(const raft::device_resources& res, InType1 in1, OutType out, Func f)
+void map(const raft::resources& res, InType1 in1, OutType out, Func f)
 {
   return detail::map<false>(res, out, f, in1);
 }
@@ -137,7 +137,7 @@ void map(const raft::device_resources& res, InType1 in1, OutType out, Func f)
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input (the same size as the output) (device_mdspan)
  * @param[in] in2 the input (the same size as the output) (device_mdspan)
  * @param[out] out the output of the map operation (device_mdspan)
@@ -150,7 +150,7 @@ template <typename InType1,
           typename Func,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1, InType2>>
-void map(const raft::device_resources& res, InType1 in1, InType2 in2, OutType out, Func f)
+void map(const raft::resources& res, InType1 in1, InType2 in2, OutType out, Func f)
 {
   return detail::map<false>(res, out, f, in1, in2);
 }
@@ -164,7 +164,7 @@ void map(const raft::device_resources& res, InType1 in1, InType2 in2, OutType ou
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input 1 (the same size as the output) (device_mdspan)
  * @param[in] in2 the input 2 (the same size as the output) (device_mdspan)
  * @param[in] in3 the input 3 (the same size as the output) (device_mdspan)
@@ -179,8 +179,7 @@ template <typename InType1,
           typename Func,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1, InType2, InType3>>
-void map(
-  const raft::device_resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
+void map(const raft::resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
 {
   return detail::map<false>(res, out, f, in1, in2, in3);
 }
@@ -202,7 +201,7 @@ void map(
  * Usage example:
  * @code{.cpp}
  *  #include <raft/core/device_mdarray.hpp>
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/core/operators.hpp>
  *  #include <raft/linalg/map.cuh>
  *
@@ -214,7 +213,7 @@ void map(
  * @tparam Func the device-lambda performing the actual operation
  * @tparam InTypes data-types of the inputs (device_mdspan)
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
  *                 (auto offset, InTypes::value_type xs...) -> OutType::value_type
@@ -225,7 +224,7 @@ template <typename OutType,
           typename... InTypes,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InTypes...>>
-void map_offset(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
+void map_offset(const raft::resources& res, OutType out, Func f, InTypes... ins)
 {
   return detail::map<true>(res, out, f, ins...);
 }
@@ -237,7 +236,7 @@ void map_offset(const raft::device_resources& res, OutType out, Func f, InTypes.
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input (the same size as the output) (device_mdspan)
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda
@@ -248,7 +247,7 @@ template <typename InType1,
           typename Func,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1>>
-void map_offset(const raft::device_resources& res, InType1 in1, OutType out, Func f)
+void map_offset(const raft::resources& res, InType1 in1, OutType out, Func f)
 {
   return detail::map<true>(res, out, f, in1);
 }
@@ -261,7 +260,7 @@ void map_offset(const raft::device_resources& res, InType1 in1, OutType out, Fun
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input (the same size as the output) (device_mdspan)
  * @param[in] in2 the input (the same size as the output) (device_mdspan)
  * @param[out] out the output of the map operation (device_mdspan)
@@ -274,7 +273,7 @@ template <typename InType1,
           typename Func,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1, InType2>>
-void map_offset(const raft::device_resources& res, InType1 in1, InType2 in2, OutType out, Func f)
+void map_offset(const raft::resources& res, InType1 in1, InType2 in2, OutType out, Func f)
 {
   return detail::map<true>(res, out, f, in1, in2);
 }
@@ -288,7 +287,7 @@ void map_offset(const raft::device_resources& res, InType1 in1, InType2 in2, Out
  * @tparam OutType data-type of the result (device_mdspan)
  * @tparam Func the device-lambda performing the actual operation
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[in] in1 the input 1 (the same size as the output) (device_mdspan)
  * @param[in] in2 the input 2 (the same size as the output) (device_mdspan)
  * @param[in] in3 the input 3 (the same size as the output) (device_mdspan)
@@ -305,7 +304,7 @@ template <typename InType1,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InType1, InType2, InType3>>
 void map_offset(
-  const raft::device_resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
+  const raft::resources& res, InType1 in1, InType2 in2, InType3 in3, OutType out, Func f)
 {
   return detail::map<true>(res, out, f, in1, in2, in3);
 }

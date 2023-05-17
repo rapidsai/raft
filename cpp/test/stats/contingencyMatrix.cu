@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/contingency_matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -40,7 +41,7 @@ template <typename T>
 class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
   ContingencyMatrixTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       dY(0, stream),
       dYHat(0, stream),
       dComputedOutput(0, stream),
@@ -135,7 +136,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
                                   raft::Compare<T>()));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T minLabel, maxLabel;

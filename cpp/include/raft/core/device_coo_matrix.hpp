@@ -110,13 +110,13 @@ constexpr bool is_device_coo_sparsity_preserving_v =
  * on the instance once the sparsity is known.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_matrix = raft::make_device_coo_matrix(handle, n_rows, n_cols);
  * ...
  * // compute expected sparsity
@@ -152,13 +152,13 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * be known up front, and cannot be resized later.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols);
  * ...
  * // compute expected sparsity
@@ -189,7 +189,7 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * coo_matrix if sparsity needs to be mutable.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -199,7 +199,7 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * // The following pointer is assumed to reference device memory for a size of nnz
  * float* d_elm_ptr = ...;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  * coo_matrix_view = raft::make_device_coo_matrix_view(handle, d_elm_ptr, coo_structure.view());
  * @endcode
@@ -226,7 +226,7 @@ auto make_device_coo_matrix_view(
  * coo_matrix if sparsity needs to be mutable.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_span.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
@@ -237,7 +237,7 @@ auto make_device_coo_matrix_view(
  * // The following span is assumed to be of size nnz
  * raft::device_span<float> d_elm_ptr;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  * coo_matrix_view = raft::make_device_coo_matrix_view(handle, d_elm_ptr, coo_structure.view());
  * @endcode
@@ -266,14 +266,14 @@ auto make_device_coo_matrix_view(
  * underlying data arrays.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  * int nnz = 5000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  *  * ...
  * // compute expected sparsity
@@ -305,7 +305,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * sparsity is not known up front.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -316,7 +316,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * int *rows = ...;
  * int *cols = ...;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure_view(handle, rows, cols, n_rows, n_cols,
  * nnz);
  * @endcode
@@ -345,7 +345,7 @@ auto make_device_coordinate_structure_view(
  * sparsity is not known up front.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -356,7 +356,7 @@ auto make_device_coordinate_structure_view(
  * raft::device_span<int> rows;
  * raft::device_span<int> cols;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure_view(handle, rows, cols, n_rows, n_cols);
  * @endcode
  *

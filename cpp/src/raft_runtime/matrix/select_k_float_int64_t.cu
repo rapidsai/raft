@@ -15,7 +15,7 @@
  */
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/select_k.cuh>
 
 #include <raft_runtime/matrix/select_k.hpp>
@@ -24,7 +24,7 @@
 
 namespace raft::runtime::matrix {
 
-void select_k(const device_resources& handle,
+void select_k(const resources& handle,
               raft::device_matrix_view<const float, int64_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const int64_t, int64_t, row_major>> in_idx,
               raft::device_matrix_view<float, int64_t, row_major> out_val,

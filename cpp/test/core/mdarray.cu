@@ -15,14 +15,15 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <gtest/gtest.h>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream.hpp>
@@ -84,7 +85,7 @@ TEST(MDArray, Policy) { test_uvector_policy(); }
 void test_mdarray_basic()
 {
   using matrix_extent = stdex::extents<int, dynamic_extent, dynamic_extent>;
-  raft::device_resources handle;
+  raft::resources handle;
   auto s = resource::get_cuda_stream(handle);
   {
     /**
@@ -190,7 +191,7 @@ TEST(MDArray, Basic) { test_mdarray_basic(); }
 template <typename BasicMDarray, typename PolicyFn, typename ThrustPolicy>
 void test_mdarray_copy_move(ThrustPolicy exec, PolicyFn make_policy)
 {
-  raft::device_resources handle;
+  raft::resources handle;
   using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   layout_c_contiguous::mapping<matrix_extent> layout{matrix_extent{4, 4}};
 
@@ -265,7 +266,7 @@ TEST(MDArray, CopyMove)
   using matrix_extent = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
   using d_matrix_t    = device_mdarray<float, matrix_extent>;
   using policy_t      = typename d_matrix_t::container_policy_type;
-  raft::device_resources handle;
+  raft::resources handle;
   auto s = resource::get_cuda_stream(handle);
   test_mdarray_copy_move<d_matrix_t>(rmm::exec_policy(s), []() { return policy_t{}; });
 
@@ -348,7 +349,7 @@ void test_factory_methods()
     ASSERT_EQ(h_vec.extent(0), n);
   }
   {
-    raft::device_resources handle;
+    raft::resources handle;
     // device mdarray
     auto d_matrix = make_device_matrix<float>(handle, n, n);
     ASSERT_EQ(d_matrix.extent(0), n);
@@ -361,7 +362,7 @@ void test_factory_methods()
   }
 
   {
-    raft::device_resources handle;
+    raft::resources handle;
     // device scalar
     auto d_scalar = make_device_scalar<double>(handle, 17.0);
     static_assert(d_scalar.rank() == 1);
@@ -371,17 +372,17 @@ void test_factory_methods()
     auto view = d_scalar.view();
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
-    thrust::for_each_n(rmm::exec_policy(handle.get_stream()),
+    thrust::for_each_n(rmm::exec_policy(resource::get_cuda_stream(handle)),
                        thrust::make_counting_iterator(0),
                        1,
                        [=] __device__(auto i) {
                          if (view(i) != 17.0) { myAtomicAdd(p_status, 1); }
                        });
-    check_status(p_status, handle.get_stream());
+    check_status(p_status, resource::get_cuda_stream(handle));
   }
   {
     // host scalar
-    raft::device_resources handle;
+    raft::resources handle;
 
     auto h_scalar = make_host_scalar<double>(handle, 17.0);
     static_assert(h_scalar.rank() == 1);
@@ -395,7 +396,7 @@ void test_factory_methods()
 
   // managed
   {
-    raft::device_resources handle;
+    raft::resources handle;
     auto mda = make_device_vector<int>(handle, 10);
 
     auto mdv = make_managed_mdspan(mda.data_handle(), raft::vector_extent<int>{10});
@@ -426,7 +427,7 @@ void check_matrix_layout(device_matrix_view<T, Index, LayoutPolicy> in)
 
 TEST(MDArray, FuncArg)
 {
-  raft::device_resources handle;
+  raft::resources handle;
   {
     auto d_matrix = make_device_matrix<float>(handle, 10, 10);
     check_matrix_layout(d_matrix.view());
@@ -497,7 +498,7 @@ TEST(MDSpan, LayoutRightPadded) { test_mdspan_layout_right_padded(); }
 void test_mdarray_padding()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
-  raft::device_resources handle;
+  raft::resources handle;
   auto s = resource::get_cuda_stream(handle);
   {
     constexpr int rows            = 6;
@@ -741,7 +742,7 @@ struct TestElement1 {
 void test_mdspan_padding_by_type()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
-  raft::device_resources handle;
+  raft::resources handle;
   auto s = rmm::cuda_stream_default;
 
   {
@@ -814,7 +815,7 @@ TEST(MDSpan, MDSpanPaddingType) { test_mdspan_padding_by_type(); }
 void test_mdspan_aligned_matrix()
 {
   using extents_type = stdex::extents<size_t, dynamic_extent, dynamic_extent>;
-  raft::device_resources handle;
+  raft::resources handle;
   constexpr int rows = 2;
   constexpr int cols = 10;
 
@@ -930,10 +931,10 @@ void test_mdarray_unravel()
   }
 
   {
-    raft::device_resources handle;
+    raft::resources handle;
     auto m   = make_device_matrix<float, size_t>(handle, 7, 6);
     auto m_v = m.view();
-    thrust::for_each_n(handle.get_thrust_policy(),
+    thrust::for_each_n(resource::get_thrust_policy(handle),
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
                        [=] HD(size_t i) {
@@ -943,7 +944,7 @@ void test_mdarray_unravel()
                        });
     thrust::device_vector<int32_t> status(1, 0);
     auto p_status = status.data().get();
-    thrust::for_each_n(handle.get_thrust_policy(),
+    thrust::for_each_n(resource::get_thrust_policy(handle),
                        thrust::make_counting_iterator(0ul),
                        m_v.size(),
                        [=] __device__(size_t i) {
@@ -952,7 +953,7 @@ void test_mdarray_unravel()
                          auto v = std::apply(m_v, coord);
                          if (v != static_cast<float>(i)) { raft::myAtomicAdd(p_status, 1); }
                        });
-    check_status(p_status, handle.get_stream());
+    check_status(p_status, resource::get_cuda_stream(handle));
   }
 }
 }  // anonymous namespace

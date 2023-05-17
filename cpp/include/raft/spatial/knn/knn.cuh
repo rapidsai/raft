@@ -194,7 +194,7 @@ template <typename idx_t = int, typename value_t = float>
  *            as input vector.
  */
 template <typename idx_t = std::int64_t, typename value_t = float, typename value_int = int>
-void brute_force_knn(raft::device_resources const& handle,
+void brute_force_knn(raft::resources const& handle,
                      std::vector<value_t*>& input,
                      std::vector<value_int>& sizes,
                      value_int D,

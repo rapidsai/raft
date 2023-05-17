@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/mean_center.cuh>
 
 namespace raft {
@@ -96,7 +97,7 @@ void meanAdd(Type* out,
  * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean_center(raft::device_resources const& handle,
+void mean_center(raft::resources const& handle,
                  raft::device_matrix_view<const value_t, idx_t, layout_t> data,
                  raft::device_vector_view<const value_t, idx_t> mu,
                  raft::device_matrix_view<value_t, idx_t, layout_t> out,
@@ -117,7 +118,7 @@ void mean_center(raft::device_resources const& handle,
                                      data.extent(0),
                                      std::is_same_v<layout_t, raft::row_major>,
                                      bcast_along_rows,
-                                     handle.get_stream());
+                                     resource::get_cuda_stream(handle));
 }
 
 /**
@@ -133,7 +134,7 @@ void mean_center(raft::device_resources const& handle,
  * @param[in]  bcast_along_rows whether to broadcast vector along rows or columns
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean_add(raft::device_resources const& handle,
+void mean_add(raft::resources const& handle,
               raft::device_matrix_view<const value_t, idx_t, layout_t> data,
               raft::device_vector_view<const value_t, idx_t> mu,
               raft::device_matrix_view<value_t, idx_t, layout_t> out,
@@ -154,7 +155,7 @@ void mean_add(raft::device_resources const& handle,
                                   data.extent(0),
                                   std::is_same_v<layout_t, raft::row_major>,
                                   bcast_along_rows,
-                                  handle.get_stream());
+                                  resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_mean_center

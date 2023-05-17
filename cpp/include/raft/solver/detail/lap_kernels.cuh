@@ -26,7 +26,7 @@
 
 #include "../linear_assignment_types.hpp"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/execution_policy.h>

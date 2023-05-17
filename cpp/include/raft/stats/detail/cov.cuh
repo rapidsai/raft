@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/stats/mean_center.cuh>
 
@@ -44,7 +45,7 @@ namespace detail {
  * function returns!
  */
 template <typename Type>
-void cov(raft::device_resources const& handle,
+void cov(raft::resources const& handle,
          Type* covar,
          Type* data,
          const Type* mu,
@@ -56,7 +57,7 @@ void cov(raft::device_resources const& handle,
          cudaStream_t stream)
 {
   if (stable) {
-    cublasHandle_t cublas_h = handle.get_cublas_handle();
+    cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
 
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!

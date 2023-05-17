@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/resource_types.hpp>
 #include <raft/core/resources.hpp>
 #include <rmm/exec_policy.hpp>

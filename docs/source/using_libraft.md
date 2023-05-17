@@ -31,7 +31,7 @@ To verify that you are not accidentally instantiating templates that have not be
 #endif
 
 #include <cstdint>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 
 int main()

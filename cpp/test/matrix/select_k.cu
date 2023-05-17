@@ -15,10 +15,11 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/matrix/select_k.cuh>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -102,8 +103,8 @@ struct io_computed {
       default: break;
     }
 
-    device_resources handle{};
-    auto stream = handle.get_stream();
+    resources handle{};
+    auto stream = resource::get_cuda_stream(handle);
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
     rmm::device_uvector<IdxT> in_ids_d(in_ids_.size(), stream);
@@ -347,9 +348,9 @@ struct with_ref {
       auto algo = std::get<1>(ps);
       std::vector<KeyT> dists(spec.len * spec.batch_size);
 
-      raft::device_resources handle;
+      raft::resources handle;
       {
-        auto s = handle.get_stream();
+        auto s = resource::get_cuda_stream(handle);
         rmm::device_uvector<KeyT> dists_d(spec.len * spec.batch_size, s);
         raft::random::RngState r(42);
         normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));

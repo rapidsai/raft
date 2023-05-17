@@ -17,10 +17,11 @@
 #pragma once
 
 #include "detail/select_k.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resources.hpp>
 
 #include <optional>
 
@@ -75,7 +76,7 @@ namespace raft::matrix {
  *   whether to select k smallest (true) or largest (false) keys.
  */
 template <typename T, typename IdxT>
-void select_k(const device_resources& handle,
+void select_k(const resources& handle,
               raft::device_matrix_view<const T, int64_t, row_major> in_val,
               std::optional<raft::device_matrix_view<const IdxT, int64_t, row_major>> in_idx,
               raft::device_matrix_view<T, int64_t, row_major> out_val,
@@ -102,7 +103,7 @@ void select_k(const device_resources& handle,
                                    out_val.data_handle(),
                                    out_idx.data_handle(),
                                    select_min,
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group select_k

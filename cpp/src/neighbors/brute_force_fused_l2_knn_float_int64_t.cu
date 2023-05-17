@@ -30,7 +30,7 @@
 #define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
   value_t, idx_t, idx_layout, query_layout)                             \
   template void raft::neighbors::brute_force::fused_l2_knn(             \
-    raft::device_resources const& handle,                               \
+    raft::resources const& handle,                                      \
     raft::device_matrix_view<const value_t, idx_t, idx_layout> index,   \
     raft::device_matrix_view<const value_t, idx_t, query_layout> query, \
     raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,         \

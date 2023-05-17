@@ -19,7 +19,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/rand_index.cuh>
 
 namespace raft {
@@ -55,7 +56,7 @@ double rand_index(T* firstClusterArray, T* secondClusterArray, uint64_t size, cu
  * @return: The RandIndex value.
  */
 template <typename value_t, typename idx_t>
-double rand_index(raft::device_resources const& handle,
+double rand_index(raft::resources const& handle,
                   raft::device_vector_view<const value_t, idx_t> first_cluster_array,
                   raft::device_vector_view<const value_t, idx_t> second_cluster_array)
 {
@@ -66,7 +67,7 @@ double rand_index(raft::device_resources const& handle,
   return detail::compute_rand_index(first_cluster_array.data_handle(),
                                     second_cluster_array.data_handle(),
                                     second_cluster_array.extent(0),
-                                    handle.get_stream());
+                                    resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_rand_index
