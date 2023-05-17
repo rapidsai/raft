@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -49,7 +50,7 @@ static const size_t EMPTY = 0;
  * @param[in] n_clusters number of clusters to assign data samples
  */
 template <typename value_idx, typename value_t, LinkageDistance dist_type>
-void single_linkage(raft::device_resources const& handle,
+void single_linkage(raft::resources const& handle,
                     const value_t* X,
                     size_t m,
                     size_t n,
@@ -60,7 +61,7 @@ void single_linkage(raft::device_resources const& handle,
 {
   ASSERT(n_clusters <= m, "n_clusters must be less than or equal to the number of data points");
 
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<value_idx> indptr(EMPTY, stream);
   rmm::device_uvector<value_idx> indices(EMPTY, stream);

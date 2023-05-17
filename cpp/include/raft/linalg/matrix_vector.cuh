@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/linalg_types.hpp>
 #include <raft/matrix/detail/math.cuh>
 #include <raft/util/input_validation.hpp>
@@ -37,7 +38,7 @@ namespace raft::linalg {
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_mult_skip_zero(raft::device_resources const& handle,
+void binary_mult_skip_zero(raft::resources const& handle,
                            raft::device_matrix_view<math_t, idx_t, layout_t> data,
                            raft::device_vector_view<const math_t, idx_t> vec,
                            Apply apply)
@@ -58,7 +59,7 @@ void binary_mult_skip_zero(raft::device_resources const& handle,
                                                  data.extent(1),
                                                  row_major,
                                                  bcast_along_rows,
-                                                 handle.get_stream());
+                                                 resource::get_cuda_stream(handle));
 }
 
 /**
@@ -70,7 +71,7 @@ void binary_mult_skip_zero(raft::device_resources const& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_div(raft::device_resources const& handle,
+void binary_div(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)
@@ -91,7 +92,7 @@ void binary_div(raft::device_resources const& handle,
                                         data.extent(1),
                                         row_major,
                                         bcast_along_rows,
-                                        handle.get_stream());
+                                        resource::get_cuda_stream(handle));
 }
 
 /**
@@ -105,7 +106,7 @@ void binary_div(raft::device_resources const& handle,
  * value if false
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_div_skip_zero(raft::device_resources const& handle,
+void binary_div_skip_zero(raft::resources const& handle,
                           raft::device_matrix_view<math_t, idx_t, layout_t> data,
                           raft::device_vector_view<const math_t, idx_t> vec,
                           Apply apply,
@@ -127,7 +128,7 @@ void binary_div_skip_zero(raft::device_resources const& handle,
                                                 data.extent(1),
                                                 row_major,
                                                 bcast_along_rows,
-                                                handle.get_stream(),
+                                                resource::get_cuda_stream(handle),
                                                 return_zero);
 }
 
@@ -140,7 +141,7 @@ void binary_div_skip_zero(raft::device_resources const& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_add(raft::device_resources const& handle,
+void binary_add(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)
@@ -161,7 +162,7 @@ void binary_add(raft::device_resources const& handle,
                                         data.extent(1),
                                         row_major,
                                         bcast_along_rows,
-                                        handle.get_stream());
+                                        resource::get_cuda_stream(handle));
 }
 
 /**
@@ -173,7 +174,7 @@ void binary_add(raft::device_resources const& handle,
  * the rows of the matrix or columns using enum class raft::linalg::Apply
  */
 template <typename math_t, typename idx_t, typename layout_t>
-void binary_sub(raft::device_resources const& handle,
+void binary_sub(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout_t> data,
                 raft::device_vector_view<const math_t, idx_t> vec,
                 Apply apply)
@@ -194,7 +195,7 @@ void binary_sub(raft::device_resources const& handle,
                                         data.extent(1),
                                         row_major,
                                         bcast_along_rows,
-                                        handle.get_stream());
+                                        resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of matrix_vector

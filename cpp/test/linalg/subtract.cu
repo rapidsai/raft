@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/subtract.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -73,7 +74,7 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
  public:
   SubtractTest()
     : params(::testing::TestWithParam<SubtractInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
@@ -104,11 +105,11 @@ class SubtractTest : public ::testing::TestWithParam<SubtractInputs<T>> {
     subtract_scalar(handle, const_out_view, out_view, scalar_view);
     subtract(handle, const_in1_view, const_in2_view, in1_view);
     subtract_scalar(handle, const_in1_view, in1_view, scalar_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SubtractInputs<T> params;

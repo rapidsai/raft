@@ -29,12 +29,11 @@ class factory {
   /**
    * Create a search structure for dataset with dim features.
    */
-  static std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> create(
-    raft::device_resources const& res,
-    search_params const& params,
-    int64_t dim,
-    int64_t graph_degree,
-    uint32_t topk)
+  static std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> create(raft::resources const& res,
+                                                                      search_params const& params,
+                                                                      int64_t dim,
+                                                                      int64_t graph_degree,
+                                                                      uint32_t topk)
   {
     search_plan_impl_base plan(params, dim, graph_degree, topk);
     switch (plan.max_dim) {
@@ -70,7 +69,7 @@ class factory {
  private:
   template <unsigned MAX_DATASET_DIM, unsigned TEAM_SIZE>
   static std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> dispatch_kernel(
-    raft::device_resources const& res, search_plan_impl_base& plan)
+    raft::resources const& res, search_plan_impl_base& plan)
   {
     if (plan.algo == search_algo::SINGLE_CTA) {
       return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>>(

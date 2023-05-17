@@ -20,13 +20,15 @@
 #define _USE_MATH_DEFINES
 
 #include <cmath>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <vector>
 
 #include <cuda.h>
 #include <curand.h>
 
 #include "cublas_wrappers.hpp"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/spectral/detail/lapack.hpp>
 #include <raft/spectral/detail/warn_dbg.hpp>
 #include <raft/spectral/matrix_wrappers.hpp>
@@ -82,7 +84,7 @@ inline curandStatus_t curandGenerateNormalX(
  *  @return Zero if successful. Otherwise non-zero.
  */
 template <typename index_type_t, typename value_type_t>
-int performLanczosIteration(raft::device_resources const& handle,
+int performLanczosIteration(raft::resources const& handle,
                             spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
                             index_type_t* iter,
                             index_type_t maxIter,
@@ -104,8 +106,8 @@ int performLanczosIteration(raft::device_resources const& handle,
   constexpr value_type_t zero   = 0;
   value_type_t alpha;
 
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto stream   = resource::get_cuda_stream(handle);
 
   RAFT_EXPECTS(A != nullptr, "Null matrix pointer.");
 
@@ -269,7 +271,7 @@ int performLanczosIteration(raft::device_resources const& handle,
     RAFT_CUBLAS_TRY(cublasscal(cublas_h, n, &alpha, lanczosVecs_dev + IDX(0, *iter, n), 1, stream));
   }
 
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   return 0;
 }
@@ -540,7 +542,7 @@ static int francisQRIteration(index_type_t n,
  *  @return error flag.
  */
 template <typename index_type_t, typename value_type_t>
-static int lanczosRestart(raft::device_resources const& handle,
+static int lanczosRestart(raft::resources const& handle,
                           index_type_t n,
                           index_type_t iter,
                           index_type_t iter_new,
@@ -562,8 +564,8 @@ static int lanczosRestart(raft::device_resources const& handle,
   constexpr value_type_t zero = 0;
   constexpr value_type_t one  = 1;
 
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto stream   = resource::get_cuda_stream(handle);
 
   // Loop index
   index_type_t i;
@@ -743,7 +745,7 @@ static int lanczosRestart(raft::device_resources const& handle,
  */
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -794,8 +796,8 @@ int computeSmallestEigenvectors(
   RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
   RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto stream   = resource::get_cuda_stream(handle);
 
   // -------------------------------------------------------
   // Variable initialization
@@ -984,7 +986,7 @@ int computeSmallestEigenvectors(
 
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -1087,7 +1089,7 @@ int computeSmallestEigenvectors(
  */
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const* A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -1138,8 +1140,8 @@ int computeLargestEigenvectors(
   RAFT_EXPECTS(maxIter >= nEigVecs, "Invalid maxIter.");
   RAFT_EXPECTS(restartIter >= nEigVecs, "Invalid restartIter.");
 
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto cublas_h = resource::get_cublas_handle(handle);
+  auto stream   = resource::get_cuda_stream(handle);
 
   // -------------------------------------------------------
   // Variable initialization
@@ -1331,7 +1333,7 @@ int computeLargestEigenvectors(
 
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,

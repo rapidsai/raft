@@ -20,7 +20,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/mean.cuh>
 
 namespace raft {
@@ -70,7 +71,7 @@ void mean(
  *   to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void mean(raft::device_resources const& handle,
+void mean(raft::resources const& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
           raft::device_vector_view<value_t, idx_t> mu,
           bool sample)
@@ -87,7 +88,7 @@ void mean(raft::device_resources const& handle,
                data.extent(0),
                sample,
                std::is_same_v<layout_t, raft::row_major>,
-               handle.get_stream());
+               resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_mean

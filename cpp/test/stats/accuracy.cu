@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -45,7 +46,7 @@ template <typename T>
 template <typename T>
 class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs<T>> {
  protected:
-  AccuracyTest() : stream(handle.get_stream()) {}
+  AccuracyTest() : stream(resource::get_cuda_stream(handle)) {}
 
   void SetUp() override
   {
@@ -76,7 +77,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs<T>> {
 
  protected:
   AccuracyInputs<T> params;
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   T expectedVal, actualVal;
 };

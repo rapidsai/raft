@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/cholesky_r1_update.cuh"
+#include <raft/core/resource/cublas_handle.hpp>
 
 namespace raft {
 namespace linalg {
@@ -72,7 +73,7 @@ namespace linalg {
  *   // Calculate a new row/column of matrix A into A_new
  *   // ...
  *   // Copy new row to L[rank-1,:]
- *   RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1,
+ *   RAFT_CUBLAS_TRY(cublasCopy(resource::get_cublas_handle(handle), n - 1, A_new, 1,
  *                           L + n - 1, ld_L, stream));
  *   // Update Cholesky factorization
  *   raft::linalg::choleskyRank1Update(
@@ -121,7 +122,7 @@ namespace linalg {
  *    conditioned systems. Negative values mean no regularizaton.
  */
 template <typename math_t>
-void choleskyRank1Update(raft::device_resources const& handle,
+void choleskyRank1Update(raft::resources const& handle,
                          math_t* L,
                          int n,
                          int ld,

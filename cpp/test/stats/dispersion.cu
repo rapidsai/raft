@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/dispersion.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -45,7 +46,10 @@ template <typename T>
 template <typename T>
 class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
-  DispersionTest() : stream(handle.get_stream()), exp_mean(0, stream), act_mean(0, stream) {}
+  DispersionTest()
+    : stream(resource::get_cuda_stream(handle)), exp_mean(0, stream), act_mean(0, stream)
+  {
+  }
 
   void SetUp() override
   {
@@ -95,7 +99,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
 
  protected:
   DispersionInputs<T> params;
-  raft::device_resources handle;
+  raft::resources handle;
   rmm::device_uvector<T> exp_mean, act_mean;
   cudaStream_t stream = 0;
   int npoints;

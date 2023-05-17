@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -51,8 +52,8 @@ TEST_P(COOSort, Result)
 {
   params = ::testing::TestWithParam<SparseSortInput<float>>::GetParam();
   raft::random::RngState r(params.seed);
-  raft::device_resources h;
-  auto stream = h.get_stream();
+  raft::resources h;
+  auto stream = resource::get_cuda_stream(h);
 
   rmm::device_uvector<int> in_rows(params.nnz, stream);
   rmm::device_uvector<int> in_cols(params.nnz, stream);

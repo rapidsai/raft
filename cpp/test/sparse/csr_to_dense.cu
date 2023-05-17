@@ -15,7 +15,8 @@
  */
 
 #include <cusparse_v2.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
@@ -56,7 +57,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
  public:
   CSRToDenseTest()
     : params(::testing::TestWithParam<CSRToDenseInputs<value_idx, value_t>>::GetParam()),
-      stream(raft_handle.get_stream()),
+      stream(resource::get_cuda_stream(raft_handle)),
       indptr(0, stream),
       indices(0, stream),
       data(0, stream),
@@ -116,7 +117,7 @@ class CSRToDenseTest : public ::testing::TestWithParam<CSRToDenseInputs<value_id
   }
 
  protected:
-  raft::device_resources raft_handle;
+  raft::resources raft_handle;
   cudaStream_t stream;
 
   cusparseHandle_t handle;

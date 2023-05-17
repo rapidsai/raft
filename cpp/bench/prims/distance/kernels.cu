@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include <common/benchmark.hpp>
 #include <memory>
 #include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/random/rng.cuh>
@@ -44,7 +41,7 @@ struct GramMatrix : public fixture {
     : params(p), handle(stream), A(0, stream), B(0, stream), C(0, stream)
   {
     kernel = std::unique_ptr<GramMatrixBase<T>>(
-      KernelFactory<T>::create(p.kernel_params, handle.get_cublas_handle()));
+      KernelFactory<T>::create(p.kernel_params, resource::get_cublas_handle(handle)));
 
     A.resize(params.m * params.k, stream);
     B.resize(params.k * params.n, stream);

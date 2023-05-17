@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/cov.cuh>
 #include <raft/stats/mean.cuh>
@@ -53,8 +54,8 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
 
   void SetUp() override
   {
-    raft::device_resources handle;
-    cudaStream_t stream = handle.get_stream();
+    raft::resources handle;
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
     params.tolerance *= 2;

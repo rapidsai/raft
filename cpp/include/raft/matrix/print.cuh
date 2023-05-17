@@ -18,8 +18,8 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/matrix_types.hpp>
 
 namespace raft::matrix {
@@ -38,7 +38,7 @@ namespace raft::matrix {
  * @param[in] separators: horizontal and vertical separator characters
  */
 template <typename m_t, typename idx_t>
-void print(raft::device_resources const& handle,
+void print(raft::resources const& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
            print_separators& separators)
 {
@@ -47,7 +47,7 @@ void print(raft::device_resources const& handle,
                 in.extent(1),
                 separators.horizontal,
                 separators.vertical,
-                handle.get_stream());
+                resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group matrix_print

@@ -15,12 +15,10 @@
  */
 
 #include <common/benchmark.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/util/cudart_utils.hpp>
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
 #include <rmm/device_uvector.hpp>
 
 namespace raft::bench::distance {
@@ -77,7 +75,7 @@ struct fusedl2nn : public fixture {
                           raft::linalg::L2Norm,
                           true,
                           stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void allocate_temp_buffers(const ::benchmark::State& state) override

@@ -15,7 +15,9 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/resources.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -48,7 +50,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
  public:
   TransposeTest()
     : params(::testing::TestWithParam<TranposeInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.len, stream),
       data_trans_ref(params.len, stream),
       data_trans(params.len, stream)
@@ -67,11 +69,11 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 
     transpose(handle, data.data(), data_trans.data(), params.n_row, params.n_col, stream);
     transpose(data.data(), params.n_row, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   TranposeInputs<T> params;
@@ -133,7 +135,7 @@ namespace {
  * @return The transposed matrix.
  */
 template <typename T, typename IndexType, typename LayoutPolicy>
-[[nodiscard]] auto transpose(raft::device_resources const& handle,
+[[nodiscard]] auto transpose(raft::resources const& handle,
                              device_matrix_view<T, IndexType, LayoutPolicy> in)
   -> std::enable_if_t<std::is_floating_point_v<T> &&
                         (std::is_same_v<LayoutPolicy, layout_c_contiguous> ||
@@ -158,7 +160,7 @@ template <typename T, typename IndexType, typename LayoutPolicy>
  * @return The transposed matrix.
  */
 template <typename T, typename IndexType>
-[[nodiscard]] auto transpose(raft::device_resources const& handle,
+[[nodiscard]] auto transpose(raft::resources const& handle,
                              device_matrix_view<T, IndexType, layout_stride> in)
   -> std::enable_if_t<std::is_floating_point_v<T>, device_matrix<T, IndexType, layout_stride>>
 {
@@ -188,7 +190,7 @@ template <typename T, typename IndexType>
 template <typename T, typename LayoutPolicy>
 void test_transpose_with_mdspan()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 3);
   T k{0};
   for (size_t i = 0; i < v.extent(0); ++i) {
@@ -223,7 +225,7 @@ namespace {
 template <typename T, typename LayoutPolicy>
 void test_transpose_submatrix()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   auto v = make_device_matrix<T, size_t, LayoutPolicy>(handle, 32, 33);
   T k{0};
   size_t row_beg{3}, row_end{13}, col_beg{2}, col_end{11};

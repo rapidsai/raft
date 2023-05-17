@@ -17,16 +17,18 @@
 #pragma once
 
 #include "ann_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <algorithm>  // std::max
 #include <memory>
 #include <optional>
 #include <thrust/fill.h>
@@ -235,7 +237,7 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& res,
+  index(raft::resources const& res,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         bool adaptive_centers,
@@ -258,7 +260,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& res, const index_params& params, uint32_t dim)
+  index(raft::resources const& res, const index_params& params, uint32_t dim)
     : index(res,
             params.metric,
             params.n_lists,
@@ -296,9 +298,9 @@ struct index : ann::index {
   /**
    * Update the state of the dependent index members.
    */
-  void recompute_internal_state(raft::device_resources const& res)
+  void recompute_internal_state(raft::resources const& res)
   {
-    auto stream = res.get_stream();
+    auto stream = resource::get_cuda_stream(res);
 
     // Actualize the list pointers
     auto this_lists           = lists();
@@ -318,7 +320,7 @@ struct index : ann::index {
     check_consistency();
   }
 
-  void allocate_center_norms(raft::device_resources const& res)
+  void allocate_center_norms(raft::resources const& res)
   {
     switch (metric_) {
       case raft::distance::DistanceType::L2Expanded:
@@ -379,10 +381,11 @@ struct index : ann::index {
   {
     // TODO: consider padding the dimensions and fixing veclen to its maximum possible value as a
     // template parameter (https://github.com/rapidsai/raft/issues/711)
-    uint32_t veclen = 16 / sizeof(T);
-    while (dim % veclen != 0) {
-      veclen = veclen >> 1;
-    }
+
+    // NOTE: keep this consistent with the select_interleaved_scan_kernel logic
+    // in detail/ivf_flat_interleaved_scan-inl.cuh.
+    uint32_t veclen = std::max<uint32_t>(1, 16 / sizeof(T));
+    if (dim % veclen != 0) { veclen = 1; }
     return veclen;
   }
 };

@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "../test_utils.cuh"
 #include "gram_base.cuh"
 #include <gtest/gtest.h>
@@ -149,7 +145,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   GramMatrixInputs params;
 

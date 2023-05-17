@@ -21,6 +21,7 @@
 
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/dispersion.cuh>
 
 namespace raft {
@@ -81,7 +82,7 @@ DataT dispersion(const DataT* centroids,
  */
 template <typename value_t, typename idx_t>
 value_t cluster_dispersion(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
   std::optional<raft::device_vector_view<value_t, idx_t>> global_centroid,
@@ -103,7 +104,7 @@ value_t cluster_dispersion(
                                             centroids.extent(0),
                                             n_points,
                                             centroids.extent(1),
-                                            handle.get_stream());
+                                            resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_cluster_dispersion
@@ -117,7 +118,7 @@ value_t cluster_dispersion(
  */
 template <typename value_t, typename idx_t>
 value_t cluster_dispersion(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> centroids,
   raft::device_vector_view<const idx_t, idx_t> cluster_sizes,
   std::nullopt_t global_centroid,

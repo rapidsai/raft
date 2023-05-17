@@ -17,6 +17,7 @@
 #pragma once
 
 #include "detail/rmat_rectangular_generator.cuh"
+#include <raft/core/resources.hpp>
 
 namespace raft::random {
 
@@ -78,7 +79,7 @@ namespace raft::random {
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::random::RngState& r,
   raft::device_vector_view<const ProbT, IdxT> theta,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
@@ -102,7 +103,7 @@ void rmat_rectangular_gen(
  * @pre `out_src.extent(0) == out_dst.extent(0)` is `true`
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen(raft::device_resources const& handle,
+void rmat_rectangular_gen(raft::resources const& handle,
                           raft::random::RngState& r,
                           raft::device_vector_view<const ProbT, IdxT> theta,
                           raft::device_vector_view<IdxT, IdxT> out_src,
@@ -125,7 +126,7 @@ void rmat_rectangular_gen(raft::device_resources const& handle,
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::random::RngState& r,
   raft::device_vector_view<const ProbT, IdxT> theta,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
@@ -152,7 +153,7 @@ void rmat_rectangular_gen(
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::random::RngState& r,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
   raft::device_vector_view<IdxT, IdxT> out_src,
@@ -179,7 +180,7 @@ void rmat_rectangular_gen(
  * @pre `out_src.extent(0) == out_dst.extent(0)` is `true`
  */
 template <typename IdxT, typename ProbT>
-void rmat_rectangular_gen(raft::device_resources const& handle,
+void rmat_rectangular_gen(raft::resources const& handle,
                           raft::random::RngState& r,
                           raft::device_vector_view<IdxT, IdxT> out_src,
                           raft::device_vector_view<IdxT, IdxT> out_dst,
@@ -204,7 +205,7 @@ void rmat_rectangular_gen(raft::device_resources const& handle,
  */
 template <typename IdxT, typename ProbT>
 void rmat_rectangular_gen(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::random::RngState& r,
   raft::device_mdspan<IdxT, raft::extents<IdxT, raft::dynamic_extent, 2>, raft::row_major> out,
   ProbT a,

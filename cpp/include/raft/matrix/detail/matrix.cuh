@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cublas_handle.hpp>
 #include <raft/util/cache_util.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -28,7 +29,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -299,9 +300,9 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
 }
 
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(raft::device_resources const& handle, const m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(raft::resources const& handle, const m_t* in, idx_t size, cudaStream_t stream)
 {
-  cublasHandle_t cublasH = handle.get_cublas_handle();
+  cublasHandle_t cublasH = resource::get_cublas_handle(handle);
   m_t normval            = 0;
   RAFT_EXPECTS(
     std::is_integral_v<idx_t> && (std::size_t)size <= (std::size_t)std::numeric_limits<int>::max(),

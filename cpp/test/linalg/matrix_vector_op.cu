@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "matrix_vector_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -41,7 +42,7 @@ template <typename IdxType>
 }
 
 template <typename T, typename LenT>
-inline void gen_uniform(const raft::device_resources& handle,
+inline void gen_uniform(const raft::resources& handle,
                         raft::random::RngState& rng,
                         T* ptr,
                         LenT len)
@@ -57,7 +58,7 @@ inline void gen_uniform(const raft::device_resources& handle,
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename OpT, typename MatT, typename IdxType, typename Vec1T, typename Vec2T>
-void matrixVectorOpLaunch(const raft::device_resources& handle,
+void matrixVectorOpLaunch(const raft::resources& handle,
                           MatT* out,
                           const MatT* in,
                           const Vec1T* vec1,
@@ -101,7 +102,7 @@ template <typename OpT,
 class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
  public:
   MatVecOpTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       params(::testing::TestWithParam<MatVecOpInputs<IdxType>>::GetParam()),
       vec_size(params.bcastAlongRows ? params.cols : params.rows),
       in(params.rows * params.cols + params.inAlignOffset, stream),
@@ -155,11 +156,11 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<IdxType>> {
                               params.rows,
                               params.rowMajor,
                               params.bcastAlongRows);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MatVecOpInputs<IdxType> params;

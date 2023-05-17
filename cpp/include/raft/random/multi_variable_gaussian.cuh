@@ -20,6 +20,7 @@
 #pragma once
 
 #include "detail/multi_variable_gaussian.cuh"
+#include <raft/core/resources.hpp>
 #include <raft/random/random_types.hpp>
 
 namespace raft::random {
@@ -30,7 +31,7 @@ namespace raft::random {
  */
 
 template <typename ValueType>
-void multi_variable_gaussian(raft::device_resources const& handle,
+void multi_variable_gaussian(raft::resources const& handle,
                              rmm::mr::device_memory_resource& mem_resource,
                              std::optional<raft::device_vector_view<const ValueType, int>> x,
                              raft::device_matrix_view<ValueType, int, raft::col_major> P,
@@ -41,7 +42,7 @@ void multi_variable_gaussian(raft::device_resources const& handle,
 }
 
 template <typename ValueType>
-void multi_variable_gaussian(raft::device_resources const& handle,
+void multi_variable_gaussian(raft::resources const& handle,
                              std::optional<raft::device_vector_view<const ValueType, int>> x,
                              raft::device_matrix_view<ValueType, int, raft::col_major> P,
                              raft::device_matrix_view<ValueType, int, raft::col_major> X,

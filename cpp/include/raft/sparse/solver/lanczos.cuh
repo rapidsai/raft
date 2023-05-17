@@ -66,7 +66,7 @@ namespace raft::sparse::solver {
  */
 template <typename index_type_t, typename value_type_t>
 int computeSmallestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,
@@ -130,7 +130,7 @@ int computeSmallestEigenvectors(
  */
 template <typename index_type_t, typename value_type_t>
 int computeLargestEigenvectors(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::spectral::matrix::sparse_matrix_t<index_type_t, value_type_t> const& A,
   index_type_t nEigVecs,
   index_type_t maxIter,

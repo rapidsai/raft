@@ -16,15 +16,12 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
-
-#ifdef RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
-#include <raft/core/device_resources.hpp>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::matrix::select {
 
@@ -57,7 +54,8 @@ enum class Algo {
   kWarpImmediate,
   kWarpFiltered,
   kWarpDistributed,
-  kWarpDistributedShm
+  kWarpDistributedShm,
+  kFaissBlockSelect
 };
 
 inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
@@ -72,12 +70,13 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kWarpFiltered: return os << "kWarpFiltered";
     case Algo::kWarpDistributed: return os << "kWarpDistributed";
     case Algo::kWarpDistributedShm: return os << "kWarpDistributedShm";
+    case Algo::kFaissBlockSelect: return os << "kFaissBlockSelect";
     default: return os << "unknown enum value";
   }
 }
 
 template <typename T, typename IdxT>
-void select_k_impl(const device_resources& handle,
+void select_k_impl(const resources& handle,
                    const Algo& algo,
                    const T* in,
                    const IdxT* in_idx,
@@ -88,7 +87,7 @@ void select_k_impl(const device_resources& handle,
                    IdxT* out_idx,
                    bool select_min)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   switch (algo) {
     case Algo::kPublicApi: {
       auto in_extent  = make_extents<int64_t>(batch_size, len);
@@ -159,7 +158,9 @@ void select_k_impl(const device_resources& handle,
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
           in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+    case Algo::kFaissBlockSelect:
+      return neighbors::detail::select_k(
+        in, in_idx, batch_size, len, out, out_idx, select_min, k, stream);
   }
 }
-
 }  // namespace raft::matrix::select

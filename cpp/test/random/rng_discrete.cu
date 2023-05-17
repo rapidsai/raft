@@ -18,9 +18,12 @@
 #include <algorithm>
 #include <cmath>
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>
@@ -111,7 +114,7 @@ class RngDiscreteTest : public ::testing::TestWithParam<RngDiscreteInputs<IdxT>>
  public:
   RngDiscreteTest()
     : params(::testing::TestWithParam<RngDiscreteInputs<IdxT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       out(params.sampled_len, stream),
       weights(params.len, stream),
       histogram(params.len, stream),
@@ -166,7 +169,7 @@ class RngDiscreteTest : public ::testing::TestWithParam<RngDiscreteInputs<IdxT>>
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngDiscreteInputs<IdxT> params;

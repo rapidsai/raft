@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/normalize.cuh>
@@ -64,7 +65,7 @@ class RowNormalizeTest : public ::testing::TestWithParam<RowNormalizeInputs<T, I
  public:
   RowNormalizeTest()
     : params(::testing::TestWithParam<RowNormalizeInputs<T, IdxT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       out_exp(params.rows * params.cols, stream),
       out_act(params.rows * params.cols, stream)
@@ -86,11 +87,11 @@ class RowNormalizeTest : public ::testing::TestWithParam<RowNormalizeInputs<T, I
       out_act.data(), params.rows, params.cols);
     raft::linalg::row_normalize(handle, input_view, output_view, params.norm_type);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RowNormalizeInputs<T, IdxT> params;

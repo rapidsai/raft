@@ -18,6 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
@@ -40,7 +41,7 @@ namespace raft::matrix {
  * @{
  */
 template <typename math_t, typename idx_t, typename layout>
-void reciprocal(raft::device_resources const& handle,
+void reciprocal(raft::resources const& handle,
                 raft::device_matrix_view<const math_t, idx_t, layout> in,
                 raft::device_matrix_view<math_t, idx_t, layout> out,
                 raft::host_scalar_view<math_t> scalar,
@@ -52,7 +53,7 @@ void reciprocal(raft::device_resources const& handle,
                              out.data_handle(),
                              *(scalar.data_handle()),
                              in.size(),
-                             handle.get_stream(),
+                             resource::get_cuda_stream(handle),
                              setzero,
                              thres);
 }
@@ -70,7 +71,7 @@ void reciprocal(raft::device_resources const& handle,
  * @{
  */
 template <typename math_t, typename idx_t, typename layout>
-void reciprocal(raft::device_resources const& handle,
+void reciprocal(raft::resources const& handle,
                 raft::device_matrix_view<math_t, idx_t, layout> inout,
                 raft::host_scalar_view<math_t> scalar,
                 bool setzero = false,
@@ -79,7 +80,7 @@ void reciprocal(raft::device_resources const& handle,
   detail::reciprocal<math_t>(inout.data_handle(),
                              *(scalar.data_handle()),
                              inout.size(),
-                             handle.get_stream(),
+                             resource::get_cuda_stream(handle),
                              setzero,
                              thres);
 }

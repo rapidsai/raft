@@ -17,10 +17,14 @@
 #pragma once
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
+#include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
@@ -72,7 +76,7 @@ void check_input(extents_t dataset,
  * See raft::neighbors::refine for docs.
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-void refine_device(raft::device_resources const& handle,
+void refine_device(raft::resources const& handle,
                    raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
                    raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
                    raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
@@ -102,10 +106,11 @@ void refine_device(raft::device_resources const& handle,
   // - We consider that the coarse level search is already performed and assigned a single cluster
   //   to search for each query (the cluster formed from the corresponding candidates).
   // - We run IVF flat search with n_probes=1 to select the best k elements of the candidates.
-  rmm::device_uvector<uint32_t> fake_coarse_idx(n_queries, handle.get_stream());
+  rmm::device_uvector<uint32_t> fake_coarse_idx(n_queries, resource::get_cuda_stream(handle));
 
-  thrust::sequence(
-    handle.get_thrust_policy(), fake_coarse_idx.data(), fake_coarse_idx.data() + n_queries);
+  thrust::sequence(resource::get_thrust_policy(handle),
+                   fake_coarse_idx.data(),
+                   fake_coarse_idx.data() + n_queries);
 
   raft::neighbors::ivf_flat::index<data_t, idx_t> refinement_index(
     handle, metric, n_queries, false, true, dim);
@@ -116,15 +121,6 @@ void refine_device(raft::device_resources const& handle,
                                                            neighbor_candidates.data_handle(),
                                                            n_queries,
                                                            n_candidates);
-
-  // greppable-id-specializations-ivf-flat-search: The ivfflat_interleaved_scan
-  // function is used in both raft::neighbors::ivf_flat::search and
-  // raft::neighbors::detail::refine_device. To prevent a duplicate
-  // instantiation of this function (which defines ~270 kernels) in the refine
-  // specializations, an extern template definition is provided. Please check
-  // and adjust the extern template definition and the instantiation when the
-  // below function call is edited. Search for
-  // `greppable-id-specializations-ivf-flat-search` to find them.
   uint32_t grid_dim_x = 1;
   raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<
     data_t,
@@ -140,7 +136,7 @@ void refine_device(raft::device_resources const& handle,
            indices.data_handle(),
            distances.data_handle(),
            grid_dim_x,
-           handle.get_stream());
+           resource::get_cuda_stream(handle));
 }
 
 /** Helper structure for naive CPU implementation of refine. */

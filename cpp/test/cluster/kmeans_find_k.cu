@@ -17,17 +17,14 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <optional>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <vector>
 
 #include <raft/cluster/kmeans.cuh>
 #include <raft/core/cudart_utils.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
-
-#if defined RAFT_COMPILED
-#include <raft/cluster/specializations.cuh>
-#endif
 
 namespace raft {
 
@@ -43,7 +40,10 @@ struct KmeansFindKInputs {
 template <typename T>
 class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
  protected:
-  KmeansFindKTest() : stream(handle.get_stream()), best_k(raft::make_host_scalar<int>(0)) {}
+  KmeansFindKTest()
+    : stream(resource::get_cuda_stream(handle)), best_k(raft::make_host_scalar<int>(0))
+  {
+  }
 
   void basicTest()
   {
@@ -80,13 +80,13 @@ class KmeansFindKTest : public ::testing::TestWithParam<KmeansFindKInputs<T>> {
     raft::cluster::kmeans::find_k<int, T>(
       handle, X_view, best_k.view(), inertia.view(), n_iter.view(), n_clusters);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void SetUp() override { basicTest(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
   KmeansFindKInputs<T> testparams;
   raft::host_scalar<int> best_k;

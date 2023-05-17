@@ -15,10 +15,6 @@
  */
 #include "raft_ivf_flat_wrapper.h"
 
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 namespace raft::bench::ann {
 template class RaftIvfFlatGpu<float, int64_t>;
 template class RaftIvfFlatGpu<uint8_t, int64_t>;

@@ -17,7 +17,8 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft/spectral/cluster_solvers_deprecated.cuh>
 
@@ -30,13 +31,13 @@ TEST(Raft, ClusterSolvers)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
+  raft::resources h;
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
   unsigned long long seed{100110021003};
 
-  auto stream = h.get_stream();
+  auto stream = resource::get_cuda_stream(h);
 
   index_type n{100};
   index_type d{10};

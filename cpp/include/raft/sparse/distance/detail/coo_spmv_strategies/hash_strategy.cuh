@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #pragma once
 
 #include "base_strategy.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <cuco/static_map.cuh>
 
@@ -62,7 +64,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                        std::tuple<value_idx, value_idx>& n_rows_divided,
                        cudaStream_t stream)
   {
-    auto policy = this->config.handle.get_thrust_policy();
+    auto policy = resource::get_thrust_policy(this->config.handle);
 
     auto less                   = thrust::copy_if(policy,
                                 thrust::make_counting_iterator(value_idx(0)),
@@ -91,14 +93,14 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   {
     auto n_blocks_per_row = raft::ceildiv(this->config.b_nnz, chunk_size * tpb);
     rmm::device_uvector<value_idx> mask_indptr(this->config.a_nrows,
-                                               this->config.handle.get_stream());
+                                               resource::get_cuda_stream(this->config.handle));
     std::tuple<value_idx, value_idx> n_rows_divided;
 
     chunking_needed(this->config.a_indptr,
                     this->config.a_nrows,
                     mask_indptr,
                     n_rows_divided,
-                    this->config.handle.get_stream());
+                    resource::get_cuda_stream(this->config.handle));
 
     auto less_rows = std::get<0>(n_rows_divided);
     if (less_rows > 0) {
@@ -120,16 +122,17 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
-      rmm::device_uvector<value_idx> n_chunks_per_row(more_rows + 1,
-                                                      this->config.handle.get_stream());
-      rmm::device_uvector<value_idx> chunk_indices(0, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, resource::get_cuda_stream(this->config.handle));
+      rmm::device_uvector<value_idx> chunk_indices(0,
+                                                   resource::get_cuda_stream(this->config.handle));
       chunked_mask_row_it<value_idx>::init(this->config.a_indptr,
                                            mask_indptr.data() + less_rows,
                                            more_rows,
                                            capacity_threshold * map_size,
                                            n_chunks_per_row,
                                            chunk_indices,
-                                           this->config.handle.get_stream());
+                                           resource::get_cuda_stream(this->config.handle));
 
       chunked_mask_row_it<value_idx> more(this->config.a_indptr,
                                           more_rows,
@@ -137,7 +140,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                           capacity_threshold * map_size,
                                           n_chunks_per_row.data(),
                                           chunk_indices.data(),
-                                          this->config.handle.get_stream());
+                                          resource::get_cuda_stream(this->config.handle));
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base(*this,
@@ -164,14 +167,14 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
   {
     auto n_blocks_per_row = raft::ceildiv(this->config.a_nnz, chunk_size * tpb);
     rmm::device_uvector<value_idx> mask_indptr(this->config.b_nrows,
-                                               this->config.handle.get_stream());
+                                               resource::get_cuda_stream(this->config.handle));
     std::tuple<value_idx, value_idx> n_rows_divided;
 
     chunking_needed(this->config.b_indptr,
                     this->config.b_nrows,
                     mask_indptr,
                     n_rows_divided,
-                    this->config.handle.get_stream());
+                    resource::get_cuda_stream(this->config.handle));
 
     auto less_rows = std::get<0>(n_rows_divided);
     if (less_rows > 0) {
@@ -193,16 +196,17 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
 
     auto more_rows = std::get<1>(n_rows_divided);
     if (more_rows > 0) {
-      rmm::device_uvector<value_idx> n_chunks_per_row(more_rows + 1,
-                                                      this->config.handle.get_stream());
-      rmm::device_uvector<value_idx> chunk_indices(0, this->config.handle.get_stream());
+      rmm::device_uvector<value_idx> n_chunks_per_row(
+        more_rows + 1, resource::get_cuda_stream(this->config.handle));
+      rmm::device_uvector<value_idx> chunk_indices(0,
+                                                   resource::get_cuda_stream(this->config.handle));
       chunked_mask_row_it<value_idx>::init(this->config.b_indptr,
                                            mask_indptr.data() + less_rows,
                                            more_rows,
                                            capacity_threshold * map_size,
                                            n_chunks_per_row,
                                            chunk_indices,
-                                           this->config.handle.get_stream());
+                                           resource::get_cuda_stream(this->config.handle));
 
       chunked_mask_row_it<value_idx> more(this->config.b_indptr,
                                           more_rows,
@@ -210,7 +214,7 @@ class hash_strategy : public coo_spmv_strategy<value_idx, value_t, tpb> {
                                           capacity_threshold * map_size,
                                           n_chunks_per_row.data(),
                                           chunk_indices.data(),
-                                          this->config.handle.get_stream());
+                                          resource::get_cuda_stream(this->config.handle));
 
       auto n_more_blocks = more.total_row_blocks * n_blocks_per_row;
       this->_dispatch_base_rev(*this,

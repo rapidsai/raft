@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/gemv.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -50,7 +51,7 @@ namespace linalg {
  * @param [in] stream
  */
 template <typename math_t, bool DevicePointerMode = false>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const bool trans_a,
           const int m,
           const int n,
@@ -69,7 +70,7 @@ void gemv(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows,
           const int n_cols,
@@ -103,7 +104,7 @@ void gemv(raft::device_resources const& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -133,7 +134,7 @@ void gemv(raft::device_resources const& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -165,7 +166,7 @@ void gemv(raft::device_resources const& handle,
  * @param stream stream on which this function is run
  */
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -199,7 +200,7 @@ void gemv(raft::device_resources const& handle,
  *
  */
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -246,7 +247,7 @@ template <typename ValueType,
           typename                = std::enable_if_t<std::disjunction_v<
             std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
             std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           raft::device_matrix_view<const ValueType, IndexType, LayoutPolicy> A,
           raft::device_vector_view<const ValueType, IndexType> x,
           raft::device_vector_view<ValueType, IndexType> y,
@@ -300,7 +301,7 @@ void gemv(raft::device_resources const& handle,
                                beta.value().data_handle(),
                                y.data_handle(),
                                1,
-                               handle.get_stream());
+                               resource::get_cuda_stream(handle));
 }
 /** @} */  // end of gemv
 
