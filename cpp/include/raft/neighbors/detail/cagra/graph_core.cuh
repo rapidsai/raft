@@ -32,6 +32,8 @@
 
 #include <raft/util/cuda_rt_essentials.hpp>
 
+#include "utils.hpp"
+
 namespace raft::neighbors::experimental::cagra::detail {
 namespace graph {
 
@@ -114,7 +116,7 @@ __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, 
       my_vals[i] = smem_vals[k];
     } else {
       my_keys[i] = FLT_MAX;
-      my_vals[i] = ~static_cast<IdxT>(0);
+      my_vals[i] = utils::get_max_value<IdxT>();
     }
   }
   __syncthreads();

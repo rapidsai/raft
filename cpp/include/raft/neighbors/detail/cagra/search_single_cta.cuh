@@ -51,8 +51,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
                                     const std::size_t dataset_size,
                                     const std::uint32_t num_parents)
 {
-  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   // if (threadIdx.x >= 32) return;
 
   for (std::uint32_t i = threadIdx.x; i < num_parents; i += 32) {
@@ -503,8 +502,8 @@ __device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
                                        const INDEX_T* itopk_indices,
                                        uint32_t itopk_size)
 {
-  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
   if (threadIdx.x < FIRST_TID || threadIdx.x >= LAST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < itopk_size; i += LAST_TID - FIRST_TID) {
     auto key = itopk_indices[i] & ~index_msb_1_mask;  // clear most significant bit
@@ -774,8 +773,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[ii]; }
 
-    constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                         << (utils::size_of<INDEX_T>() * 8 - 1);
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
     result_indices_ptr[j] =
       result_indices_buffer[ii] & ~index_msb_1_mask;  // clear most significant bit
   }

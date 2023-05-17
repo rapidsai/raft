@@ -143,6 +143,11 @@ template <int A, int B>
 struct constexpr_max<A, B, std::enable_if_t<(B > A), bool>> {
   static const int value = B;
 };
+
+template <class IdxT>
+struct gen_index_msb_1_mask {
+  static constexpr IdxT value = static_cast<IdxT>(1) << (utils::size_of<IdxT>() * 8 - 1);
+};
 }  // namespace utils
 
 }  // namespace raft::neighbors::experimental::cagra::detail
