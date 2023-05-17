@@ -361,7 +361,7 @@ class Cache {
    */
   int GetSize() const { return cached_keys.size(); }
 
- private:
+ protected:
   int n_vec;            //!< Number of elements in a cached vector
   float cache_size;     //!< in MiB
   int n_cache_sets;     //!< number of cache sets
