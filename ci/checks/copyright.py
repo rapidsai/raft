@@ -192,7 +192,8 @@ def checkCopyright_main():
                            action="append",
                            required=False,
                            default=["python/cuml/_thirdparty/",
-                                    "cpp/include/raft/thirdparty/"],
+                                    "cpp/include/raft/thirdparty/",
+                                    "cpp/cmake/modules/FindAVX.cmake"],
                            help=("Exclude the paths specified (regexp). "
                                  "Can be specified multiple times."))
 
