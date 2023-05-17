@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/op/detail/sort.h>
 
 namespace raft {

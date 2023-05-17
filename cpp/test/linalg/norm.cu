@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -78,7 +79,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
  public:
   RowNormTest()
     : params(::testing::TestWithParam<NormInputs<T, IdxT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       dots_exp(params.rows, stream),
       dots_act(params.rows, stream)
@@ -109,11 +110,11 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
         norm(handle, input_col_major, output_view, params.type, Apply::ALONG_ROWS);
       }
     }
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   NormInputs<T, IdxT> params;
@@ -152,7 +153,7 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
  public:
   ColNormTest()
     : params(::testing::TestWithParam<NormInputs<T, IdxT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       dots_exp(params.cols, stream),
       dots_act(params.cols, stream)
@@ -186,11 +187,11 @@ class ColNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
         norm(handle, input_col_major, output_view, params.type, Apply::ALONG_COLUMNS);
       }
     }
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   NormInputs<T, IdxT> params;

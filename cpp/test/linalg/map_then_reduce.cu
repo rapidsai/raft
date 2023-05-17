@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <limits>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/map_reduce.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/random/rng.cuh>
@@ -74,7 +75,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
  public:
   MapReduceTest()
     : params(::testing::TestWithParam<MapReduceInputs<InType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.len, stream),
       out_ref(params.len, stream),
       out(params.len, stream)
@@ -89,11 +90,11 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<InType>> {
     auto len = params.len;
     uniform(handle, r, in.data(), len, InType(-1.0), InType(1.0));
     mapReduceLaunch(out_ref.data(), out.data(), in.data(), len, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MapReduceInputs<InType> params;
@@ -133,9 +134,10 @@ class MapGenericReduceTest : public ::testing::Test {
   using OutType = typename T::second_type;
 
  protected:
-  MapGenericReduceTest() : input(n, handle.get_stream()), output(handle.get_stream())
+  MapGenericReduceTest()
+    : input(n, resource::get_cuda_stream(handle)), output(resource::get_cuda_stream(handle))
   {
-    initInput(input.data(), input.size(), handle.get_stream());
+    initInput(input.data(), input.size(), resource::get_cuda_stream(handle));
   }
 
  public:
@@ -144,9 +146,9 @@ class MapGenericReduceTest : public ::testing::Test {
     raft::random::RngState r(137);
     uniform(handle, r, input, n, InType(2), InType(3));
     InType val = 1;
-    raft::update_device(input + 42, &val, 1, handle.get_stream());
+    raft::update_device(input + 42, &val, 1, resource::get_cuda_stream(handle));
     val = 5;
-    raft::update_device(input + 337, &val, 1, handle.get_stream());
+    raft::update_device(input + 337, &val, 1, resource::get_cuda_stream(handle));
   }
 
   void testMin()
@@ -157,7 +159,7 @@ class MapGenericReduceTest : public ::testing::Test {
       input.data(), static_cast<std::uint32_t>(input.size()));
     map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Min());
     EXPECT_TRUE(raft::devArrMatch(
-      OutType(1), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
+      OutType(1), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
   void testMax()
   {
@@ -167,11 +169,11 @@ class MapGenericReduceTest : public ::testing::Test {
       input.data(), static_cast<std::uint32_t>(input.size()));
     map_reduce(handle, input_view, output_view, neutral, raft::identity_op{}, cub::Max());
     EXPECT_TRUE(raft::devArrMatch(
-      OutType(5), output.data(), 1, raft::Compare<OutType>(), handle.get_stream()));
+      OutType(5), output.data(), 1, raft::Compare<OutType>(), resource::get_cuda_stream(handle)));
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   int n = 1237;

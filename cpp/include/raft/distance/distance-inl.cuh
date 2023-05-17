@@ -357,12 +357,12 @@ void pairwise_distance(raft::resources const& handle,
  *
  * Usage example:
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_mdarray.hpp>
  * #include <raft/random/make_blobs.cuh>
  * #include <raft/distance/distance.cuh>
  *
- * raft::raft::device_resources handle;
+ * raft::raft::resources handle;
  * int n_samples = 5000;
  * int n_features = 50;
  *

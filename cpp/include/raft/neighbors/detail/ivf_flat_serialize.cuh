@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
@@ -56,7 +57,7 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), 296>;
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle, std::ostream& os, const index<T, IdxT>& index_)
+void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index_)
 {
   RAFT_LOG_DEBUG(
     "Saving IVF-Flat index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
@@ -81,8 +82,8 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
   copy(sizes_host.data_handle(),
        index_.list_sizes().data_handle(),
        sizes_host.size(),
-       handle.get_stream());
-  handle.sync_stream();
+       resource::get_cuda_stream(handle));
+  resource::sync_stream(handle);
   serialize_mdspan(handle, os, sizes_host.view());
 
   list_spec<uint32_t, T, IdxT> list_store_spec{index_.dim(), true};
@@ -93,11 +94,11 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
                         list_store_spec,
                         Pow2<kIndexGroupSize>::roundUp(sizes_host(label)));
   }
-  handle.sync_stream();
+  resource::sync_stream(handle);
 }
 
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle,
+void serialize(raft::resources const& handle,
                const std::string& filename,
                const index<T, IdxT>& index_)
 {
@@ -120,7 +121,7 @@ void serialize(raft::device_resources const& handle,
  *
  */
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& handle, std::istream& is) -> index<T, IdxT>
+auto deserialize(raft::resources const& handle, std::istream& is) -> index<T, IdxT>
 {
   auto ver = deserialize_scalar<int>(handle, is);
   if (ver != serialization_version) {
@@ -153,7 +154,7 @@ auto deserialize(raft::device_resources const& handle, std::istream& is) -> inde
   for (uint32_t label = 0; label < index_.n_lists(); label++) {
     ivf::deserialize_list(handle, is, index_.lists()[label], list_store_spec, list_device_spec);
   }
-  handle.sync_stream();
+  resource::sync_stream(handle);
 
   index_.recompute_internal_state(handle);
 
@@ -161,8 +162,7 @@ auto deserialize(raft::device_resources const& handle, std::istream& is) -> inde
 }
 
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& handle, const std::string& filename)
-  -> index<T, IdxT>
+auto deserialize(raft::resources const& handle, const std::string& filename) -> index<T, IdxT>
 {
   std::ifstream is(filename, std::ios::in | std::ios::binary);
 

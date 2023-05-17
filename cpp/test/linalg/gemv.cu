@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -85,8 +86,8 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
   {
     params = ::testing::TestWithParam<GemvInputs<T>>::GetParam();
 
-    raft::device_resources handle;
-    cudaStream_t stream = handle.get_stream();
+    raft::resources handle;
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     raft::random::RngState r(params.seed);
 
@@ -123,7 +124,7 @@ class GemvTest : public ::testing::TestWithParam<GemvInputs<T>> {
       gemv(handle, A_col_major, x_view, y_view);
     }
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
   void TearDown() override {}

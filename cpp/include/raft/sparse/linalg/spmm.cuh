@@ -48,7 +48,7 @@ template <typename ValueType,
           typename NZType,
           typename LayoutPolicyY,
           typename LayoutPolicyZ>
-void spmm(raft::device_resources const& handle,
+void spmm(raft::resources const& handle,
           const bool trans_x,
           const bool trans_y,
           const ValueType* alpha,

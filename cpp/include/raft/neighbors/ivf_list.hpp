@@ -16,13 +16,15 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -38,7 +40,7 @@ namespace raft::neighbors::ivf {
 template <template <typename, typename...> typename SpecT,
           typename SizeT,
           typename... SpecExtraArgs>
-list<SpecT, SizeT, SpecExtraArgs...>::list(raft::device_resources const& res,
+list<SpecT, SizeT, SpecExtraArgs...>::list(raft::resources const& res,
                                            const spec_type& spec,
                                            size_type n_rows)
   : size{n_rows}, data{res}, indices{res}
@@ -61,7 +63,7 @@ list<SpecT, SizeT, SpecExtraArgs...>::list(raft::device_resources const& res,
       e.what());
   }
   // Fill the index buffer with a pre-defined marker for easier debugging
-  thrust::fill_n(res.get_thrust_policy(),
+  thrust::fill_n(resource::get_thrust_policy(res),
                  indices.data_handle(),
                  indices.size(),
                  ivf::kInvalidRecord<index_type>);
@@ -72,7 +74,7 @@ list<SpecT, SizeT, SpecExtraArgs...>::list(raft::device_resources const& res,
  * copy the data if necessary.
  */
 template <typename ListT>
-void resize_list(raft::device_resources const& res,
+void resize_list(raft::resources const& res,
                  std::shared_ptr<ListT>& orig_list,  // NOLINT
                  const typename ListT::spec_type& spec,
                  typename ListT::size_type new_used_size,
@@ -104,18 +106,18 @@ void resize_list(raft::device_resources const& res,
     copy(copied_view.data_handle(),
          orig_list->data.data_handle(),
          copied_view.size(),
-         res.get_stream());
+         resource::get_cuda_stream(res));
     copy(new_list->indices.data_handle(),
          orig_list->indices.data_handle(),
          old_used_size,
-         res.get_stream());
+         resource::get_cuda_stream(res));
   }
   // swap the shared pointer content with the new list
   new_list.swap(orig_list);
 }
 
 template <typename ListT>
-auto serialize_list(const raft::device_resources& handle,
+auto serialize_list(const raft::resources& handle,
                     std::ostream& os,
                     const ListT& ld,
                     const typename ListT::spec_type& store_spec,
@@ -132,15 +134,21 @@ auto serialize_list(const raft::device_resources& handle,
     make_host_mdarray<typename ListT::value_type, size_type, row_major>(data_extents);
   auto inds_array = make_host_mdarray<typename ListT::index_type, size_type, row_major>(
     make_extents<size_type>(size));
-  copy(data_array.data_handle(), ld.data.data_handle(), data_array.size(), handle.get_stream());
-  copy(inds_array.data_handle(), ld.indices.data_handle(), inds_array.size(), handle.get_stream());
-  handle.sync_stream();
+  copy(data_array.data_handle(),
+       ld.data.data_handle(),
+       data_array.size(),
+       resource::get_cuda_stream(handle));
+  copy(inds_array.data_handle(),
+       ld.indices.data_handle(),
+       inds_array.size(),
+       resource::get_cuda_stream(handle));
+  resource::sync_stream(handle);
   serialize_mdspan(handle, os, data_array.view());
   serialize_mdspan(handle, os, inds_array.view());
 }
 
 template <typename ListT>
-auto serialize_list(const raft::device_resources& handle,
+auto serialize_list(const raft::resources& handle,
                     std::ostream& os,
                     const std::shared_ptr<ListT>& ld,
                     const typename ListT::spec_type& store_spec,
@@ -155,7 +163,7 @@ auto serialize_list(const raft::device_resources& handle,
 }
 
 template <typename ListT>
-auto deserialize_list(const raft::device_resources& handle,
+auto deserialize_list(const raft::resources& handle,
                       std::istream& is,
                       std::shared_ptr<ListT>& ld,
                       const typename ListT::spec_type& store_spec,
@@ -172,11 +180,15 @@ auto deserialize_list(const raft::device_resources& handle,
     make_extents<size_type>(size));
   deserialize_mdspan(handle, is, data_array.view());
   deserialize_mdspan(handle, is, inds_array.view());
-  copy(ld->data.data_handle(), data_array.data_handle(), data_array.size(), handle.get_stream());
+  copy(ld->data.data_handle(),
+       data_array.data_handle(),
+       data_array.size(),
+       resource::get_cuda_stream(handle));
   // NB: copying exactly 'size' indices to leave the rest 'kInvalidRecord' intact.
-  copy(ld->indices.data_handle(), inds_array.data_handle(), size, handle.get_stream());
+  copy(
+    ld->indices.data_handle(), inds_array.data_handle(), size, resource::get_cuda_stream(handle));
   // Make sure the data is copied from host to device before the host arrays get out of the scope.
-  handle.sync_stream();
+  resource::sync_stream(handle);
 }
 
 }  // namespace raft::neighbors::ivf

@@ -25,22 +25,22 @@ namespace raft::runtime::neighbors::ivf_pq {
 // constructor.
 #define RAFT_DECL_BUILD_EXTEND(T, IdxT)                                              \
   [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> build(                          \
-    raft::device_resources const& handle,                                            \
+    raft::resources const& handle,                                                   \
     const raft::neighbors::ivf_pq::index_params& params,                             \
     raft::device_matrix_view<const T, IdxT, row_major> dataset);                     \
                                                                                      \
-  void build(raft::device_resources const& handle,                                   \
+  void build(raft::resources const& handle,                                          \
              const raft::neighbors::ivf_pq::index_params& params,                    \
              raft::device_matrix_view<const T, IdxT, row_major> dataset,             \
              raft::neighbors::ivf_pq::index<IdxT>* idx);                             \
                                                                                      \
   [[nodiscard]] raft::neighbors::ivf_pq::index<IdxT> extend(                         \
-    raft::device_resources const& handle,                                            \
+    raft::resources const& handle,                                                   \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                  \
     std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,           \
     const raft::neighbors::ivf_pq::index<IdxT>& idx);                                \
                                                                                      \
-  void extend(raft::device_resources const& handle,                                  \
+  void extend(raft::resources const& handle,                                         \
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,        \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
               raft::neighbors::ivf_pq::index<IdxT>* idx);
@@ -52,7 +52,7 @@ RAFT_DECL_BUILD_EXTEND(uint8_t, int64_t);
 #undef RAFT_DECL_BUILD_EXTEND
 
 #define RAFT_DECL_SEARCH(T, IdxT)                                         \
-  void search(raft::device_resources const& handle,                       \
+  void search(raft::resources const& handle,                              \
               const raft::neighbors::ivf_pq::search_params& params,       \
               const raft::neighbors::ivf_pq::index<IdxT>& idx,            \
               raft::device_matrix_view<const T, IdxT, row_major> queries, \
@@ -75,7 +75,7 @@ RAFT_DECL_SEARCH(uint8_t, int64_t);
  * @param[in] index IVF-PQ index
  *
  */
-void serialize(raft::device_resources const& handle,
+void serialize(raft::resources const& handle,
                const std::string& filename,
                const raft::neighbors::ivf_pq::index<int64_t>& index);
 
@@ -89,7 +89,7 @@ void serialize(raft::device_resources const& handle,
  * @param[in] index IVF-PQ index
  *
  */
-void deserialize(raft::device_resources const& handle,
+void deserialize(raft::resources const& handle,
                  const std::string& filename,
                  raft::neighbors::ivf_pq::index<int64_t>* index);
 

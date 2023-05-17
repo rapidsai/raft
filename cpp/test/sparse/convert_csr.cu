@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <raft/sparse/convert/csr.cuh>
@@ -123,7 +124,7 @@ template <typename index_t>
 class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_t>> {
  public:
   CSRAdjGraphTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       params(::testing::TestWithParam<CSRAdjGraphInputs<index_t>>::GetParam()),
       adj(params.n_rows * params.n_cols, stream),
       row_ind(params.n_rows, stream),
@@ -181,7 +182,7 @@ class CSRAdjGraphTest : public ::testing::TestWithParam<CSRAdjGraphInputs<index_
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   CSRAdjGraphInputs<index_t> params;

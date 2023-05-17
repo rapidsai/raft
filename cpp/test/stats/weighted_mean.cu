@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/weighted_mean.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -72,7 +73,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     // device-side data
     din.resize(len);
     dweights.resize(cols);
@@ -112,7 +113,7 @@ class RowWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -147,7 +148,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     raft::random::RngState r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     // device-side data
     din.resize(len);
     dweights.resize(rows);
@@ -186,7 +187,7 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;
@@ -199,7 +200,7 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
   {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     int rows = params.M, cols = params.N, len = rows * cols;
     auto weight_size = params.along_rows ? cols : rows;
     auto mean_size   = params.along_rows ? rows : cols;
@@ -244,7 +245,7 @@ class WeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T>> 
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   WeightedMeanInputs<T> params;
   thrust::host_vector<T> hin, hweights;
   thrust::device_vector<T> din, dweights, dexp, dact;

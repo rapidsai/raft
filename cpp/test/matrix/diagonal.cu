@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -62,19 +63,19 @@ class DiagonalTest : public ::testing::TestWithParam<DiagonalInputs<T>> {
                        diag_expected.view(),
                        raft::make_host_scalar_view<T>(&diag_fill_scalar));
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
 
     raft::matrix::set_diagonal(handle, diag_expected_view, input.view());
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
 
     raft::matrix::get_diagonal(handle, input_view, diag_actual.view());
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   DiagonalInputs<T> params;
 
   int diag_size;
@@ -95,7 +96,7 @@ TEST_P(DiagonalTestF, Result)
                           diag_actual.data_handle(),
                           diag_size,
                           Compare<float>(),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef DiagonalTest<double> DiagonalTestD;
@@ -105,7 +106,7 @@ TEST_P(DiagonalTestD, Result)
                           diag_actual.data_handle(),
                           diag_size,
                           Compare<double>(),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_SUITE_P(DiagonalTest, DiagonalTestF, ::testing::ValuesIn(inputsf));

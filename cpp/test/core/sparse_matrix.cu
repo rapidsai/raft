@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_csr_matrix.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <type_traits>
 
 namespace raft {
@@ -77,7 +77,7 @@ void test_device_coo_sparsity_preserving_ref(S& mat, void* d)
 
 void test_device_coo_matrix()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   auto sparsity_owning = raft::make_device_coo_matrix<float, int, int, int>(handle, 5, 5);
 
   auto structure_view = sparsity_owning.structure_view();
@@ -110,7 +110,7 @@ void test_device_coo_matrix()
 
 void test_device_csr_matrix()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   auto sparsity_owning = raft::make_device_csr_matrix<float, int, int, int>(handle, 5, 5);
 
   auto comp_struct = raft::make_device_compressed_structure(handle, 5, 5, 5);

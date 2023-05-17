@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
@@ -69,7 +70,7 @@ math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
  * @note The constness of y and y_hat is currently casted away.
  */
 template <typename value_t, typename idx_t>
-value_t r2_score(raft::device_resources const& handle,
+value_t r2_score(raft::resources const& handle,
                  raft::device_vector_view<const value_t, idx_t> y,
                  raft::device_vector_view<const value_t, idx_t> y_hat)
 {
@@ -81,7 +82,7 @@ value_t r2_score(raft::device_resources const& handle,
   return detail::r2_score(const_cast<value_t*>(y.data_handle()),
                           const_cast<value_t*>(y_hat.data_handle()),
                           y.extent(0),
-                          handle.get_stream());
+                          resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_r2_score

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
 namespace raft::matrix {
@@ -50,7 +51,7 @@ struct slice_coordinates {
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice(handle, in, out, {0, 1, 4, 3});
  */
 template <typename m_t, typename idx_t>
-void slice(raft::device_resources const& handle,
+void slice(raft::resources const& handle,
            raft::device_matrix_view<const m_t, idx_t, col_major> in,
            raft::device_matrix_view<m_t, idx_t, col_major> out,
            slice_coordinates<idx_t> coords)
@@ -71,7 +72,7 @@ void slice(raft::device_resources const& handle,
                       coords.col1,
                       coords.row2,
                       coords.col2,
-                      handle.get_stream());
+                      resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group matrix_slice

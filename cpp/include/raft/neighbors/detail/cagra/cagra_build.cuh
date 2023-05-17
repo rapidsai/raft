@@ -19,6 +19,7 @@
 #include "graph_core.cuh"
 #include <chrono>
 #include <cstdio>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <vector>
 
 #include <raft/core/device_mdarray.hpp>
@@ -38,7 +39,7 @@
 namespace raft::neighbors::experimental::cagra::detail {
 
 template <typename DataT, typename IdxT, typename accessor>
-void build_knn_graph(raft::device_resources const& res,
+void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
@@ -130,12 +131,13 @@ void build_knn_graph(raft::device_resources const& res,
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
   if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq using pool memory resource"); }
 
-  raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(dataset.data_handle(),
-                                                                            dataset.extent(0),
-                                                                            dataset.extent(1),
-                                                                            max_batch_size,
-                                                                            res.get_stream(),
-                                                                            device_memory);
+  raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
+    dataset.data_handle(),
+    dataset.extent(0),
+    dataset.extent(1),
+    max_batch_size,
+    resource::get_cuda_stream(res),
+    device_memory);
 
   for (const auto& batch : vec_batches) {
     auto queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
@@ -151,8 +153,11 @@ void build_knn_graph(raft::device_resources const& res,
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),
                  neighbors_view.size(),
-                 res.get_stream());
-      raft::copy(queries_host.data_handle(), batch.data(), queries_view.size(), res.get_stream());
+                 resource::get_cuda_stream(res));
+      raft::copy(queries_host.data_handle(),
+                 batch.data(),
+                 queries_view.size(),
+                 resource::get_cuda_stream(res));
       auto queries_host_view = make_host_matrix_view<const DataT, int64_t>(
         queries_host.data_handle(), batch.size(), batch.row_width());
       auto neighbors_host_view = make_host_matrix_view<const int64_t, int64_t>(
@@ -161,7 +166,7 @@ void build_knn_graph(raft::device_resources const& res,
         refined_neighbors_host.data_handle(), batch.size(), top_k);
       auto refined_distances_host_view = make_host_matrix_view<float, int64_t>(
         refined_distances_host.data_handle(), batch.size(), top_k);
-      res.sync_stream();
+      resource::sync_stream(res);
 
       raft::neighbors::detail::refine_host<int64_t, DataT, float, int64_t>(  // res,
         dataset,
@@ -191,8 +196,8 @@ void build_knn_graph(raft::device_resources const& res,
       raft::copy(refined_neighbors_host.data_handle(),
                  refined_neighbors_view.data_handle(),
                  refined_neighbors_view.size(),
-                 res.get_stream());
-      res.sync_stream();
+                 resource::get_cuda_stream(res));
+      resource::sync_stream(res);
     }
     // omit itself & write out
     // TODO(tfeher): do this in parallel with GPU processing of next batch

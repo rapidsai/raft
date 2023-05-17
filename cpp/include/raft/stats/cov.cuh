@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/cov.cuh>
 namespace raft {
 namespace stats {
@@ -45,7 +46,7 @@ namespace stats {
  * function returns!
  */
 template <typename Type>
-void cov(raft::device_resources const& handle,
+void cov(raft::resources const& handle,
          Type* covar,
          Type* data,
          const Type* mu,
@@ -85,7 +86,7 @@ void cov(raft::device_resources const& handle,
  * function returns!
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void cov(raft::device_resources const& handle,
+void cov(raft::resources const& handle,
          raft::device_matrix_view<value_t, idx_t, layout_t> data,
          raft::device_vector_view<const value_t, idx_t> mu,
          raft::device_matrix_view<value_t, idx_t, layout_t> covar,
@@ -110,7 +111,7 @@ void cov(raft::device_resources const& handle,
               std::is_same_v<layout_t, raft::row_major>,
               sample,
               stable,
-              handle.get_stream());
+              resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_cov

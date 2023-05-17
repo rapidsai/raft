@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/slice.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -55,7 +56,7 @@ class SliceTest : public ::testing::TestWithParam<SliceInputs<T>> {
  public:
   SliceTest()
     : params(::testing::TestWithParam<SliceInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream)
   {
   }
@@ -90,11 +91,11 @@ class SliceTest : public ::testing::TestWithParam<SliceInputs<T>> {
     slice(handle, input, output, slice_coordinates(row1, col1, row2, col2));
 
     raft::update_host(act_result.data(), d_act_result.data(), d_act_result.size(), stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SliceInputs<T> params;

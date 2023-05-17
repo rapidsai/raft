@@ -21,7 +21,7 @@
 namespace raft::runtime::neighbors::ivf_pq {
 
 #define RAFT_SEARCH_INST(T, IdxT)                                                                 \
-  void search(raft::device_resources const& handle,                                               \
+  void search(raft::resources const& handle,                                                      \
               const raft::neighbors::ivf_pq::search_params& params,                               \
               const raft::neighbors::ivf_pq::index<IdxT>& idx,                                    \
               raft::device_matrix_view<const T, IdxT, row_major> queries,                         \

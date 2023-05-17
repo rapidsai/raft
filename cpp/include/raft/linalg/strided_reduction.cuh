@@ -20,10 +20,11 @@
 #pragma once
 
 #include "detail/strided_reduction.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resources.hpp>
 
 #include <type_traits>
 
@@ -112,7 +113,7 @@ void stridedReduction(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
@@ -128,7 +129,7 @@ template <typename InValueType,
           typename MainLambda   = raft::identity_op,
           typename ReduceLambda = raft::add_op,
           typename FinalLambda  = raft::identity_op>
-void strided_reduction(raft::device_resources const& handle,
+void strided_reduction(raft::resources const& handle,
                        raft::device_matrix_view<const InValueType, IndexType, LayoutPolicy> data,
                        raft::device_vector_view<OutValueType, IndexType> dots,
                        OutValueType init,
@@ -146,7 +147,7 @@ void strided_reduction(raft::device_resources const& handle,
                      data.extent(1),
                      data.extent(0),
                      init,
-                     handle.get_stream(),
+                     resource::get_cuda_stream(handle),
                      inplace,
                      main_op,
                      reduce_op,
@@ -160,7 +161,7 @@ void strided_reduction(raft::device_resources const& handle,
                      data.extent(0),
                      data.extent(1),
                      init,
-                     handle.get_stream(),
+                     resource::get_cuda_stream(handle),
                      inplace,
                      main_op,
                      reduce_op,

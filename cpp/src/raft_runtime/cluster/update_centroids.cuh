@@ -15,14 +15,16 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/norm.cuh>
 
 namespace raft::runtime::cluster::kmeans {
 
 template <typename DataT, typename IndexT>
-void update_centroids(raft::device_resources const& handle,
+void update_centroids(raft::resources const& handle,
                       const DataT* X,
                       int n_samples,
                       int n_features,
@@ -37,11 +39,11 @@ void update_centroids(raft::device_resources const& handle,
   auto centroids_view =
     raft::make_device_matrix_view<const DataT, IndexT>(centroids, n_clusters, n_features);
 
-  rmm::device_uvector<DataT> sample_weights_uvec(0, handle.get_stream());
+  rmm::device_uvector<DataT> sample_weights_uvec(0, resource::get_cuda_stream(handle));
   if (sample_weights == nullptr) {
-    sample_weights_uvec.resize(n_samples, handle.get_stream());
+    sample_weights_uvec.resize(n_samples, resource::get_cuda_stream(handle));
     DataT weight = 1.0 / n_samples;
-    thrust::fill(handle.get_thrust_policy(),
+    thrust::fill(resource::get_thrust_policy(handle),
                  sample_weights_uvec.data(),
                  sample_weights_uvec.data() + n_samples,
                  weight);
@@ -51,9 +53,9 @@ void update_centroids(raft::device_resources const& handle,
 
   auto new_centroids_view =
     raft::make_device_matrix_view<DataT, IndexT>(new_centroids, n_clusters, n_features);
-  rmm::device_uvector<DataT> weight_per_cluster_uvec(0, handle.get_stream());
+  rmm::device_uvector<DataT> weight_per_cluster_uvec(0, resource::get_cuda_stream(handle));
   if (weight_per_cluster == nullptr) {
-    weight_per_cluster_uvec.resize(n_clusters, handle.get_stream());
+    weight_per_cluster_uvec.resize(n_clusters, resource::get_cuda_stream(handle));
   }
   auto weight_per_cluster_view = raft::make_device_vector_view<DataT, IndexT>(
     weight_per_cluster == nullptr ? weight_per_cluster_uvec.data() : weight_per_cluster,

@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/adjusted_rand_index.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -41,7 +42,9 @@ template <typename T, typename MathT = int>
 class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
   adjustedRandIndexTest()
-    : stream(handle.get_stream()), firstClusterArray(0, stream), secondClusterArray(0, stream)
+    : stream(resource::get_cuda_stream(handle)),
+      firstClusterArray(0, stream),
+      secondClusterArray(0, stream)
   {
   }
 
@@ -137,7 +140,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     truth_adjusted_rand_index = 1.0;
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
