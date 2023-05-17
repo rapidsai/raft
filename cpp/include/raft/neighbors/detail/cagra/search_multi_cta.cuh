@@ -295,8 +295,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
 
-    constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                         << (utils::size_of<INDEX_T>() * 8 - 1);
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
     result_indices_ptr[j] =
       result_indices_buffer[i] & ~index_msb_1_mask;  // clear most significant bit
   }
