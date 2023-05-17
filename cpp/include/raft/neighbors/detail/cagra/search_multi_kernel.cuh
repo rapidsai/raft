@@ -212,8 +212,8 @@ __global__ void pickup_next_parents_kernel(
   const std::size_t parent_list_size,  //
   std::uint32_t* const terminate_flag)
 {
-  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
   const std::size_t ldb   = hashmap::get_size(hash_bitlen);
   const uint32_t query_id = blockIdx.x;
   if (threadIdx.x < 32) {
@@ -407,8 +407,7 @@ __global__ void remove_parent_bit_kernel(const std::uint32_t num_queries,
                                          INDEX_T* const topk_indices_ptr,  // [ld, num_queries]
                                          const std::uint32_t ld)
 {
-  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
 
   uint32_t i_query = blockIdx.x;
   if (i_query >= num_queries) return;

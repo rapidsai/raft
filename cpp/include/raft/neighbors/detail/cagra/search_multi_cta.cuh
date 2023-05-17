@@ -52,8 +52,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
-  constexpr INDEX_T index_msb_1_mask = static_cast<INDEX_T>(1)
-                                       << (utils::size_of<INDEX_T>() * 8 - 1);
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   const unsigned warp_id = threadIdx.x / 32;
   if (warp_id > 0) { return; }
   const unsigned lane_id = threadIdx.x % 32;
