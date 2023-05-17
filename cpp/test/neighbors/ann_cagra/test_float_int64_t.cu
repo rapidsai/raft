@@ -21,7 +21,7 @@
 
 namespace raft::neighbors::experimental::cagra {
 
-typedef AnnCagraTest<float, float, std::uint64_t> AnnCagraTestF_I64;
+typedef AnnCagraTest<float, float, std::int64_t> AnnCagraTestF_I64;
 TEST_P(AnnCagraTestF_I64, AnnCagra) { this->testCagra(); }
 
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_I64, ::testing::ValuesIn(inputs));
