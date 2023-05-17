@@ -832,16 +832,19 @@ def load(filename, dtype, handle=None):
         idx_float = IndexFloat(handle)
         c_ivf_flat.deserialize(deref(handle_), c_filename, idx_float.index)
         idx_float.trained = True
+        idx_float.active_index_type = 'float32'
         return idx_float
     elif dataset_dt == np.byte:
         idx_int8 = IndexInt8(handle)
         c_ivf_flat.deserialize(deref(handle_), c_filename, idx_int8.index)
         idx_int8.trained = True
+        idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dataset_dt == np.ubyte:
         idx_uint8 = IndexUint8(handle)
         c_ivf_flat.deserialize(deref(handle_), c_filename, idx_uint8.index)
         idx_uint8.trained = True
+        idx_uint8.active_index_type = 'ubyte'
         return idx_uint8
     else:
         raise ValueError("Index dtype %s not supported" % dtype)

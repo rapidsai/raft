@@ -478,7 +478,6 @@ def test_save_load(dtype):
     assert index.n_lists == loaded_index.n_lists
     assert index.dim == loaded_index.dim
     assert index.adaptive_centers == loaded_index.adaptive_centers
-    # assert index.size == loaded_index.size
 
     queries = generate_data((n_queries, n_cols), dtype)
 

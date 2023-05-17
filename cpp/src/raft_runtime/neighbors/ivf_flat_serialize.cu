@@ -24,14 +24,14 @@
 namespace raft::runtime::neighbors::ivf_flat {
 
 #define RAFT_IVF_FLAT_SERIALIZE_INST(DTYPE)                                            \
-  void serialize(raft::device_resources const& handle,                                 \
+  void serialize(raft::resources const& handle,                                        \
                  const std::string& filename,                                          \
                  const raft::neighbors::ivf_flat::index<DTYPE, int64_t>& index)        \
   {                                                                                    \
     raft::neighbors::ivf_flat::serialize(handle, filename, index);                     \
   };                                                                                   \
                                                                                        \
-  void deserialize(raft::device_resources const& handle,                               \
+  void deserialize(raft::resources const& handle,                                      \
                    const std::string& filename,                                        \
                    raft::neighbors::ivf_flat::index<DTYPE, int64_t>* index)            \
   {                                                                                    \
