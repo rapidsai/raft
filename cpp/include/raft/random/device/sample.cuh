@@ -101,4 +101,4 @@ DI i_t block_random_sample(rng_t rng, T* shbuf, T weight = 1, i_t idx = threadId
   return idx;
 }
 
-}
+}  // namespace raft::random::device
