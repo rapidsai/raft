@@ -39,7 +39,7 @@ enum class Algo { kRadix11bits, kWarpDistributedShm, kFaissBlockSelect };
  * on different values of rows/cols/k. The decision tree is converted to c++
  * code, which is cut and paste below.
  *
- * The code to generate is in cpp/scripts/heuristics/select_k, running the
+ * NOTE: The code to generate is in cpp/scripts/heuristics/select_k, running the
  * 'generate_heuristic' notebook there will replace the body of this function
  * with the latest learned heuristic
  */
