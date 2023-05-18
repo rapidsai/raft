@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/entropy.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -38,7 +39,7 @@ template <typename T>
 class entropyTest : public ::testing::TestWithParam<entropyParam> {
  protected:
   // the constructor
-  entropyTest() : stream(handle.get_stream()) {}
+  entropyTest() : stream(resource::get_cuda_stream(handle)) {}
 
   void SetUp() override
   {
@@ -88,7 +89,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
                            upperLabelRange);
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   // declaring the data values
   entropyParam params;
   T lowerLabelRange, upperLabelRange;

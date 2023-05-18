@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 
@@ -78,7 +78,7 @@ TEST(MDSpan, TemplateAsserts) { test_template_asserts(); }
 
 void test_host_flatten()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   // flatten 3d host mdspan
   {
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
@@ -121,10 +121,10 @@ TEST(MDArray, HostFlatten) { test_host_flatten(); }
 
 void test_device_flatten()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   // flatten 3d device mdspan
   {
-    raft::device_resources handle;
+    raft::resources handle;
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
     using three_d_mdarray = device_mdarray<int, three_d_extents>;
 
@@ -165,7 +165,7 @@ TEST(MDArray, DeviceFlatten) { test_device_flatten(); }
 
 void test_reshape()
 {
-  raft::device_resources handle;
+  raft::resources handle;
   // reshape 3d host array to vector
   {
     using three_d_extents = extents<int, dynamic_extent, dynamic_extent, dynamic_extent>;
@@ -184,7 +184,7 @@ void test_reshape()
 
   // reshape 4d device array to 2d
   {
-    raft::device_resources handle;
+    raft::resources handle;
     using four_d_extents =
       extents<int, dynamic_extent, dynamic_extent, dynamic_extent, dynamic_extent>;
     using four_d_mdarray = device_mdarray<int, four_d_extents>;
@@ -223,7 +223,7 @@ void test_const_mdspan()
 {
   // 3d host array
   {
-    raft::device_resources handle;
+    raft::resources handle;
     using two_d_extents = extents<int, 5, 5>;
     using two_d_mdarray = host_mdarray<float, two_d_extents>;
 

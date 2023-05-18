@@ -17,6 +17,7 @@
 #include "../linalg/matrix_vector_op.cuh"
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
@@ -44,7 +45,7 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
  public:
   MeanCenterTest()
     : params(::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       rows(params.rows),
       cols(params.cols),
       out(rows * cols, stream),
@@ -87,11 +88,11 @@ class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxTy
                               params.bcastAlongRows,
                               (T)-1.0,
                               stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MeanCenterInputs<T, IdxType> params;

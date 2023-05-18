@@ -20,7 +20,7 @@
 namespace raft::runtime::neighbors::ivf_flat {
 
 #define RAFT_INST_SEARCH(T, IdxT)                                         \
-  void search(raft::device_resources const& handle,                       \
+  void search(raft::resources const& handle,                              \
               raft::neighbors::ivf_flat::search_params const& params,     \
               const raft::neighbors::ivf_flat::index<T, IdxT>& index,     \
               raft::device_matrix_view<const T, IdxT, row_major> queries, \

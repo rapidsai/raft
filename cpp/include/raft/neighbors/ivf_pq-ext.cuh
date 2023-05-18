@@ -19,7 +19,7 @@
 #include <cstdint>                                // int64_t
 
 #include <raft/core/device_mdspan.hpp>            // raft::device_matrix_view
-#include <raft/core/device_resources.hpp>         // raft::device_resources
+#include <raft/core/resources.hpp>                // raft::resources
 #include <raft/neighbors/ivf_pq_types.hpp>        // raft::neighbors::ivf_pq::index
 #include <raft/util/raft_explicit.hpp>            // RAFT_EXPLICIT
 #include <rmm/mr/device/per_device_resource.hpp>  // rmm::mr::device_memory_resource
@@ -29,18 +29,18 @@
 namespace raft::neighbors::ivf_pq {
 
 template <typename T, typename IdxT = uint32_t>
-index<IdxT> build(raft::device_resources const& handle,
+index<IdxT> build(raft::resources const& handle,
                   const index_params& params,
                   raft::device_matrix_view<const T, IdxT, row_major> dataset) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-index<IdxT> extend(raft::device_resources const& handle,
+index<IdxT> extend(raft::resources const& handle,
                    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
                    std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,
                    const index<IdxT>& idx) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,
             index<IdxT>* idx) RAFT_EXPLICIT;
@@ -55,7 +55,7 @@ void search_with_filtering(raft::device_resources const& handle,
                            SampleFilterT sample_filter) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-void search(raft::device_resources const& handle,
+void search(raft::resources const& handle,
             const search_params& params,
             const index<IdxT>& idx,
             raft::device_matrix_view<const T, IdxT, row_major> queries,
@@ -63,21 +63,21 @@ void search(raft::device_resources const& handle,
             raft::device_matrix_view<float, IdxT, row_major> distances) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT = uint32_t>
-auto build(raft::device_resources const& handle,
+auto build(raft::resources const& handle,
            const index_params& params,
            const T* dataset,
            IdxT n_rows,
            uint32_t dim) -> index<IdxT> RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-auto extend(raft::device_resources const& handle,
+auto extend(raft::resources const& handle,
             const index<IdxT>& idx,
             const T* new_vectors,
             const IdxT* new_indices,
             IdxT n_rows) -> index<IdxT> RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             index<IdxT>* idx,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -96,7 +96,7 @@ void search_with_filtering(raft::device_resources const& handle,
                            SampleFilterT sample_filter         = SampleFilterT()) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
-void search(raft::device_resources const& handle,
+void search(raft::resources const& handle,
             const raft::neighbors::ivf_pq::search_params& params,
             const index<IdxT>& idx,
             const T* queries,
@@ -112,12 +112,12 @@ void search(raft::device_resources const& handle,
 
 #define instantiate_raft_neighbors_ivf_pq_build(T, IdxT)                                        \
   extern template raft::neighbors::ivf_pq::index<IdxT> raft::neighbors::ivf_pq::build<T, IdxT>( \
-    raft::device_resources const& handle,                                                       \
+    raft::resources const& handle,                                                              \
     const raft::neighbors::ivf_pq::index_params& params,                                        \
     raft::device_matrix_view<const T, IdxT, row_major> dataset);                                \
                                                                                                 \
   extern template auto raft::neighbors::ivf_pq::build(                                          \
-    raft::device_resources const& handle,                                                       \
+    raft::resources const& handle,                                                              \
     const raft::neighbors::ivf_pq::index_params& params,                                        \
     const T* dataset,                                                                           \
     IdxT n_rows,                                                                                \
@@ -132,19 +132,19 @@ instantiate_raft_neighbors_ivf_pq_build(uint8_t, int64_t);
 
 #define instantiate_raft_neighbors_ivf_pq_extend(T, IdxT)                                        \
   extern template raft::neighbors::ivf_pq::index<IdxT> raft::neighbors::ivf_pq::extend<T, IdxT>( \
-    raft::device_resources const& handle,                                                        \
+    raft::resources const& handle,                                                               \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                              \
     std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,            \
     const raft::neighbors::ivf_pq::index<IdxT>& idx);                                            \
                                                                                                  \
   extern template void raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                        \
+    raft::resources const& handle,                                                               \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                              \
     std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,            \
     raft::neighbors::ivf_pq::index<IdxT>* idx);                                                  \
                                                                                                  \
   extern template auto raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                        \
+    raft::resources const& handle,                                                               \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,                                             \
     const T* new_vectors,                                                                        \
     const IdxT* new_indices,                                                                     \
@@ -152,7 +152,7 @@ instantiate_raft_neighbors_ivf_pq_build(uint8_t, int64_t);
     ->raft::neighbors::ivf_pq::index<IdxT>;                                                      \
                                                                                                  \
   extern template void raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                        \
+    raft::resources const& handle,                                                               \
     raft::neighbors::ivf_pq::index<IdxT>* idx,                                                   \
     const T* new_vectors,                                                                        \
     const IdxT* new_indices,                                                                     \
@@ -166,7 +166,7 @@ instantiate_raft_neighbors_ivf_pq_extend(uint8_t, int64_t);
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)        \
   extern template void raft::neighbors::ivf_pq::search<T, IdxT>( \
-    raft::device_resources const& handle,                        \
+    raft::resources const& handle,                               \
     const raft::neighbors::ivf_pq::search_params& params,        \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,             \
     raft::device_matrix_view<const T, IdxT, row_major> queries,  \
@@ -174,7 +174,7 @@ instantiate_raft_neighbors_ivf_pq_extend(uint8_t, int64_t);
     raft::device_matrix_view<float, IdxT, row_major> distances); \
                                                                  \
   extern template void raft::neighbors::ivf_pq::search<T, IdxT>( \
-    raft::device_resources const& handle,                        \
+    raft::resources const& handle,                               \
     const raft::neighbors::ivf_pq::search_params& params,        \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,             \
     const T* queries,                                            \

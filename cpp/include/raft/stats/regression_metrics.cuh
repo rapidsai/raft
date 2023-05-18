@@ -19,8 +19,9 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
@@ -73,7 +74,7 @@ void regression_metrics(const T* predictions,
  * ref_predictions[i]| for i in [0, n).
  */
 template <typename value_t, typename idx_t>
-void regression_metrics(raft::device_resources const& handle,
+void regression_metrics(raft::resources const& handle,
                         raft::device_vector_view<const value_t, idx_t> predictions,
                         raft::device_vector_view<const value_t, idx_t> ref_predictions,
                         raft::host_scalar_view<double> mean_abs_error,
@@ -92,7 +93,7 @@ void regression_metrics(raft::device_resources const& handle,
   detail::regression_metrics(predictions.data_handle(),
                              ref_predictions.data_handle(),
                              predictions.extent(0),
-                             handle.get_stream(),
+                             resource::get_cuda_stream(handle),
                              *mean_abs_error.data_handle(),
                              *mean_squared_error.data_handle(),
                              *median_abs_error.data_handle());

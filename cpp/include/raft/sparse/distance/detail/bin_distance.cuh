@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <limits.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/utils.h>
@@ -117,7 +118,7 @@ template <typename value_idx = int, typename value_t = float>
 class jaccard_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit jaccard_expanded_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), workspace(0, config.handle.get_stream()), ip_dists(config)
+    : config_(&config), workspace(0, resource::get_cuda_stream(config.handle)), ip_dists(config)
   {
   }
 
@@ -128,12 +129,13 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
     value_idx* b_indices = ip_dists.b_rows_coo();
     value_t* b_data      = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz, config_->handle.get_stream());
+    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
+                                                   resource::get_cuda_stream(config_->handle));
     raft::sparse::convert::csr_to_coo(config_->a_indptr,
                                       config_->a_nrows,
                                       search_coo_rows.data(),
                                       config_->a_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     compute_bin_distance(out_dists,
                          search_coo_rows.data(),
@@ -144,7 +146,7 @@ class jaccard_expanded_distances_t : public distances_t<value_t> {
                          config_->b_nnz,
                          config_->a_nrows,
                          config_->b_nrows,
-                         config_->handle.get_stream(),
+                         resource::get_cuda_stream(config_->handle),
                          [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
                            value_t q_r_union = q_norm + r_norm;
                            value_t denom     = q_r_union - dot;
@@ -173,7 +175,7 @@ template <typename value_idx = int, typename value_t = float>
 class dice_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit dice_expanded_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), workspace(0, config.handle.get_stream()), ip_dists(config)
+    : config_(&config), workspace(0, resource::get_cuda_stream(config.handle)), ip_dists(config)
   {
   }
 
@@ -184,12 +186,13 @@ class dice_expanded_distances_t : public distances_t<value_t> {
     value_idx* b_indices = ip_dists.b_rows_coo();
     value_t* b_data      = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz, config_->handle.get_stream());
+    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
+                                                   resource::get_cuda_stream(config_->handle));
     raft::sparse::convert::csr_to_coo(config_->a_indptr,
                                       config_->a_nrows,
                                       search_coo_rows.data(),
                                       config_->a_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     compute_bin_distance(out_dists,
                          search_coo_rows.data(),
@@ -200,7 +203,7 @@ class dice_expanded_distances_t : public distances_t<value_t> {
                          config_->b_nnz,
                          config_->a_nrows,
                          config_->b_nrows,
-                         config_->handle.get_stream(),
+                         resource::get_cuda_stream(config_->handle),
                          [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
                            value_t q_r_union = q_norm + r_norm;
                            value_t dice      = (2 * dot) / q_r_union;

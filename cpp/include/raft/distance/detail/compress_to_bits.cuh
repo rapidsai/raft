@@ -16,6 +16,7 @@
 #pragma once
 
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 
@@ -95,11 +96,11 @@ __global__ void compress_to_bits_kernel(
  *                          Note: the division (`/`) is a ceilDiv.
  */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
-void compress_to_bits(raft::device_resources const& handle,
+void compress_to_bits(raft::resources const& handle,
                       raft::device_matrix_view<const bool, int, raft::layout_c_contiguous> in,
                       raft::device_matrix_view<T, int, raft::layout_c_contiguous> out)
 {
-  auto stream                    = handle.get_stream();
+  auto stream                    = resource::get_cuda_stream(handle);
   constexpr int bits_per_element = 8 * sizeof(T);
 
   RAFT_EXPECTS(raft::ceildiv(in.extent(0), bits_per_element) == out.extent(0),

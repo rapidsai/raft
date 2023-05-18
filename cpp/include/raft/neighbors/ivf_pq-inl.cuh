@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -52,7 +53,7 @@ namespace raft::neighbors::ivf_pq {
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-index<IdxT> build(raft::device_resources const& handle,
+index<IdxT> build(raft::resources const& handle,
                   const index_params& params,
                   raft::device_matrix_view<const T, IdxT, row_major> dataset)
 {
@@ -75,7 +76,7 @@ index<IdxT> build(raft::device_resources const& handle,
  * @param[inout] idx
  */
 template <typename T, typename IdxT>
-index<IdxT> extend(raft::device_resources const& handle,
+index<IdxT> extend(raft::resources const& handle,
                    raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
                    std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
                    const index<IdxT>& idx)
@@ -110,7 +111,7 @@ index<IdxT> extend(raft::device_resources const& handle,
  * @param[inout] idx
  */
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
             std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
             index<IdxT>* idx)
@@ -236,7 +237,7 @@ void search(raft::device_resources const& handle,
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-auto build(raft::device_resources const& handle,
+auto build(raft::resources const& handle,
            const index_params& params,
            const T* dataset,
            IdxT n_rows,
@@ -278,7 +279,7 @@ auto build(raft::device_resources const& handle,
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
-auto extend(raft::device_resources const& handle,
+auto extend(raft::resources const& handle,
             const index<IdxT>& idx,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -302,7 +303,7 @@ auto extend(raft::device_resources const& handle,
  * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             index<IdxT>* idx,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -371,7 +372,7 @@ void search_with_filtering(raft::device_resources const& handle,
 }
 
 template <typename T, typename IdxT>
-void search(raft::device_resources const& handle,
+void search(raft::resources const& handle,
             const search_params& params,
             const index<IdxT>& idx,
             const T* queries,

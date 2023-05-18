@@ -20,7 +20,7 @@
 #include <raft/comms/detail/ucp_helper.hpp>
 #include <raft/comms/detail/util.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

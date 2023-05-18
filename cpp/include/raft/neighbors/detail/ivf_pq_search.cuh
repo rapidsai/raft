@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_properties.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/detail/ivf_pq_compute_similarity.cuh>
@@ -25,10 +27,10 @@
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>
@@ -62,7 +64,7 @@ using namespace raft::spatial::knn::detail;  // NOLINT
  * scores here.
  */
 template <typename T>
-void select_clusters(raft::device_resources const& handle,
+void select_clusters(raft::resources const& handle,
                      uint32_t* clusters_to_probe,  // [n_queries, n_probes]
                      float* float_queries,         // [n_queries, dim_ext]
                      uint32_t n_queries,
@@ -75,7 +77,7 @@ void select_clusters(raft::device_resources const& handle,
                      const float* cluster_centers,  // [n_lists, dim_ext]
                      rmm::mr::device_memory_resource* mr)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   /* NOTE[qc_distances]
 
   We compute query-center distances to choose the clusters to probe.
@@ -412,8 +414,13 @@ constexpr inline auto expected_probe_coresidency(uint32_t n_clusters,
  *   3. split the query batch into smaller chunks, so that the device workspace
  *      is guaranteed to fit into GPU memory.
  */
+<<<<<<< HEAD
 template <typename ScoreT, typename LutT, typename SampleFilterT, typename IdxT>
 void ivfpq_search_worker(raft::device_resources const& handle,
+=======
+template <typename ScoreT, typename LutT, typename IdxT>
+void ivfpq_search_worker(raft::resources const& handle,
+>>>>>>> upstream/branch-23.06
                          const index<IdxT>& index,
                          uint32_t max_samples,
                          uint32_t n_probes,
@@ -429,7 +436,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                          SampleFilterT sample_filter,
                          rmm::mr::device_memory_resource* mr)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
   auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
@@ -529,6 +536,7 @@ void ivfpq_search_worker(raft::device_resources const& handle,
   }
 
   auto search_instance =
+<<<<<<< HEAD
     compute_similarity_select<ScoreT, LutT, SampleFilterT>(handle.get_device_properties(),
                                                            manage_local_topk,
                                                            coresidency,
@@ -539,6 +547,18 @@ void ivfpq_search_worker(raft::device_resources const& handle,
                                                            n_queries,
                                                            n_probes,
                                                            topK);
+=======
+    compute_similarity_select<ScoreT, LutT>(resource::get_device_properties(handle),
+                                            manage_local_topk,
+                                            coresidency,
+                                            preferred_shmem_carveout,
+                                            index.pq_bits(),
+                                            index.pq_dim(),
+                                            precomp_data_count,
+                                            n_queries,
+                                            n_probes,
+                                            topK);
+>>>>>>> upstream/branch-23.06
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
   std::optional<device_vector<float>> query_kths_buf{std::nullopt};
@@ -714,8 +734,13 @@ inline auto get_max_batch_size(uint32_t k,
 }
 
 /** See raft::spatial::knn::ivf_pq::search docs */
+<<<<<<< HEAD
 template <typename T, typename IdxT, typename SampleFilterT = NoneSampleFilter>
 inline void search(raft::device_resources const& handle,
+=======
+template <typename T, typename IdxT>
+inline void search(raft::resources const& handle,
+>>>>>>> upstream/branch-23.06
                    const search_params& params,
                    const index<IdxT>& index,
                    const T* queries,
@@ -756,7 +781,7 @@ inline void search(raft::device_resources const& handle,
     default: RAFT_FAIL("all pointers must be accessible from the device.");
   }
 
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   auto dim      = index.dim();
   auto dim_ext  = index.dim_ext();

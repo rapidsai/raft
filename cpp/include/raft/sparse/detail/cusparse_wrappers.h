@@ -777,7 +777,7 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   auto return_value =
     cusparsespmm(handle, opB, opA, alpha, matB, matA, beta, matC, alg, ext_buf, stream);
 
-  raft::device_resources rhandle;
+  raft::resources rhandle;
   raft::linalg::transpose(rhandle, CT.data(), C, n, m, stream);
   // destroy matrix/vector descriptors
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));

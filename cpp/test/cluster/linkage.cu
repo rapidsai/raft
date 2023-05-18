@@ -24,6 +24,7 @@
 #undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -169,15 +170,15 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  public:
   LinkageTest()
     : params(::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam()),
-      labels(0, handle.get_stream()),
-      labels_ref(0, handle.get_stream())
+      labels(0, resource::get_cuda_stream(handle)),
+      labels_ref(0, resource::get_cuda_stream(handle))
   {
   }
 
  protected:
   void basicTest()
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     labels.resize(params.n_row, stream);
     labels_ref.resize(params.n_row, stream);
@@ -217,7 +218,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
           std::make_optional<int>(params.c));
     }
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row, stream);
   }
@@ -225,7 +226,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
 
   LinkageInputs<T, IdxT> params;
   rmm::device_uvector<IdxT> labels, labels_ref;

@@ -15,10 +15,11 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include "../test_utils.cuh"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/norm.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -44,7 +45,7 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
  public:
   CSRRowNormalizeTest()
     : params(::testing::TestWithParam<CSRRowNormalizeInputs<Type_f, Index_>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in_vals(params.in_vals.size(), stream),
       verify(params.verify.size(), stream),
       ex_scan(params.ex_scan.size(), stream),
@@ -81,7 +82,7 @@ class CSRRowNormalizeTest : public ::testing::TestWithParam<CSRRowNormalizeInput
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   CSRRowNormalizeInputs<Type_f, Index_> params;

@@ -41,7 +41,7 @@ namespace raft::sparse::neighbors {
  * @param c
  */
 template <typename value_idx = int, typename value_t = float>
-void knn_graph(raft::device_resources const& handle,
+void knn_graph(raft::resources const& handle,
                const value_t* X,
                std::size_t m,
                std::size_t n,

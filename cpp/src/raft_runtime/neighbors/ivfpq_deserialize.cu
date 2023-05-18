@@ -21,7 +21,7 @@
 
 namespace raft::runtime::neighbors::ivf_pq {
 
-void deserialize(raft::device_resources const& handle,
+void deserialize(raft::resources const& handle,
                  const std::string& filename,
                  raft::neighbors::ivf_pq::index<int64_t>* index)
 {

@@ -15,7 +15,11 @@
  */
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cudart_utils.hpp>
@@ -89,8 +93,9 @@ struct vector_view_t {
 template <typename value_type>
 class vector_t {
  public:
-  vector_t(device_resources const& raft_handle, size_type sz)
-    : buffer_(sz, raft_handle.get_stream()), thrust_policy(raft_handle.get_thrust_policy())
+  vector_t(resources const& raft_handle, size_type sz)
+    : buffer_(sz, resource::get_cuda_stream(raft_handle)),
+      thrust_policy(resource::get_thrust_policy(raft_handle))
   {
   }
 
@@ -128,7 +133,7 @@ class vector_t {
 
 template <typename index_type, typename value_type>
 struct sparse_matrix_t {
-  sparse_matrix_t(device_resources const& raft_handle,
+  sparse_matrix_t(resources const& raft_handle,
                   index_type const* row_offsets,
                   index_type const* col_indices,
                   value_type const* values,
@@ -145,7 +150,7 @@ struct sparse_matrix_t {
   {
   }
 
-  sparse_matrix_t(device_resources const& raft_handle,
+  sparse_matrix_t(resources const& raft_handle,
                   index_type const* row_offsets,
                   index_type const* col_indices,
                   value_type const* values,
@@ -162,7 +167,7 @@ struct sparse_matrix_t {
   }
 
   template <typename CSRView>
-  sparse_matrix_t(device_resources const& raft_handle, CSRView const& csr_view)
+  sparse_matrix_t(resources const& raft_handle, CSRView const& csr_view)
     : handle_(raft_handle),
       row_offsets_(csr_view.offsets),
       col_indices_(csr_view.indices),
@@ -194,8 +199,8 @@ struct sparse_matrix_t {
     RAFT_EXPECTS(x != nullptr, "Null x buffer.");
     RAFT_EXPECTS(y != nullptr, "Null y buffer.");
 
-    auto cusparse_h = handle_.get_cusparse_handle();
-    auto stream     = handle_.get_stream();
+    auto cusparse_h = resource::get_cusparse_handle(handle_);
+    auto stream     = resource::get_cuda_stream(handle_);
 
     cusparseOperation_t trans = transpose ? CUSPARSE_OPERATION_TRANSPOSE :  // transpose
                                   CUSPARSE_OPERATION_NON_TRANSPOSE;         // non-transpose
@@ -281,7 +286,7 @@ struct sparse_matrix_t {
 #endif
   }
 
-  device_resources const& get_handle(void) const { return handle_; }
+  resources const& get_handle(void) const { return handle_; }
 
 #if not defined CUDA_ENFORCE_LOWER and CUDA_VER_10_1_UP
   cusparseSpMVAlg_t translate_algorithm(sparse_mv_alg_t alg) const
@@ -297,7 +302,7 @@ struct sparse_matrix_t {
   // private: // maybe not, keep this ASAPBNS ("as simple as possible, but not simpler"); hence,
   // aggregate
 
-  raft::device_resources const& handle_;
+  raft::resources const& handle_;
   index_type const* row_offsets_;
   index_type const* col_indices_;
   value_type const* values_;
@@ -308,7 +313,7 @@ struct sparse_matrix_t {
 
 template <typename index_type, typename value_type>
 struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
-  laplacian_matrix_t(device_resources const& raft_handle,
+  laplacian_matrix_t(resources const& raft_handle,
                      index_type const* row_offsets,
                      index_type const* col_indices,
                      value_type const* values,
@@ -323,7 +328,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     sparse_matrix_t<index_type, value_type>::mv(1, ones.raw(), 0, diagonal_.raw());
   }
 
-  laplacian_matrix_t(device_resources const& raft_handle,
+  laplacian_matrix_t(resources const& raft_handle,
                      sparse_matrix_t<index_type, value_type> const& csr_m)
     : sparse_matrix_t<index_type, value_type>(raft_handle,
                                               csr_m.row_offsets_,
@@ -351,8 +356,9 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
     constexpr int BLOCK_SIZE = 1024;
     auto n                   = sparse_matrix_t<index_type, value_type>::nrows_;
 
-    auto cublas_h = sparse_matrix_t<index_type, value_type>::get_handle().get_cublas_handle();
-    auto stream   = sparse_matrix_t<index_type, value_type>::get_handle().get_stream();
+    auto handle   = sparse_matrix_t<index_type, value_type>::get_handle();
+    auto cublas_h = resource::get_cublas_handle(handle);
+    auto stream   = resource::get_cuda_stream(handle);
 
     // scales y by beta:
     //
@@ -381,7 +387,7 @@ struct laplacian_matrix_t : sparse_matrix_t<index_type, value_type> {
 
 template <typename index_type, typename value_type>
 struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
-  modularity_matrix_t(device_resources const& raft_handle,
+  modularity_matrix_t(resources const& raft_handle,
                       index_type const* row_offsets,
                       index_type const* col_indices,
                       value_type const* values,
@@ -393,7 +399,7 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
     edge_sum_ = laplacian_matrix_t<index_type, value_type>::diagonal_.nrm1();
   }
 
-  modularity_matrix_t(device_resources const& raft_handle,
+  modularity_matrix_t(resources const& raft_handle,
                       sparse_matrix_t<index_type, value_type> const& csr_m)
     : laplacian_matrix_t<index_type, value_type>(raft_handle, csr_m)
   {
@@ -412,8 +418,9 @@ struct modularity_matrix_t : laplacian_matrix_t<index_type, value_type> {
   {
     auto n = sparse_matrix_t<index_type, value_type>::nrows_;
 
-    auto cublas_h = sparse_matrix_t<index_type, value_type>::get_handle().get_cublas_handle();
-    auto stream   = sparse_matrix_t<index_type, value_type>::get_handle().get_stream();
+    auto handle   = sparse_matrix_t<index_type, value_type>::get_handle();
+    auto cublas_h = resource::get_cublas_handle(handle);
+    auto stream   = resource::get_cuda_stream(handle);
 
     // y = A*x
     //

@@ -17,6 +17,8 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
@@ -67,7 +69,7 @@ template <typename T, typename DataT, typename IdxT>
 class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
  public:
   AnnIVFFlatTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       ps(::testing::TestWithParam<AnnIvfFlatInputs<IdxT>>::GetParam()),
       database(0, stream_),
       search_queries(0, stream_)
@@ -98,7 +100,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                 stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
-      handle_.sync_stream(stream_);
+      resource::sync_stream(handle_);
     }
 
     {
@@ -125,7 +127,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                ps.num_db_vecs,
                                ps.dim);
 
-        handle_.sync_stream(stream_);
+        resource::sync_stream(handle_);
         approx_knn_search(handle_,
                           distances_ivfflat_dev.data(),
                           indices_ivfflat_dev.data(),
@@ -136,7 +138,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
-        handle_.sync_stream(stream_);
+        resource::sync_stream(handle_);
       }
 
       ASSERT_TRUE(eval_neighbours(indices_naive,
@@ -165,10 +167,10 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         auto idx = ivf_flat::build(handle_, index_params, database_view);
 
         rmm::device_uvector<IdxT> vector_indices(ps.num_db_vecs, stream_);
-        thrust::sequence(handle_.get_thrust_policy(),
+        thrust::sequence(resource::get_thrust_policy(handle_),
                          thrust::device_pointer_cast(vector_indices.data()),
                          thrust::device_pointer_cast(vector_indices.data() + ps.num_db_vecs));
-        handle_.sync_stream(stream_);
+        resource::sync_stream(handle_);
 
         IdxT half_of_data = ps.num_db_vecs / 2;
 
@@ -209,7 +211,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
-        handle_.sync_stream(stream_);
+        resource::sync_stream(handle_);
 
         // Test the centroid invariants
         if (index_2.adaptive_centers()) {
@@ -221,7 +223,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
             list_sizes.data(), index_2.list_sizes().data_handle(), index_2.n_lists(), stream_);
           raft::copy(
             list_indices.data(), index_2.inds_ptrs().data_handle(), index_2.n_lists(), stream_);
-          handle_.sync_stream(stream_);
+          resource::sync_stream(handle_);
           for (uint32_t l = 0; l < index_2.n_lists(); l++) {
             if (list_sizes[l] == 0) continue;
             rmm::device_uvector<float> cluster_data(list_sizes[l] * ps.dim, stream_);
@@ -274,18 +276,18 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       r.uniformInt(database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
   }
 
   void TearDown() override
   {
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
     database.resize(0, stream_);
     search_queries.resize(0, stream_);
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   rmm::cuda_stream_view stream_;
   AnnIvfFlatInputs<IdxT> ps;
   rmm::device_uvector<DataT> database;
@@ -333,6 +335,7 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
 
   // test splitting the big query batches  (> max gridDim.y) into smaller batches
   {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {1000000, 1024, 32, 10, 256, 256, raft::distance::DistanceType::InnerProduct, false},
   {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, true},
 
   // test radix_sort for getting the cluster selection

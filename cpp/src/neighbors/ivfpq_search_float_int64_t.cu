@@ -19,7 +19,7 @@
 
 #define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)        \
   template void raft::neighbors::ivf_pq::search<T, IdxT>(        \
-    raft::device_resources const& handle,                        \
+    raft::resources const& handle,                               \
     const raft::neighbors::ivf_pq::search_params& params,        \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,             \
     raft::device_matrix_view<const T, IdxT, row_major> queries,  \
@@ -27,7 +27,7 @@
     raft::device_matrix_view<float, IdxT, row_major> distances); \
                                                                  \
   template void raft::neighbors::ivf_pq::search<T, IdxT>(        \
-    raft::device_resources const& handle,                        \
+    raft::resources const& handle,                               \
     const raft::neighbors::ivf_pq::search_params& params,        \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,             \
     const T* queries,                                            \

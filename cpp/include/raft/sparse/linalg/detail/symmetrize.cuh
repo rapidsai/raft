@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cusparse_v2.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
@@ -325,7 +326,7 @@ void from_knn_symmetrize_matrix(const value_idx* __restrict__ knn_indices,
  * Symmetrizes a COO matrix
  */
 template <typename value_idx, typename value_t>
-void symmetrize(raft::device_resources const& handle,
+void symmetrize(raft::resources const& handle,
                 const value_idx* rows,
                 const value_idx* cols,
                 const value_t* vals,
@@ -334,7 +335,7 @@ void symmetrize(raft::device_resources const& handle,
                 size_t nnz,
                 raft::sparse::COO<value_t, value_idx>& out)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   // copy rows to cols and cols to rows
   rmm::device_uvector<value_idx> symm_rows(nnz * 2, stream);

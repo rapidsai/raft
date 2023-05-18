@@ -28,7 +28,7 @@
 #include <cstddef>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/util/cudart_utils.hpp>
 

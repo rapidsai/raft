@@ -17,17 +17,18 @@
 #pragma once
 
 #include <cublas_v2.h>
+#include <raft/core/resource/cublas_handle.hpp>
 
 #include "cublas_wrappers.hpp"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
 namespace detail {
 
 template <typename math_t, bool DevicePointerMode = false>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const bool trans_a,
           const int m,
           const int n,
@@ -41,7 +42,7 @@ void gemv(raft::device_resources const& handle,
           const int incy,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
   detail::cublas_device_pointer_mode<DevicePointerMode> pmode(cublas_h);
   RAFT_CUBLAS_TRY(detail::cublasgemv(cublas_h,
                                      trans_a ? CUBLAS_OP_T : CUBLAS_OP_N,
@@ -59,7 +60,7 @@ void gemv(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows,
           const int n_cols,
@@ -76,7 +77,7 @@ void gemv(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -91,7 +92,7 @@ void gemv(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -107,7 +108,7 @@ void gemv(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,
@@ -119,14 +120,14 @@ void gemv(raft::device_resources const& handle,
           const math_t beta,
           cudaStream_t stream)
 {
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
+  cublasHandle_t cublas_h = resource::get_cublas_handle(handle);
   cublasOperation_t op_a  = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
   RAFT_CUBLAS_TRY(
     cublasgemv(cublas_h, op_a, n_rows_a, n_cols_a, &alpha, A, lda, x, 1, &beta, y, 1, stream));
 }
 
 template <typename math_t>
-void gemv(raft::device_resources const& handle,
+void gemv(raft::resources const& handle,
           const math_t* A,
           const int n_rows_a,
           const int n_cols_a,

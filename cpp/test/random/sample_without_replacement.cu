@@ -16,7 +16,8 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -52,7 +53,7 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
  public:
   SWoRTest()
     : params(::testing::TestWithParam<SWoRInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.len, stream),
       wts(params.len, stream),
       out(params.sampledLen, stream),
@@ -73,11 +74,11 @@ class SWoRTest : public ::testing::TestWithParam<SWoRInputs<T>> {
     sampleWithoutReplacement(
       handle, r, out.data(), outIdx.data(), in.data(), wts.data(), params.sampledLen, params.len);
     update_host(h_outIdx.data(), outIdx.data(), params.sampledLen, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SWoRInputs<T> params;
@@ -91,7 +92,7 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
  public:
   SWoRMdspanTest()
     : params(::testing::TestWithParam<SWoRInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.len, stream),
       wts(params.len, stream),
       out(params.sampledLen, stream),
@@ -142,11 +143,11 @@ class SWoRMdspanTest : public ::testing::TestWithParam<SWoRInputs<T>> {
       sample_without_replacement(handle, r, in_view, std::nullopt, out2_view, std::nullopt);
     }
     update_host(h_outIdx.data(), outIdx.data(), params.sampledLen, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SWoRInputs<T> params;

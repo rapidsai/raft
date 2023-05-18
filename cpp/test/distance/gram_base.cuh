@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <memory>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -46,13 +47,13 @@ void naiveGramMatrixKernel(int n1,
                            bool is_row_major,
                            KernelParams kernel,
                            cudaStream_t stream,
-                           const raft::device_resources& handle)
+                           const raft::resources& handle)
 {
   std::vector<math_t> x1_host(x1.size());
   raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
   std::vector<math_t> x2_host(x2.size());
   raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   for (int i = 0; i < n1; i++) {
     for (int j = 0; j < n2; j++) {

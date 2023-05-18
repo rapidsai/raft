@@ -493,7 +493,7 @@ E.g. with a CUDA-aware MPI, a RAFT user could use code like this to inject an in
 
 ```cpp
 #include <mpi.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/algo.hpp>
 ...
@@ -519,7 +519,7 @@ int main(int argc, char * argv[])
     MPI_Comm_dup(MPI_COMM_WORLD, &raft_mpi_comms);
 
     {
-        raft::device_resources res;
+        raft::resources res;
         initialize_mpi_comms(res, raft_mpi_comms);
 
         ...

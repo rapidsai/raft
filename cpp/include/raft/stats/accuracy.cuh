@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/scores.cuh>
 
 namespace raft {
@@ -55,7 +56,7 @@ float accuracy(const math_t* predictions, const math_t* ref_predictions, int n, 
  * @return: Accuracy score in [0, 1]; higher is better.
  */
 template <typename value_t, typename idx_t>
-float accuracy(raft::device_resources const& handle,
+float accuracy(raft::resources const& handle,
                raft::device_vector_view<const value_t, idx_t> predictions,
                raft::device_vector_view<const value_t, idx_t> ref_predictions)
 {
@@ -66,7 +67,7 @@ float accuracy(raft::device_resources const& handle,
   return detail::accuracy_score(predictions.data_handle(),
                                 ref_predictions.data_handle(),
                                 predictions.extent(0),
-                                handle.get_stream());
+                                resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_accuracy

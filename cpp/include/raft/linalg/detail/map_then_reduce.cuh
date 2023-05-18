@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
 

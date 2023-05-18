@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/span.hpp>
 #include <raft/core/sparse_types.hpp>
 

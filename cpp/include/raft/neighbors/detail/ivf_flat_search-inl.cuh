@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>                       // raft::device_resources
 #include <raft/core/logger.hpp>                                 // RAFT_LOG_TRACE
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>                              // raft::resources
 #include <raft/distance/distance_types.hpp>                     // is_min_close, DistanceType
 #include <raft/linalg/gemm.cuh>                                 // raft::linalg::gemm
 #include <raft/linalg/norm.cuh>                                 // raft::linalg::norm
@@ -33,7 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <typename T, typename AccT, typename IdxT>
-void search_impl(raft::device_resources const& handle,
+void search_impl(raft::resources const& handle,
                  const raft::neighbors::ivf_flat::index<T, IdxT>& index,
                  const T* queries,
                  uint32_t n_queries,
@@ -44,7 +45,7 @@ void search_impl(raft::device_resources const& handle,
                  AccT* distances,
                  rmm::mr::device_memory_resource* search_mr)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   // The norm of query
   rmm::device_uvector<float> query_norm_dev(n_queries, stream, search_mr);
   // The distance value of cluster(list) and queries
@@ -196,7 +197,7 @@ void search_impl(raft::device_resources const& handle,
 
 /** See raft::neighbors::ivf_flat::search docs */
 template <typename T, typename IdxT>
-inline void search(raft::device_resources const& handle,
+inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<T, IdxT>& index,
                    const T* queries,
@@ -213,22 +214,33 @@ inline void search(raft::device_resources const& handle,
                "n_probes (number of clusters to probe in the search) must be positive.");
   auto n_probes = std::min<uint32_t>(params.n_probes, index.n_lists());
 
-  auto pool_guard = raft::get_pool_memory_resource(mr, n_queries * n_probes * k * 16);
+  // a batch size heuristic: try to keep the workspace within the specified size
+  constexpr uint32_t kExpectedWsSize = 1024 * 1024 * 1024;
+  const uint32_t max_queries =
+    std::min<uint32_t>(n_queries,
+                       raft::div_rounding_up_safe<uint64_t>(
+                         kExpectedWsSize, 16ull * uint64_t{n_probes} * k + 4ull * index.dim()));
+
+  auto pool_guard = raft::get_pool_memory_resource(mr, max_queries * n_probes * k * 16);
   if (pool_guard) {
     RAFT_LOG_DEBUG("ivf_flat::search: using pool memory resource with initial size %zu bytes",
                    n_queries * n_probes * k * 16ull);
   }
 
-  return search_impl<T, float, IdxT>(handle,
-                                     index,
-                                     queries,
-                                     n_queries,
-                                     k,
-                                     n_probes,
-                                     raft::distance::is_min_close(index.metric()),
-                                     neighbors,
-                                     distances,
-                                     mr);
+  for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
+    uint32_t queries_batch = min(max_queries, n_queries - offset_q);
+
+    search_impl<T, float, IdxT>(handle,
+                                index,
+                                queries + offset_q * index.dim(),
+                                queries_batch,
+                                k,
+                                n_probes,
+                                raft::distance::is_min_close(index.metric()),
+                                neighbors + offset_q * k,
+                                distances + offset_q * k,
+                                mr);
+  }
 }
 
 }  // namespace raft::neighbors::ivf_flat::detail
