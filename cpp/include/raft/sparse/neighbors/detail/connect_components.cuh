@@ -37,7 +37,6 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
 #include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 #include <raft/core/kvp.hpp>
 
@@ -216,7 +215,8 @@ void perform_1nn(raft::resources const& handle,
                  size_t batch_size,
                  red_op reduction_op)
 {
-  auto stream = resource::get_cuda_stream(handle);
+  auto stream      = resource::get_cuda_stream(handle);
+  auto exec_policy = resource::get_thrust_policy(handle);
 
   value_idx n_components = get_n_components(colors, n_rows, stream);
 
@@ -275,7 +275,7 @@ void perform_1nn(raft::resources const& handle,
       kvp_view);
   }
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
-  thrust::transform(rmm::exec_policy(stream), kvp, kvp + n_rows, nn_colors, extract_colors_op);
+  thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
 }
 
 /**
@@ -291,21 +291,22 @@ void perform_1nn(raft::resources const& handle,
  * @param stream stream for which to order CUDA operations
  */
 template <typename value_idx, typename value_t>
-void sort_by_color(value_idx* colors,
+void sort_by_color(raft::resources const& handle,
+                   value_idx* colors,
                    value_idx* nn_colors,
                    raft::KeyValuePair<value_idx, value_t>* kvp,
                    value_idx* src_indices,
-                   size_t n_rows,
-                   cudaStream_t stream)
+                   size_t n_rows)
 {
+  auto exec_policy = resource::get_thrust_policy(handle);
   thrust::counting_iterator<value_idx> arg_sort_iter(0);
-  thrust::copy(rmm::exec_policy(stream), arg_sort_iter, arg_sort_iter + n_rows, src_indices);
+  thrust::copy(exec_policy, arg_sort_iter, arg_sort_iter + n_rows, src_indices);
 
   auto keys = thrust::make_zip_iterator(
     thrust::make_tuple(colors, nn_colors, (KeyValuePair<value_idx, value_t>*)kvp));
   auto vals = thrust::make_zip_iterator(thrust::make_tuple(src_indices));
   // get all the colors in contiguous locations so we can map them to warps.
-  thrust::sort_by_key(rmm::exec_policy(stream), keys, keys + n_rows, vals, TupleComp());
+  thrust::sort_by_key(exec_policy, keys, keys + n_rows, vals, TupleComp());
 }
 
 template <typename value_idx, typename value_t>
@@ -456,7 +457,7 @@ void connect_components(raft::resources const& handle,
   // max_color + 1 = number of connected components
   // sort nn_colors by key w/ original colors
   sort_by_color(
-    colors.data(), nn_colors.data(), temp_inds_dists.data(), src_indices.data(), n_rows, stream);
+    handle, colors.data(), nn_colors.data(), temp_inds_dists.data(), src_indices.data(), n_rows);
 
   /**
    * Take the min for any duplicate colors

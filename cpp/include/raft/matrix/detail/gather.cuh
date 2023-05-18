@@ -350,15 +350,18 @@ void gather_if(const InputIteratorT in,
 }
 
 /**
- * In-place gather elements in a row-major matrix according to a
+ * @brief In-place gather elements in a row-major matrix according to a
  * map. The length of the map is equal to the number of rows. The
- * map specifies new order in which rows are arranged, i.e. in the
- * resulting matrix, row[i] would be replaced by row[matrix[i]].
+ * map specifies new order in which rows of the input matrix are rearranged,
+ * i.e. in the resulting matrix, row i is assigned to the position map[i].
+ * example, the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the
+ * map [2, 0, 1] will be transformed to [[7, 8, 9], [1, 2, 3], [4, 5, 6]].
  * Batching is done on columns and an additional scratch space of
  * shape n_rows * cols_batch_size is created. For each batch, chunks
  * of columns from each row are copied into the appropriate location
  * in the scratch space and copied back to the corresponding locations
  * in the input matrix.
+ *
  * @tparam InputIteratorT
  * @tparam MapIteratorT
  * @tparam IndexT

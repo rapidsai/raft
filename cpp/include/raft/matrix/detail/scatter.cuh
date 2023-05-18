@@ -31,14 +31,17 @@ namespace matrix {
 namespace detail {
 
 /**
- * In-place scatter elements inout a row-major matrix according to a
+ * @brief In-place scatter elements in a row-major matrix according to a
  * map. The length of the map is equal to the number of rows. The
- * map specifies the destination index for each row, i.e. inout the
- * resulting matrix, row[map[i]] would be row[i]. Batching is done on
+ * map specifies the destination index for each row, i.e. in the
+ * resulting matrix, row map[i] is assigned to row i. For example,
+ * the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the map [2, 0, 1] will
+ * be transformed to [[4, 5, 6], [7, 8, 9], [1, 2, 3]]. Batching is done on
  * columns and an additional scratch space of shape n_rows * cols_batch_size
  * is created. For each batch, chunks of columns from each row are copied
- * into the appropriate location inout the scratch space and copied back to
- * the corresponding locations inout the input matrix.
+ * into the appropriate location in the scratch space and copied back to
+ * the corresponding locations in the input matrix.
+ *
  * @tparam InputIteratorT
  * @tparam MapIteratorT
  * @tparam IndexT
