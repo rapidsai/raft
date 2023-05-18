@@ -180,16 +180,16 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
 
 #define COMMA ,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, NoneSampleFilter);
+  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, NoneSampleFilter);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(half, half, NoneSampleFilter);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half, NoneSampleFilter);
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, float, NoneSampleFilter);
+  half, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(half, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(float, float, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, NoneSampleFilter);
+  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, NoneSampleFilter);
+  float, raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 
 #undef COMMA
 
