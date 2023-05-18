@@ -108,7 +108,6 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
                      left_eig_vectors_act.data(), params.n_row, params.k)),
                    std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
                      right_eig_vectors_act.data(), params.k, params.n_col)),
-                   params.k,
                    2,
                    2);
     handle.sync_stream(stream);
@@ -161,7 +160,6 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
                    std::nullopt,
                    std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
                      right_eig_vectors_act.data(), params.k, params.n_col)),
-                   params.k,
                    2,
                    2);
     randomized_svd(handle,
@@ -171,7 +169,6 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
                    std::make_optional(raft::make_device_matrix_view<T, uint32_t, raft::col_major>(
                      left_eig_vectors_act.data(), params.n_row, params.k)),
                    std::nullopt,
-                   params.k,
                    2,
                    2);
     randomized_svd(handle,
@@ -180,7 +177,6 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
                    raft::make_device_vector_view<T, uint32_t>(sing_vals_act.data(), params.k),
                    std::nullopt,
                    std::nullopt,
-                   params.k,
                    2,
                    2);
     handle.sync_stream(stream);
