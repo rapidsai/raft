@@ -61,7 +61,6 @@ class SparseDistanceTest
  public:
   SparseDistanceTest()
     : params(::testing::TestWithParam<SparseDistanceInputs<value_idx, value_t>>::GetParam()),
-      dist_config(handle),
       indptr(0, resource::get_cuda_stream(handle)),
       indices(0, resource::get_cuda_stream(handle)),
       data(0, resource::get_cuda_stream(handle)),
