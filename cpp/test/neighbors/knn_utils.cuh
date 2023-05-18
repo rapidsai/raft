@@ -47,7 +47,7 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
                                             size_t cols,
                                             const DistT eps,
                                             cudaStream_t stream = 0,
-                                            bool sort_inputs = false)
+                                            bool sort_inputs    = false)
 {
   size_t size = rows * cols;
   std::unique_ptr<T[]> exp_idx_h(new T[size]);
