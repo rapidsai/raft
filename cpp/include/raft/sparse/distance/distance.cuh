@@ -143,7 +143,7 @@ void pairwiseDistance(value_t* out,
  *
  * @code{.cpp}
  * #include <raft/core/device_resources.hpp>
- * #include <raft/core/device_coo_matrix.hpp>
+ * #include <raft/core/device_csr_matrix.hpp>
  * #include <raft/core/device_mdspan.hpp>
  *
  * int x_n_rows = 100000;
@@ -153,31 +153,24 @@ void pairwiseDistance(value_t* out,
  * raft::device_resources handle;
  * auto x = raft::make_device_csr_matrix<float>(handle, x_n_rows, n_cols);
  * auto y = raft::make_device_csr_matrix<float>(handle, y_n_rows, n_cols);
- * ...
- * // compute expected sparsity
- * ...
- * int x_nnz = 5000;
- * int y_nnz = 10000;
- * x.initialize_sparsity(nnz);
- * y.initialize_sparsity(nnz);
+ *
  * ...
  * // populate data
  * ...
  *
  * auto out = raft::make_device_matrix<float>(handle, x_nrows, y_nrows);
- *
- * raft::sparse::distance_pairwise_distance(handle, out, x, y,
- * raft::distance::DistanceType::L2Expanded);
+ * auto metric = raft::distance::DistanceType::L2Expanded;
+ * raft::sparse::distance_pairwise_distance(handle, x, y, out, metric);
  * @endcode
  *
  * @tparam DeviceCSRMatrix raft::device_csr_matrix or raft::device_csr_matrix_view
  * @tparam ElementType data-type of inputs and output
  * @tparam IndexType data-type for indexing
  *
- * @param[in] handle raft::device_resources
- * @param[out] dist raft::device_matrix_view dense matrix
+ * @param[in] handle raft::resources
  * @param[in] x raft::SparsityType::PRESERVING sparse matrix
  * @param[in] y raft::SparsityType::PRESERVING sparse matrix
+ * @param[out] dist raft::device_matrix_view dense matrix
  * @param[in] metric distance metric to use
  * @param[in] metric_arg metric argument (used for Minkowski distance)
  */
@@ -185,10 +178,10 @@ template <typename DeviceCSRMatrix,
           typename ElementType,
           typename IndexType,
           typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
-void pairwise_distance(raft::device_resources const& handle,
-                       raft::device_matrix_view<ElementType, IndexType, raft::row_major> dist,
+void pairwise_distance(raft::resources const& handle,
                        DeviceCSRMatrix x,
                        DeviceCSRMatrix y,
+                       raft::device_matrix_view<ElementType, IndexType, raft::row_major> dist,
                        raft::distance::DistanceType metric,
                        float metric_arg = 2.0f)
 {

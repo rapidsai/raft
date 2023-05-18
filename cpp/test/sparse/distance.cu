@@ -90,7 +90,7 @@ class SparseDistanceTest
       static_cast<value_idx>(params.indices_h.size()));
     auto x = raft::make_device_csr_matrix_view<const value_t>(data.data(), x_structure);
 
-    pairwise_distance(handle, out, x, x, params.metric, params.metric_arg);
+    pairwise_distance(handle, x, x, out, params.metric, params.metric_arg);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
   }
