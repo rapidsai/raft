@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/neighbors/ivf_flat_types.hpp>
+#include <string>
 
 namespace raft::runtime::neighbors::ivf_flat {
 
@@ -46,12 +47,11 @@ namespace raft::runtime::neighbors::ivf_flat {
               raft::neighbors::ivf_flat::index<T, IdxT>* idx);                       \
                                                                                      \
   void serialize(raft::resources const& handle,                                      \
-                 const std::string& filename,                                        \
+                 std::string& str,                                                   \
                  const raft::neighbors::ivf_flat::index<T, IdxT>& index);            \
-                                                                                     \
   void deserialize(raft::resources const& handle,                                    \
-                   const std::string& filename,                                      \
-                   raft::neighbors::ivf_flat::index<T, IdxT>* index);
+                   const std::string& str,                                           \
+                   raft::neighbors::ivf_flat::index<T, IdxT>*);
 
 RAFT_INST_BUILD_EXTEND(float, int64_t)
 RAFT_INST_BUILD_EXTEND(int8_t, int64_t)

@@ -751,7 +751,7 @@ def save(filename, Index index, handle=None):
     cdef device_resources* handle_ = \
         <device_resources*><size_t>handle.getHandle()
 
-    cdef string c_filename = filename.encode('utf-8')
+    cdef string c_string
 
     cdef IndexFloat idx_float
     cdef IndexInt8 idx_int8
@@ -760,22 +760,27 @@ def save(filename, Index index, handle=None):
     if index.active_index_type == "float32":
         idx_float = index
         c_ivf_flat.serialize(
-            deref(handle_), c_filename, deref(idx_float.index))
+            deref(handle_), c_string, deref(idx_float.index))
     elif index.active_index_type == "byte":
         idx_int8 = index
         c_ivf_flat.serialize(
-            deref(handle_), c_filename, deref(idx_int8.index))
+            deref(handle_), c_string, deref(idx_int8.index))
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
         c_ivf_flat.serialize(
-            deref(handle_), c_filename, deref(idx_uint8.index))
+            deref(handle_), c_string, deref(idx_uint8.index))
     else:
         raise ValueError(
             "Index dtype %s not supported" % index.active_index_type)
 
+    dtype = np.dtype(index.active_index_type)
+    with open(filename, 'wb') as f:
+        f.write(bytes(dtype.str, 'utf-8'))
+        f.write(c_string)
+
 
 @auto_sync_handle
-def load(filename, dtype, handle=None):
+def load(filename, handle=None):
     """
     Loads index from file.
 
@@ -787,8 +792,6 @@ def load(filename, dtype, handle=None):
     ----------
     filename : string
         Name of the file.
-    dtype : data type object
-        dataset type, supported values [np.float32, np.byte, np.ubyte]
     {handle_docstring}
 
     Returns
@@ -817,7 +820,7 @@ def load(filename, dtype, handle=None):
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
-    >>> index = ivf_flat.load("my_index.bin", dtype=cp.float32, handle=handle)
+    >>> index = ivf_flat.load("my_index.bin", handle=handle)
 
     >>> distances, neighbors = ivf_flat.search(ivf_pq.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
@@ -832,24 +835,30 @@ def load(filename, dtype, handle=None):
     cdef IndexInt8 idx_int8
     cdef IndexUint8 idx_uint8
 
-    dataset_dt = np.dtype(dtype)
+    with open(filename, 'rb') as f:
+        type_str = f.read(3).decode('utf-8')
+        serialized_index = f.read()
+
+    dataset_dt = np.dtype(type_str)
+    cdef string c_idx_str = serialized_index
+
     if dataset_dt == np.float32:
         idx_float = IndexFloat(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_filename, idx_float.index)
+        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_float.index)
         idx_float.trained = True
         idx_float.active_index_type = 'float32'
         return idx_float
     elif dataset_dt == np.byte:
         idx_int8 = IndexInt8(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_filename, idx_int8.index)
+        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_int8.index)
         idx_int8.trained = True
         idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dataset_dt == np.ubyte:
         idx_uint8 = IndexUint8(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_filename, idx_uint8.index)
+        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_uint8.index)
         idx_uint8.trained = True
         idx_uint8.active_index_type = 'ubyte'
         return idx_uint8
     else:
-        raise ValueError("Index dtype %s not supported" % dtype)
+        raise ValueError("Index dtype %s not supported" % dataset_dt)

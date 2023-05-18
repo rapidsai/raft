@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <sstream>
 #include <string>
 
 #include <raft/core/device_resources.hpp>
@@ -23,21 +24,24 @@
 
 namespace raft::runtime::neighbors::ivf_flat {
 
-#define RAFT_IVF_FLAT_SERIALIZE_INST(DTYPE)                                            \
-  void serialize(raft::resources const& handle,                                        \
-                 const std::string& filename,                                          \
-                 const raft::neighbors::ivf_flat::index<DTYPE, int64_t>& index)        \
-  {                                                                                    \
-    raft::neighbors::ivf_flat::serialize(handle, filename, index);                     \
-  };                                                                                   \
-                                                                                       \
-  void deserialize(raft::resources const& handle,                                      \
-                   const std::string& filename,                                        \
-                   raft::neighbors::ivf_flat::index<DTYPE, int64_t>* index)            \
-  {                                                                                    \
-    if (!index) { RAFT_FAIL("Invalid index pointer"); }                                \
-    *index = raft::neighbors::ivf_flat::deserialize<DTYPE, int64_t>(handle, filename); \
-  };
+#define RAFT_IVF_FLAT_SERIALIZE_INST(DTYPE)                                      \
+  void serialize(raft::resources const& handle,                                  \
+                 std::string& str,                                               \
+                 const raft::neighbors::ivf_flat::index<DTYPE, int64_t>& index)  \
+  {                                                                              \
+    std::stringstream os;                                                        \
+    raft::neighbors::ivf_flat::serialize(handle, os, index);                     \
+    str = os.str();                                                              \
+  }                                                                              \
+                                                                                 \
+  void deserialize(raft::resources const& handle,                                \
+                   const std::string& str,                                       \
+                   raft::neighbors::ivf_flat::index<DTYPE, int64_t>* index)      \
+  {                                                                              \
+    std::istringstream is(str);                                                  \
+    if (!index) { RAFT_FAIL("Invalid index pointer"); }                          \
+    *index = raft::neighbors::ivf_flat::deserialize<DTYPE, int64_t>(handle, is); \
+  }
 
 RAFT_IVF_FLAT_SERIALIZE_INST(float);
 RAFT_IVF_FLAT_SERIALIZE_INST(int8_t);

@@ -478,7 +478,7 @@ def test_save_load(dtype):
     assert index.trained
     filename = "my_index.bin"
     ivf_flat.save(filename, index)
-    loaded_index = ivf_flat.load(filename, dtype)
+    loaded_index = ivf_flat.load(filename)
 
     assert index.metric == loaded_index.metric
     assert index.n_lists == loaded_index.n_lists
