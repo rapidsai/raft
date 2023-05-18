@@ -498,10 +498,15 @@ using compute_similarity_kernel_t =
   decltype(&compute_similarity_kernel<OutT, LutT, SampleFilterT, 8, 0, true, true>);
 
 // The config struct lifts the runtime parameters to the template parameters
-template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          bool PrecompBaseDiff,
+          bool EnableSMemLut,
+          typename SampleFilterT = NoneSampleFilter>
 struct compute_similarity_kernel_config {
  public:
-  static auto get(uint32_t pq_bits, uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+  static auto get(uint32_t pq_bits, uint32_t k_max)
+    -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
   {
     return kernel_choose_bits(pq_bits, k_max);
   }
@@ -521,7 +526,8 @@ struct compute_similarity_kernel_config {
   }
 
   template <uint32_t PqBits, int Capacity>
-  static auto kernel_try_capacity(uint32_t k_max) -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+  static auto kernel_try_capacity(uint32_t k_max)
+    -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
   {
     if constexpr (Capacity > 0) {
       if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
@@ -529,19 +535,32 @@ struct compute_similarity_kernel_config {
     if constexpr (Capacity > 1) {
       if (k_max * 2 <= Capacity) { return kernel_try_capacity<PqBits, (Capacity / 2)>(k_max); }
     }
-    return compute_similarity_kernel<OutT, LutT, SampleFilterT, PqBits, Capacity, PrecompBaseDiff, EnableSMemLut>;
+    return compute_similarity_kernel<OutT,
+                                     LutT,
+                                     SampleFilterT,
+                                     PqBits,
+                                     Capacity,
+                                     PrecompBaseDiff,
+                                     EnableSMemLut>;
   }
 };
 
 // A standalone accessor function was necessary to make sure template
 // instantiation work correctly. This accessor function is not used anymore and
 // may be removed.
-template <typename OutT, typename LutT, bool PrecompBaseDiff, bool EnableSMemLut, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          bool PrecompBaseDiff,
+          bool EnableSMemLut,
+          typename SampleFilterT = NoneSampleFilter>
 auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
   -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
 {
-  return compute_similarity_kernel_config<OutT, LutT, PrecompBaseDiff, EnableSMemLut, SampleFilterT>::get(pq_bits,
-                                                                                           k_max);
+  return compute_similarity_kernel_config<OutT,
+                                          LutT,
+                                          PrecompBaseDiff,
+                                          EnableSMemLut,
+                                          SampleFilterT>::get(pq_bits, k_max);
 }
 
 /** Estimate the occupancy for the given kernel on the given device. */
@@ -786,7 +805,8 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
       if (n_threads_tmp < n_threads) {
         while (n_threads_tmp >= n_threads_min) {
           auto smem_size_tmp = max(smem_size_const, ltk_mem(n_threads_tmp));
-          occupancy_t<OutT, LutT, SampleFilterT> tmp(smem_size_tmp, n_threads_tmp, kernel, dev_props);
+          occupancy_t<OutT, LutT, SampleFilterT> tmp(
+            smem_size_tmp, n_threads_tmp, kernel, dev_props);
           bool select_it = false;
           if (lut_is_in_shmem && locality_hint >= tmp.blocks_per_sm) {
             // Normally, the smaller the block the better for L1 cache hit rate.

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 namespace raft::neighbors::ivf_pq::detail {
 
@@ -29,8 +29,8 @@ struct NoneSampleFilter {
     // the current inverted list index
     const uint32_t cluster_ix,
     // the index of the current sample inside the current inverted list
-    const uint32_t sample_ix
-  ) const {
+    const uint32_t sample_ix) const
+  {
     return true;
   }
 };
@@ -113,4 +113,4 @@ struct NoneSampleFilter {
  *   }
  * };
  */
-}
+}  // namespace raft::neighbors::ivf_pq::detail

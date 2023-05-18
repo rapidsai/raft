@@ -159,12 +159,12 @@ void extend(raft::device_resources const& handle,
  */
 template <typename T, typename IdxT, typename SampleFilterT>
 void search_with_filtering(raft::device_resources const& handle,
-            const search_params& params,
-            const index<IdxT>& idx,
-            raft::device_matrix_view<const T, IdxT, row_major> queries,
-            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-            raft::device_matrix_view<float, IdxT, row_major> distances,
-            SampleFilterT sample_filter = SampleFilterT())
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           raft::device_matrix_view<const T, IdxT, row_major> queries,
+                           raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+                           raft::device_matrix_view<float, IdxT, row_major> distances,
+                           SampleFilterT sample_filter = SampleFilterT())
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
@@ -197,7 +197,8 @@ void search(raft::device_resources const& handle,
             raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::device_matrix_view<float, IdxT, row_major> distances)
 {
-  search_with_filtering(handle, params, idx, queries, neighbors, distances, detail::NoneSampleFilter());
+  search_with_filtering(
+    handle, params, idx, queries, neighbors, distances, detail::NoneSampleFilter());
 }
 
 /** @} */  // end group ivf_pq
@@ -355,17 +356,18 @@ void extend(raft::device_resources const& handle,
  */
 template <typename T, typename IdxT, typename SampleFilterT>
 void search_with_filtering(raft::device_resources const& handle,
-            const search_params& params,
-            const index<IdxT>& idx,
-            const T* queries,
-            uint32_t n_queries,
-            uint32_t k,
-            IdxT* neighbors,
-            float* distances,
-            rmm::mr::device_memory_resource* mr = nullptr,
-            SampleFilterT sample_filter = SampleFilterT())
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           const T* queries,
+                           uint32_t n_queries,
+                           uint32_t k,
+                           IdxT* neighbors,
+                           float* distances,
+                           rmm::mr::device_memory_resource* mr = nullptr,
+                           SampleFilterT sample_filter         = SampleFilterT())
 {
-  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, mr, sample_filter);
+  return detail::search(
+    handle, params, idx, queries, n_queries, k, neighbors, distances, mr, sample_filter);
 }
 
 template <typename T, typename IdxT>
@@ -379,7 +381,16 @@ void search(raft::device_resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, mr, detail::NoneSampleFilter());
+  return detail::search(handle,
+                        params,
+                        idx,
+                        queries,
+                        n_queries,
+                        k,
+                        neighbors,
+                        distances,
+                        mr,
+                        detail::NoneSampleFilter());
 }
 
 }  // namespace raft::neighbors::ivf_pq

@@ -528,16 +528,17 @@ void ivfpq_search_worker(raft::device_resources const& handle,
     } break;
   }
 
-  auto search_instance = compute_similarity_select<ScoreT, LutT, SampleFilterT>(handle.get_device_properties(),
-                                                                 manage_local_topk,
-                                                                 coresidency,
-                                                                 preferred_shmem_carveout,
-                                                                 index.pq_bits(),
-                                                                 index.pq_dim(),
-                                                                 precomp_data_count,
-                                                                 n_queries,
-                                                                 n_probes,
-                                                                 topK);
+  auto search_instance =
+    compute_similarity_select<ScoreT, LutT, SampleFilterT>(handle.get_device_properties(),
+                                                           manage_local_topk,
+                                                           coresidency,
+                                                           preferred_shmem_carveout,
+                                                           index.pq_bits(),
+                                                           index.pq_dim(),
+                                                           precomp_data_count,
+                                                           n_queries,
+                                                           n_probes,
+                                                           topK);
 
   rmm::device_uvector<LutT> device_lut(search_instance.device_lut_size, stream, mr);
   std::optional<device_vector<float>> query_kths_buf{std::nullopt};
@@ -723,7 +724,7 @@ inline void search(raft::device_resources const& handle,
                    IdxT* neighbors,
                    float* distances,
                    rmm::mr::device_memory_resource* mr = nullptr,
-                   SampleFilterT sample_filter = SampleFilterT())
+                   SampleFilterT sample_filter         = SampleFilterT())
 {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported element type.");
