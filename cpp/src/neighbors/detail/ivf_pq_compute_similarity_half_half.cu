@@ -68,7 +68,8 @@
     uint32_t* _out_indices);
 
 #define COMMA ,
-instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(half, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
+  half, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
 
 #undef COMMA
 
