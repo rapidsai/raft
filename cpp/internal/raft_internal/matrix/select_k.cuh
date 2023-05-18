@@ -32,6 +32,7 @@ struct params {
   bool select_min;
   bool use_index_input       = true;
   bool use_same_leading_bits = false;
+  bool use_memory_pool       = true;
 };
 
 inline auto operator<<(std::ostream& os, const params& ss) -> std::ostream&
