@@ -178,7 +178,8 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                        num_queries,
                                                        k_,
                                                        float(0.001),
-                                                       stream_));
+                                                       stream_,
+                                                       true));
   }
 
   void SetUp() override
