@@ -20,7 +20,7 @@
   Mvalue_idx, Mvalue_t, Mvalue_int, Mdims)                                                   \
   template void                                                                              \
   raft::spatial::knn::detail::rbc_low_dim_pass_one<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \
-    raft::device_resources const& handle,                                                    \
+    raft::resources const& handle,                                                           \
     const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \
     const Mvalue_t* query,                                                                   \
     const Mvalue_int n_query_rows,                                                           \
@@ -37,7 +37,7 @@
   Mvalue_idx, Mvalue_t, Mvalue_int, Mdims)                                                   \
   template void                                                                              \
   raft::spatial::knn::detail::rbc_low_dim_pass_two<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \
-    raft::device_resources const& handle,                                                    \
+    raft::resources const& handle,                                                           \
     const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \
     const Mvalue_t* query,                                                                   \
     const Mvalue_int n_query_rows,                                                           \

@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 
 #include <thrust/device_vector.h>
@@ -40,7 +40,7 @@ using dextents = std::experimental::dextents<IndexType, Rank>;
 namespace raft {
 
 template <typename MDSpanType, typename VectorType, typename... Args>
-void test_mdspan_roundtrip(const raft::device_resources& handle, VectorType& vec, Args... dims)
+void test_mdspan_roundtrip(const raft::resources& handle, VectorType& vec, Args... dims)
 {
   VectorType vec2(vec.size());
 
@@ -57,7 +57,7 @@ void test_mdspan_roundtrip(const raft::device_resources& handle, VectorType& vec
 template <typename T>
 void run_roundtrip_test_mdspan_serializer()
 {
-  raft::device_resources handle{};
+  raft::resources handle{};
   thrust::host_vector<T> vec = std::vector<T>{1, 2, 3, 4, 5, 6, 7, 8};
 
   using mdspan_matrix2d_c_layout =
@@ -110,7 +110,7 @@ TEST(NumPySerializerMDSpan, HeaderRoundTrip)
 
 TEST(NumPySerializerMDSpan, ManagedMDSpan)
 {
-  raft::device_resources handle{};
+  raft::resources handle{};
   thrust::universal_vector<float> vec = std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8};
   using managed_mdspan_matrix2d_c_layout =
     raft::managed_mdspan<float, dextents<std::size_t, 3>, raft::layout_c_contiguous>;

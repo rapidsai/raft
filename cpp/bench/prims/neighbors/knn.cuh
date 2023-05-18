@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/benchmark.hpp>
+#include <raft/core/resource/device_id.hpp>
 
 #include <raft/random/rng.cuh>
 
@@ -222,7 +223,8 @@ struct brute_force_knn {
 template <typename ValT, typename IdxT, typename ImplT>
 struct knn : public fixture {
   explicit knn(const params& p, const TransferStrategy& strategy, const Scope& scope)
-    : params_(p),
+    : fixture(true),
+      params_(p),
       strategy_(strategy),
       scope_(scope),
       dev_mem_res_(strategy == TransferStrategy::MANAGED),
@@ -274,8 +276,6 @@ struct knn : public fixture {
         "device (TransferStrategy::NO_COPY)");
     }
 
-    using_pool_memory_res default_resource;
-
     try {
       std::ostringstream label_stream;
       label_stream << params_ << "#" << strategy_ << "#" << scope_;
@@ -312,12 +312,18 @@ struct knn : public fixture {
             RAFT_CUDA_TRY(cudaHostGetDevicePointer(&data_ptr, data_host_.data(), 0));
             break;
           case TransferStrategy::MANAGED:  // sic! using std::memcpy rather than cuda copy
-            RAFT_CUDA_TRY(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetPreferredLocation, handle.get_device()));
-            RAFT_CUDA_TRY(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetAccessedBy, handle.get_device()));
-            RAFT_CUDA_TRY(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetReadMostly, handle.get_device()));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetPreferredLocation,
+                                        resource::get_device_id(handle)));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetAccessedBy,
+                                        resource::get_device_id(handle)));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetReadMostly,
+                                        resource::get_device_id(handle)));
             std::memcpy(data_ptr, data_host_.data(), allocation_size);
             break;
           default: break;

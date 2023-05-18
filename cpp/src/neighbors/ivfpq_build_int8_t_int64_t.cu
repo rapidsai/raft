@@ -19,12 +19,12 @@
 
 #define instantiate_raft_neighbors_ivf_pq_build(T, IdxT)                                 \
   template raft::neighbors::ivf_pq::index<IdxT> raft::neighbors::ivf_pq::build<T, IdxT>( \
-    raft::device_resources const& handle,                                                \
+    raft::resources const& handle,                                                       \
     const raft::neighbors::ivf_pq::index_params& params,                                 \
     raft::device_matrix_view<const T, IdxT, row_major> dataset);                         \
                                                                                          \
   template auto raft::neighbors::ivf_pq::build(                                          \
-    raft::device_resources const& handle,                                                \
+    raft::resources const& handle,                                                       \
     const raft::neighbors::ivf_pq::index_params& params,                                 \
     const T* dataset,                                                                    \
     IdxT n_rows,                                                                         \

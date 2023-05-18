@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
@@ -44,7 +45,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
  public:
   StdDevTest()
     : params(::testing::TestWithParam<StdDevInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
@@ -66,7 +67,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
     vars_act.resize(cols, stream);
     normal(handle, r, data.data(), len, params.mean, params.stddev);
     stdVarSGtest(data.data(), stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void stdVarSGtest(T* data, cudaStream_t stream)
@@ -114,7 +115,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   StdDevInputs<T> params;

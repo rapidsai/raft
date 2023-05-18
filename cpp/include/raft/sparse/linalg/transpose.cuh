@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/linalg/detail/transpose.h>
 
 namespace raft {
@@ -40,7 +41,7 @@ namespace linalg {
  * @param[in] stream : Cuda stream for ordering events
  */
 template <typename value_idx, typename value_t>
-void csr_transpose(raft::device_resources const& handle,
+void csr_transpose(raft::resources const& handle,
                    const value_idx* csr_indptr,
                    const value_idx* csr_indices,
                    const value_t* csr_data,
@@ -52,7 +53,7 @@ void csr_transpose(raft::device_resources const& handle,
                    value_idx nnz,
                    cudaStream_t stream)
 {
-  detail::csr_transpose(handle.get_cusparse_handle(),
+  detail::csr_transpose(resource::get_cusparse_handle(handle),
                         csr_indptr,
                         csr_indices,
                         csr_data,

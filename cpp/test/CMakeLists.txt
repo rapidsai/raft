@@ -314,6 +314,8 @@ if(BUILD_TESTS)
     NEIGHBORS_TEST
     PATH
     test/neighbors/ann_cagra/test_float_uint32_t.cu
+    test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
+    test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
@@ -370,7 +372,15 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
-    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
+    NAME
+    UTILS_TEST
+    PATH
+    test/core/seive.cu
+    test/util/bitonic_sort.cu
+    test/util/cudart_utils.cpp
+    test/util/device_atomics.cu
+    test/util/integer_utils.cpp
+    test/util/pow2_utils.cu
+    test/util/reduction.cu
   )
 endif()

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <limits.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
@@ -46,13 +47,13 @@ class ip_distances_t : public distances_t<value_t> {
    * @param[in] config specifies inputs, outputs, and sizes
    */
   ip_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), coo_rows_b(config.b_nnz, config.handle.get_stream())
+    : config_(&config), coo_rows_b(config.b_nnz, resource::get_cuda_stream(config.handle))
   {
     raft::sparse::convert::csr_to_coo(config_->b_indptr,
                                       config_->b_nrows,
                                       coo_rows_b.data(),
                                       config_->b_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
   }
 
   /**

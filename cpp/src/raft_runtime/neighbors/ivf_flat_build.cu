@@ -20,14 +20,14 @@
 namespace raft::runtime::neighbors::ivf_flat {
 
 #define RAFT_INST_BUILD_EXTEND(T, IdxT)                                                \
-  auto build(raft::device_resources const& handle,                                     \
+  auto build(raft::resources const& handle,                                            \
              const raft::neighbors::ivf_flat::index_params& params,                    \
              raft::device_matrix_view<const T, IdxT, row_major> dataset)               \
     ->raft::neighbors::ivf_flat::index<T, IdxT>                                        \
   {                                                                                    \
     return raft::neighbors::ivf_flat::build<T, IdxT>(handle, params, dataset);         \
   }                                                                                    \
-  auto extend(raft::device_resources const& handle,                                    \
+  auto extend(raft::resources const& handle,                                           \
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,          \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,   \
               const raft::neighbors::ivf_flat::index<T, IdxT>& orig_index)             \
@@ -37,7 +37,7 @@ namespace raft::runtime::neighbors::ivf_flat {
       handle, new_vectors, new_indices, orig_index);                                   \
   }                                                                                    \
                                                                                        \
-  void build(raft::device_resources const& handle,                                     \
+  void build(raft::resources const& handle,                                            \
              const raft::neighbors::ivf_flat::index_params& params,                    \
              raft::device_matrix_view<const T, IdxT, row_major> dataset,               \
              raft::neighbors::ivf_flat::index<T, IdxT>& idx)                           \
@@ -45,7 +45,7 @@ namespace raft::runtime::neighbors::ivf_flat {
     idx = build(handle, params, dataset);                                              \
   }                                                                                    \
                                                                                        \
-  void extend(raft::device_resources const& handle,                                    \
+  void extend(raft::resources const& handle,                                           \
               raft::device_matrix_view<const T, IdxT, row_major> new_vectors,          \
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,   \
               raft::neighbors::ivf_flat::index<T, IdxT>* idx)                          \

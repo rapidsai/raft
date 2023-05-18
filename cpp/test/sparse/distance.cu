@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <cusparse_v2.h>
 
@@ -60,11 +61,12 @@ class SparseDistanceTest
  public:
   SparseDistanceTest()
     : params(::testing::TestWithParam<SparseDistanceInputs<value_idx, value_t>>::GetParam()),
-      indptr(0, handle.get_stream()),
-      indices(0, handle.get_stream()),
-      data(0, handle.get_stream()),
-      out_dists(0, handle.get_stream()),
-      out_dists_ref(0, handle.get_stream())
+      dist_config(handle),
+      indptr(0, resource::get_cuda_stream(handle)),
+      indices(0, resource::get_cuda_stream(handle)),
+      data(0, resource::get_cuda_stream(handle)),
+      out_dists(0, resource::get_cuda_stream(handle)),
+      out_dists_ref(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -75,7 +77,7 @@ class SparseDistanceTest
     int out_size = static_cast<value_idx>(params.indptr_h.size() - 1) *
                    static_cast<value_idx>(params.indptr_h.size() - 1);
 
-    out_dists.resize(out_size, handle.get_stream());
+    out_dists.resize(out_size, resource::get_cuda_stream(handle));
 
     auto out = raft::make_device_matrix_view<value_t, value_idx>(
       out_dists.data(),
@@ -92,7 +94,7 @@ class SparseDistanceTest
 
     pairwise_distance(handle, x, x, out, params.metric, params.metric_arg);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(resource::get_cuda_stream(handle)));
   }
 
   void compare()
@@ -110,7 +112,7 @@ class SparseDistanceTest
     std::vector<value_idx> indices_h = params.indices_h;
     std::vector<value_t> data_h      = params.data_h;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     indptr.resize(indptr_h.size(), stream);
     indices.resize(indices_h.size(), stream);
     data.resize(data_h.size(), stream);
@@ -123,11 +125,13 @@ class SparseDistanceTest
 
     out_dists_ref.resize((indptr_h.size() - 1) * (indptr_h.size() - 1), stream);
 
-    update_device(
-      out_dists_ref.data(), out_dists_ref_h.data(), out_dists_ref_h.size(), handle.get_stream());
+    update_device(out_dists_ref.data(),
+                  out_dists_ref_h.data(),
+                  out_dists_ref_h.size(),
+                  resource::get_cuda_stream(handle));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
 
   // input data
   rmm::device_uvector<value_idx> indptr, indices;

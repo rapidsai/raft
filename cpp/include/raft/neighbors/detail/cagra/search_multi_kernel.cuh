@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -124,10 +128,12 @@ __global__ void random_pickup_kernel(
       random_data_frag, dataset_ptr + (dataset_dim * seed_index), dataset_dim);
 
     // Compute the norm of two data
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(query_frag, random_data_frag, device::fragment_scale<DATA_T>()
-                                /*, scale*/
-      );
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      query_frag,
+      random_data_frag,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor)
+      /*, scale*/
+    );
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -335,8 +341,10 @@ __global__ void compute_distance_to_child_nodes_kernel(
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_query;
     device::load_vector_sync(frag_query, query_ptr + blockIdx.y * data_dim, data_dim);
 
-    const auto norm2 =
-      device::norm2<DISTANCE_T>(frag_target, frag_query, device::fragment_scale<DATA_T>());
+    const auto norm2 = device::norm2<DISTANCE_T>(
+      frag_target,
+      frag_query,
+      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor));
 
     if (threadIdx.x % TEAM_SIZE == 0) {
       result_indices_ptr[ldd * blockIdx.y + global_team_id]   = child_id;
@@ -536,46 +544,48 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   rmm::device_scalar<uint32_t> terminate_flag;  // dev_terminate_flag, host_terminate_flag.;
   rmm::device_uvector<uint32_t> topk_workspace;
 
-  search(raft::device_resources const& res,
+  search(raft::resources const& res,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
     : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk),
-      result_indices(0, res.get_stream()),
-      result_distances(0, res.get_stream()),
-      parent_node_list(0, res.get_stream()),
-      topk_hint(0, res.get_stream()),
-      topk_workspace(0, res.get_stream()),
-      terminate_flag(res.get_stream())
+      result_indices(0, resource::get_cuda_stream(res)),
+      result_distances(0, resource::get_cuda_stream(res)),
+      parent_node_list(0, resource::get_cuda_stream(res)),
+      topk_hint(0, resource::get_cuda_stream(res)),
+      topk_workspace(0, resource::get_cuda_stream(res)),
+      terminate_flag(resource::get_cuda_stream(res))
   {
     set_params(res);
   }
 
-  void set_params(raft::device_resources const& res)
+  void set_params(raft::resources const& res)
   {
     //
     // Allocate memory for intermediate buffer and workspace.
     //
     result_buffer_size            = itopk_size + (num_parents * graph_degree);
     result_buffer_allocation_size = result_buffer_size + itopk_size;
-    result_indices.resize(result_buffer_allocation_size * max_queries, res.get_stream());
-    result_distances.resize(result_buffer_allocation_size * max_queries, res.get_stream());
+    result_indices.resize(result_buffer_allocation_size * max_queries,
+                          resource::get_cuda_stream(res));
+    result_distances.resize(result_buffer_allocation_size * max_queries,
+                            resource::get_cuda_stream(res));
 
-    parent_node_list.resize(max_queries * num_parents, res.get_stream());
-    topk_hint.resize(max_queries, res.get_stream());
+    parent_node_list.resize(max_queries * num_parents, resource::get_cuda_stream(res));
+    topk_hint.resize(max_queries, resource::get_cuda_stream(res));
 
     size_t topk_workspace_size = _cuann_find_topk_bufferSize(
       itopk_size, max_queries, result_buffer_size, utils::get_cuda_data_type<DATA_T>());
     RAFT_LOG_DEBUG("# topk_workspace_size: %lu", topk_workspace_size);
-    topk_workspace.resize(topk_workspace_size, res.get_stream());
+    topk_workspace.resize(topk_workspace_size, resource::get_cuda_stream(res));
 
-    hashmap.resize(hashmap_size, res.get_stream());
+    hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
   }
 
   ~search() {}
 
-  void operator()(raft::device_resources const& res,
+  void operator()(raft::resources const& res,
                   raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
@@ -587,7 +597,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     // Init hashmap
-    cudaStream_t stream      = res.get_stream();
+    cudaStream_t stream      = resource::get_cuda_stream(res);
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
       hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);

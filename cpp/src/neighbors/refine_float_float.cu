@@ -28,7 +28,7 @@
 
 #define instantiate_raft_neighbors_refine(idx_t, data_t, distance_t, matrix_idx)      \
   template void raft::neighbors::refine<idx_t, data_t, distance_t, matrix_idx>(       \
-    raft::device_resources const& handle,                                             \
+    raft::resources const& handle,                                                    \
     raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,            \
     raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,            \
     raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates, \
@@ -37,7 +37,7 @@
     raft::distance::DistanceType metric);                                             \
                                                                                       \
   template void raft::neighbors::refine<idx_t, data_t, distance_t, matrix_idx>(       \
-    raft::device_resources const& handle,                                             \
+    raft::resources const& handle,                                                    \
     raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,              \
     raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,              \
     raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,   \

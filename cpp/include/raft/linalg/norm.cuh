@@ -20,6 +20,7 @@
 
 #include "detail/norm.cuh"
 #include "linalg_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
@@ -99,7 +100,7 @@ void colNorm(Type* dots,
  * @tparam LayoutPolicy the layout of input (raft::row_major or raft::col_major)
  * @tparam IdxType Integer type used to for addressing
  * @tparam Lambda device final lambda
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in the input raft::device_matrix_view
  * @param[out] out the output raft::device_vector_view
  * @param[in] type the type of norm to be applied
@@ -111,7 +112,7 @@ template <typename ElementType,
           typename LayoutPolicy,
           typename IndexType,
           typename Lambda = raft::identity_op>
-void norm(raft::device_resources const& handle,
+void norm(raft::resources const& handle,
           raft::device_matrix_view<const ElementType, IndexType, LayoutPolicy> in,
           raft::device_vector_view<ElementType, IndexType> out,
           NormType type,
@@ -132,7 +133,7 @@ void norm(raft::device_resources const& handle,
             in.extent(0),
             type,
             row_major,
-            handle.get_stream(),
+            resource::get_cuda_stream(handle),
             fin_op);
   } else {
     RAFT_EXPECTS(static_cast<IndexType>(out.size()) == in.extent(1),
@@ -143,7 +144,7 @@ void norm(raft::device_resources const& handle,
             in.extent(0),
             type,
             row_major,
-            handle.get_stream(),
+            resource::get_cuda_stream(handle),
             fin_op);
   }
 }

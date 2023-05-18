@@ -10,6 +10,7 @@ files:
       - build_pylibraft
       - cudatoolkit
       - develop
+      - test_libraft
       - docs
       - run_raft_dask
       - run_pylibraft
@@ -29,6 +30,7 @@ files:
     output: none
     includes:
       - cudatoolkit
+      - test_libraft
   test_python:
     output: none
     includes:
@@ -44,6 +46,7 @@ files:
   docs:
     output: none
     includes:
+      - test_pylibraft
       - cudatoolkit
       - docs
       - py_version
@@ -216,6 +219,12 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+  test_libraft:
+    common:
+      - output_types: [conda]
+        packages:
+          - gtest>=1.13.0
+          - gmock>=1.13.0
   docs:
     common:
       - output_types: [conda]

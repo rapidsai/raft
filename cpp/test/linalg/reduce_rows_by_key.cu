@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -88,7 +89,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
  public:
   ReduceRowTest()
     : params(::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.nobs * params.cols, stream),
       out(params.nkeys * params.cols, stream),
       out_ref(params.nkeys * params.cols, stream),
@@ -140,12 +141,12 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
 
     reduce_rows_by_key(
       handle, input_view, keys_view, output_view, params.nkeys, scratch_buf_view, weights_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
   ReduceRowsInputs<T> params;
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
 
   int device_count = 0;

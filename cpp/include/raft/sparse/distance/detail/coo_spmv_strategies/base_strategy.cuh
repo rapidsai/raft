@@ -20,6 +20,7 @@
 #include "../coo_spmv_kernel.cuh"
 #include "../utils.cuh"
 #include "coo_mask_row_iterators.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -65,25 +66,25 @@ class coo_spmv_strategy {
                                          cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx, value_t, false, tpb>
-      <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(strategy,
-                                                            a_indptr,
-                                                            config.a_indices,
-                                                            config.a_data,
-                                                            config.a_nnz,
-                                                            coo_rows_b,
-                                                            config.b_indices,
-                                                            config.b_data,
-                                                            config.a_nrows,
-                                                            config.b_nrows,
-                                                            smem_dim,
-                                                            config.b_nnz,
-                                                            out_dists,
-                                                            n_blocks_per_row,
-                                                            chunk_size,
-                                                            config.b_ncols,
-                                                            product_func,
-                                                            accum_func,
-                                                            write_func);
+      <<<n_blocks, tpb, smem, resource::get_cuda_stream(config.handle)>>>(strategy,
+                                                                          a_indptr,
+                                                                          config.a_indices,
+                                                                          config.a_data,
+                                                                          config.a_nnz,
+                                                                          coo_rows_b,
+                                                                          config.b_indices,
+                                                                          config.b_data,
+                                                                          config.a_nrows,
+                                                                          config.b_nrows,
+                                                                          smem_dim,
+                                                                          config.b_nnz,
+                                                                          out_dists,
+                                                                          n_blocks_per_row,
+                                                                          chunk_size,
+                                                                          config.b_ncols,
+                                                                          product_func,
+                                                                          accum_func,
+                                                                          write_func);
   }
 
   template <typename strategy_t,
@@ -115,25 +116,25 @@ class coo_spmv_strategy {
                                          cudaFuncCachePreferShared));
 
     balanced_coo_generalized_spmv_kernel<strategy_t, indptr_it, value_idx, value_t, true, tpb>
-      <<<n_blocks, tpb, smem, config.handle.get_stream()>>>(strategy,
-                                                            b_indptr,
-                                                            config.b_indices,
-                                                            config.b_data,
-                                                            config.b_nnz,
-                                                            coo_rows_a,
-                                                            config.a_indices,
-                                                            config.a_data,
-                                                            config.b_nrows,
-                                                            config.a_nrows,
-                                                            smem_dim,
-                                                            config.a_nnz,
-                                                            out_dists,
-                                                            n_blocks_per_row,
-                                                            chunk_size,
-                                                            config.a_ncols,
-                                                            product_func,
-                                                            accum_func,
-                                                            write_func);
+      <<<n_blocks, tpb, smem, resource::get_cuda_stream(config.handle)>>>(strategy,
+                                                                          b_indptr,
+                                                                          config.b_indices,
+                                                                          config.b_data,
+                                                                          config.b_nnz,
+                                                                          coo_rows_a,
+                                                                          config.a_indices,
+                                                                          config.a_data,
+                                                                          config.b_nrows,
+                                                                          config.a_nrows,
+                                                                          smem_dim,
+                                                                          config.a_nnz,
+                                                                          out_dists,
+                                                                          n_blocks_per_row,
+                                                                          chunk_size,
+                                                                          config.a_ncols,
+                                                                          product_func,
+                                                                          accum_func,
+                                                                          write_func);
   }
 
  protected:

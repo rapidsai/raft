@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/spatial/knn/knn.cuh>
 
 #include "common.hpp"
@@ -241,12 +242,13 @@ class l2_expanded_distances_t : public distances_t<value_t> {
     value_idx* b_indices = ip_dists.b_rows_coo();
     value_t* b_data      = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz, config_->handle.get_stream());
+    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
+                                                   resource::get_cuda_stream(config_->handle));
     raft::sparse::convert::csr_to_coo(config_->a_indptr,
                                       config_->a_nrows,
                                       search_coo_rows.data(),
                                       config_->a_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     compute_l2(out_dists,
                search_coo_rows.data(),
@@ -257,7 +259,7 @@ class l2_expanded_distances_t : public distances_t<value_t> {
                config_->b_nnz,
                config_->a_nrows,
                config_->b_nrows,
-               config_->handle.get_stream(),
+               resource::get_cuda_stream(config_->handle),
                [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
                  return -2 * dot + q_norm + r_norm;
                });
@@ -294,7 +296,7 @@ class l2_sqrt_expanded_distances_t : public l2_expanded_distances_t<value_idx, v
         int neg = input < 0 ? -1 : 1;
         return raft::sqrt(abs(input) * neg);
       },
-      this->config_->handle.get_stream());
+      resource::get_cuda_stream(this->config_->handle));
   }
 
   ~l2_sqrt_expanded_distances_t() = default;
@@ -315,12 +317,13 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
     value_idx* b_indices = ip_dists.b_rows_coo();
     value_t* b_data      = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz, config_->handle.get_stream());
+    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
+                                                   resource::get_cuda_stream(config_->handle));
     raft::sparse::convert::csr_to_coo(config_->a_indptr,
                                       config_->a_nrows,
                                       search_coo_rows.data(),
                                       config_->a_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     compute_corr(out_dists,
                  search_coo_rows.data(),
@@ -332,7 +335,7 @@ class correlation_expanded_distances_t : public distances_t<value_t> {
                  config_->a_nrows,
                  config_->b_nrows,
                  config_->b_ncols,
-                 config_->handle.get_stream());
+                 resource::get_cuda_stream(config_->handle));
   }
 
   ~correlation_expanded_distances_t() = default;
@@ -350,7 +353,7 @@ template <typename value_idx = int, typename value_t = float>
 class cosine_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit cosine_expanded_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), workspace(0, config.handle.get_stream()), ip_dists(config)
+    : config_(&config), workspace(0, resource::get_cuda_stream(config.handle)), ip_dists(config)
   {
   }
 
@@ -361,12 +364,13 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
     value_idx* b_indices = ip_dists.b_rows_coo();
     value_t* b_data      = ip_dists.b_data_coo();
 
-    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz, config_->handle.get_stream());
+    rmm::device_uvector<value_idx> search_coo_rows(config_->a_nnz,
+                                                   resource::get_cuda_stream(config_->handle));
     raft::sparse::convert::csr_to_coo(config_->a_indptr,
                                       config_->a_nrows,
                                       search_coo_rows.data(),
                                       config_->a_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     compute_l2(out_dists,
                search_coo_rows.data(),
@@ -377,7 +381,7 @@ class cosine_expanded_distances_t : public distances_t<value_t> {
                config_->b_nnz,
                config_->a_nrows,
                config_->b_nrows,
-               config_->handle.get_stream(),
+               resource::get_cuda_stream(config_->handle),
                [] __device__ __host__(value_t dot, value_t q_norm, value_t r_norm) {
                  value_t norms = raft::sqrt(q_norm) * raft::sqrt(r_norm);
                  // deal with potential for 0 in denominator by forcing 0/1 instead
@@ -410,20 +414,20 @@ template <typename value_idx = int, typename value_t = float>
 class hellinger_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit hellinger_expanded_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), workspace(0, config.handle.get_stream())
+    : config_(&config), workspace(0, resource::get_cuda_stream(config.handle))
   {
   }
 
   void compute(value_t* out_dists)
   {
     rmm::device_uvector<value_idx> coo_rows(std::max(config_->b_nnz, config_->a_nnz),
-                                            config_->handle.get_stream());
+                                            resource::get_cuda_stream(config_->handle));
 
     raft::sparse::convert::csr_to_coo(config_->b_indptr,
                                       config_->b_nrows,
                                       coo_rows.data(),
                                       config_->b_nnz,
-                                      config_->handle.get_stream());
+                                      resource::get_cuda_stream(config_->handle));
 
     balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(
       out_dists,
@@ -442,7 +446,7 @@ class hellinger_expanded_distances_t : public distances_t<value_t> {
         bool rectifier = (1 - input) > 0;
         return raft::sqrt(rectifier * (1 - input));
       },
-      config_->handle.get_stream());
+      resource::get_cuda_stream(config_->handle));
   }
 
   ~hellinger_expanded_distances_t() = default;
@@ -456,7 +460,7 @@ template <typename value_idx = int, typename value_t = float>
 class russelrao_expanded_distances_t : public distances_t<value_t> {
  public:
   explicit russelrao_expanded_distances_t(const distances_config_t<value_idx, value_t>& config)
-    : config_(&config), workspace(0, config.handle.get_stream()), ip_dists(config)
+    : config_(&config), workspace(0, resource::get_cuda_stream(config.handle)), ip_dists(config)
   {
   }
 
@@ -471,9 +475,9 @@ class russelrao_expanded_distances_t : public distances_t<value_t> {
       out_dists,
       config_->a_nrows * config_->b_nrows,
       [=] __device__(value_t input) { return (n_cols - input) * n_cols_inv; },
-      config_->handle.get_stream());
+      resource::get_cuda_stream(config_->handle));
 
-    auto exec_policy  = rmm::exec_policy(config_->handle.get_stream());
+    auto exec_policy  = rmm::exec_policy(resource::get_cuda_stream(config_->handle));
     auto diags        = thrust::counting_iterator<value_idx>(0);
     value_idx b_nrows = config_->b_nrows;
     thrust::for_each(exec_policy, diags, diags + config_->a_nrows, [=] __device__(value_idx input) {

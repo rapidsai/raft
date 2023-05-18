@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -74,7 +75,8 @@ void reduceLaunch(OutType* dots,
   auto input_view_col_major =
     raft::make_device_matrix_view<const InType, IdxType, raft::col_major>(data, rows, cols);
 
-  raft::device_resources handle{stream};
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
 
   if (rowMajor) {
     reduce(handle,
@@ -109,7 +111,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
  public:
   ReduceTest()
     : params(::testing::TestWithParam<ReduceInputs<InType, OutType, IdxType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       dots_exp(params.alongRows ? params.rows : params.cols, stream),
       dots_act(params.alongRows ? params.rows : params.cols, stream)
@@ -180,11 +182,11 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
                  reduce_op,
                  fin_op);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   ReduceInputs<InType, OutType, IdxType> params;

@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 
 #include "../ball_cover_types.hpp"
 #include "ball_cover/common.cuh"
@@ -30,7 +32,7 @@
 
 #include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/convert/csr.cuh>
@@ -63,23 +65,27 @@ namespace detail {
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void sample_landmarks(raft::device_resources const& handle,
+void sample_landmarks(raft::resources const& handle,
                       BallCoverIndex<value_idx, value_t, value_int>& index)
 {
-  rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, handle.get_stream());
-  rmm::device_uvector<value_t> R_1nn_ones(index.m, handle.get_stream());
-  rmm::device_uvector<value_idx> R_indices(index.n_landmarks, handle.get_stream());
+  rmm::device_uvector<value_idx> R_1nn_cols2(index.n_landmarks, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_t> R_1nn_ones(index.m, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_idx> R_indices(index.n_landmarks, resource::get_cuda_stream(handle));
 
-  thrust::sequence(handle.get_thrust_policy(),
+  thrust::sequence(resource::get_thrust_policy(handle),
                    index.get_R_1nn_cols().data_handle(),
                    index.get_R_1nn_cols().data_handle() + index.m,
                    (value_idx)0);
 
-  thrust::fill(
-    handle.get_thrust_policy(), R_1nn_ones.data(), R_1nn_ones.data() + R_1nn_ones.size(), 1.0);
+  thrust::fill(resource::get_thrust_policy(handle),
+               R_1nn_ones.data(),
+               R_1nn_ones.data() + R_1nn_ones.size(),
+               1.0);
 
-  thrust::fill(
-    handle.get_thrust_policy(), R_indices.data(), R_indices.data() + R_indices.size(), 0.0);
+  thrust::fill(resource::get_thrust_policy(handle),
+               R_indices.data(),
+               R_indices.data() + R_indices.size(),
+               0.0);
 
   /**
    * 1. Randomly sample sqrt(n) points from X
@@ -94,14 +100,16 @@ void sample_landmarks(raft::device_resources const& handle,
                                          (value_idx)index.n_landmarks,
                                          (value_idx)index.m);
 
-  raft::matrix::copyRows<value_t, value_idx, size_t>(index.get_X().data_handle(),
-                                                     index.m,
-                                                     index.n,
-                                                     index.get_R().data_handle(),
-                                                     R_1nn_cols2.data(),
-                                                     index.n_landmarks,
-                                                     handle.get_stream(),
-                                                     true);
+  // index.get_X() returns the wrong indextype (uint32_t where we need value_idx), so need to
+  // create new device_matrix_view here
+  auto x = index.get_X();
+  auto r = index.get_R();
+
+  raft::matrix::copy_rows<value_t, value_idx>(
+    handle,
+    make_device_matrix_view<const value_t, value_idx>(x.data_handle(), x.extent(0), x.extent(1)),
+    make_device_matrix_view<value_t, value_idx>(r.data_handle(), r.extent(0), r.extent(1)),
+    make_device_vector_view(R_1nn_cols2.data(), index.n_landmarks));
 }
 
 /**
@@ -115,15 +123,15 @@ void sample_landmarks(raft::device_resources const& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void construct_landmark_1nn(raft::device_resources const& handle,
+void construct_landmark_1nn(raft::resources const& handle,
                             const value_idx* R_knn_inds_ptr,
                             const value_t* R_knn_dists_ptr,
                             value_int k,
                             BallCoverIndex<value_idx, value_t, value_int>& index)
 {
-  rmm::device_uvector<value_idx> R_1nn_inds(index.m, handle.get_stream());
+  rmm::device_uvector<value_idx> R_1nn_inds(index.m, resource::get_cuda_stream(handle));
 
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_1nn_inds.data(),
                R_1nn_inds.data() + index.m,
                std::numeric_limits<value_idx>::max());
@@ -132,16 +140,17 @@ void construct_landmark_1nn(raft::device_resources const& handle,
   value_t* R_1nn_dists_ptr  = index.get_R_1nn_dists().data_handle();
 
   auto idxs = thrust::make_counting_iterator<value_idx>(0);
-  thrust::for_each(handle.get_thrust_policy(), idxs, idxs + index.m, [=] __device__(value_idx i) {
-    R_1nn_inds_ptr[i]  = R_knn_inds_ptr[i * k];
-    R_1nn_dists_ptr[i] = R_knn_dists_ptr[i * k];
-  });
+  thrust::for_each(
+    resource::get_thrust_policy(handle), idxs, idxs + index.m, [=] __device__(value_idx i) {
+      R_1nn_inds_ptr[i]  = R_knn_inds_ptr[i * k];
+      R_1nn_dists_ptr[i] = R_knn_dists_ptr[i * k];
+    });
 
   auto keys = thrust::make_zip_iterator(
     thrust::make_tuple(R_1nn_inds.data(), index.get_R_1nn_dists().data_handle()));
 
   // group neighborhoods for each reference landmark and sort each group by distance
-  thrust::sort_by_key(handle.get_thrust_policy(),
+  thrust::sort_by_key(resource::get_thrust_policy(handle),
                       keys,
                       keys + index.m,
                       index.get_R_1nn_cols().data_handle(),
@@ -152,7 +161,7 @@ void construct_landmark_1nn(raft::device_resources const& handle,
                                            index.m,
                                            index.get_R_indptr().data_handle(),
                                            index.n_landmarks + 1,
-                                           handle.get_stream());
+                                           resource::get_cuda_stream(handle));
 }
 
 /**
@@ -169,7 +178,7 @@ void construct_landmark_1nn(raft::device_resources const& handle,
  * @param R_knn_dists
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void k_closest_landmarks(raft::device_resources const& handle,
+void k_closest_landmarks(raft::resources const& handle,
                          const BallCoverIndex<value_idx, value_t, value_int>& index,
                          const value_t* query_pts,
                          value_int n_query_pts,
@@ -197,7 +206,7 @@ void k_closest_landmarks(raft::device_resources const& handle,
  * @param index
  */
 template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
-void compute_landmark_radii(raft::device_resources const& handle,
+void compute_landmark_radii(raft::resources const& handle,
                             BallCoverIndex<value_idx, value_t, value_int>& index)
 {
   auto entries = thrust::make_counting_iterator<value_idx>(0);
@@ -205,7 +214,7 @@ void compute_landmark_radii(raft::device_resources const& handle,
   const value_idx* R_indptr_ptr  = index.get_R_indptr().data_handle();
   const value_t* R_1nn_dists_ptr = index.get_R_1nn_dists().data_handle();
   value_t* R_radius_ptr          = index.get_R_radius().data_handle();
-  thrust::for_each(handle.get_thrust_policy(),
+  thrust::for_each(resource::get_thrust_policy(handle),
                    entries,
                    entries + index.n_landmarks,
                    [=] __device__(value_idx input) {
@@ -228,7 +237,7 @@ template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
           typename dist_func>
-void perform_rbc_query(raft::device_resources const& handle,
+void perform_rbc_query(raft::resources const& handle,
                        const BallCoverIndex<value_idx, value_t, value_int>& index,
                        const value_t* query,
                        value_int n_query_pts,
@@ -244,11 +253,11 @@ void perform_rbc_query(raft::device_resources const& handle,
                        bool perform_post_filtering = true)
 {
   // initialize output inds and dists
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                inds,
                inds + (k * n_query_pts),
                std::numeric_limits<value_idx>::max());
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                dists,
                dists + (k * n_query_pts),
                std::numeric_limits<value_t>::max());
@@ -330,21 +339,21 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_build_index(raft::device_resources const& handle,
+void rbc_build_index(raft::resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index,
                      distance_func dfunc)
 {
   ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
-  rmm::device_uvector<value_idx> R_knn_inds(index.m, handle.get_stream());
+  rmm::device_uvector<value_idx> R_knn_inds(index.m, resource::get_cuda_stream(handle));
 
   // Initialize the uvectors
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_knn_inds.begin(),
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                index.get_R_closest_landmark_dists().data_handle(),
                index.get_R_closest_landmark_dists().data_handle() + index.m,
                std::numeric_limits<value_t>::max());
@@ -389,7 +398,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_all_knn_query(raft::device_resources const& handle,
+void rbc_all_knn_query(raft::resources const& handle,
                        BallCoverIndex<value_idx, value_t, value_int>& index,
                        value_int k,
                        value_idx* inds,
@@ -403,27 +412,31 @@ void rbc_all_knn_query(raft::device_resources const& handle,
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
-  rmm::device_uvector<value_idx> R_knn_inds(k * index.m, handle.get_stream());
-  rmm::device_uvector<value_t> R_knn_dists(k * index.m, handle.get_stream());
+  rmm::device_uvector<value_idx> R_knn_inds(k * index.m, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_t> R_knn_dists(k * index.m, resource::get_cuda_stream(handle));
 
   // Initialize the uvectors
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_knn_inds.begin(),
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_knn_dists.begin(),
                R_knn_dists.end(),
                std::numeric_limits<value_t>::max());
 
-  thrust::fill(
-    handle.get_thrust_policy(), inds, inds + (k * index.m), std::numeric_limits<value_idx>::max());
-  thrust::fill(
-    handle.get_thrust_policy(), dists, dists + (k * index.m), std::numeric_limits<value_t>::max());
+  thrust::fill(resource::get_thrust_policy(handle),
+               inds,
+               inds + (k * index.m),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(resource::get_thrust_policy(handle),
+               dists,
+               dists + (k * index.m),
+               std::numeric_limits<value_t>::max());
 
   // For debugging / verification. Remove before releasing
-  rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-  rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
+  rmm::device_uvector<value_int> dists_counter(index.m, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_int> post_dists_counter(index.m, resource::get_cuda_stream(handle));
 
   sample_landmarks<value_idx, value_t>(handle, index);
 
@@ -458,7 +471,7 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_knn_query(raft::device_resources const& handle,
+void rbc_knn_query(raft::resources const& handle,
                    const BallCoverIndex<value_idx, value_t, value_int>& index,
                    value_int k,
                    const value_t* query,
@@ -474,24 +487,24 @@ void rbc_knn_query(raft::device_resources const& handle,
   ASSERT(index.n_landmarks >= k, "number of landmark samples must be >= k");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  rmm::device_uvector<value_idx> R_knn_inds(k * n_query_pts, handle.get_stream());
-  rmm::device_uvector<value_t> R_knn_dists(k * n_query_pts, handle.get_stream());
+  rmm::device_uvector<value_idx> R_knn_inds(k * n_query_pts, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_t> R_knn_dists(k * n_query_pts, resource::get_cuda_stream(handle));
 
   // Initialize the uvectors
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_knn_inds.begin(),
                R_knn_inds.end(),
                std::numeric_limits<value_idx>::max());
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                R_knn_dists.begin(),
                R_knn_dists.end(),
                std::numeric_limits<value_t>::max());
 
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                inds,
                inds + (k * n_query_pts),
                std::numeric_limits<value_idx>::max());
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                dists,
                dists + (k * n_query_pts),
                std::numeric_limits<value_t>::max());
@@ -499,13 +512,13 @@ void rbc_knn_query(raft::device_resources const& handle,
   k_closest_landmarks(handle, index, query, n_query_pts, k, R_knn_inds.data(), R_knn_dists.data());
 
   // For debugging / verification. Remove before releasing
-  rmm::device_uvector<value_int> dists_counter(index.m, handle.get_stream());
-  rmm::device_uvector<value_int> post_dists_counter(index.m, handle.get_stream());
-  thrust::fill(handle.get_thrust_policy(),
+  rmm::device_uvector<value_int> dists_counter(index.m, resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_int> post_dists_counter(index.m, resource::get_cuda_stream(handle));
+  thrust::fill(resource::get_thrust_policy(handle),
                post_dists_counter.data(),
                post_dists_counter.data() + post_dists_counter.size(),
                0);
-  thrust::fill(handle.get_thrust_policy(),
+  thrust::fill(resource::get_thrust_policy(handle),
                dists_counter.data(),
                dists_counter.data() + dists_counter.size(),
                0);

@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -592,7 +597,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
-      query_buffer[j] = static_cast<float>(query_ptr[i]) * device::fragment_scale<DATA_T>();
+      query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
     } else {
       query_buffer[j] = 0.0;
     }
@@ -959,7 +964,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
   uint32_t num_itopk_candidates;
 
-  search(raft::device_resources const& res,
+  search(raft::resources const& res,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
@@ -971,7 +976,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
   ~search() {}
 
-  inline void set_params(raft::device_resources const& res)
+  inline void set_params(raft::resources const& res)
   {
     num_itopk_candidates = num_parents * graph_degree;
     result_buffer_size   = itopk_size + num_itopk_candidates;
@@ -1033,7 +1038,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
       // Increase block size to improve GPU occupancy when batch size
       // is small, that is, number of queries is low.
-      cudaDeviceProp deviceProp = res.get_device_properties();
+      cudaDeviceProp deviceProp = resource::get_device_properties(res);
       RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
              (graph_degree * num_parents * team_size >= block_size * 2) &&
@@ -1101,12 +1106,12 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     hashmap_size = 0;
     if (small_hash_bitlen == 0) {
       hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
-      hashmap.resize(hashmap_size, res.get_stream());
+      hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
     }
     RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);
   }
 
-  void operator()(raft::device_resources const& res,
+  void operator()(raft::resources const& res,
                   raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const result_indices_ptr,             // [num_queries, topk]
@@ -1117,7 +1122,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   std::uint32_t* const num_executed_iterations,  // [num_queries]
                   uint32_t topk)
   {
-    cudaStream_t stream = res.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(res);
     uint32_t block_size = thread_block_size;
     SET_KERNEL;
     RAFT_CUDA_TRY(

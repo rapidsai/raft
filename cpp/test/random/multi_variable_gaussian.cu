@@ -18,7 +18,10 @@
 #include <cmath>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/multi_variable_gaussian.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -84,12 +87,12 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
  public:
   MVGTest()
     : params(::testing::TestWithParam<MVGInputs<T>>::GetParam()),
-      workspace_d(0, handle.get_stream()),
-      P_d(0, handle.get_stream()),
-      x_d(0, handle.get_stream()),
-      X_d(0, handle.get_stream()),
-      Rand_cov(0, handle.get_stream()),
-      Rand_mean(0, handle.get_stream())
+      workspace_d(0, resource::get_cuda_stream(handle)),
+      P_d(0, resource::get_cuda_stream(handle)),
+      x_d(0, resource::get_cuda_stream(handle)),
+      X_d(0, resource::get_cuda_stream(handle)),
+      Rand_cov(0, resource::get_cuda_stream(handle)),
+      Rand_mean(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -104,9 +107,9 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr      = params.corr;
     tolerance = params.tolerance;
 
-    auto cublasH   = handle.get_cublas_handle();
-    auto cusolverH = handle.get_cusolver_dn_handle();
-    auto stream    = handle.get_stream();
+    auto cublasH   = resource::get_cublas_handle(handle);
+    auto cusolverH = resource::get_cusolver_dn_handle(handle);
+    auto stream    = resource::get_cuda_stream(handle);
 
     // preparing to store stuff
     P.resize(dim * dim);
@@ -199,7 +202,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   MVGInputs<T> params;
   rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   std::vector<T> P, x, X;
@@ -226,12 +229,12 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
  public:
   MVGMdspanTest()
-    : workspace_d(0, handle.get_stream()),
-      P_d(0, handle.get_stream()),
-      x_d(0, handle.get_stream()),
-      X_d(0, handle.get_stream()),
-      Rand_cov(0, handle.get_stream()),
-      Rand_mean(0, handle.get_stream())
+    : workspace_d(0, resource::get_cuda_stream(handle)),
+      P_d(0, resource::get_cuda_stream(handle)),
+      x_d(0, resource::get_cuda_stream(handle)),
+      X_d(0, resource::get_cuda_stream(handle)),
+      Rand_cov(0, resource::get_cuda_stream(handle)),
+      Rand_mean(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -244,9 +247,9 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
     corr        = params.corr;
     tolerance   = params.tolerance;
 
-    auto cublasH   = handle.get_cublas_handle();
-    auto cusolverH = handle.get_cusolver_dn_handle();
-    auto stream    = handle.get_stream();
+    auto cublasH   = resource::get_cublas_handle(handle);
+    auto cusolverH = resource::get_cusolver_dn_handle(handle);
+    auto stream    = resource::get_cuda_stream(handle);
 
     P.resize(dim * dim);
     x.resize(dim);
@@ -327,7 +330,7 @@ class MVGMdspanTest : public ::testing::TestWithParam<MVGInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
 
   MVGInputs<T> params;
   std::vector<T> P, x, X;
@@ -413,8 +416,11 @@ using MVGTestF = MVGTest<float>;
 using MVGTestD = MVGTest<double>;
 TEST_P(MVGTestF, MeanIsCorrectF)
 {
-  EXPECT_TRUE(raft::devArrMatch(
-    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<float>(tolerance), handle.get_stream()))
+  EXPECT_TRUE(raft::devArrMatch(x_d.data(),
+                                Rand_mean.data(),
+                                dim,
+                                raft::CompareApprox<float>(tolerance),
+                                resource::get_cuda_stream(handle)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestF, CovIsCorrectF)
@@ -424,13 +430,16 @@ TEST_P(MVGTestF, CovIsCorrectF)
                                 dim,
                                 dim,
                                 raft::CompareApprox<float>(tolerance),
-                                handle.get_stream()))
+                                resource::get_cuda_stream(handle)))
     << " in CovIsCorrect";
 }
 TEST_P(MVGTestD, MeanIsCorrectD)
 {
-  EXPECT_TRUE(raft::devArrMatch(
-    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<double>(tolerance), handle.get_stream()))
+  EXPECT_TRUE(raft::devArrMatch(x_d.data(),
+                                Rand_mean.data(),
+                                dim,
+                                raft::CompareApprox<double>(tolerance),
+                                resource::get_cuda_stream(handle)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestD, CovIsCorrectD)
@@ -440,7 +449,7 @@ TEST_P(MVGTestD, CovIsCorrectD)
                                 dim,
                                 dim,
                                 raft::CompareApprox<double>(tolerance),
-                                handle.get_stream()))
+                                resource::get_cuda_stream(handle)))
     << " in CovIsCorrect";
 }
 
@@ -448,8 +457,11 @@ using MVGMdspanTestF = MVGMdspanTest<float>;
 using MVGMdspanTestD = MVGMdspanTest<double>;
 TEST_P(MVGMdspanTestF, MeanIsCorrectF)
 {
-  EXPECT_TRUE(raft::devArrMatch(
-    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<float>(tolerance), handle.get_stream()))
+  EXPECT_TRUE(raft::devArrMatch(x_d.data(),
+                                Rand_mean.data(),
+                                dim,
+                                raft::CompareApprox<float>(tolerance),
+                                resource::get_cuda_stream(handle)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGMdspanTestF, CovIsCorrectF)
@@ -459,13 +471,16 @@ TEST_P(MVGMdspanTestF, CovIsCorrectF)
                                 dim,
                                 dim,
                                 raft::CompareApprox<float>(tolerance),
-                                handle.get_stream()))
+                                resource::get_cuda_stream(handle)))
     << " in CovIsCorrect";
 }
 TEST_P(MVGMdspanTestD, MeanIsCorrectD)
 {
-  EXPECT_TRUE(raft::devArrMatch(
-    x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<double>(tolerance), handle.get_stream()))
+  EXPECT_TRUE(raft::devArrMatch(x_d.data(),
+                                Rand_mean.data(),
+                                dim,
+                                raft::CompareApprox<double>(tolerance),
+                                resource::get_cuda_stream(handle)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGMdspanTestD, CovIsCorrectD)
@@ -475,7 +490,7 @@ TEST_P(MVGMdspanTestD, CovIsCorrectD)
                                 dim,
                                 dim,
                                 raft::CompareApprox<double>(tolerance),
-                                handle.get_stream()))
+                                resource::get_cuda_stream(handle)))
     << " in CovIsCorrect";
 }
 
