@@ -298,6 +298,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_double_uint32_t.cu
     src/matrix/detail/select_k_float_int64_t.cu
     src/matrix/detail/select_k_float_uint32_t.cu
+    src/matrix/detail/select_k_float_int32.cu
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
@@ -601,9 +602,7 @@ target_link_libraries(raft::raft INTERFACE
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 rapids_export(
   INSTALL raft
-  EXPORT_SET raft-exports
-  COMPONENTS ${raft_components}
-  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   NAMESPACE raft::
   DOCUMENTATION doc_string
@@ -614,9 +613,7 @@ rapids_export(
 # * build export -------------------------------------------------------------
 rapids_export(
   BUILD raft
-  EXPORT_SET raft-exports
-  COMPONENTS ${raft_components}
-  COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   DOCUMENTATION doc_string
   NAMESPACE raft::
