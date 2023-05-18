@@ -46,7 +46,7 @@ void extend(raft::resources const& handle,
             index<IdxT>* idx) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT, typename SampleFilterT>
-void search_with_filtering(raft::device_resources const& handle,
+void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
                            raft::device_matrix_view<const T, IdxT, row_major> queries,
@@ -84,7 +84,7 @@ void extend(raft::resources const& handle,
             IdxT n_rows) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT, typename SampleFilterT>
-void search_with_filtering(raft::device_resources const& handle,
+void search_with_filtering(raft::resources const& handle,
                            const raft::neighbors::ivf_pq::search_params& params,
                            const index<IdxT>& idx,
                            const T* queries,

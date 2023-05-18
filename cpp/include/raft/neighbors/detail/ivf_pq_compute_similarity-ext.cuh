@@ -153,7 +153,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                                                                          \
   extern template void                                                                   \
   raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, SampleFilterT>(    \
-    raft::neighbors::ivf_pq::detail::selected<OutT, LutT> s,                             \
+    raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT> s,              \
     rmm::cuda_stream_view stream,                                                        \
     uint32_t n_rows,                                                                     \
     uint32_t dim,                                                                        \
