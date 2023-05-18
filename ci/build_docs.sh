@@ -42,7 +42,7 @@ sphinx-build -b text source _text
 popd
 
 
-if [[ ${RAPIDS_BUILD_TYPE} == "branch" ]]; then
+if [[ ${RAPIDS_BUILD_TYPE} != "pull-request" ]]; then
   rapids-logger "Upload Docs to S3"
   aws s3 sync --no-progress --delete docs/_html "s3://rapidsai-docs/raft/${VERSION_NUMBER}/html"
   aws s3 sync --no-progress --delete docs/_text "s3://rapidsai-docs/raft/${VERSION_NUMBER}/txt"
