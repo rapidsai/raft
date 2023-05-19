@@ -461,3 +461,50 @@ def test_search_inputs(params):
             out_idx_device,
             out_dist_device,
         )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])
+def test_save_load(dtype):
+    n_rows = 10000
+    n_cols = 50
+    n_queries = 1000
+
+    dataset = generate_data((n_rows, n_cols), dtype)
+    dataset_device = device_ndarray(dataset)
+
+    build_params = ivf_flat.IndexParams(n_lists=100, metric="sqeuclidean")
+    index = ivf_flat.build(build_params, dataset_device)
+
+    assert index.trained
+    filename = "my_index.bin"
+    ivf_flat.save(filename, index)
+    loaded_index = ivf_flat.load(filename)
+
+    assert index.metric == loaded_index.metric
+    assert index.n_lists == loaded_index.n_lists
+    assert index.dim == loaded_index.dim
+    assert index.adaptive_centers == loaded_index.adaptive_centers
+
+    queries = generate_data((n_queries, n_cols), dtype)
+
+    queries_device = device_ndarray(queries)
+    search_params = ivf_flat.SearchParams(n_probes=100)
+    k = 10
+
+    distance_dev, neighbors_dev = ivf_flat.search(
+        search_params, index, queries_device, k
+    )
+
+    neighbors = neighbors_dev.copy_to_host()
+    dist = distance_dev.copy_to_host()
+    del index
+
+    distance_dev, neighbors_dev = ivf_flat.search(
+        search_params, loaded_index, queries_device, k
+    )
+
+    neighbors2 = neighbors_dev.copy_to_host()
+    dist2 = distance_dev.copy_to_host()
+
+    assert np.all(neighbors == neighbors2)
+    assert np.allclose(dist, dist2, rtol=1e-6)
