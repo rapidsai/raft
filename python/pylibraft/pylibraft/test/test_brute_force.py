@@ -40,11 +40,8 @@ from pylibraft.neighbors.brute_force import knn
     ],
 )
 @pytest.mark.parametrize("inplace", [True, False])
-@pytest.mark.parametrize("order", ["F", "C"])
 @pytest.mark.parametrize("dtype", [np.float32])
-def test_knn(
-    n_index_rows, n_query_rows, n_cols, k, inplace, metric, order, dtype
-):
+def test_knn(n_index_rows, n_query_rows, n_cols, k, inplace, metric, dtype):
     index = np.random.random_sample((n_index_rows, n_cols)).astype(dtype)
     queries = np.random.random_sample((n_query_rows, n_cols)).astype(dtype)
 
@@ -94,3 +91,21 @@ def test_knn(
         np.testing.assert_allclose(
             cpu_ordered[:k], gpu_dists, atol=1e-4, rtol=1e-4
         )
+
+
+def test_knn_check_col_major_inputs():
+    # make sure that we get an exception if passed col-major inputs,
+    # instead of returning incorrect results
+    cp = pytest.importorskip("cupy")
+    n_index_rows, n_query_rows, n_cols = 128, 16, 32
+    index = cp.random.random_sample((n_index_rows, n_cols), dtype="float32")
+    queries = cp.random.random_sample((n_query_rows, n_cols), dtype="float32")
+
+    with pytest.raises(ValueError):
+        knn(cp.asarray(index, order="F"), queries, k=4)
+
+    with pytest.raises(ValueError):
+        knn(index, cp.asarray(queries, order="F"), k=4)
+
+    # shouldn't throw an exception with c-contiguous inputs
+    knn(index, queries, k=4)
