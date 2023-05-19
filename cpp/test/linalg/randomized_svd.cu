@@ -184,9 +184,9 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
 
   void SetUp() override
   {
-#if CUDART_VERSION >= 11050
-    apiTest();
-#endif
+    int dVersion = 0;
+    cudaDriverGetVersion(&dVersion);
+    if (dVersion >= 11050) apiTest();
     basicTest();
   }
 

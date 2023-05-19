@@ -822,9 +822,6 @@ void randomized_svd(const raft::device_resources& handle,
                     std::size_t p,
                     std::size_t niters)
 {
-#if CUDART_VERSION < 11050
-  return rsvd_fixed_rank(handle, in, S, idx_t(p), U, V);
-#else
   auto k                      = S.extent(0);
   math_t* left_sing_vecs_ptr  = nullptr;
   math_t* right_sing_vecs_ptr = nullptr;
@@ -852,7 +849,6 @@ void randomized_svd(const raft::device_resources& handle,
                          right_sing_vecs_ptr,
                          gen_U,
                          gen_V);
-#endif  // CUDART_VERSION > 11050
 }
 
 /**
