@@ -388,8 +388,8 @@ void gather(raft::resources const& handle,
     auto scratch_space =
       raft::make_device_vector<InputIteratorT, IndexT>(handle, m * cols_per_batch);
 
-    auto scatter_op = [inout  = inout.data_handle(),
-                       map = map.data_handle(),
+    auto scatter_op = [inout = inout.data_handle(),
+                       map   = map.data_handle(),
                        batch_offset,
                        cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
                        n] __device__(auto idx) {
@@ -398,19 +398,19 @@ void gather(raft::resources const& handle,
       return inout[map[row] * n + batch_offset + col];
     };
     raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
-    auto copy_op = [inout            = inout.data_handle(),
+    auto copy_op = [inout         = inout.data_handle(),
                     map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),
                     batch_offset,
                     cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
                     n] __device__(auto idx) {
-      IndexT row                              = idx / cols_per_batch;
-      IndexT col                              = idx % cols_per_batch;
+      IndexT row                          = idx / cols_per_batch;
+      IndexT col                          = idx % cols_per_batch;
       inout[row * n + batch_offset + col] = scratch_space[idx];
       return;
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);
-    thrust::for_each(exec_policy, counting, counting + n * batch_size, copy_op);
+    thrust::for_each(exec_policy, counting, counting + m * cols_per_batch, copy_op);
   }
 }
 

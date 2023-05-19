@@ -60,7 +60,6 @@ void scatter(raft::resources const& handle,
   IndexT m = inout.extent(0);
   IndexT n = inout.extent(1);
 
-  auto stream      = resource::get_cuda_stream(handle);
   auto exec_policy = resource::get_thrust_policy(handle);
 
   IndexT n_batches = raft::ceildiv(n, batch_size);
@@ -93,7 +92,7 @@ void scatter(raft::resources const& handle,
       return;
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);
-    thrust::for_each(exec_policy, counting, counting + m * batch_size, copy_op);
+    thrust::for_each(exec_policy, counting, counting + m * cols_per_batch, copy_op);
   }
 }
 

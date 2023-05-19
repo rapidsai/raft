@@ -124,8 +124,8 @@ class ConnectComponentsTest
                                                           params.n_row,
                                                           params.n_col,
                                                           red_op,
-                                                          3,
-                                                          2);
+                                                          params.n_row,
+                                                          params.n_col);
 
     /**
      * Construct final edge list
