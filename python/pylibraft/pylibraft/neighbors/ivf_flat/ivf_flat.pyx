@@ -751,7 +751,7 @@ def save(filename, Index index, handle=None):
     cdef device_resources* handle_ = \
         <device_resources*><size_t>handle.getHandle()
 
-    cdef string c_string
+    cdef string c_filename = filename.encode('utf-8')
 
     cdef IndexFloat idx_float
     cdef IndexInt8 idx_int8
@@ -759,24 +759,19 @@ def save(filename, Index index, handle=None):
 
     if index.active_index_type == "float32":
         idx_float = index
-        c_ivf_flat.serialize(
-            deref(handle_), c_string, deref(idx_float.index))
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_float.index))
     elif index.active_index_type == "byte":
         idx_int8 = index
-        c_ivf_flat.serialize(
-            deref(handle_), c_string, deref(idx_int8.index))
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_int8.index))
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
-        c_ivf_flat.serialize(
-            deref(handle_), c_string, deref(idx_uint8.index))
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_uint8.index))
     else:
         raise ValueError(
             "Index dtype %s not supported" % index.active_index_type)
-
-    dtype = np.dtype(index.active_index_type)
-    with open(filename, 'wb') as f:
-        f.write(bytes(dtype.str, 'utf-8'))
-        f.write(c_string)
 
 
 @auto_sync_handle
@@ -837,26 +832,27 @@ def load(filename, handle=None):
 
     with open(filename, 'rb') as f:
         type_str = f.read(3).decode('utf-8')
-        serialized_index = f.read()
 
     dataset_dt = np.dtype(type_str)
-    cdef string c_idx_str = serialized_index
 
     if dataset_dt == np.float32:
         idx_float = IndexFloat(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_float.index)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_float.index)
         idx_float.trained = True
         idx_float.active_index_type = 'float32'
         return idx_float
     elif dataset_dt == np.byte:
         idx_int8 = IndexInt8(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_int8.index)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_int8.index)
         idx_int8.trained = True
         idx_int8.active_index_type = 'byte'
         return idx_int8
     elif dataset_dt == np.ubyte:
         idx_uint8 = IndexUint8(handle)
-        c_ivf_flat.deserialize(deref(handle_), c_idx_str, idx_uint8.index)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_uint8.index)
         idx_uint8.trained = True
         idx_uint8.active_index_type = 'ubyte'
         return idx_uint8

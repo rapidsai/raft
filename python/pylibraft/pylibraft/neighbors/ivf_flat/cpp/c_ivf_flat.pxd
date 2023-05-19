@@ -157,3 +157,27 @@ cdef extern from "raft_runtime/neighbors/ivf_flat.hpp" \
     cdef void deserialize(const device_resources& handle,
                           const string& str,
                           index[int8_t, int64_t]* index) except +
+
+    cdef void serialize_file(const device_resources& handle,
+                             const string& filename,
+                             const index[float, int64_t]& index) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[float, int64_t]* index) except +
+
+    cdef void serialize_file(const device_resources& handle,
+                             const string& filename,
+                             const index[uint8_t, int64_t]& index) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[uint8_t, int64_t]* index) except +
+
+    cdef void serialize_file(const device_resources& handle,
+                             const string& filename,
+                             const index[int8_t, int64_t]& index) except +
+
+    cdef void deserialize_file(const device_resources& handle,
+                               const string& filename,
+                               index[int8_t, int64_t]* index) except +
