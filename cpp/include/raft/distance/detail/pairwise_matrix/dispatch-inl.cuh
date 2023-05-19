@@ -108,13 +108,14 @@ void pairwise_matrix_dispatch(OpT distance_op,
     auto cutlass_range = arch::SM_range(arch::SM_80(), arch::SM_future());
     auto legacy_range  = arch::SM_range(arch::SM_min(), arch::SM_80());
 
-    // Get pointer to SM60 kernel to determine the runtime architecture of the
-    // current system. Other methods to determine the architecture (that do not
+    // Get pointer to SM60 kernel to determine the best compute architecture
+    // out of all for which the kernel was compiled for that matches closely
+    // to the current device. Other methods to determine the architecture (that do not
     // require a pointer) can be error prone. See:
     // https://github.com/NVIDIA/cub/issues/545
     auto sm60_wrapper = pairwise_matrix_sm60_get_wrapper(distance_op, params, legacy_range);
     void* kernel_ptr  = reinterpret_cast<void*>(sm60_wrapper.kernel_ptr);
-    auto runtime_arch = arch::kernel_runtime_arch(kernel_ptr);
+    auto runtime_arch = arch::kernel_virtual_arch(kernel_ptr);
 
     if (cutlass_range.contains(runtime_arch)) {
       // If device is SM_80 or later, use CUTLASS-based kernel.

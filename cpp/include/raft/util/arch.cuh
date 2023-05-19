@@ -30,10 +30,10 @@ namespace raft::util::arch {
  *   compute architecture that a kernel is compiled with. It can only be used
  *   inside kernels with a template argument.
  *
- * - raft::util::arch::kernel_runtime_arch : a function that computes at *run-time*
- *   which version of a kernel will launch (i.e., it will return the compute
- *   architecture of the version of the kernel that will be launched by the
- *   driver).
+ * - raft::util::arch::kernel_virtual_arch : a function that computes at *run-time*
+ *   which version of a kernel will launch (i.e., it will return the virtual compute
+ *   architecture of the version of the kernel that it was compiled for which
+ *   will be launched by the driver).
  *
  * - raft::util::arch::SM_range : a compile-time value to represent an open interval
  *   of compute architectures. This can be used to check if the current
@@ -97,7 +97,7 @@ struct SM_compute_arch {
 // compute architecture of the version of the kernel that the driver picks when
 // the kernel runs.
 struct SM_runtime {
-  friend SM_runtime kernel_runtime_arch(void*);
+  friend SM_runtime kernel_virtual_arch(void*);
 
  private:
   const int _version;
@@ -107,7 +107,8 @@ struct SM_runtime {
   __host__ __device__ int value() const { return _version; }
 };
 
-// Computes which compute architecture of a kernel will run
+// Computes which virtual compute architecture the given kernel was compiled for,
+// driver picks the version of the kernel that closely matches the current hardware.
 //
 // Semantics are described above in the documentation of SM_runtime.
 //
@@ -115,7 +116,7 @@ struct SM_runtime {
 // to determine the architecture (that do not require a pointer) can be error
 // prone. See:
 // https://github.com/NVIDIA/cub/issues/545
-inline SM_runtime kernel_runtime_arch(void* kernel)
+inline SM_runtime kernel_virtual_arch(void* kernel)
 {
   cudaFuncAttributes attributes;
   RAFT_CUDA_TRY(cudaFuncGetAttributes(&attributes, kernel));
