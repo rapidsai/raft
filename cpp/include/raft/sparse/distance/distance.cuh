@@ -160,7 +160,7 @@ void pairwiseDistance(value_t* out,
  *
  * auto out = raft::make_device_matrix<float>(handle, x_nrows, y_nrows);
  * auto metric = raft::distance::DistanceType::L2Expanded;
- * raft::sparse::distance_pairwise_distance(handle, x, y, out, metric);
+ * raft::sparse::distance::pairwise_distance(handle, x, y, out, metric);
  * @endcode
  *
  * @tparam DeviceCSRMatrix raft::device_csr_matrix or raft::device_csr_matrix_view
