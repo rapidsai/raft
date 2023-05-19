@@ -16,7 +16,6 @@
 #pragma once
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>
