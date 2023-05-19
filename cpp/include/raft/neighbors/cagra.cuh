@@ -137,7 +137,7 @@ void sort_knn_graph(raft::resources const& res,
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
   using g_accessor_internal =
-    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, memory_type::host>;
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
   auto knn_graph_internal =
     mdspan<internal_IdxT, matrix_extent<internal_IdxT>, row_major, g_accessor_internal>(
       reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
