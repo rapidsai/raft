@@ -6,7 +6,7 @@ Resources
    :class: highlight
 
 All resources which are specific to a computing environment like host or device are contained within, and managed by,
-raft::resources. This design simplifies the APIs and eases user burden by making them opaque by default but allowing customization based on user preference.
+`raft::resources`. This design simplifies the APIs and eases user burden by making them opaque by default but allowing customization based on user preference.
 
 
 Vocabulary
@@ -24,6 +24,8 @@ namespace *raft::resource*
 
 Device Resources
 ----------------
+
+`raft::device_resources` is a convenience over using `raft::resources` directly. It provides accessor methods to retrieve things like the CUDA stream, stream pool, and handles to the various CUDA math libraries like cuBLAS and cuSOLVER. 
 
 ``#include <raft/core/device_resources.hpp>``
 
@@ -81,7 +83,7 @@ CUDA Stream Pool
 
 namespace *raft::resource*
 
-.. doxygengroup:: resource_cuda_stream_pool
+.. doxygengroup:: resource_stream_pool
     :project: RAFT
     :members:
     :content-only:
