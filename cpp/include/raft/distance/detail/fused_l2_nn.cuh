@@ -325,12 +325,13 @@ void fusedL2NNImpl(OutT* min,
                                 decltype(distance_op),
                                 decltype(fin_op)>;
 
-  // Get pointer to fp32 SIMT kernel to determine the runtime architecture of the
-  // current system. Other methods to determine the architecture (that do not
+  // Get pointer to fp32 SIMT kernel to determine the best compute architecture
+  // out of all for which the kernel was compiled for that matches closely
+  // to the current device. Other methods to determine the architecture (that do not
   // require a pointer) can be error prone. See:
   // https://github.com/NVIDIA/cub/issues/545
   void* kernel_ptr   = reinterpret_cast<void*>(kernel);
-  auto runtime_arch  = arch::kernel_runtime_arch(kernel_ptr);
+  auto runtime_arch  = arch::kernel_virtual_arch(kernel_ptr);
   auto cutlass_range = arch::SM_range(arch::SM_80(), arch::SM_future());
 
   if (cutlass_range.contains(runtime_arch)) {
