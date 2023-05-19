@@ -90,6 +90,7 @@ void scatter(raft::resources const& handle,
       IndexT row                               = idx / cols_per_batch;
       IndexT col                               = idx % cols_per_batch;
       inout[map[row] * n + batch_offset + col] = scratch_space[idx];
+      return;
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);
     thrust::for_each(exec_policy, counting, counting + m * batch_size, copy_op);

@@ -367,18 +367,18 @@ void gather_if(const InputIteratorT in,
  * @tparam IndexT
  *
  * @param[in] handle raft handle
- * @param[inout] in input matrix (n_rows * n_cols)
+ * @param[inout] inout input matrix (n_rows * n_cols)
  * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
  * @param[in] batch_size column batch size
  */
 template <typename InputIteratorT, typename MapIteratorT, typename IndexT>
 void gather(raft::resources const& handle,
-            raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> in,
+            raft::device_matrix_view<InputIteratorT, IndexT, raft::layout_c_contiguous> inout,
             raft::device_vector_view<const MapIteratorT, IndexT, raft::layout_c_contiguous> map,
             IndexT batch_size)
 {
-  IndexT m = in.extent(0);
-  IndexT n = in.extent(1);
+  IndexT m = inout.extent(0);
+  IndexT n = inout.extent(1);
 
   auto exec_policy = resource::get_thrust_policy(handle);
   IndexT n_batches = raft::ceildiv(n, batch_size);
@@ -386,19 +386,19 @@ void gather(raft::resources const& handle,
     IndexT batch_offset   = bid * batch_size;
     IndexT cols_per_batch = min(batch_size, n - batch_offset);
     auto scratch_space =
-      raft::make_device_vector<InputIteratorT, IndexT>(handle, n * cols_per_batch);
+      raft::make_device_vector<InputIteratorT, IndexT>(handle, m * cols_per_batch);
 
-    auto scatter_op = [in  = in.data_handle(),
+    auto scatter_op = [inout  = inout.data_handle(),
                        map = map.data_handle(),
                        batch_offset,
                        cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
                        n] __device__(auto idx) {
       IndexT row = idx / cols_per_batch;
       IndexT col = idx % cols_per_batch;
-      return in[map[row] * n + batch_offset + col];
+      return inout[map[row] * n + batch_offset + col];
     };
     raft::linalg::map_offset(handle, scratch_space.view(), scatter_op);
-    auto copy_op = [in            = in.data_handle(),
+    auto copy_op = [inout            = inout.data_handle(),
                     map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),
                     batch_offset,
@@ -406,7 +406,8 @@ void gather(raft::resources const& handle,
                     n] __device__(auto idx) {
       IndexT row                              = idx / cols_per_batch;
       IndexT col                              = idx % cols_per_batch;
-      return in[row * n + batch_offset + col] = scratch_space[idx];
+      inout[row * n + batch_offset + col] = scratch_space[idx];
+      return;
     };
     auto counting = thrust::make_counting_iterator<IndexT>(0);
     thrust::for_each(exec_policy, counting, counting + n * batch_size, copy_op);

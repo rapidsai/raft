@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "raft/core/logger-macros.hpp"
 #include <cstdint>
 #include <cub/cub.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -215,6 +216,7 @@ void perform_1nn(raft::resources const& handle,
                  size_t batch_size,
                  red_op reduction_op)
 {
+  RAFT_LOG_INFO("perform_1nn start");
   auto stream      = resource::get_cuda_stream(handle);
   auto exec_policy = resource::get_thrust_policy(handle);
 
@@ -227,12 +229,14 @@ void perform_1nn(raft::resources const& handle,
   auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx>(handle, n_components + 1);
   raft::sparse::convert::sorted_coo_to_csr(
     colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
+  
+  auto group_idxs_view = raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components);
 
   auto x_norm = raft::make_device_vector<value_t, value_idx>(handle, (value_idx)n_rows);
   raft::linalg::rowNorm(
     x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
-  auto kvp_view =
-    raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp, n_rows);
+  
+  RAFT_LOG_INFO("X norm computed");
 
   auto adj     = raft::make_device_matrix<bool, value_idx>(handle, batch_size, n_components);
   using OutT   = raft::KeyValuePair<value_idx, value_t>;
@@ -242,16 +246,26 @@ void perform_1nn(raft::resources const& handle,
   bool init_out_buffer = true;
   ParamT params{reduction_op, reduction_op, apply_sqrt, init_out_buffer};
 
+  auto X_full_view = raft::make_device_matrix_view<const value_t, value_idx>(
+      X, n_rows, n_cols);
+
   size_t n_batches = raft::ceildiv(n_rows, batch_size);
+  RAFT_LOG_INFO("n_batches %zu", n_batches);
   for (size_t bid = 0; bid < n_batches; bid++) {
+    RAFT_LOG_INFO("current batch bid %zu", bid);
     size_t batch_offset   = bid * batch_size;
     size_t rows_per_batch = min(batch_size, n_rows - batch_offset);
+    RAFT_LOG_INFO("rows_per_batch %zu", rows_per_batch);
 
-    auto X_view = raft::make_device_matrix_view<const value_t, value_idx>(
+    auto X_batch_view = raft::make_device_matrix_view<const value_t, value_idx>(
       X + batch_offset * n_cols, rows_per_batch, n_cols);
+    
+    RAFT_LOG_INFO("X_batch_view created");
 
-    auto x_norm_view = raft::make_device_vector_view<value_t, value_idx>(
+    auto x_norm_batch_view = raft::make_device_vector_view<value_t, value_idx>(
       x_norm.data_handle() + batch_offset, rows_per_batch);
+    
+    RAFT_LOG_INFO("X_norm_batch_view created");
     auto mask_op = [colors,
                     n_components = raft::util::FastIntDiv(n_components),
                     batch_offset] __device__(value_idx idx) {
@@ -261,18 +275,29 @@ void perform_1nn(raft::resources const& handle,
     };
     auto adj_view = raft::make_device_matrix_view<bool, value_idx>(
       adj.data_handle(), rows_per_batch, n_components);
+    
+    RAFT_LOG_INFO("adj view created");
     raft::linalg::map_offset(handle, adj_view, mask_op);
 
+    RAFT_LOG_INFO("adj map_offset done");
+    auto kvp_view =
+    raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(kvp + batch_offset, rows_per_batch);
+
+    RAFT_LOG_INFO("kvp view created");
+    cudaDeviceSynchronize();
+    RAFT_LOG_INFO("bid %d Done until start of masked_nn", bid);
     raft::distance::masked_l2_nn<value_t, OutT, value_idx, red_op, red_op>(
       handle,
       params,
-      X_view,
-      X_view,
-      x_norm_view,
-      x_norm_view,
+      X_batch_view,
+      X_full_view,
+      x_norm_batch_view,
+      x_norm.view(),
       adj_view,
-      raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components),
+      group_idxs_view,
       kvp_view);
+    cudaDeviceSynchronize();
+    RAFT_LOG_INFO("bid %d Done until end of masked_nn", bid);
   }
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
@@ -403,6 +428,7 @@ void connect_components(raft::resources const& handle,
                         size_t row_batch_size,
                         size_t col_batch_size)
 {
+  RAFT_LOG_INFO("connect_components_start");
   RAFT_EXPECTS(col_batch_size <= n_cols, "col_batch_size should be >= 0 and <= n_cols");
   RAFT_EXPECTS(row_batch_size <= n_rows, "row_batch_size should be >= 0 and <= n_rows");
   if (row_batch_size == 0) { row_batch_size = n_rows; }
@@ -423,7 +449,8 @@ void connect_components(raft::resources const& handle,
                       colors.data(),
                       colors.data() + n_rows,
                       sort_plan.data_handle());
-
+  
+  RAFT_LOG_INFO("sort plan created");
   // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
   reduction_op.gather(handle, sort_plan.data_handle());
 
@@ -433,6 +460,7 @@ void connect_components(raft::resources const& handle,
     raft::make_device_vector_view<const value_idx, value_idx>(sort_plan.data_handle(), n_rows);
   raft::matrix::gather(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
 
+  RAFT_LOG_INFO("X mutable view created");
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -459,6 +487,7 @@ void connect_components(raft::resources const& handle,
   sort_by_color(
     handle, colors.data(), nn_colors.data(), temp_inds_dists.data(), src_indices.data(), n_rows);
 
+  RAFT_LOG_INFO("sort_by_colors done");
   /**
    * Take the min for any duplicate colors
    */
