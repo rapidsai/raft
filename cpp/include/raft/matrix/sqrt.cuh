@@ -18,6 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
 namespace raft::matrix {
@@ -37,12 +38,13 @@ namespace raft::matrix {
  * @param[out] out: output matrix. The result is stored in the out matrix
  */
 template <typename math_t, typename idx_t, typename layout>
-void sqrt(raft::device_resources const& handle,
+void sqrt(raft::resources const& handle,
           raft::device_matrix_view<const math_t, idx_t, layout> in,
           raft::device_matrix_view<math_t, idx_t, layout> out)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size.");
-  detail::seqRoot(in.data_handle(), out.data_handle(), in.size(), handle.get_stream());
+  detail::seqRoot(
+    in.data_handle(), out.data_handle(), in.size(), resource::get_cuda_stream(handle));
 }
 
 /**
@@ -54,10 +56,9 @@ void sqrt(raft::device_resources const& handle,
  * @param[inout] inout: input matrix with in-place results
  */
 template <typename math_t, typename idx_t, typename layout>
-void sqrt(raft::device_resources const& handle,
-          raft::device_matrix_view<math_t, idx_t, layout> inout)
+void sqrt(raft::resources const& handle, raft::device_matrix_view<math_t, idx_t, layout> inout)
 {
-  detail::seqRoot(inout.data_handle(), inout.size(), handle.get_stream());
+  detail::seqRoot(inout.data_handle(), inout.size(), resource::get_cuda_stream(handle));
 }
 
 /**
@@ -72,7 +73,7 @@ void sqrt(raft::device_resources const& handle,
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_sqrt(raft::device_resources const& handle,
+void weighted_sqrt(raft::resources const& handle,
                    raft::device_matrix_view<const math_t, idx_t, layout> in,
                    raft::device_matrix_view<math_t, idx_t, layout> out,
                    raft::host_scalar_view<math_t> scalar,
@@ -83,7 +84,7 @@ void weighted_sqrt(raft::device_resources const& handle,
                   out.data_handle(),
                   *(scalar.data_handle()),
                   in.size(),
-                  handle.get_stream(),
+                  resource::get_cuda_stream(handle),
                   set_neg_zero);
 }
 
@@ -98,13 +99,16 @@ void weighted_sqrt(raft::device_resources const& handle,
  * @param[in] set_neg_zero whether to set negative numbers to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void weighted_sqrt(raft::device_resources const& handle,
+void weighted_sqrt(raft::resources const& handle,
                    raft::device_matrix_view<math_t, idx_t, layout> inout,
                    raft::host_scalar_view<math_t> scalar,
                    bool set_neg_zero = false)
 {
-  detail::seqRoot(
-    inout.data_handle(), *(scalar.data_handle()), inout.size(), handle.get_stream(), set_neg_zero);
+  detail::seqRoot(inout.data_handle(),
+                  *(scalar.data_handle()),
+                  inout.size(),
+                  resource::get_cuda_stream(handle),
+                  set_neg_zero);
 }
 
 /** @} */  // end group matrix_sqrt

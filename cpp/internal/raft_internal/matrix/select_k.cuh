@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
@@ -31,6 +32,7 @@ struct params {
   bool select_min;
   bool use_index_input       = true;
   bool use_same_leading_bits = false;
+  bool use_memory_pool       = true;
 };
 
 inline auto operator<<(std::ostream& os, const params& ss) -> std::ostream&
@@ -75,7 +77,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
 }
 
 template <typename T, typename IdxT>
-void select_k_impl(const device_resources& handle,
+void select_k_impl(const resources& handle,
                    const Algo& algo,
                    const T* in,
                    const IdxT* in_idx,
@@ -86,7 +88,7 @@ void select_k_impl(const device_resources& handle,
                    IdxT* out_idx,
                    bool select_min)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   switch (algo) {
     case Algo::kPublicApi: {
       auto in_extent  = make_extents<int64_t>(batch_size, len);

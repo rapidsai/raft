@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -100,7 +102,7 @@ class UnionFind {
  * @param[out] out_size cluster sizes of output
  */
 template <typename value_idx, typename value_t>
-void build_dendrogram_host(raft::device_resources const& handle,
+void build_dendrogram_host(raft::resources const& handle,
                            const value_idx* rows,
                            const value_idx* cols,
                            const value_t* data,
@@ -109,7 +111,7 @@ void build_dendrogram_host(raft::device_resources const& handle,
                            value_t* out_delta,
                            value_idx* out_size)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   value_idx n_edges = nnz;
 
@@ -121,7 +123,7 @@ void build_dendrogram_host(raft::device_resources const& handle,
   update_host(mst_dst_h.data(), cols, n_edges, stream);
   update_host(mst_weights_h.data(), data, n_edges, stream);
 
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   std::vector<value_idx> children_h(n_edges * 2);
   std::vector<value_idx> out_size_h(n_edges);
@@ -236,14 +238,14 @@ struct init_label_roots {
  * @param n_leaves
  */
 template <typename value_idx, int tpb = 256>
-void extract_flattened_clusters(raft::device_resources const& handle,
+void extract_flattened_clusters(raft::resources const& handle,
                                 value_idx* labels,
                                 const value_idx* children,
                                 size_t n_clusters,
                                 size_t n_leaves)
 {
-  auto stream        = handle.get_stream();
-  auto thrust_policy = handle.get_thrust_policy();
+  auto stream        = resource::get_cuda_stream(handle);
+  auto thrust_policy = resource::get_thrust_policy(handle);
 
   // Handle special case where n_clusters == 1
   if (n_clusters == 1) {

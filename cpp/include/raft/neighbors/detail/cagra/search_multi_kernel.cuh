@@ -23,7 +23,8 @@
 #include <memory>
 #include <numeric>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -543,46 +544,48 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   rmm::device_scalar<uint32_t> terminate_flag;  // dev_terminate_flag, host_terminate_flag.;
   rmm::device_uvector<uint32_t> topk_workspace;
 
-  search(raft::device_resources const& res,
+  search(raft::resources const& res,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
     : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk),
-      result_indices(0, res.get_stream()),
-      result_distances(0, res.get_stream()),
-      parent_node_list(0, res.get_stream()),
-      topk_hint(0, res.get_stream()),
-      topk_workspace(0, res.get_stream()),
-      terminate_flag(res.get_stream())
+      result_indices(0, resource::get_cuda_stream(res)),
+      result_distances(0, resource::get_cuda_stream(res)),
+      parent_node_list(0, resource::get_cuda_stream(res)),
+      topk_hint(0, resource::get_cuda_stream(res)),
+      topk_workspace(0, resource::get_cuda_stream(res)),
+      terminate_flag(resource::get_cuda_stream(res))
   {
     set_params(res);
   }
 
-  void set_params(raft::device_resources const& res)
+  void set_params(raft::resources const& res)
   {
     //
     // Allocate memory for intermediate buffer and workspace.
     //
     result_buffer_size            = itopk_size + (num_parents * graph_degree);
     result_buffer_allocation_size = result_buffer_size + itopk_size;
-    result_indices.resize(result_buffer_allocation_size * max_queries, res.get_stream());
-    result_distances.resize(result_buffer_allocation_size * max_queries, res.get_stream());
+    result_indices.resize(result_buffer_allocation_size * max_queries,
+                          resource::get_cuda_stream(res));
+    result_distances.resize(result_buffer_allocation_size * max_queries,
+                            resource::get_cuda_stream(res));
 
-    parent_node_list.resize(max_queries * num_parents, res.get_stream());
-    topk_hint.resize(max_queries, res.get_stream());
+    parent_node_list.resize(max_queries * num_parents, resource::get_cuda_stream(res));
+    topk_hint.resize(max_queries, resource::get_cuda_stream(res));
 
     size_t topk_workspace_size = _cuann_find_topk_bufferSize(
       itopk_size, max_queries, result_buffer_size, utils::get_cuda_data_type<DATA_T>());
     RAFT_LOG_DEBUG("# topk_workspace_size: %lu", topk_workspace_size);
-    topk_workspace.resize(topk_workspace_size, res.get_stream());
+    topk_workspace.resize(topk_workspace_size, resource::get_cuda_stream(res));
 
-    hashmap.resize(hashmap_size, res.get_stream());
+    hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
   }
 
   ~search() {}
 
-  void operator()(raft::device_resources const& res,
+  void operator()(raft::resources const& res,
                   raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
@@ -594,7 +597,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     // Init hashmap
-    cudaStream_t stream      = res.get_stream();
+    cudaStream_t stream      = resource::get_cuda_stream(res);
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
       hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);

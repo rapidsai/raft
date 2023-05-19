@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/linewise_op.cuh>
 
 namespace raft {
@@ -33,8 +34,8 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  raft::device_resources handle(stream);
-
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
   bool along_lines = rowMajor == bcastAlongRows;
   if (rowMajor) {
     matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
@@ -72,7 +73,8 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  raft::device_resources handle(stream);
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
   bool along_lines = rowMajor == bcastAlongRows;
   if (rowMajor) {
     matrix::linewise_op<MatT, IdxType, row_major, Lambda>(

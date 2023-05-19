@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,7 +39,7 @@ struct Graph_COO {
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 class MST_solver {
  public:
-  MST_solver(raft::device_resources const& handle_,
+  MST_solver(raft::resources const& handle_,
              const edge_t* offsets_,
              const vertex_t* indices_,
              const weight_t* weights_,
@@ -56,7 +56,7 @@ class MST_solver {
   ~MST_solver() {}
 
  private:
-  raft::device_resources const& handle;
+  raft::resources const& handle;
   cudaStream_t stream;
   bool symmetrize_output, initialize_colors;
   int iterations;

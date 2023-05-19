@@ -18,7 +18,8 @@
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -81,7 +82,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
  public:
   MakeBlobsTest()
     : params(::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       mu_vec(make_device_matrix<T, int, layout>(handle, params.n_clusters, params.cols)),
       mean_var(make_device_vector<T, int>(handle, 2 * params.n_clusters * params.cols))
   {
@@ -149,7 +150,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   MakeBlobsInputs<T> params;
   cudaStream_t stream = 0;
 

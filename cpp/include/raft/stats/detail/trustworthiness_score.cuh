@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/matrix/col_wise_sort.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -87,7 +88,7 @@ __global__ void compute_rank(double* rank,
  * @param[out] distances KNN distances
  */
 template <raft::distance::DistanceType distance_type, typename math_t>
-void run_knn(const raft::device_resources& h,
+void run_knn(const raft::resources& h,
              math_t* input,
              int n,
              int d,
@@ -128,7 +129,7 @@ void run_knn(const raft::device_resources& h,
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::device_resources& h,
+double trustworthiness_score(const raft::resources& h,
                              const math_t* X,
                              math_t* X_embedded,
                              int n,
@@ -137,7 +138,7 @@ double trustworthiness_score(const raft::device_resources& h,
                              int n_neighbors,
                              int batchSize = 512)
 {
-  cudaStream_t stream = h.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(h);
 
   const int KNN_ALLOC = n * (n_neighbors + 1);
   rmm::device_uvector<int64_t> emb_ind(KNN_ALLOC, stream);

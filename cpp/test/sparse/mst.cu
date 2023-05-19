@@ -15,6 +15,7 @@
  */
 
 #include <bits/stdc++.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
@@ -22,7 +23,7 @@
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -137,30 +138,50 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
     v = static_cast<vertex_t>((csr_d.offsets.size() / sizeof(vertex_t)) - 1);
     e = static_cast<edge_t>(csr_d.indices.size() / sizeof(edge_t));
 
-    rmm::device_uvector<vertex_t> mst_src(2 * v - 2, handle.get_stream());
-    rmm::device_uvector<vertex_t> mst_dst(2 * v - 2, handle.get_stream());
-    rmm::device_uvector<vertex_t> color(v, handle.get_stream());
+    rmm::device_uvector<vertex_t> mst_src(2 * v - 2, resource::get_cuda_stream(handle));
+    rmm::device_uvector<vertex_t> mst_dst(2 * v - 2, resource::get_cuda_stream(handle));
+    rmm::device_uvector<vertex_t> color(v, resource::get_cuda_stream(handle));
 
     RAFT_CUDA_TRY(cudaMemsetAsync(mst_src.data(),
                                   std::numeric_limits<vertex_t>::max(),
                                   mst_src.size() * sizeof(vertex_t),
-                                  handle.get_stream()));
+                                  resource::get_cuda_stream(handle)));
     RAFT_CUDA_TRY(cudaMemsetAsync(mst_dst.data(),
                                   std::numeric_limits<vertex_t>::max(),
                                   mst_dst.size() * sizeof(vertex_t),
-                                  handle.get_stream()));
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(color.data(), 0, color.size() * sizeof(vertex_t), handle.get_stream()));
+                                  resource::get_cuda_stream(handle)));
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      color.data(), 0, color.size() * sizeof(vertex_t), resource::get_cuda_stream(handle)));
 
     vertex_t* color_ptr = thrust::raw_pointer_cast(color.data());
 
     if (iterations == 0) {
       MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), true, true, 0);
+        handle,
+        offsets,
+        indices,
+        weights,
+        v,
+        e,
+        color_ptr,
+        resource::get_cuda_stream(handle),
+        true,
+        true,
+        0);
       auto symmetric_result = symmetric_solver.solve();
 
       MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), false, true, 0);
+        handle,
+        offsets,
+        indices,
+        weights,
+        v,
+        e,
+        color_ptr,
+        resource::get_cuda_stream(handle),
+        false,
+        true,
+        0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
@@ -168,45 +189,66 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
 
       return std::make_pair(std::move(symmetric_result), std::move(non_symmetric_result));
     } else {
-      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(handle,
-                                                                        offsets,
-                                                                        indices,
-                                                                        weights,
-                                                                        v,
-                                                                        e,
-                                                                        color_ptr,
-                                                                        handle.get_stream(),
-                                                                        true,
-                                                                        true,
-                                                                        iterations);
+      MST_solver<vertex_t, edge_t, weight_t, float> intermediate_solver(
+        handle,
+        offsets,
+        indices,
+        weights,
+        v,
+        e,
+        color_ptr,
+        resource::get_cuda_stream(handle),
+        true,
+        true,
+        iterations);
       auto intermediate_result = intermediate_solver.solve();
 
       MST_solver<vertex_t, edge_t, weight_t, float> symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), true, false, 0);
+        handle,
+        offsets,
+        indices,
+        weights,
+        v,
+        e,
+        color_ptr,
+        resource::get_cuda_stream(handle),
+        true,
+        false,
+        0);
       auto symmetric_result = symmetric_solver.solve();
 
       // symmetric_result.n_edges += intermediate_result.n_edges;
       auto total_edge_size = symmetric_result.n_edges + intermediate_result.n_edges;
-      symmetric_result.src.resize(total_edge_size, handle.get_stream());
-      symmetric_result.dst.resize(total_edge_size, handle.get_stream());
-      symmetric_result.weights.resize(total_edge_size, handle.get_stream());
+      symmetric_result.src.resize(total_edge_size, resource::get_cuda_stream(handle));
+      symmetric_result.dst.resize(total_edge_size, resource::get_cuda_stream(handle));
+      symmetric_result.weights.resize(total_edge_size, resource::get_cuda_stream(handle));
 
       raft::copy(symmetric_result.src.data() + symmetric_result.n_edges,
                  intermediate_result.src.data(),
                  intermediate_result.n_edges,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
       raft::copy(symmetric_result.dst.data() + symmetric_result.n_edges,
                  intermediate_result.dst.data(),
                  intermediate_result.n_edges,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
       raft::copy(symmetric_result.weights.data() + symmetric_result.n_edges,
                  intermediate_result.weights.data(),
                  intermediate_result.n_edges,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
       symmetric_result.n_edges = total_edge_size;
 
       MST_solver<vertex_t, edge_t, weight_t, float> non_symmetric_solver(
-        handle, offsets, indices, weights, v, e, color_ptr, handle.get_stream(), false, true, 0);
+        handle,
+        offsets,
+        indices,
+        weights,
+        v,
+        e,
+        color_ptr,
+        resource::get_cuda_stream(handle),
+        false,
+        true,
+        0);
       auto non_symmetric_result = non_symmetric_solver.solve();
 
       EXPECT_LE(symmetric_result.n_edges, 2 * v - 2);
@@ -223,13 +265,13 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
 
     csr_d.offsets = rmm::device_buffer(mst_input.csr_h.offsets.data(),
                                        mst_input.csr_h.offsets.size() * sizeof(edge_t),
-                                       handle.get_stream());
+                                       resource::get_cuda_stream(handle));
     csr_d.indices = rmm::device_buffer(mst_input.csr_h.indices.data(),
                                        mst_input.csr_h.indices.size() * sizeof(vertex_t),
-                                       handle.get_stream());
+                                       resource::get_cuda_stream(handle));
     csr_d.weights = rmm::device_buffer(mst_input.csr_h.weights.data(),
                                        mst_input.csr_h.weights.size() * sizeof(weight_t),
-                                       handle.get_stream());
+                                       resource::get_cuda_stream(handle));
   }
 
   void TearDown() override {}
@@ -241,7 +283,7 @@ class MSTTest : public ::testing::TestWithParam<MSTTestInput<vertex_t, edge_t, w
   edge_t e;
   int iterations;
 
-  raft::device_resources handle;
+  raft::resources handle;
 };
 
 // connected components tests

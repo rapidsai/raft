@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/operators.cuh>
 #include <raft/core/operators.hpp>
@@ -77,11 +78,11 @@ class SparseDistanceCOOSPMVTest
  public:
   SparseDistanceCOOSPMVTest()
     : dist_config(handle),
-      indptr(0, handle.get_stream()),
-      indices(0, handle.get_stream()),
-      data(0, handle.get_stream()),
-      out_dists(0, handle.get_stream()),
-      out_dists_ref(0, handle.get_stream())
+      indptr(0, resource::get_cuda_stream(handle)),
+      indices(0, resource::get_cuda_stream(handle)),
+      data(0, resource::get_cuda_stream(handle)),
+      out_dists(0, resource::get_cuda_stream(handle)),
+      out_dists_ref(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -101,13 +102,13 @@ class SparseDistanceCOOSPMVTest
   void compute_dist(reduce_f reduce_func, accum_f accum_func, write_f write_func, bool rev = true)
   {
     rmm::device_uvector<value_idx> coo_rows(max(dist_config.b_nnz, dist_config.a_nnz),
-                                            dist_config.handle.get_stream());
+                                            resource::get_cuda_stream(dist_config.handle));
 
     raft::sparse::convert::csr_to_coo(dist_config.b_indptr,
                                       dist_config.b_nrows,
                                       coo_rows.data(),
                                       dist_config.b_nnz,
-                                      dist_config.handle.get_stream());
+                                      resource::get_cuda_stream(dist_config.handle));
 
     strategy_t selected_strategy = make_strategy<strategy_t>();
     detail::balanced_coo_pairwise_generalized_spmv<value_idx, value_t>(out_dists.data(),
@@ -123,7 +124,7 @@ class SparseDistanceCOOSPMVTest
                                         dist_config.a_nrows,
                                         coo_rows.data(),
                                         dist_config.a_nnz,
-                                        dist_config.handle.get_stream());
+                                        resource::get_cuda_stream(dist_config.handle));
 
       detail::balanced_coo_pairwise_generalized_spmv_rev<value_idx, value_t>(out_dists.data(),
                                                                              dist_config,
@@ -167,7 +168,7 @@ class SparseDistanceCOOSPMVTest
                                        out_dists.data(),
                                        dist_config.a_nrows * dist_config.b_nrows,
                                        raft::pow_const_op<value_t>{p},
-                                       dist_config.handle.get_stream());
+                                       resource::get_cuda_stream(dist_config.handle));
 
       } break;
       default: throw raft::exception("Unknown distance");
@@ -181,7 +182,7 @@ class SparseDistanceCOOSPMVTest
     std::vector<value_idx> indices_h = params.input_configuration.indices_h;
     std::vector<value_t> data_h      = params.input_configuration.data_h;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     indptr.resize(indptr_h.size(), stream);
     indices.resize(indices_h.size(), stream);
     data.resize(data_h.size(), stream);
@@ -219,11 +220,11 @@ class SparseDistanceCOOSPMVTest
 
     int out_size = dist_config.a_nrows * dist_config.b_nrows;
 
-    out_dists.resize(out_size, handle.get_stream());
+    out_dists.resize(out_size, resource::get_cuda_stream(handle));
 
     run_spmv();
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(resource::get_cuda_stream(handle)));
   }
 
   void compare()
@@ -235,7 +236,7 @@ class SparseDistanceCOOSPMVTest
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
 
   // input data
   rmm::device_uvector<value_idx> indptr, indices;

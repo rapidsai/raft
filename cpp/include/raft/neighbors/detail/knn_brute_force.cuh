@@ -16,6 +16,10 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cuda_stream_pool.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_pool.hpp>
@@ -24,16 +28,15 @@
 
 #include <cstdint>
 #include <iostream>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
+#include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/detail/faiss_select/DistanceUtils.h>
-#include <raft/neighbors/detail/faiss_select/Select.cuh>
 #include <raft/neighbors/detail/knn_merge_parts.cuh>
-#include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <raft/spatial/knn/detail/processing.cuh>
@@ -51,7 +54,7 @@ using namespace raft::spatial::knn;
 template <typename ElementType      = float,
           typename IndexType        = int64_t,
           typename DistanceEpilogue = raft::identity_op>
-void tiled_brute_force_knn(const raft::device_resources& handle,
+void tiled_brute_force_knn(const raft::resources& handle,
                            const ElementType* search,  // size (m ,d)
                            const ElementType* index,   // size (n ,d)
                            size_t m,
@@ -69,8 +72,8 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
   size_t tile_cols   = 0;
-  auto stream        = handle.get_stream();
-  auto device_memory = handle.get_workspace_resource();
+  auto stream        = resource::get_cuda_stream(handle);
+  auto device_memory = resource::get_workspace_resource(handle);
   auto total_mem     = device_memory->get_mem_info(stream).second;
   faiss_select::chooseTileSize(m, n, d, sizeof(ElementType), total_mem, tile_rows, tile_cols);
 
@@ -226,15 +229,16 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         }
       }
 
-      select_k<IndexType, ElementType>(temp_distances.data(),
-                                       nullptr,
-                                       current_query_size,
-                                       current_centroid_size,
-                                       distances + i * k,
-                                       indices + i * k,
-                                       select_min,
-                                       current_k,
-                                       stream);
+      matrix::select_k<ElementType, IndexType>(
+        handle,
+        raft::make_device_matrix_view<const ElementType, int64_t, row_major>(
+          temp_distances.data(), current_query_size, current_centroid_size),
+        std::nullopt,
+        raft::make_device_matrix_view<ElementType, int64_t, row_major>(
+          distances + i * k, current_query_size, current_k),
+        raft::make_device_matrix_view<IndexType, int64_t, row_major>(
+          indices + i * k, current_query_size, current_k),
+        select_min);
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -251,7 +255,7 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
         IndexType* out_indices          = temp_out_indices.data();
 
         auto count = thrust::make_counting_iterator<IndexType>(0);
-        thrust::for_each(handle.get_thrust_policy(),
+        thrust::for_each(resource::get_thrust_policy(handle),
                          count,
                          count + current_query_size * current_k,
                          [=] __device__(IndexType i) {
@@ -266,15 +270,17 @@ void tiled_brute_force_knn(const raft::device_resources& handle,
 
     if (tile_cols != n) {
       // select the actual top-k items here from the temporary output
-      select_k<IndexType, ElementType>(temp_out_distances.data(),
-                                       temp_out_indices.data(),
-                                       current_query_size,
-                                       temp_out_cols,
-                                       distances + i * k,
-                                       indices + i * k,
-                                       select_min,
-                                       k,
-                                       stream);
+      matrix::select_k<ElementType, IndexType>(
+        handle,
+        raft::make_device_matrix_view<const ElementType, int64_t, row_major>(
+          temp_out_distances.data(), current_query_size, temp_out_cols),
+        raft::make_device_matrix_view<const IndexType, int64_t, row_major>(
+          temp_out_indices.data(), current_query_size, temp_out_cols),
+        raft::make_device_matrix_view<ElementType, int64_t, row_major>(
+          distances + i * k, current_query_size, k),
+        raft::make_device_matrix_view<IndexType, int64_t, row_major>(
+          indices + i * k, current_query_size, k),
+        select_min);
     }
   }
 }
@@ -308,7 +314,7 @@ template <typename IntType          = int,
           typename value_t          = float,
           typename DistanceEpilogue = raft::identity_op>
 void brute_force_knn_impl(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   std::vector<value_t*>& input,
   std::vector<IntType>& sizes,
   IntType D,
@@ -324,7 +330,7 @@ void brute_force_knn_impl(
   float metricArg                     = 0,
   DistanceEpilogue distance_epilogue  = raft::identity_op())
 {
-  auto userStream = handle.get_stream();
+  auto userStream = resource::get_cuda_stream(handle);
 
   ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
 
@@ -390,14 +396,14 @@ void brute_force_knn_impl(
   }
 
   // Make other streams from pool wait on main stream
-  handle.wait_stream_pool_on_stream();
+  resource::wait_stream_pool_on_stream(handle);
 
   size_t total_rows_processed = 0;
   for (size_t i = 0; i < input.size(); i++) {
     value_t* out_d_ptr = out_D + (i * k * n);
     IdxType* out_i_ptr = out_I + (i * k * n);
 
-    auto stream = handle.get_next_usable_stream(i);
+    auto stream = resource::get_next_usable_stream(handle, i);
 
     if (k <= 64 && rowMajorQuery == rowMajorIndex && rowMajorQuery == true &&
         std::is_same_v<DistanceEpilogue, raft::identity_op> &&
@@ -442,7 +448,7 @@ void brute_force_knn_impl(
           break;
         default:
           // Create a new handle with the current stream from the stream pool
-          raft::device_resources stream_pool_handle(handle);
+          raft::resources stream_pool_handle(handle);
           raft::resource::set_cuda_stream(stream_pool_handle, stream);
 
           auto index = input[i];
@@ -476,7 +482,7 @@ void brute_force_knn_impl(
   // Sync internal streams if used. We don't need to
   // sync the user stream because we'll already have
   // fully serial execution.
-  handle.sync_stream_pool();
+  resource::sync_stream_pool(handle);
 
   if (input.size() > 1 || translations != nullptr) {
     // This is necessary for proper index translations. If there are

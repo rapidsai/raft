@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/random/rng.cuh>
@@ -50,8 +51,8 @@ const std::vector<SparseFilterInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 typedef SparseFilterTests<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result)
 {
-  raft::device_resources h;
-  auto stream = h.get_stream();
+  raft::resources h;
+  auto stream = resource::get_cuda_stream(h);
   params      = ::testing::TestWithParam<SparseFilterInputs<float>>::GetParam();
 
   float* in_h_vals = new float[params.nnz];

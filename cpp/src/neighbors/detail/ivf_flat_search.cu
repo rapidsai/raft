@@ -18,7 +18,7 @@
 
 #define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT)  \
   template void raft::neighbors::ivf_flat::detail::search<T, IdxT>( \
-    raft::device_resources const& handle,                           \
+    raft::resources const& handle,                                  \
     const search_params& params,                                    \
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,         \
     const T* queries,                                               \

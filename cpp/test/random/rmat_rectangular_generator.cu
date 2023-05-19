@@ -16,12 +16,13 @@
 
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <sys/timeb.h>
 #include <vector>
 
 #include "../test_utils.cuh"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rmat_rectangular_generator.cuh>
 #include <raft/random/rng.cuh>
 
@@ -166,7 +167,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
  public:
   RmatGenTest()
     : handle{},
-      stream{handle.get_stream()},
+      stream{resource::get_cuda_stream(handle)},
       params{::testing::TestWithParam<RmatInputs>::GetParam()},
       out{params.n_edges * 2, stream},
       out_src{params.n_edges, stream},
@@ -244,7 +245,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RmatInputs params;
@@ -259,7 +260,7 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
  public:
   RmatGenMdspanTest()
     : handle{},
-      stream{handle.get_stream()},
+      stream{resource::get_cuda_stream(handle)},
       params{::testing::TestWithParam<RmatInputs>::GetParam()},
       out{params.n_edges * 2, stream},
       out_src{params.n_edges, stream},
@@ -349,7 +350,7 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RmatInputs params;

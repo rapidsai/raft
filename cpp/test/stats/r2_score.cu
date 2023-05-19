@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/r2_score.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -45,7 +46,7 @@ template <typename T>
 template <typename T>
 class R2_scoreTest : public ::testing::TestWithParam<R2_scoreInputs<T>> {
  protected:
-  R2_scoreTest() : stream(handle.get_stream()) {}
+  R2_scoreTest() : stream(resource::get_cuda_stream(handle)) {}
 
   void SetUp() override
   {
@@ -84,7 +85,7 @@ class R2_scoreTest : public ::testing::TestWithParam<R2_scoreInputs<T>> {
 
  protected:
   R2_scoreInputs<T> params;
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   T expectedVal, actualVal;
 };

@@ -1128,7 +1128,8 @@ void select_k(const T* in,
     } else {
       auto out_idx_view =
         raft::make_device_vector_view(out_idx, static_cast<size_t>(len) * batch_size);
-      raft::device_resources handle(stream);
+      raft::resources handle;
+      resource::set_cuda_stream(handle, stream);
       raft::linalg::map_offset(handle, out_idx_view, raft::mod_const_op<IdxT>(len));
     }
     return;

@@ -18,6 +18,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -44,7 +45,7 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
  public:
   EigSelTest()
     : params(::testing::TestWithParam<EigSelInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       cov_matrix(params.len, stream),
       eig_vectors(params.n_eigen_vals * params.n, stream),
       eig_vectors_ref(params.n_eigen_vals * params.n, stream),
@@ -95,11 +96,11 @@ class EigSelTest : public ::testing::TestWithParam<EigSelInputs<T>> {
                                    eig_vals_view,
                                    static_cast<std::size_t>(params.n_eigen_vals),
                                    EigVecMemUsage::OVERWRITE_INPUT);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   EigSelInputs<T> params;

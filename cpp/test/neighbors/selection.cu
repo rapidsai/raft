@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <numeric>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/selection_faiss.cuh>
 #include <raft/neighbors/detail/selection_faiss_helpers.cuh>  // kFaissMax
 #include <raft/random/rng.cuh>
@@ -48,11 +49,10 @@ std::ostream& operator<<(std::ostream& os, const SelectTestSpec& ss)
 }
 
 template <typename IdxT>
-auto gen_simple_ids(int n_inputs, int input_len, const raft::device_resources& handle)
-  -> std::vector<IdxT>
+auto gen_simple_ids(int n_inputs, int input_len, const raft::resources& handle) -> std::vector<IdxT>
 {
   std::vector<IdxT> out(n_inputs * input_len);
-  auto s = handle.get_stream();
+  auto s = resource::get_cuda_stream(handle);
   rmm::device_uvector<IdxT> out_d(out.size(), s);
   iota_fill(out_d.data(), IdxT(n_inputs), IdxT(input_len), s);
   update_host(out.data(), out_d.data(), out.size(), s);
@@ -65,7 +65,7 @@ struct SelectInOutSimple {
  public:
   bool not_supported = false;
 
-  SelectInOutSimple(std::shared_ptr<raft::device_resources> handle,
+  SelectInOutSimple(std::shared_ptr<raft::resources> handle,
                     const SelectTestSpec& spec,
                     const std::vector<KeyT>& in_dists,
                     const std::vector<KeyT>& out_dists,
@@ -84,7 +84,7 @@ struct SelectInOutSimple {
   auto get_out_ids() -> std::vector<IdxT>& { return out_ids_; }
 
  private:
-  std::shared_ptr<raft::device_resources> handle_;
+  std::shared_ptr<raft::resources> handle_;
   std::vector<KeyT> in_dists_;
   std::vector<IdxT> in_ids_;
   std::vector<KeyT> out_dists_;
@@ -96,7 +96,7 @@ struct SelectInOutComputed {
  public:
   bool not_supported = false;
 
-  SelectInOutComputed(std::shared_ptr<raft::device_resources> handle,
+  SelectInOutComputed(std::shared_ptr<raft::resources> handle,
                       const SelectTestSpec& spec,
                       knn::SelectKAlgo algo,
                       const std::vector<KeyT>& in_dists,
@@ -125,7 +125,7 @@ struct SelectInOutComputed {
       default: break;
     }
 
-    auto stream = handle_.get()->get_stream();
+    auto stream = resource::get_cuda_stream(*handle_);
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
     rmm::device_uvector<IdxT> in_ids_d(in_ids_.size(), stream);
@@ -162,7 +162,7 @@ struct SelectInOutComputed {
   auto get_out_ids() -> std::vector<IdxT>& { return out_ids_; }
 
  private:
-  std::shared_ptr<raft::device_resources> handle_;
+  std::shared_ptr<raft::resources> handle_;
   std::vector<KeyT> in_dists_;
   std::vector<IdxT> in_ids_;
   std::vector<KeyT> out_dists_;
@@ -213,12 +213,12 @@ struct SelectInOutComputed {
 
 template <typename InOut>
 using Params =
-  std::tuple<SelectTestSpec, knn::SelectKAlgo, InOut, std::shared_ptr<raft::device_resources>>;
+  std::tuple<SelectTestSpec, knn::SelectKAlgo, InOut, std::shared_ptr<raft::resources>>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>
 class SelectionTest : public testing::TestWithParam<typename ParamsReader<KeyT, IdxT>::ParamsIn> {
  protected:
-  std::shared_ptr<raft::device_resources> handle_;
+  std::shared_ptr<raft::resources> handle_;
   const SelectTestSpec spec;
   const knn::SelectKAlgo algo;
 
@@ -276,7 +276,7 @@ struct params_simple {
   using InOut = SelectInOutSimple<KeyT, IdxT>;
   using Inputs =
     std::tuple<SelectTestSpec, std::vector<KeyT>, std::vector<KeyT>, std::vector<IdxT>>;
-  using Handle   = std::shared_ptr<raft::device_resources>;
+  using Handle   = std::shared_ptr<raft::resources>;
   using ParamsIn = std::tuple<Inputs, knn::SelectKAlgo, Handle>;
 
   static auto read(ParamsIn ps) -> Params<InOut>
@@ -353,22 +353,21 @@ auto inputs_simple_f = testing::Values(
 
 typedef SelectionTest<float, int, params_simple> SimpleFloatInt;
 TEST_P(SimpleFloatInt, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(
-  SelectionTest,
-  SimpleFloatInt,
-  testing::Combine(inputs_simple_f,
-                   testing::Values(knn::SelectKAlgo::FAISS,
-                                   knn::SelectKAlgo::RADIX_8_BITS,
-                                   knn::SelectKAlgo::RADIX_11_BITS,
-                                   knn::SelectKAlgo::WARP_SORT),
-                   testing::Values(std::make_shared<raft::device_resources>())));
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        SimpleFloatInt,
+                        testing::Combine(inputs_simple_f,
+                                         testing::Values(knn::SelectKAlgo::FAISS,
+                                                         knn::SelectKAlgo::RADIX_8_BITS,
+                                                         knn::SelectKAlgo::RADIX_11_BITS,
+                                                         knn::SelectKAlgo::WARP_SORT),
+                                         testing::Values(std::make_shared<raft::resources>())));
 
 template <knn::SelectKAlgo RefAlgo>
 struct with_ref {
   template <typename KeyT, typename IdxT>
   struct params_random {
     using InOut    = SelectInOutComputed<KeyT, IdxT>;
-    using Handle   = std::shared_ptr<raft::device_resources>;
+    using Handle   = std::shared_ptr<raft::resources>;
     using ParamsIn = std::tuple<SelectTestSpec, knn::SelectKAlgo, Handle>;
 
     static auto read(ParamsIn ps) -> Params<InOut>
@@ -380,7 +379,7 @@ struct with_ref {
       std::vector<KeyT> dists(spec.input_len * spec.n_inputs);
 
       {
-        auto s = (*handle.get()).get_stream();
+        auto s = resource::get_cuda_stream(*handle);
         rmm::device_uvector<KeyT> dists_d(spec.input_len * spec.n_inputs, s);
         raft::random::RngState r(42);
         normal(*(handle.get()), r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
@@ -450,36 +449,33 @@ auto inputs_random_largek = testing::Values(SelectTestSpec{100, 100000, 1000, tr
 typedef SelectionTest<float, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomFloatInt;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(
-  SelectionTest,
-  ReferencedRandomFloatInt,
-  testing::Combine(inputs_random_longlist,
-                   testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
-                                   knn::SelectKAlgo::RADIX_11_BITS,
-                                   knn::SelectKAlgo::WARP_SORT),
-                   testing::Values(std::make_shared<raft::device_resources>())));
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        ReferencedRandomFloatInt,
+                        testing::Combine(inputs_random_longlist,
+                                         testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
+                                                         knn::SelectKAlgo::RADIX_11_BITS,
+                                                         knn::SelectKAlgo::WARP_SORT),
+                                         testing::Values(std::make_shared<raft::resources>())));
 
 typedef SelectionTest<double, size_t, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomDoubleSizeT;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(
-  SelectionTest,
-  ReferencedRandomDoubleSizeT,
-  testing::Combine(inputs_random_longlist,
-                   testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
-                                   knn::SelectKAlgo::RADIX_11_BITS,
-                                   knn::SelectKAlgo::WARP_SORT),
-                   testing::Values(std::make_shared<raft::device_resources>())));
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        ReferencedRandomDoubleSizeT,
+                        testing::Combine(inputs_random_longlist,
+                                         testing::Values(knn::SelectKAlgo::RADIX_8_BITS,
+                                                         knn::SelectKAlgo::RADIX_11_BITS,
+                                                         knn::SelectKAlgo::WARP_SORT),
+                                         testing::Values(std::make_shared<raft::resources>())));
 
 typedef SelectionTest<double, int, with_ref<knn::SelectKAlgo::FAISS>::params_random>
   ReferencedRandomDoubleInt;
 TEST_P(ReferencedRandomDoubleInt, LargeSize) { run(); }
-INSTANTIATE_TEST_CASE_P(
-  SelectionTest,
-  ReferencedRandomDoubleInt,
-  testing::Combine(inputs_random_largesize,
-                   testing::Values(knn::SelectKAlgo::WARP_SORT),
-                   testing::Values(std::make_shared<raft::device_resources>())));
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        ReferencedRandomDoubleInt,
+                        testing::Combine(inputs_random_largesize,
+                                         testing::Values(knn::SelectKAlgo::WARP_SORT),
+                                         testing::Values(std::make_shared<raft::resources>())));
 
 /** TODO: Fix test failure in RAFT CI
  *
@@ -490,10 +486,9 @@ INSTANTIATE_TEST_CASE_P(
 typedef SelectionTest<float, size_t, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
   ReferencedRandomFloatSizeT;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }
-INSTANTIATE_TEST_CASE_P(
-  SelectionTest,
-  ReferencedRandomFloatSizeT,
-  testing::Combine(inputs_random_largek,
-                   testing::Values(knn::SelectKAlgo::FAISS),
-                   testing::Values(std::make_shared<raft::device_resources>())));
+INSTANTIATE_TEST_CASE_P(SelectionTest,
+                        ReferencedRandomFloatSizeT,
+                        testing::Combine(inputs_random_largek,
+                                         testing::Values(knn::SelectKAlgo::FAISS),
+                                         testing::Values(std::make_shared<raft::resources>())));
 }  // namespace raft::spatial::selection

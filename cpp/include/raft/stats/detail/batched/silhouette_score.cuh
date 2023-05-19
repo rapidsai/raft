@@ -17,6 +17,9 @@
 #pragma once
 
 #include "../silhouette_score.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cuda_stream_pool.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
@@ -111,12 +114,12 @@ __global__ void compute_chunked_a_b_kernel(value_t* a,
 }
 
 template <typename value_idx, typename label_idx>
-rmm::device_uvector<value_idx> get_cluster_counts(raft::device_resources const& handle,
+rmm::device_uvector<value_idx> get_cluster_counts(raft::resources const& handle,
                                                   const label_idx* y,
                                                   value_idx& n_rows,
                                                   label_idx& n_labels)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<value_idx> cluster_counts(n_labels, stream);
 
@@ -128,7 +131,7 @@ rmm::device_uvector<value_idx> get_cluster_counts(raft::device_resources const& 
 }
 
 template <typename value_t, typename value_idx>
-rmm::device_uvector<value_t> get_pairwise_distance(raft::device_resources const& handle,
+rmm::device_uvector<value_t> get_pairwise_distance(raft::resources const& handle,
                                                    const value_t* left_begin,
                                                    const value_t* right_begin,
                                                    value_idx& n_left_rows,
@@ -146,7 +149,7 @@ rmm::device_uvector<value_t> get_pairwise_distance(raft::device_resources const&
 }
 
 template <typename value_t, typename value_idx, typename label_idx>
-void compute_chunked_a_b(raft::device_resources const& handle,
+void compute_chunked_a_b(raft::resources const& handle,
                          value_t* a,
                          value_t* b,
                          value_idx& row_offset,
@@ -169,7 +172,7 @@ void compute_chunked_a_b(raft::device_resources const& handle,
 
 template <typename value_t, typename value_idx, typename label_idx>
 value_t silhouette_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   const value_t* X,
   value_idx n_rows,
   value_idx n_cols,
@@ -184,8 +187,8 @@ value_t silhouette_score(
 
   rmm::device_uvector<value_idx> cluster_counts = get_cluster_counts(handle, y, n_rows, n_labels);
 
-  auto stream = handle.get_stream();
-  auto policy = handle.get_thrust_policy();
+  auto stream = resource::get_cuda_stream(handle);
+  auto policy = resource::get_thrust_policy(handle);
 
   auto b_size = n_rows * n_labels;
 
@@ -211,7 +214,7 @@ value_t silhouette_score(
   detail::fill_b_kernel<<<grid_size, block_size, 0, stream>>>(
     b_ptr, y, n_rows, n_labels, cluster_counts.data());
 
-  handle.wait_stream_pool_on_stream();
+  resource::wait_stream_pool_on_stream(handle);
 
   auto n_iters = 0;
 
@@ -219,7 +222,7 @@ value_t silhouette_score(
     for (value_idx j = 0; j < n_rows; j += chunk) {
       ++n_iters;
 
-      auto chunk_stream = handle.get_next_usable_stream(i + chunk * j);
+      auto chunk_stream = resource::get_next_usable_stream(handle, i + chunk * j);
 
       const auto* left_begin  = X + (i * n_cols);
       const auto* right_begin = X + (j * n_cols);
@@ -245,7 +248,7 @@ value_t silhouette_score(
     }
   }
 
-  handle.sync_stream_pool();
+  resource::sync_stream_pool(handle);
 
   // calculating row-wise minimum in b
   // this prim only supports int indices for now

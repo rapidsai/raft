@@ -17,8 +17,9 @@
 #pragma once
 
 #include <cooperative_groups.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 #include <raft/util/vectorized.cuh>
@@ -129,7 +130,7 @@ __global__ void __launch_bounds__(adj_to_csr_tpb)
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void adj_to_csr(raft::device_resources const& handle,
+void adj_to_csr(raft::resources const& handle,
                 const bool* adj,         // row-major adjacency matrix
                 const index_t* row_ind,  // precomputed row indices
                 index_t num_rows,        // # rows of adj
@@ -138,7 +139,7 @@ void adj_to_csr(raft::device_resources const& handle,
                 index_t* out_col_ind     // output column indices
 )
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   // Check inputs and return early if possible.
   if (num_rows == 0 || num_cols == 0) { return; }

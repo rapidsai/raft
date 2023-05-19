@@ -17,20 +17,24 @@
 #pragma once
 
 #include "ann_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/operators.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
+#include <thrust/reduce.h>
+
 #include <algorithm>  // std::max
 #include <memory>
 #include <optional>
-#include <thrust/fill.h>
 #include <type_traits>
 
 namespace raft::neighbors::ivf_flat {
@@ -236,7 +240,7 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& res,
+  index(raft::resources const& res,
         raft::distance::DistanceType metric,
         uint32_t n_lists,
         bool adaptive_centers,
@@ -259,7 +263,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& res, const index_params& params, uint32_t dim)
+  index(raft::resources const& res, const index_params& params, uint32_t dim)
     : index(res,
             params.metric,
             params.n_lists,
@@ -297,29 +301,31 @@ struct index : ann::index {
   /**
    * Update the state of the dependent index members.
    */
-  void recompute_internal_state(raft::device_resources const& res)
+  void recompute_internal_state(raft::resources const& res)
   {
-    auto stream = res.get_stream();
+    auto stream = resource::get_cuda_stream(res);
 
     // Actualize the list pointers
-    auto this_lists           = lists();
-    auto this_data_ptrs       = data_ptrs();
-    auto this_inds_ptrs       = inds_ptrs();
-    IdxT recompute_total_size = 0;
+    auto this_lists     = lists();
+    auto this_data_ptrs = data_ptrs();
+    auto this_inds_ptrs = inds_ptrs();
     for (uint32_t label = 0; label < this_lists.size(); label++) {
-      auto& list           = this_lists[label];
-      const auto data_ptr  = list ? list->data.data_handle() : nullptr;
-      const auto inds_ptr  = list ? list->indices.data_handle() : nullptr;
-      const auto list_size = list ? IdxT(list->size) : 0;
+      auto& list          = this_lists[label];
+      const auto data_ptr = list ? list->data.data_handle() : nullptr;
+      const auto inds_ptr = list ? list->indices.data_handle() : nullptr;
       copy(&this_data_ptrs(label), &data_ptr, 1, stream);
       copy(&this_inds_ptrs(label), &inds_ptr, 1, stream);
-      recompute_total_size += list_size;
     }
-    total_size_ = recompute_total_size;
+    auto this_list_sizes = list_sizes().data_handle();
+    total_size_          = thrust::reduce(resource::get_thrust_policy(res),
+                                 this_list_sizes,
+                                 this_list_sizes + this_lists.size(),
+                                 0,
+                                 raft::add_op{});
     check_consistency();
   }
 
-  void allocate_center_norms(raft::device_resources const& res)
+  void allocate_center_norms(raft::resources const& res)
   {
     switch (metric_) {
       case raft::distance::DistanceType::L2Expanded:

@@ -16,6 +16,7 @@
 
 #include <common/benchmark.hpp>
 #include <raft/cluster/kmeans_balanced.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 
 namespace raft::bench::cluster {
@@ -54,7 +55,7 @@ struct KMeansBalanced : public fixture {
       raft::random::uniform(
         rng, X.data_handle(), params.data.rows * params.data.cols, kRangeMin, kRangeMax, stream);
     }
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void allocate_temp_buffers(const ::benchmark::State& state) override

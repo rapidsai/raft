@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -64,7 +65,7 @@ void sum(Type* output, const Type* input, IdxType D, IdxType N, bool rowMajor, c
  * @param[out] output the output mean vector
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void sum(raft::device_resources const& handle,
+void sum(raft::resources const& handle,
          raft::device_matrix_view<const value_t, idx_t, layout_t> input,
          raft::device_vector_view<value_t, idx_t> output)
 {
@@ -79,7 +80,7 @@ void sum(raft::device_resources const& handle,
               input.extent(1),
               input.extent(0),
               is_row_major,
-              handle.get_stream());
+              resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_sum

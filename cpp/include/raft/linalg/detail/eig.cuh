@@ -18,7 +18,8 @@
 
 #include "cusolver_wrappers.hpp"
 #include <cuda_runtime_api.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/copy.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -29,7 +30,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void eigDC_legacy(raft::device_resources const& handle,
+void eigDC_legacy(raft::resources const& handle,
                   const math_t* in,
                   std::size_t n_rows,
                   std::size_t n_cols,
@@ -37,7 +38,7 @@ void eigDC_legacy(raft::device_resources const& handle,
                   math_t* eig_vals,
                   cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   int lwork;
   RAFT_CUSOLVER_TRY(cusolverDnsyevd_bufferSize(cusolverH,
@@ -76,7 +77,7 @@ void eigDC_legacy(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void eigDC(raft::device_resources const& handle,
+void eigDC(raft::resources const& handle,
            const math_t* in,
            std::size_t n_rows,
            std::size_t n_cols,
@@ -87,7 +88,7 @@ void eigDC(raft::device_resources const& handle,
 #if CUDART_VERSION < 11010
   eigDC_legacy(handle, in, n_rows, n_cols, eig_vectors, eig_vals, stream);
 #else
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   cusolverDnParams_t dn_params = nullptr;
   RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
@@ -141,7 +142,7 @@ void eigDC(raft::device_resources const& handle,
 enum EigVecMemUsage { OVERWRITE_INPUT, COPY_INPUT };
 
 template <typename math_t>
-void eigSelDC(raft::device_resources const& handle,
+void eigSelDC(raft::resources const& handle,
               math_t* in,
               std::size_t n_rows,
               std::size_t n_cols,
@@ -151,7 +152,7 @@ void eigSelDC(raft::device_resources const& handle,
               EigVecMemUsage memUsage,
               cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   int lwork;
   int h_meig;
@@ -240,7 +241,7 @@ void eigSelDC(raft::device_resources const& handle,
 }
 
 template <typename math_t>
-void eigJacobi(raft::device_resources const& handle,
+void eigJacobi(raft::resources const& handle,
                const math_t* in,
                std::size_t n_rows,
                std::size_t n_cols,
@@ -250,7 +251,7 @@ void eigJacobi(raft::device_resources const& handle,
                math_t tol = 1.e-7,
                int sweeps = 15)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   syevjInfo_t syevj_params = nullptr;
   RAFT_CUSOLVER_TRY(cusolverDnCreateSyevjInfo(&syevj_params));

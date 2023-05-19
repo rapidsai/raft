@@ -19,7 +19,7 @@
 
 #pragma once
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/trustworthiness_score.cuh>
 
 namespace raft {
@@ -38,7 +38,7 @@ namespace stats {
  * @return[out] Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::device_resources& h,
+double trustworthiness_score(const raft::resources& h,
                              const math_t* X,
                              math_t* X_embedded,
                              int n,
@@ -71,7 +71,7 @@ double trustworthiness_score(const raft::device_resources& h,
  */
 template <raft::distance::DistanceType distance_type, typename value_t, typename idx_t>
 double trustworthiness_score(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X,
   raft::device_matrix_view<const value_t, idx_t, raft::row_major> X_embedded,
   int n_neighbors,

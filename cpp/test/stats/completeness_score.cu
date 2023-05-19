@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/completeness_score.cuh>
 #include <raft/stats/entropy.cuh>
 #include <raft/stats/mutual_info_score.cuh>
@@ -40,7 +41,7 @@ template <typename T>
 class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
   // the constructor
-  completenessTest() : stream(handle.get_stream()) {}
+  completenessTest() : stream(resource::get_cuda_stream(handle)) {}
 
   void SetUp() override
   {
@@ -100,7 +101,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   completenessParam params;
   T lowerLabelRange, upperLabelRange;
   int nElements               = 0;

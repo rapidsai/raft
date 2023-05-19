@@ -18,6 +18,9 @@
 
 #include <common/nvtx.hpp>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream_pool.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/linalg/eig.cuh>
@@ -116,7 +119,7 @@ struct DivideByNonZero {
  *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
-void lstsqSvdQR(raft::device_resources const& handle,
+void lstsqSvdQR(raft::resources const& handle,
                 math_t* A,
                 const int n_rows,
                 const int n_cols,
@@ -125,7 +128,7 @@ void lstsqSvdQR(raft::device_resources const& handle,
                 cudaStream_t stream)
 {
   const int minmn              = min(n_rows, n_cols);
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
   int cusolverWorkSetSize      = 0;
   // #TODO: Call from public API when ready
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngesvd_bufferSize<math_t>(
@@ -176,7 +179,7 @@ void lstsqSvdQR(raft::device_resources const& handle,
  *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
-void lstsqSvdJacobi(raft::device_resources const& handle,
+void lstsqSvdJacobi(raft::resources const& handle,
                     math_t* A,
                     const int n_rows,
                     const int n_cols,
@@ -188,7 +191,7 @@ void lstsqSvdJacobi(raft::device_resources const& handle,
   gesvdjInfo_t gesvdj_params;
   RAFT_CUSOLVER_TRY(cusolverDnCreateGesvdjInfo(&gesvdj_params));
   int cusolverWorkSetSize      = 0;
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
   // #TODO: Call from public API when ready
   RAFT_CUSOLVER_TRY(
     raft::linalg::detail::cusolverDngesvdj_bufferSize<math_t>(cusolverH,
@@ -247,7 +250,7 @@ void lstsqSvdJacobi(raft::device_resources const& handle,
  *  (`w = (A^T A)^-1  A^T b`)
  */
 template <typename math_t>
-void lstsqEig(raft::device_resources const& handle,
+void lstsqEig(raft::resources const& handle,
               const math_t* A,
               const int n_rows,
               const int n_cols,
@@ -256,15 +259,15 @@ void lstsqEig(raft::device_resources const& handle,
               cudaStream_t stream)
 {
   rmm::cuda_stream_view mainStream   = rmm::cuda_stream_view(stream);
-  rmm::cuda_stream_view multAbStream = handle.get_next_usable_stream();
+  rmm::cuda_stream_view multAbStream = resource::get_next_usable_stream(handle);
   bool concurrent;
   // Check if the two streams can run concurrently. This is needed because a legacy default stream
   // would synchronize with other blocking streams. To avoid synchronization in such case, we try to
   // use an additional stream from the pool.
   if (!are_implicitly_synchronized(mainStream, multAbStream)) {
     concurrent = true;
-  } else if (handle.get_stream_pool_size() > 1) {
-    mainStream = handle.get_next_usable_stream();
+  } else if (resource::get_stream_pool_size(handle) > 1) {
+    mainStream = resource::get_next_usable_stream(handle);
     concurrent = true;
   } else {
     multAbStream = mainStream;
@@ -351,7 +354,7 @@ void lstsqEig(raft::device_resources const& handle,
  *            Warning: the content of this vector is modified by the cuSOLVER routines.
  */
 template <typename math_t>
-void lstsqQR(raft::device_resources const& handle,
+void lstsqQR(raft::resources const& handle,
              math_t* A,
              const int n_rows,
              const int n_cols,
@@ -359,8 +362,8 @@ void lstsqQR(raft::device_resources const& handle,
              math_t* w,
              cudaStream_t stream)
 {
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH       = resource::get_cublas_handle(handle);
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   int m = n_rows;
   int n = n_cols;

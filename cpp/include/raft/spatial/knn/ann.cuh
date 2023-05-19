@@ -38,7 +38,7 @@ namespace raft::spatial::knn {
  */
 template <typename T = float, typename value_idx = int>
 [[deprecated("Consider using new-style raft::spatial::knn::*::build functions")]] inline void
-approx_knn_build_index(raft::device_resources& handle,
+approx_knn_build_index(raft::resources& handle,
                        raft::spatial::knn::knnIndex* index,
                        knnIndexParam* params,
                        raft::distance::DistanceType metric,
@@ -67,7 +67,7 @@ approx_knn_build_index(raft::device_resources& handle,
  */
 template <typename T = float, typename value_idx = int>
 [[deprecated("Consider using new-style raft::spatial::knn::*::search functions")]] inline void
-approx_knn_search(raft::device_resources& handle,
+approx_knn_search(raft::resources& handle,
                   float* distances,
                   int64_t* indices,
                   raft::spatial::knn::knnIndex* index,
