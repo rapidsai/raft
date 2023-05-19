@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/serialize.hpp>
@@ -33,7 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int serialization_version = 3;
+constexpr int serialization_version = 4;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -61,6 +62,10 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T, I
 {
   RAFT_LOG_DEBUG(
     "Saving IVF-Flat index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+
+  std::string dtype_string = raft::detail::numpy_serializer::get_numpy_dtype<T>().to_string();
+  dtype_string.resize(4);
+  os << dtype_string;
 
   serialize_scalar(handle, os, serialization_version);
   serialize_scalar(handle, os, index_.size());
@@ -123,6 +128,9 @@ void serialize(raft::resources const& handle,
 template <typename T, typename IdxT>
 auto deserialize(raft::resources const& handle, std::istream& is) -> index<T, IdxT>
 {
+  char dtype_string[4];
+  is.read(dtype_string, 4);
+
   auto ver = deserialize_scalar<int>(handle, is);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);

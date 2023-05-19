@@ -365,6 +365,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
+    src/raft_runtime/neighbors/ivf_flat_serialize.cu
     src/raft_runtime/neighbors/ivfpq_build.cu
     src/raft_runtime/neighbors/ivfpq_deserialize.cu
     src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu

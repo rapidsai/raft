@@ -708,3 +708,153 @@ def search(SearchParams search_params,
         raise ValueError("query dtype %s not supported" % queries_dt)
 
     return (distances, neighbors)
+
+
+@auto_sync_handle
+def save(filename, Index index, handle=None):
+    """
+    Saves the index to file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the file.
+    index : Index
+        Trained IVF-Flat index.
+    {handle_docstring}
+
+    Examples
+    --------
+    >>> import cupy as cp
+
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
+    >>> ivf_flat.save("my_index.bin", index, handle=handle)
+    """
+    if not index.trained:
+        raise ValueError("Index need to be built before saving it.")
+
+    if handle is None:
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
+
+    cdef string c_filename = filename.encode('utf-8')
+
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
+
+    if index.active_index_type == "float32":
+        idx_float = index
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_float.index))
+    elif index.active_index_type == "byte":
+        idx_int8 = index
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_int8.index))
+    elif index.active_index_type == "ubyte":
+        idx_uint8 = index
+        c_ivf_flat.serialize_file(
+            deref(handle_), c_filename, deref(idx_uint8.index))
+    else:
+        raise ValueError(
+            "Index dtype %s not supported" % index.active_index_type)
+
+
+@auto_sync_handle
+def load(filename, handle=None):
+    """
+    Loads index from file.
+
+    Saving / loading the index is experimental. The serialization format is
+    subject to change, therefore loading an index saved with a previous
+    version of raft is not guaranteed to work.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the file.
+    {handle_docstring}
+
+    Returns
+    -------
+    index : Index
+
+    Examples
+    --------
+    >>> import cupy as cp
+
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build and save index
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
+    >>> ivf_flat.save("my_index.bin", index, handle=handle)
+    >>> del index
+
+    >>> n_queries = 100
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.load("my_index.bin", handle=handle)
+
+    >>> distances, neighbors = ivf_flat.search(ivf_pq.SearchParams(), index,
+    ...                                      queries, k=10, handle=handle)
+    """
+    if handle is None:
+        handle = DeviceResources()
+    cdef device_resources* handle_ = \
+        <device_resources*><size_t>handle.getHandle()
+
+    cdef string c_filename = filename.encode('utf-8')
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
+
+    with open(filename, 'rb') as f:
+        type_str = f.read(3).decode('utf-8')
+
+    dataset_dt = np.dtype(type_str)
+
+    if dataset_dt == np.float32:
+        idx_float = IndexFloat(handle)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_float.index)
+        idx_float.trained = True
+        idx_float.active_index_type = 'float32'
+        return idx_float
+    elif dataset_dt == np.byte:
+        idx_int8 = IndexInt8(handle)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_int8.index)
+        idx_int8.trained = True
+        idx_int8.active_index_type = 'byte'
+        return idx_int8
+    elif dataset_dt == np.ubyte:
+        idx_uint8 = IndexUint8(handle)
+        c_ivf_flat.deserialize_file(
+            deref(handle_), c_filename, idx_uint8.index)
+        idx_uint8.trained = True
+        idx_uint8.active_index_type = 'ubyte'
+        return idx_uint8
+    else:
+        raise ValueError("Index dtype %s not supported" % dataset_dt)
