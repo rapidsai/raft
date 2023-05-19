@@ -201,6 +201,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         ivf_flat::detail::serialize(handle_, "ivf_flat_index", index_2);
 
         auto index_loaded = ivf_flat::detail::deserialize<DataT, IdxT>(handle_, "ivf_flat_index");
+        ASSERT_EQ(index_2.size(), index_loaded.size());
 
         ivf_flat::search(handle_,
                          search_params,
