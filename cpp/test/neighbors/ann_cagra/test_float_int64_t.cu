@@ -16,16 +16,14 @@
 
 #include <gtest/gtest.h>
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "../ann_cagra.cuh"
 
 namespace raft::neighbors::experimental::cagra {
 
-typedef AnnCagraTest<float, std::int8_t, std::uint32_t> AnnCagraTestI8_U32;
-TEST_P(AnnCagraTestI8_U32, AnnCagra) { this->testCagra(); }
-typedef AnnCagraSortTest<float, std::int8_t, std::uint32_t> AnnCagraSortTestI8_U32;
-TEST_P(AnnCagraSortTestI8_U32, AnnCagraSort) { this->testCagraSort(); }
+typedef AnnCagraTest<float, float, std::int64_t> AnnCagraTestF_I64;
+TEST_P(AnnCagraTestF_I64, AnnCagra) { this->testCagra(); }
 
-INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestI8_U32, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestI8_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_I64, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::experimental::cagra

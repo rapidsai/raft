@@ -27,17 +27,18 @@ size_t _cuann_find_topk_bufferSize(uint32_t topK,
                                    cudaDataType_t sampleDtype = CUDA_R_32F);
 
 //
+template <class ValT>
 void _cuann_find_topk(uint32_t topK,
                       uint32_t sizeBatch,
                       uint32_t numElements,
-                      const float* inputKeys,     // [sizeBatch, ldIK,]
-                      uint32_t ldIK,              // (*) ldIK >= numElements
-                      const uint32_t* inputVals,  // [sizeBatch, ldIV,]
-                      uint32_t ldIV,              // (*) ldIV >= numElements
-                      float* outputKeys,          // [sizeBatch, ldOK,]
-                      uint32_t ldOK,              // (*) ldOK >= topK
-                      uint32_t* outputVals,       // [sizeBatch, ldOV,]
-                      uint32_t ldOV,              // (*) ldOV >= topK
+                      const float* inputKeys,  // [sizeBatch, ldIK,]
+                      uint32_t ldIK,           // (*) ldIK >= numElements
+                      const ValT* inputVals,   // [sizeBatch, ldIV,]
+                      uint32_t ldIV,           // (*) ldIV >= numElements
+                      float* outputKeys,       // [sizeBatch, ldOK,]
+                      uint32_t ldOK,           // (*) ldOK >= topK
+                      ValT* outputVals,        // [sizeBatch, ldOV,]
+                      uint32_t ldOV,           // (*) ldOV >= topK
                       void* workspace,
                       bool sort           = false,
                       uint32_t* hint      = NULL,

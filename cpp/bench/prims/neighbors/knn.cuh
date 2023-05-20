@@ -181,9 +181,10 @@ struct ivf_pq_knn {
   {
     search_params.n_probes = 20;
     auto queries_view =
-      raft::make_device_matrix_view<const ValT, IdxT>(search_items, ps.n_queries, ps.n_dims);
-    auto idxs_view  = raft::make_device_matrix_view<IdxT, IdxT>(out_idxs, ps.n_queries, ps.k);
-    auto dists_view = raft::make_device_matrix_view<dist_t, IdxT>(out_dists, ps.n_queries, ps.k);
+      raft::make_device_matrix_view<const ValT, uint32_t>(search_items, ps.n_queries, ps.n_dims);
+    auto idxs_view = raft::make_device_matrix_view<IdxT, uint32_t>(out_idxs, ps.n_queries, ps.k);
+    auto dists_view =
+      raft::make_device_matrix_view<dist_t, uint32_t>(out_dists, ps.n_queries, ps.k);
     raft::neighbors::ivf_pq::search(
       handle, search_params, *index, queries_view, idxs_view, dists_view);
   }

@@ -316,6 +316,7 @@ if(BUILD_TESTS)
     test/neighbors/ann_cagra/test_float_uint32_t.cu
     test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
+    test/neighbors/ann_cagra/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
