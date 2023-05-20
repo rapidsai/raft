@@ -140,11 +140,11 @@ void build_knn_graph(raft::resources const& res,
     device_memory);
 
   for (const auto& batch : vec_batches) {
-    auto queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
+    auto queries_view = raft::make_device_matrix_view<const DataT, uint32_t>(
       batch.data(), batch.size(), batch.row_width());
-    auto neighbors_view = make_device_matrix_view<int64_t, int64_t>(
+    auto neighbors_view = make_device_matrix_view<int64_t, uint32_t>(
       neighbors.data_handle(), batch.size(), neighbors.extent(1));
-    auto distances_view = make_device_matrix_view<float, int64_t>(
+    auto distances_view = make_device_matrix_view<float, uint32_t>(
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
