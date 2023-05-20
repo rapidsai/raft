@@ -15,21 +15,29 @@
  */
 
 #include <raft/neighbors/detail/ivf_flat_search-inl.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 
-#define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT)  \
-  template void raft::neighbors::ivf_flat::detail::search<T, IdxT>( \
-    raft::resources const& handle,                                  \
-    const search_params& params,                                    \
-    const raft::neighbors::ivf_flat::index<T, IdxT>& index,         \
-    const T* queries,                                               \
-    uint32_t n_queries,                                             \
-    uint32_t k,                                                     \
-    IdxT* neighbors,                                                \
-    float* distances,                                               \
-    rmm::mr::device_memory_resource* mr)
+#define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT, SampleFilterT)  \
+  template void raft::neighbors::ivf_flat::detail::search<T, IdxT, SampleFilterT>( \
+    raft::resources const& handle,                                                 \
+    const search_params& params,                                                   \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                        \
+    const T* queries,                                                              \
+    uint32_t n_queries,                                                            \
+    uint32_t k,                                                                    \
+    IdxT* neighbors,                                                               \
+    float* distances,                                                              \
+    rmm::mr::device_memory_resource* mr,                                           \
+    SampleFilterT sample_filter)
 
-instantiate_raft_neighbors_ivf_flat_detail_search(float, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_search(int8_t, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_search(uint8_t, int64_t);
+instantiate_raft_neighbors_ivf_flat_detail_search(float,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_search(int8_t,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_search(uint8_t,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
 
 #undef instantiate_raft_neighbors_ivf_flat_detail_search

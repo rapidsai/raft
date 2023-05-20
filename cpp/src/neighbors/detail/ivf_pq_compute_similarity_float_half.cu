@@ -72,7 +72,7 @@
 
 #define COMMA ,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  float, half, raft::neighbors::filtering::NoneSampleFilter);
 
 #undef COMMA
 

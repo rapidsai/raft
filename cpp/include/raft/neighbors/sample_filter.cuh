@@ -19,7 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace raft::neighbors::ivf_pq::detail {
+namespace raft::neighbors::filtering {
 
 /* A filter that filters nothing. This is the default behavior. */
 struct NoneSampleFilter {
@@ -113,4 +113,4 @@ struct NoneSampleFilter {
  *   }
  * };
  */
-}  // namespace raft::neighbors::ivf_pq::detail
+}  // namespace raft::neighbors::filtering

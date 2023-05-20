@@ -18,13 +18,14 @@
 
 #include <cstdint>                            // uintX_t
 #include <raft/neighbors/ivf_flat_types.hpp>  // raft::neighbors::ivf_flat::index
+#include <raft/neighbors/sample_filter.cuh>   // NoneSampleFilter
 #include <raft/util/raft_explicit.hpp>        // RAFT_EXPLICIT
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::ivf_flat::detail {
 
-template <typename T, typename IdxT>
+template <typename T, typename IdxT, typename SampleFilterT>
 void search(raft::resources const& handle,
             const search_params& params,
             const raft::neighbors::ivf_flat::index<T, IdxT>& index,
@@ -33,26 +34,34 @@ void search(raft::resources const& handle,
             uint32_t k,
             IdxT* neighbors,
             float* distances,
-            rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
+            rmm::mr::device_memory_resource* mr = nullptr,
+            SampleFilterT sample_filter         = SampleFilterT()) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ivf_flat::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT)         \
-  extern template void raft::neighbors::ivf_flat::detail::search<T, IdxT>( \
-    raft::resources const& handle,                                         \
-    const search_params& params,                                           \
-    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                \
-    const T* queries,                                                      \
-    uint32_t n_queries,                                                    \
-    uint32_t k,                                                            \
-    IdxT* neighbors,                                                       \
-    float* distances,                                                      \
-    rmm::mr::device_memory_resource* mr)
+#define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT, SampleFilterT) \
+  extern template void raft::neighbors::ivf_flat::detail::search<T, IdxT>(        \
+    raft::resources const& handle,                                                \
+    const search_params& params,                                                  \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                       \
+    const T* queries,                                                             \
+    uint32_t n_queries,                                                           \
+    uint32_t k,                                                                   \
+    IdxT* neighbors,                                                              \
+    float* distances,                                                             \
+    rmm::mr::device_memory_resource* mr,                                          \
+    SampleFilterT sample_filter)
 
-instantiate_raft_neighbors_ivf_flat_detail_search(float, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_search(int8_t, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_search(uint8_t, int64_t);
+instantiate_raft_neighbors_ivf_flat_detail_search(float,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_search(int8_t,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_search(uint8_t,
+                                                  int64_t,
+                                                  raft::neighbors::filtering::NoneSampleFilter);
 
 #undef instantiate_raft_neighbors_ivf_flat_detail_search

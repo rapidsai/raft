@@ -74,7 +74,7 @@
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   float,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>,
-  raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  raft::neighbors::filtering::NoneSampleFilter);
 
 #undef COMMA
 

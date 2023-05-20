@@ -19,8 +19,8 @@
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 #include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>  // dummy_block_sort_t
-#include <raft/neighbors/detail/sample_filter.cuh>            // NoneSampleFilter
 #include <raft/neighbors/ivf_pq_types.hpp>                    // codebook_gen
+#include <raft/neighbors/sample_filter.cuh>                   // NoneSampleFilter
 #include <raft/util/cuda_rt_essentials.hpp>                   // RAFT_CUDA_TRY
 #include <raft/util/device_atomics.cuh>                       // raft::atomicMin
 #include <raft/util/pow2_utils.cuh>                           // raft::Pow2
@@ -493,7 +493,9 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
 }
 
 // The signature of the kernel defined by a minimal set of template parameters
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 using compute_similarity_kernel_t =
   decltype(&compute_similarity_kernel<OutT, LutT, SampleFilterT, 8, 0, true, true>);
 
@@ -502,7 +504,7 @@ template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename SampleFilterT = NoneSampleFilter>
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 struct compute_similarity_kernel_config {
  public:
   static auto get(uint32_t pq_bits, uint32_t k_max)
@@ -552,7 +554,7 @@ template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename SampleFilterT = NoneSampleFilter>
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
   -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
 {
@@ -595,7 +597,9 @@ struct selected {
   size_t device_lut_size;
 };
 
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                             rmm::cuda_stream_view stream,
                             uint32_t n_rows,
@@ -660,7 +664,9 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
  *    beyond this limit do not consider increasing the number of active blocks per SM
  *    would improve locality anymore.
  */
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                bool manage_local_topk,
                                int locality_hint,

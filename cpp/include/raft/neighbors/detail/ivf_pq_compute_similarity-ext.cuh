@@ -20,8 +20,8 @@
 #include <raft/core/detail/macros.hpp>               // RAFT_WEAK_FUNCTION
 #include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
-#include <raft/neighbors/detail/sample_filter.cuh>   // NoneSampleFilter
 #include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
+#include <raft/neighbors/sample_filter.cuh>          // NoneSampleFilter
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
 
@@ -182,25 +182,25 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   half,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>,
-  raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   half,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>,
-  raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  half, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  half, half, raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, half, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  float, half, raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
-  float, float, raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  float, float, raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   float,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA false>,
-  raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  raft::neighbors::filtering::NoneSampleFilter);
 instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(
   float,
   raft::neighbors::ivf_pq::detail::fp_8bit<5u COMMA true>,
-  raft::neighbors::ivf_pq::detail::NoneSampleFilter);
+  raft::neighbors::filtering::NoneSampleFilter);
 
 #undef COMMA
 

@@ -18,6 +18,7 @@
 
 #include <cstdint>                            // uintX_t
 #include <raft/neighbors/ivf_flat_types.hpp>  // raft::neighbors::ivf_flat::index
+#include <raft/neighbors/sample_filter.cuh>   // NoneSampleFilter
 #include <raft/util/raft_explicit.hpp>        // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>           // rmm:cuda_stream_view
 
@@ -25,15 +26,17 @@
 
 namespace raft::neighbors::ivf_flat::detail {
 
-template <typename T, typename AccT, typename IdxT>
+template <typename T, typename AccT, typename IdxT, typename SampleFilterT>
 void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& index,
                               const T* queries,
                               const uint32_t* coarse_query_results,
                               const uint32_t n_queries,
+                              const uint32_t queries_offset,
                               const raft::distance::DistanceType metric,
                               const uint32_t n_probes,
                               const uint32_t k,
                               const bool select_min,
+                              SampleFilterT sample_filter,
                               IdxT* neighbors,
                               float* distances,
                               uint32_t& grid_dim_x,
@@ -43,23 +46,30 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(T, AccT, IdxT)         \
-  extern template void raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<T, AccT, IdxT>( \
-    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                                        \
-    const T* queries,                                                                              \
-    const uint32_t* coarse_query_results,                                                          \
-    const uint32_t n_queries,                                                                      \
-    const raft::distance::DistanceType metric,                                                     \
-    const uint32_t n_probes,                                                                       \
-    const uint32_t k,                                                                              \
-    const bool select_min,                                                                         \
-    IdxT* neighbors,                                                                               \
-    float* distances,                                                                              \
-    uint32_t& grid_dim_x,                                                                          \
+#define instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(                 \
+  T, AccT, IdxT, SampleFilterT)                                                              \
+  extern template void                                                                       \
+  raft::neighbors::ivf_flat::detail::ivfflat_interleaved_scan<T, AccT, IdxT, SampleFilterT>( \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                                  \
+    const T* queries,                                                                        \
+    const uint32_t* coarse_query_results,                                                    \
+    const uint32_t n_queries,                                                                \
+    const uint32_t queries_offset,                                                           \
+    const raft::distance::DistanceType metric,                                               \
+    const uint32_t n_probes,                                                                 \
+    const uint32_t k,                                                                        \
+    const bool select_min,                                                                   \
+    SampleFilterT sample_filter,                                                             \
+    IdxT* neighbors,                                                                         \
+    float* distances,                                                                        \
+    uint32_t& grid_dim_x,                                                                    \
     rmm::cuda_stream_view stream)
 
-instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(float, float, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(int8_t, int32_t, int64_t);
-instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(uint8_t, uint32_t, int64_t);
+instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
+  float, float, int64_t, raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
+  int8_t, int32_t, int64_t, raft::neighbors::filtering::NoneSampleFilter);
+instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
+  uint8_t, uint32_t, int64_t, raft::neighbors::filtering::NoneSampleFilter);
 
 #undef instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan

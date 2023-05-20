@@ -23,8 +23,8 @@
 #include <raft/neighbors/detail/ivf_pq_compute_similarity.cuh>
 #include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
-#include <raft/neighbors/detail/sample_filter.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -717,7 +717,9 @@ inline auto get_max_batch_size(uint32_t k,
 }
 
 /** See raft::spatial::knn::ivf_pq::search docs */
-template <typename T, typename IdxT, typename SampleFilterT = NoneSampleFilter>
+template <typename T,
+          typename IdxT,
+          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
 inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
