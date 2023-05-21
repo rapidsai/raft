@@ -136,7 +136,7 @@ void refine_device(raft::resources const& handle,
            k,
            raft::distance::is_min_close(metric),
            // TODO: add the filtering support
-           raft::neighbors::filtering::NoneSampleFilter(),
+           raft::neighbors::filtering::NoneIvfSampleFilter(),
            indices.data_handle(),
            distances.data_handle(),
            grid_dim_x,

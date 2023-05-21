@@ -158,14 +158,14 @@ void extend(raft::resources const& handle,
  * k]
  * @param[in] sample_filter a filter the greenlights samples for a given query.
  */
-template <typename T, typename IdxT, typename SampleFilterT>
+template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
                            raft::device_matrix_view<const T, uint32_t, row_major> queries,
                            raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
                            raft::device_matrix_view<float, uint32_t, row_major> distances,
-                           SampleFilterT sample_filter = SampleFilterT())
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
@@ -229,7 +229,7 @@ void search(raft::resources const& handle,
                         queries,
                         neighbors,
                         distances,
-                        raft::neighbors::filtering::NoneSampleFilter());
+                        raft::neighbors::filtering::NoneIvfSampleFilter());
 }
 
 /** @} */  // end group ivf_pq
@@ -358,13 +358,15 @@ void extend(raft::resources const& handle,
  *     rmm::mr::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_pq::search_params search_params;
- *   filtering::NoneSampleFilter filter;
+ *   filtering::NoneIvfSampleFilter filter;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
- *   ivf_pq::search_with_filtering(handle, search_params, index, queries1, N1, K, out_inds1,
- * out_dists1, &mr, filter); ivf_pq::search_with_filtering(handle, search_params, index, queries2,
- * N2, K, out_inds2, out_dists2, &mr, filter); ivf_pq::search_with_filtering(handle, search_params,
- * index, queries3, N3, K, out_inds3, out_dists3, &mr, filter);
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr, filter);
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr, filter);
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr, filter);
  *   ...
  * @endcode
  * The exact size of the temporary buffer depends on multiple factors and is an implementation
@@ -387,7 +389,7 @@ void extend(raft::resources const& handle,
  * enough memory pool here to avoid memory allocations within search).
  * @param[in] sample_filter a filter the greenlights samples for a given query
  */
-template <typename T, typename IdxT, typename SampleFilterT>
+template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
@@ -397,7 +399,7 @@ void search_with_filtering(raft::resources const& handle,
                            IdxT* neighbors,
                            float* distances,
                            rmm::mr::device_memory_resource* mr = nullptr,
-                           SampleFilterT sample_filter         = SampleFilterT())
+                           IvfSampleFilterT sample_filter      = IvfSampleFilterT())
 {
   detail::search(
     handle, params, idx, queries, n_queries, k, neighbors, distances, mr, sample_filter);

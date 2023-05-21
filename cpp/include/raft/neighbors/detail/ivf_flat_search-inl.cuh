@@ -26,7 +26,7 @@
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
-#include <raft/neighbors/sample_filter.cuh>                     // NoneSampleFilter
+#include <raft/neighbors/sample_filter.cuh>                     // NoneIvfSampleFilter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 #include <rmm/mr/device/per_device_resource.hpp>                // rmm::device_memory_resource
 
@@ -34,7 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 
 using namespace raft::spatial::knn::detail;  // NOLINT
 
-template <typename T, typename AccT, typename IdxT, typename SampleFilterT>
+template <typename T, typename AccT, typename IdxT, typename IvfSampleFilterT>
 void search_impl(raft::resources const& handle,
                  const raft::neighbors::ivf_flat::index<T, IdxT>& index,
                  const T* queries,
@@ -46,7 +46,7 @@ void search_impl(raft::resources const& handle,
                  IdxT* neighbors,
                  AccT* distances,
                  rmm::mr::device_memory_resource* search_mr,
-                 SampleFilterT sample_filter)
+                 IvfSampleFilterT sample_filter)
 {
   auto stream = resource::get_cuda_stream(handle);
   // The norm of query
@@ -146,7 +146,7 @@ void search_impl(raft::resources const& handle,
   uint32_t grid_dim_x = 0;
   if (n_probes > 1) {
     // query the gridDimX size to store probes topK output
-    ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, SampleFilterT>(
+    ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, IvfSampleFilterT>(
       index,
       nullptr,
       nullptr,
@@ -170,7 +170,7 @@ void search_impl(raft::resources const& handle,
     indices_dev_ptr   = neighbors;
   }
 
-  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, SampleFilterT>(
+  ivfflat_interleaved_scan<T, typename utils::config<T>::value_t, IdxT, IvfSampleFilterT>(
     index,
     queries,
     coarse_indices_dev.data(),
@@ -207,7 +207,7 @@ void search_impl(raft::resources const& handle,
 /** See raft::neighbors::ivf_flat::search docs */
 template <typename T,
           typename IdxT,
-          typename SampleFilterT = raft::neighbors::filtering::NoneSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
 inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<T, IdxT>& index,
@@ -217,7 +217,7 @@ inline void search(raft::resources const& handle,
                    IdxT* neighbors,
                    float* distances,
                    rmm::mr::device_memory_resource* mr = nullptr,
-                   SampleFilterT sample_filter         = SampleFilterT())
+                   IvfSampleFilterT sample_filter      = IvfSampleFilterT())
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::search(k = %u, n_queries = %u, dim = %zu)", k, n_queries, index.dim());
@@ -242,18 +242,18 @@ inline void search(raft::resources const& handle,
   for (uint32_t offset_q = 0; offset_q < n_queries; offset_q += max_queries) {
     uint32_t queries_batch = min(max_queries, n_queries - offset_q);
 
-    search_impl<T, float, IdxT, SampleFilterT>(handle,
-                                               index,
-                                               queries + offset_q * index.dim(),
-                                               queries_batch,
-                                               offset_q,
-                                               k,
-                                               n_probes,
-                                               raft::distance::is_min_close(index.metric()),
-                                               neighbors + offset_q * k,
-                                               distances + offset_q * k,
-                                               mr,
-                                               sample_filter);
+    search_impl<T, float, IdxT, IvfSampleFilterT>(handle,
+                                                  index,
+                                                  queries + offset_q * index.dim(),
+                                                  queries_batch,
+                                                  offset_q,
+                                                  k,
+                                                  n_probes,
+                                                  raft::distance::is_min_close(index.metric()),
+                                                  neighbors + offset_q * k,
+                                                  distances + offset_q * k,
+                                                  mr,
+                                                  sample_filter);
   }
 }
 
