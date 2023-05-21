@@ -162,9 +162,9 @@ template <typename T, typename IdxT, typename SampleFilterT>
 void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
-                           raft::device_matrix_view<const T, IdxT, row_major> queries,
-                           raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-                           raft::device_matrix_view<float, IdxT, row_major> distances,
+                           raft::device_matrix_view<const T, uint32_t, row_major> queries,
+                           raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+                           raft::device_matrix_view<float, uint32_t, row_major> distances,
                            SampleFilterT sample_filter = SampleFilterT())
 {
   RAFT_EXPECTS(
@@ -182,7 +182,7 @@ void search_with_filtering(raft::resources const& handle,
                  params,
                  idx,
                  queries.data_handle(),
-                 static_cast<std::uint32_t>(queries.extent(0)),
+                 queries.extent(0),
                  k,
                  neighbors.data_handle(),
                  distances.data_handle(),
@@ -219,9 +219,9 @@ template <typename T, typename IdxT>
 void search(raft::resources const& handle,
             const search_params& params,
             const index<IdxT>& idx,
-            raft::device_matrix_view<const T, IdxT, row_major> queries,
-            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-            raft::device_matrix_view<float, IdxT, row_major> distances)
+            raft::device_matrix_view<const T, uint32_t, row_major> queries,
+            raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+            raft::device_matrix_view<float, uint32_t, row_major> distances)
 {
   search_with_filtering(
     handle, params, idx, queries, neighbors, distances, detail::NoneSampleFilter());

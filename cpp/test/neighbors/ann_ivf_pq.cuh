@@ -405,11 +405,11 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
 
     auto query_view =
-      raft::make_device_matrix_view<DataT, IdxT>(search_queries.data(), ps.num_queries, ps.dim);
-    auto inds_view =
-      raft::make_device_matrix_view<IdxT, IdxT>(indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
-    auto dists_view =
-      raft::make_device_matrix_view<EvalT, IdxT>(distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
+      raft::make_device_matrix_view<DataT, uint32_t>(search_queries.data(), ps.num_queries, ps.dim);
+    auto inds_view = raft::make_device_matrix_view<IdxT, uint32_t>(
+      indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
+    auto dists_view = raft::make_device_matrix_view<EvalT, uint32_t>(
+      distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
 
     ivf_pq::search<DataT, IdxT>(
       handle_, ps.search_params, index, query_view, inds_view, dists_view);
