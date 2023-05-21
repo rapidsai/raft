@@ -184,9 +184,12 @@ class randomized_svdTest : public ::testing::TestWithParam<randomized_svdInputs<
 
   void SetUp() override
   {
-    int dVersion = 0;
-    cudaDriverGetVersion(&dVersion);
-    if (dVersion >= 11050) apiTest();
+    int major = 0;
+    int minor = 0;
+    cusolverGetProperty(MAJOR_VERSION, &major);
+    cusolverGetProperty(MINOR_VERSION, &minor);
+    int cusolv_version = major * 1000 + minor * 10;
+    if (cusolv_version >= 11050) apiTest();
     basicTest();
   }
 
