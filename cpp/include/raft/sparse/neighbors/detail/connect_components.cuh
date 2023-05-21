@@ -200,7 +200,8 @@ struct LookupColorOp {
  * @param[in] X original dense data
  * @param[in] n_rows number of rows in original dense data
  * @param[in] n_cols number of columns in original dense data
- * @param[in] batch_size batch size for computing nearest neighbors
+ * @param[in] row_batch_size row batch size for computing nearest neighbors
+ & @param[in] col_batch_size column batch size for sorting and 'unsorting'
  * @param[in] reduction_op reduction operation for computing nearest neighbors
  */
 template <typename value_idx, typename value_t, typename red_op>
@@ -211,12 +212,29 @@ void perform_1nn(raft::resources const& handle,
                  const value_t* X,
                  size_t n_rows,
                  size_t n_cols,
-                 size_t batch_size,
+                 size_t row_batch_size,
+                 size_t col_batch_size,
                  red_op reduction_op)
 {
   auto stream      = resource::get_cuda_stream(handle);
   auto exec_policy = resource::get_thrust_policy(handle);
 
+  auto sort_plan = raft::make_device_vector<value_idx>(handle, (value_idx)n_rows);
+  raft::linalg::map_offset(handle, sort_plan.view(), [] __device__(value_idx idx) { return idx; });
+
+  thrust::sort_by_key(
+    resource::get_thrust_policy(handle), colors, colors + n_rows, sort_plan.data_handle());
+
+  // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
+  reduction_op.gather(handle, sort_plan.data_handle());
+
+  auto X_mutable_view =
+    raft::make_device_matrix_view<value_t, value_idx>(const_cast<value_t*>(X), n_rows, n_cols);
+  auto sort_plan_const_view =
+    raft::make_device_vector_view<const value_idx, value_idx>(sort_plan.data_handle(), n_rows);
+  raft::matrix::gather(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
+
+  // Get the number of unique components from the array of colors
   value_idx n_components = get_n_components(colors, n_rows, stream);
 
   // colors_group_idxs is an array containing the *end* indices of each color
@@ -234,7 +252,7 @@ void perform_1nn(raft::resources const& handle,
   raft::linalg::rowNorm(
     x_norm.data_handle(), X, n_cols, n_rows, raft::linalg::L2Norm, true, stream);
 
-  auto adj     = raft::make_device_matrix<bool, value_idx>(handle, batch_size, n_components);
+  auto adj     = raft::make_device_matrix<bool, value_idx>(handle, row_batch_size, n_components);
   using OutT   = raft::KeyValuePair<value_idx, value_t>;
   using ParamT = raft::distance::masked_l2_nn_params<red_op, red_op>;
 
@@ -244,11 +262,11 @@ void perform_1nn(raft::resources const& handle,
 
   auto X_full_view = raft::make_device_matrix_view<const value_t, value_idx>(X, n_rows, n_cols);
 
-  size_t n_batches = raft::ceildiv(n_rows, batch_size);
+  size_t n_batches = raft::ceildiv(n_rows, row_batch_size);
 
   for (size_t bid = 0; bid < n_batches; bid++) {
-    size_t batch_offset   = bid * batch_size;
-    size_t rows_per_batch = min(batch_size, n_rows - batch_offset);
+    size_t batch_offset   = bid * row_batch_size;
+    size_t rows_per_batch = min(row_batch_size, n_rows - batch_offset);
 
     auto X_batch_view = raft::make_device_matrix_view<const value_t, value_idx>(
       X + batch_offset * n_cols, rows_per_batch, n_cols);
@@ -284,6 +302,21 @@ void perform_1nn(raft::resources const& handle,
   }
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
+
+  thrust::transform(exec_policy,
+                    kvp,
+                    kvp + n_rows,
+                    kvp,
+                    [sort_plan = sort_plan.data_handle()] __device__(OutT KVP) {
+                      OutT res;
+                      res.value = KVP.value;
+                      res.key   = sort_plan[KVP.key];
+                      return res;
+                    });
+
+  raft::matrix::scatter(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
+  thrust::scatter(exec_policy, kvp, kvp + n_rows, sort_plan.data_handle(), kvp);
+  reduction_op.scatter(handle, sort_plan.data_handle());
 }
 
 /**
@@ -323,7 +356,6 @@ __global__ void min_components_by_color_kernel(value_idx* out_rows,
                                                value_t* out_vals,
                                                const value_idx* out_index,
                                                const value_idx* indices,
-                                               const value_idx* sort_plan,
                                                const raft::KeyValuePair<value_idx, value_t>* kvp,
                                                size_t nnz)
 {
@@ -334,8 +366,8 @@ __global__ void min_components_by_color_kernel(value_idx* out_rows,
   int idx = out_index[tid];
 
   if ((tid == 0 || (out_index[tid - 1] != idx))) {
-    out_rows[idx] = sort_plan[indices[tid]];
-    out_cols[idx] = sort_plan[kvp[tid].key];
+    out_rows[idx] = indices[tid];
+    out_cols[idx] = kvp[tid].key;
     out_vals[idx] = kvp[tid].value;
   }
 }
@@ -356,7 +388,6 @@ template <typename value_idx, typename value_t>
 void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
                              const value_idx* out_index,
                              const value_idx* indices,
-                             const value_idx* sort_plan,
                              const raft::KeyValuePair<value_idx, value_t>* kvp,
                              size_t nnz,
                              cudaStream_t stream)
@@ -367,7 +398,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
    * the min.
    */
   min_components_by_color_kernel<<<raft::ceildiv(nnz, (size_t)256), 256, 0, stream>>>(
-    coo.rows(), coo.cols(), coo.vals(), out_index, indices, sort_plan, kvp, nnz);
+    coo.rows(), coo.cols(), coo.vals(), out_index, indices, kvp, nnz);
 }
 
 /**
@@ -424,23 +455,6 @@ void connect_components(raft::resources const& handle,
   raft::label::make_monotonic(
     colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
 
-  auto sort_plan = raft::make_device_vector<value_idx>(handle, (value_idx)n_rows);
-  raft::linalg::map_offset(handle, sort_plan.view(), [] __device__(value_idx idx) { return idx; });
-
-  thrust::sort_by_key(resource::get_thrust_policy(handle),
-                      colors.data(),
-                      colors.data() + n_rows,
-                      sort_plan.data_handle());
-
-  // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
-  reduction_op.gather(handle, sort_plan.data_handle());
-
-  auto X_mutable_view =
-    raft::make_device_matrix_view<value_t, value_idx>(const_cast<value_t*>(X), n_rows, n_cols);
-  auto sort_plan_const_view =
-    raft::make_device_vector_view<const value_idx, value_idx>(sort_plan.data_handle(), n_rows);
-  raft::matrix::gather(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
-
   /**
    * First compute 1-nn for all colors where the color of each data point
    * is guaranteed to be != color of its nearest neighbor.
@@ -457,6 +471,7 @@ void connect_components(raft::resources const& handle,
               n_rows,
               n_cols,
               row_batch_size,
+              col_batch_size,
               reduction_op);
 
   /**
@@ -490,16 +505,8 @@ void connect_components(raft::resources const& handle,
   raft::sparse::COO<value_t, value_idx> min_edges(stream);
   min_edges.allocate(size, n_rows, n_rows, true, stream);
 
-  min_components_by_color(min_edges,
-                          out_index.data(),
-                          src_indices.data(),
-                          sort_plan.data_handle(),
-                          temp_inds_dists.data(),
-                          n_rows,
-                          stream);
-
-  raft::matrix::scatter(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
-  reduction_op.scatter(handle, sort_plan.data_handle());
+  min_components_by_color(
+    min_edges, out_index.data(), src_indices.data(), temp_inds_dists.data(), n_rows, stream);
 
   /**
    * Symmetrize resulting edge list

@@ -367,7 +367,7 @@ void gather_if(const InputIteratorT in,
  *
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
- * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
+ * @param[in] map pointer to the input sequence of gather locations
  * @param[in] batch_size column batch size
  */
 template <typename InputIteratorT, typename MapIteratorT, typename IndexT>

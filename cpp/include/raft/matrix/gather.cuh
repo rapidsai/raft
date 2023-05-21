@@ -308,7 +308,7 @@ void gather_if(const raft::resources& handle,
  *
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
- * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
+ * @param[in] map Pointer to the input sequence of gather locations
  * @param[in] col_batch_size column batch size
  */
 template <typename matrix_t, typename map_t, typename idx_t>
