@@ -34,8 +34,8 @@ While not exhaustive, the following general categories help summarize the accele
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
 
 
-RAFT is a C++ header-only template library with an optional shared library that 
-1) can speed up compile times for common template types, and 
+RAFT is a C++ header-only template library with an optional shared library that
+1) can speed up compile times for common template types, and
 2) provides host-accessible "runtime" APIs, which don't require a CUDA compiler to use
 
 In addition being a C++ library, RAFT also provides 2 Python libraries:
@@ -291,6 +291,7 @@ The folder structure mirrors other RAPIDS repos, with the following folders:
   - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
   - `test`: Googletests source code
 - `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
+- `notebooks`: IPython notebooks with usage examples and tutorials
 - `python`: Source code for Python libraries.
   - `pylibraft`: Python build and source code for pylibraft library
   - `raft-dask`: Python build and source code for raft-dask library
