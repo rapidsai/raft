@@ -124,7 +124,7 @@ void randomized_svd(const raft::resources& handle,
 
   int dev_info;
   raft::update_host(&dev_info, devInfo.data_handle(), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle);
   ASSERT(dev_info == 0, "rsvd.cuh: Invalid parameter encountered.");
 }
 
