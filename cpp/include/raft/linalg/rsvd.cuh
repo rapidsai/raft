@@ -19,9 +19,8 @@
 #pragma once
 
 #include "detail/rsvd.cuh"
-#include <raft/core/resource/cuda_stream.hpp>
-
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 
 namespace raft {
 namespace linalg {
@@ -176,16 +175,20 @@ void rsvd_fixed_rank(raft::resources const& handle,
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
+    U_ptr = U.value().data_handle();
   }
   if (V) {
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
+    V_ptr = V.value().data_handle();
   }
 
   rsvdFixedRank(handle,
@@ -193,8 +196,8 @@ void rsvd_fixed_rank(raft::resources const& handle,
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
-                U.value().data_handle(),
-                V.value().data_handle(),
+                U_ptr,
+                V_ptr,
                 S_vec.extent(0),
                 p,
                 false,
@@ -251,13 +254,17 @@ void rsvd_fixed_rank_symmetric(
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -268,8 +275,8 @@ void rsvd_fixed_rank_symmetric(
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
-                U.value().data_handle(),
-                V.value().data_handle(),
+                U_ptr,
+                V_ptr,
                 S_vec.extent(0),
                 p,
                 true,
@@ -329,13 +336,17 @@ void rsvd_fixed_rank_jacobi(raft::resources const& handle,
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -346,8 +357,8 @@ void rsvd_fixed_rank_jacobi(raft::resources const& handle,
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
-                U.value().data_handle(),
-                V.value().data_handle(),
+                U_ptr,
+                V_ptr,
                 S_vec.extent(0),
                 p,
                 false,
@@ -408,13 +419,17 @@ void rsvd_fixed_rank_symmetric_jacobi(
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -425,8 +440,8 @@ void rsvd_fixed_rank_symmetric_jacobi(
                 M.extent(0),
                 M.extent(1),
                 S_vec.data_handle(),
-                U.value().data_handle(),
-                V.value().data_handle(),
+                U_ptr,
+                V_ptr,
                 S_vec.extent(0),
                 p,
                 true,
@@ -484,13 +499,17 @@ void rsvd_perc(raft::resources const& handle,
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -501,8 +520,8 @@ void rsvd_perc(raft::resources const& handle,
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
-           U.value().data_handle(),
-           V.value().data_handle(),
+           U_ptr,
+           V_ptr,
            PC_perc,
            UpS_perc,
            false,
@@ -560,13 +579,17 @@ void rsvd_perc_symmetric(raft::resources const& handle,
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -577,8 +600,8 @@ void rsvd_perc_symmetric(raft::resources const& handle,
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
-           U.value().data_handle(),
-           V.value().data_handle(),
+           U_ptr,
+           V_ptr,
            PC_perc,
            UpS_perc,
            true,
@@ -640,13 +663,17 @@ void rsvd_perc_jacobi(raft::resources const& handle,
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -657,8 +684,8 @@ void rsvd_perc_jacobi(raft::resources const& handle,
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
-           U.value().data_handle(),
-           V.value().data_handle(),
+           U_ptr,
+           V_ptr,
            PC_perc,
            UpS_perc,
            false,
@@ -721,13 +748,17 @@ void rsvd_perc_symmetric_jacobi(
     std::forward<UType>(U_in);
   std::optional<raft::device_matrix_view<ValueType, IndexType, raft::col_major>> V =
     std::forward<VType>(V_in);
+  ValueType* U_ptr = nullptr;
+  ValueType* V_ptr = nullptr;
 
   if (U) {
+    U_ptr = U.value().data_handle();
     RAFT_EXPECTS(M.extent(0) == U.value().extent(0), "Number of rows in M should be equal to U");
     RAFT_EXPECTS(S_vec.extent(0) == U.value().extent(1),
                  "Number of columns in U should be equal to length of S");
   }
   if (V) {
+    V_ptr = V.value().data_handle();
     RAFT_EXPECTS(M.extent(1) == V.value().extent(1), "Number of columns in M should be equal to V");
     RAFT_EXPECTS(S_vec.extent(0) == V.value().extent(0),
                  "Number of rows in V should be equal to length of S");
@@ -738,8 +769,8 @@ void rsvd_perc_symmetric_jacobi(
            M.extent(0),
            M.extent(1),
            S_vec.data_handle(),
-           U.value().data_handle(),
-           V.value().data_handle(),
+           U_ptr,
+           V_ptr,
            PC_perc,
            UpS_perc,
            true,
@@ -762,6 +793,85 @@ template <typename... Args, typename = std::enable_if_t<sizeof...(Args) == 7>>
 void rsvd_perc_symmetric_jacobi(Args... args)
 {
   rsvd_perc_symmetric_jacobi(std::forward<Args>(args)..., std::nullopt, std::nullopt);
+}
+
+/**
+ * @brief randomized singular value decomposition (RSVD) using cusolver
+ * @tparam math_t the data type
+ * @tparam idx_t index type
+ * @param[in]  handle:  raft handle
+ * @param[in]  in:      input matrix in col-major format.
+ *                      Warning: the content of this matrix is modified by the cuSOLVER routines.
+ *                      [dim = n_rows * n_cols]
+ * @param[out] S:       array of singular values of input matrix. The rank k must be less than
+ * min(m,n). [dim = k]
+ * @param[out] U:       optional left singular values of input matrix. Use std::nullopt to not
+ * generate it. [dim = n_rows * k]
+ * @param[out] V:       optional right singular values of input matrix. Use std::nullopt to not
+ * generate it. [dim = k * n_cols]
+ * @param[in]  p:       Oversampling. The size of the subspace will be (k + p). (k+p) is less than
+ * min(m,n). (Recommended to be at least 2*k)
+ * @param[in]  niters:  Number of iteration of power method. (2 is recommended)
+ */
+template <typename math_t, typename idx_t>
+void randomized_svd(const raft::device_resources& handle,
+                    raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
+                    raft::device_vector_view<math_t, idx_t> S,
+                    std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> U,
+                    std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> V,
+                    std::size_t p,
+                    std::size_t niters)
+{
+  auto k                      = S.extent(0);
+  math_t* left_sing_vecs_ptr  = nullptr;
+  math_t* right_sing_vecs_ptr = nullptr;
+  auto gen_U                  = U.has_value();
+  auto gen_V                  = V.has_value();
+  if (gen_U) {
+    RAFT_EXPECTS(in.extent(0) == U.value().extent(0) && k == U.value().extent(1),
+                 "U should have dimensions n_rows * k");
+    left_sing_vecs_ptr = U.value().data_handle();
+  }
+  if (gen_V) {
+    RAFT_EXPECTS(k == V.value().extent(0) && in.extent(1) == V.value().extent(1),
+                 "V should have dimensions k * n_cols");
+    right_sing_vecs_ptr = V.value().data_handle();
+  }
+  detail::randomized_svd(handle,
+                         in.data_handle(),
+                         in.extent(0),
+                         in.extent(1),
+                         k,
+                         p,
+                         niters,
+                         S.data_handle(),
+                         left_sing_vecs_ptr,
+                         right_sing_vecs_ptr,
+                         gen_U,
+                         gen_V);
+}
+
+/**
+ * @brief Overload of `randomized_svd` to help the
+ *   compiler find the above overload, in case users pass in
+ *   `std::nullopt` for the optional arguments.
+ *
+ * Please see above for documentation of `randomized_svd`.
+ */
+template <typename math_t, typename idx_t, typename opt_u_vec_t, typename opt_v_vec_t>
+void randomized_svd(const raft::device_resources& handle,
+                    raft::device_matrix_view<const math_t, idx_t, raft::col_major> in,
+                    raft::device_vector_view<math_t, idx_t> S,
+                    opt_u_vec_t&& U,
+                    opt_v_vec_t&& V,
+                    std::size_t p,
+                    std::size_t niters)
+{
+  std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> opt_u =
+    std::forward<opt_u_vec_t>(U);
+  std::optional<raft::device_matrix_view<math_t, idx_t, raft::col_major>> opt_v =
+    std::forward<opt_v_vec_t>(V);
+  randomized_svd(handle, in, S, opt_u, opt_v, p, niters);
 }
 
 /** @} */  // end of group rsvd

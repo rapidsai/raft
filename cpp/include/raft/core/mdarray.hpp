@@ -32,6 +32,12 @@
 #include <raft/core/resources.hpp>
 
 namespace raft {
+
+/**
+ * @defgroup mdarray multi-dimensional memory-owning type
+ * @{
+ */
+
 /**
  * @brief Interface to implement an owning multi-dimensional array
  *
@@ -207,6 +213,7 @@ class mdarray
     : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
+
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
                                       container_policy_type& cp)
@@ -337,6 +344,15 @@ class mdarray
 };
 
 /**
+ * @}
+ */
+
+/**
+ * @defgroup mdarray_reshape Row- or Col-norm computation
+ * @{
+ */
+
+/**
  * @brief Flatten object implementing raft::array_interface into a 1-dim array view
  *
  * @tparam array_interface_type Expected type implementing raft::array_interface
@@ -370,5 +386,9 @@ auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new
 {
   return reshape(mda.view(), new_shape);
 }
+
+/**
+ * }@
+ */
 
 }  // namespace raft
