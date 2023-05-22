@@ -6,7 +6,7 @@ Resources
    :class: highlight
 
 All resources which are specific to a computing environment like host or device are contained within, and managed by,
-`raft::resources`. This design simplifies the APIs and eases user burden by making them opaque by default but allowing customization based on user preference.
+`raft::resources`. This design simplifies the APIs and eases user burden by making the APIs opaque by default but allowing customization based on user preference.
 
 
 Vocabulary
