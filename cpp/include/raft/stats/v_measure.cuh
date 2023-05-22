@@ -19,7 +19,8 @@
 
 #pragma once
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/v_measure.cuh>
 
 namespace raft {
@@ -68,7 +69,7 @@ double v_measure(const T* truthClusterArray,
  * @return the v-measure between the two clusters
  */
 template <typename value_t, typename idx_t>
-double v_measure(raft::device_resources const& handle,
+double v_measure(raft::resources const& handle,
                  raft::device_vector_view<const value_t, idx_t> truth_cluster_array,
                  raft::device_vector_view<const value_t, idx_t> pred_cluster_array,
                  value_t lower_label_range,
@@ -85,13 +86,13 @@ double v_measure(raft::device_resources const& handle,
                            truth_cluster_array.extent(0),
                            lower_label_range,
                            upper_label_range,
-                           handle.get_stream(),
+                           resource::get_cuda_stream(handle),
                            beta);
 }
 
 /** @} */  // end group stats_vmeasure
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

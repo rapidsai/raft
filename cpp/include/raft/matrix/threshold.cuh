@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
 
 namespace raft::matrix {
@@ -37,14 +38,14 @@ namespace raft::matrix {
  * @param[in] thres threshold to set values to zero
  */
 template <typename math_t, typename idx_t, typename layout>
-void zero_small_values(raft::device_resources const& handle,
+void zero_small_values(raft::resources const& handle,
                        raft::device_matrix_view<const math_t, idx_t, layout> in,
                        raft::device_matrix_view<math_t, idx_t, layout> out,
                        math_t thres = 1e-15)
 {
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must have same size");
   detail::setSmallValuesZero(
-    out.data_handle(), in.data_handle(), in.size(), handle.get_stream(), thres);
+    out.data_handle(), in.data_handle(), in.size(), resource::get_cuda_stream(handle), thres);
 }
 
 /**
@@ -57,11 +58,12 @@ void zero_small_values(raft::device_resources const& handle,
  * @param thres: threshold
  */
 template <typename math_t, typename idx_t, typename layout>
-void zero_small_values(raft::device_resources const& handle,
+void zero_small_values(raft::resources const& handle,
                        raft::device_matrix_view<math_t, idx_t, layout> inout,
                        math_t thres = 1e-15)
 {
-  detail::setSmallValuesZero(inout.data_handle(), inout.size(), handle.get_stream(), thres);
+  detail::setSmallValuesZero(
+    inout.data_handle(), inout.size(), resource::get_cuda_stream(handle), thres);
 }
 
 /** @} */  // end group matrix_threshold

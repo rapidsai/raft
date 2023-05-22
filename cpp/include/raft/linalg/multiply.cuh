@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/multiply.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -56,7 +57,7 @@ void multiplyScalar(out_t* out, const in_t* in, in_t scalar, IdxType len, cudaSt
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in the input buffer
  * @param[out] out the output buffer
  * @param[in] scalar the scalar used in the operations
@@ -68,7 +69,7 @@ template <typename InType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void multiply_scalar(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   InType in,
   OutType out,
   raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -85,19 +86,19 @@ void multiply_scalar(
                                                            in.data_handle(),
                                                            *scalar.data_handle(),
                                                            static_cast<std::uint32_t>(out.size()),
-                                                           handle.get_stream());
+                                                           resource::get_cuda_stream(handle));
   } else {
     multiplyScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                            in.data_handle(),
                                                            *scalar.data_handle(),
                                                            static_cast<std::uint64_t>(out.size()),
-                                                           handle.get_stream());
+                                                           resource::get_cuda_stream(handle));
   }
 }
 
 /** @} */  // end of group multiply
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

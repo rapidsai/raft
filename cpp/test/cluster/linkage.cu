@@ -14,15 +14,21 @@
  * limitations under the License.
  */
 
+// XXX: We allow the instantiation of fused_l2_nn here:
+// raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(), params.n_row);
+// raft::linkage::connect_components<value_idx, value_t>(
+//   handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
+//
+// TODO: consider adding this to libraft.so or creating an instance in a
+// separate translation unit for this test.
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
-
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/sparse/hierarchy/single_linkage.cuh>
@@ -164,15 +170,15 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  public:
   LinkageTest()
     : params(::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam()),
-      labels(0, handle.get_stream()),
-      labels_ref(0, handle.get_stream())
+      labels(0, resource::get_cuda_stream(handle)),
+      labels_ref(0, resource::get_cuda_stream(handle))
   {
   }
 
  protected:
   void basicTest()
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     labels.resize(params.n_row, stream);
     labels_ref.resize(params.n_row, stream);
@@ -212,7 +218,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
           std::make_optional<int>(params.c));
     }
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     score = compute_rand_index(labels.data(), labels_ref.data(), params.n_row, stream);
   }
@@ -220,7 +226,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
 
   LinkageInputs<T, IdxT> params;
   rmm::device_uvector<IdxT> labels, labels_ref;

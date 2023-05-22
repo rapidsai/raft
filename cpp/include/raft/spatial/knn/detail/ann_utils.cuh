@@ -17,7 +17,6 @@
 #pragma once
 
 #include <raft/core/logger.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -29,6 +28,8 @@
 
 #include <memory>
 #include <optional>
+
+#include <cuda_fp16.hpp>
 
 namespace raft::spatial::knn::detail::utils {
 
@@ -45,8 +46,7 @@ enum class pointer_residency {
 };
 
 template <typename... Types>
-struct pointer_residency_count {
-};
+struct pointer_residency_count {};
 
 template <>
 struct pointer_residency_count<> {
@@ -136,12 +136,21 @@ struct with_mapped_memory_t {
 };
 
 template <typename T>
-struct config {
-};
+struct config {};
 
+template <>
+struct config<double> {
+  using value_t                    = double;
+  static constexpr double kDivisor = 1.0;
+};
 template <>
 struct config<float> {
   using value_t                    = float;
+  static constexpr double kDivisor = 1.0;
+};
+template <>
+struct config<half> {
+  using value_t                    = half;
   static constexpr double kDivisor = 1.0;
 };
 template <>
@@ -172,13 +181,13 @@ struct mapping {
    * @{
    */
   template <typename S>
-  HDI auto operator()(const S& x) const -> std::enable_if_t<std::is_same_v<S, T>, T>
+  HDI constexpr auto operator()(const S& x) const -> std::enable_if_t<std::is_same_v<S, T>, T>
   {
     return x;
   };
 
   template <typename S>
-  HDI auto operator()(const S& x) const -> std::enable_if_t<!std::is_same_v<S, T>, T>
+  HDI constexpr auto operator()(const S& x) const -> std::enable_if_t<!std::is_same_v<S, T>, T>
   {
     constexpr double kMult = config<T>::kDivisor / config<S>::kDivisor;
     if constexpr (std::is_floating_point_v<S>) { return static_cast<T>(x * static_cast<S>(kMult)); }

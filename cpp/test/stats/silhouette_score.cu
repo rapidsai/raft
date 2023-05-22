@@ -17,12 +17,9 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#if defined RAFT_COMPILED
-#include <raft/stats/specializations.cuh>
-#endif
 
 #include <raft/stats/silhouette_score.cuh>
 #include <random>
@@ -46,9 +43,9 @@ template <typename LabelT, typename DataT>
 class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
   silhouetteScoreTest()
-    : d_X(0, handle.get_stream()),
-      sampleSilScore(0, handle.get_stream()),
-      d_labels(0, handle.get_stream())
+    : d_X(0, resource::get_cuda_stream(handle)),
+      sampleSilScore(0, resource::get_cuda_stream(handle)),
+      d_labels(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -66,7 +63,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     std::generate(h_labels.begin(), h_labels.end(), [&]() { return intGenerator(dre); });
 
     // allocating and initializing memory to the GPU
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     d_X.resize(nElements, stream);
     d_labels.resize(nElements, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
@@ -84,7 +81,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     raft::distance::pairwise_distance(
       handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 
@@ -192,7 +189,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   silhouetteScoreParam params;
   int nLabels;
   rmm::device_uvector<DataT> d_X;

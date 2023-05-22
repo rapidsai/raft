@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/regression_metrics.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -75,7 +76,7 @@ void naive_reg_metrics(std::vector<T>& predictions,
 template <typename T>
 class RegressionTest : public ::testing::TestWithParam<RegressionInputs<T>> {
  protected:
-  RegressionTest() : stream(handle.get_stream()) {}
+  RegressionTest() : stream(resource::get_cuda_stream(handle)) {}
 
   void SetUp() override
   {
@@ -106,7 +107,7 @@ class RegressionTest : public ::testing::TestWithParam<RegressionInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   RegressionInputs<T> params;
   cudaStream_t stream           = 0;
   double mean_abs_error         = 0;

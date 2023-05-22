@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ class span {
   constexpr span(span&& other) noexcept      = default;
 
   constexpr auto operator=(span const& other) noexcept -> span& = default;
-  constexpr auto operator=(span&& other) noexcept -> span& = default;
+  constexpr auto operator=(span&& other) noexcept -> span&      = default;
 
   constexpr auto begin() const noexcept -> iterator { return data(); }
 

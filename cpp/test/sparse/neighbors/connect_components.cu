@@ -14,7 +14,17 @@
  * limitations under the License.
  */
 
+// XXX: We allow the instantiation of fused_l2_nn here:
+// raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(colors.data(), params.n_row);
+// raft::linkage::connect_components<value_idx, value_t>(
+//   handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
+//
+// TODO: consider adding this to libraft.so or creating an instance in a
+// separate translation unit for this test.
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <cub/cub.cuh>
 
@@ -56,17 +66,18 @@ class ConnectComponentsTest
  protected:
   void basicTest()
   {
-    raft::device_resources handle;
+    raft::resources handle;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     params = ::testing::TestWithParam<ConnectComponentsInputs<value_t, value_idx>>::GetParam();
 
-    raft::sparse::COO<value_t, value_idx> out_edges(handle.get_stream());
+    raft::sparse::COO<value_t, value_idx> out_edges(resource::get_cuda_stream(handle));
 
-    rmm::device_uvector<value_t> data(params.n_row * params.n_col, handle.get_stream());
+    rmm::device_uvector<value_t> data(params.n_row * params.n_col,
+                                      resource::get_cuda_stream(handle));
 
-    raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
+    raft::copy(data.data(), params.data.data(), data.size(), resource::get_cuda_stream(handle));
 
     rmm::device_uvector<value_idx> indptr(params.n_row + 1, stream);
 
@@ -128,7 +139,7 @@ class ConnectComponentsTest
                                                                     false,
                                                                     false);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     // The sum of edges for both MST runs should be n_rows - 1
     final_edges = output_mst.n_edges + mst_coo.n_edges;

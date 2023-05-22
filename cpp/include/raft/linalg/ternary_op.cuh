@@ -20,7 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
 namespace raft {
@@ -61,7 +61,7 @@ void ternaryOp(out_t* out,
  * @tparam InType Input Type raft::device_mdspan
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam OutType Output Type raft::device_mdspan
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in1 First input
  * @param[in] in2 Second input
  * @param[in] in3 Third input
@@ -76,14 +76,14 @@ template <typename InType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void ternary_op(
-  raft::device_resources const& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
+  raft::resources const& handle, InType in1, InType in2, InType in3, OutType out, Lambda op)
 {
   return map(handle, in1, in2, in3, out, op);
 }
 
 /** @} */  // end of group ternary_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

@@ -16,13 +16,18 @@
 
 #pragma once
 
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/linalg/transpose.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/reverse.cuh>
+#include <raft/matrix/slice.cuh>
+#include <raft/matrix/triangular.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -54,7 +59,7 @@ namespace detail {
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdFixedRank(raft::device_resources const& handle,
+void rsvdFixedRank(raft::resources const& handle,
                    math_t* M,
                    int n_rows,
                    int n_cols,
@@ -71,8 +76,8 @@ void rsvdFixedRank(raft::device_resources const& handle,
                    int max_sweeps,
                    cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
+  cublasHandle_t cublasH       = resource::get_cublas_handle(handle);
 
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
@@ -202,15 +207,13 @@ void rsvdFixedRank(raft::device_resources const& handle,
                           true,
                           true,
                           stream);
-    raft::matrix::sliceMatrix(S_vec_tmp.data(),
-                              1,
-                              l,
-                              S_vec,
-                              0,
-                              0,
-                              1,
-                              k,
-                              stream);  // First k elements of S_vec
+
+    // First k elements of S_vec
+    raft::matrix::slice(
+      handle,
+      make_device_matrix_view<const math_t, int, col_major>(S_vec_tmp.data(), 1, l),
+      make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k),
+      raft::matrix::slice_coordinates(0, 0, 1, k));
 
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -272,23 +275,26 @@ void rsvdFixedRank(raft::device_resources const& handle,
     RAFT_CUDA_TRY(cudaMemsetAsync(Uhat.data(), 0, sizeof(math_t) * l * l, stream));
     rmm::device_uvector<math_t> Uhat_dup(l * l, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
-    raft::matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
+
+    raft::matrix::upper_triangular(
+      handle,
+      make_device_matrix_view<const math_t, int, col_major>(BBt.data(), l, l),
+      make_device_matrix_view<math_t, int, col_major>(Uhat_dup.data(), l, l));
+
     if (use_jacobi)
       raft::linalg::eigJacobi(
         handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream, tol, max_sweeps);
     else
       raft::linalg::eigDC(handle, Uhat_dup.data(), l, l, Uhat.data(), S_vec_tmp.data(), stream);
     raft::matrix::seqRoot(S_vec_tmp.data(), l, stream);
-    raft::matrix::sliceMatrix(S_vec_tmp.data(),
-                              1,
-                              l,
-                              S_vec,
-                              0,
-                              p,
-                              1,
-                              l,
-                              stream);  // Last k elements of S_vec
-    raft::matrix::colReverse(S_vec, 1, k, stream);
+
+    auto S_vec_view = make_device_matrix_view<math_t, int, col_major>(S_vec, 1, k);
+    raft::matrix::slice(
+      handle,
+      raft::make_device_matrix_view<const math_t, int, col_major>(S_vec_tmp.data(), 1, l),
+      S_vec_view,
+      raft::matrix::slice_coordinates(0, p, 1, l));  // Last k elements of S_vec
+    raft::matrix::col_reverse(handle, S_vec_view);
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -305,7 +311,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
                          alpha,
                          beta,
                          stream);
-      raft::matrix::colReverse(U, m, k, stream);
+      raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(U, m, k));
     }
 
     // Merge step 14 & 15 by calculating V = B^T Uhat[:,(p+1):l] *
@@ -316,7 +322,9 @@ void rsvdFixedRank(raft::device_resources const& handle,
       rmm::device_uvector<math_t> UhatSinv(l * k, stream);
       RAFT_CUDA_TRY(cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
       raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
-      raft::matrix::initializeDiagonalMatrix(S_vec_tmp.data() + p, Sinv.data(), k, k, stream);
+      raft::matrix::set_diagonal(handle,
+                                 make_device_vector_view<const math_t>(S_vec_tmp.data() + p, k),
+                                 make_device_matrix_view<math_t>(Sinv.data(), k, k));
 
       raft::linalg::gemm(handle,
                          Uhat.data() + p * l,
@@ -344,7 +352,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
                          alpha,
                          beta,
                          stream);
-      raft::matrix::colReverse(V, n, k, stream);
+      raft::matrix::col_reverse(handle, make_device_matrix_view<math_t, int, col_major>(V, n, k));
     }
   }
 }
@@ -371,7 +379,7 @@ void rsvdFixedRank(raft::device_resources const& handle,
  * @param stream cuda stream
  */
 template <typename math_t>
-void rsvdPerc(raft::device_resources const& handle,
+void rsvdPerc(raft::resources const& handle,
               math_t* M,
               int n_rows,
               int n_cols,

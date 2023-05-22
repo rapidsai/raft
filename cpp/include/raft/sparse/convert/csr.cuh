@@ -27,7 +27,7 @@ namespace sparse {
 namespace convert {
 
 template <typename value_t>
-void coo_to_csr(raft::device_resources const& handle,
+void coo_to_csr(raft::resources const& handle,
                 const int* srcRows,
                 const int* srcCols,
                 const value_t* srcVals,
@@ -90,7 +90,7 @@ void sorted_coo_to_csr(COO<T>* coo, int* row_ind, cudaStream_t stream)
  *                         number of non-zeros in adj.
  */
 template <typename index_t = int>
-void adj_to_csr(raft::device_resources const& handle,
+void adj_to_csr(raft::resources const& handle,
                 const bool* adj,         // Row-major adjacency matrix
                 const index_t* row_ind,  // Precomputed row indices
                 index_t num_rows,        // # rows of adj

@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 #include <atomic>
 #include <limits>
@@ -31,9 +31,8 @@ namespace raft::neighbors::ivf {
  * `size` bound or whenever the list is allocated but not filled-in yet.
  */
 template <typename IdxT>
-constexpr static IdxT kInvalidRecord = (std::is_signed_v<IdxT> ? IdxT{0}
-                                                               : std::numeric_limits<IdxT>::max()) -
-                                       1;
+constexpr static IdxT kInvalidRecord =
+  (std::is_signed_v<IdxT> ? IdxT{0} : std::numeric_limits<IdxT>::max()) - 1;
 
 /** The data for a single IVF list. */
 template <template <typename, typename...> typename SpecT,
@@ -54,12 +53,11 @@ struct list {
   std::atomic<size_type> size;
 
   /** Allocate a new list capable of holding at least `n_rows` data records and indices. */
-  list(raft::device_resources const& res, const spec_type& spec, size_type n_rows);
+  list(raft::resources const& res, const spec_type& spec, size_type n_rows);
 };
 
 template <typename ListT, class T = void>
-struct enable_if_valid_list {
-};
+struct enable_if_valid_list {};
 
 template <class T,
           template <typename, typename...>

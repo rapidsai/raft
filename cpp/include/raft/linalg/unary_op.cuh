@@ -19,7 +19,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
 
 namespace raft {
@@ -97,7 +98,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void unary_op(raft::device_resources const& handle, InType in, OutType out, Lambda op)
+void unary_op(raft::resources const& handle, InType in, OutType out, Lambda op)
 {
   return map(handle, in, out, op);
 }
@@ -117,14 +118,14 @@ void unary_op(raft::device_resources const& handle, InType in, OutType out, Lamb
 template <typename OutType,
           typename Lambda,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void write_only_unary_op(const raft::device_resources& handle, OutType out, Lambda op)
+void write_only_unary_op(const raft::resources& handle, OutType out, Lambda op)
 {
-  return writeOnlyUnaryOp(out.data_handle(), out.size(), op, handle.get_stream());
+  return writeOnlyUnaryOp(out.data_handle(), out.size(), op, resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group unary_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

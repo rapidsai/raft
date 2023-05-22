@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/common/nvtx.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/core/resource/device_id.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/spectral/eigen_solvers.cuh>
 #include <raft/spectral/partition.cuh>
 
@@ -24,6 +25,7 @@
 #include <cstddef>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 namespace raft {
 namespace spectral {
@@ -35,13 +37,8 @@ TEST(Raft, EigenSolvers)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
-  ASSERT_EQ(0,
-            h.
-
-            get_device()
-
-  );
+  raft::resources h;
+  ASSERT_EQ(0, resource::get_device_id(h));
 
   index_type* ro{nullptr};
   index_type* ci{nullptr};
@@ -81,11 +78,8 @@ TEST(Raft, SpectralSolvers)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
-  ASSERT_EQ(0,
-            h.
-
-            get_device()
+  raft::resources h;
+  ASSERT_EQ(0, resource::get_device_id(h)
 
   );
 

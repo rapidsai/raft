@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/mutual_info_score.cuh>
 
 namespace raft {
@@ -65,7 +66,7 @@ double mutual_info_score(const T* firstClusterArray,
  * @return the mutual information score
  */
 template <typename value_t, typename idx_t>
-double mutual_info_score(raft::device_resources const& handle,
+double mutual_info_score(raft::resources const& handle,
                          raft::device_vector_view<const value_t, idx_t> first_cluster_array,
                          raft::device_vector_view<const value_t, idx_t> second_cluster_array,
                          value_t lower_label_range,
@@ -80,12 +81,12 @@ double mutual_info_score(raft::device_resources const& handle,
                                    first_cluster_array.extent(0),
                                    lower_label_range,
                                    upper_label_range,
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_mutual_info
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

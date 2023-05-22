@@ -778,7 +778,7 @@ void radix_topk(const T* in,
   auto pool_guard = raft::get_pool_memory_resource(mr, mem_req);
   if (pool_guard) {
     RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
+                   mem_req);
   }
 
   rmm::device_uvector<Counter<T, IdxT>> counters(max_chunk_size, stream, mr);
@@ -1031,10 +1031,7 @@ void radix_topk_one_block(const T* in,
                                    max_chunk_size * len * 2 * (sizeof(T) + sizeof(IdxT)) +
                                      256 * 4  // might need extra memory for alignment
     );
-  if (pool_guard) {
-    RAFT_LOG_DEBUG("radix::select_k: using pool memory resource with initial size %zu bytes",
-                   pool_guard->pool_size());
-  }
+  if (pool_guard) { RAFT_LOG_DEBUG("radix::select_k: using pool memory resource"); }
 
   rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
   rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
@@ -1131,7 +1128,8 @@ void select_k(const T* in,
     } else {
       auto out_idx_view =
         raft::make_device_vector_view(out_idx, static_cast<size_t>(len) * batch_size);
-      raft::device_resources handle(stream);
+      raft::resources handle;
+      resource::set_cuda_stream(handle, stream);
       raft::linalg::map_offset(handle, out_idx_view, raft::mod_const_op<IdxT>(len));
     }
     return;

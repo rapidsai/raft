@@ -24,10 +24,11 @@
 
 #pragma once
 
-#pragma message(__FILE__                                                  \
-                " is deprecated and will be removed in a future release." \
-                " Please use the sparse/spatial version instead.")
+#pragma message(__FILE__                                                    \
+                  " is deprecated and will be removed in a future release." \
+                  " Please use the sparse/spatial version instead.")
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/neighbors/brute_force.cuh>
 
 namespace raft::sparse::neighbors {
@@ -50,7 +51,7 @@ namespace raft::sparse::neighbors {
  * @param[out] output_indices dense matrix for output indices (size n_query_rows * k)
  * @param[out] output_dists dense matrix for output distances (size n_query_rows * k)
  * @param[in] k the number of neighbors to query
- * @param[in] handle CUDA handle.get_stream() to order operations with respect to
+ * @param[in] handle CUDA resource::get_cuda_stream(handle) to order operations with respect to
  * @param[in] batch_size_index maximum number of rows to use from index matrix per batch
  * @param[in] batch_size_query maximum number of rows to use from query matrix per batch
  * @param[in] metric distance metric/measure to use
@@ -72,7 +73,7 @@ void brute_force_knn(const value_idx* idxIndptr,
                      value_idx* output_indices,
                      value_t* output_dists,
                      int k,
-                     raft::device_resources const& handle,
+                     raft::resources const& handle,
                      size_t batch_size_index             = 2 << 14,  // approx 1M
                      size_t batch_size_query             = 2 << 14,
                      raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,

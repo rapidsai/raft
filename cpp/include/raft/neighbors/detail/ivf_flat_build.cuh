@@ -17,11 +17,12 @@
 #pragma once
 
 #include <raft/cluster/kmeans_balanced.cuh>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
@@ -43,9 +44,9 @@ namespace raft::neighbors::ivf_flat::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <typename T, typename IdxT>
-auto clone(const raft::device_resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
+auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T, IdxT>
 {
-  auto stream = res.get_stream();
+  auto stream = resource::get_cuda_stream(res);
 
   // Allocate the new index
   index<T, IdxT> target(res,
@@ -158,7 +159,7 @@ __global__ void build_index_kernel(const LabelT* labels,
 
 /** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             index<T, IdxT>* index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -167,7 +168,7 @@ void extend(raft::device_resources const& handle,
   using LabelT = uint32_t;
   RAFT_EXPECTS(index != nullptr, "index cannot be empty.");
 
-  auto stream  = handle.get_stream();
+  auto stream  = resource::get_cuda_stream(handle);
   auto n_lists = index->n_lists();
   auto dim     = index->dim();
   list_spec<uint32_t, T, IdxT> list_device_spec{index->dim(),
@@ -228,7 +229,7 @@ void extend(raft::device_resources const& handle,
   {
     copy(old_list_sizes.data(), old_list_sizes_dev.data_handle(), n_lists, stream);
     copy(new_list_sizes.data(), list_sizes_ptr, n_lists, stream);
-    handle.sync_stream();
+    resource::sync_stream(handle);
     auto& lists = index->lists();
     for (uint32_t label = 0; label < n_lists; label++) {
       ivf::resize_list(handle,
@@ -285,7 +286,7 @@ void extend(raft::device_resources const& handle,
 
 /** See raft::neighbors::ivf_flat::extend docs */
 template <typename T, typename IdxT>
-auto extend(raft::device_resources const& handle,
+auto extend(raft::resources const& handle,
             const index<T, IdxT>& orig_index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -298,13 +299,13 @@ auto extend(raft::device_resources const& handle,
 
 /** See raft::neighbors::ivf_flat::build docs */
 template <typename T, typename IdxT>
-inline auto build(raft::device_resources const& handle,
+inline auto build(raft::resources const& handle,
                   const index_params& params,
                   const T* dataset,
                   IdxT n_rows,
                   uint32_t dim) -> index<T, IdxT>
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::build(%zu, %u)", size_t(n_rows), dim);
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
@@ -367,7 +368,7 @@ inline auto build(raft::device_resources const& handle,
  * @param[in] n_candidates  of neighbor_candidates
  */
 template <typename T, typename IdxT>
-inline void fill_refinement_index(raft::device_resources const& handle,
+inline void fill_refinement_index(raft::resources const& handle,
                                   index<T, IdxT>* refinement_index,
                                   const T* dataset,
                                   const IdxT* candidate_idx,
@@ -376,7 +377,7 @@ inline void fill_refinement_index(raft::device_resources const& handle,
 {
   using LabelT = uint32_t;
 
-  auto stream      = handle.get_stream();
+  auto stream      = resource::get_cuda_stream(handle);
   uint32_t n_lists = n_queries;
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_flat::fill_refinement_index(%zu, %u)", size_t(n_queries));

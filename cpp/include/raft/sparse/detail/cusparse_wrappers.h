@@ -45,15 +45,13 @@ template <
 cusparseStatus_t cusparsegthr(
   cusparseHandle_t handle, int nnz, const T* vals, T* vals_sorted, int* d_P, cudaStream_t stream)
 {
-  auto constexpr float_type = []() constexpr
-  {
+  auto constexpr float_type = []() constexpr {
     if constexpr (std::is_same_v<T, float>) {
       return CUDA_R_32F;
     } else if constexpr (std::is_same_v<T, double>) {
       return CUDA_R_64F;
     }
-  }
-  ();
+  }();
   CUSPARSE_CHECK(cusparseSetStream(handle, stream));
   auto dense_vector_descr  = cusparseDnVecDescr_t{};
   auto sparse_vector_descr = cusparseSpVecDescr_t{};
@@ -779,7 +777,7 @@ cusparseStatus_t cusparsegemmi(  // NOLINT
   auto return_value =
     cusparsespmm(handle, opB, opA, alpha, matB, matA, beta, matC, alg, ext_buf, stream);
 
-  raft::device_resources rhandle;
+  raft::resources rhandle;
   raft::linalg::transpose(rhandle, CT.data(), C, n, m, stream);
   // destroy matrix/vector descriptors
   CUSPARSE_CHECK(cusparseDestroyDnMat(matA));

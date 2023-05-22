@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/mean_squared_error.cuh>
 
 #include "../test_utils.cuh"
@@ -49,17 +50,17 @@ class MeanSquaredErrorTest : public ::testing::TestWithParam<MeanSquaredErrorInp
  protected:
   MeanSquaredErrorInputs<T> params;
 
-  raft::device_resources handle;
+  raft::resources handle;
   rmm::device_scalar<T> output;
   rmm::device_scalar<T> refoutput;
 
  public:
   MeanSquaredErrorTest()
     : testing::TestWithParam<MeanSquaredErrorInputs<T>>(),
-      output(0, handle.get_stream()),
-      refoutput(0, handle.get_stream())
+      output(0, resource::get_cuda_stream(handle)),
+      refoutput(0, resource::get_cuda_stream(handle))
   {
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
@@ -67,7 +68,7 @@ class MeanSquaredErrorTest : public ::testing::TestWithParam<MeanSquaredErrorInp
   {
     params = ::testing::TestWithParam<MeanSquaredErrorInputs<T>>::GetParam();
 
-    cudaStream_t stream = handle.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     raft::random::RngState r(params.seed);
 
@@ -75,7 +76,7 @@ class MeanSquaredErrorTest : public ::testing::TestWithParam<MeanSquaredErrorInp
     rmm::device_uvector<T> b(params.len, stream);
     uniform(handle, r, a.data(), params.len, T(-1.0), T(1.0));
     uniform(handle, r, b.data(), params.len, T(-1.0), T(1.0));
-    handle.sync_stream();
+    resource::sync_stream(handle);
 
     mean_squared_error<T, std::uint32_t, T>(handle,
                                             make_device_vector_view<const T>(a.data(), params.len),
@@ -85,7 +86,7 @@ class MeanSquaredErrorTest : public ::testing::TestWithParam<MeanSquaredErrorInp
 
     naiveMeanSquaredError<<<256, 256, 0, stream>>>(
       params.len, a.data(), b.data(), params.weight, refoutput.data());
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
   void TearDown() override {}

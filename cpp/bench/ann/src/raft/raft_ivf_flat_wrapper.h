@@ -22,6 +22,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
@@ -29,6 +30,7 @@
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -136,7 +138,7 @@ void RaftIvfFlatGpu<T, IdxT>::search(
   static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
   raft::neighbors::ivf_flat::search(
     handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances, mr_ptr);
-  handle_.sync_stream();
+  resource::sync_stream(handle_);
   return;
 }
 }  // namespace raft::bench::ann

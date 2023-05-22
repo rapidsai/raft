@@ -16,11 +16,14 @@
 
 #pragma once
 
+#include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
+#include <raft/util/pow2_utils.cuh>
 
 #include <fstream>
 
@@ -31,7 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int serialization_version = 3;
+constexpr int serialization_version = 4;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -55,10 +58,14 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), 296>;
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle, std::ostream& os, const index<T, IdxT>& index_)
+void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index_)
 {
   RAFT_LOG_DEBUG(
     "Saving IVF-Flat index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+
+  std::string dtype_string = raft::detail::numpy_serializer::get_numpy_dtype<T>().to_string();
+  dtype_string.resize(4);
+  os << dtype_string;
 
   serialize_scalar(handle, os, serialization_version);
   serialize_scalar(handle, os, index_.size());
@@ -80,8 +87,8 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
   copy(sizes_host.data_handle(),
        index_.list_sizes().data_handle(),
        sizes_host.size(),
-       handle.get_stream());
-  handle.sync_stream();
+       resource::get_cuda_stream(handle));
+  resource::sync_stream(handle);
   serialize_mdspan(handle, os, sizes_host.view());
 
   list_spec<uint32_t, T, IdxT> list_store_spec{index_.dim(), true};
@@ -92,11 +99,11 @@ void serialize(raft::device_resources const& handle, std::ostream& os, const ind
                         list_store_spec,
                         Pow2<kIndexGroupSize>::roundUp(sizes_host(label)));
   }
-  handle.sync_stream();
+  resource::sync_stream(handle);
 }
 
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& handle,
+void serialize(raft::resources const& handle,
                const std::string& filename,
                const index<T, IdxT>& index_)
 {
@@ -119,8 +126,11 @@ void serialize(raft::device_resources const& handle,
  *
  */
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& handle, std::istream& is) -> index<T, IdxT>
+auto deserialize(raft::resources const& handle, std::istream& is) -> index<T, IdxT>
 {
+  char dtype_string[4];
+  is.read(dtype_string, 4);
+
   auto ver = deserialize_scalar<int>(handle, is);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
@@ -152,7 +162,7 @@ auto deserialize(raft::device_resources const& handle, std::istream& is) -> inde
   for (uint32_t label = 0; label < index_.n_lists(); label++) {
     ivf::deserialize_list(handle, is, index_.lists()[label], list_store_spec, list_device_spec);
   }
-  handle.sync_stream();
+  resource::sync_stream(handle);
 
   index_.recompute_internal_state(handle);
 
@@ -160,8 +170,7 @@ auto deserialize(raft::device_resources const& handle, std::istream& is) -> inde
 }
 
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& handle, const std::string& filename)
-  -> index<T, IdxT>
+auto deserialize(raft::resources const& handle, const std::string& filename) -> index<T, IdxT>
 {
   std::ifstream is(filename, std::ios::in | std::ios::binary);
 

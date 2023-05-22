@@ -17,12 +17,13 @@
 #pragma once
 
 #include "ann_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -155,14 +156,14 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&) = delete;
-  index(index&&)      = default;
+  index(const index&)                    = delete;
+  index(index&&)                         = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index& = default;
-  ~index()                          = default;
+  auto operator=(index&&) -> index&      = default;
+  ~index()                               = default;
 
   /** Construct an empty index. */
-  index(raft::device_resources const& res)
+  index(raft::resources const& res)
     : ann::index(),
       metric_(raft::distance::DistanceType::L2Expanded),
       dataset_(make_device_matrix<T, IdxT>(res, 0, 0)),
@@ -172,7 +173,7 @@ struct index : ann::index {
 
   /** Construct an index from dataset and knn_graph arrays */
   template <typename data_accessor, typename graph_accessor>
-  index(raft::device_resources const& res,
+  index(raft::resources const& res,
         raft::distance::DistanceType metric,
         mdspan<const T, matrix_extent<IdxT>, row_major, data_accessor> dataset,
         mdspan<IdxT, matrix_extent<IdxT>, row_major, graph_accessor> knn_graph)
@@ -183,9 +184,15 @@ struct index : ann::index {
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
-    raft::copy(dataset_.data_handle(), dataset.data_handle(), dataset.size(), res.get_stream());
-    raft::copy(graph_.data_handle(), knn_graph.data_handle(), knn_graph.size(), res.get_stream());
-    res.sync_stream();
+    raft::copy(dataset_.data_handle(),
+               dataset.data_handle(),
+               dataset.size(),
+               resource::get_cuda_stream(res));
+    raft::copy(graph_.data_handle(),
+               knn_graph.data_handle(),
+               knn_graph.size(),
+               resource::get_cuda_stream(res));
+    resource::sync_stream(res);
   }
 
  private:

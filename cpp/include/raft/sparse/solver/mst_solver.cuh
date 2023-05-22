@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,7 +39,7 @@ struct Graph_COO {
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 class MST_solver {
  public:
-  MST_solver(raft::device_resources const& handle_,
+  MST_solver(raft::resources const& handle_,
              const edge_t* offsets_,
              const vertex_t* indices_,
              const weight_t* weights_,
@@ -56,7 +56,7 @@ class MST_solver {
   ~MST_solver() {}
 
  private:
-  raft::device_resources const& handle;
+  raft::resources const& handle;
   cudaStream_t stream;
   bool symmetrize_output, initialize_colors;
   int iterations;
@@ -78,10 +78,10 @@ class MST_solver {
   rmm::device_uvector<alteration_t> altered_weights;  // weights to be used for mst
   rmm::device_scalar<edge_t> mst_edge_count;  // total number of edges added after every iteration
   rmm::device_scalar<edge_t>
-    prev_mst_edge_count;                     // total number of edges up to the previous iteration
-  rmm::device_uvector<bool> mst_edge;        // mst output -  true if the edge belongs in mst
-  rmm::device_uvector<vertex_t> next_color;  //  next iteration color
-  rmm::device_uvector<vertex_t> color;       // index of color that vertex points to
+    prev_mst_edge_count;                      // total number of edges up to the previous iteration
+  rmm::device_uvector<bool> mst_edge;         // mst output -  true if the edge belongs in mst
+  rmm::device_uvector<vertex_t> next_color;   //  next iteration color
+  rmm::device_uvector<vertex_t> color;        // index of color that vertex points to
 
   // new src-dst pairs found per iteration
   rmm::device_uvector<vertex_t> temp_src;

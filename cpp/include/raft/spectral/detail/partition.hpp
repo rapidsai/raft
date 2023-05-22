@@ -16,6 +16,8 @@
 #pragma once
 
 #include <math.h>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <stdio.h>
 
 #include <cuda.h>
@@ -63,7 +65,7 @@ namespace detail {
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
@@ -75,8 +77,8 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
   RAFT_EXPECTS(eigVals != nullptr, "Null eigVals buffer.");
   RAFT_EXPECTS(eigVecs != nullptr, "Null eigVecs buffer.");
 
-  auto stream   = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
+  auto stream   = resource::get_cuda_stream(handle);
+  auto cublas_h = resource::get_cublas_handle(handle);
 
   std::tuple<vertex_t, weight_t, vertex_t>
     stats;  //{iters_eig_solver,residual_cluster,iters_cluster_solver} // # iters eigen solver,
@@ -131,7 +133,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @return error flag.
  */
 template <typename vertex_t, typename weight_t>
-void analyzePartition(raft::device_resources const& handle,
+void analyzePartition(raft::resources const& handle,
                       spectral::matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
@@ -143,8 +145,8 @@ void analyzePartition(raft::device_resources const& handle,
   vertex_t i;
   vertex_t n = csr_m.nrows_;
 
-  auto stream   = handle.get_stream();
-  auto cublas_h = handle.get_cublas_handle();
+  auto stream   = resource::get_cuda_stream(handle);
+  auto cublas_h = resource::get_cublas_handle(handle);
 
   weight_t partEdgesCut, clustersize;
 

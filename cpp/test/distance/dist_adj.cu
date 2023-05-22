@@ -16,11 +16,15 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include "dist_adj.cuh"
 
 namespace raft {
 namespace distance {
@@ -74,18 +78,6 @@ struct DistanceAdjInputs {
   unsigned long long int seed;
 };
 
-template <typename AccT, typename DataT, typename OutT, typename Index>
-struct threshold_final_op {
-  DataT threshold_val;
-
-  __device__ __host__ threshold_final_op() noexcept : threshold_val(0.0) {}
-  __device__ __host__ threshold_final_op(DataT val) noexcept : threshold_val(val) {}
-  __device__ __host__ OutT operator()(AccT d_val, Index g_idx) const noexcept
-  {
-    return d_val <= threshold_val;
-  }
-};
-
 template <typename DataType>
 ::std::ostream& operator<<(::std::ostream& os, const DistanceAdjInputs<DataType>& dims)
 {
@@ -97,7 +89,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
  public:
   DistanceAdjTest()
     : params(::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       dist(params.m * params.n, stream),
       dist_ref(params.m * params.n, stream)
   {
@@ -140,10 +132,10 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
                                                   n,
                                                   k,
                                                   workspace.data(),
-                                                  workspace.size(),
+                                                  worksize,
                                                   threshold_op,
                                                   isRowMajor);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void TearDown() override {}
@@ -156,7 +148,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
   // memory consumption if we use uint8_t instead of bool.
   rmm::device_uvector<uint8_t> dist_ref;
   rmm::device_uvector<uint8_t> dist;
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 };
 

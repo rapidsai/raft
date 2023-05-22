@@ -15,10 +15,11 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/stats/information_criterion.cuh>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -63,7 +64,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
  public:
   BatchedICTest()
     : params(::testing::TestWithParam<BatchedICInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       res_d(sizeof(T) * params.batch_size, stream)
   {
   }
@@ -109,7 +110,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   BatchedICInputs<T> params;
   rmm::device_uvector<T> res_d;

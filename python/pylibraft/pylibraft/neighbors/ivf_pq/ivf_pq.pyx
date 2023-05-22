@@ -51,10 +51,16 @@ from rmm._lib.memory_resource cimport (
 
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
+from pylibraft.common.optional cimport make_optional, optional
 
 from pylibraft.neighbors.common import _check_input_array, _get_metric
 
-from pylibraft.common.cpp.mdspan cimport device_matrix_view, row_major
+from pylibraft.common.cpp.mdspan cimport (
+    device_matrix_view,
+    device_vector_view,
+    make_device_vector_view,
+    row_major,
+)
 from pylibraft.common.mdspan cimport (
     get_dmv_float,
     get_dmv_int8,
@@ -416,7 +422,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
         Trained ivf_pq object.
     new_vectors : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
-    new_indices : array interface compliant matrix shape (n_samples, dim)
+    new_indices : array interface compliant vector shape (n_samples)
         Supported dtype [int64]
     {handle_docstring}
 
@@ -472,6 +478,7 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
     vecs_cai = wrap_array(new_vectors)
     vecs_dt = vecs_cai.dtype
+    cdef optional[device_vector_view[int64_t, int64_t]] new_indices_opt
     cdef int64_t n_rows = vecs_cai.shape[0]
     cdef uint32_t dim = vecs_cai.shape[1]
 
@@ -484,23 +491,28 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     if len(idx_cai.shape)!=1:
         raise ValueError("Indices array is expected to be 1D")
 
+    if index.index.size() > 0:
+        new_indices_opt = make_device_vector_view(
+            <int64_t *><uintptr_t>idx_cai.data,
+            <int64_t>idx_cai.shape[0])
+
     if vecs_dt == np.float32:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_float(vecs_cai, check_shape=True),
-                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            new_indices_opt,
                             index.index)
     elif vecs_dt == np.int8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_int8(vecs_cai, check_shape=True),
-                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            new_indices_opt,
                             index.index)
     elif vecs_dt == np.uint8:
         with cuda_interruptible():
             c_ivf_pq.extend(deref(handle_),
                             get_dmv_uint8(vecs_cai, check_shape=True),
-                            make_optional_view_int64(get_dmv_int64(idx_cai, check_shape=False)),  # noqa: E501
+                            new_indices_opt,
                             index.index)
     else:
         raise TypeError("query dtype %s not supported" % vecs_dt)

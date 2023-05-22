@@ -15,10 +15,12 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
 
 #include "../test_utils.cuh"
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cudart_utils.hpp>
@@ -38,7 +40,8 @@ template <typename data_t>
 class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
  public:
   SPGemmiTest()
-    : params(::testing::TestWithParam<SPGemmiInputs>::GetParam()), stream(handle.get_stream())
+    : params(::testing::TestWithParam<SPGemmiInputs>::GetParam()),
+      stream(resource::get_cuda_stream(handle))
   {
   }
 
@@ -63,20 +66,20 @@ class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
     int hB_rows[]       = {0, 2, 3, 1, 0, 2, 3, 1, 3};
     float hB_values[]   = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
     float hA[]          = {1.0f,
-                  2.0f,
-                  3.0f,
-                  4.0f,
-                  5.0f,
-                  6.0f,
-                  7.0f,
-                  8.0f,
-                  9.0f,
-                  10.0f,
-                  11.0f,
-                  12.0f,
-                  13.0f,
-                  14.0f,
-                  15.0f};
+                           2.0f,
+                           3.0f,
+                           4.0f,
+                           5.0f,
+                           6.0f,
+                           7.0f,
+                           8.0f,
+                           9.0f,
+                           10.0f,
+                           11.0f,
+                           12.0f,
+                           13.0f,
+                           14.0f,
+                           15.0f};
     std::vector<float> hC(C_size);
     std::vector<float> hC_expected{23, 26, 29, 32,  35,  24, 28, 32, 36, 40,
                                    71, 82, 93, 104, 115, 48, 56, 64, 72, 80};
@@ -97,7 +100,7 @@ class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
 
     //--------------------------------------------------------------------------
     // execute gemmi
-    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsegemmi(handle.get_cusparse_handle(),
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsegemmi(resource::get_cusparse_handle(handle),
                                                           A_num_rows,
                                                           B_num_cols,
                                                           A_num_cols,
@@ -111,7 +114,7 @@ class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
                                                           &beta,
                                                           dC.data(),
                                                           ldc,
-                                                          handle.get_stream()));
+                                                          resource::get_cuda_stream(handle)));
 
     //--------------------------------------------------------------------------
     // result check
@@ -120,7 +123,7 @@ class SPGemmiTest : public ::testing::TestWithParam<SPGemmiInputs> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SPGemmiInputs params;

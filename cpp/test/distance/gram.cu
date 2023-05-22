@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "../test_utils.cuh"
+#include "gram_base.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
@@ -30,12 +27,6 @@
 #include <rmm/device_uvector.hpp>
 
 namespace raft::distance::kernels {
-
-// Get the offset of element [i,k].
-HDI int get_offset(int i, int k, int ld, bool is_row_major)
-{
-  return is_row_major ? i * ld + k : i + k * ld;
-}
 
 struct GramMatrixInputs {
   int n1;      // feature vectors in matrix 1
@@ -110,67 +101,51 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
 
   ~GramMatrixTest() override { RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(stream)); }
 
-  // Calculate the Gram matrix on the host.
-  void naiveKernel()
-  {
-    std::vector<math_t> x1_host(x1.size());
-    raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
-    std::vector<math_t> x2_host(x2.size());
-    raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
-    handle.sync_stream(stream);
-
-    for (int i = 0; i < params.n1; i++) {
-      for (int j = 0; j < params.n2; j++) {
-        float d = 0;
-        for (int k = 0; k < params.n_cols; k++) {
-          if (params.kernel.kernel == KernelType::RBF) {
-            math_t diff = x1_host[get_offset(i, k, params.ld1, params.is_row_major)] -
-                          x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
-            d += diff * diff;
-          } else {
-            d += x1_host[get_offset(i, k, params.ld1, params.is_row_major)] *
-                 x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
-          }
-        }
-        int idx  = get_offset(i, j, params.ld_out, params.is_row_major);
-        math_t v = 0;
-        switch (params.kernel.kernel) {
-          case (KernelType::LINEAR): gram_host[idx] = d; break;
-          case (KernelType::POLYNOMIAL):
-            v              = params.kernel.gamma * d + params.kernel.coef0;
-            gram_host[idx] = std::pow(v, params.kernel.degree);
-            break;
-          case (KernelType::TANH):
-            gram_host[idx] = std::tanh(params.kernel.gamma * d + params.kernel.coef0);
-            break;
-          case (KernelType::RBF): gram_host[idx] = exp(-params.kernel.gamma * d); break;
-        }
-      }
-    }
-  }
-
   void runTest()
   {
-    std::unique_ptr<GramMatrixBase<math_t>> kernel = std::unique_ptr<GramMatrixBase<math_t>>(
-      KernelFactory<math_t>::create(params.kernel, handle.get_cublas_handle()));
+    std::unique_ptr<GramMatrixBase<math_t>> kernel =
+      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(params.kernel));
 
-    kernel->evaluate(x1.data(),
-                     params.n1,
-                     params.n_cols,
-                     x2.data(),
-                     params.n2,
-                     gram.data(),
-                     params.is_row_major,
-                     stream,
-                     params.ld1,
-                     params.ld2,
-                     params.ld_out);
-    naiveKernel();
+    auto x1_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<const math_t, int, raft::layout_c_contiguous>(
+            x1.data(), params.n1, params.n_cols, params.ld1)
+        : raft::make_device_strided_matrix_view<const math_t, int, raft::layout_f_contiguous>(
+            x1.data(), params.n1, params.n_cols, params.ld1);
+    auto x2_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<const math_t, int, raft::layout_c_contiguous>(
+            x2.data(), params.n2, params.n_cols, params.ld2)
+        : raft::make_device_strided_matrix_view<const math_t, int, raft::layout_f_contiguous>(
+            x2.data(), params.n2, params.n_cols, params.ld2);
+    auto out_span =
+      params.is_row_major
+        ? raft::make_device_strided_matrix_view<math_t, int, raft::layout_c_contiguous>(
+            gram.data(), params.n1, params.n2, params.ld_out)
+        : raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+            gram.data(), params.n1, params.n2, params.ld_out);
+
+    (*kernel)(handle, x1_span, x2_span, out_span);
+
+    naiveGramMatrixKernel(params.n1,
+                          params.n2,
+                          params.n_cols,
+                          x1,
+                          x2,
+                          gram_host.data(),
+                          params.ld1,
+                          params.ld2,
+                          params.ld_out,
+                          params.is_row_major,
+                          params.kernel,
+                          stream,
+                          handle);
+
     ASSERT_TRUE(raft::devArrMatchHost(
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   GramMatrixInputs params;
 

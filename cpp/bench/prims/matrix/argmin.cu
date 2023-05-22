@@ -15,6 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/argmin.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
@@ -40,7 +41,7 @@ struct Argmin : public fixture {
     raft::random::RngState rng{1234};
     raft::random::uniform(
       rng, matrix.data_handle(), params.rows * params.cols, T(-1), T(1), stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void run_benchmark(::benchmark::State& state) override

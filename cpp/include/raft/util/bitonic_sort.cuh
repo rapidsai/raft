@@ -99,10 +99,10 @@ class bitonic {
   {
   }
 
-  bitonic(bitonic const&) = delete;
-  bitonic(bitonic&&)      = delete;
+  bitonic(bitonic const&)                    = delete;
+  bitonic(bitonic&&)                         = delete;
   auto operator=(bitonic const&) -> bitonic& = delete;
-  auto operator=(bitonic&&) -> bitonic& = delete;
+  auto operator=(bitonic&&) -> bitonic&      = delete;
 
   /**
    * You can think of this function in two ways:

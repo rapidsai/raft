@@ -17,6 +17,8 @@
 #pragma once
 
 #include <curand.h>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/sparse/solver/detail/mst_kernels.cuh>
 #include <raft/sparse/solver/detail/mst_utils.cuh>
@@ -60,18 +62,17 @@ inline curandStatus_t curand_generate_uniformX(curandGenerator_t generator,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(
-  raft::device_resources const& handle_,
-  const edge_t* offsets_,
-  const vertex_t* indices_,
-  const weight_t* weights_,
-  const vertex_t v_,
-  const edge_t e_,
-  vertex_t* color_,
-  cudaStream_t stream_,
-  bool symmetrize_output_,
-  bool initialize_colors_,
-  int iterations_)
+MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(raft::resources const& handle_,
+                                                                 const edge_t* offsets_,
+                                                                 const vertex_t* indices_,
+                                                                 const weight_t* weights_,
+                                                                 const vertex_t v_,
+                                                                 const edge_t e_,
+                                                                 vertex_t* color_,
+                                                                 cudaStream_t stream_,
+                                                                 bool symmetrize_output_,
+                                                                 bool initialize_colors_,
+                                                                 int iterations_)
   : handle(handle_),
     offsets(offsets_),
     indices(indices_),
@@ -95,16 +96,16 @@ MST_solver<vertex_t, edge_t, weight_t, alteration_t>::MST_solver(
     initialize_colors(initialize_colors_),
     iterations(iterations_)
 {
-  max_blocks  = handle_.get_device_properties().maxGridSize[0];
-  max_threads = handle_.get_device_properties().maxThreadsPerBlock;
-  sm_count    = handle_.get_device_properties().multiProcessorCount;
+  max_blocks  = resource::get_device_properties(handle_).maxGridSize[0];
+  max_threads = resource::get_device_properties(handle_).maxThreadsPerBlock;
+  sm_count    = resource::get_device_properties(handle_).multiProcessorCount;
 
   mst_edge_count.set_value_to_zero_async(stream);
   prev_mst_edge_count.set_value_to_zero_async(stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(mst_edge.data(), 0, mst_edge.size() * sizeof(bool), stream));
 
   // Initially, color holds the vertex id as color
-  auto policy = handle.get_thrust_policy();
+  auto policy = resource::get_thrust_policy(handle);
   if (initialize_colors_) {
     thrust::sequence(policy, color.begin(), color.end(), 0);
     thrust::sequence(policy, color_index, color_index + v, 0);
@@ -194,7 +195,7 @@ struct alteration_functor {
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 alteration_t MST_solver<vertex_t, edge_t, weight_t, alteration_t>::alteration_max()
 {
-  auto policy = handle.get_thrust_policy();
+  auto policy = resource::get_thrust_policy(handle);
   rmm::device_uvector<weight_t> tmp(e, stream);
   thrust::device_ptr<const weight_t> weights_ptr(weights);
   thrust::copy(policy, weights_ptr, weights_ptr + e, tmp.begin());
@@ -284,7 +285,7 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::label_prop(vertex_t* 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
 void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::min_edge_per_vertex()
 {
-  auto policy = handle.get_thrust_policy();
+  auto policy = resource::get_thrust_policy(handle);
   thrust::fill(
     policy, min_edge_color.begin(), min_edge_color.end(), std::numeric_limits<alteration_t>::max());
   thrust::fill(
@@ -316,7 +317,7 @@ void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::min_edge_per_superver
   auto nthreads = std::min(v, max_threads);
   auto nblocks  = std::min((v + nthreads - 1) / nthreads, max_blocks);
 
-  auto policy = handle.get_thrust_policy();
+  auto policy = resource::get_thrust_policy(handle);
   thrust::fill(policy, temp_src.begin(), temp_src.end(), std::numeric_limits<vertex_t>::max());
 
   vertex_t* color_ptr               = color.data();
@@ -385,7 +386,7 @@ template <typename vertex_t, typename edge_t, typename weight_t, typename altera
 void MST_solver<vertex_t, edge_t, weight_t, alteration_t>::append_src_dst_pair(
   vertex_t* mst_src, vertex_t* mst_dst, weight_t* mst_weights)
 {
-  auto policy = handle.get_thrust_policy();
+  auto policy = resource::get_thrust_policy(handle);
 
   edge_t curr_mst_edge_count = prev_mst_edge_count.value(stream);
 

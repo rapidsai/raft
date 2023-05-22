@@ -20,6 +20,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/columnWiseSort.cuh>
 
 namespace raft::matrix {
@@ -71,7 +72,7 @@ void sort_cols_per_row(const InType* in,
  * @param[out] sorted_keys_opt: std::optional, output matrix for sorted keys (input)
  */
 template <typename in_t, typename out_t, typename matrix_idx_t, typename sorted_keys_t>
-void sort_cols_per_row(raft::device_resources const& handle,
+void sort_cols_per_row(raft::resources const& handle,
                        raft::device_matrix_view<const in_t, matrix_idx_t, raft::row_major> in,
                        raft::device_matrix_view<out_t, matrix_idx_t, raft::row_major> out,
                        sorted_keys_t&& sorted_keys_opt)
@@ -100,7 +101,7 @@ void sort_cols_per_row(raft::device_resources const& handle,
                                          alloc_workspace,
                                          (void*)nullptr,
                                          workspace_size,
-                                         handle.get_stream(),
+                                         resource::get_cuda_stream(handle),
                                          keys);
 
   if (alloc_workspace) {
@@ -113,7 +114,7 @@ void sort_cols_per_row(raft::device_resources const& handle,
                                            alloc_workspace,
                                            (void*)workspace.data_handle(),
                                            workspace_size,
-                                           handle.get_stream(),
+                                           resource::get_cuda_stream(handle),
                                            keys);
   }
 }
@@ -133,6 +134,6 @@ void sort_cols_per_row(Args... args)
 
 /** @} */  // end of group col_wise_sort
 
-};  // end namespace raft::matrix
+};         // end namespace raft::matrix
 
 #endif

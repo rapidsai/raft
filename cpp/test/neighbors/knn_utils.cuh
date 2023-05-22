@@ -46,7 +46,8 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
                                             size_t rows,
                                             size_t cols,
                                             const DistT eps,
-                                            cudaStream_t stream = 0)
+                                            cudaStream_t stream = 0,
+                                            bool sort_inputs    = false)
 {
   size_t size = rows * cols;
   std::unique_ptr<T[]> exp_idx_h(new T[size]);
@@ -57,16 +58,30 @@ testing::AssertionResult devArrMatchKnnPair(const T* expected_idx,
   raft::update_host<T>(act_idx_h.get(), actual_idx, size, stream);
   raft::update_host<DistT>(exp_dist_h.get(), expected_dist, size, stream);
   raft::update_host<DistT>(act_dist_h.get(), actual_dist, size, stream);
+
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
+    std::vector<std::pair<DistT, T>> actual;
+    std::vector<std::pair<DistT, T>> expected;
     for (size_t j(0); j < cols; ++j) {
       auto idx      = i * cols + j;  // row major assumption!
       auto exp_idx  = exp_idx_h.get()[idx];
       auto act_idx  = act_idx_h.get()[idx];
       auto exp_dist = exp_dist_h.get()[idx];
       auto act_dist = act_dist_h.get()[idx];
-      idx_dist_pair exp_kvp(exp_idx, exp_dist, raft::CompareApprox<DistT>(eps));
-      idx_dist_pair act_kvp(act_idx, act_dist, raft::CompareApprox<DistT>(eps));
+      actual.push_back(std::make_pair(act_dist, act_idx));
+      expected.push_back(std::make_pair(exp_dist, exp_idx));
+    }
+    if (sort_inputs) {
+      // inputs could be unsorted here, sort for comparison
+      std::sort(actual.begin(), actual.end());
+      std::sort(expected.begin(), expected.end());
+    }
+    for (size_t j(0); j < cols; ++j) {
+      auto act = actual[j];
+      auto exp = expected[j];
+      idx_dist_pair exp_kvp(exp.second, exp.first, raft::CompareApprox<DistT>(eps));
+      idx_dist_pair act_kvp(act.second, act.first, raft::CompareApprox<DistT>(eps));
       if (!(exp_kvp == act_kvp)) {
         return testing::AssertionFailure()
                << "actual=" << act_kvp.idx << "," << act_kvp.dist << "!="

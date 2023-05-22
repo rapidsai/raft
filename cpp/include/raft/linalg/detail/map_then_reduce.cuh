@@ -17,7 +17,7 @@
 #pragma once
 
 #include <cub/cub.cuh>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
@@ -25,8 +25,7 @@ namespace raft {
 namespace linalg {
 namespace detail {
 
-struct sum_tag {
-};
+struct sum_tag {};
 
 template <typename InType, typename OutType, int TPB>
 __device__ void reduce(OutType* out, const InType acc, sum_tag)
