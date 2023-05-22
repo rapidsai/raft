@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -38,7 +39,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void randomized_svd(const raft::device_resources& handle,
+void randomized_svd(const raft::resources& handle,
                     const math_t* in,
                     std::size_t n_rows,
                     std::size_t n_cols,
@@ -61,8 +62,8 @@ void randomized_svd(const raft::device_resources& handle,
 #if CUDART_VERSION < 11050
   RAFT_EXPECTS(gen_U && gen_V, "not computing U or V is not supported in CUDA version < 11.5");
 #endif
-  cudaStream_t stream          = handle.get_stream();
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cudaStream_t stream          = resource::get_cuda_stream(handle);
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
 
   char jobu = gen_U ? 'S' : 'N';
   char jobv = gen_V ? 'S' : 'N';
