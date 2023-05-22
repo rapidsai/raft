@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/linalg/map.cuh>

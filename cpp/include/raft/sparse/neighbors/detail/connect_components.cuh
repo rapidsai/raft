@@ -335,8 +335,9 @@ void perform_1nn(raft::resources const& handle,
                     });
 
   raft::matrix::scatter(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
-  thrust::scatter(exec_policy, kvp, kvp + n_rows, sort_plan.data_handle(), kvp);
-  thrust::scatter(exec_policy, colors, colors + n_rows, sort_plan.data_handle(), colors);
+  auto it = thrust::make_zip_iterator(thrust::make_tuple(kvp, colors));
+  thrust::scatter(exec_policy, it, it + n_rows, sort_plan.data_handle(), it);
+  // thrust::scatter(exec_policy, colors, colors + n_rows, sort_plan.data_handle(), colors);
   reduction_op.scatter(handle, sort_plan.data_handle());
 
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
