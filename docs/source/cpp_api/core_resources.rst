@@ -25,7 +25,7 @@ namespace *raft::resource*
 Device Resources
 ----------------
 
-`raft::device_resources` is a convenience over using `raft::resources` directly. It provides accessor methods to retrieve things like the CUDA stream, stream pool, and handles to the various CUDA math libraries like cuBLAS and cuSOLVER. 
+`raft::device_resources` is a convenience over using `raft::resources` directly. It provides accessor methods to retrieve resources such as the CUDA stream, stream pool, and handles to the various CUDA math libraries like cuBLAS and cuSOLVER. 
 
 ``#include <raft/core/device_resources.hpp>``
 
