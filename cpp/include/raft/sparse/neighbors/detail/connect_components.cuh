@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "raft/core/logger-macros.hpp"
 #include <cstdint>
 #include <cub/cub.cuh>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -48,6 +49,9 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
+#include <thrust/gather.h>
+#include <thrust/scatter.h>
+
 #include <cub/cub.cuh>
 
 #include <limits>
@@ -65,25 +69,26 @@ namespace raft::sparse::neighbors::detail {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
+  value_idx* colors;
   value_idx m;
 
   // default constructor for cutlass
-  DI FixConnectivitiesRedOp() : m(0) {}
+  DI FixConnectivitiesRedOp() : colors(0), m(0) {}
 
-  FixConnectivitiesRedOp(value_idx m_) : m(m_){};
+  FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
-    if (rit < m && other.value < out->value) {
+    if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
       out->key   = other.key;
       out->value = other.value;
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
   {
-    if (rit < m && a.value < b.value) {
+    if (rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
       return a;
     } else
       return b;
@@ -103,9 +108,17 @@ struct FixConnectivitiesRedOp {
 
   DI value_t get_value(value_t& out) const { return out; }
 
-  void gather(raft::resources const& handle, value_idx* map) {}
+  void gather(const raft::resources& handle, value_idx* map)
+  {
+    thrust::gather(raft::resource::get_thrust_policy(handle), map, map + m, colors, colors);
+  }
 
-  void scatter(raft::resources const& handle, value_idx* map) {}
+  void scatter(const raft::resources& handle, value_idx* map)
+  {
+    thrust::scatter(
+      raft::resource::get_thrust_policy(handle), colors, colors + m, map, colors);
+  }
+
 };
 
 /**
@@ -244,6 +257,9 @@ void perform_1nn(raft::resources const& handle,
   auto colors_group_idxs = raft::make_device_vector<value_idx, value_idx>(handle, n_components + 1);
   raft::sparse::convert::sorted_coo_to_csr(
     colors, n_rows, colors_group_idxs.data_handle(), n_components + 1, stream);
+  
+  raft::print_device_vector("colors", colors, n_rows, std::cout);
+  raft::print_device_vector("color_group_idxs", colors_group_idxs.data_handle(), n_components + 1, std::cout);
 
   auto group_idxs_view =
     raft::make_device_vector_view(colors_group_idxs.data_handle() + 1, n_components);
@@ -281,10 +297,16 @@ void perform_1nn(raft::resources const& handle,
       value_idx col = idx % n_components;
       return colors[batch_offset + row] != col;
     };
+    
+    auto adj_vector_view = raft::make_device_vector_view<bool, value_idx>(
+      adj.data_handle(), rows_per_batch * n_components);
+
+    raft::linalg::map_offset(handle, adj_vector_view, mask_op);
+
     auto adj_view = raft::make_device_matrix_view<bool, value_idx>(
       adj.data_handle(), rows_per_batch, n_components);
 
-    raft::linalg::map_offset(handle, adj_view, mask_op);
+    raft::print_device_vector("adj", adj.data_handle(), rows_per_batch * n_components, std::cout);
 
     auto kvp_view =
       raft::make_device_vector_view<raft::KeyValuePair<value_idx, value_t>, value_idx>(
@@ -300,8 +322,6 @@ void perform_1nn(raft::resources const& handle,
                                                                            group_idxs_view,
                                                                            kvp_view);
   }
-  LookupColorOp<value_idx, value_t> extract_colors_op(colors);
-  thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
 
   thrust::transform(exec_policy,
                     kvp,
@@ -316,7 +336,11 @@ void perform_1nn(raft::resources const& handle,
 
   raft::matrix::scatter(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
   thrust::scatter(exec_policy, kvp, kvp + n_rows, sort_plan.data_handle(), kvp);
+  thrust::scatter(exec_policy, colors, colors + n_rows, sort_plan.data_handle(), colors);
   reduction_op.scatter(handle, sort_plan.data_handle());
+
+  LookupColorOp<value_idx, value_t> extract_colors_op(colors);
+  thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
 }
 
 /**
@@ -454,6 +478,8 @@ void connect_components(raft::resources const& handle,
   bool zero_based = true;
   raft::label::make_monotonic(
     colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
+  
+  raft::print_device_vector("orig_colors", orig_colors, n_rows, std::cout);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -507,12 +533,47 @@ void connect_components(raft::resources const& handle,
 
   min_components_by_color(
     min_edges, out_index.data(), src_indices.data(), temp_inds_dists.data(), n_rows, stream);
+  
+  raft::sparse::op::coo_sort(n_rows,
+                             n_rows,
+                             min_edges.nnz,
+                             min_edges.rows(),
+                             min_edges.cols(),
+                             min_edges.vals(),
+                             stream);
+  
+  rmm::device_uvector<value_idx> min_edges_row_colors(min_edges.nnz, stream);
+  rmm::device_uvector<value_idx> min_edges_col_colors(min_edges.nnz, stream);
 
+  thrust::transform(rmm::exec_policy(stream), min_edges.rows(), min_edges.rows() + min_edges.nnz, min_edges_row_colors.data(), [orig_colors]__device__(auto idx) {return orig_colors[idx];});
+  thrust::transform(rmm::exec_policy(stream), min_edges.cols(), min_edges.cols() + min_edges.nnz, min_edges_col_colors.data(), [orig_colors]__device__(auto idx) {return orig_colors[idx];});
+
+
+  raft::print_device_vector("mnn_min_edges_rows", min_edges.rows(), min_edges.nnz, std::cout);
+  raft::print_device_vector("mnn_min_edges_cols", min_edges.cols(), min_edges.nnz, std::cout);
+  raft::print_device_vector("mnn_min_edges_vals", min_edges.vals(), min_edges.nnz, std::cout);
+  raft::print_device_vector("row_colors", min_edges_row_colors.data(), min_edges.nnz, std::cout);
+  raft::print_device_vector("col_colors", min_edges_col_colors.data(), min_edges.nnz, std::cout);
+  
   /**
    * Symmetrize resulting edge list
    */
   raft::sparse::linalg::symmetrize(
     handle, min_edges.rows(), min_edges.cols(), min_edges.vals(), n_rows, n_rows, size, out);
+
+  rmm::device_uvector<value_idx> row_colors(out.nnz, stream);
+  rmm::device_uvector<value_idx> col_colors(out.nnz, stream);
+
+  thrust::transform(rmm::exec_policy(stream), out.rows(), out.rows() + out.nnz, row_colors.data(), [orig_colors]__device__(auto idx) {return orig_colors[idx];});
+  thrust::transform(rmm::exec_policy(stream), out.cols(), out.cols() + out.nnz, col_colors.data(), [orig_colors]__device__(auto idx) {return orig_colors[idx];});
+
+
+  raft::print_device_vector("mnn_out_rows", out.rows(), out.nnz, std::cout);
+  raft::print_device_vector("mnn_out_cols", out.cols(), out.nnz, std::cout);
+  raft::print_device_vector("mnn_out_vals", out.vals(), out.nnz, std::cout);
+  raft::print_device_vector("row_colors", row_colors.data(), out.nnz, std::cout);
+  raft::print_device_vector("col_colors", col_colors.data(), out.nnz, std::cout);
 }
+
 
 };  // end namespace raft::sparse::neighbors::detail

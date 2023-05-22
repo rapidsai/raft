@@ -128,6 +128,7 @@ struct masked_l2_nn : public fixture {
     dim3 block(32, 32);
     dim3 grid(10, 10);
     init_adj<<<grid, block, 0, stream>>>(p.pattern, p.n, adj.view(), group_idxs.view());
+
     RAFT_CUDA_TRY(cudaGetLastError());
   }
 

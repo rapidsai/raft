@@ -189,6 +189,8 @@ const std::vector<GatherInputs<int>> inputs_i32 =
 const std::vector<GatherInputs<int64_t>> inputs_i64 =
   raft::util::itertools::product<GatherInputs<int64_t>>(
     {25, 2000}, {6, 31, 129}, {11, 999}, {1234ULL});
+const std::vector<GatherInputs<int>> inputs_inplace =
+  raft::util::itertools::product<GatherInputs<int>>({25, 2000}, {6, 31, 129}, {11, 999}, {1234ULL});
 
 GATHER_TEST((GatherTest<false, false, float, uint32_t, int>), GatherTestFU32I32, inputs_i32);
 GATHER_TEST((GatherTest<false, true, float, uint32_t, int>),
