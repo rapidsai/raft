@@ -13,8 +13,6 @@ versioneer_override="$(rapids-pip-wheel-version RAPIDS_EPOCH_TIMESTAMP)"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CTK_VERSION})"
 
-${RAPIDS_BEFORE_WHEEL}
-
 bash ci/release/apply_wheel_modifications.sh ${versioneer_override} "-${RAPIDS_PY_CUDA_SUFFIX}"
 echo "The package name and/or version was modified in the package source. The git diff is:"
 git diff
