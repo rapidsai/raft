@@ -19,6 +19,7 @@
 #include "ann_utils.cuh"
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
@@ -273,20 +274,21 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
       auto vectors_data =
         raft::make_device_matrix_view<const DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
-      auto index = ivf_flat::build(handle_, vectors_data, index_params);
+      auto index = ivf_flat::build(handle_, index_params, vectors_data);
 
       rmm::device_uvector<IdxT> vecs_ids(ps.num_db_vecs, stream_);
-      thrust::sequence(handle_.get_thrust_policy(),
+      thrust::sequence(resource::get_thrust_policy(handle_),
                        thrust::device_pointer_cast(vecs_ids.data()),
                        thrust::device_pointer_cast(vecs_ids.data() + ps.num_db_vecs));
-      handle_.sync_stream(stream_);
+      resource::sync_stream(handle_);
 
       auto vectors_ids =
         raft::make_device_vector_view<const IdxT, IdxT>(vecs_ids.data(), ps.num_db_vecs);
       auto vectors_out =
         raft::make_device_matrix<DataT, IdxT, row_major>(handle_, ps.num_db_vecs, ps.dim);
       ivf_flat::reconstruct_batch(handle_, index, vectors_ids, vectors_out.view());
-      handle_.sync_stream(stream_);
+
+      resource::sync_stream(handle_);
 
       ASSERT_TRUE(raft::devArrMatch(vectors_data.data_handle(),
                                     vectors_out.data_handle(),

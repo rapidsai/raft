@@ -337,6 +337,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivf_flat_search_float_int64_t.cu
     src/neighbors/ivf_flat_search_int8_t_int64_t.cu
     src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_float_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu
@@ -602,7 +605,9 @@ target_link_libraries(raft::raft INTERFACE
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 rapids_export(
   INSTALL raft
-  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   NAMESPACE raft::
   DOCUMENTATION doc_string
@@ -613,7 +618,9 @@ rapids_export(
 # * build export -------------------------------------------------------------
 rapids_export(
   BUILD raft
-  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   DOCUMENTATION doc_string
   NAMESPACE raft::

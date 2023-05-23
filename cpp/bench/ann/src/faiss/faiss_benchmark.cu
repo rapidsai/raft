@@ -104,10 +104,10 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
 
-  raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
+    raft::bench::ann::Metric metric = parse_metric(distance);
     if (algo == "faiss_gpu_ivf_flat") {
       ann = make_algo<T, raft::bench::ann::FaissGpuIVFFlat>(metric, dim, conf, dev_list);
     } else if (algo == "faiss_gpu_ivf_pq") {

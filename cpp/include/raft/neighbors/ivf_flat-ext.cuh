@@ -93,6 +93,12 @@ void search(raft::resources const& handle,
             raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::device_matrix_view<float, IdxT, row_major> distances) RAFT_EXPLICIT;
 
+template <typename T, typename IdxT>
+void reconstruct_batch(raft::resources const& handle,
+                       const index<T, IdxT>& index,
+                       raft::device_vector_view<const IdxT, IdxT> vector_ids,
+                       raft::device_matrix_view<T, IdxT, row_major> vector_out) RAFT_EXPLICIT;
+
 }  // namespace raft::neighbors::ivf_flat
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -183,3 +189,16 @@ instantiate_raft_neighbors_ivf_flat_search(int8_t, int64_t);
 instantiate_raft_neighbors_ivf_flat_search(uint8_t, int64_t);
 
 #undef instantiate_raft_neighbors_ivf_flat_search
+
+#define instantiate_raft_neighbors_ivf_flat_reconstruct(T, IdxT)              \
+  extern template void raft::neighbors::ivf_flat::reconstruct_batch<T, IdxT>( \
+    raft::resources const& handle,                                            \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& index,                   \
+    raft::device_vector_view<const IdxT, IdxT> vector_ids,                    \
+    raft::device_matrix_view<T, IdxT, row_major> vector_out);
+
+instantiate_raft_neighbors_ivf_flat_reconstruct(float, int64_t);
+instantiate_raft_neighbors_ivf_flat_reconstruct(int8_t, int64_t);
+instantiate_raft_neighbors_ivf_flat_reconstruct(uint8_t, int64_t);
+
+#undef instantiate_raft_neighbors_ivf_flat_reconstruct

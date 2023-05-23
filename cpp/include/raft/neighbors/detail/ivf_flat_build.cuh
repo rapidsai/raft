@@ -17,11 +17,13 @@
 #pragma once
 
 #include <raft/cluster/kmeans_balanced.cuh>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
@@ -472,48 +474,49 @@ __global__ void reconstruct_batch_kernel(const IdxT* vector_ids,
 }
 
 template <typename T, typename IdxT>
-void reconstruct_batch(raft::device_resources const& handle,
+void reconstruct_batch(raft::resources const& handle,
                        const index<T, IdxT>& index,
-                       device_mdspan<const IdxT, extent_1d<IdxT>, row_major> vector_ids,
-                       device_mdspan<T, extent_2d<IdxT>, row_major> vector_out)
+                       raft::device_vector_view<const IdxT, IdxT> vector_ids,
+                       raft::device_matrix_view<T, IdxT, row_major> vector_out)
 {
+  auto stream      = raft::resource::get_cuda_stream(handle);
+  auto exec_policy = raft::resource::get_thrust_policy(handle);
+
   thrust::device_ptr<const IdxT> vector_ids_ptr =
     thrust::device_pointer_cast(vector_ids.data_handle());
-  IdxT max_indice = *thrust::max_element(
-    handle.get_thrust_policy(), vector_ids_ptr, vector_ids_ptr + vector_ids.extent(0));
+  IdxT max_indice =
+    *thrust::max_element(exec_policy, vector_ids_ptr, vector_ids_ptr + vector_ids.extent(0));
 
-  rmm::device_uvector<T*> ptrs_to_data(max_indice + 1, handle.get_stream());
-  utils::memzero(ptrs_to_data.data(), ptrs_to_data.size(), handle.get_stream());
+  rmm::device_uvector<T*> ptrs_to_data(max_indice + 1, stream);
+  utils::memzero(ptrs_to_data.data(), ptrs_to_data.size(), stream);
 
   thrust::device_ptr<const uint32_t> list_sizes_ptr =
     thrust::device_pointer_cast(index.list_sizes().data_handle());
   uint32_t max_list_size = *thrust::max_element(
-    handle.get_thrust_policy(), list_sizes_ptr, list_sizes_ptr + index.list_sizes().extent(0));
+    exec_policy, list_sizes_ptr, list_sizes_ptr + index.list_sizes().extent(0));
 
   const dim3 block_dim1(16, 16);
   const dim3 grid_dim1(raft::ceildiv<size_t>(index.n_lists(), block_dim1.x),
                        raft::ceildiv<size_t>(max_list_size, block_dim1.y));
-  get_data_ptr_kernel<<<grid_dim1, block_dim1, 0, handle.get_stream()>>>(
-    index.list_sizes().data_handle(),
-    index.data_ptrs().data_handle(),
-    index.inds_ptrs().data_handle(),
-    index.dim(),
-    index.veclen(),
-    index.n_lists(),
-    max_indice,
-    ptrs_to_data.data());
+  get_data_ptr_kernel<<<grid_dim1, block_dim1, 0, stream>>>(index.list_sizes().data_handle(),
+                                                            index.data_ptrs().data_handle(),
+                                                            index.inds_ptrs().data_handle(),
+                                                            index.dim(),
+                                                            index.veclen(),
+                                                            index.n_lists(),
+                                                            max_indice,
+                                                            ptrs_to_data.data());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   auto n_reconstruction = vector_ids.extent(0);
   const dim3 block_dim2(256);
   const dim3 grid_dim2(raft::ceildiv<size_t>(n_reconstruction, block_dim2.x));
-  reconstruct_batch_kernel<<<grid_dim2, block_dim2, 0, handle.get_stream()>>>(
-    vector_ids.data_handle(),
-    (const T**)ptrs_to_data.data(),
-    index.dim(),
-    index.veclen(),
-    n_reconstruction,
-    vector_out.data_handle());
+  reconstruct_batch_kernel<<<grid_dim2, block_dim2, 0, stream>>>(vector_ids.data_handle(),
+                                                                 (const T**)ptrs_to_data.data(),
+                                                                 index.dim(),
+                                                                 index.veclen(),
+                                                                 n_reconstruction,
+                                                                 vector_out.data_handle());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
