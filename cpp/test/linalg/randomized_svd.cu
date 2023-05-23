@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/device_resources.hpp>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/diagonal.cuh>
