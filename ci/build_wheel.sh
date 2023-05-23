@@ -1,6 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2023, NVIDIA CORPORATION.
 
+set -euo pipefail
+
 package_name=$1
 package_dir=$2
 
@@ -37,7 +39,7 @@ python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 # Repair the wheel
 cd dist
-if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+if [[ "${RAPIDS_ARCH}" == "amd64" ]]; then
     python -m auditwheel repair -w . ${package_name}* --plat manylinux_2_17_x86_64
 else
     python -m auditwheel repair -w . ${package_name}* --plat manylinux_2_31_aarch64

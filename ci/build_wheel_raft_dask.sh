@@ -1,6 +1,8 @@
 #!/bin/bash
 # Copyright (c) 2023, NVIDIA CORPORATION.
 
+set -euo pipefail
+
 pyenv global ${RAPIDS_PY_VERSION}
 
 # Set up skbuild options. Enable sccache in skbuild config options
