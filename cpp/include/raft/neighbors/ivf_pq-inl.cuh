@@ -133,6 +133,64 @@ void extend(raft::resources const& handle,
 }
 
 /**
+ * @brief Search ANN using the constructed index using the given filter.
+ *
+ * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
+ *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`.
+ * The exact size of the temporary buffer depends on multiple factors and is an implementation
+ * detail. However, you can safely specify a small initial size for the memory pool, so that only a
+ * few allocations happen to grow it during the first invocations of the `search`.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] idx ivf-pq constructed index
+ * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
+ * k]
+ * @param[in] sample_filter a filter the greenlights samples for a given query.
+ */
+template <typename T, typename IdxT, typename SampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           raft::device_matrix_view<const T, uint32_t, row_major> queries,
+                           raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+                           raft::device_matrix_view<float, uint32_t, row_major> distances,
+                           SampleFilterT sample_filter = SampleFilterT())
+{
+  RAFT_EXPECTS(
+    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
+    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
+
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must equal k");
+
+  RAFT_EXPECTS(queries.extent(1) == idx.dim(),
+               "Number of query dimensions should equal number of dimensions in the index.");
+
+  std::uint32_t k = neighbors.extent(1);
+  detail::search(handle,
+                 params,
+                 idx,
+                 queries.data_handle(),
+                 queries.extent(0),
+                 k,
+                 neighbors.data_handle(),
+                 distances.data_handle(),
+                 resource::get_workspace_resource(handle),
+                 sample_filter);
+}
+
+/**
  * @brief Search ANN using the constructed index.
  *
  * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
@@ -161,30 +219,12 @@ template <typename T, typename IdxT>
 void search(raft::resources const& handle,
             const search_params& params,
             const index<IdxT>& idx,
-            raft::device_matrix_view<const T, IdxT, row_major> queries,
-            raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-            raft::device_matrix_view<float, IdxT, row_major> distances)
+            raft::device_matrix_view<const T, uint32_t, row_major> queries,
+            raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+            raft::device_matrix_view<float, uint32_t, row_major> distances)
 {
-  RAFT_EXPECTS(
-    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
-    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
-
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
-               "Number of columns in output neighbors and distances matrices must equal k");
-
-  RAFT_EXPECTS(queries.extent(1) == idx.dim(),
-               "Number of query dimensions should equal number of dimensions in the index.");
-
-  std::uint32_t k = neighbors.extent(1);
-  return detail::search(handle,
-                        params,
-                        idx,
-                        queries.data_handle(),
-                        static_cast<std::uint32_t>(queries.extent(0)),
-                        k,
-                        neighbors.data_handle(),
-                        distances.data_handle(),
-                        resource::get_workspace_resource(handle));
+  search_with_filtering(
+    handle, params, idx, queries, neighbors, distances, detail::NoneSampleFilter());
 }
 
 /** @} */  // end group ivf_pq
@@ -297,6 +337,22 @@ void extend(raft::resources const& handle,
   detail::extend(handle, idx, new_vectors, new_indices, n_rows);
 }
 
+template <typename T, typename IdxT, typename SampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           const T* queries,
+                           uint32_t n_queries,
+                           uint32_t k,
+                           IdxT* neighbors,
+                           float* distances,
+                           rmm::mr::device_memory_resource* mr = nullptr,
+                           SampleFilterT sample_filter         = SampleFilterT())
+{
+  detail::search(
+    handle, params, idx, queries, n_queries, k, neighbors, distances, mr, sample_filter);
+}
+
 /**
  * @brief Search ANN using the constructed index.
  *
@@ -350,7 +406,7 @@ void search(raft::resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, mr);
+  detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, mr);
 }
 
 }  // namespace raft::neighbors::ivf_pq

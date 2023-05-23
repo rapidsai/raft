@@ -215,6 +215,7 @@ if(BUILD_TESTS)
     test/linalg/norm.cu
     test/linalg/normalize.cu
     test/linalg/power.cu
+    test/linalg/randomized_svd.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
     test/linalg/reduce_rows_by_key.cu
@@ -316,6 +317,7 @@ if(BUILD_TESTS)
     test/neighbors/ann_cagra/test_float_uint32_t.cu
     test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
     test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
+    test/neighbors/ann_cagra/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu

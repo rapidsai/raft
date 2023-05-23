@@ -19,10 +19,7 @@ import pytest
 from pylibraft.common import DeviceResources, Stream, device_ndarray
 from pylibraft.distance import pairwise_distance
 
-try:
-    import cupy
-except ImportError:
-    pytest.skip(reason="cupy not installed.")
+cupy = pytest.importorskip("cupy")
 
 
 @pytest.mark.parametrize("stream", [cupy.cuda.Stream().ptr, Stream()])

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -36,6 +37,96 @@
 namespace raft {
 namespace linalg {
 namespace detail {
+
+template <typename math_t>
+void randomized_svd(const raft::resources& handle,
+                    const math_t* in,
+                    std::size_t n_rows,
+                    std::size_t n_cols,
+                    std::size_t k,
+                    std::size_t p,
+                    std::size_t niters,
+                    math_t* S,
+                    math_t* U,
+                    math_t* V,
+                    bool gen_U,
+                    bool gen_V)
+{
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "raft::linalg::randomized_svd(%d, %d, %d)", n_rows, n_cols, k);
+
+  RAFT_EXPECTS(k < std::min(n_rows, n_cols), "k must be < min(n_rows, n_cols)");
+  RAFT_EXPECTS((k + p) < std::min(n_rows, n_cols), "k + p must be < min(n_rows, n_cols)");
+  RAFT_EXPECTS(!gen_U || (U != nullptr), "computation of U vector requested but found nullptr");
+  RAFT_EXPECTS(!gen_V || (V != nullptr), "computation of V vector requested but found nullptr");
+#if CUDART_VERSION < 11050
+  RAFT_EXPECTS(gen_U && gen_V, "not computing U or V is not supported in CUDA version < 11.5");
+#endif
+  cudaStream_t stream          = resource::get_cuda_stream(handle);
+  cusolverDnHandle_t cusolverH = resource::get_cusolver_dn_handle(handle);
+
+  char jobu = gen_U ? 'S' : 'N';
+  char jobv = gen_V ? 'S' : 'N';
+
+  auto lda     = n_rows;
+  auto ldu     = n_rows;
+  auto ldv     = n_cols;
+  auto* in_ptr = const_cast<math_t*>(in);
+
+  size_t workspaceDevice = 0;
+  size_t workspaceHost   = 0;
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr_bufferSize(cusolverH,
+                                                 jobu,
+                                                 jobv,
+                                                 n_rows,
+                                                 n_cols,
+                                                 k,
+                                                 p,
+                                                 niters,
+                                                 in_ptr,
+                                                 lda,
+                                                 S,
+                                                 U,
+                                                 ldu,
+                                                 V,
+                                                 ldv,
+                                                 &workspaceDevice,
+                                                 &workspaceHost,
+                                                 stream));
+
+  auto d_workspace = raft::make_device_vector<char>(handle, workspaceDevice);
+  auto h_workspace = raft::make_host_vector<char>(workspaceHost);
+  auto devInfo     = raft::make_device_scalar<int>(handle, 0);
+
+  RAFT_CUSOLVER_TRY(cusolverDnxgesvdr(cusolverH,
+                                      jobu,
+                                      jobv,
+                                      n_rows,
+                                      n_cols,
+                                      k,
+                                      p,
+                                      niters,
+                                      in_ptr,
+                                      lda,
+                                      S,
+                                      U,
+                                      ldu,
+                                      V,
+                                      ldv,
+                                      d_workspace.data_handle(),
+                                      workspaceDevice,
+                                      h_workspace.data_handle(),
+                                      workspaceHost,
+                                      devInfo.data_handle(),
+                                      stream));
+
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  int dev_info;
+  raft::update_host(&dev_info, devInfo.data_handle(), 1, stream);
+  resource::sync_stream(handle);
+  ASSERT(dev_info == 0, "rsvd.cuh: Invalid parameter encountered.");
+}
 
 /**
  * @brief randomized singular value decomposition (RSVD) on the column major

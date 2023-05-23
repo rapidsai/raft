@@ -31,6 +31,11 @@
 namespace raft {
 
 /**
+ * @defgroup interruptible definitions and classes related to the interruptible API
+ * @{
+ */
+
+/**
  * @brief Exception thrown during `interruptible::synchronize` call when it detects a request
  * to cancel the work performed in this CPU thread.
  */
@@ -296,6 +301,10 @@ class interruptible {
     RAFT_CUDA_TRY(query_result);
   }
 };
+
+/**
+ * @}
+ */
 
 }  // namespace raft
 

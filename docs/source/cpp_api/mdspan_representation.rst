@@ -40,17 +40,15 @@ Shapes
 .. doxygentypedef:: raft::extent_5d
     :project: RAFT
 
-.. doxygenfunction:: raft::flatten(mdspan_type mds)
+.. doxygengroup:: mdspan_reshape
     :project: RAFT
+    :members:
+    :content-only:
 
-.. doxygenfunction:: raft:: flatten(const array_interface_type& mda)
+.. doxygengroup:: mdarray_reshape
     :project: RAFT
-
-.. doxygenfunction:: raft::reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
-    :project: RAFT
-
-.. doxygenfunction:: raft::reshape(const array_interface_type& mda, extents<IndexType, Extents...> new_shape)
-    :project: RAFT
+    :members:
+    :content-only:
 
 
 Accessors

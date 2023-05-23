@@ -117,9 +117,9 @@ void approx_knn_search(raft::resources const& handle,
     params.n_probes = index->nprobe;
 
     auto query_view =
-      raft::make_device_matrix_view<const T, int64_t>(query_array, n, index->ivf_pq->dim());
-    auto indices_view   = raft::make_device_matrix_view<int64_t, int64_t>(indices, n, k);
-    auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
+      raft::make_device_matrix_view<const T, uint32_t>(query_array, n, index->ivf_pq->dim());
+    auto indices_view   = raft::make_device_matrix_view<int64_t, uint32_t>(indices, n, k);
+    auto distances_view = raft::make_device_matrix_view<float, uint32_t>(distances, n, k);
     neighbors::ivf_pq::search(
       handle, params, *index->ivf_pq, query_view, indices_view, distances_view);
   } else {
