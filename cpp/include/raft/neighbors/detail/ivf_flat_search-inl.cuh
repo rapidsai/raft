@@ -26,7 +26,7 @@
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
-#include <raft/neighbors/sample_filter.cuh>                     // NoneIvfSampleFilter
+#include <raft/neighbors/sample_filter.cuh>                     // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 #include <rmm/mr/device/per_device_resource.hpp>                // rmm::device_memory_resource
 
@@ -207,7 +207,7 @@ void search_impl(raft::resources const& handle,
 /** See raft::neighbors::ivf_flat::search docs */
 template <typename T,
           typename IdxT,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<T, IdxT>& index,

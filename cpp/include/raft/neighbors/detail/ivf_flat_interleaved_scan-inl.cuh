@@ -1075,7 +1075,7 @@ struct select_interleaved_scan_kernel {
  *               (one block processes one or more probes, hence: 1 <= grid_dim_x <= n_probes)
  * @param stream
  * @param sample_filter
- *   A filter that selects samples for a given query. Use an instance of NoneIvfSampleFilter to
+ *   A filter that selects samples for a given query. Use an instance of none_ivf_sample_filter to
  *   provide a green light for every sample.
  */
 template <typename T, typename AccT, typename IdxT, typename IvfSampleFilterT>

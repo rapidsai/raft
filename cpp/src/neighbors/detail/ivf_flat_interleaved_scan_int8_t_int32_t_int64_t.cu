@@ -37,6 +37,6 @@
     rmm::cuda_stream_view stream)
 
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
-  int8_t, int32_t, int64_t, raft::neighbors::filtering::NoneIvfSampleFilter);
+  int8_t, int32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 
 #undef instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan

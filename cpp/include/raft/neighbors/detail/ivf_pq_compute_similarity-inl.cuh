@@ -20,7 +20,7 @@
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 #include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>  // dummy_block_sort_t
 #include <raft/neighbors/ivf_pq_types.hpp>                    // codebook_gen
-#include <raft/neighbors/sample_filter.cuh>                   // NoneIvfSampleFilter
+#include <raft/neighbors/sample_filter.cuh>                   // none_ivf_sample_filter
 #include <raft/util/cuda_rt_essentials.hpp>                   // RAFT_CUDA_TRY
 #include <raft/util/device_atomics.cuh>                       // raft::atomicMin
 #include <raft/util/pow2_utils.cuh>                           // raft::Pow2
@@ -229,7 +229,7 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   query_kths keep the current state of the filtering - atomically updated distances to the
  *   k-th closest neighbors for each query [n_queries].
  * @param sample_filter
- *   A filter that selects samples for a given query. Use an instance of NoneIvfSampleFilter to
+ *   A filter that selects samples for a given query. Use an instance of none_ivf_sample_filter to
  *   provide a green light for every sample.
  * @param lut_scores
  *   The device pointer for storing the lookup table globally [gridDim.x, pq_dim << PqBits].
@@ -495,7 +495,7 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
 // The signature of the kernel defined by a minimal set of template parameters
 template <typename OutT,
           typename LutT,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 using compute_similarity_kernel_t =
   decltype(&compute_similarity_kernel<OutT, LutT, IvfSampleFilterT, 8, 0, true, true>);
 
@@ -504,7 +504,7 @@ template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 struct compute_similarity_kernel_config {
  public:
   static auto get(uint32_t pq_bits, uint32_t k_max)
@@ -554,7 +554,7 @@ template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
   -> compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT>
 {
@@ -599,7 +599,7 @@ struct selected {
 
 template <typename OutT,
           typename LutT,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
                             rmm::cuda_stream_view stream,
                             uint32_t n_rows,
@@ -666,7 +666,7 @@ void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
  */
 template <typename OutT,
           typename LutT,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                bool manage_local_topk,
                                int locality_hint,

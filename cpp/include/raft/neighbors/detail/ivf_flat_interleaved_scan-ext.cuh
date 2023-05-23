@@ -18,7 +18,7 @@
 
 #include <cstdint>                            // uintX_t
 #include <raft/neighbors/ivf_flat_types.hpp>  // raft::neighbors::ivf_flat::index
-#include <raft/neighbors/sample_filter.cuh>   // NoneIvfSampleFilter
+#include <raft/neighbors/sample_filter.cuh>   // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>        // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>           // rmm:cuda_stream_view
 
@@ -66,10 +66,10 @@ void ivfflat_interleaved_scan(const raft::neighbors::ivf_flat::index<T, IdxT>& i
     rmm::cuda_stream_view stream)
 
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
-  float, float, int64_t, raft::neighbors::filtering::NoneIvfSampleFilter);
+  float, float, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
-  int8_t, int32_t, int64_t, raft::neighbors::filtering::NoneIvfSampleFilter);
+  int8_t, int32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(
-  uint8_t, uint32_t, int64_t, raft::neighbors::filtering::NoneIvfSampleFilter);
+  uint8_t, uint32_t, int64_t, raft::neighbors::filtering::none_ivf_sample_filter);
 
 #undef instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan

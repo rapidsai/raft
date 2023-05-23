@@ -22,7 +22,7 @@
 namespace raft::neighbors::filtering {
 
 /* A filter that filters nothing. This is the default behavior. */
-struct NoneIvfSampleFilter {
+struct none_ivf_sample_filter {
   inline __device__ __host__ bool operator()(
     // query index
     const uint32_t query_ix,
@@ -40,18 +40,18 @@ struct NoneIvfSampleFilter {
  * filter template can be used:
  *
  * template <typename IdxT>
- * struct IndexIvfSampleFilter {
+ * struct index_ivf_sample_filter {
  *   using index_type = IdxT;
  *
  *   const index_type* const* inds_ptr = nullptr;
  *
- *   IndexIvfSampleFilter() {}
- *   IndexIvfSampleFilter(const index_type* const* _inds_ptr)
+ *   index_ivf_sample_filter() {}
+ *   index_ivf_sample_filter(const index_type* const* _inds_ptr)
  *       : inds_ptr{_inds_ptr} {}
- *   IndexIvfSampleFilter(const IndexIvfSampleFilter&) = default;
- *   IndexIvfSampleFilter(IndexIvfSampleFilter&&) = default;
- *   IndexIvfSampleFilter& operator=(const IndexIvfSampleFilter&) = default;
- *   IndexIvfSampleFilter& operator=(IndexIvfSampleFilter&&) = default;
+ *   index_ivf_sample_filter(const index_ivf_sample_filter&) = default;
+ *   index_ivf_sample_filter(index_ivf_sample_filter&&) = default;
+ *   index_ivf_sample_filter& operator=(const index_ivf_sample_filter&) = default;
+ *   index_ivf_sample_filter& operator=(index_ivf_sample_filter&&) = default;
  *
  *   inline __device__ __host__ bool operator()(
  *       const uint32_t query_ix,
@@ -65,7 +65,7 @@ struct NoneIvfSampleFilter {
  * };
  *
  * Initialize it as:
- *   using filter_type = IndexIvfSampleFilter<idx_t>;
+ *   using filter_type = index_ivf_sample_filter<idx_t>;
  *   filter_type filter(raft_ivfpq_index.inds_ptrs().data_handle());
  *
  * Use it as:
@@ -78,25 +78,25 @@ struct NoneIvfSampleFilter {
  * to a contiguous bit mask vector.
  *
  * template <typename IdxT>
- * struct BitMaskIvfSampleFilter {
+ * struct bitmask_ivf_sample_filter {
  *   using index_type = IdxT;
  *
  *   const index_type* const* inds_ptr = nullptr;
  *   const uint64_t* const bit_mask_ptr = nullptr;
  *   const int64_t bit_mask_stride_64 = 0;
  *
- *   BitMaskIvfSampleFilter() {}
- *   BitMaskIvfSampleFilter(
+ *   bitmask_ivf_sample_filter() {}
+ *   bitmask_ivf_sample_filter(
  *       const index_type* const* _inds_ptr,
  *       const uint64_t* const _bit_mask_ptr,
  *       const int64_t _bit_mask_stride_64)
  *       : inds_ptr{_inds_ptr},
  *         bit_mask_ptr{_bit_mask_ptr},
  *         bit_mask_stride_64{_bit_mask_stride_64} {}
- *   BitMaskIvfSampleFilter(const BitMaskIvfSampleFilter&) = default;
- *   BitMaskIvfSampleFilter(BitMaskIvfSampleFilter&&) = default;
- *   BitMaskIvfSampleFilter& operator=(const BitMaskIvfSampleFilter&) = default;
- *   BitMaskIvfSampleFilter& operator=(BitMaskIvfSampleFilter&&) = default;
+ *   bitmask_ivf_sample_filter(const bitmask_ivf_sample_filter&) = default;
+ *   bitmask_ivf_sample_filter(bitmask_ivf_sample_filter&&) = default;
+ *   bitmask_ivf_sample_filter& operator=(const bitmask_ivf_sample_filter&) = default;
+ *   bitmask_ivf_sample_filter& operator=(bitmask_ivf_sample_filter&&) = default;
  *
  *   inline __device__ __host__ bool operator()(
  *       const uint32_t query_ix,

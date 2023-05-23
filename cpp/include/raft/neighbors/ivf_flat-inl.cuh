@@ -357,7 +357,7 @@ void extend(raft::resources const& handle,
  *     rmm::mr::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
- *   filtering::NoneIvfSampleFilter filter;
+ *   filtering::none_ivf_sample_filter filter;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
  *   ivf_flat::search_with_filtering(
@@ -466,7 +466,7 @@ void search(raft::resources const& handle,
                                             neighbors,
                                             distances,
                                             mr,
-                                            raft::neighbors::filtering::NoneIvfSampleFilter());
+                                            raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
 /**
@@ -487,7 +487,7 @@ void search(raft::resources const& handle,
  *   ...
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
- *   filtering::NoneIvfSampleFilter filter;
+ *   filtering::none_ivf_sample_filter filter;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
  *   ivf_flat::search_with_filtering(
@@ -588,7 +588,7 @@ void search(raft::resources const& handle,
                         queries,
                         neighbors,
                         distances,
-                        raft::neighbors::filtering::NoneIvfSampleFilter());
+                        raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
 /** @} */

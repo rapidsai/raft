@@ -719,7 +719,7 @@ inline auto get_max_batch_size(uint32_t k,
 /** See raft::spatial::knn::ivf_pq::search docs */
 template <typename T,
           typename IdxT,
-          typename IvfSampleFilterT = raft::neighbors::filtering::NoneIvfSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 inline void search(raft::resources const& handle,
                    const search_params& params,
                    const index<IdxT>& index,
