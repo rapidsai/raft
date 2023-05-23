@@ -8,4 +8,4 @@ export SKBUILD_CONFIGURE_OPTIONS="-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF 
 
 export RAPIDS_BEFORE_WHEEL="RAPIDS_PY_WHEEL_NAME=pylibraft_${RAPIDS_PY_CUDA_SUFFIX} rapids-download-wheels-from-s3 ./local-pylibraft && python -m pip install --no-deps ./local-pylibraft/pylibraft*.whl"
 
-./build_wheel.sh raft_dask python/raft-dask
+ci/build_wheel.sh raft_dask python/raft-dask
