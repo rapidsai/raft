@@ -291,10 +291,9 @@ void gather_if(const raft::resources& handle,
 
 /**
  * @brief In-place gather elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows. The
- * map specifies new order in which rows of the input matrix are rearranged,
- * i.e. in the resulting matrix, row i is assigned to the position map[i].
- * example, the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the
+ * map. The map specifies new order in which rows of the input matrix are
+ * rearranged, i.e. in the resulting matrix, row i is assigned to the position
+ * map[i]. For example, the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the
  * map [2, 0, 1] will be transformed to [[7, 8, 9], [1, 2, 3], [4, 5, 6]].
  * Batching is done on columns and an additional scratch space of
  * shape n_rows * cols_batch_size is created. For each batch, chunks
@@ -309,21 +308,17 @@ void gather_if(const raft::resources& handle,
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
  * @param[in] map Pointer to the input sequence of gather locations
- * @param[in] col_batch_size column batch size
+ * @param[in] col_batch_size column batch size. Determines the size of the scratch space (map_length, col_batch_size)
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
  */
-template <typename matrix_t, typename map_t, typename idx_t>
+template <typename matrix_t, typename map_t, typename idx_t, typename map_xform_t = raft::identity_op>
 void gather(raft::resources const& handle,
             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
-            raft::device_vector_view<map_t, idx_t, raft::layout_c_contiguous> map,
-            idx_t col_batch_size)
+            raft::device_vector_view<const map_t, idx_t, raft::layout_c_contiguous> map,
+            idx_t col_batch_size,
+            map_xform_t transform_op = raft::identity_op())
 {
-  idx_t m       = inout.extent(0);
-  idx_t n       = inout.extent(1);
-  idx_t map_len = map.extent(0);
-  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n, "col_batch_size should be > 0 and <= n");
-  RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
-
-  detail::gather(handle, inout, map, col_batch_size);
+  detail::gather(handle, inout, map, transform_op, col_batch_size);
 }
 
 /** @} */  // end of group matrix_gather
