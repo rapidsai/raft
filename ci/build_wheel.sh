@@ -49,4 +49,6 @@ mv dist/${package_name}*manylinux* final_dist
 # rapids-upload-wheels-to-s3 uses rapids-package-name which implicitly relies
 # on this variable being set
 export RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"
+echo "${RAPIDS_ARCH}"
+echo "${arch}"
 rapids-upload-wheels-to-s3 final_dist
