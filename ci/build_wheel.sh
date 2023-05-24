@@ -9,7 +9,7 @@ package_dir=$2
 # Use gha-tools rapids-pip-wheel-version to generate wheel version then
 # update the necessary files
 RAPIDS_EPOCH_TIMESTAMP=$(date +%s)
-versioneer_override="$(rapids-pip-wheel-version RAPIDS_EPOCH_TIMESTAMP)"
+versioneer_override="$(rapids-pip-wheel-version ${RAPIDS_EPOCH_TIMESTAMP})"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CTK_VERSION})"
 
