@@ -29,9 +29,6 @@ export SCCACHE_S3_USE_SSL=true
 # Set up for pip installation of dependencies from the nightly index
 export PIP_EXTRA_INDEX_URL=https://pypi.k8s.rapids.ai/simple
 
-# Store internal pypi credentials before any step that may download wheels
-printf 'machine pypi.k8s.rapids.ai\n\tlogin cibuildwheel\n\tpassword ${RAPIDSAI_PYPI_PASSWORD}\n' > ~/.netrc
-
 # Hardcode the output dir
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
