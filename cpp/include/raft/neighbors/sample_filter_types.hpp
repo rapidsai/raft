@@ -19,11 +19,13 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <raft/core/detail/macros.hpp>
+
 namespace raft::neighbors::filtering {
 
 /* A filter that filters nothing. This is the default behavior. */
 struct none_ivf_sample_filter {
-  inline __device__ __host__ bool operator()(
+  inline _RAFT_HOST_DEVICE bool operator()(
     // query index
     const uint32_t query_ix,
     // the current inverted list index
@@ -53,7 +55,7 @@ struct none_ivf_sample_filter {
  *   index_ivf_sample_filter& operator=(const index_ivf_sample_filter&) = default;
  *   index_ivf_sample_filter& operator=(index_ivf_sample_filter&&) = default;
  *
- *   inline __device__ __host__ bool operator()(
+ *   inline _RAFT_HOST_DEVICE bool operator()(
  *       const uint32_t query_ix,
  *       const uint32_t cluster_ix,
  *       const uint32_t sample_ix) const {
@@ -98,7 +100,7 @@ struct none_ivf_sample_filter {
  *   bitmask_ivf_sample_filter& operator=(const bitmask_ivf_sample_filter&) = default;
  *   bitmask_ivf_sample_filter& operator=(bitmask_ivf_sample_filter&&) = default;
  *
- *   inline __device__ __host__ bool operator()(
+ *   inline _RAFT_HOST_DEVICE bool operator()(
  *       const uint32_t query_ix,
  *       const uint32_t cluster_ix,
  *       const uint32_t sample_ix) const {
