@@ -7,17 +7,22 @@ span: One-dimensional Non-owning View
 
 ``#include <raft/core/span.hpp>``
 
-.. doxygenclass:: raft::span
+.. doxygengroup:: span
     :project: RAFT
     :members:
+    :content-only:
 
 ``#include <raft/core/device_span.hpp>``
 
-.. doxygentypedef:: raft::device_span
-   :project: RAFT
+.. doxygengroup:: device_span
+    :project: RAFT
+    :members:
+    :content-only:
 
 ``#include <raft/core/host_span.hpp>``
 
-.. doxygentypedef:: raft::host_span
-   :project: RAFT
+.. doxygengroup:: host_span
+    :project: RAFT
+    :members:
+    :content-only:
 

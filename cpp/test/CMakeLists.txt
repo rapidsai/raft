@@ -215,6 +215,7 @@ if(BUILD_TESTS)
     test/linalg/norm.cu
     test/linalg/normalize.cu
     test/linalg/power.cu
+    test/linalg/randomized_svd.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
     test/linalg/reduce_rows_by_key.cu

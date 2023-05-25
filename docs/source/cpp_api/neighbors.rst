@@ -16,3 +16,4 @@ This page provides C++ class references for the publicly-exposed elements of the
    neighbors_ivf_pq.rst
    neighbors_epsilon_neighborhood.rst
    neighbors_ball_cover.rst
+   neighbors_cagra.rst

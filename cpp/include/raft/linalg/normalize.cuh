@@ -26,7 +26,7 @@ namespace raft {
 namespace linalg {
 
 /**
- * @defgroup norm Row- or Col-norm computation
+ * @defgroup normalize Row- or Col-norm computation
  * @{
  */
 
