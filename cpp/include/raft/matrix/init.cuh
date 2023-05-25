@@ -20,6 +20,7 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/matrix/detail/init.cuh>
 #include <raft/matrix/detail/math.cuh>
 
 namespace raft::matrix {
@@ -70,6 +71,23 @@ void fill(raft::resources const& handle,
           math_t scalar)
 {
   linalg::map(handle, inout, raft::const_op{scalar});
+}
+
+/**
+ * @brief create an identity matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t indexing type used for the output
+ * @tparam layout_t layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
+ * @param[out] out: output matrix
+ */
+template <typename math_t, typename idx_t, typename layout_t>
+void eye(const raft::resources& handle, raft::device_matrix_view<math_t, idx_t, layout_t> out)
+{
+  RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+  auto constexpr row_major = std::is_same_v<layout_t, raft::row_major>;
+  detail::createEye(
+    out.data_handle(), out.extent(0), out.extent(1), row_major, resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group matrix_init
