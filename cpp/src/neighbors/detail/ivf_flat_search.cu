@@ -15,7 +15,7 @@
  */
 
 #include <raft/neighbors/detail/ivf_flat_search-inl.cuh>
-#include <raft/neighbors/sample_filter.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #define instantiate_raft_neighbors_ivf_flat_detail_search(T, IdxT, IvfSampleFilterT)  \
   template void raft::neighbors::ivf_flat::detail::search<T, IdxT, IvfSampleFilterT>( \

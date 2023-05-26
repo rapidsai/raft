@@ -21,7 +21,7 @@
 #include <raft/distance/distance_types.hpp>          // raft::distance::DistanceType
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>  // raft::neighbors::ivf_pq::detail::fp_8bit
 #include <raft/neighbors/ivf_pq_types.hpp>           // raft::neighbors::ivf_pq::codebook_gen
-#include <raft/neighbors/sample_filter.cuh>          // none_ivf_sample_filter
+#include <raft/neighbors/sample_filter_types.hpp>    // none_ivf_sample_filter
 #include <raft/util/raft_explicit.hpp>               // RAFT_EXPLICIT
 #include <rmm/cuda_stream_view.hpp>                  // rmm::cuda_stream_view
 

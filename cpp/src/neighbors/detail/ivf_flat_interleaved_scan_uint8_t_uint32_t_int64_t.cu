@@ -15,7 +15,7 @@
  */
 
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan-inl.cuh>
-#include <raft/neighbors/sample_filter.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #define instantiate_raft_neighbors_ivf_flat_detail_ivfflat_interleaved_scan(                    \
   T, AccT, IdxT, IvfSampleFilterT)                                                              \

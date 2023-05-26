@@ -24,7 +24,7 @@
 #include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
-#include <raft/neighbors/sample_filter.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>

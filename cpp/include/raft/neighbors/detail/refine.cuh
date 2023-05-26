@@ -26,7 +26,7 @@
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
-#include <raft/neighbors/sample_filter.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <cstdlib>

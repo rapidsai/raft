@@ -26,7 +26,7 @@
 #include <raft/matrix/detail/select_k.cuh>                      // matrix::detail::select_k
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>  // interleaved_scan
 #include <raft/neighbors/ivf_flat_types.hpp>                    // raft::neighbors::ivf_flat::index
-#include <raft/neighbors/sample_filter.cuh>                     // none_ivf_sample_filter
+#include <raft/neighbors/sample_filter_types.hpp>               // none_ivf_sample_filter
 #include <raft/spatial/knn/detail/ann_utils.cuh>                // utils::mapping
 #include <rmm/mr/device/per_device_resource.hpp>                // rmm::device_memory_resource
 
