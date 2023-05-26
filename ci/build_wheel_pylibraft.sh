@@ -3,8 +3,6 @@
 
 set -euo pipefail
 
-source rapids-env-update
-
 pyenv global ${RAPIDS_PY_VERSION}
 
 # Set up skbuild options. Enable sccache in skbuild config options

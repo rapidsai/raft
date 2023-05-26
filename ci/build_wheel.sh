@@ -20,6 +20,13 @@ git diff
 cd "${package_dir}"
 
 # sccache configuration
+if [ "${CI:-false}" = "false" ]; then
+  # Configure sccache for read-only mode since no credentials
+  # are available in local builds.
+  export SCCACHE_S3_NO_CREDENTIALS=true
+  export PARALLEL_LEVEL=${PARALLEL_LEVEL:-$(nproc)}
+  export RAPIDS_BUILD_TYPE=${RAPIDS_BUILD_TYPE:-"pull-request"}
+fi
 export SCCACHE_S3_KEY_PREFIX="libraft-$(arch)"
 
 # Set up for pip installation of dependencies from the nightly index
