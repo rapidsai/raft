@@ -100,6 +100,8 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
     IdxT map_length = params.map_length;
     IdxT len        = params.nrows * params.ncols;
 
+    if (map_length > params.nrows) map_length = params.nrows;
+
     // input matrix setup
     d_in.resize(params.nrows * params.ncols, stream);
     h_in.resize(params.nrows * params.ncols);
@@ -170,7 +172,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
     }
 
     if (Inplace) {
-      raft::copy_async(d_out_act.data(), d_in.data(), params.map_length * params.ncols, raft::resource::get_cuda_stream(handle));
+      raft::copy_async(d_out_act.data(), d_in.data(), map_length * params.ncols, raft::resource::get_cuda_stream(handle));
     }
 
     resource::sync_stream(handle, stream);
@@ -192,7 +194,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
   {                                                          \
     ASSERT_TRUE(devArrMatch(d_out_exp.data(),                \
                             d_out_act.data(),                \
-                            params.map_length* params.ncols, \
+                            d_out_exp.size(), \
                             raft::Compare<float>()));        \
   }                                                          \
   INSTANTIATE_TEST_CASE_P(GatherTests, test_name, ::testing::ValuesIn(test_inputs))
@@ -202,6 +204,11 @@ const std::vector<GatherInputs<int>> inputs_i32 =
 const std::vector<GatherInputs<int64_t>> inputs_i64 =
   raft::util::itertools::product<GatherInputs<int64_t>>(
     {25, 2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+const std::vector<GatherInputs<int>> inplace_inputs_i32 =
+  raft::util::itertools::product<GatherInputs<int>>({2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+const std::vector<GatherInputs<int64_t>> inplace_inputs_i64 =
+  raft::util::itertools::product<GatherInputs<int64_t>>(
+    {2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
 
 GATHER_TEST((GatherTest<false, false, false, float, uint32_t, int>), GatherTestFU32I32, inputs_i32);
 GATHER_TEST((GatherTest<false, true, false, float, uint32_t, int>),
@@ -220,7 +227,7 @@ GATHER_TEST((GatherTest<true, true, false, float, uint32_t, int64_t>),
 GATHER_TEST((GatherTest<true, true, false, float, int64_t, int64_t>),
             GatherIfTransformTestFI64I64,
             inputs_i64);
-GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int>), GatherInplaceTestFU32I32, inputs_i32);
-GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int64_t>), GatherInplaceTestFU32I64, inputs_i64);
-GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int64_t>), GatherInplaceTestFI64I64, inputs_i64);
+GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int>), GatherInplaceTestFU32I32, inplace_inputs_i32);
+GATHER_TEST((GatherTest<false, false, true, float, uint32_t, int64_t>), GatherInplaceTestFU32I64, inplace_inputs_i64);
+GATHER_TEST((GatherTest<false, false, true, float, int64_t, int64_t>), GatherInplaceTestFI64I64, inplace_inputs_i64);
 }  // end namespace raft

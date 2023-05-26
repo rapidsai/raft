@@ -23,37 +23,31 @@
 namespace raft::matrix {
 /**
  * @brief In-place scatter elements in a row-major matrix according to a
- * map. The length of the map is equal to the number of rows. The
- * map specifies the destination index for each row, i.e. in the
- * resulting matrix, row map[i] is assigned to row i. For example,
+ * map. The map specifies the new order in which rows of the input matrix are
+ * rearranged, i.e. read the destination index from the map, and copy the row. For example,
  * the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the map [2, 0, 1] will
  * be transformed to [[4, 5, 6], [7, 8, 9], [1, 2, 3]]. Batching is done on
  * columns and an additional scratch space of shape n_rows * cols_batch_size
  * is created. For each batch, chunks of columns from each row are copied
  * into the appropriate location in the scratch space and copied back to
  * the corresponding locations in the input matrix.
+ * Note: in-place scatter is not thread safe if the values in the map are not unique.
+ * Users must ensure that the map indices are unique and in the range [0, n_rows).
  *
- * @tparam matrix_t
- * @tparam map_t
- * @tparam idx_t
+ * @tparam matrix_t     Matrix element type
+ * @tparam idx_t        Integer type used for indexing
  *
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
- * @param[in] map map containing the order in which rows are to be rearranged (n_rows)
- * @param[in] col_batch_size column batch size
+ * @param[in] map Pointer to the input sequence of scatter locations. The length of the map should be equal to the number of rows in the input matrix. Map indices should be unique and in the range [0, n_rows). The map represents a complete permutation of indices.
+ * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space (n_rows, col_batch_size). When set to zero (default), no batching is done and an additional scratch space of shape (n_rows, n_cols) is created.
  */
-template <typename matrix_t, typename map_t, typename idx_t>
+template <typename matrix_t, typename idx_t>
 void scatter(raft::resources const& handle,
-             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
-             raft::device_vector_view<map_t, idx_t, raft::layout_c_contiguous> map,
-             idx_t col_batch_size)
+            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
+            raft::device_vector_view<const idx_t, idx_t, raft::layout_c_contiguous> map,
+            idx_t col_batch_size = 0)
 {
-  idx_t m       = inout.extent(0);
-  idx_t n       = inout.extent(1);
-  idx_t map_len = map.extent(0);
-  RAFT_EXPECTS(0 < col_batch_size && col_batch_size <= n, "col_batch_size should be > 0 and <= n");
-  RAFT_EXPECTS(map_len == m, "size of map should be equal to the number of rows in input matrix");
-
   detail::scatter(handle, inout, map, col_batch_size);
 }
 

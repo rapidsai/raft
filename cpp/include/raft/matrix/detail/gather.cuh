@@ -359,7 +359,7 @@ void gatherInplaceImpl(raft::resources const& handle,
 {
   // return type of MapTransformOp, must be convertible to IndexT
   typedef typename std::result_of<decltype(transform_op)(MapT)>::type MapTransformOpReturnT;
-  static_assert((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
+  RAFT_EXPECTS((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
                 "MapTransformOp's result type must be convertible to signed integer");
 
   IndexT m = inout.extent(0);
@@ -367,7 +367,14 @@ void gatherInplaceImpl(raft::resources const& handle,
   IndexT map_length = map.extent(0);
 
   // skip in case of 0 length input
-  if (map_length <= 0 || m <= 0 || n <= 0) return;
+  if (map_length <= 0 || m <= 0 || n <= 0 || batch_size < 0) return;
+
+  RAFT_EXPECTS(map_length <= m, "Length of map should be <= number of rows for inplace gather");
+
+  // re-assign batch_size for default case
+  if (batch_size == 0) batch_size = n;
+
+  RAFT_EXPECTS(batch_size <= n, "batch size should be <= number of columns");
 
   auto exec_policy = resource::get_thrust_policy(handle);
   IndexT n_batches = raft::ceildiv(n, batch_size);
@@ -392,6 +399,9 @@ void gatherInplaceImpl(raft::resources const& handle,
       return inout[i_src * n + batch_offset + col];
     };
     raft::linalg::map_offset(handle, scratch_space.view(), gather_op);
+
+    cudaDeviceSynchronize();
+    raft::print_device_vector("gather_scratch_space", scratch_space.data_handle(), m * cols_per_batch, std::cout);
     auto copy_op = [inout         = inout.data_handle(),
                     map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),
