@@ -168,25 +168,22 @@ void RaftCagra<T, IdxT>::search(
   if constexpr (std::is_same<IdxT, size_t>::value) {
     neighbors_IdxT = neighbors;
   } else {
-    neighbors_IdxT = reinterpret_cast<IdxT*>(mr_ptr->allocate(
-      batch_size * this->dimension_ * sizeof(IdxT), resource::get_cuda_stream(handle_)));
+    neighbors_IdxT = reinterpret_cast<IdxT*>(
+      mr_ptr->allocate(batch_size * k * sizeof(IdxT), resource::get_cuda_stream(handle_)));
   }
 
   auto queries_view = raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, dimension_);
-  auto neighbors_view =
-    raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, dimension_);
-  auto distances_view =
-    raft::make_device_matrix_view<float, IdxT>(distances, batch_size, dimension_);
+  auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, k);
+  auto distances_view = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
 
   raft::neighbors::experimental::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
   if (!std::is_same<IdxT, size_t>::value) {
     convert_neighbor_index_type(
-      neighbors, neighbors_IdxT, batch_size * this->dimension_, resource::get_cuda_stream(handle_));
-    mr_ptr->deallocate(neighbors_IdxT,
-                       batch_size * this->dimension_ * sizeof(IdxT),
-                       resource::get_cuda_stream(handle_));
+      neighbors, neighbors_IdxT, batch_size * k, resource::get_cuda_stream(handle_));
+    mr_ptr->deallocate(
+      neighbors_IdxT, batch_size * k * sizeof(IdxT), resource::get_cuda_stream(handle_));
   }
 
   handle_.sync_stream();
