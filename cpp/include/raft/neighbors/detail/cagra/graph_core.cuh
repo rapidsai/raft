@@ -31,8 +31,8 @@
 #include <random>
 #include <sys/time.h>
 
-#include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/bitonic_sort.cuh>
+#include <raft/util/cuda_rt_essentials.hpp>
 
 #include "utils.hpp"
 
@@ -79,7 +79,7 @@ __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, 
   const IdxT srcNode = (blockDim.x * blockIdx.x + threadIdx.x) / raft::WarpSize;
   if (srcNode >= graph_size) { return; }
 
-  const uint32_t lane_id   = threadIdx.x % raft::WarpSize;
+  const uint32_t lane_id = threadIdx.x % raft::WarpSize;
 
   float my_keys[numElementsPerThread];
   IdxT my_vals[numElementsPerThread];
@@ -267,22 +267,22 @@ void sort_knn_graph(raft::resources const& res,
     const DataT* const, const IdxT, const uint32_t, IdxT* const, const uint32_t, const uint32_t);
   if (input_graph_degree <= 32) {
     constexpr int numElementsPerThread = 1;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else if (input_graph_degree <= 64) {
     constexpr int numElementsPerThread = 2;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else if (input_graph_degree <= 128) {
     constexpr int numElementsPerThread = 4;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else if (input_graph_degree <= 256) {
     constexpr int numElementsPerThread = 8;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else if (input_graph_degree <= 512) {
     constexpr int numElementsPerThread = 16;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else if (input_graph_degree <= 1024) {
     constexpr int numElementsPerThread = 32;
-    kernel_sort              = kern_sort<DataT, IdxT, numElementsPerThread>;
+    kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else {
     RAFT_LOG_ERROR(
       "[ERROR] The degree of input knn graph is too large (%u). "
@@ -291,9 +291,9 @@ void sort_knn_graph(raft::resources const& res,
       1024);
     exit(-1);
   }
-  const auto block_size = 256;
+  const auto block_size          = 256;
   const auto num_warps_per_block = block_size / raft::WarpSize;
-  const auto grid_size = (graph_size + num_warps_per_block - 1) / num_warps_per_block;
+  const auto grid_size           = (graph_size + num_warps_per_block - 1) / num_warps_per_block;
 
   RAFT_LOG_DEBUG(".");
   kernel_sort<<<grid_size, block_size, 0, resource::get_cuda_stream(res)>>>(
