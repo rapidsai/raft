@@ -238,6 +238,7 @@ inline void write_search_result(const std::string& file_prefix,
                                 float search_time_average,
                                 float search_time_p99,
                                 float search_time_p999,
+                                float query_per_second,
                                 const int* neighbors,
                                 size_t query_set_size)
 {
@@ -254,6 +255,7 @@ inline void write_search_result(const std::string& file_prefix,
       << "batch_size: " << batch_size << "\n"
       << "run_count: " << run_count << "\n"
       << "k: " << k << "\n"
+      << "query_per_second: " << query_per_second << "\n"
       << "average_search_time: " << search_time_average << endl;
   if (search_time_p99 != std::numeric_limits<float>::max()) {
     ofs << "p99_search_time: " << search_time_p99 << endl;
@@ -364,6 +366,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
       float best_search_time_average = std::numeric_limits<float>::max();
       float best_search_time_p99     = std::numeric_limits<float>::max();
       float best_search_time_p999    = std::numeric_limits<float>::max();
+      float total_search_time        = 0;
       for (int run = 0; run < run_count; ++run) {
         log_info("run %d / %d", run + 1, run_count);
         for (std::size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
@@ -401,8 +404,10 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
           }
         }
 
-        float search_time_average =
-          std::accumulate(search_times.cbegin(), search_times.cend(), 0.0f) / search_times.size();
+        const float total_search_time_run =
+          std::accumulate(search_times.cbegin(), search_times.cend(), 0.0f);
+        const float search_time_average = total_search_time_run / search_times.size();
+        total_search_time += total_search_time_run;
         best_search_time_average = std::min(best_search_time_average, search_time_average);
 
         if (search_times.size() >= 100) {
@@ -424,6 +429,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
       }
       RAFT_CUDA_TRY(cudaDeviceSynchronize());
       RAFT_CUDA_TRY(cudaPeekAtLastError());
+      const auto query_per_second = (run_count * query_set_size) / total_search_time;
 
       if (algo_property.query_memory_type == MemoryType::Device) {
         RAFT_CUDA_TRY(cudaMemcpy(neighbors,
@@ -452,6 +458,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                           best_search_time_average,
                           best_search_time_p99,
                           best_search_time_p999,
+                          query_per_second,
                           neighbors_buf,
                           query_set_size);
     }
