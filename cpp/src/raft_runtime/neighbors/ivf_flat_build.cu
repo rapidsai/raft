@@ -59,6 +59,16 @@ namespace raft::runtime::neighbors::ivf_flat {
                          raft::device_matrix_view<T, IdxT, row_major> vector_out)               \
   {                                                                                             \
     raft::neighbors::ivf_flat::reconstruct_batch<T, IdxT>(handle, idx, vector_ids, vector_out); \
+  }                                                                                             \
+                                                                                                \
+  void reconstruct_list_data(raft::resources const& handle,                                     \
+                             const raft::neighbors::ivf_flat::index<T, IdxT>& idx,              \
+                             device_matrix_view<T, IdxT, row_major> out_vectors,                \
+                             uint32_t label,                                                    \
+                             uint32_t offset)                                                   \
+  {                                                                                             \
+    raft::neighbors::ivf_flat::reconstruct_list_data<T, IdxT>(                                  \
+      handle, idx, out_vectors, label, offset);                                                 \
   }
 
 RAFT_INST_BUILD_EXTEND(float, int64_t);

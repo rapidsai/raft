@@ -25,12 +25,20 @@
 
 #include <raft/neighbors/ivf_flat-inl.cuh>
 
-#define instantiate_raft_neighbors_ivf_flat_reconstruct(T, IdxT)       \
-  template void raft::neighbors::ivf_flat::reconstruct_batch<T, IdxT>( \
-    raft::resources const& handle,                                     \
-    const raft::neighbors::ivf_flat::index<T, IdxT>& idx,              \
-    raft::device_vector_view<const IdxT, IdxT> vector_ids,             \
-    raft::device_matrix_view<T, IdxT, row_major> vector_out);
+#define instantiate_raft_neighbors_ivf_flat_reconstruct(T, IdxT)           \
+  template void raft::neighbors::ivf_flat::reconstruct_batch<T, IdxT>(     \
+    raft::resources const& handle,                                         \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& idx,                  \
+    raft::device_vector_view<const IdxT, IdxT> vector_ids,                 \
+    raft::device_matrix_view<T, IdxT, row_major> vector_out);              \
+                                                                           \
+  template void raft::neighbors::ivf_flat::reconstruct_list_data<T, IdxT>( \
+    raft::resources const& handle,                                         \
+    const raft::neighbors::ivf_flat::index<T, IdxT>& idx,                  \
+    raft::device_matrix_view<T, IdxT, row_major> out_vectors,              \
+    uint32_t label,                                                        \
+    uint32_t offset);
+
 instantiate_raft_neighbors_ivf_flat_reconstruct(float, int64_t);
 
 #undef instantiate_raft_neighbors_ivf_flat_reconstruct
