@@ -33,6 +33,7 @@
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/norm.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>
@@ -328,19 +329,21 @@ template <typename value_t, typename index_t>
 void inverse(const raft::handle_t& handle,
              raft::device_matrix_view<value_t, index_t, raft::col_major> P,
              raft::device_matrix_view<value_t, index_t, raft::col_major> Pinv,
-             bool lower = true)
+             bool transposeP = false)
 {
   auto stream             = handle.get_stream();
   int Lwork               = 0;
   auto lda                = P.extent(0);
   auto dim                = P.extent(0);
   int info_h              = 0;
-  cublasOperation_t trans = CUBLAS_OP_N;
+  cublasOperation_t trans = transposeP ? CUBLAS_OP_T : CUBLAS_OP_N;
   raft::matrix::eye(handle, Pinv);
 
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngetrf_bufferSize(
     handle.get_cusolver_dn_handle(), dim, dim, P.data_handle(), lda, &Lwork));
 
+  auto P_copy = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, P.extent(0), P.extent(1));
+  raft::copy(P_copy.data_handle(), P.data_handle(), P.size(), stream);
   rmm::device_uvector<value_t> workspace_decomp(Lwork, stream);
   rmm::device_uvector<int> info(1, stream);
   auto ipiv = raft::make_device_vector<index_t, index_t>(handle, dim);
@@ -348,7 +351,7 @@ void inverse(const raft::handle_t& handle,
   RAFT_CUSOLVER_TRY(raft::linalg::detail::cusolverDngetrf(handle.get_cusolver_dn_handle(),
                                                           dim,
                                                           dim,
-                                                          P.data_handle(),
+                                                          P_copy.data_handle(),
                                                           lda,
                                                           workspace_decomp.data(),
                                                           ipiv.data_handle(),
@@ -363,7 +366,7 @@ void inverse(const raft::handle_t& handle,
                                                           trans,
                                                           dim,
                                                           dim,
-                                                          P.data_handle(),
+                                                          P_copy.data_handle(),
                                                           lda,
                                                           ipiv.data_handle(),
                                                           Pinv.data_handle(),
@@ -437,22 +440,25 @@ bool eigh(const raft::handle_t& handle,
   }
   auto RTi         = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
   auto Ri          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
-  auto RT          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  auto R          = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
   auto F           = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
   auto B           = B_opt.value();
   bool cho_success = cholesky(handle, B, false);
+  raft::linalg::transpose(handle, B, R.view()); 
 
-  raft::linalg::transpose(handle, B, RT.view());
-  inverse(handle, RT.view(), Ri.view());
-  inverse(handle, B, RTi.view());
+  inverse(handle, R.view(), Ri.view(), true);
+  inverse(handle, R.view(), RTi.view(), false);
 
   // Reuse the memory of matrix
   auto& ARi   = B;
-  auto& Fvecs = RT;
-  raft::linalg::gemm(handle, AT.view(), Ri.view(), ARi);
+  auto& Fvecs = R;
+  raft::linalg::gemm(handle, A, Ri.view(), ARi);
   raft::linalg::gemm(handle, RTi.view(), ARi, F.view());
 
-  raft::linalg::eig_dc(handle, raft::make_const_mdspan(F.view()), Fvecs.view(), eigVals);
+  auto FT  = raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, dim, dim);
+  raft::linalg::transpose(handle, F.view(), FT.view());
+
+  raft::linalg::eig_dc(handle, raft::make_const_mdspan(FT.view()), Fvecs.view(), eigVals);
   raft::linalg::gemm(handle, Ri.view(), Fvecs.view(), eigVecs);
   return cho_success;
 }
@@ -491,34 +497,32 @@ bool b_orthonormalize(
     V_max_ptr = V_max_opt.value().data_handle();
   }
   auto V_max       = raft::make_device_vector_view<value_t, index_t>(V_max_ptr, V.extent(1));
-  auto V_max_const = raft::make_const_mdspan(V_max);
 
-  //
   /*raft::linalg::reduce(handle,
                        raft::make_device_matrix_view<const value_t, index_t, raft::col_major>(
-                         V.data_handle(), V.extent(1), V.extent(0)),
+                         V.data_handle(), V.extent(0), V.extent(1)),
                        V_max,
                        value_t(0),
                        raft::linalg::Apply::ALONG_ROWS,
                        false,
                        raft::identity_op(),
-                       MaxOp<value_t>());
-  */
+                       MaxOp<value_t>());*/
+  // Coalesced reduction
   raft::linalg::reduce(V_max.data_handle(),
                        V.data_handle(),
-                       V.extent(0),
                        V.extent(1),
+                       V.extent(0),
                        value_t(0),
                        false,
-                       true,
+                       false,
                        handle.get_stream(),
                        false,
                        raft::identity_op(),
                        MaxOp<value_t>());
-  raft::linalg::binary_div_skip_zero(handle, V, V_max_const, raft::linalg::Apply::ALONG_ROWS);
+  raft::linalg::binary_div_skip_zero(handle, V, raft::make_const_mdspan(V_max), raft::linalg::Apply::ALONG_ROWS);
 
   if (!bv_is_empty) {
-    raft::linalg::binary_div_skip_zero(handle, BV, V_max_const, raft::linalg::Apply::ALONG_ROWS);
+    raft::linalg::binary_div_skip_zero(handle, BV, raft::make_const_mdspan(V_max), raft::linalg::Apply::ALONG_ROWS);
   } else {
     if (B_opt)
       spmm(handle, B_opt.value(), V, BV);
@@ -537,11 +541,9 @@ bool b_orthonormalize(
     VBV_ptr, V.extent(1), V.extent(1));
   auto VBVBuffer = raft::make_device_matrix<value_t, index_t, raft::col_major>(
     handle, VBV.extent(0), VBV.extent(1));
-  auto VT =
-    raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, V.extent(1), V.extent(0));
-  raft::linalg::transpose(handle, V, VT.view());
+  auto VT = make_transpose_layout_view(V);
 
-  raft::linalg::gemm(handle, VT.view(), BV, VBV);
+  raft::linalg::gemm(handle, VT, BV, VBV);
   bool cholesky_success = cholesky(handle, VBV, false);
   if (!cholesky_success) { return cholesky_success; }
 
@@ -679,19 +681,7 @@ void lobpcg(
     raft::linalg::subtract(
       handle, raft::make_const_mdspan(AX.view()), raft::make_const_mdspan(aux.view()), R.view());
 
-    raft::linalg::reduce(
-      residual_norms.data_handle(),
-      R.data_handle(),
-      size_x,
-      n,
-      value_t(0),
-      false,
-      true,
-      stream,
-      false,
-      raft::sq_op());
-
-    // TODO check sqop of reduce raft::linalg::sqrt(handle, raft::make_const_mdspan(aux_sum.view()), residual_norms.view());
+    raft::linalg::norm(handle, make_const_mdspan(R.view()), residual_norms.view(), raft::linalg::NormType::L2Norm, raft::linalg::Apply::ALONG_COLUMNS, raft::sqrt_op());
 
     // cupy where & active_mask
     raft::linalg::unary_op(handle,
@@ -839,7 +829,8 @@ void lobpcg(
                               residual_norms.data_handle() + residual_norms.size());
         value_t residual_norms_max = 0;
         raft::copy(&residual_norms_max, residual_norms_max_elem, 1, stream);
-        explicitGramFlag = residual_norms_max <= myeps;
+        handle.sync_stream();
+        explicitGramFlag = residual_norms_max > myeps;
       }
 
       if (!B_opt.has_value()) {
@@ -924,8 +915,6 @@ void lobpcg(
       raft::make_device_matrix<value_t, index_t, raft::col_major>(handle, gramDim, gramDim);
     auto eigLambdaTempView = eigLambdaTemp.view();
     auto eigVectorTempView = eigVectorTemp.view();
-    eigVectorBuffer.resize(gramDim * size_x, stream);
-    eigVectorView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(eigVectorBuffer.data(), gramDim, size_x);
     auto gramXAP =
       raft::make_device_matrix<value_t, index_t, col_major>(handle, size_x, currentBlockSize);
     auto gramRAP = raft::make_device_matrix<value_t, index_t, col_major>(
@@ -1010,6 +999,14 @@ void lobpcg(
       bmat(handle, gramAView, A_blocks, 3);
       bmat(handle, gramBView, B_blocks, 3);
 
+      // Verbosity print
+      if (verbosityLevel > 10) {
+        raft::matrix::print_separators ps{};
+        printf("gramA:\n");
+        raft::matrix::print(handle, make_const_mdspan(gramAView), ps);
+        printf("gramB:\n");
+        raft::matrix::print(handle, make_const_mdspan(gramBView), ps);
+      }
       bool eig_sucess =
         eigh(handle, gramAView, std::make_optional(gramBView), eigVectorTempView, eigLambdaTempView);
       if (!eig_sucess) restart = true;
@@ -1030,10 +1027,19 @@ void lobpcg(
         eigVectorTempView.data_handle(), gramDim, gramDim);
       bmat(handle, gramAView, A_blocks, 2);
       bmat(handle, gramBView, B_blocks, 2);
+      if (verbosityLevel > 10) {
+        raft::matrix::print_separators ps{};
+        printf("gramA:\n");
+        raft::matrix::print(handle, make_const_mdspan(gramAView), ps);
+        printf("gramB:\n");
+        raft::matrix::print(handle, make_const_mdspan(gramBView), ps);
+      }
       bool eig_sucess = eigh(
         handle, gramAView, std::make_optional(gramBView), eigVectorTempView, eigLambdaTempView);
       ASSERT(eig_sucess, "lobpcg: eigh has failed in lobpcg iterations");
     }
+    eigVectorBuffer.resize(gramDim * size_x, stream);
+    eigVectorView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(eigVectorBuffer.data(), gramDim, size_x);
     truncEig(
       handle, eigVectorTempView, std::make_optional(eigVectorView), eigLambdaTempView, largest);
     raft::copy(eigLambda.data_handle(), eigLambdaTempView.data_handle(), size_x, stream);
@@ -1041,10 +1047,6 @@ void lobpcg(
     // Verbosity print
     if (verbosityLevel > 10) {
       raft::matrix::print_separators ps{};
-      printf("gramA:\n");
-      raft::matrix::print(handle, make_const_mdspan(gramAView), ps);
-      printf("gramB:\n");
-      raft::matrix::print(handle, make_const_mdspan(gramBView), ps);
       printf("lambdaPostGram:\n");
       raft::matrix::print(handle, raft::make_device_matrix_view<const value_t, index_t, col_major>(eigLambdaTempView.data_handle(), 1, eigLambdaTempView.extent(0)), ps);
 
@@ -1086,7 +1088,16 @@ void lobpcg(
       PView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(Pbuffer.data(), n, size_x);
       APView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(APbuffer.data(), n, size_x);
       BPView = raft::make_device_matrix_view<value_t, index_t, raft::col_major>(BPbuffer.data(), n, size_x);
-  
+
+      if (verbosityLevel > 10) {
+        raft::matrix::print_separators ps{};
+        printf("pp:\n");
+        raft::matrix::print(handle, make_const_mdspan(pp.view()), ps);
+        printf("app:\n");
+        raft::matrix::print(handle, make_const_mdspan(app.view()), ps);
+        printf("bpp:\n");
+        raft::matrix::print(handle, make_const_mdspan(bpp.view()), ps);
+      }
       raft::copy(PView.data_handle(), pp.data_handle(), pp.size(), stream);
       raft::copy(APView.data_handle(), app.data_handle(), app.size(), stream);
       raft::copy(BPView.data_handle(), bpp.data_handle(), bpp.size(), stream);
@@ -1124,6 +1135,14 @@ void lobpcg(
   
       raft::copy(PView.data_handle(), pp.data_handle(), pp.size(), stream);
       raft::copy(APView.data_handle(), app.data_handle(), app.size(), stream);
+
+      if (verbosityLevel > 10) {
+        raft::matrix::print_separators ps{};
+        printf("pp:\n");
+        raft::matrix::print(handle, make_const_mdspan(pp.view()), ps);
+        printf("app:\n");
+        raft::matrix::print(handle, make_const_mdspan(app.view()), ps);
+      }
   
       raft::linalg::gemm(handle, X, eigBlockVectorX.view(), pp.view(), one, one);
       raft::linalg::gemm(handle, AX.view(), eigBlockVectorX.view(), app.view(), one, one);
