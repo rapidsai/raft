@@ -70,8 +70,6 @@
 #define RAFT_INLINE_CONDITIONAL inline
 #endif  // RAFT_COMPILED
 
-
-
 // The RAFT_WEAK_FUNCTION specificies that:
 //
 // 1. A function may be defined in multiple translation units (like inline)
