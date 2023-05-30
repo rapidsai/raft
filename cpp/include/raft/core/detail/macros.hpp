@@ -23,9 +23,11 @@
 #endif
 
 #if defined(_RAFT_HAS_CUDA)
-#define CUDA_ONLY_CONDITION(condition) condition
+#define CUDA_CONDITION_ELSE_TRUE(condition)  condition
+#define CUDA_CONDITION_ELSE_FALSE(condition) condition
 #else
-#define CUDA_ONLY_CONDITION(condition) true
+#define CUDA_CONDITION_ELSE_TRUE(condition)  true
+#define CUDA_CONDITION_ELSE_FALSE(condition) false
 #endif
 
 #ifndef _RAFT_HOST_DEVICE

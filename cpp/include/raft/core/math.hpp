@@ -95,15 +95,11 @@ RAFT_INLINE_FUNCTION auto atanh(T x)
 }
 
 /** Cosine */
-template <typename T>
-RAFT_INLINE_FUNCTION
-#if _RAFT_HAS_CUDA
-  typename std::enable_if<!std::is_same<T, __half>::value && !std::is_same<T, nv_bfloat16>::value,
-                          T>::type
-#else
-  auto
-#endif
-  cos(T x)
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
+RAFT_INLINE_FUNCTION auto cos(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::cos(x);
@@ -114,15 +110,13 @@ RAFT_INLINE_FUNCTION
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-cos(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type cos(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hcos(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -130,15 +124,13 @@ cos(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   cos(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hcos(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -146,15 +138,11 @@ RAFT_DEVICE_INLINE_FUNCTION
 #endif
 
 /** Sine */
-template <typename T>
-RAFT_INLINE_FUNCTION
-#if _RAFT_HAS_CUDA
-  typename std::enable_if<!std::is_same<T, __half>::value && !std::is_same<T, nv_bfloat16>::value,
-                          T>::type
-#else
-  auto
-#endif
-  sin(T x)
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
+RAFT_INLINE_FUNCTION auto sin(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::sin(x);
@@ -165,15 +153,13 @@ RAFT_INLINE_FUNCTION
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-sin(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type sin(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hsin(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -181,15 +167,13 @@ sin(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   sin(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hsin(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -226,15 +210,11 @@ RAFT_INLINE_FUNCTION auto tanh(T x)
  * @{
  */
 /** Exponential function */
-template <typename T>
-RAFT_INLINE_FUNCTION
-#if _RAFT_HAS_CUDA
-  typename std::enable_if<!std::is_same<T, __half>::value && !std::is_same<T, nv_bfloat16>::value,
-                          T>::type
-#else
-  auto
-#endif
-  exp(T x)
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
+RAFT_INLINE_FUNCTION auto exp(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::exp(x);
@@ -245,15 +225,13 @@ RAFT_INLINE_FUNCTION
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-exp(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type exp(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hexp(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -261,15 +239,13 @@ exp(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   exp(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hexp(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -277,15 +253,11 @@ RAFT_DEVICE_INLINE_FUNCTION
 #endif
 
 /** Natural logarithm */
-template <typename T>
-RAFT_INLINE_FUNCTION
-#if _RAFT_HAS_CUDA
-  typename std::enable_if<!std::is_same<T, __half>::value && !std::is_same<T, nv_bfloat16>::value,
-                          T>::type
-#else
-  auto
-#endif
-  log(T x)
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
+RAFT_INLINE_FUNCTION auto log(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::log(x);
@@ -296,15 +268,13 @@ RAFT_INLINE_FUNCTION
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-log(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type log(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hlog(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -312,15 +282,13 @@ log(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   log(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hlog(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -344,7 +312,7 @@ RAFT_DEVICE_INLINE_FUNCTION
 template <
   typename T1,
   typename T2,
-  std::enable_if_t<CUDA_ONLY_CONDITION(RAFT_DEPAREN(
+  std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(RAFT_DEPAREN(
                      ((!std::is_same_v<T1, __half> && !std::is_same_v<T2, __half>) ||
                       (!std::is_same_v<T1, nv_bfloat16> && !std::is_same_v<T2, nv_bfloat16>)))),
                    int> = 0>
@@ -381,15 +349,13 @@ RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-max(T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type max(
+  T x, T y)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::__hmax(x, y);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -397,15 +363,13 @@ max(T x, T y)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   max(T x, T y)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::__hmax(x, y);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -428,15 +392,13 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-max(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type max(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return x;
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -444,15 +406,13 @@ max(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   max(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return x;
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -477,7 +437,7 @@ RAFT_DEVICE_INLINE_FUNCTION
 template <
   typename T1,
   typename T2,
-  std::enable_if_t<CUDA_ONLY_CONDITION(RAFT_DEPAREN(
+  std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(RAFT_DEPAREN(
                      ((!std::is_same_v<T1, __half> && !std::is_same_v<T2, __half>) ||
                       (!std::is_same_v<T1, nv_bfloat16> && !std::is_same_v<T2, nv_bfloat16>)))),
                    int> = 0>
@@ -514,15 +474,13 @@ RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-min(T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type min(
+  T x, T y)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::__hmin(x, y);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -530,15 +488,13 @@ min(T x, T y)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   min(T x, T y)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::__hmin(x, y);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -561,15 +517,13 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-min(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type min(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return x;
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -577,15 +531,13 @@ min(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   min(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return x;
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
@@ -609,15 +561,11 @@ RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
 }
 
 /** Square root */
-template <typename T>
-RAFT_INLINE_FUNCTION
-#if _RAFT_HAS_CUDA
-  typename std::enable_if<!std::is_same<T, __half>::value && !std::is_same<T, nv_bfloat16>::value,
-                          T>::type
-#else
-  auto
-#endif
-  sqrt(T x)
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
+RAFT_INLINE_FUNCTION auto sqrt(T x)
 {
 #ifdef __CUDA_ARCH__
   return ::sqrt(x);
@@ -628,15 +576,13 @@ RAFT_INLINE_FUNCTION
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same<T, __half>::value, __half>::type
-sqrt(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type sqrt(
+  T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hsqrt(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
   return T{};
 #endif
@@ -644,15 +590,13 @@ sqrt(T x)
 
 template <typename T>
 RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same<T, nv_bfloat16>::value, nv_bfloat16>::type
+  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
   sqrt(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hsqrt(x);
 #else
-  // static_assert(false) would be evaluated during host compilation stage while __CUDA_ARCH__ is at
-  // device compilation stage Using this sizeof(T) != sizeof(T) makes it work as it's only triggered
-  // during template instantiation and thus at device compilation stage
+  // Fail during template instantiation if the compute capability doesn't support this operation
   static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
   return T{};
 #endif
