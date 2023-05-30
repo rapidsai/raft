@@ -39,7 +39,7 @@ dependencies:
 - libcusparse=11.7.5.86
 - nccl>=2.9.9
 - ninja
-- numba>=0.49
+- numba>=0.57
 - numpy>=1.21
 - numpydoc
 - pydata-sphinx-theme
