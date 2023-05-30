@@ -110,8 +110,7 @@ RAFT_INLINE_FUNCTION auto cos(T x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type cos(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> cos(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hcos(x);
@@ -123,9 +122,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  cos(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+cos(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hcos(x);
@@ -153,8 +151,7 @@ RAFT_INLINE_FUNCTION auto sin(T x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type sin(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> sin(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hsin(x);
@@ -166,9 +163,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  sin(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+sin(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hsin(x);
@@ -225,8 +221,7 @@ RAFT_INLINE_FUNCTION auto exp(T x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type exp(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> exp(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hexp(x);
@@ -238,9 +233,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  exp(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+exp(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hexp(x);
@@ -268,8 +262,7 @@ RAFT_INLINE_FUNCTION auto log(T x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type log(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> log(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hlog(x);
@@ -281,9 +274,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  log(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+log(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hlog(x);
@@ -349,8 +341,8 @@ RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type max(
-  T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> max(T x,
+                                                                                             T y)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::__hmax(x, y);
@@ -362,9 +354,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  max(T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+max(T x, T y)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::__hmax(x, y);
@@ -392,8 +383,7 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type max(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> max(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return x;
@@ -405,9 +395,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  max(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+max(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return x;
@@ -474,8 +463,8 @@ RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type min(
-  T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> min(T x,
+                                                                                             T y)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::__hmin(x, y);
@@ -487,9 +476,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  min(T x, T y)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+min(T x, T y)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::__hmin(x, y);
@@ -517,7 +505,7 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type min(
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, __half> min(
   T x)
 {
 #if (__CUDA_ARCH__ >= 530)
@@ -530,9 +518,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  min(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+min(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return x;
@@ -576,8 +563,7 @@ RAFT_INLINE_FUNCTION auto sqrt(T x)
 
 #if _RAFT_HAS_CUDA
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, __half>::type sqrt(
-  T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> sqrt(T x)
 {
 #if (__CUDA_ARCH__ >= 530)
   return ::hsqrt(x);
@@ -589,9 +575,8 @@ RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if<std::is_same_v<T, __half>, _
 }
 
 template <typename T>
-RAFT_DEVICE_INLINE_FUNCTION
-  typename std::enable_if<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>::type
-  sqrt(T x)
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+sqrt(T x)
 {
 #if (__CUDA_ARCH__ >= 800)
   return ::hsqrt(x);
