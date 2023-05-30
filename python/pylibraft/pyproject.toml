@@ -19,7 +19,7 @@ requires = [
     "cuda-python>=11.7.1,<12.0",
     "cython>=0.29,<0.30",
     "ninja",
-    "rmm==23.6.*",
+    "rmm==23.8.*",
     "scikit-build>=0.13.1,<0.17.2",
     "setuptools",
     "wheel",
