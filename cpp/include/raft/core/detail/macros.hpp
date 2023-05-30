@@ -22,6 +22,12 @@
 #endif
 #endif
 
+#if defined(_RAFT_HAS_CUDA)
+#define CUDA_ONLY_CONDITION(condition) condition
+#else
+#define CUDA_ONLY_CONDITION(condition) true
+#endif
+
 #ifndef _RAFT_HOST_DEVICE
 #if defined(_RAFT_HAS_CUDA)
 #define _RAFT_DEVICE      __device__
@@ -38,6 +44,10 @@
 
 #ifndef RAFT_INLINE_FUNCTION
 #define RAFT_INLINE_FUNCTION _RAFT_HOST_DEVICE _RAFT_FORCEINLINE
+#endif
+
+#ifndef RAFT_DEVICE_INLINE_FUNCTION
+#define RAFT_DEVICE_INLINE_FUNCTION _RAFT_DEVICE _RAFT_FORCEINLINE
 #endif
 
 // The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
@@ -59,6 +69,8 @@
 #else
 #define RAFT_INLINE_CONDITIONAL inline
 #endif  // RAFT_COMPILED
+
+
 
 // The RAFT_WEAK_FUNCTION specificies that:
 //
