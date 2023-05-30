@@ -238,7 +238,7 @@ if(BUILD_TESTS)
     test/matrix/columnSort.cu
     test/matrix/diagonal.cu
     test/matrix/gather.cu
-    test/matrix/init.cu
+    test/matrix/eye.cu
     test/matrix/linewise_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu

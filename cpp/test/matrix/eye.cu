@@ -19,7 +19,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/matrix/init.cuh>
+#include <raft/matrix/diagonal.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 namespace raft::matrix {

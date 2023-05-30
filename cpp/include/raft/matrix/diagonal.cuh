@@ -19,6 +19,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
+#include <raft/matrix/init.cuh>
+#include <raft/util/input_validation.hpp>
 
 namespace raft::matrix {
 
@@ -40,11 +42,13 @@ void set_diagonal(raft::resources const& handle,
 {
   RAFT_EXPECTS(vec.extent(0) == std::min(matrix.extent(0), matrix.extent(1)),
                "Diagonal vector must be min(matrix.n_rows, matrix.n_cols)");
+  constexpr auto is_row_major = std::is_same_v<layout, layout_c_contiguous>;
 
   detail::initializeDiagonalMatrix(vec.data_handle(),
                                    matrix.data_handle(),
                                    matrix.extent(0),
                                    matrix.extent(1),
+                                   is_row_major,
                                    resource::get_cuda_stream(handle));
 }
 
@@ -61,10 +65,12 @@ void get_diagonal(raft::resources const& handle,
 {
   RAFT_EXPECTS(vec.extent(0) == std::min(matrix.extent(0), matrix.extent(1)),
                "Diagonal vector must be min(matrix.n_rows, matrix.n_cols)");
+  constexpr auto is_row_major = std::is_same_v<layout, layout_c_contiguous>;
   detail::getDiagonalMatrix(vec.data_handle(),
                             matrix.data_handle(),
                             matrix.extent(0),
                             matrix.extent(1),
+                            is_row_major,
                             resource::get_cuda_stream(handle));
 }
 
@@ -83,6 +89,25 @@ void invert_diagonal(raft::resources const& handle,
     inout.data_handle(), inout.extent(0), resource::get_cuda_stream(handle));
 }
 
+/**
+ * @brief create an identity matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam idx_t indexing type used for the output
+ * @tparam layout_t layout of the matrix data (must be row or col major)
+ * @param[in] handle: raft handle
+ * @param[out] out: output matrix
+ */
+ template <typename math_t, typename idx_t, typename layout_t>
+ void eye(const raft::resources& handle, raft::device_matrix_view<math_t, idx_t, layout_t> out)
+ {
+   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
+
+   auto diag = raft::make_device_vector<math_t, idx_t>(handle, min(out.extent(0), out.extent(1)));
+   RAFT_CUDA_TRY(cudaMemsetAsync(out.data_handle(), 0, out.size() * sizeof (math_t), resource::get_cuda_stream(handle)));
+   raft::matrix::fill(handle, diag.view(), math_t(1));
+   set_diagonal(handle, raft::make_const_mdspan(diag.view()), out);
+ }
+ 
 /** @} */  // end of group matrix_diagonal
 
 }  // namespace raft::matrix
