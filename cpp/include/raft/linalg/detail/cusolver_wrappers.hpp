@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -693,6 +693,119 @@ inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(  // NOLINT
   return cusolverDnDgesvdj(
     handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv, work, lwork, info, params);
 }
+
+#if CUDART_VERSION >= 11010
+template <typename T>
+cusolverStatus_t cusolverDnxgesvdr_bufferSize(  // NOLINT
+  cusolverDnHandle_t handle,
+  signed char jobu,
+  signed char jobv,
+  int64_t m,
+  int64_t n,
+  int64_t k,
+  int64_t p,
+  int64_t niters,
+  const T* a,
+  int64_t lda,
+  const T* Srand,
+  const T* Urand,
+  int64_t ldUrand,
+  const T* Vrand,
+  int64_t ldVrand,
+  size_t* workspaceInBytesOnDevice,
+  size_t* workspaceInBytesOnHost,
+  cudaStream_t stream)
+{
+  RAFT_EXPECTS(std::is_floating_point_v<T>, "Unsupported data type");
+  cudaDataType dataType = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
+  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  cusolverDnParams_t dn_params = nullptr;
+  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
+  auto result = cusolverDnXgesvdr_bufferSize(handle,
+                                             dn_params,
+                                             jobu,
+                                             jobv,
+                                             m,
+                                             n,
+                                             k,
+                                             p,
+                                             niters,
+                                             dataType,
+                                             a,
+                                             lda,
+                                             dataType,
+                                             Srand,
+                                             dataType,
+                                             Urand,
+                                             ldUrand,
+                                             dataType,
+                                             Vrand,
+                                             ldVrand,
+                                             dataType,
+                                             workspaceInBytesOnDevice,
+                                             workspaceInBytesOnHost);
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
+  return result;
+}
+template <typename T>
+cusolverStatus_t cusolverDnxgesvdr(  // NOLINT
+  cusolverDnHandle_t handle,
+  signed char jobu,
+  signed char jobv,
+  int64_t m,
+  int64_t n,
+  int64_t k,
+  int64_t p,
+  int64_t niters,
+  T* a,
+  int64_t lda,
+  T* Srand,
+  T* Urand,
+  int64_t ldUrand,
+  T* Vrand,
+  int64_t ldVrand,
+  void* bufferOnDevice,
+  size_t workspaceInBytesOnDevice,
+  void* bufferOnHost,
+  size_t workspaceInBytesOnHost,
+  int* d_info,
+  cudaStream_t stream)
+{
+  cudaDataType dataType = std::is_same_v<T, float> ? CUDA_R_32F : CUDA_R_64F;
+  RAFT_CUSOLVER_TRY(cusolverDnSetStream(handle, stream));
+  cusolverDnParams_t dn_params = nullptr;
+  RAFT_CUSOLVER_TRY(cusolverDnCreateParams(&dn_params));
+  auto result = cusolverDnXgesvdr(handle,
+                                  dn_params,
+                                  jobu,
+                                  jobv,
+                                  m,
+                                  n,
+                                  k,
+                                  p,
+                                  niters,
+                                  dataType,
+                                  a,
+                                  lda,
+                                  dataType,
+                                  Srand,
+                                  dataType,
+                                  Urand,
+                                  ldUrand,
+                                  dataType,
+                                  Vrand,
+                                  ldVrand,
+                                  dataType,
+                                  bufferOnDevice,
+                                  workspaceInBytesOnDevice,
+                                  bufferOnHost,
+                                  workspaceInBytesOnHost,
+                                  d_info);
+  RAFT_CUSOLVER_TRY(cusolverDnDestroyParams(dn_params));
+  return result;
+}
+#endif  // CUDART_VERSION >= 11010
+
 /** @} */
 
 /**

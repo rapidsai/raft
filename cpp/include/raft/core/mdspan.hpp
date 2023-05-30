@@ -214,6 +214,11 @@ constexpr auto make_extents(Extents... exts)
 }
 
 /**
+ * @defgroup mdspan_reshape Row- or Col-norm computation
+ * @{
+ */
+
+/**
  * @brief Flatten raft::mdspan into a 1-dim array view
  *
  * @tparam mdspan_type Expected type raft::host_mdspan or raft::device_mdspan
@@ -297,6 +302,10 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
     return unravel_index_impl<uint32_t>(static_cast<uint32_t>(idx), shape);
   }
 }
+
+/**
+ * @}
+ */
 
 /**
  * @brief Const accessor specialization for default_accessor

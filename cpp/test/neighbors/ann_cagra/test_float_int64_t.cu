@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,16 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <gtest/gtest.h>
 
-#include <raft/core/span.hpp>
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+#include "../ann_cagra.cuh"
 
-namespace raft {
+namespace raft::neighbors::experimental::cagra {
 
-/**
- * @defgroup device_span one-dimensional device span type
- * @{
- */
+typedef AnnCagraTest<float, float, std::int64_t> AnnCagraTestF_I64;
+TEST_P(AnnCagraTestF_I64, AnnCagra) { this->testCagra(); }
 
-/**
- * @brief A span class for host pointer.
- */
-template <typename T, size_t extent = std::experimental::dynamic_extent>
-using host_span = span<T, false, extent>;
+INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_I64, ::testing::ValuesIn(inputs));
 
-/**
- * @}
- */
-
-}  // end namespace raft
+}  // namespace raft::neighbors::experimental::cagra

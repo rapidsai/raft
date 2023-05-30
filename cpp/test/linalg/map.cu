@@ -18,6 +18,7 @@
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eltwise.cuh>

@@ -52,7 +52,8 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
-  const unsigned warp_id = threadIdx.x / 32;
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+  const unsigned warp_id             = threadIdx.x / 32;
   if (warp_id > 0) { return; }
   const unsigned lane_id = threadIdx.x % 32;
   for (uint32_t i = lane_id; i < num_parents; i += 32) {
@@ -66,7 +67,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
     int new_parent = 0;
     if (j < num_itopk) {
       index = itopk_indices[j];
-      if ((index & 0x80000000) == 0) {  // check if most significant bit is set
+      if ((index & index_msb_1_mask) == 0) {  // check if most significant bit is set
         new_parent = 1;
       }
     }
@@ -75,7 +76,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < num_parents) {
         next_parent_indices[i] = index;
-        itopk_indices[j] |= 0x80000000;  // set most significant bit as used node
+        itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
     num_new_parents += __popc(ballot_mask);
@@ -84,9 +85,9 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
 
-template <unsigned MAX_ELEMENTS>
+template <unsigned MAX_ELEMENTS, class INDEX_T>
 __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_elements]
-                                            uint32_t* indices,        // [num_elements]
+                                            INDEX_T* indices,         // [num_elements]
                                             const uint32_t num_elements,
                                             const uint32_t num_itopk  // num_itopk <= num_elements
 )
@@ -96,7 +97,7 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
   const unsigned lane_id = threadIdx.x % 32;
   constexpr unsigned N   = (MAX_ELEMENTS + 31) / 32;
   float key[N];
-  uint32_t val[N];
+  INDEX_T val[N];
   for (unsigned i = 0; i < N; i++) {
     unsigned j = lane_id + (32 * i);
     if (j < num_elements) {
@@ -104,11 +105,11 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
       val[i] = indices[j];
     } else {
       key[i] = utils::get_max_value<float>();
-      val[i] = utils::get_max_value<uint32_t>();
+      val[i] = utils::get_max_value<INDEX_T>();
     }
   }
   /* Warp Sort */
-  bitonic::warp_sort<float, uint32_t, N>(key, val);
+  bitonic::warp_sort<float, INDEX_T, N>(key, val);
   /* Store itopk sorted results */
   for (unsigned i = 0; i < N; i++) {
     unsigned j = (N * lane_id) + i;
@@ -142,9 +143,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,              // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
   const uint32_t num_seeds,
-  uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
   const uint32_t itopk_size,
   const uint32_t num_parents,
@@ -194,7 +195,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto parent_indices_buffer =
-    reinterpret_cast<uint32_t*>(result_distances_buffer + result_buffer_size_32);
+    reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
   auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + num_parents);
 
 #if 0
@@ -215,7 +216,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     }
   }
   if (threadIdx.x == 0) { terminate_flag[0] = 0; }
-  uint32_t* local_visited_hashmap_ptr =
+  INDEX_T* const local_visited_hashmap_ptr =
     visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);
   __syncthreads();
   _CLK_REC(clk_init);
@@ -246,10 +247,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   while (1) {
     // topk with bitonic sort
     _CLK_START();
-    topk_by_bitonic_sort<MAX_ELEMENTS>(result_distances_buffer,
-                                       result_indices_buffer,
-                                       itopk_size + (num_parents * graph_degree),
-                                       itopk_size);
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (num_parents * graph_degree),
+                                                itopk_size);
     _CLK_REC(clk_topk);
 
     if (iter + 1 == max_iteration) {
@@ -292,7 +293,11 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
-    result_indices_ptr[j] = result_indices_buffer[i] & ~0x80000000;  // clear most significant bit
+
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
+    result_indices_ptr[j] =
+      result_indices_buffer[i] & ~index_msb_1_mask;  // clear most significant bit
   }
 
   if (threadIdx.x == 0 && cta_id == 0 && num_executed_iterations != nullptr) {
@@ -368,7 +373,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
                                   const uint64_t rand_xor_mask,             \
                                   const INDEX_T* seed_ptr,                  \
                                   const uint32_t num_seeds,                 \
-                                  uint32_t* const visited_hashmap_ptr,      \
+                                  INDEX_T* const visited_hashmap_ptr,       \
                                   const uint32_t hash_bitlen,               \
                                   const uint32_t itopk_size,                \
                                   const uint32_t num_parents,               \
@@ -456,7 +461,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
 
   uint32_t num_cta_per_query;
-  rmm::device_uvector<uint32_t> intermediate_indices;
+  rmm::device_uvector<INDEX_T> intermediate_indices;
   rmm::device_uvector<float> intermediate_distances;
   size_t topk_workspace_size;
   rmm::device_uvector<uint32_t> topk_workspace;
@@ -583,7 +588,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     // Initialize hash table
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
-      hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);
+      hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
 
     dim3 block_dims(block_size, 1, 1);
     dim3 grid_dims(num_cta_per_query, num_queries, 1);

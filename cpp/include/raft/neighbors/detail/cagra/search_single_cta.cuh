@@ -53,6 +53,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
                                     const std::size_t dataset_size,
                                     const std::uint32_t num_parents)
 {
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   // if (threadIdx.x >= 32) return;
 
   for (std::uint32_t i = threadIdx.x; i < num_parents; i += 32) {
@@ -68,7 +69,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
     int new_parent = 0;
     if (j < internal_topk_size) {
       index = internal_topk_indices[jj];
-      if ((index & 0x80000000) == 0) {  // check if most significant bit is set
+      if ((index & index_msb_1_mask) == 0) {  // check if most significant bit is set
         new_parent = 1;
       }
     }
@@ -78,7 +79,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
       if (i < num_parents) {
         next_parent_indices[i] = index;
         // set most significant bit as used node
-        internal_topk_indices[jj] |= 0x80000000;
+        internal_topk_indices[jj] |= index_msb_1_mask;
       }
     }
     num_new_parents += __popc(ballot_mask);
@@ -93,49 +94,52 @@ struct topk_by_radix_sort_base {
   static constexpr std::uint32_t state_bit_lenght = 0;
   static constexpr std::uint32_t vecLen           = 2;  // TODO
 };
-template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class = void>
+template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT, class = void>
 struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {};
 
-template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE>
+template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT>
 struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
                           BLOCK_SIZE,
+                          IdxT,
                           std::enable_if_t<((MAX_INTERNAL_TOPK <= 64))>>
   : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {
   __device__ void operator()(uint32_t topk,
                              uint32_t batch_size,
                              uint32_t len_x,
                              const uint32_t* _x,
-                             const uint32_t* _in_vals,
+                             const IdxT* _in_vals,
                              uint32_t* _y,
-                             uint32_t* _out_vals,
+                             IdxT* _out_vals,
                              uint32_t* work,
                              uint32_t* _hints,
                              bool sort,
                              uint32_t* _smem)
   {
-    std::uint8_t* state = (std::uint8_t*)work;
+    std::uint8_t* const state = reinterpret_cast<std::uint8_t*>(work);
     topk_cta_11_core<BLOCK_SIZE,
                      topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght,
                      topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,
                      64,
-                     32>(topk, len_x, _x, _in_vals, _y, _out_vals, state, _hints, sort, _smem);
+                     32,
+                     IdxT>(topk, len_x, _x, _in_vals, _y, _out_vals, state, _hints, sort, _smem);
   }
 };
 
 #define TOP_FUNC_PARTIAL_SPECIALIZATION(V)                                           \
-  template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE>                         \
+  template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT>             \
   struct topk_by_radix_sort<                                                         \
     MAX_INTERNAL_TOPK,                                                               \
     BLOCK_SIZE,                                                                      \
+    IdxT,                                                                            \
     std::enable_if_t<((MAX_INTERNAL_TOPK <= V) && (2 * MAX_INTERNAL_TOPK > V))>>     \
     : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {                                   \
     __device__ void operator()(uint32_t topk,                                        \
                                uint32_t batch_size,                                  \
                                uint32_t len_x,                                       \
                                const uint32_t* _x,                                   \
-                               const uint32_t* _in_vals,                             \
+                               const IdxT* _in_vals,                                 \
                                uint32_t* _y,                                         \
-                               uint32_t* _out_vals,                                  \
+                               IdxT* _out_vals,                                      \
                                uint32_t* work,                                       \
                                uint32_t* _hints,                                     \
                                bool sort,                                            \
@@ -147,7 +151,8 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
                        topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght, \
                        topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,           \
                        V,                                                            \
-                       V / 4>(                                                       \
+                       V / 4,                                                        \
+                       IdxT>(                                                        \
         topk, len_x, _x, _in_vals, _y, _out_vals, state, _hints, sort, _smem);       \
     }                                                                                \
   };
@@ -156,12 +161,11 @@ TOP_FUNC_PARTIAL_SPECIALIZATION(256);
 TOP_FUNC_PARTIAL_SPECIALIZATION(512);
 TOP_FUNC_PARTIAL_SPECIALIZATION(1024);
 
-template <unsigned MAX_CANDIDATES, unsigned MULTI_WARPS = 0>
-__device__ inline void topk_by_bitonic_sort_1st(
-  float* candidate_distances,        // [num_candidates]
-  std::uint32_t* candidate_indices,  // [num_candidates]
-  const std::uint32_t num_candidates,
-  const std::uint32_t num_itopk)
+template <unsigned MAX_CANDIDATES, unsigned MULTI_WARPS = 0, class IdxT = void>
+__device__ inline void topk_by_bitonic_sort_1st(float* candidate_distances,  // [num_candidates]
+                                                IdxT* candidate_indices,     // [num_candidates]
+                                                const std::uint32_t num_candidates,
+                                                const std::uint32_t num_itopk)
 {
   const unsigned lane_id = threadIdx.x % 32;
   const unsigned warp_id = threadIdx.x / 32;
@@ -169,7 +173,7 @@ __device__ inline void topk_by_bitonic_sort_1st(
     if (warp_id > 0) { return; }
     constexpr unsigned N = (MAX_CANDIDATES + 31) / 32;
     float key[N];
-    std::uint32_t val[N];
+    IdxT val[N];
     /* Candidates -> Reg */
     for (unsigned i = 0; i < N; i++) {
       unsigned j = lane_id + (32 * i);
@@ -178,11 +182,11 @@ __device__ inline void topk_by_bitonic_sort_1st(
         val[i] = candidate_indices[j];
       } else {
         key[i] = utils::get_max_value<float>();
-        val[i] = utils::get_max_value<std::uint32_t>();
+        val[i] = utils::get_max_value<IdxT>();
       }
     }
     /* Sort */
-    bitonic::warp_sort<float, std::uint32_t, N>(key, val);
+    bitonic::warp_sort<float, IdxT, N>(key, val);
     /* Reg -> Temp_itopk */
     for (unsigned i = 0; i < N; i++) {
       unsigned j = (N * lane_id) + i;
@@ -196,7 +200,7 @@ __device__ inline void topk_by_bitonic_sort_1st(
     constexpr unsigned max_candidates_per_warp = (MAX_CANDIDATES + 1) / 2;
     constexpr unsigned N                       = (max_candidates_per_warp + 31) / 32;
     float key[N];
-    std::uint32_t val[N];
+    IdxT val[N];
     if (warp_id < 2) {
       /* Candidates -> Reg */
       for (unsigned i = 0; i < N; i++) {
@@ -207,11 +211,11 @@ __device__ inline void topk_by_bitonic_sort_1st(
           val[i] = candidate_indices[j];
         } else {
           key[i] = utils::get_max_value<float>();
-          val[i] = utils::get_max_value<std::uint32_t>();
+          val[i] = utils::get_max_value<IdxT>();
         }
       }
       /* Sort */
-      bitonic::warp_sort<float, std::uint32_t, N>(key, val);
+      bitonic::warp_sort<float, IdxT, N>(key, val);
       /* Reg -> Temp_candidates */
       for (unsigned i = 0; i < N; i++) {
         unsigned jl = (N * lane_id) + i;
@@ -244,7 +248,7 @@ __device__ inline void topk_by_bitonic_sort_1st(
     if (num_warps_used > 1) { __syncthreads(); }
     if (warp_id < num_warps_used) {
       /* Merge */
-      bitonic::warp_merge<float, std::uint32_t, N>(key, val, 32);
+      bitonic::warp_merge<float, IdxT, N>(key, val, 32);
       /* Reg -> Temp_itopk */
       for (unsigned i = 0; i < N; i++) {
         unsigned jl = (N * lane_id) + i;
@@ -259,16 +263,15 @@ __device__ inline void topk_by_bitonic_sort_1st(
   }
 }
 
-template <unsigned MAX_ITOPK, unsigned MULTI_WARPS = 0>
-__device__ inline void topk_by_bitonic_sort_2nd(
-  float* itopk_distances,            // [num_itopk]
-  std::uint32_t* itopk_indices,      // [num_itopk]
-  const std::uint32_t num_itopk,
-  float* candidate_distances,        // [num_candidates]
-  std::uint32_t* candidate_indices,  // [num_candidates]
-  const std::uint32_t num_candidates,
-  std::uint32_t* work_buf,
-  const bool first)
+template <unsigned MAX_ITOPK, unsigned MULTI_WARPS = 0, class IdxT = void>
+__device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,      // [num_itopk]
+                                                IdxT* itopk_indices,         // [num_itopk]
+                                                const std::uint32_t num_itopk,
+                                                float* candidate_distances,  // [num_candidates]
+                                                IdxT* candidate_indices,     // [num_candidates]
+                                                const std::uint32_t num_candidates,
+                                                std::uint32_t* work_buf,
+                                                const bool first)
 {
   const unsigned lane_id = threadIdx.x % 32;
   const unsigned warp_id = threadIdx.x / 32;
@@ -276,7 +279,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
     if (warp_id > 0) { return; }
     constexpr unsigned N = (MAX_ITOPK + 31) / 32;
     float key[N];
-    std::uint32_t val[N];
+    IdxT val[N];
     if (first) {
       /* Load itopk results */
       for (unsigned i = 0; i < N; i++) {
@@ -286,11 +289,11 @@ __device__ inline void topk_by_bitonic_sort_2nd(
           val[i] = itopk_indices[j];
         } else {
           key[i] = utils::get_max_value<float>();
-          val[i] = utils::get_max_value<std::uint32_t>();
+          val[i] = utils::get_max_value<IdxT>();
         }
       }
       /* Warp Sort */
-      bitonic::warp_sort<float, std::uint32_t, N>(key, val);
+      bitonic::warp_sort<float, IdxT, N>(key, val);
     } else {
       /* Load itopk results */
       for (unsigned i = 0; i < N; i++) {
@@ -300,7 +303,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
           val[i] = itopk_indices[device::swizzling(j)];
         } else {
           key[i] = utils::get_max_value<float>();
-          val[i] = utils::get_max_value<std::uint32_t>();
+          val[i] = utils::get_max_value<IdxT>();
         }
       }
     }
@@ -316,7 +319,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
       }
     }
     /* Warp Merge */
-    bitonic::warp_merge<float, std::uint32_t, N>(key, val, 32);
+    bitonic::warp_merge<float, IdxT, N>(key, val, 32);
     /* Store new itopk results */
     for (unsigned i = 0; i < N; i++) {
       unsigned j = (N * lane_id) + i;
@@ -330,7 +333,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
     constexpr unsigned max_itopk_per_warp = (MAX_ITOPK + 1) / 2;
     constexpr unsigned N                  = (max_itopk_per_warp + 31) / 32;
     float key[N];
-    std::uint32_t val[N];
+    IdxT val[N];
     if (first) {
       /* Load itop results (not sorted) */
       if (warp_id < 2) {
@@ -341,11 +344,11 @@ __device__ inline void topk_by_bitonic_sort_2nd(
             val[i] = itopk_indices[j];
           } else {
             key[i] = utils::get_max_value<float>();
-            val[i] = utils::get_max_value<std::uint32_t>();
+            val[i] = utils::get_max_value<IdxT>();
           }
         }
         /* Warp Sort */
-        bitonic::warp_sort<float, std::uint32_t, N>(key, val);
+        bitonic::warp_sort<float, IdxT, N>(key, val);
         /* Store intermedidate results */
         for (unsigned i = 0; i < N; i++) {
           unsigned j = (N * threadIdx.x) + i;
@@ -369,7 +372,7 @@ __device__ inline void topk_by_bitonic_sort_2nd(
           }
         }
         /* Warp Merge */
-        bitonic::warp_merge<float, std::uint32_t, N>(key, val, 32);
+        bitonic::warp_merge<float, IdxT, N>(key, val, 32);
       }
       __syncthreads();
       /* Store itopk results (sorted) */
@@ -414,8 +417,8 @@ __device__ inline void topk_by_bitonic_sort_2nd(
       if (key_0 > key_1) {
         itopk_distances[device::swizzling(j)] = key_1;
         itopk_distances[device::swizzling(k)] = key_0;
-        std::uint32_t val_0                   = itopk_indices[device::swizzling(j)];
-        std::uint32_t val_1                   = itopk_indices[device::swizzling(k)];
+        IdxT val_0                            = itopk_indices[device::swizzling(j)];
+        IdxT val_1                            = itopk_indices[device::swizzling(k)];
         itopk_indices[device::swizzling(j)]   = val_1;
         itopk_indices[device::swizzling(k)]   = val_0;
         atomicMin(work_buf + 0, j);
@@ -447,11 +450,11 @@ __device__ inline void topk_by_bitonic_sort_2nd(
           val[i] = itopk_indices[device::swizzling(k)];
         } else {
           key[i] = utils::get_max_value<float>();
-          val[i] = utils::get_max_value<std::uint32_t>();
+          val[i] = utils::get_max_value<IdxT>();
         }
       }
       /* Warp Merge */
-      bitonic::warp_merge<float, std::uint32_t, N>(key, val, 32);
+      bitonic::warp_merge<float, IdxT, N>(key, val, 32);
       /* Store new itopk results */
       for (unsigned i = 0; i < N; i++) {
         const unsigned j = (N * lane_id) + i;
@@ -468,41 +471,44 @@ __device__ inline void topk_by_bitonic_sort_2nd(
 template <unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
           unsigned MULTI_WARPS_1,
-          unsigned MULTI_WARPS_2>
-__device__ void topk_by_bitonic_sort(float* itopk_distances,            // [num_itopk]
-                                     std::uint32_t* itopk_indices,      // [num_itopk]
+          unsigned MULTI_WARPS_2,
+          class IdxT>
+__device__ void topk_by_bitonic_sort(float* itopk_distances,      // [num_itopk]
+                                     IdxT* itopk_indices,         // [num_itopk]
                                      const std::uint32_t num_itopk,
-                                     float* candidate_distances,        // [num_candidates]
-                                     std::uint32_t* candidate_indices,  // [num_candidates]
+                                     float* candidate_distances,  // [num_candidates]
+                                     IdxT* candidate_indices,     // [num_candidates]
                                      const std::uint32_t num_candidates,
                                      std::uint32_t* work_buf,
                                      const bool first)
 {
   // The results in candidate_distances/indices are sorted by bitonic sort.
-  topk_by_bitonic_sort_1st<MAX_CANDIDATES, MULTI_WARPS_1>(
+  topk_by_bitonic_sort_1st<MAX_CANDIDATES, MULTI_WARPS_1, IdxT>(
     candidate_distances, candidate_indices, num_candidates, num_itopk);
 
   // The results sorted above are merged with the internal intermediate top-k
   // results so far using bitonic merge.
-  topk_by_bitonic_sort_2nd<MAX_ITOPK, MULTI_WARPS_2>(itopk_distances,
-                                                     itopk_indices,
-                                                     num_itopk,
-                                                     candidate_distances,
-                                                     candidate_indices,
-                                                     num_candidates,
-                                                     work_buf,
-                                                     first);
+  topk_by_bitonic_sort_2nd<MAX_ITOPK, MULTI_WARPS_2, IdxT>(itopk_distances,
+                                                           itopk_indices,
+                                                           num_itopk,
+                                                           candidate_distances,
+                                                           candidate_indices,
+                                                           num_candidates,
+                                                           work_buf,
+                                                           first);
 }
 
 template <unsigned FIRST_TID, unsigned LAST_TID, class INDEX_T>
-__device__ inline void hashmap_restore(uint32_t* hashmap_ptr,
+__device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
                                        const size_t hashmap_bitlen,
                                        const INDEX_T* itopk_indices,
                                        uint32_t itopk_size)
 {
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
   if (threadIdx.x < FIRST_TID || threadIdx.x >= LAST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < itopk_size; i += LAST_TID - FIRST_TID) {
-    auto key = itopk_indices[i] & ~0x80000000;  // clear most significant bit
+    auto key = itopk_indices[i] & ~index_msb_1_mask;  // clear most significant bit
     hashmap::insert(hashmap_ptr, hashmap_bitlen, key);
   }
 }
@@ -539,9 +545,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const std::uint32_t graph_degree,
                      const unsigned num_distilation,
                      const uint64_t rand_xor_mask,
-                     const INDEX_T* seed_ptr,                   // [num_queries, num_seeds]
+                     const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
                      const uint32_t num_seeds,
-                     std::uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+                     INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
                      const std::uint32_t internal_topk,
                      const std::uint32_t num_parents,
                      const std::uint32_t min_iteration,
@@ -587,8 +593,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto visited_hash_buffer =
-    reinterpret_cast<std::uint32_t*>(result_distances_buffer + result_buffer_size_32);
-  auto parent_list_buffer = reinterpret_cast<std::uint32_t*>(visited_hash_buffer + small_hash_size);
+    reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
+  auto parent_list_buffer = reinterpret_cast<INDEX_T*>(visited_hash_buffer + small_hash_size);
   auto topk_ws            = reinterpret_cast<std::uint32_t*>(parent_list_buffer + num_parents);
   auto terminate_flag     = reinterpret_cast<std::uint32_t*>(topk_ws + 3);
   auto smem_working_ptr   = reinterpret_cast<std::uint32_t*>(terminate_flag + 1);
@@ -608,7 +614,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   }
 
   // Init hashmap
-  uint32_t* local_visited_hashmap_ptr;
+  INDEX_T* local_visited_hashmap_ptr;
   if (small_hash_bitlen) {
     local_visited_hashmap_ptr = visited_hash_buffer;
   } else {
@@ -693,7 +699,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     } else {
       _CLK_START();
       // topk with radix block sort
-      topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>{}(
+      topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>{}(
         internal_topk,
         gridDim.x,
         result_buffer_size,
@@ -768,7 +774,11 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     unsigned ii = i;
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[ii]; }
-    result_indices_ptr[j] = result_indices_buffer[ii] & ~0x80000000;  // clear most significant bit
+
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
+    result_indices_ptr[j] =
+      result_indices_buffer[ii] & ~index_msb_1_mask;  // clear most significant bit
   }
   if (threadIdx.x == 0 && num_executed_iterations != nullptr) {
     num_executed_iterations[query_id] = iter + 1;
@@ -868,7 +878,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                   const uint64_t rand_xor_mask,                   \
                                   const INDEX_T* seed_ptr,                        \
                                   const uint32_t num_seeds,                       \
-                                  std::uint32_t* const visited_hashmap_ptr,       \
+                                  INDEX_T* const visited_hashmap_ptr,             \
                                   const std::uint32_t itopk_size,                 \
                                   const std::uint32_t num_parents,                \
                                   const std::uint32_t min_iteration,              \
@@ -999,17 +1009,18 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     const std::uint32_t topk_ws_size = 3;
     const std::uint32_t base_smem_size =
       sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
-      sizeof(std::uint32_t) * hashmap::get_size(small_hash_bitlen) +
-      sizeof(std::uint32_t) * num_parents + sizeof(std::uint32_t) * topk_ws_size +
-      sizeof(std::uint32_t);
+      sizeof(INDEX_T) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * num_parents +
+      sizeof(std::uint32_t) * topk_ws_size + sizeof(std::uint32_t);
     smem_size = base_smem_size;
     if (num_itopk_candidates > 256) {
       // Tentatively calculate the required share memory size when radix
       // sort based topk is used, assuming the block size is the maximum.
       if (itopk_size <= 256) {
-        smem_size += topk_by_radix_sort<256, max_block_size>::smem_size * sizeof(std::uint32_t);
+        smem_size +=
+          topk_by_radix_sort<256, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
       } else {
-        smem_size += topk_by_radix_sort<512, max_block_size>::smem_size * sizeof(std::uint32_t);
+        smem_size +=
+          topk_by_radix_sort<512, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
       }
     }
 
@@ -1080,32 +1091,38 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
         constexpr unsigned MAX_ITOPK = 256;
         if (block_size == 256) {
           constexpr unsigned BLOCK_SIZE = 256;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         } else if (block_size == 512) {
           constexpr unsigned BLOCK_SIZE = 512;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         } else {
           constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         }
       } else {
         constexpr unsigned MAX_ITOPK = 512;
         if (block_size == 256) {
           constexpr unsigned BLOCK_SIZE = 256;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         } else if (block_size == 512) {
           constexpr unsigned BLOCK_SIZE = 512;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         } else {
           constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size += topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE>::smem_size * sizeof(std::uint32_t);
+          smem_size +=
+            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
         }
       }
     }
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
     hashmap_size = 0;
     if (small_hash_bitlen == 0) {
-      hashmap_size = sizeof(uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+      hashmap_size = sizeof(INDEX_T) * max_queries * hashmap::get_size(hash_bitlen);
       hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
     }
     RAFT_LOG_DEBUG("# hashmap_size: %lu", hashmap_size);
