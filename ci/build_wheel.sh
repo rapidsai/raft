@@ -49,5 +49,7 @@ mv dist/${package_name}*manylinux* final_dist
 # on this variable being set
 export RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"
 
-git clone https://github.com/divyegala/gha-tools.git -b wheel-local-runs /tmp/gha-tools
+if [[ ! -d "/tmp/gha-tools" ]]; then
+  git clone https://github.com/divyegala/gha-tools.git -b wheel-local-runs /tmp/gha-tools
+fi
 /tmp/gha-tools/tools/rapids-upload-wheels-to-s3 final_dist
