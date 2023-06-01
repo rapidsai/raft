@@ -139,7 +139,7 @@ struct SamplingParams {
 };
 
 template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
+HDI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
 {
   constexpr Type twoPi  = Type(2.0) * Type(3.141592654);
   constexpr Type minus2 = -Type(2.0);
@@ -152,27 +152,27 @@ DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type
 }
 
 template <typename Type>
-DI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
+HDI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 {
   box_muller_transform<Type>(val1, val2, sigma1, mu1, sigma1, mu1);
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    InvariantDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     InvariantDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   *val = params.const_val;
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     UniformDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -180,11 +180,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformIntDistParams<OutType, uint32_t> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     UniformIntDistParams<OutType, uint32_t> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   uint32_t x = 0;
   uint32_t s = params.diff;
@@ -203,11 +203,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformIntDistParams<OutType, uint64_t> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     UniformIntDistParams<OutType, uint64_t> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   uint64_t x = 0;
   gen.next(x);
@@ -228,7 +228,7 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
+HDI void custom_next(
   GenType& gen, OutType* val, NormalDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res1, res2;
@@ -245,11 +245,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename IntType, typename LenType>
-DI void custom_next(GenType& gen,
-                    IntType* val,
-                    NormalIntDistParams<IntType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     IntType* val,
+                     NormalIntDistParams<IntType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   IntType res1_int, res2_int;
 
@@ -268,11 +268,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    NormalTableDistParams<OutType, LenType> params,
-                    LenType idx,
-                    LenType stride)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     NormalTableDistParams<OutType, LenType> params,
+                     LenType idx,
+                     LenType stride)
 {
   OutType res1, res2;
 
@@ -293,7 +293,7 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename Type, typename LenType>
-DI void custom_next(
+HDI void custom_next(
   GenType& gen, OutType* val, BernoulliDistParams<Type> params, LenType idx = 0, LenType stride = 0)
 {
   Type res = 0;
@@ -302,11 +302,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    ScaledBernoulliDistParams<OutType> params,
-                    LenType idx,
-                    LenType stride)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     ScaledBernoulliDistParams<OutType> params,
+                     LenType idx,
+                     LenType stride)
 {
   OutType res = 0;
   gen.next(res);
@@ -314,7 +314,7 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
+HDI void custom_next(
   GenType& gen, OutType* val, GumbelDistParams<OutType> params, LenType idx = 0, LenType stride = 0)
 {
   OutType res = 0;
@@ -327,11 +327,11 @@ DI void custom_next(
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    LogNormalDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     LogNormalDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
   do {
@@ -345,11 +345,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    LogisticDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     LogisticDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
 
@@ -362,11 +362,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    ExponentialDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     ExponentialDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -375,11 +375,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    RayleighDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     RayleighDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -390,11 +390,11 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(GenType& gen,
-                    OutType* val,
-                    LaplaceDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+HDI void custom_next(GenType& gen,
+                     OutType* val,
+                     LaplaceDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res, out;
 
@@ -417,7 +417,7 @@ DI void custom_next(GenType& gen,
 }
 
 template <typename GenType, typename OutType, typename LenType>
-DI void custom_next(
+HDI void custom_next(
   GenType& gen, OutType* val, SamplingParams<OutType, LenType> params, LenType idx, LenType stride)
 {
   OutType res;
@@ -434,6 +434,7 @@ DI void custom_next(
 
 /** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
+// due to curand dependency, this is only defined on device !
 struct PhiloxGenerator {
   static constexpr auto GEN_TYPE = GeneratorType::GenPhilox;
 
@@ -442,12 +443,19 @@ struct PhiloxGenerator {
    * @param seed random seed (can be same across all threads)
    * @param subsequence as found in curand docs
    * @param offset as found in curand docs
+   * @note this constructor should be reserved for advanced uses. Prefer the one(s)
+   * using `DeviceState`.
    */
   DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
     curand_init(seed, subsequence, offset, &philox_state);
   }
 
+  /**
+   * @brief ctor. Initializes the state for RNG based on `DeviceState` and subsequence
+   * @param rng_state the `DeviceState` constructed from a `RngState` instance
+   * @param subsequence the subsequence used for this specific thread
+   */
   DI PhiloxGenerator(const DeviceState<PhiloxGenerator>& rng_state, const uint64_t subsequence)
   {
     curand_init(rng_state.seed, rng_state.base_subsequence + subsequence, 0, &philox_state);
@@ -539,9 +547,11 @@ struct PCGenerator {
    * @brief ctor. Initializes the state for RNG. This code is derived from PCG basic code
    * @param seed the seed (can be same across all threads). Same as PCG's initstate
    * @param subsequence is same as PCG's initseq
-   * @param offset unused
+   * @param offset additional offset to keep API in line with PhiloxGenerator
+   * @note this constructor should be reserved for advanced uses. Prefer the one(s)
+   * using `DeviceState`.
    */
-  DI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
+  HDI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
     pcg_state = uint64_t(0);
     inc       = (subsequence << 1u) | 1u;
@@ -549,10 +559,15 @@ struct PCGenerator {
     next(discard);
     pcg_state += seed;
     next(discard);
-    skipahead(offset);
+    skipahead(subsequence + offset);
   }
 
-  DI PCGenerator(const DeviceState<PCGenerator>& rng_state, const uint64_t subsequence)
+  /**
+   * @brief ctor. Initializes the state for RNG based on `DeviceState` and subsequence
+   * @param rng_state the `DeviceState` constructed from a `RngState` instance
+   * @param subsequence the subsequence used for this specific thread
+   */
+  HDI PCGenerator(const DeviceState<PCGenerator>& rng_state, const uint64_t subsequence)
   {
     pcg_state = uint64_t(0);
     inc       = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
@@ -565,7 +580,7 @@ struct PCGenerator {
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
   // Link https://mcnp.lanl.gov/pdf_files/anl-rn-arb-stride.pdf
-  DI void skipahead(uint64_t offset)
+  HDI void skipahead(uint64_t offset)
   {
     uint64_t G = 1;
     uint64_t h = 6364136223846793005ULL;
@@ -588,7 +603,7 @@ struct PCGenerator {
    * @brief This code is derived from PCG basic code
    * @{
    */
-  DI uint32_t next_u32()
+  HDI uint32_t next_u32()
   {
     uint32_t ret;
     uint64_t oldstate   = pcg_state;
@@ -598,7 +613,7 @@ struct PCGenerator {
     ret                 = (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
     return ret;
   }
-  DI uint64_t next_u64()
+  HDI uint64_t next_u64()
   {
     uint64_t ret;
     uint32_t a, b;
@@ -608,7 +623,7 @@ struct PCGenerator {
     return ret;
   }
 
-  DI int32_t next_i32()
+  HDI int32_t next_i32()
   {
     int32_t ret;
     uint32_t val;
@@ -617,7 +632,7 @@ struct PCGenerator {
     return ret;
   }
 
-  DI int64_t next_i64()
+  HDI int64_t next_i64()
   {
     int64_t ret;
     uint64_t val;
@@ -626,7 +641,7 @@ struct PCGenerator {
     return ret;
   }
 
-  DI float next_float()
+  HDI float next_float()
   {
     float ret;
     uint32_t val = next_u32() >> 8;
@@ -634,7 +649,7 @@ struct PCGenerator {
     return ret;
   }
 
-  DI double next_double()
+  HDI double next_double()
   {
     double ret;
     uint64_t val = next_u64() >> 11;
@@ -642,13 +657,13 @@ struct PCGenerator {
     return ret;
   }
 
-  DI void next(uint32_t& ret) { ret = next_u32(); }
-  DI void next(uint64_t& ret) { ret = next_u64(); }
-  DI void next(int32_t& ret) { ret = next_i32(); }
-  DI void next(int64_t& ret) { ret = next_i64(); }
+  HDI void next(uint32_t& ret) { ret = next_u32(); }
+  HDI void next(uint64_t& ret) { ret = next_u64(); }
+  HDI void next(int32_t& ret) { ret = next_i32(); }
+  HDI void next(int64_t& ret) { ret = next_i64(); }
 
-  DI void next(float& ret) { ret = next_float(); }
-  DI void next(double& ret) { ret = next_double(); }
+  HDI void next(float& ret) { ret = next_float(); }
+  HDI void next(double& ret) { ret = next_double(); }
 
   /** @} */
 
