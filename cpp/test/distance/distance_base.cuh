@@ -532,6 +532,108 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
+/*
+ * This test suite verifies the path when X and Y are same buffer,
+ * distance metrics which requires norms like L2 expanded/cosine/correlation
+ * takes a more optimal path in such case to skip norm calculation for Y buffer.
+ * It may happen that though both X and Y are same buffer but user passes
+ * different dimensions for them like in case of tiled_brute_force_knn.
+ */
+template <raft::distance::DistanceType distanceType, typename DataType>
+class DistanceTestSameBuffer : public ::testing::TestWithParam<DistanceInputs<DataType>> {
+ public:
+  using dev_vector = rmm::device_uvector<DataType>;
+  DistanceTestSameBuffer()
+    : params(::testing::TestWithParam<DistanceInputs<DataType>>::GetParam()),
+      stream(resource::get_cuda_stream(handle)),
+      x(params.m * params.k, stream),
+      dist_ref({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)}),
+      dist({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)}),
+      dist2({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)})
+  {
+  }
+
+  void SetUp() override
+  {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
+    raft::random::RngState r(params.seed);
+    int m               = params.m;
+    int n               = params.m;
+    int k               = params.k;
+    DataType metric_arg = params.metric_arg;
+    bool isRowMajor     = params.isRowMajor;
+    if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
+        distanceType == raft::distance::DistanceType::JensenShannon ||
+        distanceType == raft::distance::DistanceType::KLDivergence) {
+      // Hellinger works only on positive numbers
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+      // Russel rao works on boolean values.
+      bernoulli(handle, r, x.data(), m * k, 0.5f);
+    } else {
+      uniform(handle, r, x.data(), m * k, DataType(-1.0), DataType(1.0));
+    }
+
+    for (int i = 0; i < 2; i++) {
+      // both X and Y are same buffer but when i = 1
+      // different dimensions for x & y is passed.
+      m = m / (i + 1);
+      naiveDistance(dist_ref[i].data(),
+                    x.data(),
+                    x.data(),
+                    m,
+                    n,
+                    k,
+                    distanceType,
+                    isRowMajor,
+                    metric_arg,
+                    stream);
+
+      DataType threshold = -10000.f;
+
+      if (isRowMajor) {
+        distanceLauncher<distanceType, DataType, layout_c_contiguous>(handle,
+                                                                      x.data(),
+                                                                      x.data(),
+                                                                      dist[i].data(),
+                                                                      dist2[i].data(),
+                                                                      m,
+                                                                      n,
+                                                                      k,
+                                                                      params,
+                                                                      threshold,
+                                                                      metric_arg);
+
+      } else {
+        distanceLauncher<distanceType, DataType, layout_f_contiguous>(handle,
+                                                                      x.data(),
+                                                                      x.data(),
+                                                                      dist[i].data(),
+                                                                      dist2[i].data(),
+                                                                      m,
+                                                                      n,
+                                                                      k,
+                                                                      params,
+                                                                      threshold,
+                                                                      metric_arg);
+      }
+    }
+    resource::sync_stream(handle, stream);
+  }
+
+ protected:
+  raft::resources handle;
+  cudaStream_t stream;
+
+  DistanceInputs<DataType> params;
+  dev_vector x;
+  static const int N = 2;
+  std::array<dev_vector, N> dist_ref, dist, dist2;
+};
+
 template <raft::distance::DistanceType distanceType>
 class BigMatrixDistanceTest : public ::testing::Test {
  public:

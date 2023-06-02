@@ -126,9 +126,9 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // unused
 {
-  ASSERT(
-    !(((x != y) && (worksize < 2 * (m + n) * sizeof(AccT))) || (worksize < 2 * m * sizeof(AccT))),
-    "workspace size error");
+  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < 2 * (m + n) * sizeof(AccT))) ||
+           (worksize < 2 * m * sizeof(AccT))),
+         "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
@@ -137,7 +137,7 @@ void distance_impl(raft::resources const& handle,
   AccT* y_norm    = workspace;
   AccT* sq_x_norm = workspace;
   AccT* sq_y_norm = workspace;
-  if (x != y) {
+  if ((x != y) || ((x == y) && (m != n))) {
     y_norm += m;
 
     raft::linalg::reduce(x_norm,
@@ -210,7 +210,8 @@ void distance_impl(raft::resources const& handle,
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
+  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < (m + n) * sizeof(AccT))) ||
+           (worksize < m * sizeof(AccT))),
          "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
@@ -218,7 +219,7 @@ void distance_impl(raft::resources const& handle,
 
   DataT* x_norm = workspace;
   DataT* y_norm = workspace;
-  if (x != y) {
+  if ((x != y) || ((x == y) && (m != n))) {
     y_norm += m;
     raft::linalg::rowNorm(
       x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
@@ -453,13 +454,14 @@ void distance_impl_l2_expanded(  // NOTE: different name
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(!(((x != y) && (worksize < (m + n) * sizeof(AccT))) || (worksize < m * sizeof(AccT))),
+  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < (m + n) * sizeof(AccT))) ||
+           (worksize < m * sizeof(AccT))),
          "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   DataT* x_norm = workspace;
   DataT* y_norm = workspace;
-  if (x != y) {
+  if ((x != y) || ((x == y) && (m != n))) {
     y_norm += m;
     raft::linalg::rowNorm(
       x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
@@ -790,7 +792,7 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
 
   if (is_allocated) {
     worksize += numOfBuffers * m * sizeof(AccType);
-    if (x != y) worksize += numOfBuffers * n * sizeof(AccType);
+    if ((x != y) || ((x == y) && (m != n))) worksize += numOfBuffers * n * sizeof(AccType);
   }
 
   return worksize;
