@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -16,5 +16,5 @@ set(cython_sources comms_utils.pyx nccl.pyx)
 set(linked_libraries raft::raft raft::distributed)
 rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}" ASSOCIATED_TARGETS raft LINKED_LIBRARIES "${linked_libraries}"
-                                                                            CXX
+  CXX
 )

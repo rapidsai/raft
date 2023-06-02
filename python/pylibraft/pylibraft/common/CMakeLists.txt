@@ -18,7 +18,6 @@ set(linked_libraries raft::raft)
 
 # Build all of the Cython targets
 rapids_cython_create_modules(
-  CXX
-  SOURCE_FILES "${cython_sources}"
-  LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX common_
+  CXX SOURCE_FILES "${cython_sources}" LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS
+  raft MODULE_PREFIX common_
 )
