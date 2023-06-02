@@ -21,6 +21,7 @@ from collections import OrderedDict, Counter
 import os
 
 
+
 from dask.distributed import default_client
 from dask_cuda.utils import nvml_device_index
 
@@ -698,7 +699,7 @@ def _func_worker_ranks(client):
         client (object): Dask client object.
     """
     ranks = client.run(_get_nvml_device_index)
-    worker_ips = [_get_worker_ips(worker_address) for worker_address in ranks]
+    worker_ips = [_get_worker_ip(worker_address) for worker_address in ranks]
     worker_ip_offset_dict = _get_rank_offset_across_nodes(worker_ips)
     return _append_rank_offset(ranks, worker_ip_offset_dict)
 
@@ -711,12 +712,11 @@ def _get_nvml_device_index():
     return nvml_device_index(0, CUDA_VISIBLE_DEVICES)
 
 
-def _get_worker_ips(worker_address):
+def _get_worker_ip(worker_address):
     """
     Extract the worker IP address from the worker address string.
-
     Args:
-        worker_address (str): Full address string of the worker without port.
+        worker_address (str): Full address string of the worker
     """
     return ":".join(worker_address.split(':')[0:2])
 
