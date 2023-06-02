@@ -22,6 +22,14 @@
 #endif
 #endif
 
+#if defined(_RAFT_HAS_CUDA)
+#define CUDA_CONDITION_ELSE_TRUE(condition)  condition
+#define CUDA_CONDITION_ELSE_FALSE(condition) condition
+#else
+#define CUDA_CONDITION_ELSE_TRUE(condition)  true
+#define CUDA_CONDITION_ELSE_FALSE(condition) false
+#endif
+
 #ifndef _RAFT_HOST_DEVICE
 #if defined(_RAFT_HAS_CUDA)
 #define _RAFT_DEVICE      __device__
@@ -38,6 +46,10 @@
 
 #ifndef RAFT_INLINE_FUNCTION
 #define RAFT_INLINE_FUNCTION _RAFT_HOST_DEVICE _RAFT_FORCEINLINE
+#endif
+
+#ifndef RAFT_DEVICE_INLINE_FUNCTION
+#define RAFT_DEVICE_INLINE_FUNCTION _RAFT_DEVICE _RAFT_FORCEINLINE
 #endif
 
 // The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
