@@ -157,7 +157,7 @@ class Comms:
         Builds a dictionary of { (worker_address, worker_port) :
                                 (worker_rank, worker_port ) }
         """
-        ranks = _func_worker_ranks(workers)
+        ranks = _func_worker_ranks(self.client)
         ports = (
             _func_ucp_ports(self.client, workers) if self.comms_p2p else None
         )
