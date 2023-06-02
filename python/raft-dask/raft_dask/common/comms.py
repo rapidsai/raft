@@ -14,13 +14,11 @@
 #
 
 import logging
+import os
 import time
 import uuid
 import warnings
-from collections import OrderedDict, Counter
-import os
-
-
+from collections import Counter, OrderedDict
 
 from dask.distributed import default_client
 from dask_cuda.utils import nvml_device_index
@@ -692,10 +690,12 @@ def _func_ucp_ports(client, workers):
 
 def _func_worker_ranks(client):
     """
-    For each worker connected to the client, compute a global rank which is the sum
+    For each worker connected to the client,
+    compute a global rank which is the sum
     of the NVML device index and the worker rank offset.
 
-    Args:
+    Parameters
+    ----------
         client (object): Dask client object.
     """
     ranks = client.run(_get_nvml_device_index)
@@ -706,7 +706,8 @@ def _func_worker_ranks(client):
 
 def _get_nvml_device_index():
     """
-    Return NVML device index based on environment variable 'CUDA_VISIBLE_DEVICES'.
+    Return NVML device index based on environment variable
+    'CUDA_VISIBLE_DEVICES'.
     """
     CUDA_VISIBLE_DEVICES = os.getenv("CUDA_VISIBLE_DEVICES")
     return nvml_device_index(0, CUDA_VISIBLE_DEVICES)
@@ -715,10 +716,12 @@ def _get_nvml_device_index():
 def _get_worker_ip(worker_address):
     """
     Extract the worker IP address from the worker address string.
-    Args:
+
+    Parameters
+    ----------
         worker_address (str): Full address string of the worker
     """
-    return ":".join(worker_address.split(':')[0:2])
+    return ":".join(worker_address.split(":")[0:2])
 
 
 def _get_rank_offset_across_nodes(worker_ips):
@@ -727,7 +730,8 @@ def _get_rank_offset_across_nodes(worker_ips):
     their occurrences in the worker_ips list. The cumulative count serves as
     the rank offset.
 
-    Args:
+    Parameters
+    ----------
         worker_ips (list): List of worker IP addresses.
     """
     worker_count_dict = Counter(worker_ips)
@@ -741,12 +745,15 @@ def _get_rank_offset_across_nodes(worker_ips):
 
 def _append_rank_offset(rank_dict, worker_ip_offset_dict):
     """
-    For each worker address in the rank dictionary, add the corresponding worker offset
-    from the worker_ip_offset_dict to the rank value.
+    For each worker address in the rank dictionary, add the
+    corresponding worker offset from the worker_ip_offset_dict
+    to the rank value.
 
-    Args:
+    Parameters
+    ----------
         rank_dict (dict): Dictionary of worker addresses mapped to their ranks.
-        worker_ip_offset_dict (dict): Dictionary of worker IP addresses mapped to their offsets.
+        worker_ip_offset_dict (dict): Dictionary of worker IP addresses
+                                      mapped to their offsets.
     """
     for worker_ip, worker_offset in worker_ip_offset_dict.items():
         for worker_address in rank_dict:
