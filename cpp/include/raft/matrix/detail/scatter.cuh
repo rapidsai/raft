@@ -98,8 +98,6 @@ void scatterInplaceImpl(raft::resources const& handle,
     };
     raft::linalg::map_offset(handle, raft::make_device_vector_view(scratch_space.data_handle(), m * cols_per_batch), copy_op);
 
-    cudaDeviceSynchronize();
-    raft::print_device_vector("scratch_space", scratch_space.data_handle(), m * cols_per_batch, std::cout);
     auto scatter_op = [inout         = inout.data_handle(),
                     map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),

@@ -400,8 +400,6 @@ void gatherInplaceImpl(raft::resources const& handle,
     };
     raft::linalg::map_offset(handle, scratch_space.view(), gather_op);
 
-    cudaDeviceSynchronize();
-    raft::print_device_vector("gather_scratch_space", scratch_space.data_handle(), m * cols_per_batch, std::cout);
     auto copy_op = [inout         = inout.data_handle(),
                     map           = map.data_handle(),
                     scratch_space = scratch_space.data_handle(),

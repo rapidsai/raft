@@ -15,8 +15,7 @@
  */
 
 #include "../test_utils.cuh"
-#include "raft/core/logger-macros.hpp"
-#include "raft/util/cudart_utils.hpp"
+#include <raft/util/cudart_utils.hpp>
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -122,10 +121,6 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
 
       raft::matrix::scatter(handle, inout_view, map_view, params.col_batch_size);
     resource::sync_stream(handle, stream);
-
-    raft::print_device_vector("map", d_map.data(), params.nrows, std::cout);
-    raft::print_device_vector("d_out_exp", d_out_exp.data(), params.nrows * params.ncols, std::cout);
-    raft::print_device_vector("d_scatter", d_in.data(), params.nrows * params.ncols, std::cout);
   }
 
  protected:

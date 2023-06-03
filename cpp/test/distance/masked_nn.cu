@@ -272,11 +272,6 @@ auto run_masked_nn(const raft::handle_t& handle, Inputs<DataT> inp, const Params
   // Create output
   auto out = raft::make_device_vector<OutT, IdxT, raft::layout_c_contiguous>(handle, p.m);
 
-  RAFT_LOG_INFO("adj extents %d %d", inp.adj.extent(0), inp.adj.extent(1));
-  RAFT_LOG_INFO("group_idxs extents %d", inp.group_idxs.extent(0));
-  raft::print_device_vector("adj", inp.adj.data_handle(), inp.adj.extent(0) * inp.adj.extent(1), std::cout);
-    raft::print_device_vector("group_idxs", inp.group_idxs.data_handle(), inp.group_idxs.extent(0), std::cout);
-
   // Launch kernel
   raft::distance::masked_l2_nn<DataT, OutT, IdxT>(handle,
                                                   masked_l2_params,
