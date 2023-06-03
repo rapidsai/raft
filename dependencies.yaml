@@ -136,7 +136,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cuda_python cuda-python>=11.7.1,<12.0
-          - &rmm rmm==23.6.*
+          - &rmm rmm==23.8.*
   checks:
     common:
       - output_types: [conda, requirements]
@@ -271,12 +271,12 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - dask==2023.3.2
-          - dask-cuda==23.6.*
+          - dask-cuda==23.8.*
           - distributed==2023.3.2.1
           - joblib>=0.11
-          - numba>=0.49
+          - numba>=0.57
           - *numpy
-          - ucx-py==0.32.*
+          - ucx-py==0.33.*
       - output_types: conda
         packages:
           - dask-core==2023.3.2
@@ -284,7 +284,7 @@ dependencies:
           - ucx-proc=*=gpu
       - output_types: pyproject
         packages:
-          - pylibraft==23.6.*
+          - pylibraft==23.8.*
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
