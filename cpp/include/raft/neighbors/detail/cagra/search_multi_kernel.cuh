@@ -93,6 +93,7 @@ __global__ void random_pickup_kernel(
   const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
+  const std::size_t dataset_ld,
   const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
   const std::size_t num_pickup,
   const unsigned num_distilation,
@@ -125,7 +126,7 @@ __global__ void random_pickup_kernel(
     }
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> random_data_frag;
     device::load_vector_sync(
-      random_data_frag, dataset_ptr + (dataset_dim * seed_index), dataset_dim);
+      random_data_frag, dataset_ptr + (dataset_ld * seed_index), dataset_dim);
 
     // Compute the norm of two data
     const auto norm2 = device::norm2<DISTANCE_T>(
@@ -163,6 +164,7 @@ template <unsigned TEAM_SIZE,
 void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
                    const std::size_t dataset_dim,
                    const std::size_t dataset_size,
+                   const std::size_t dataset_ld,
                    const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
                    const std::size_t num_queries,
                    const std::size_t num_pickup,
@@ -186,6 +188,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
     <<<grid_size, block_size, 0, cuda_stream>>>(dataset_ptr,
                                                 dataset_dim,
                                                 dataset_size,
+                                                dataset_ld,
                                                 queries_ptr,
                                                 num_pickup,
                                                 num_distilation,
@@ -310,6 +313,7 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
+  const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
   const DATA_T* query_ptr,                  // [num_queries, data_dim]
@@ -338,7 +342,7 @@ __global__ void compute_distance_to_child_nodes_kernel(
   if (hashmap::insert<TEAM_SIZE, INDEX_T>(
         visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)) {
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_target;
-    device::load_vector_sync(frag_target, dataset_ptr + (data_dim * child_id), data_dim);
+    device::load_vector_sync(frag_target, dataset_ptr + (dataset_ld * child_id), data_dim);
 
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_query;
     device::load_vector_sync(frag_query, query_ptr + blockIdx.y * data_dim, data_dim);
@@ -370,6 +374,7 @@ void compute_distance_to_child_nodes(
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
+  const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
   const DATA_T* query_ptr,                  // [num_queries, data_dim]
@@ -391,6 +396,7 @@ void compute_distance_to_child_nodes(
                                                 dataset_ptr,
                                                 data_dim,
                                                 dataset_size,
+                                                dataset_ld,
                                                 neighbor_graph_ptr,
                                                 graph_degree,
                                                 query_ptr,
@@ -511,7 +517,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_length;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
@@ -533,7 +538,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
@@ -590,7 +594,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   ~search() {}
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
                   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
@@ -613,6 +617,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       dataset.data_handle(),
       dataset.extent(1),
       dataset.extent(0),
+      dataset.stride(0),
       queries_ptr,
       num_queries,
       result_buffer_size,
@@ -683,6 +688,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
         dataset.data_handle(),
         dataset.extent(1),
         dataset.extent(0),
+        dataset.stride(0),
         graph.data_handle(),
         graph.extent(1),
         queries_ptr,

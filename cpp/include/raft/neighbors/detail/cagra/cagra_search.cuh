@@ -27,8 +27,6 @@
 #include <rmm/cuda_stream_view.hpp>
 
 #include "factory.cuh"
-#include "search_multi_cta.cuh"
-#include "search_multi_kernel.cuh"
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
 
@@ -92,8 +90,12 @@ void search_main(raft::resources const& res,
         : nullptr;
     uint32_t* _num_executed_iterations = nullptr;
 
-    auto dataset_internal = raft::make_device_matrix_view<const T, internal_IdxT, row_major>(
-      index.dataset().data_handle(), index.dataset().extent(0), index.dataset().extent(1));
+    //    auto dataset_internal = index.dataset();
+    auto dataset_internal = make_device_strided_matrix_view<const T, internal_IdxT, row_major>(
+      index.dataset().data_handle(),
+      index.dataset().extent(0),
+      index.dataset().extent(1),
+      index.dataset().stride(0));
     auto graph_internal =
       raft::make_device_matrix_view<const internal_IdxT, internal_IdxT, row_major>(
         reinterpret_cast<const internal_IdxT*>(index.graph().data_handle()),
