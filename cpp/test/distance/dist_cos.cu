@@ -38,6 +38,18 @@ const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 32, 1024, 1024, false, 1234ULL},
   {0.003f, 1024, 1024, 1024, false, 1234ULL},
 };
+
+const std::vector<DistanceInputs<float>> inputsXeqYf = {
+  {0.01f, 1024, 1024, 32, true, 1234ULL},
+  {0.01f, 1024, 32, 1024, true, 1234ULL},
+  {0.01f, 32, 1024, 1024, true, 1234ULL},
+  {0.03f, 1024, 1024, 1024, true, 1234ULL},
+  {0.01f, 1024, 1024, 32, false, 1234ULL},
+  {0.01f, 1024, 32, 1024, false, 1234ULL},
+  {0.01f, 32, 1024, 1024, false, 1234ULL},
+  {0.03f, 1024, 1024, 1024, false, 1234ULL},
+};
+
 typedef DistanceExpCos<float> DistanceExpCosF;
 TEST_P(DistanceExpCosF, Result)
 {
@@ -52,20 +64,24 @@ typedef DistanceExpCosXequalY<float> DistanceExpCosXequalYF;
 TEST_P(DistanceExpCosXequalYF, Result)
 {
   int m = params.m;
+  int n = params.m;
   ASSERT_TRUE(raft::devArrMatch(dist_ref[0].data(),
                                 dist[0].data(),
                                 m,
-                                m,
+                                n,
                                 raft::CompareApprox<float>(params.tolerance),
                                 stream));
+  n = params.isRowMajor ? m : m / 2;
+  m = params.isRowMajor ? m / 2 : m;
+
   ASSERT_TRUE(raft::devArrMatch(dist_ref[1].data(),
                                 dist[1].data(),
-                                m / 2,
                                 m,
+                                n,
                                 raft::CompareApprox<float>(params.tolerance),
                                 stream));
 }
-INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosXequalYF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceExpCosXequalYF, ::testing::ValuesIn(inputsXeqYf));
 
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, true, 1234ULL},

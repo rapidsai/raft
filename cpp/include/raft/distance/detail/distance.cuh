@@ -126,9 +126,7 @@ void distance_impl(raft::resources const& handle,
                    bool is_row_major,
                    DataT)  // unused
 {
-  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < 2 * (m + n) * sizeof(AccT))) ||
-           (worksize < 2 * m * sizeof(AccT))),
-         "workspace size error");
+  ASSERT(!(worksize < 2 * (m + n) * sizeof(AccT)), "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
@@ -137,9 +135,27 @@ void distance_impl(raft::resources const& handle,
   AccT* y_norm    = workspace;
   AccT* sq_x_norm = workspace;
   AccT* sq_y_norm = workspace;
-  if ((x != y) || ((x == y) && (m != n))) {
+  // TODO: Column major case looks to have lower accuracy for X == Y,
+  // perhaps the use of stridedSummationKernel could be causing this,
+  // need to investigate and fix.
+  if (x == y && is_row_major) {
+    raft::linalg::reduce(x_norm,
+                         x,
+                         k,
+                         std::max(m, n),
+                         (AccT)0,
+                         is_row_major,
+                         true,
+                         stream,
+                         false,
+                         raft::identity_op(),
+                         raft::add_op());
+    sq_x_norm += std::max(m, n);
+    sq_y_norm = sq_x_norm;
+    raft::linalg::rowNorm(
+      sq_x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream);
+  } else {
     y_norm += m;
-
     raft::linalg::reduce(x_norm,
                          x,
                          k,
@@ -167,21 +183,6 @@ void distance_impl(raft::resources const& handle,
     sq_y_norm = sq_x_norm + m;
     raft::linalg::rowNorm(sq_x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
     raft::linalg::rowNorm(sq_y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream);
-  } else {
-    raft::linalg::reduce(x_norm,
-                         x,
-                         k,
-                         m,
-                         (AccT)0,
-                         is_row_major,
-                         true,
-                         stream,
-                         false,
-                         raft::identity_op(),
-                         raft::add_op());
-    sq_x_norm += m;
-    sq_y_norm = sq_x_norm;
-    raft::linalg::rowNorm(sq_x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream);
   }
 
   using OpT = ops::correlation_distance_op<DataT, AccT, IdxT>;
@@ -210,24 +211,25 @@ void distance_impl(raft::resources const& handle,
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < (m + n) * sizeof(AccT))) ||
-           (worksize < m * sizeof(AccT))),
-         "workspace size error");
+  ASSERT(!(worksize < (m + n) * sizeof(AccT)), "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
   DataT* x_norm = workspace;
   DataT* y_norm = workspace;
-  if ((x != y) || ((x == y) && (m != n))) {
+  // TODO: Column major case looks to have lower accuracy for X == Y,
+  // perhaps the use of stridedSummationKernel could be causing this,
+  // need to investigate and fix.
+  if (x == y && is_row_major) {
+    raft::linalg::rowNorm(
+      x_norm, x, k, std::max(m, n), raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
+  } else {
     y_norm += m;
     raft::linalg::rowNorm(
       x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
     raft::linalg::rowNorm(
       y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
-  } else {
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::sqrt_op{});
   }
 
   ops::cosine_distance_op<DataT, AccT, IdxT> distance_op{};
@@ -454,22 +456,29 @@ void distance_impl_l2_expanded(  // NOTE: different name
                 "OutT can be uint8_t, float, double,"
                 "if sizeof(OutT) > 1 then sizeof(AccT) == sizeof(OutT).");
 
-  ASSERT(!((((x != y) || ((x == y) && (m != n))) && (worksize < (m + n) * sizeof(AccT))) ||
-           (worksize < m * sizeof(AccT))),
-         "workspace size error");
+  ASSERT(!(worksize < (m + n) * sizeof(AccT)), "workspace size error");
   ASSERT(workspace != nullptr, "workspace is null");
 
   DataT* x_norm = workspace;
   DataT* y_norm = workspace;
-  if ((x != y) || ((x == y) && (m != n))) {
+  // TODO: Column major case looks to have lower accuracy for X == Y,
+  // perhaps the use of stridedSummationKernel could be causing this,
+  // need to investigate and fix.
+  if ((x == y) && is_row_major) {
+    raft::linalg::rowNorm(x_norm,
+                          x,
+                          k,
+                          std::max(m, n),
+                          raft::linalg::L2Norm,
+                          is_row_major,
+                          stream,
+                          raft::identity_op{});
+  } else {
     y_norm += m;
     raft::linalg::rowNorm(
       x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
     raft::linalg::rowNorm(
       y_norm, y, k, n, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
-  } else {
-    raft::linalg::rowNorm(
-      x_norm, x, k, m, raft::linalg::L2Norm, is_row_major, stream, raft::identity_op{});
   }
 
   ops::l2_exp_distance_op<DataT, AccT, IdxT> distance_op{perform_sqrt};
@@ -791,8 +800,10 @@ size_t getWorkspaceSize(const InType* x, const InType* y, Index_ m, Index_ n, In
     (distanceType == raft::distance::DistanceType::CorrelationExpanded) ? 2 : 1;
 
   if (is_allocated) {
+    // TODO : when X == Y allocate std::max(m, n) instead of m + n when column major input
+    // accuracy issue is resolved until then we allocate as m + n.
     worksize += numOfBuffers * m * sizeof(AccType);
-    if ((x != y) || ((x == y) && (m != n))) worksize += numOfBuffers * n * sizeof(AccType);
+    worksize += numOfBuffers * n * sizeof(AccType);
   }
 
   return worksize;
