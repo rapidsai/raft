@@ -494,15 +494,8 @@ class ConnectComponentsEdgesTest
     MutualReachabilityFixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists.data(),
                                                                         params.n_row);
 
-    raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges,
-                                                          data.data(),
-                                                          colors.data(),
-                                                          params.n_row,
-                                                          params.n_col,
-                                                          red_op,
-                                                          params.n_row,
-                                                          params.n_col);
+    raft::linkage::connect_components<value_idx, value_t>(
+      handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op, 13, 1);
 
     ASSERT_TRUE(
       devArrMatch(out_edges.rows(), params.expected_rows.data(), out_edges.nnz, Compare<int>()));

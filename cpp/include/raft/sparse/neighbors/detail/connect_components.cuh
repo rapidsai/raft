@@ -22,7 +22,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/core/kvp.hpp>
 #include <raft/distance/masked_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/map.cuh>
@@ -37,8 +37,6 @@
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
 #include <rmm/device_uvector.hpp>
-
-#include <raft/core/kvp.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

@@ -18,11 +18,9 @@
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/scatter.cuh>
 #include <raft/random/rng.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 #include <rmm/device_uvector.hpp>

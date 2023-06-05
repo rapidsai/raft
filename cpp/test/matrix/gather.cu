@@ -15,8 +15,6 @@
  */
 
 #include "../test_utils.cuh"
-#include "raft/core/logger-macros.hpp"
-#include "raft/util/cudart_utils.hpp"
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>

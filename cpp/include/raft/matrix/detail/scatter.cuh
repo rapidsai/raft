@@ -15,13 +15,11 @@
  */
 #pragma once
 
-#include "raft/core/resource/cuda_stream.hpp"
 #include <cstdint>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>
-#include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
