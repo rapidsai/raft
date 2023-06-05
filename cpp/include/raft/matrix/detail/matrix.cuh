@@ -261,7 +261,7 @@ template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
   const m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, bool row_major, cudaStream_t stream)
 {
-  idx_t k = std::min(n_rows, n_cols);
+  idx_t k   = std::min(n_rows, n_cols);
   idx_t lda = row_major ? n_cols : n_rows;
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
@@ -269,9 +269,10 @@ void initializeDiagonalMatrix(
 }
 
 template <typename m_t, typename idx_t = int>
-void getDiagonalMatrix(m_t* vec, const m_t* matrix, idx_t n_rows, idx_t n_cols, bool row_major, cudaStream_t stream)
+void getDiagonalMatrix(
+  m_t* vec, const m_t* matrix, idx_t n_rows, idx_t n_cols, bool row_major, cudaStream_t stream)
 {
-  idx_t k = std::min(n_rows, n_cols);
+  idx_t k   = std::min(n_rows, n_cols);
   idx_t lda = row_major ? n_cols : n_rows;
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
