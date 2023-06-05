@@ -311,14 +311,19 @@ void gather_if(const raft::resources& handle,
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
  * @param[in] map Pointer to the input sequence of gather locations
-* @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space (map_length, col_batch_size). When set to zero (default), no batching is done and an additional scratch space of shape (map_lengthm, n_cols) is created.
+ * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space
+ * (map_length, col_batch_size). When set to zero (default), no batching is done and an additional
+ * scratch space of shape (map_lengthm, n_cols) is created.
  * @param[in]  transform_op  (optional) Transformation to apply to map values
  */
-template <typename matrix_t, typename map_t, typename idx_t, typename map_xform_t = raft::identity_op>
+template <typename matrix_t,
+          typename map_t,
+          typename idx_t,
+          typename map_xform_t = raft::identity_op>
 void gather(raft::resources const& handle,
             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
             raft::device_vector_view<const map_t, idx_t, raft::layout_c_contiguous> map,
-            idx_t col_batch_size = 0,
+            idx_t col_batch_size     = 0,
             map_xform_t transform_op = raft::identity_op())
 {
   detail::gather(handle, inout, map, transform_op, col_batch_size);

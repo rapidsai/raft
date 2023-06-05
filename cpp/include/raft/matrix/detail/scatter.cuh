@@ -51,25 +51,22 @@ namespace detail {
  * @param[inout] batch_size column batch size
  */
 
-
-
-
-
 template <typename MatrixT, typename IndexT>
-void scatterInplaceImpl(raft::resources const& handle,
-                       raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
-                       raft::device_vector_view<const IndexT, IndexT, raft::layout_c_contiguous> map,
-            IndexT batch_size)
+void scatterInplaceImpl(
+  raft::resources const& handle,
+  raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
+  raft::device_vector_view<const IndexT, IndexT, raft::layout_c_contiguous> map,
+  IndexT batch_size)
 {
-
-  IndexT m = inout.extent(0);
-  IndexT n = inout.extent(1);
+  IndexT m          = inout.extent(0);
+  IndexT n          = inout.extent(1);
   IndexT map_length = map.extent(0);
 
   // skip in case of 0 length input
   if (map_length <= 0 || m <= 0 || n <= 0 || batch_size < 0) return;
 
-  RAFT_EXPECTS(map_length == m, "Length of map should be equal to number of rows for inplace scatter");
+  RAFT_EXPECTS(map_length == m,
+               "Length of map should be equal to number of rows for inplace scatter");
 
   // re-assign batch_size for default case
   if (batch_size == 0) batch_size = n;
@@ -80,32 +77,34 @@ void scatterInplaceImpl(raft::resources const& handle,
 
   IndexT n_batches = raft::ceildiv(n, batch_size);
 
-  auto scratch_space =
-      raft::make_device_vector<MatrixT, IndexT>(handle, m * batch_size);
+  auto scratch_space = raft::make_device_vector<MatrixT, IndexT>(handle, m * batch_size);
 
   for (IndexT bid = 0; bid < n_batches; bid++) {
     IndexT batch_offset   = bid * batch_size;
     IndexT cols_per_batch = min(batch_size, n - batch_offset);
 
     auto copy_op = [inout = inout.data_handle(),
-                       map   = map.data_handle(),
-                       batch_offset,
-                       cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                       n] __device__(auto idx) {
+                    map   = map.data_handle(),
+                    batch_offset,
+                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                    n] __device__(auto idx) {
       IndexT row = idx / cols_per_batch;
       IndexT col = idx % cols_per_batch;
       return inout[row * n + batch_offset + col];
     };
-    raft::linalg::map_offset(handle, raft::make_device_vector_view(scratch_space.data_handle(), m * cols_per_batch), copy_op);
+    raft::linalg::map_offset(
+      handle,
+      raft::make_device_vector_view(scratch_space.data_handle(), m * cols_per_batch),
+      copy_op);
 
     auto scatter_op = [inout         = inout.data_handle(),
-                    map           = map.data_handle(),
-                    scratch_space = scratch_space.data_handle(),
-                    batch_offset,
-                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                    n] __device__(auto idx) {
-      IndexT row                               = idx / cols_per_batch;
-      IndexT col                               = idx % cols_per_batch;
+                       map           = map.data_handle(),
+                       scratch_space = scratch_space.data_handle(),
+                       batch_offset,
+                       cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
+                       n] __device__(auto idx) {
+      IndexT row     = idx / cols_per_batch;
+      IndexT col     = idx % cols_per_batch;
       IndexT map_val = map[row];
 
       inout[map_val * n + batch_offset + col] = scratch_space[idx];
@@ -118,13 +117,12 @@ void scatterInplaceImpl(raft::resources const& handle,
 
 template <typename MatrixT, typename IndexT>
 void scatter(raft::resources const& handle,
-            raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
-            raft::device_vector_view<const IndexT, IndexT, raft::layout_c_contiguous> map,
-            IndexT batch_size)
+             raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
+             raft::device_vector_view<const IndexT, IndexT, raft::layout_c_contiguous> map,
+             IndexT batch_size)
 {
   scatterInplaceImpl(handle, inout, map, batch_size);
 }
-
 
 }  // end namespace detail
 }  // end namespace matrix

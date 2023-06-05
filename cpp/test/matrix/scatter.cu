@@ -15,7 +15,6 @@
  */
 
 #include "../test_utils.cuh"
-#include <raft/util/cudart_utils.hpp>
 #include <gtest/gtest.h>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -24,30 +23,24 @@
 #include <raft/matrix/scatter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <thrust/shuffle.h>
-#include <thrust/random.h>
 #include <thrust/execution_policy.h>
+#include <thrust/random.h>
+#include <thrust/shuffle.h>
 
 namespace raft {
 
-template <typename InputIteratorT,
-          typename MapIteratorT,
-          typename OutputIteratorT,
-          typename IdxT>
-void naiveScatter(InputIteratorT in,
-                 IdxT D,
-                 IdxT N,
-                 MapIteratorT map,
-                 IdxT map_length,
-                 OutputIteratorT out)
+template <typename InputIteratorT, typename MapIteratorT, typename OutputIteratorT, typename IdxT>
+void naiveScatter(
+  InputIteratorT in, IdxT D, IdxT N, MapIteratorT map, IdxT map_length, OutputIteratorT out)
 {
   for (IdxT outRow = 0; outRow < map_length; ++outRow) {
     typename std::iterator_traits<MapIteratorT>::value_type map_val = map[outRow];
-    IdxT outRowStart  = map_val * D;
-    IdxT inRowStart = outRow * D;
+    IdxT outRowStart                                                = map_val * D;
+    IdxT inRowStart                                                 = outRow * D;
     for (IdxT i = 0; i < D; ++i) {
       out[outRowStart + i] = in[inRowStart + i];
     }
@@ -75,11 +68,11 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
   }
 
   void SetUp() override
-  { 
+  {
     raft::random::RngState r(params.seed);
     raft::random::RngState r_int(params.seed);
 
-    IdxT len        = params.nrows * params.ncols;
+    IdxT len = params.nrows * params.ncols;
 
     // input matrix setup
     d_in.resize(params.nrows * params.ncols, stream);
@@ -94,7 +87,7 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
     auto exec_policy = raft::resource::get_thrust_policy(handle);
 
     thrust::counting_iterator<IdxT> permute_iter(0);
-  thrust::copy(exec_policy, permute_iter, permute_iter + params.nrows, d_map.data());
+    thrust::copy(exec_policy, permute_iter, permute_iter + params.nrows, d_map.data());
 
     thrust::default_random_engine g;
     thrust::shuffle(exec_policy, d_map.data(), d_map.data() + params.nrows, g);
@@ -107,19 +100,14 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
     d_out_exp.resize(params.nrows * params.ncols, stream);
 
     // launch scatter on the host and copy the results to device
-    naiveScatter(h_in.data(),
-                                           params.ncols,
-                                           params.nrows,
-                                           h_map.data(),
-                                           params.nrows,
-                                           h_out.data());
+    naiveScatter(h_in.data(), params.ncols, params.nrows, h_map.data(), params.nrows, h_out.data());
     raft::update_device(d_out_exp.data(), h_out.data(), params.nrows * params.ncols, stream);
 
     auto inout_view = raft::make_device_matrix_view<MatrixT, IdxT, row_major>(
       d_in.data(), params.nrows, params.ncols);
     auto map_view = raft::make_device_vector_view<const IdxT, IdxT>(d_map.data(), params.nrows);
 
-      raft::matrix::scatter(handle, inout_view, map_view, params.col_batch_size);
+    raft::matrix::scatter(handle, inout_view, map_view, params.col_batch_size);
     resource::sync_stream(handle, stream);
   }
 
@@ -133,15 +121,13 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
   rmm::device_uvector<IdxT> d_map;
 };
 
-#define SCATTER_TEST(test_type, test_name, test_inputs)       \
-  typedef RAFT_DEPAREN(test_type) test_name;                 \
-  TEST_P(test_name, Result)                                  \
-  {                                                          \
-    ASSERT_TRUE(devArrMatch(d_in.data(),                \
-                            d_out_exp.data(),                \
-                            d_out_exp.size(), \
-                            raft::Compare<float>()));        \
-  }                                                          \
+#define SCATTER_TEST(test_type, test_name, test_inputs)                                      \
+  typedef RAFT_DEPAREN(test_type) test_name;                                                 \
+  TEST_P(test_name, Result)                                                                  \
+  {                                                                                          \
+    ASSERT_TRUE(                                                                             \
+      devArrMatch(d_in.data(), d_out_exp.data(), d_out_exp.size(), raft::Compare<float>())); \
+  }                                                                                          \
   INSTANTIATE_TEST_CASE_P(ScatterTests, test_name, ::testing::ValuesIn(test_inputs))
 
 const std::vector<ScatterInputs<int>> inputs_i32 =

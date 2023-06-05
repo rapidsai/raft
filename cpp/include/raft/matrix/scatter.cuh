@@ -39,14 +39,18 @@ namespace raft::matrix {
  *
  * @param[in] handle raft handle
  * @param[inout] inout input matrix (n_rows * n_cols)
- * @param[in] map Pointer to the input sequence of scatter locations. The length of the map should be equal to the number of rows in the input matrix. Map indices should be unique and in the range [0, n_rows). The map represents a complete permutation of indices.
- * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space (n_rows, col_batch_size). When set to zero (default), no batching is done and an additional scratch space of shape (n_rows, n_cols) is created.
+ * @param[in] map Pointer to the input sequence of scatter locations. The length of the map should
+ * be equal to the number of rows in the input matrix. Map indices should be unique and in the range
+ * [0, n_rows). The map represents a complete permutation of indices.
+ * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space
+ * (n_rows, col_batch_size). When set to zero (default), no batching is done and an additional
+ * scratch space of shape (n_rows, n_cols) is created.
  */
 template <typename matrix_t, typename idx_t>
 void scatter(raft::resources const& handle,
-            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
-            raft::device_vector_view<const idx_t, idx_t, raft::layout_c_contiguous> map,
-            idx_t col_batch_size = 0)
+             raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
+             raft::device_vector_view<const idx_t, idx_t, raft::layout_c_contiguous> map,
+             idx_t col_batch_size = 0)
 {
   detail::scatter(handle, inout, map, col_batch_size);
 }
