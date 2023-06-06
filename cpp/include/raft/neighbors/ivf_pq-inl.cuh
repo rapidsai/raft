@@ -158,14 +158,14 @@ void extend(raft::resources const& handle,
  * k]
  * @param[in] sample_filter a filter the greenlights samples for a given query.
  */
-template <typename T, typename IdxT, typename SampleFilterT>
+template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
                            raft::device_matrix_view<const T, uint32_t, row_major> queries,
                            raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
                            raft::device_matrix_view<float, uint32_t, row_major> distances,
-                           SampleFilterT sample_filter = SampleFilterT())
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT())
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
@@ -223,8 +223,13 @@ void search(raft::resources const& handle,
             raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
             raft::device_matrix_view<float, uint32_t, row_major> distances)
 {
-  search_with_filtering(
-    handle, params, idx, queries, neighbors, distances, detail::NoneSampleFilter());
+  search_with_filtering(handle,
+                        params,
+                        idx,
+                        queries,
+                        neighbors,
+                        distances,
+                        raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
 /** @} */  // end group ivf_pq
@@ -337,7 +342,54 @@ void extend(raft::resources const& handle,
   detail::extend(handle, idx, new_vectors, new_indices, n_rows);
 }
 
-template <typename T, typename IdxT, typename SampleFilterT>
+/**
+ * @brief Search ANN using the constructed index using the given filter.
+ *
+ * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
+ *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`:
+ * @code{.cpp}
+ *   ...
+ *   // Create a pooling memory resource with a pre-defined initial size.
+ *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
+ *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *   // use default search parameters
+ *   ivf_pq::search_params search_params;
+ *   filtering::none_ivf_sample_filter filter;
+ *   // Use the same allocator across multiple searches to reduce the number of
+ *   // cuda memory allocations
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr, filter);
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr, filter);
+ *   ivf_pq::search_with_filtering(
+ *     handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr, filter);
+ *   ...
+ * @endcode
+ * The exact size of the temporary buffer depends on multiple factors and is an implementation
+ * detail. However, you can safely specify a small initial size for the memory pool, so that only a
+ * few allocations happen to grow it during the first invocations of the `search`.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] idx ivf-pq constructed index
+ * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
+ * @param[in] n_queries the batch size
+ * @param[in] k the number of neighbors to find for each query.
+ * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
+ * @param[in] mr an optional memory resource to use across the searches (you can provide a large
+ * enough memory pool here to avoid memory allocations within search).
+ * @param[in] sample_filter a filter the greenlights samples for a given query
+ */
+template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
                            const search_params& params,
                            const index<IdxT>& idx,
@@ -347,7 +399,7 @@ void search_with_filtering(raft::resources const& handle,
                            IdxT* neighbors,
                            float* distances,
                            rmm::mr::device_memory_resource* mr = nullptr,
-                           SampleFilterT sample_filter         = SampleFilterT())
+                           IvfSampleFilterT sample_filter      = IvfSampleFilterT())
 {
   detail::search(
     handle, params, idx, queries, n_queries, k, neighbors, distances, mr, sample_filter);
