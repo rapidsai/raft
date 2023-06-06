@@ -74,6 +74,18 @@ void extend(raft::resources const& handle,
             std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
             index<T, IdxT>* index) RAFT_EXPLICIT;
 
+template <typename T, typename IdxT, typename IvfSampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<T, IdxT>& index,
+                           const T* queries,
+                           uint32_t n_queries,
+                           uint32_t k,
+                           IdxT* neighbors,
+                           float* distances,
+                           rmm::mr::device_memory_resource* mr = nullptr,
+                           IvfSampleFilterT sample_filter      = IvfSampleFilterT()) RAFT_EXPLICIT;
+
 template <typename T, typename IdxT>
 void search(raft::resources const& handle,
             const search_params& params,
@@ -84,6 +96,15 @@ void search(raft::resources const& handle,
             IdxT* neighbors,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr) RAFT_EXPLICIT;
+
+template <typename T, typename IdxT, typename IvfSampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<T, IdxT>& index,
+                           raft::device_matrix_view<const T, IdxT, row_major> queries,
+                           raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+                           raft::device_matrix_view<float, IdxT, row_major> distances,
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT()) RAFT_EXPLICIT;
 
 template <typename T, typename IdxT>
 void search(raft::resources const& handle,
