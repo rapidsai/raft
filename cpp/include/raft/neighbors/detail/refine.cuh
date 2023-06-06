@@ -26,6 +26,7 @@
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/detail/ivf_flat_interleaved_scan.cuh>
 #include <raft/neighbors/detail/ivf_flat_search.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <cstdlib>
@@ -129,10 +130,12 @@ void refine_device(raft::resources const& handle,
            queries.data_handle(),
            fake_coarse_idx.data(),
            static_cast<uint32_t>(n_queries),
+           0,
            refinement_index.metric(),
            1,
            k,
            raft::distance::is_min_close(metric),
+           raft::neighbors::filtering::none_ivf_sample_filter(),
            indices.data_handle(),
            distances.data_handle(),
            grid_dim_x,
