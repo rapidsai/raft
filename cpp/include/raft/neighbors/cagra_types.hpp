@@ -210,9 +210,9 @@ struct index : ann::index {
     dataset_view_ = make_device_strided_matrix_view<T, IdxT>(
       dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
     RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",
-                  static_cast<size_t>(dataset_view_.extent(0)),
-                  static_cast<size_t>(dataset_view_.extent(1)),
-                  static_cast<size_t>(dataset_view_.stride(0)));
+                   static_cast<size_t>(dataset_view_.extent(0)),
+                   static_cast<size_t>(dataset_view_.extent(1)),
+                   static_cast<size_t>(dataset_view_.stride(0)));
     raft::copy(graph_.data_handle(),
                knn_graph.data_handle(),
                knn_graph.size(),

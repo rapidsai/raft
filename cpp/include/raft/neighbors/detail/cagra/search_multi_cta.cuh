@@ -330,14 +330,14 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
 }
 
 #define SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS) \
-  kernel = search_kernel<TEAM_SIZE,                                    \
-                         BLOCK_SIZE,                                   \
-                         BLOCK_COUNT,                                  \
-                         MAX_ELEMENTS,                                 \
-                         MAX_DATASET_DIM,                              \
-                         DATA_T,                                       \
-                         DISTANCE_T,                                   \
-                         INDEX_T,                                      \
+  kernel = search_kernel<TEAM_SIZE,                            \
+                         BLOCK_SIZE,                           \
+                         BLOCK_COUNT,                          \
+                         MAX_ELEMENTS,                         \
+                         MAX_DATASET_DIM,                      \
+                         DATA_T,                               \
+                         DISTANCE_T,                           \
+                         INDEX_T,                              \
                          device::LOAD_128BIT_T>;
 
 #define SET_MC_KERNEL_1(MAX_ELEMENTS)         \

@@ -237,8 +237,8 @@ index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
-  size_t intermediate_degree       = params.intermediate_graph_degree;
-  size_t graph_degree = params.graph_degree;
+  size_t intermediate_degree = params.intermediate_graph_degree;
+  size_t graph_degree        = params.graph_degree;
   if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
     RAFT_LOG_WARN(
       "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",

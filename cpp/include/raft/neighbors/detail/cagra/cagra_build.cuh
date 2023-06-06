@@ -46,7 +46,6 @@ void build_knn_graph(raft::resources const& res,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-
   RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded,
                "Currently only L2Expanded metric is supported");
 

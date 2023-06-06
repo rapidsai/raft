@@ -90,7 +90,6 @@ void search_main(raft::resources const& res,
         : nullptr;
     uint32_t* _num_executed_iterations = nullptr;
 
-    //    auto dataset_internal = index.dataset();
     auto dataset_internal = make_device_strided_matrix_view<const T, internal_IdxT, row_major>(
       index.dataset().data_handle(),
       index.dataset().extent(0),

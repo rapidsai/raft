@@ -811,8 +811,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 #endif
 }
 
-#define SET_KERNEL_3(                                                               \
-  BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT) \
+#define SET_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT) \
   kernel = search_kernel<TEAM_SIZE,                                                            \
                          BLOCK_SIZE,                                                           \
                          BLOCK_COUNT,                                                          \
