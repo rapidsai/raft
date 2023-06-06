@@ -32,6 +32,11 @@
 #include <type_traits>
 
 namespace raft {
+
+/**
+ * @defgroup span one-dimensional span type
+ * @{
+ */
 /**
  * @brief The span class defined in ISO C++20.  Iterator is defined as plain pointer and
  *        most of the methods have bound check on debug build.
@@ -274,4 +279,8 @@ auto as_writable_bytes(span<T, is_device, E> s) noexcept
 {
   return {reinterpret_cast<std::byte*>(s.data()), s.size_bytes()};
 }
+
+/**
+ * @}
+ */
 }  // namespace raft

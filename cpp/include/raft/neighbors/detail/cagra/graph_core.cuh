@@ -33,6 +33,8 @@
 
 #include <raft/util/cuda_rt_essentials.hpp>
 
+#include "utils.hpp"
+
 namespace raft::neighbors::experimental::cagra::detail {
 namespace graph {
 
@@ -115,7 +117,7 @@ __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, 
       my_vals[i] = smem_vals[k];
     } else {
       my_keys[i] = FLT_MAX;
-      my_vals[i] = ~static_cast<IdxT>(0);
+      my_vals[i] = utils::get_max_value<IdxT>();
     }
   }
   __syncthreads();
@@ -607,7 +609,7 @@ void prune(raft::resources const& res,
 
     memcpy(output_graph_ptr,
            pruned_graph.data_handle(),
-           sizeof(uint32_t) * graph_size * output_graph_degree);
+           sizeof(IdxT) * graph_size * output_graph_degree);
 
     constexpr int _omp_chunk = 1024;
 #pragma omp parallel for schedule(dynamic, _omp_chunk)
@@ -616,15 +618,15 @@ void prune(raft::resources const& res,
         uint64_t k = rev_graph_count.data_handle()[j] - 1 - _k;
         uint64_t i = rev_graph.data_handle()[k + (output_graph_degree * j)];
 
-        uint64_t pos = pos_in_array<uint32_t>(
-          i, output_graph_ptr + (output_graph_degree * j), output_graph_degree);
+        uint64_t pos =
+          pos_in_array<IdxT>(i, output_graph_ptr + (output_graph_degree * j), output_graph_degree);
         if (pos < num_protected_edges) { continue; }
         uint64_t num_shift = pos - num_protected_edges;
         if (pos == output_graph_degree) {
           num_shift = output_graph_degree - num_protected_edges - 1;
         }
-        shift_array<uint32_t>(output_graph_ptr + num_protected_edges + (output_graph_degree * j),
-                              num_shift);
+        shift_array<IdxT>(output_graph_ptr + num_protected_edges + (output_graph_degree * j),
+                          num_shift);
         output_graph_ptr[num_protected_edges + (output_graph_degree * j)] = i;
       }
       if ((omp_get_thread_num() == 0) && ((j % _omp_chunk) == 0)) {
@@ -641,9 +643,9 @@ void prune(raft::resources const& res,
 #pragma omp parallel for reduction(+ : num_replaced_edges)
     for (uint64_t i = 0; i < graph_size; i++) {
       for (uint64_t k = 0; k < output_graph_degree; k++) {
-        const uint64_t j   = pruned_graph.data_handle()[k + (output_graph_degree * i)];
-        const uint64_t pos = pos_in_array<uint32_t>(
-          j, output_graph_ptr + (output_graph_degree * i), output_graph_degree);
+        const uint64_t j = pruned_graph.data_handle()[k + (output_graph_degree * i)];
+        const uint64_t pos =
+          pos_in_array<IdxT>(j, output_graph_ptr + (output_graph_degree * i), output_graph_degree);
         if (pos == output_graph_degree) { num_replaced_edges += 1; }
       }
     }

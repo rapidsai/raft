@@ -38,8 +38,6 @@
 
 namespace raft::neighbors::experimental::cagra::detail {
 
-using INDEX_T = std::uint32_t;
-
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
@@ -96,14 +94,14 @@ void build_knn_graph(raft::resources const& res,
   // search top (k + 1) neighbors
   //
   if (!search_params) {
-    search_params                          = ivf_pq::search_params{};
-    search_params->n_probes                = std::min(dataset.extent(1) * 2, build_params->n_lists);
-    search_params->lut_dtype               = CUDA_R_8U;
+    search_params            = ivf_pq::search_params{};
+    search_params->n_probes  = std::min<IdxT>(dataset.extent(1) * 2, build_params->n_lists);
+    search_params->lut_dtype = CUDA_R_8U;
     search_params->internal_distance_dtype = CUDA_R_32F;
   }
   const auto top_k          = node_degree + 1;
   uint32_t gpu_top_k        = node_degree * refine_rate.value_or(2.0f);
-  gpu_top_k                 = std::min(std::max(gpu_top_k, top_k), dataset.extent(0));
+  gpu_top_k                 = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries    = dataset.extent(0);
   const auto max_batch_size = 1024;
   RAFT_LOG_DEBUG(
@@ -142,11 +140,11 @@ void build_knn_graph(raft::resources const& res,
     device_memory);
 
   for (const auto& batch : vec_batches) {
-    auto queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
+    auto queries_view = raft::make_device_matrix_view<const DataT, uint32_t>(
       batch.data(), batch.size(), batch.row_width());
-    auto neighbors_view = make_device_matrix_view<int64_t, int64_t>(
+    auto neighbors_view = make_device_matrix_view<int64_t, uint32_t>(
       neighbors.data_handle(), batch.size(), neighbors.extent(1));
-    auto distances_view = make_device_matrix_view<float, int64_t>(
+    auto distances_view = make_device_matrix_view<float, uint32_t>(
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
