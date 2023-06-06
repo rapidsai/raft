@@ -76,7 +76,8 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
   MergeLabelsInputs<Index_> params;
   rmm::device_uvector<Index_> labels_a, labels_b, expected, R;
   rmm::device_uvector<bool> mask;
-    rmm::device_scalar<bool> m;
+
+  rmm::device_scalar<bool> m;
 };
 
 using MergeLabelsTestI = MergeLabelsTest<int>;
