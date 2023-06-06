@@ -21,6 +21,11 @@
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 
+#if _RAFT_HAS_CUDA
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+#endif
+
 template <typename OutT, typename OpT, typename... Args>
 __global__ void math_eval_kernel(OutT* out, OpT op, Args... args)
 {
@@ -118,8 +123,32 @@ struct cos_test_op {
   }
 };
 
+struct cos_test_op_device {
+  template <typename Type>
+  constexpr RAFT_DEVICE_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+#if (__CUDA_ARCH__ < 530)
+    if constexpr (std::is_same_v<Type, __half>) {
+      return __float2half(raft::cos(__half2float(in)));
+    }
+#elif (__CUDA_ARCH__ < 800)
+    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+      return __float2bfloat16(raft::cos(__bfloat162float(in)));
+    } else  // else is there to make sure raft::cos(in) is not compiled with __half / nv_bfloat16
+#endif
+    return raft::cos(in);
+  }
+};
+
 TEST(MathDevice, Cos)
 {
+  ASSERT_TRUE(raft::match(std::cos(12.34f),
+                          __half2float(math_eval(cos_test_op_device{}, __float2half(12.34f))),
+                          raft::CompareApprox<float>(0.001f)));
+  ASSERT_TRUE(
+    raft::match(std::cos(12.34f),
+                __bfloat162float(math_eval(cos_test_op_device{}, __float2bfloat16(12.34f))),
+                raft::CompareApprox<float>(0.01f)));
   ASSERT_TRUE(raft::match(
     std::cos(12.34f), math_eval(cos_test_op{}, 12.34f), raft::CompareApprox<float>(0.0001f)));
   ASSERT_TRUE(raft::match(
@@ -134,13 +163,53 @@ struct exp_test_op {
   }
 };
 
+struct exp_test_op_device {
+  template <typename Type>
+  constexpr RAFT_DEVICE_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+#if (__CUDA_ARCH__ < 530)
+    if constexpr (std::is_same_v<Type, __half>) {
+      return __float2half(raft::exp(__half2float(in)));
+    }
+#elif (__CUDA_ARCH__ < 800)
+    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+      return __float2bfloat16(raft::exp(__bfloat162float(in)));
+    } else  // else is there to make sure raft::exp(in) is not compiled with __half / nv_bfloat16
+#endif
+    return raft::exp(in);
+  }
+};
+
 TEST(MathDevice, Exp)
 {
+  ASSERT_TRUE(raft::match(std::exp(3.4f),
+                          __half2float(math_eval(exp_test_op_device{}, __float2half(3.4f))),
+                          raft::CompareApprox<float>(0.001f)));
+  ASSERT_TRUE(raft::match(std::exp(3.4f),
+                          __bfloat162float(math_eval(exp_test_op_device{}, __float2bfloat16(3.4f))),
+                          raft::CompareApprox<float>(0.01f)));
   ASSERT_TRUE(raft::match(
-    std::exp(12.34f), math_eval(exp_test_op{}, 12.34f), raft::CompareApprox<float>(0.0001f)));
+    std::exp(3.4f), math_eval(exp_test_op{}, 3.4f), raft::CompareApprox<float>(0.0001f)));
   ASSERT_TRUE(raft::match(
-    std::exp(12.34), math_eval(exp_test_op{}, 12.34), raft::CompareApprox<double>(0.000001)));
+    std::exp(3.4), math_eval(exp_test_op{}, 3.4), raft::CompareApprox<double>(0.000001)));
 }
+
+struct log_test_op_device {
+  template <typename Type>
+  constexpr RAFT_DEVICE_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+#if (__CUDA_ARCH__ < 530)
+    if constexpr (std::is_same_v<Type, __half>) {
+      return __float2half(raft::log(__half2float(in)));
+    }
+#elif (__CUDA_ARCH__ < 800)
+    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+      return __float2bfloat16(raft::log(__bfloat162float(in)));
+    } else  // else is there to make sure raft::log(in) is not compiled with __half / nv_bfloat16
+#endif
+    return raft::log(in);
+  }
+};
 
 struct log_test_op {
   template <typename Type>
@@ -152,6 +221,13 @@ struct log_test_op {
 
 TEST(MathDevice, Log)
 {
+  ASSERT_TRUE(raft::match(std::log(12.34f),
+                          __half2float(math_eval(log_test_op_device{}, __float2half(12.34f))),
+                          raft::CompareApprox<float>(0.001f)));
+  ASSERT_TRUE(
+    raft::match(std::log(12.34f),
+                __bfloat162float(math_eval(log_test_op_device{}, __float2bfloat16(12.34f))),
+                raft::CompareApprox<float>(0.01f)));
   ASSERT_TRUE(raft::match(
     std::log(12.34f), math_eval(log_test_op{}, 12.34f), raft::CompareApprox<float>(0.0001f)));
   ASSERT_TRUE(raft::match(
@@ -277,6 +353,23 @@ TEST(MathDevice, Sgn)
   ASSERT_TRUE(raft::match(1, math_eval(sgn_test_op{}, 12.34f), raft::Compare<int>()));
 }
 
+struct sin_test_op_device {
+  template <typename Type>
+  constexpr RAFT_DEVICE_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+#if (__CUDA_ARCH__ < 530)
+    if constexpr (std::is_same_v<Type, __half>) {
+      return __float2half(raft::sin(__half2float(in)));
+    }
+#elif (__CUDA_ARCH__ < 800)
+    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+      return __float2bfloat16(raft::sin(__bfloat162float(in)));
+    } else  // else is there to make sure raft::sin(in) is not compiled with __half / nv_bfloat16
+#endif
+    return raft::sin(in);
+  }
+};
+
 struct sin_test_op {
   template <typename Type>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in) const
@@ -287,6 +380,13 @@ struct sin_test_op {
 
 TEST(MathDevice, Sin)
 {
+  ASSERT_TRUE(raft::match(std::sin(12.34f),
+                          __half2float(math_eval(sin_test_op_device{}, __float2half(12.34f))),
+                          raft::CompareApprox<float>(0.01f)));
+  ASSERT_TRUE(
+    raft::match(std::sin(12.34f),
+                __bfloat162float(math_eval(sin_test_op_device{}, __float2bfloat16(12.34f))),
+                raft::CompareApprox<float>(0.1f)));
   ASSERT_TRUE(raft::match(
     std::sin(12.34f), math_eval(sin_test_op{}, 12.34f), raft::CompareApprox<float>(0.0001f)));
   ASSERT_TRUE(raft::match(
@@ -319,6 +419,23 @@ TEST(MathDevice, SinCos)
   ASSERT_TRUE(raft::match(std::cos(12.34), cd.value(stream), raft::CompareApprox<double>(0.0001f)));
 }
 
+struct sqrt_test_op_device {
+  template <typename Type>
+  constexpr RAFT_DEVICE_INLINE_FUNCTION auto operator()(const Type& in) const
+  {
+#if (__CUDA_ARCH__ < 530)
+    if constexpr (std::is_same_v<Type, __half>) {
+      return __float2half(raft::sqrt(__half2float(in)));
+    }
+#elif (__CUDA_ARCH__ < 800)
+    if constexpr (std::is_same_v<Type, nv_bfloat16>) {
+      return __float2bfloat16(raft::sqrt(__bfloat162float(in)));
+    } else  // else is there to make sure raft::sqrt(in) is not compiled with __half / nv_bfloat16
+#endif
+    return raft::sqrt(in);
+  }
+};
+
 struct sqrt_test_op {
   template <typename Type>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const Type& in) const
@@ -329,6 +446,13 @@ struct sqrt_test_op {
 
 TEST(MathDevice, Sqrt)
 {
+  ASSERT_TRUE(raft::match(std::sqrt(12.34f),
+                          __half2float(math_eval(sqrt_test_op_device{}, __float2half(12.34f))),
+                          raft::CompareApprox<float>(0.001f)));
+  ASSERT_TRUE(
+    raft::match(std::sqrt(12.34f),
+                __bfloat162float(math_eval(sqrt_test_op_device{}, __float2bfloat16(12.34f))),
+                raft::CompareApprox<float>(0.01f)));
   ASSERT_TRUE(raft::match(
     std::sqrt(12.34f), math_eval(sqrt_test_op{}, 12.34f), raft::CompareApprox<float>(0.0001f)));
   ASSERT_TRUE(raft::match(

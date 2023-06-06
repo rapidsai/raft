@@ -41,8 +41,8 @@ header = """
 #include <raft/neighbors/detail/ivf_pq_compute_similarity-inl.cuh>
 #include <raft/neighbors/detail/ivf_pq_fp_8bit.cuh>
 
-#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT, SampleFilterT) \\
-    template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT, SampleFilterT>( \\
+#define instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select(OutT, LutT, IvfSampleFilterT) \\
+    template auto raft::neighbors::ivf_pq::detail::compute_similarity_select<OutT, LutT, IvfSampleFilterT>( \\
         const cudaDeviceProp& dev_props,                                \\
         bool manage_local_topk,                                         \\
         int locality_hint,                                              \\
@@ -52,10 +52,10 @@ header = """
         uint32_t precomp_data_count,                                    \\
         uint32_t n_queries,                                             \\
         uint32_t n_probes,                                              \\
-        uint32_t topk) -> raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT>; \\
+        uint32_t topk) -> raft::neighbors::ivf_pq::detail::selected<OutT, LutT, IvfSampleFilterT>; \\
 \\
-    template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, SampleFilterT>( \\
-        raft::neighbors::ivf_pq::detail::selected<OutT, LutT, SampleFilterT> s,        \\
+    template void raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, IvfSampleFilterT>( \\
+        raft::neighbors::ivf_pq::detail::selected<OutT, LutT, IvfSampleFilterT> s,        \\
         rmm::cuda_stream_view stream,                                   \\
         uint32_t n_rows,                                                \\
         uint32_t dim,                                                   \\
@@ -75,7 +75,7 @@ header = """
         const float* queries,                                           \\
         const uint32_t* index_list,                                     \\
         float* query_kths,                                              \\
-        SampleFilterT sample_filter,                                    \\
+        IvfSampleFilterT sample_filter,                                    \\
         LutT* lut_scores,                                               \\
         OutT* _out_scores,                                              \\
         uint32_t* _out_indices);
@@ -104,6 +104,6 @@ for path_key, (OutT, LutT) in types.items():
     path = f"ivf_pq_compute_similarity_{path_key}.cu"
     with open(path, "w") as f:
         f.write(header)
-        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, raft::neighbors::ivf_pq::detail::NoneSampleFilter);\n")
+        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, raft::neighbors::filtering::none_ivf_sample_filter);\n")
         f.write(trailer)
     print(f"src/neighbors/detail/{path}")
