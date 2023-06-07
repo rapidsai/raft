@@ -15,10 +15,11 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/label/merge_labels.cuh>
 
 #include "../test_utils.cuh"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -43,7 +44,7 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
  protected:
   MergeLabelsTest()
     : params(::testing::TestWithParam<MergeLabelsInputs<Index_>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       labels_a(params.N, stream),
       labels_b(params.N, stream),
       expected(params.N, stream),
@@ -69,12 +70,14 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MergeLabelsInputs<Index_> params;
   rmm::device_uvector<Index_> labels_a, labels_b, expected, R;
-  rmm::device_scalar<bool> mask, m;
+  rmm::device_uvector<bool> mask;
+
+  rmm::device_scalar<bool> m;
 };
 
 using MergeLabelsTestI = MergeLabelsTest<int>;

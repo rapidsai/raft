@@ -28,8 +28,8 @@
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/util.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>

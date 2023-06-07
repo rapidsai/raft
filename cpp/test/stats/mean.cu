@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -45,7 +46,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
  public:
   MeanTest()
     : params(::testing::TestWithParam<MeanInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       rows(params.rows),
       cols(params.cols),
       data(rows * cols, stream),
@@ -81,7 +82,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MeanInputs<T> params;

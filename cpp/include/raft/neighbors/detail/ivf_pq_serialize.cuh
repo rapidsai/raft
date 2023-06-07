@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 
 #include <fstream>
@@ -60,7 +61,7 @@ template struct check_index_layout<sizeof(index<std::uint64_t>), 448>;
  *
  */
 template <typename IdxT>
-void serialize(raft::device_resources const& handle_, std::ostream& os, const index<IdxT>& index)
+void serialize(raft::resources const& handle_, std::ostream& os, const index<IdxT>& index)
 {
   RAFT_LOG_DEBUG("Size %zu, dim %d, pq_dim %d, pq_bits %d",
                  static_cast<size_t>(index.size()),
@@ -88,8 +89,8 @@ void serialize(raft::device_resources const& handle_, std::ostream& os, const in
   copy(sizes_host.data_handle(),
        index.list_sizes().data_handle(),
        sizes_host.size(),
-       handle_.get_stream());
-  handle_.sync_stream();
+       resource::get_cuda_stream(handle_));
+  resource::sync_stream(handle_);
   serialize_mdspan(handle_, os, sizes_host.view());
   auto list_store_spec = list_spec<uint32_t, IdxT>{index.pq_bits(), index.pq_dim(), true};
   for (uint32_t label = 0; label < index.n_lists(); label++) {
@@ -108,7 +109,7 @@ void serialize(raft::device_resources const& handle_, std::ostream& os, const in
  *
  */
 template <typename IdxT>
-void serialize(raft::device_resources const& handle_,
+void serialize(raft::resources const& handle_,
                const std::string& filename,
                const index<IdxT>& index)
 {
@@ -132,7 +133,7 @@ void serialize(raft::device_resources const& handle_,
  *
  */
 template <typename IdxT>
-auto deserialize(raft::device_resources const& handle_, std::istream& is) -> index<IdxT>
+auto deserialize(raft::resources const& handle_, std::istream& is) -> index<IdxT>
 {
   auto ver = deserialize_scalar<int>(handle_, is);
   if (ver != kSerializationVersion) {
@@ -169,7 +170,7 @@ auto deserialize(raft::device_resources const& handle_, std::istream& is) -> ind
     ivf::deserialize_list(handle_, is, list, list_store_spec, list_device_spec);
   }
 
-  handle_.sync_stream();
+  resource::sync_stream(handle_);
 
   recompute_internal_state(handle_, index);
 
@@ -186,7 +187,7 @@ auto deserialize(raft::device_resources const& handle_, std::istream& is) -> ind
  *
  */
 template <typename IdxT>
-auto deserialize(raft::device_resources const& handle_, const std::string& filename) -> index<IdxT>
+auto deserialize(raft::resources const& handle_, const std::string& filename) -> index<IdxT>
 {
   std::ifstream infile(filename, std::ios::in | std::ios::binary);
 

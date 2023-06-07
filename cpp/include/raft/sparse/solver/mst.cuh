@@ -44,7 +44,7 @@ namespace raft::sparse::solver {
  * when an msf is encountered)
  */
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t = weight_t>
-Graph_COO<vertex_t, edge_t, weight_t> mst(raft::device_resources const& handle,
+Graph_COO<vertex_t, edge_t, weight_t> mst(raft::resources const& handle,
                                           edge_t const* offsets,
                                           vertex_t const* indices,
                                           weight_t const* weights,

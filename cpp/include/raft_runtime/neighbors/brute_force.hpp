@@ -17,12 +17,12 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::runtime::neighbors::brute_force {
 
 #define RAFT_INST_BFKNN(IDX_T, DATA_T, MATRIX_IDX_T, INDEX_LAYOUT, SEARCH_LAYOUT)        \
-  void knn(raft::device_resources const& handle,                                         \
+  void knn(raft::resources const& handle,                                                \
            raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, INDEX_LAYOUT> index,     \
            raft::device_matrix_view<const DATA_T, MATRIX_IDX_T, SEARCH_LAYOUT> search,   \
            raft::device_matrix_view<IDX_T, MATRIX_IDX_T, row_major> indices,             \

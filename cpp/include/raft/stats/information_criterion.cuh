@@ -30,7 +30,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/batched/information_criterion.cuh>
 #include <raft/stats/stats_types.hpp>
 
@@ -91,7 +92,7 @@ void information_criterion_batched(ScalarT* d_ic,
  * @param[in]  n_samples        Number of samples in each series
  */
 template <typename value_t, typename idx_t>
-void information_criterion_batched(raft::device_resources const& handle,
+void information_criterion_batched(raft::resources const& handle,
                                    raft::device_vector_view<const value_t, idx_t> d_loglikelihood,
                                    raft::device_vector_view<value_t, idx_t> d_ic,
                                    IC_Type ic_type,
@@ -107,7 +108,7 @@ void information_criterion_batched(raft::device_resources const& handle,
                                          n_params,
                                          d_ic.extent(0),
                                          n_samples,
-                                         handle.get_stream());
+                                         resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_information_criterion

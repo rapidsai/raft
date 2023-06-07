@@ -17,7 +17,9 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_id.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft/spectral/matrix_wrappers.hpp>
 
@@ -39,8 +41,8 @@ TEST(Raft, SpectralMatrices)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
-  ASSERT_EQ(0, h.get_device());
+  raft::resources h;
+  ASSERT_EQ(0, raft::resource::get_device_id(h));
 
   csr_view_t<index_type, value_type> csr_v{nullptr, nullptr, nullptr, 0, 0};
 
@@ -57,7 +59,7 @@ TEST(Raft, SpectralMatrices)
   ASSERT_EQ(nullptr, sm1.row_offsets_);
   ASSERT_EQ(nullptr, sm2.row_offsets_);
 
-  auto stream = h.get_stream();
+  auto stream = resource::get_cuda_stream(h);
 
   auto cnstr_lm1 = [&h, ro, ci, vs, nrows, nnz](void) {
     laplacian_matrix_t<index_type, value_type> lm1{h, ro, ci, vs, nrows, nnz};

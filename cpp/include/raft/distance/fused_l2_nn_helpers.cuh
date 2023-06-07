@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 
 namespace raft::distance {
@@ -40,10 +41,10 @@ using MinReduceOp = detail::MinReduceOpImpl<LabelT, DataT>;
  * Initialize array using init value from reduction op
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-void initialize(
-  raft::device_resources const& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+void initialize(raft::resources const& handle, OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
 {
-  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(min, m, maxVal, redOp, handle.get_stream());
+  detail::initialize<DataT, OutT, IdxT, ReduceOpT>(
+    min, m, maxVal, redOp, resource::get_cuda_stream(handle));
 }
 
 }  // namespace raft::distance

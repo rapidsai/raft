@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/histogram.cuh>
 #include <raft/stats/stats_types.hpp>
 
@@ -91,7 +92,7 @@ void histogram(HistType type,
  * @note signature of binner_op is `int func(value_t, IdxT);`
  */
 template <typename value_t, typename idx_t, typename binner_op = IdentityBinner<value_t, idx_t>>
-void histogram(raft::device_resources const& handle,
+void histogram(raft::resources const& handle,
                HistType type,
                raft::device_matrix_view<const value_t, idx_t, raft::col_major> data,
                raft::device_matrix_view<int, idx_t, raft::col_major> bins,
@@ -108,7 +109,7 @@ void histogram(raft::device_resources const& handle,
                                                data.data_handle(),
                                                data.extent(0),
                                                data.extent(1),
-                                               handle.get_stream(),
+                                               resource::get_cuda_stream(handle),
                                                binner);
 }
 

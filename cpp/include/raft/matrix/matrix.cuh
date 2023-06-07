@@ -31,6 +31,7 @@
 #include "detail/linewise_op.cuh"
 #include "detail/matrix.cuh"
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/common/nvtx.hpp>
 
@@ -88,15 +89,17 @@ void copy(const m_t* in, m_t* out, idx_t n_rows, idx_t n_cols, cudaStream_t stre
  * @param[out] out: output matrix
  */
 template <typename m_t, typename idx_t = int, typename matrix_idx_t>
-void copy(raft::device_resources const& handle,
+void copy(raft::resources const& handle,
           raft::device_matrix_view<const m_t, matrix_idx_t, col_major> in,
           raft::device_matrix_view<m_t, matrix_idx_t, col_major> out)
 {
   RAFT_EXPECTS(in.extent(0) == out.extent(0) && in.extent(1) == out.extent(1),
                "Input and output matrix shapes must match.");
 
-  raft::copy_async(
-    out.data_handle(), in.data_handle(), in.extent(0) * out.extent(1), handle.get_stream());
+  raft::copy_async(out.data_handle(),
+                   in.data_handle(),
+                   in.extent(0) * out.extent(1),
+                   resource::get_cuda_stream(handle));
 }
 
 /**
@@ -218,9 +221,9 @@ void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStr
 }
 
 /**
- * @brief Initialize a diagonal matrix with a vector
+ * @brief Initialize a diagonal col-major matrix with a vector
  * @param vec: vector of length k = min(n_rows, n_cols)
- * @param matrix: matrix of size n_rows x n_cols
+ * @param matrix: matrix of size n_rows x n_cols (col-major)
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
  * @param stream: cuda stream
@@ -229,7 +232,7 @@ template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
   m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
+  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, false, stream);
 }
 
 /**
@@ -252,7 +255,7 @@ void getDiagonalInverseMatrix(m_t* in, idx_t len, cudaStream_t stream)
  * @param stream: cuda stream
  */
 template <typename m_t, typename idx_t = int>
-m_t getL2Norm(raft::device_resources const& handle, m_t* in, idx_t size, cudaStream_t stream)
+m_t getL2Norm(raft::resources const& handle, m_t* in, idx_t size, cudaStream_t stream)
 {
   return detail::getL2Norm(handle, in, size, stream);
 }

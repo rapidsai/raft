@@ -15,8 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/linalg/add.cuh>
 
@@ -48,7 +49,7 @@ class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>
  public:
   CSRAddTest()
     : params(::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       ind_a(params.matrix_a.row_ind.size(), stream),
       ind_ptr_a(params.matrix_a.row_ind_ptr.size(), stream),
       values_a(params.matrix_a.row_ind_ptr.size(), stream),
@@ -126,7 +127,7 @@ class CSRAddTest : public ::testing::TestWithParam<CSRAddInputs<Type_f, Index_>>
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   CSRAddInputs<Type_f, Index_> params;

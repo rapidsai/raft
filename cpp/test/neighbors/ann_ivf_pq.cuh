@@ -17,6 +17,7 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
@@ -115,7 +116,7 @@ inline auto operator<<(std::ostream& os, const ivf_pq_inputs& p) -> std::ostream
 
 template <typename T>
 void compare_vectors_l2(
-  const raft::device_resources& res, T a, T b, uint32_t label, double compression_ratio, double eps)
+  const raft::resources& res, T a, T b, uint32_t label, double compression_ratio, double eps)
 {
   auto n_rows = a.extent(0);
   auto dim    = a.extent(1);
@@ -130,7 +131,7 @@ void compare_vectors_l2(
     }
     return sqrt(d / double(dim));
   });
-  res.sync_stream();
+  resource::sync_stream(res);
   for (uint32_t i = 0; i < n_rows; i++) {
     double d = dist(i);
     // The theoretical estimate of the error is hard to come up with,
@@ -141,7 +142,7 @@ void compare_vectors_l2(
 }
 
 template <typename IdxT>
-auto min_output_size(const raft::device_resources& handle,
+auto min_output_size(const raft::resources& handle,
                      const ivf_pq::index<IdxT>& index,
                      uint32_t n_probes) -> IdxT
 {
@@ -157,7 +158,7 @@ template <typename EvalT, typename DataT, typename IdxT>
 class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
  public:
   ivf_pq_test()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       ps(::testing::TestWithParam<ivf_pq_inputs>::GetParam()),
       database(0, stream_),
       search_queries(0, stream_)
@@ -177,7 +178,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       r.uniformInt(database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
   }
 
   void calc_ref()
@@ -199,7 +200,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     update_host(distances_ref.data(), distances_naive_dev.data(), queries_size, stream_);
     indices_ref.resize(queries_size);
     update_host(indices_ref.data(), indices_naive_dev.data(), queries_size, stream_);
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
   }
 
   auto build_only()
@@ -216,7 +217,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
     auto db_indices = make_device_vector<IdxT>(handle_, ps.num_db_vecs);
     linalg::map_offset(handle_, db_indices.view(), identity_op{});
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
     auto size_1 = IdxT(ps.num_db_vecs) / 2;
     auto size_2 = IdxT(ps.num_db_vecs) - size_1;
     auto vecs_1 = database.data();
@@ -404,18 +405,18 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
 
     auto query_view =
-      raft::make_device_matrix_view<DataT, IdxT>(search_queries.data(), ps.num_queries, ps.dim);
-    auto inds_view =
-      raft::make_device_matrix_view<IdxT, IdxT>(indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
-    auto dists_view =
-      raft::make_device_matrix_view<EvalT, IdxT>(distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
+      raft::make_device_matrix_view<DataT, uint32_t>(search_queries.data(), ps.num_queries, ps.dim);
+    auto inds_view = raft::make_device_matrix_view<IdxT, uint32_t>(
+      indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
+    auto dists_view = raft::make_device_matrix_view<EvalT, uint32_t>(
+      distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
 
     ivf_pq::search<DataT, IdxT>(
       handle_, ps.search_params, index, query_view, inds_view, dists_view);
 
     update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
 
     // A very conservative lower bound on recall
     double min_recall =
@@ -479,13 +480,13 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   void TearDown() override  // NOLINT
   {
     cudaGetLastError();
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
     database.resize(0, stream_);
     search_queries.resize(0, stream_);
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   rmm::cuda_stream_view stream_;
   ivf_pq_inputs ps;                           // NOLINT
   rmm::device_uvector<DataT> database;        // NOLINT

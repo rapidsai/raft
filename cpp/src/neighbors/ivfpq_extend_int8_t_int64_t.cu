@@ -19,19 +19,19 @@
 
 #define instantiate_raft_neighbors_ivf_pq_extend(T, IdxT)                                 \
   template raft::neighbors::ivf_pq::index<IdxT> raft::neighbors::ivf_pq::extend<T, IdxT>( \
-    raft::device_resources const& handle,                                                 \
+    raft::resources const& handle,                                                        \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                       \
     std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,     \
     const raft::neighbors::ivf_pq::index<IdxT>& idx);                                     \
                                                                                           \
   template void raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                 \
+    raft::resources const& handle,                                                        \
     raft::device_matrix_view<const T, IdxT, row_major> new_vectors,                       \
     std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices,     \
     raft::neighbors::ivf_pq::index<IdxT>* idx);                                           \
                                                                                           \
   template auto raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                 \
+    raft::resources const& handle,                                                        \
     const raft::neighbors::ivf_pq::index<IdxT>& idx,                                      \
     const T* new_vectors,                                                                 \
     const IdxT* new_indices,                                                              \
@@ -39,7 +39,7 @@
     ->raft::neighbors::ivf_pq::index<IdxT>;                                               \
                                                                                           \
   template void raft::neighbors::ivf_pq::extend<T, IdxT>(                                 \
-    raft::device_resources const& handle,                                                 \
+    raft::resources const& handle,                                                        \
     raft::neighbors::ivf_pq::index<IdxT>* idx,                                            \
     const T* new_vectors,                                                                 \
     const IdxT* new_indices,                                                              \

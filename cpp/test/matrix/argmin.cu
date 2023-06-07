@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/argmin.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -52,22 +53,22 @@ class ArgMinTest : public ::testing::TestWithParam<ArgMinInputs<T, IdxT>> {
     raft::update_device(input.data_handle(),
                         params.input_matrix.data(),
                         params.input_matrix.size(),
-                        handle.get_stream());
+                        resource::get_cuda_stream(handle));
     raft::update_device(expected.data_handle(),
                         params.output_matrix.data(),
                         params.output_matrix.size(),
-                        handle.get_stream());
+                        resource::get_cuda_stream(handle));
 
     auto input_const_view = raft::make_device_matrix_view<const T, std::uint32_t, row_major>(
       input.data_handle(), input.extent(0), input.extent(1));
 
     raft::matrix::argmin(handle, input_const_view, output.view());
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   ArgMinInputs<T, IdxT> params;
 
   raft::device_matrix<T, std::uint32_t, row_major> input;
@@ -88,7 +89,7 @@ TEST_P(ArgMinTestF, Result)
                           output.data_handle(),
                           params.n_rows,
                           Compare<int>(),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 typedef ArgMinTest<double, int> ArgMinTestD;
@@ -98,7 +99,7 @@ TEST_P(ArgMinTestD, Result)
                           output.data_handle(),
                           params.n_rows,
                           Compare<int>(),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_SUITE_P(ArgMinTest, ArgMinTestF, ::testing::ValuesIn(inputsf));

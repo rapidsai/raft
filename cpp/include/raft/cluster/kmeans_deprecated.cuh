@@ -46,7 +46,7 @@ namespace cluster {
  *  @return error flag
  */
 template <typename index_type_t, typename value_type_t>
-int kmeans(raft::device_resources const& handle,
+int kmeans(raft::resources const& handle,
            index_type_t n,
            index_type_t d,
            index_type_t k,

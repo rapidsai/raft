@@ -16,9 +16,9 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/svd.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -45,7 +45,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
  public:
   SvdTest()
     : params(::testing::TestWithParam<SvdInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.len, stream),
       left_eig_vectors_qr(params.n_row * params.n_col, stream),
       right_eig_vectors_trans_qr(params.n_col * params.n_col, stream),
@@ -97,7 +97,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
                                sing_vals_qr_view,
                                left_eig_vectors_qr_view,
                                right_eig_vectors_trans_qr_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void SetUp() override
@@ -128,7 +128,7 @@ class SvdTest : public ::testing::TestWithParam<SvdInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   SvdInputs<T> params;

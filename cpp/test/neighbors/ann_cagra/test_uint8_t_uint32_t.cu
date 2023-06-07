@@ -20,13 +20,13 @@
 
 namespace raft::neighbors::experimental::cagra {
 
-typedef AnnCagraTest<float, std::uint8_t, std::uint32_t> AnnCagraTestU8;
-TEST_P(AnnCagraTestU8, AnnCagra) { this->testCagra(); }
+typedef AnnCagraTest<float, std::uint8_t, std::uint32_t> AnnCagraTestU8_U32;
+TEST_P(AnnCagraTestU8_U32, AnnCagra) { this->testCagra(); }
 
-typedef AnnCagraSortTest<float, std::uint8_t, std::uint32_t> AnnCagraSortTestU8;
-TEST_P(AnnCagraSortTestU8, AnnCagraSort) { this->testCagraSort(); }
+typedef AnnCagraSortTest<float, std::uint8_t, std::uint32_t> AnnCagraSortTestU8_U32;
+TEST_P(AnnCagraSortTestU8_U32, AnnCagraSort) { this->testCagraSort(); }
 
-INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestU8, ::testing::ValuesIn(inputs));
-INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestU8, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestU8_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestU8_U32, ::testing::ValuesIn(inputs));
 
 }  // namespace raft::neighbors::experimental::cagra

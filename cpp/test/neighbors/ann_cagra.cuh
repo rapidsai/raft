@@ -17,10 +17,12 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/cagra.cuh>
@@ -154,7 +156,7 @@ template <typename DistanceT, typename DataT, typename IdxT>
 class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  public:
   AnnCagraTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       ps(::testing::TestWithParam<AnnCagraInputs>::GetParam()),
       database(0, stream_),
       search_queries(0, stream_)
@@ -189,7 +191,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
-      handle_.sync_stream();
+      resource::sync_stream(handle_);
     }
 
     {
@@ -235,7 +237,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
-        handle_.sync_stream();
+        resource::sync_stream(handle_);
       }
       // for (int i = 0; i < ps.n_queries; i++) {
       //   //  std::cout << "query " << i << std::end;
@@ -282,18 +284,18 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
       r.uniformInt(search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20), stream_);
     }
-    handle_.sync_stream();
+    resource::sync_stream(handle_);
   }
 
   void TearDown() override
   {
-    handle_.sync_stream();
+    resource::sync_stream(handle_);
     database.resize(0, stream_);
     search_queries.resize(0, stream_);
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   rmm::cuda_stream_view stream_;
   AnnCagraInputs ps;
   rmm::device_uvector<DataT> database;

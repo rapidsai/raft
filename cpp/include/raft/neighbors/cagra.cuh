@@ -21,9 +21,9 @@
 #include "detail/cagra/graph_core.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
@@ -74,14 +74,24 @@ namespace raft::neighbors::experimental::cagra {
  * @param[in] search_params (optional) ivf_pq search parameters
  */
 template <typename DataT, typename IdxT, typename accessor>
-void build_knn_graph(raft::device_resources const& res,
+void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  detail::build_knn_graph(res, dataset, knn_graph, refine_rate, build_params, search_params);
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+
+  auto knn_graph_internal = make_host_matrix_view<internal_IdxT, internal_IdxT>(
+    reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
+    knn_graph.extent(0),
+    knn_graph.extent(1));
+  auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, accessor>(
+    dataset.data_handle(), dataset.extent(0), dataset.extent(1));
+
+  detail::build_knn_graph(
+    res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
 /**
@@ -120,11 +130,24 @@ template <typename DataT,
             host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void sort_knn_graph(raft::device_resources const& res,
+void sort_knn_graph(raft::resources const& res,
                     mdspan<const DataT, matrix_extent<IdxT>, row_major, d_accessor> dataset,
                     mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph)
 {
-  detail::graph::sort_knn_graph(res, dataset, knn_graph);
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+
+  using g_accessor_internal =
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
+  auto knn_graph_internal =
+    mdspan<internal_IdxT, matrix_extent<internal_IdxT>, row_major, g_accessor_internal>(
+      reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
+      knn_graph.extent(0),
+      knn_graph.extent(1));
+
+  auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, d_accessor>(
+    dataset.data_handle(), dataset.extent(0), dataset.extent(1));
+
+  detail::graph::sort_knn_graph(res, dataset_internal, knn_graph_internal);
 }
 
 /**
@@ -144,11 +167,26 @@ void sort_knn_graph(raft::device_resources const& res,
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void prune(raft::device_resources const& res,
+void prune(raft::resources const& res,
            mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
            raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
-  detail::graph::prune(res, knn_graph, new_graph);
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+
+  auto new_graph_internal = raft::make_host_matrix_view<internal_IdxT, internal_IdxT>(
+    reinterpret_cast<internal_IdxT*>(new_graph.data_handle()),
+    new_graph.extent(0),
+    new_graph.extent(1));
+
+  using g_accessor_internal =
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, memory_type::host>;
+  auto knn_graph_internal =
+    mdspan<internal_IdxT, matrix_extent<internal_IdxT>, row_major, g_accessor_internal>(
+      reinterpret_cast<internal_IdxT*>(knn_graph.data_handle()),
+      knn_graph.extent(0),
+      knn_graph.extent(1));
+
+  detail::graph::prune(res, knn_graph_internal, new_graph_internal);
 }
 
 /**
@@ -195,12 +233,12 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<T, IdxT> build(raft::device_resources const& res,
+index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
   size_t degree = params.intermediate_graph_degree;
-  if (degree >= dataset.extent(0)) {
+  if (degree >= static_cast<size_t>(dataset.extent(0))) {
     RAFT_LOG_WARN(
       "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
       dataset.extent(0));
@@ -239,7 +277,7 @@ index<T, IdxT> build(raft::device_resources const& res,
  * k]
  */
 template <typename T, typename IdxT>
-void search(raft::device_resources const& res,
+void search(raft::resources const& res,
             const search_params& params,
             const index<T, IdxT>& idx,
             raft::device_matrix_view<const T, IdxT, row_major> queries,
@@ -256,7 +294,18 @@ void search(raft::device_resources const& res,
   RAFT_EXPECTS(queries.extent(1) == idx.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
-  detail::search_main(res, params, idx, queries, neighbors, distances);
+  using internal_IdxT   = typename std::make_unsigned<IdxT>::type;
+  auto queries_internal = raft::make_device_matrix_view<const T, internal_IdxT, row_major>(
+    queries.data_handle(), queries.extent(0), queries.extent(1));
+  auto neighbors_internal = raft::make_device_matrix_view<internal_IdxT, internal_IdxT, row_major>(
+    reinterpret_cast<internal_IdxT*>(neighbors.data_handle()),
+    neighbors.extent(0),
+    neighbors.extent(1));
+  auto distances_internal = raft::make_device_matrix_view<float, internal_IdxT, row_major>(
+    distances.data_handle(), distances.extent(0), distances.extent(1));
+
+  detail::search_main<T, internal_IdxT, IdxT>(
+    res, params, idx, queries_internal, neighbors_internal, distances_internal);
 }
 /** @} */  // end group cagra
 

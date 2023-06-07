@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
@@ -63,7 +64,7 @@ class SparseSymmetrizeTest
  public:
   SparseSymmetrizeTest()
     : params(::testing::TestWithParam<SparseSymmetrizeInputs<value_idx, value_t>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       indptr(0, stream),
       indices(0, stream),
       data(0, stream)
@@ -110,11 +111,11 @@ class SparseSymmetrizeTest
       out.rows(), out.cols(), out.vals(), out.nnz, sum.data());
 
     sum_h = sum.value(stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   // input data

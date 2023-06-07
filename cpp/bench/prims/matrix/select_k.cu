@@ -36,13 +36,12 @@
 #include <type_traits>
 
 namespace raft::matrix {
-
 using namespace raft::bench;  // NOLINT
 
 template <typename KeyT, typename IdxT, select::Algo Algo>
 struct selection : public fixture {
   explicit selection(const select::params& p)
-    : fixture(true),
+    : fixture(p.use_memory_pool),
       params_(p),
       in_dists_(p.batch_size * p.len, stream),
       in_ids_(p.batch_size * p.len, stream),
@@ -72,17 +71,16 @@ struct selection : public fixture {
 
   void run_benchmark(::benchmark::State& state) override  // NOLINT
   {
-    device_resources handle{stream};
     try {
       std::ostringstream label_stream;
       label_stream << params_.batch_size << "#" << params_.len << "#" << params_.k;
       if (params_.use_same_leading_bits) { label_stream << "#same-leading-bits"; }
       state.SetLabel(label_stream.str());
-      loop_on_state(state, [this, &handle]() {
+      loop_on_state(state, [this]() {
         select::select_k_impl<KeyT, IdxT>(handle,
                                           Algo,
                                           in_dists_.data(),
-                                          in_ids_.data(),
+                                          params_.use_index_input ? in_ids_.data() : NULL,
                                           params_.batch_size,
                                           params_.len,
                                           params_.k,
@@ -182,4 +180,101 @@ SELECTION_REGISTER(double, int64_t, kWarpFiltered);           // NOLINT
 SELECTION_REGISTER(double, int64_t, kWarpDistributed);        // NOLINT
 SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);     // NOLINT
 
+// For learning a heuristic of which selection algorithm to use, we
+// have a couple of additional constraints when generating the dataset:
+// 1. We want these benchmarks to be optionally enabled from the commandline -
+//  there are thousands of them, and the run-time is non-trivial. This should be opt-in only
+// 2. We test out larger k values - that won't work for all algorithms. This requires filtering
+// the input parameters per algorithm.
+// This makes the code to generate this dataset different from the code above to
+// register other benchmarks
+#define SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, A, input)                               \
+  {                                                                                       \
+    using SelectK = selection<KeyT, IdxT, select::Algo::A>;                               \
+    std::stringstream name;                                                               \
+    name << "SelectKDataset/" << #KeyT "/" #IdxT "/" #A << "/" << input.batch_size << "/" \
+         << input.len << "/" << input.k << "/" << input.use_index_input << "/"            \
+         << input.use_memory_pool;                                                        \
+    auto* b = ::benchmark::internal::RegisterBenchmarkInternal(                           \
+      new raft::bench::internal::Fixture<SelectK, select::params>(name.str(), input));    \
+    b->UseManualTime();                                                                   \
+    b->Unit(benchmark::kMillisecond);                                                     \
+  }
+
+const static size_t MAX_MEMORY = 16 * 1024 * 1024 * 1024ULL;
+
+// registers the input for all algorithms
+#define SELECTION_REGISTER_INPUT(KeyT, IdxT, input)                            \
+  {                                                                            \
+    size_t mem = input.batch_size * input.len * (sizeof(KeyT) + sizeof(IdxT)); \
+    if (mem < MAX_MEMORY) {                                                    \
+      SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix8bits, input)            \
+      SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix11bits, input)           \
+      SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix11bitsExtraPass, input)  \
+      if (input.k <= raft::matrix::detail::select::warpsort::kMaxCapacity) {   \
+        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpImmediate, input)       \
+        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpFiltered, input)        \
+        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributed, input)     \
+        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpDistributedShm, input)  \
+      }                                                                        \
+      if (input.k <= raft::neighbors::detail::kFaissMaxK<IdxT, KeyT>()) {      \
+        SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kFaissBlockSelect, input)    \
+      }                                                                        \
+    }                                                                          \
+  }
+
+void add_select_k_dataset_benchmarks()
+{
+  // define a uniform grid
+  std::vector<select::params> inputs;
+
+  size_t grid_increment = 1;
+  std::vector<int> k_vals;
+  for (size_t k = 0; k < 13; k += grid_increment) {
+    k_vals.push_back(1 << k);
+  }
+  // Add in values just past the limit for warp/faiss select
+  k_vals.push_back(257);
+  k_vals.push_back(2049);
+
+  const static bool select_min = true;
+  const static bool use_ids    = false;
+
+  for (size_t row = 0; row < 13; row += grid_increment) {
+    for (size_t col = 10; col < 28; col += grid_increment) {
+      for (auto k : k_vals) {
+        inputs.push_back(
+          select::params{size_t(1 << row), size_t(1 << col), k, select_min, use_ids});
+      }
+    }
+  }
+
+  // also add in some random values
+  std::default_random_engine rng(42);
+  std::uniform_real_distribution<> row_dist(0, 13);
+  std::uniform_real_distribution<> col_dist(10, 28);
+  std::uniform_real_distribution<> k_dist(0, 13);
+  for (size_t i = 0; i < 1024; ++i) {
+    auto row = static_cast<size_t>(pow(2, row_dist(rng)));
+    auto col = static_cast<size_t>(pow(2, col_dist(rng)));
+    auto k   = static_cast<int>(pow(2, k_dist(rng)));
+    inputs.push_back(select::params{row, col, k, select_min, use_ids});
+  }
+
+  for (auto& input : inputs) {
+    SELECTION_REGISTER_INPUT(double, int64_t, input);
+    SELECTION_REGISTER_INPUT(double, uint32_t, input);
+    SELECTION_REGISTER_INPUT(float, int64_t, input);
+    SELECTION_REGISTER_INPUT(float, uint32_t, input);
+  }
+
+  // also try again without a memory pool to see if there are significant differences
+  for (auto input : inputs) {
+    input.use_memory_pool = false;
+    SELECTION_REGISTER_INPUT(double, int64_t, input);
+    SELECTION_REGISTER_INPUT(double, uint32_t, input);
+    SELECTION_REGISTER_INPUT(float, int64_t, input);
+    SELECTION_REGISTER_INPUT(float, uint32_t, input);
+  }
+}
 }  // namespace raft::matrix

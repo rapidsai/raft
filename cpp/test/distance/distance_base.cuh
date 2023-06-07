@@ -16,11 +16,12 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/common/nvtx.hpp>              // common::nvtx::range
+#include <raft/common/nvtx.hpp>  // common::nvtx::range
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
-#include <raft/core/device_resources.hpp>    // raft::device_resources
 #include <raft/core/operators.hpp>           // raft::sqrt
+#include <raft/core/resources.hpp>           // raft::resources
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>
@@ -428,7 +429,7 @@ constexpr bool layout_to_row_major<layout_f_contiguous>()
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType, typename layout>
-void distanceLauncher(raft::device_resources const& handle,
+void distanceLauncher(raft::resources const& handle,
                       DataType* x,
                       DataType* y,
                       DataType* dist,
@@ -453,7 +454,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
   DistanceTest()
     : params(::testing::TestWithParam<DistanceInputs<DataType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       x(params.m * params.k, stream),
       y(params.n * params.k, stream),
       dist_ref(params.m * params.n, stream),
@@ -520,28 +521,131 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                                                     threshold,
                                                                     metric_arg);
     }
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   DistanceInputs<DataType> params;
   rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
-template <raft::distance::DistanceType distanceType>
-class BigMatrixDistanceTest : public ::testing::Test {
+/*
+ * This test suite verifies the path when X and Y are same buffer,
+ * distance metrics which requires norms like L2 expanded/cosine/correlation
+ * takes a more optimal path in such case to skip norm calculation for Y buffer.
+ * It may happen that though both X and Y are same buffer but user passes
+ * different dimensions for them like in case of tiled_brute_force_knn.
+ */
+template <raft::distance::DistanceType distanceType, typename DataType>
+class DistanceTestSameBuffer : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
-  BigMatrixDistanceTest()
-    : x(m * k, handle.get_stream()), dist(std::size_t(m) * m, handle.get_stream()){};
+  using dev_vector = rmm::device_uvector<DataType>;
+  DistanceTestSameBuffer()
+    : params(::testing::TestWithParam<DistanceInputs<DataType>>::GetParam()),
+      stream(resource::get_cuda_stream(handle)),
+      x(params.m * params.k, stream),
+      dist_ref({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)}),
+      dist({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)}),
+      dist2({dev_vector(params.m * params.m, stream), dev_vector(params.m * params.m, stream)})
+  {
+  }
+
   void SetUp() override
   {
     auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
     common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
 
-    void pairwise_distance(raft::device_resources const& handle,
+    raft::random::RngState r(params.seed);
+    int m               = params.m;
+    int n               = params.m;
+    int k               = params.k;
+    DataType metric_arg = params.metric_arg;
+    bool isRowMajor     = params.isRowMajor;
+    if (distanceType == raft::distance::DistanceType::HellingerExpanded ||
+        distanceType == raft::distance::DistanceType::JensenShannon ||
+        distanceType == raft::distance::DistanceType::KLDivergence) {
+      // Hellinger works only on positive numbers
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+    } else if (distanceType == raft::distance::DistanceType::RusselRaoExpanded) {
+      uniform(handle, r, x.data(), m * k, DataType(0.0), DataType(1.0));
+      // Russel rao works on boolean values.
+      bernoulli(handle, r, x.data(), m * k, 0.5f);
+    } else {
+      uniform(handle, r, x.data(), m * k, DataType(-1.0), DataType(1.0));
+    }
+
+    for (int i = 0; i < 2; i++) {
+      // both X and Y are same buffer but when i = 1
+      // different dimensions for x & y is passed.
+      m = m / (i + 1);
+      naiveDistance(dist_ref[i].data(),
+                    x.data(),
+                    x.data(),
+                    m,
+                    n,
+                    k,
+                    distanceType,
+                    isRowMajor,
+                    metric_arg,
+                    stream);
+
+      DataType threshold = -10000.f;
+
+      if (isRowMajor) {
+        distanceLauncher<distanceType, DataType, layout_c_contiguous>(handle,
+                                                                      x.data(),
+                                                                      x.data(),
+                                                                      dist[i].data(),
+                                                                      dist2[i].data(),
+                                                                      m,
+                                                                      n,
+                                                                      k,
+                                                                      params,
+                                                                      threshold,
+                                                                      metric_arg);
+
+      } else {
+        distanceLauncher<distanceType, DataType, layout_f_contiguous>(handle,
+                                                                      x.data(),
+                                                                      x.data(),
+                                                                      dist[i].data(),
+                                                                      dist2[i].data(),
+                                                                      m,
+                                                                      n,
+                                                                      k,
+                                                                      params,
+                                                                      threshold,
+                                                                      metric_arg);
+      }
+    }
+    resource::sync_stream(handle, stream);
+  }
+
+ protected:
+  raft::resources handle;
+  cudaStream_t stream;
+
+  DistanceInputs<DataType> params;
+  dev_vector x;
+  static const int N = 2;
+  std::array<dev_vector, N> dist_ref, dist, dist2;
+};
+
+template <raft::distance::DistanceType distanceType>
+class BigMatrixDistanceTest : public ::testing::Test {
+ public:
+  BigMatrixDistanceTest()
+    : x(m * k, resource::get_cuda_stream(handle)),
+      dist(std::size_t(m) * m, resource::get_cuda_stream(handle)){};
+  void SetUp() override
+  {
+    auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    common::nvtx::range fun_scope("test::%s/%s", testInfo->test_suite_name(), testInfo->name());
+
+    void pairwise_distance(raft::resources const& handle,
                            float* x,
                            float* y,
                            float* dists,
@@ -555,11 +659,11 @@ class BigMatrixDistanceTest : public ::testing::Test {
     constexpr float metric_arg = 0.0f;
     raft::distance::distance<distanceType, float, float, float>(
       handle, x.data(), x.data(), dist.data(), m, n, k, row_major, metric_arg);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(handle.get_stream()));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(resource::get_cuda_stream(handle)));
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   int m = 48000;
   int n = 48000;
   int k = 1;

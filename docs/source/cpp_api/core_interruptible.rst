@@ -10,6 +10,7 @@ Interruptible
 
 namespace *raft::core*
 
-.. doxygenclass:: raft::interruptible
-    :project: RAFT
-    :members:
+ .. doxygengroup:: interruptible
+     :project: RAFT
+     :members:
+     :content-only:
