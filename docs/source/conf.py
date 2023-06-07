@@ -70,9 +70,9 @@ author = "NVIDIA Corporation"
 version = '23.06'
 # The full version, including alpha/beta/rc tags.
 <<<<<<< HEAD
-release = '23.04.01'
+release = '23.06.00'
 ||||||| 994e6c8b
-release = '23.04.00'
+release = '23.06.00'
 =======
 release = '23.06.00'
 >>>>>>> upstream/branch-23.06
