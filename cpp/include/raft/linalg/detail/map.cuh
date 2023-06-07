@@ -17,7 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/input_validation.hpp>
 #include <raft/util/integer_utils.hpp>
@@ -25,6 +26,8 @@
 #include <raft/util/vectorized.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+
+#include <thrust/tuple.h>
 
 namespace raft::linalg::detail {
 
@@ -116,15 +119,26 @@ struct ratio_selector {
   template <typename T>
   constexpr static auto ignoring_alignment() -> ratio_selector
   {
-    return ratio_selector{raft::div_rounding_up_safe<size_t>(kCoalescedVectorSize, sizeof(T)), 0};
+    constexpr bool T_evenly_fits_in_cache_line = (kCoalescedVectorSize % sizeof(T)) == 0;
+
+    if constexpr (T_evenly_fits_in_cache_line) {
+      return ratio_selector{size_t(kCoalescedVectorSize / sizeof(T)), 0};
+    } else {
+      return ratio_selector{1, 0};
+    }
   }
 
   template <typename T>
   explicit ratio_selector(const T* ptr)
   {
     constexpr auto s = ignoring_alignment<T>();  // NOLINT
-    align            = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
-    ratio            = int(s.ratio);
+
+    if constexpr (s.ratio == 1) {
+      align = 0;
+    } else {
+      align = int(Pow2<sizeof(T) * s.ratio>::roundUp(ptr) - ptr);
+    }
+    ratio = int(s.ratio);
   }
 };
 
@@ -185,7 +199,7 @@ void map_check_shape(OutType out, InType in)
  * @tparam Func the device-lambda performing the actual operation
  * @tparam InTypes data-types of the inputs (device_mdspan)
  *
- * @param[in] res raft::device_resources
+ * @param[in] res raft::resources
  * @param[out] out the output of the map operation (device_mdspan)
  * @param[in] f device lambda of type
  *                 ([auto offset], InTypes::value_type xs...) -> OutType::value_type
@@ -197,7 +211,7 @@ template <bool PassOffset,
           typename... InTypes,
           typename = raft::enable_if_output_device_mdspan<OutType>,
           typename = raft::enable_if_input_device_mdspan<InTypes...>>
-void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
+void map(const raft::resources& res, OutType out, Func f, InTypes... ins)
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Output must be contiguous");
   (map_check_shape(out, ins), ...);
@@ -207,15 +221,21 @@ void map(const raft::device_resources& res, OutType out, Func f, InTypes... ins)
         typename OutType::value_type,
         std::uint32_t,
         Func,
-        typename InTypes::value_type...>(
-      res.get_stream(), out.data_handle(), uint32_t(out.size()), f, ins.data_handle()...);
+        typename InTypes::value_type...>(resource::get_cuda_stream(res),
+                                         out.data_handle(),
+                                         uint32_t(out.size()),
+                                         f,
+                                         ins.data_handle()...);
   } else {
     map<PassOffset,
         typename OutType::value_type,
         std::uint64_t,
         Func,
-        typename InTypes::value_type...>(
-      res.get_stream(), out.data_handle(), uint64_t(out.size()), f, ins.data_handle()...);
+        typename InTypes::value_type...>(resource::get_cuda_stream(res),
+                                         out.data_handle(),
+                                         uint64_t(out.size()),
+                                         f,
+                                         ins.data_handle()...);
   }
 }
 

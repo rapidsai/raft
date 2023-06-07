@@ -79,8 +79,7 @@ template <typename RowType, typename ColType, typename NZType>
 using device_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, true>;
 
 template <typename T>
-struct is_device_coo_matrix : std::false_type {
-};
+struct is_device_coo_matrix : std::false_type {};
 
 template <typename ElementType,
           typename RowType,
@@ -91,8 +90,7 @@ template <typename ElementType,
           SparsityType sparsity_type>
 struct is_device_coo_matrix<
   device_coo_matrix<ElementType, RowType, ColType, NZType, ContainerPolicy, sparsity_type>>
-  : std::true_type {
-};
+  : std::true_type {};
 
 template <typename T>
 constexpr bool is_device_coo_matrix_v = is_device_coo_matrix<T>::value;
@@ -112,13 +110,13 @@ constexpr bool is_device_coo_sparsity_preserving_v =
  * on the instance once the sparsity is known.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_matrix = raft::make_device_coo_matrix(handle, n_rows, n_cols);
  * ...
  * // compute expected sparsity
@@ -154,13 +152,13 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * be known up front, and cannot be resized later.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols);
  * ...
  * // compute expected sparsity
@@ -174,16 +172,15 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * @tparam ColType
  * @tparam NZType
  * @param[in] handle raft handle for managing expensive device resources
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_device_coo_matrix(raft::resources const& handle,
-                            device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+                            device_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
-  return device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(
-    handle,
-    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
+  return device_sparsity_preserving_coo_matrix<ElementType, RowType, ColType, NZType>(handle,
+                                                                                      structure);
 }
 
 /**
@@ -192,7 +189,7 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * coo_matrix if sparsity needs to be mutable.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -202,7 +199,7 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * // The following pointer is assumed to reference device memory for a size of nnz
  * float* d_elm_ptr = ...;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  * coo_matrix_view = raft::make_device_coo_matrix_view(handle, d_elm_ptr, coo_structure.view());
  * @endcode
@@ -212,16 +209,15 @@ auto make_device_coo_matrix(raft::resources const& handle,
  * @tparam ColType
  * @tparam NZType
  * @param[in] ptr a pointer to array of nonzero matrix elements on device (size nnz)
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return a sparsity-preserving sparse matrix in coordinate (coo) format
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_device_coo_matrix_view(
-  ElementType* ptr, device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+  ElementType* ptr, device_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
   return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
-    raft::device_span<ElementType>(ptr, structure_.get_nnz()),
-    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
+    raft::device_span<ElementType>(ptr, structure.get_nnz()), structure);
 }
 
 /**
@@ -230,7 +226,7 @@ auto make_device_coo_matrix_view(
  * coo_matrix if sparsity needs to be mutable.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_span.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
@@ -241,7 +237,7 @@ auto make_device_coo_matrix_view(
  * // The following span is assumed to be of size nnz
  * raft::device_span<float> d_elm_ptr;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  * coo_matrix_view = raft::make_device_coo_matrix_view(handle, d_elm_ptr, coo_structure.view());
  * @endcode
@@ -251,19 +247,17 @@ auto make_device_coo_matrix_view(
  * @tparam ColType
  * @tparam NZType
  * @param[in] elements a device span containing nonzero matrix elements (size nnz)
- * @param[in] structure_ a sparsity-preserving coordinate structural view
+ * @param[in] structure a sparsity-preserving coordinate structural view
  * @return
  */
 template <typename ElementType, typename RowType, typename ColType, typename NZType>
 auto make_device_coo_matrix_view(
   raft::device_span<ElementType> elements,
-  device_coordinate_structure_view<RowType, ColType, NZType> structure_)
+  device_coordinate_structure_view<RowType, ColType, NZType> structure)
 {
-  RAFT_EXPECTS(elements.size() == structure_.get_nnz(),
+  RAFT_EXPECTS(elements.size() == structure.get_nnz(),
                "Size of elements must be equal to the nnz from the structure");
-  return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(
-    elements,
-    std::make_shared<device_coordinate_structure_view<RowType, ColType, NZType>>(structure_));
+  return device_coo_matrix_view<ElementType, RowType, ColType, NZType>(elements, structure);
 }
 
 /**
@@ -272,14 +266,14 @@ auto make_device_coo_matrix_view(
  * underlying data arrays.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
  * int n_cols = 10000;
  * int nnz = 5000;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure(handle, n_rows, n_cols, nnz);
  *  * ...
  * // compute expected sparsity
@@ -311,7 +305,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * sparsity is not known up front.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -322,7 +316,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * int *rows = ...;
  * int *cols = ...;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure_view(handle, rows, cols, n_rows, n_cols,
  * nnz);
  * @endcode
@@ -338,7 +332,7 @@ auto make_device_coordinate_structure(raft::resources const& handle,
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_device_coo_structure_view(
+auto make_device_coordinate_structure_view(
   RowType* rows, ColType* cols, RowType n_rows, ColType n_cols, NZType nnz)
 {
   return device_coordinate_structure_view<RowType, ColType, NZType>(
@@ -351,7 +345,7 @@ auto make_device_coo_structure_view(
  * sparsity is not known up front.
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  * #include <raft/core/device_coo_matrix.hpp>
  *
  * int n_rows = 100000;
@@ -362,7 +356,7 @@ auto make_device_coo_structure_view(
  * raft::device_span<int> rows;
  * raft::device_span<int> cols;
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  * coo_structure = raft::make_device_coordinate_structure_view(handle, rows, cols, n_rows, n_cols);
  * @endcode
  *
@@ -376,10 +370,10 @@ auto make_device_coo_structure_view(
  * @return a sparsity-preserving coordinate structural view
  */
 template <typename RowType, typename ColType, typename NZType>
-auto make_device_coo_structure_view(raft::device_span<RowType> rows,
-                                    raft::device_span<ColType> cols,
-                                    RowType n_rows,
-                                    ColType n_cols)
+auto make_device_coordinate_structure_view(raft::device_span<RowType> rows,
+                                           raft::device_span<ColType> cols,
+                                           RowType n_rows,
+                                           ColType n_cols)
 {
   return device_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }

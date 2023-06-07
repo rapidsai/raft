@@ -20,6 +20,7 @@
 
 #include "detail/mean_squared_error.cuh"
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 
 namespace raft {
 namespace linalg {
@@ -53,14 +54,14 @@ void meanSquaredError(
  * @tparam IndexType Input/Output index type
  * @tparam OutValueType Output data-type
  * @tparam TPB threads-per-block
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] A input raft::device_vector_view
  * @param[in] B input raft::device_vector_view
  * @param[out] out the output mean squared error value of type raft::device_scalar_view
  * @param[in] weight weight to apply to every term in the mean squared error calculation
  */
 template <typename InValueType, typename IndexType, typename OutValueType>
-void mean_squared_error(raft::device_resources const& handle,
+void mean_squared_error(raft::resources const& handle,
                         raft::device_vector_view<const InValueType, IndexType> A,
                         raft::device_vector_view<const InValueType, IndexType> B,
                         raft::device_scalar_view<OutValueType, IndexType> out,
@@ -68,13 +69,17 @@ void mean_squared_error(raft::device_resources const& handle,
 {
   RAFT_EXPECTS(A.size() == B.size(), "Size mismatch between inputs");
 
-  meanSquaredError(
-    out.data_handle(), A.data_handle(), B.data_handle(), A.extent(0), weight, handle.get_stream());
+  meanSquaredError(out.data_handle(),
+                   A.data_handle(),
+                   B.data_handle(),
+                   A.extent(0),
+                   weight,
+                   resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group mean_squared_error
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

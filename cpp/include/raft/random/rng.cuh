@@ -22,11 +22,17 @@
 #include <cassert>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <type_traits>
 #include <variant>
 
 namespace raft::random {
+
+/**
+ * \defgroup univariate_random_sampling Univariate random sampling
+ * @{
+ */
 
 /**
  * @brief Generate uniformly distributed numbers in the given range
@@ -41,14 +47,19 @@ namespace raft::random {
  * @param[in] end end of the range
  */
 template <typename OutputValueType, typename IndexType>
-void uniform(raft::device_resources const& handle,
+void uniform(raft::resources const& handle,
              RngState& rng_state,
              raft::device_vector_view<OutputValueType, IndexType> out,
              OutputValueType start,
              OutputValueType end)
 {
-  detail::uniform(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
+  detail::uniform(
+    rng_state, out.data_handle(), out.extent(0), start, end, resource::get_cuda_stream(handle));
 }
+
+/**
+ * @}
+ */
 
 /**
  * @brief Legacy overload of `uniform` taking raw pointers
@@ -63,17 +74,18 @@ void uniform(raft::device_resources const& handle,
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniform(raft::device_resources const& handle,
+void uniform(raft::resources const& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
              OutType start,
              OutType end)
 {
-  detail::uniform(rng_state, ptr, len, start, end, handle.get_stream());
+  detail::uniform(rng_state, ptr, len, start, end, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate uniformly distributed integers in the given range
  *
  * @tparam OutputValueType Integral type; value type of the output vector
@@ -86,7 +98,7 @@ void uniform(raft::device_resources const& handle,
  * @param[in] end end of the range
  */
 template <typename OutputValueType, typename IndexType>
-void uniformInt(raft::device_resources const& handle,
+void uniformInt(raft::resources const& handle,
                 RngState& rng_state,
                 raft::device_vector_view<OutputValueType, IndexType> out,
                 OutputValueType start,
@@ -98,7 +110,8 @@ void uniformInt(raft::device_resources const& handle,
     "so that we can write to it.");
   static_assert(std::is_integral<OutputValueType>::value,
                 "uniformInt: The elements of the output vector must have integral type.");
-  detail::uniformInt(rng_state, out.data_handle(), out.extent(0), start, end, handle.get_stream());
+  detail::uniformInt(
+    rng_state, out.data_handle(), out.extent(0), start, end, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -114,17 +127,18 @@ void uniformInt(raft::device_resources const& handle,
  * @param[in] end end of the range
  */
 template <typename OutType, typename LenType = int>
-void uniformInt(raft::device_resources const& handle,
+void uniformInt(raft::resources const& handle,
                 RngState& rng_state,
                 OutType* ptr,
                 LenType len,
                 OutType start,
                 OutType end)
 {
-  detail::uniformInt(rng_state, ptr, len, start, end, handle.get_stream());
+  detail::uniformInt(rng_state, ptr, len, start, end, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed numbers
  *   with a given mean and standard deviation
  *
@@ -138,13 +152,14 @@ void uniformInt(raft::device_resources const& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void normal(raft::device_resources const& handle,
+void normal(raft::resources const& handle,
             RngState& rng_state,
             raft::device_vector_view<OutputValueType, IndexType> out,
             OutputValueType mu,
             OutputValueType sigma)
 {
-  detail::normal(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+  detail::normal(
+    rng_state, out.data_handle(), out.extent(0), mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -160,17 +175,18 @@ void normal(raft::device_resources const& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename OutType, typename LenType = int>
-void normal(raft::device_resources const& handle,
+void normal(raft::resources const& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
             OutType mu,
             OutType sigma)
 {
-  detail::normal(rng_state, ptr, len, mu, sigma, handle.get_stream());
+  detail::normal(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed integers
  *
  * @tparam OutputValueType Integral type; value type of the output vector
@@ -183,7 +199,7 @@ void normal(raft::device_resources const& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void normalInt(raft::device_resources const& handle,
+void normalInt(raft::resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                OutputValueType mu,
@@ -196,7 +212,8 @@ void normalInt(raft::device_resources const& handle,
   static_assert(std::is_integral<OutputValueType>::value,
                 "normalInt: The output vector's value type must be an integer.");
 
-  detail::normalInt(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+  detail::normalInt(
+    rng_state, out.data_handle(), out.extent(0), mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -212,17 +229,18 @@ void normalInt(raft::device_resources const& handle,
  * @param[in] sigma std-dev of the distribution
  */
 template <typename IntType, typename LenType = int>
-void normalInt(raft::device_resources const& handle,
+void normalInt(raft::resources const& handle,
                RngState& rng_state,
                IntType* ptr,
                LenType len,
                IntType mu,
                IntType sigma)
 {
-  detail::normalInt(rng_state, ptr, len, mu, sigma, handle.get_stream());
+  detail::normalInt(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed table according to the given set of
  * means and scalar standard deviations.
  *
@@ -244,7 +262,7 @@ void normalInt(raft::device_resources const& handle,
  */
 template <typename OutputValueType, typename IndexType>
 void normalTable(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   RngState& rng_state,
   raft::device_vector_view<const OutputValueType, IndexType> mu_vec,
   std::variant<raft::device_vector_view<const OutputValueType, IndexType>, OutputValueType> sigma,
@@ -283,7 +301,7 @@ void normalTable(
                       mu_vec.data_handle(),
                       sigma_vec_ptr,
                       sigma_value,
-                      handle.get_stream());
+                      resource::get_cuda_stream(handle));
 }
 
 /**
@@ -307,7 +325,7 @@ void normalTable(
  * @param[in] sigma scalar sigma to be used if 'sigma_vec' is nullptr
  */
 template <typename OutType, typename LenType = int>
-void normalTable(raft::device_resources const& handle,
+void normalTable(raft::resources const& handle,
                  RngState& rng_state,
                  OutType* ptr,
                  LenType n_rows,
@@ -317,10 +335,11 @@ void normalTable(raft::device_resources const& handle,
                  OutType sigma)
 {
   detail::normalTable(
-    rng_state, ptr, n_rows, n_cols, mu_vec, sigma_vec, sigma, handle.get_stream());
+    rng_state, ptr, n_rows, n_cols, mu_vec, sigma_vec, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Fill a vector with the given value
  *
  * @tparam OutputValueType Value type of the output vector
@@ -332,12 +351,12 @@ void normalTable(raft::device_resources const& handle,
  * @param[out] out the output vector
  */
 template <typename OutputValueType, typename IndexType>
-void fill(raft::device_resources const& handle,
+void fill(raft::resources const& handle,
           RngState& rng_state,
           OutputValueType val,
           raft::device_vector_view<OutputValueType, IndexType> out)
 {
-  detail::fill(rng_state, out.data_handle(), out.extent(0), val, handle.get_stream());
+  detail::fill(rng_state, out.data_handle(), out.extent(0), val, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -353,12 +372,13 @@ void fill(raft::device_resources const& handle,
  */
 template <typename OutType, typename LenType = int>
 void fill(
-  raft::device_resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
+  raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType val)
 {
-  detail::fill(rng_state, ptr, len, val, handle.get_stream());
+  detail::fill(rng_state, ptr, len, val, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate bernoulli distributed boolean array
  *
  * @tparam OutputValueType Type of each element of the output vector;
@@ -372,12 +392,13 @@ void fill(
  * @param[in] prob coin-toss probability for heads
  */
 template <typename OutputValueType, typename IndexType, typename Type>
-void bernoulli(raft::device_resources const& handle,
+void bernoulli(raft::resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                Type prob)
 {
-  detail::bernoulli(rng_state, out.data_handle(), out.extent(0), prob, handle.get_stream());
+  detail::bernoulli(
+    rng_state, out.data_handle(), out.extent(0), prob, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -395,12 +416,13 @@ void bernoulli(raft::device_resources const& handle,
  */
 template <typename Type, typename OutType = bool, typename LenType = int>
 void bernoulli(
-  raft::device_resources const& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
+  raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, Type prob)
 {
-  detail::bernoulli(rng_state, ptr, len, prob, handle.get_stream());
+  detail::bernoulli(rng_state, ptr, len, prob, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate bernoulli distributed array and applies scale
  *
  * @tparam OutputValueType Data type in which to compute the probabilities
@@ -413,14 +435,14 @@ void bernoulli(
  * @param[in] scale scaling factor
  */
 template <typename OutputValueType, typename IndexType>
-void scaled_bernoulli(raft::device_resources const& handle,
+void scaled_bernoulli(raft::resources const& handle,
                       RngState& rng_state,
                       raft::device_vector_view<OutputValueType, IndexType> out,
                       OutputValueType prob,
                       OutputValueType scale)
 {
   detail::scaled_bernoulli(
-    rng_state, out.data_handle(), out.extent(0), prob, scale, handle.get_stream());
+    rng_state, out.data_handle(), out.extent(0), prob, scale, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -436,17 +458,18 @@ void scaled_bernoulli(raft::device_resources const& handle,
  * @param[in] scale scaling factor
  */
 template <typename OutType, typename LenType = int>
-void scaled_bernoulli(raft::device_resources const& handle,
+void scaled_bernoulli(raft::resources const& handle,
                       RngState& rng_state,
                       OutType* ptr,
                       LenType len,
                       OutType prob,
                       OutType scale)
 {
-  detail::scaled_bernoulli(rng_state, ptr, len, prob, scale, handle.get_stream());
+  detail::scaled_bernoulli(rng_state, ptr, len, prob, scale, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate Gumbel distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -460,13 +483,14 @@ void scaled_bernoulli(raft::device_resources const& handle,
  * @note https://en.wikipedia.org/wiki/Gumbel_distribution
  */
 template <typename OutputValueType, typename IndexType = int>
-void gumbel(raft::device_resources const& handle,
+void gumbel(raft::resources const& handle,
             RngState& rng_state,
             raft::device_vector_view<OutputValueType, IndexType> out,
             OutputValueType mu,
             OutputValueType beta)
 {
-  detail::gumbel(rng_state, out.data_handle(), out.extent(0), mu, beta, handle.get_stream());
+  detail::gumbel(
+    rng_state, out.data_handle(), out.extent(0), mu, beta, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -483,17 +507,18 @@ void gumbel(raft::device_resources const& handle,
  * @note https://en.wikipedia.org/wiki/Gumbel_distribution
  */
 template <typename OutType, typename LenType = int>
-void gumbel(raft::device_resources const& handle,
+void gumbel(raft::resources const& handle,
             RngState& rng_state,
             OutType* ptr,
             LenType len,
             OutType mu,
             OutType beta)
 {
-  detail::gumbel(rng_state, ptr, len, mu, beta, handle.get_stream());
+  detail::gumbel(rng_state, ptr, len, mu, beta, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate lognormal distributed numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -506,13 +531,14 @@ void gumbel(raft::device_resources const& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutputValueType, typename IndexType>
-void lognormal(raft::device_resources const& handle,
+void lognormal(raft::resources const& handle,
                RngState& rng_state,
                raft::device_vector_view<OutputValueType, IndexType> out,
                OutputValueType mu,
                OutputValueType sigma)
 {
-  detail::lognormal(rng_state, out.data_handle(), out.extent(0), mu, sigma, handle.get_stream());
+  detail::lognormal(
+    rng_state, out.data_handle(), out.extent(0), mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -528,17 +554,18 @@ void lognormal(raft::device_resources const& handle,
  * @param[in] sigma standard deviation of the distribution
  */
 template <typename OutType, typename LenType = int>
-void lognormal(raft::device_resources const& handle,
+void lognormal(raft::resources const& handle,
                RngState& rng_state,
                OutType* ptr,
                LenType len,
                OutType mu,
                OutType sigma)
 {
-  detail::lognormal(rng_state, ptr, len, mu, sigma, handle.get_stream());
+  detail::lognormal(rng_state, ptr, len, mu, sigma, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate logistic distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -551,13 +578,14 @@ void lognormal(raft::device_resources const& handle,
  * @param[in] scale scale value
  */
 template <typename OutputValueType, typename IndexType = int>
-void logistic(raft::device_resources const& handle,
+void logistic(raft::resources const& handle,
               RngState& rng_state,
               raft::device_vector_view<OutputValueType, IndexType> out,
               OutputValueType mu,
               OutputValueType scale)
 {
-  detail::logistic(rng_state, out.data_handle(), out.extent(0), mu, scale, handle.get_stream());
+  detail::logistic(
+    rng_state, out.data_handle(), out.extent(0), mu, scale, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -573,17 +601,18 @@ void logistic(raft::device_resources const& handle,
  * @param[in] scale scale value
  */
 template <typename OutType, typename LenType = int>
-void logistic(raft::device_resources const& handle,
+void logistic(raft::resources const& handle,
               RngState& rng_state,
               OutType* ptr,
               LenType len,
               OutType mu,
               OutType scale)
 {
-  detail::logistic(rng_state, ptr, len, mu, scale, handle.get_stream());
+  detail::logistic(rng_state, ptr, len, mu, scale, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate exponentially distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -595,12 +624,13 @@ void logistic(raft::device_resources const& handle,
  * @param[in] lambda the exponential distribution's lambda parameter
  */
 template <typename OutputValueType, typename IndexType>
-void exponential(raft::device_resources const& handle,
+void exponential(raft::resources const& handle,
                  RngState& rng_state,
                  raft::device_vector_view<OutputValueType, IndexType> out,
                  OutputValueType lambda)
 {
-  detail::exponential(rng_state, out.data_handle(), out.extent(0), lambda, handle.get_stream());
+  detail::exponential(
+    rng_state, out.data_handle(), out.extent(0), lambda, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -615,16 +645,14 @@ void exponential(raft::device_resources const& handle,
  * @param[in] lambda the exponential distribution's lambda parameter
  */
 template <typename OutType, typename LenType = int>
-void exponential(raft::device_resources const& handle,
-                 RngState& rng_state,
-                 OutType* ptr,
-                 LenType len,
-                 OutType lambda)
+void exponential(
+  raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType lambda)
 {
-  detail::exponential(rng_state, ptr, len, lambda, handle.get_stream());
+  detail::exponential(rng_state, ptr, len, lambda, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate rayleigh distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -636,12 +664,13 @@ void exponential(raft::device_resources const& handle,
  * @param[in] sigma the distribution's sigma parameter
  */
 template <typename OutputValueType, typename IndexType>
-void rayleigh(raft::device_resources const& handle,
+void rayleigh(raft::resources const& handle,
               RngState& rng_state,
               raft::device_vector_view<OutputValueType, IndexType> out,
               OutputValueType sigma)
 {
-  detail::rayleigh(rng_state, out.data_handle(), out.extent(0), sigma, handle.get_stream());
+  detail::rayleigh(
+    rng_state, out.data_handle(), out.extent(0), sigma, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -656,16 +685,13 @@ void rayleigh(raft::device_resources const& handle,
  * @param[in] sigma the distribution's sigma parameter
  */
 template <typename OutType, typename LenType = int>
-void rayleigh(raft::device_resources const& handle,
-              RngState& rng_state,
-              OutType* ptr,
-              LenType len,
-              OutType sigma)
+void rayleigh(
+  raft::resources const& handle, RngState& rng_state, OutType* ptr, LenType len, OutType sigma)
 {
-  detail::rayleigh(rng_state, ptr, len, sigma, handle.get_stream());
+  detail::rayleigh(rng_state, ptr, len, sigma, resource::get_cuda_stream(handle));
 }
-
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate laplace distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -678,13 +704,14 @@ void rayleigh(raft::device_resources const& handle,
  * @param[in] scale the scale
  */
 template <typename OutputValueType, typename IndexType>
-void laplace(raft::device_resources const& handle,
+void laplace(raft::resources const& handle,
              RngState& rng_state,
              raft::device_vector_view<OutputValueType, IndexType> out,
              OutputValueType mu,
              OutputValueType scale)
 {
-  detail::laplace(rng_state, out.data_handle(), out.extent(0), mu, scale, handle.get_stream());
+  detail::laplace(
+    rng_state, out.data_handle(), out.extent(0), mu, scale, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -700,26 +727,27 @@ void laplace(raft::device_resources const& handle,
  * @param[in] scale the scale
  */
 template <typename OutType, typename LenType = int>
-void laplace(raft::device_resources const& handle,
+void laplace(raft::resources const& handle,
              RngState& rng_state,
              OutType* ptr,
              LenType len,
              OutType mu,
              OutType scale)
 {
-  detail::laplace(rng_state, ptr, len, mu, scale, handle.get_stream());
+  detail::laplace(rng_state, ptr, len, mu, scale, resource::get_cuda_stream(handle));
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate random integers, where the probability of i is weights[i]/sum(weights)
  *
  * Usage example:
  * @code{.cpp}
  *  #include <raft/core/device_mdarray.hpp>
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/random/rng.cuh>
  *
- *  raft::raft::device_resources handle;
+ *  raft::resources handle;
  *  ...
  *  raft::random::RngState rng(seed);
  *  auto indices = raft::make_device_vector<int>(handle, n_samples);
@@ -737,7 +765,7 @@ void laplace(raft::device_resources const& handle,
  */
 template <typename OutType, typename WeightType, typename IndexType>
 std::enable_if_t<std::is_integral_v<OutType>> discrete(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   RngState& rng_state,
   raft::device_vector_view<OutType, IndexType> out,
   raft::device_vector_view<const WeightType, IndexType> weights)
@@ -747,7 +775,7 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(
                    weights.data_handle(),
                    out.extent(0),
                    weights.extent(0),
-                   handle.get_stream());
+                   resource::get_cuda_stream(handle));
 }
 
 /**
@@ -770,7 +798,7 @@ std::enable_if_t<std::is_integral_v<OutType>> discrete(
  * @param[in] len input array length
  */
 template <typename DataT, typename WeightsT, typename IdxT = int>
-void sampleWithoutReplacement(raft::device_resources const& handle,
+void sampleWithoutReplacement(raft::resources const& handle,
                               RngState& rng_state,
                               DataT* out,
                               IdxT* outIdx,
@@ -780,7 +808,7 @@ void sampleWithoutReplacement(raft::device_resources const& handle,
                               IdxT len)
 {
   detail::sampleWithoutReplacement(
-    rng_state, out, outIdx, in, wts, sampledLen, len, handle.get_stream());
+    rng_state, out, outIdx, in, wts, sampledLen, len, resource::get_cuda_stream(handle));
 }
 
 /**
@@ -1106,7 +1134,7 @@ class DEPR Rng : public detail::RngImpl {
    * @param stream cuda stream
    */
   template <typename DataT, typename WeightsT, typename IdxT = int>
-  void sampleWithoutReplacement(raft::device_resources const& handle,
+  void sampleWithoutReplacement(raft::resources const& handle,
                                 DataT* out,
                                 IdxT* outIdx,
                                 const DataT* in,

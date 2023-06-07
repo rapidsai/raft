@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/add.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -95,7 +96,7 @@ void addDevScalar(
  * @brief Elementwise add operation
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in1    First Input
  * @param[in] in2    Second Input
  * @param[out] out    Output
@@ -104,7 +105,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add(raft::device_resources const& handle, InType in1, InType in2, OutType out)
+void add(raft::resources const& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -120,13 +121,13 @@ void add(raft::device_resources const& handle, InType in1, InType in2, OutType o
                                                 in1.data_handle(),
                                                 in2.data_handle(),
                                                 static_cast<std::uint32_t>(out.size()),
-                                                handle.get_stream());
+                                                resource::get_cuda_stream(handle));
   } else {
     add<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                 in1.data_handle(),
                                                 in2.data_handle(),
                                                 static_cast<std::uint64_t>(out.size()),
-                                                handle.get_stream());
+                                                resource::get_cuda_stream(handle));
   }
 }
 
@@ -135,7 +136,7 @@ void add(raft::device_resources const& handle, InType in1, InType in2, OutType o
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in    Input
  * @param[in] scalar    raft::device_scalar_view
  * @param[in] out    Output
@@ -145,7 +146,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add_scalar(raft::device_resources const& handle,
+void add_scalar(raft::resources const& handle,
                 InType in,
                 OutType out,
                 raft::device_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -162,13 +163,13 @@ void add_scalar(raft::device_resources const& handle,
                                                          in.data_handle(),
                                                          scalar.data_handle(),
                                                          static_cast<std::uint32_t>(out.size()),
-                                                         handle.get_stream());
+                                                         resource::get_cuda_stream(handle));
   } else {
     addDevScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                          in.data_handle(),
                                                          scalar.data_handle(),
                                                          static_cast<std::uint64_t>(out.size()),
-                                                         handle.get_stream());
+                                                         resource::get_cuda_stream(handle));
   }
 }
 
@@ -177,7 +178,7 @@ void add_scalar(raft::device_resources const& handle,
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in    Input
  * @param[in] scalar    raft::host_scalar_view
  * @param[in] out    Output
@@ -187,7 +188,7 @@ template <typename InType,
           typename ScalarIdxType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void add_scalar(raft::device_resources const& handle,
+void add_scalar(raft::resources const& handle,
                 const InType in,
                 OutType out,
                 raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -204,19 +205,19 @@ void add_scalar(raft::device_resources const& handle,
                                                       in.data_handle(),
                                                       *scalar.data_handle(),
                                                       static_cast<std::uint32_t>(out.size()),
-                                                      handle.get_stream());
+                                                      resource::get_cuda_stream(handle));
   } else {
     addScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                       in.data_handle(),
                                                       *scalar.data_handle(),
                                                       static_cast<std::uint64_t>(out.size()),
-                                                      handle.get_stream());
+                                                      resource::get_cuda_stream(handle));
   }
 }
 
 /** @} */  // end of group add
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

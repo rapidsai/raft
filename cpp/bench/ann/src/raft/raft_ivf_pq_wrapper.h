@@ -21,6 +21,7 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
@@ -42,6 +43,7 @@ template <typename T, typename IdxT>
 class RaftIvfPQ : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
+  using ANN<T>::dim_;
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::ivf_pq::search_params pq_param;
@@ -118,7 +120,7 @@ void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), index_->dim());
+  auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
 
   index_.emplace(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v));
   return;
@@ -175,11 +177,14 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       auto neighbors_host  = raft::make_host_matrix<IdxT, IdxT>(batch_size, k);
       auto distances_host  = raft::make_host_matrix<float, IdxT>(batch_size, k);
 
-      raft::copy(queries_host.data_handle(), queries, queries_host.size(), handle_.get_stream());
+      raft::copy(queries_host.data_handle(),
+                 queries,
+                 queries_host.size(),
+                 resource::get_cuda_stream(handle_));
       raft::copy(candidates_host.data_handle(),
                  candidates.data_handle(),
                  candidates_host.size(),
-                 handle_.get_stream());
+                 resource::get_cuda_stream(handle_));
 
       auto dataset_v = raft::make_host_matrix_view<const T, IdxT>(
         dataset_.data_handle(), batch_size, index_->dim());
@@ -195,9 +200,11 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
       raft::copy(neighbors,
                  (size_t*)neighbors_host.data_handle(),
                  neighbors_host.size(),
-                 handle_.get_stream());
-      raft::copy(
-        distances, distances_host.data_handle(), distances_host.size(), handle_.get_stream());
+                 resource::get_cuda_stream(handle_));
+      raft::copy(distances,
+                 distances_host.data_handle(),
+                 distances_host.size(),
+                 resource::get_cuda_stream(handle_));
     }
   } else {
     auto queries_v =
@@ -208,7 +215,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, neighbors_v, distances_v);
   }
-  handle_.sync_stream();
+  resource::sync_stream(handle_);
   return;
 }
 }  // namespace raft::bench::ann

@@ -19,6 +19,7 @@
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -78,7 +79,7 @@ template <bool Conditional, bool MapTransform, typename MatrixT, typename MapT, 
 class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
  protected:
   GatherTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       params(::testing::TestWithParam<GatherInputs<IdxT>>::GetParam()),
       d_in(0, stream),
       d_out_exp(0, stream),
@@ -159,11 +160,11 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs<IdxT>> {
       raft::matrix::gather(handle, in_view, map_view, out_view);
     }
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   GatherInputs<IdxT> params;
   std::vector<MatrixT> h_in, h_out, h_stencil;

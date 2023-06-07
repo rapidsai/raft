@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include <raft/core/device_mdarray.hpp>  // raft::make_device_matrix
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/matrix/copy.cuh>
 #include <raft/matrix/detail/select_k.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -169,7 +171,7 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
 }
 
 template <typename T, typename DistT, typename IdxT>
-auto eval_distances(raft::device_resources const& handle,
+auto eval_distances(raft::resources const& handle,
                     const T* x,              // dataset, n_rows * n_cols
                     const T* queries,        // n_queries * n_cols
                     const IdxT* neighbors,   // n_queries * k
@@ -187,16 +189,20 @@ auto eval_distances(raft::device_resources const& handle,
     auto y          = raft::make_device_matrix<T, IdxT>(handle, k, n_cols);
     auto naive_dist = raft::make_device_matrix<DistT, IdxT>(handle, 1, k);
 
-    raft::matrix::copyRows<T, IdxT, int64_t>(
-      x, k, n_cols, y.data_handle(), neighbors + i * k, k, handle.get_stream(), true);
+    raft::matrix::copy_rows<T, IdxT>(
+      handle,
+      make_device_matrix_view<const T, IdxT>(x, k, n_cols),
+      y.view(),
+      make_device_vector_view<const IdxT, IdxT>(neighbors + i * k, k));
 
     dim3 block_dim(16, 32, 1);
     auto grid_y =
       static_cast<uint16_t>(std::min<size_t>(raft::ceildiv<size_t>(k, block_dim.y), 32768));
     dim3 grid_dim(raft::ceildiv<size_t>(n_rows, block_dim.x), grid_y, 1);
 
-    naive_distance_kernel<DistT, T, IdxT><<<grid_dim, block_dim, 0, handle.get_stream()>>>(
-      naive_dist.data_handle(), queries + i * n_cols, y.data_handle(), 1, k, n_cols, metric);
+    naive_distance_kernel<DistT, T, IdxT>
+      <<<grid_dim, block_dim, 0, resource::get_cuda_stream(handle)>>>(
+        naive_dist.data_handle(), queries + i * n_cols, y.data_handle(), 1, k, n_cols, metric);
 
     if (!devArrMatch(distances + i * k,
                      naive_dist.data_handle(),

@@ -20,6 +20,7 @@
 
 #include "detail/reduce.cuh"
 #include "linalg_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
@@ -105,7 +106,7 @@ void reduce(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
@@ -122,7 +123,7 @@ template <typename InElementType,
           typename MainLambda     = raft::identity_op,
           typename ReduceLambda   = raft::add_op,
           typename FinalLambda    = raft::identity_op>
-void reduce(raft::device_resources const& handle,
+void reduce(raft::resources const& handle,
             raft::device_matrix_view<const InElementType, IdxType, LayoutPolicy> data,
             raft::device_vector_view<OutElementType, IdxType> dots,
             OutElementType init,
@@ -152,7 +153,7 @@ void reduce(raft::device_resources const& handle,
          init,
          row_major,
          along_rows,
-         handle.get_stream(),
+         resource::get_cuda_stream(handle),
          inplace,
          main_op,
          reduce_op,
@@ -161,7 +162,7 @@ void reduce(raft::device_resources const& handle,
 
 /** @} */  // end of group reduction
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

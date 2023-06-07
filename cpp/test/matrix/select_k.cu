@@ -15,14 +15,11 @@
  */
 
 #include "../test_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/matrix/select_k.cuh>
 
-#ifdef RAFT_COMPILED
-#include <raft/matrix/specializations.cuh>
-#endif
-
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -106,8 +103,8 @@ struct io_computed {
       default: break;
     }
 
-    device_resources handle{};
-    auto stream = handle.get_stream();
+    resources handle{};
+    auto stream = resource::get_cuda_stream(handle);
 
     rmm::device_uvector<KeyT> in_dists_d(in_dists_.size(), stream);
     rmm::device_uvector<IdxT> in_ids_d(in_ids_.size(), stream);
@@ -232,9 +229,10 @@ struct SelectK  // NOLINT
     auto& in_dists   = ref.get_in_dists();
     auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
-      auto ix_i = uint64_t(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
-      auto ix_j = uint64_t(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
-      if (ix_i >= in_ids.size() || ix_j >= in_ids.size()) return false;
+      auto ix_i = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
+      auto ix_j = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
+      if (static_cast<size_t>(ix_i) >= in_ids.size() || static_cast<size_t>(ix_j) >= in_ids.size())
+        return false;
       auto dist_i = in_dists[ix_i];
       auto dist_j = in_dists[ix_j];
       if (dist_i == dist_j) return true;
@@ -350,9 +348,9 @@ struct with_ref {
       auto algo = std::get<1>(ps);
       std::vector<KeyT> dists(spec.len * spec.batch_size);
 
-      raft::device_resources handle;
+      raft::resources handle;
       {
-        auto s = handle.get_stream();
+        auto s = resource::get_cuda_stream(handle);
         rmm::device_uvector<KeyT> dists_d(spec.len * spec.batch_size, s);
         raft::random::RngState r(42);
         normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
@@ -434,7 +432,7 @@ INSTANTIATE_TEST_CASE_P(                          // NOLINT
                                    select::Algo::kWarpDistributedShm)));
 
 using ReferencedRandomDoubleSizeT =
-  SelectK<double, uint64_t, with_ref<select::Algo::kPublicApi>::params_random>;
+  SelectK<double, int64_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomDoubleSizeT, Run) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(                             // NOLINT
   SelectK,
@@ -461,7 +459,7 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
                                    select::Algo::kRadix11bitsExtraPass)));
 
 using ReferencedRandomFloatSizeT =
-  SelectK<float, uint64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
+  SelectK<float, int64_t, with_ref<select::Algo::kRadix8bits>::params_random>;
 TEST_P(ReferencedRandomFloatSizeT, LargeK) { run(); }  // NOLINT
 INSTANTIATE_TEST_CASE_P(SelectK,                       // NOLINT
                         ReferencedRandomFloatSizeT,

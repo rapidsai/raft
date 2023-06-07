@@ -16,8 +16,13 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/neighbors/detail/ivf_pq_search.cuh>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
@@ -47,13 +52,13 @@ namespace raft::neighbors::experimental::cagra::detail {
  * k]
  */
 
-template <typename T, typename IdxT = uint32_t, typename DistanceT = float>
-void search_main(raft::device_resources const& res,
+template <typename T, typename internal_IdxT, typename IdxT = uint32_t, typename DistanceT = float>
+void search_main(raft::resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
-                 raft::device_matrix_view<const T, IdxT, row_major> queries,
-                 raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
-                 raft::device_matrix_view<DistanceT, IdxT, row_major> distances)
+                 raft::device_matrix_view<const T, internal_IdxT, row_major> queries,
+                 raft::device_matrix_view<internal_IdxT, internal_IdxT, row_major> neighbors,
+                 raft::device_matrix_view<DistanceT, internal_IdxT, row_major> distances)
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -64,8 +69,9 @@ void search_main(raft::device_resources const& res,
   RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
   uint32_t topk = neighbors.extent(1);
 
-  std::unique_ptr<search_plan_impl<T, IdxT, DistanceT>> plan =
-    factory<T, IdxT, DistanceT>::create(res, params, index.dim(), index.graph_degree(), topk);
+  std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT>> plan =
+    factory<T, internal_IdxT, DistanceT>::create(
+      res, params, index.dim(), index.graph_degree(), topk);
 
   plan->check(neighbors.extent(1));
 
@@ -74,18 +80,29 @@ void search_main(raft::device_resources const& res,
   uint32_t query_dim   = queries.extent(1);
 
   for (unsigned qid = 0; qid < queries.extent(0); qid += max_queries) {
-    const uint32_t n_queries       = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
-    IdxT* _topk_indices_ptr        = neighbors.data_handle() + (topk * qid);
+    const uint32_t n_queries = std::min<std::size_t>(max_queries, queries.extent(0) - qid);
+    internal_IdxT* _topk_indices_ptr =
+      reinterpret_cast<internal_IdxT*>(neighbors.data_handle()) + (topk * qid);
     DistanceT* _topk_distances_ptr = distances.data_handle() + (topk * qid);
     // todo(tfeher): one could keep distances optional and pass nullptr
     const T* _query_ptr = queries.data_handle() + (query_dim * qid);
-    const IdxT* _seed_ptr =
-      plan->num_seeds > 0 ? plan->dev_seed.data() + (plan->num_seeds * qid) : nullptr;
+    const internal_IdxT* _seed_ptr =
+      plan->num_seeds > 0
+        ? reinterpret_cast<const internal_IdxT*>(plan->dev_seed.data()) + (plan->num_seeds * qid)
+        : nullptr;
     uint32_t* _num_executed_iterations = nullptr;
 
+    auto dataset_internal = raft::make_device_matrix_view<const T, internal_IdxT, row_major>(
+      index.dataset().data_handle(), index.dataset().extent(0), index.dataset().extent(1));
+    auto graph_internal =
+      raft::make_device_matrix_view<const internal_IdxT, internal_IdxT, row_major>(
+        reinterpret_cast<const internal_IdxT*>(index.graph().data_handle()),
+        index.graph().extent(0),
+        index.graph().extent(1));
+
     (*plan)(res,
-            index.dataset(),
-            index.graph(),
+            dataset_internal,
+            graph_internal,
             _topk_indices_ptr,
             _topk_distances_ptr,
             _query_ptr,
@@ -94,6 +111,22 @@ void search_main(raft::device_resources const& res,
             _num_executed_iterations,
             topk);
   }
+
+  static_assert(std::is_same_v<DistanceT, float>,
+                "only float distances are supported at the moment");
+  float* dist_out          = distances.data_handle();
+  const DistanceT* dist_in = distances.data_handle();
+  // We're converting the data from T to DistanceT during distance computation
+  // and divide the values by kDivisor. Here we restore the original scale.
+  constexpr float kScale = spatial::knn::detail::utils::config<T>::kDivisor /
+                           spatial::knn::detail::utils::config<DistanceT>::kDivisor;
+  ivf_pq::detail::postprocess_distances(dist_out,
+                                        dist_in,
+                                        index.metric(),
+                                        distances.extent(0),
+                                        distances.extent(1),
+                                        kScale,
+                                        resource::get_cuda_stream(res));
 }
 /** @} */  // end group cagra
 

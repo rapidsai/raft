@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 
-set(pylibraft_version 23.04.01)
+set(pylibraft_version 23.06.00)
 
 include(../../fetch_rapids.cmake)
 
@@ -86,6 +86,7 @@ rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
+add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)
 add_subdirectory(pylibraft/cluster)

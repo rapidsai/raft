@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/map_then_reduce.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 
@@ -75,7 +76,7 @@ void mapReduce(OutType* out,
  * @tparam OutValueType the data-type of the output
  * @tparam ScalarIdxType index type of scalar
  * @tparam Args additional parameters
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in the input of type raft::device_vector_view
  * @param[in] neutral The neutral element of the reduction operation. For example:
  *    0 for sum, 1 for multiply, +Inf for Min, -Inf for Max
@@ -91,7 +92,7 @@ template <typename InValueType,
           typename OutValueType,
           typename ScalarIdxType,
           typename... Args>
-void map_reduce(raft::device_resources const& handle,
+void map_reduce(raft::resources const& handle,
                 raft::device_vector_view<const InValueType, IndexType> in,
                 raft::device_scalar_view<OutValueType, ScalarIdxType> out,
                 OutValueType neutral,
@@ -105,7 +106,7 @@ void map_reduce(raft::device_resources const& handle,
     neutral,
     map,
     op,
-    handle.get_stream(),
+    resource::get_cuda_stream(handle),
     in.data_handle(),
     args...);
 }

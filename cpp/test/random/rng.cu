@@ -15,14 +15,17 @@
  */
 
 #include <memory>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <sys/timeb.h>
 
 #include "../test_utils.cuh"
 #include <cub/cub.cuh>
 #include <gtest/gtest.h>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
+
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -95,7 +98,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
  public:
   RngTest()
     : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(0, stream),
       stats(2, stream)
   {
@@ -180,7 +183,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
@@ -193,7 +196,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
  public:
   RngMdspanTest()
     : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(0, stream),
       stats(2, stream)
   {
@@ -274,7 +277,7 @@ class RngMdspanTest : public ::testing::TestWithParam<RngInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
@@ -391,8 +394,8 @@ TEST(Rng, MeanError)
   int num_experiments = 1024;
   int len             = num_samples * num_experiments;
 
-  raft::device_resources handle;
-  auto stream = handle.get_stream();
+  raft::resources handle;
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<float> data(len, stream);
   rmm::device_uvector<float> mean_result(num_experiments, stream);
@@ -440,7 +443,7 @@ TEST(Rng, MeanError)
 template <typename T, int len, int scale>
 class ScaledBernoulliTest : public ::testing::Test {
  public:
-  ScaledBernoulliTest() : stream(handle.get_stream()), data(len, stream) {}
+  ScaledBernoulliTest() : stream(resource::get_cuda_stream(handle)), data(len, stream) {}
 
  protected:
   void SetUp() override
@@ -458,7 +461,7 @@ class ScaledBernoulliTest : public ::testing::Test {
       h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<T> data;
@@ -467,7 +470,7 @@ class ScaledBernoulliTest : public ::testing::Test {
 template <typename T, int len, int scale>
 class ScaledBernoulliMdspanTest : public ::testing::Test {
  public:
-  ScaledBernoulliMdspanTest() : stream(handle.get_stream()), data(len, stream) {}
+  ScaledBernoulliMdspanTest() : stream(resource::get_cuda_stream(handle)), data(len, stream) {}
 
  protected:
   void SetUp() override
@@ -487,7 +490,7 @@ class ScaledBernoulliMdspanTest : public ::testing::Test {
       h_data.get(), h_data.get() + len, [](const T& a) { return a < -scale || a > scale; }));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<T> data;
@@ -508,7 +511,7 @@ TEST_F(ScaledBernoulliMdspanTest2, RangeCheck) { rangeCheck(); }
 template <typename T, int len>
 class BernoulliTest : public ::testing::Test {
  public:
-  BernoulliTest() : stream(handle.get_stream()), data(len, stream) {}
+  BernoulliTest() : stream(resource::get_cuda_stream(handle)), data(len, stream) {}
 
  protected:
   void SetUp() override
@@ -528,7 +531,7 @@ class BernoulliTest : public ::testing::Test {
     delete[] h_data;
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<bool> data;
@@ -537,7 +540,7 @@ class BernoulliTest : public ::testing::Test {
 template <typename T, int len>
 class BernoulliMdspanTest : public ::testing::Test {
  public:
-  BernoulliMdspanTest() : stream(handle.get_stream()), data(len, stream) {}
+  BernoulliMdspanTest() : stream(resource::get_cuda_stream(handle)), data(len, stream) {}
 
  protected:
   void SetUp() override
@@ -559,7 +562,7 @@ class BernoulliMdspanTest : public ::testing::Test {
     ASSERT_TRUE(std::any_of(h_data.get(), h_data.get() + len, [](bool a) { return !a; }));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<bool> data;
@@ -598,7 +601,7 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
  public:
   RngNormalTableTest()
     : params(::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       stats(2, stream),
       mu_vec(params.cols, stream)
@@ -635,7 +638,7 @@ class RngNormalTableTest : public ::testing::TestWithParam<RngNormalTableInputs<
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngNormalTableInputs<T> params;
@@ -649,7 +652,7 @@ class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableI
  public:
   RngNormalTableMdspanTest()
     : params(::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       stats(2, stream),
       mu_vec(params.cols, stream)
@@ -691,7 +694,7 @@ class RngNormalTableMdspanTest : public ::testing::TestWithParam<RngNormalTableI
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   RngNormalTableInputs<T> params;

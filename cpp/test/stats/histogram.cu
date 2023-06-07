@@ -17,6 +17,8 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/interruptible.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/stats/histogram.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -63,7 +65,9 @@ struct HistInputs {
 class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   HistTest()
-    : in(0, handle.get_stream()), bins(0, handle.get_stream()), ref_bins(0, handle.get_stream())
+    : in(0, resource::get_cuda_stream(handle)),
+      bins(0, resource::get_cuda_stream(handle)),
+      ref_bins(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -71,7 +75,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::RngState r(params.seed);
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     int len     = params.nrows * params.ncols;
     in.resize(len, stream);
     if (params.isNormal) {
@@ -90,11 +94,11 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
                 in.data(), params.nrows, params.ncols),
               raft::make_device_matrix_view<int, int, raft::col_major>(
                 bins.data(), params.nbins, params.ncols));
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   HistInputs params;
   rmm::device_uvector<int> in, bins, ref_bins;
 };
@@ -102,7 +106,9 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
 class HistMdspanTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   HistMdspanTest()
-    : in(0, handle.get_stream()), bins(0, handle.get_stream()), ref_bins(0, handle.get_stream())
+    : in(0, resource::get_cuda_stream(handle)),
+      bins(0, resource::get_cuda_stream(handle)),
+      ref_bins(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -110,7 +116,7 @@ class HistMdspanTest : public ::testing::TestWithParam<HistInputs> {
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::RngState r(params.seed);
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     int len     = params.nrows * params.ncols;
     in.resize(len, stream);
 
@@ -127,11 +133,11 @@ class HistMdspanTest : public ::testing::TestWithParam<HistInputs> {
     naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     histogram<int>(
       params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   HistInputs params;
   rmm::device_uvector<int> in, bins, ref_bins;
 };

@@ -31,6 +31,11 @@
 namespace raft {
 
 /**
+ * @defgroup interruptible definitions and classes related to the interruptible API
+ * @{
+ */
+
+/**
  * @brief Exception thrown during `interruptible::synchronize` call when it detects a request
  * to cancel the work performed in this CPU thread.
  */
@@ -172,10 +177,10 @@ class interruptible {
   inline void cancel() noexcept { continue_.clear(std::memory_order_relaxed); }
 
   // don't allow the token to leave the shared_ptr
-  interruptible(interruptible const&) = delete;
-  interruptible(interruptible&&)      = delete;
+  interruptible(interruptible const&)                    = delete;
+  interruptible(interruptible&&)                         = delete;
   auto operator=(interruptible const&) -> interruptible& = delete;
-  auto operator=(interruptible&&) -> interruptible& = delete;
+  auto operator=(interruptible&&) -> interruptible&      = delete;
 
  private:
   /** Global registry of thread-local cancellation stores. */
@@ -296,6 +301,10 @@ class interruptible {
     RAFT_CUDA_TRY(query_result);
   }
 };
+
+/**
+ * @}
+ */
 
 }  // namespace raft
 

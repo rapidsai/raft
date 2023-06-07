@@ -17,16 +17,13 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/kvp.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/fused_l2_nn.cuh>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
 
 namespace raft {
 namespace distance {
@@ -131,7 +128,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
  public:
   FusedL2NNTest()
     : params(::testing::TestWithParam<Inputs<DataT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       x(params.m * params.k, stream),
       y(params.n * params.k, stream),
       xn(params.m, stream),
@@ -158,7 +155,7 @@ class FusedL2NNTest : public ::testing::TestWithParam<Inputs<DataT>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
   Inputs<DataT> params;
   rmm::device_uvector<DataT> x;
@@ -279,6 +276,8 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 128, 65, 1234ULL},
   {0.001f, 64, 128, 129, 1234ULL},
   {0.006f, 1805, 134, 2, 1234ULL},
+  {0.006f, 8192, 1024, 64, 1234ULL},
+  {0.006f, 8192, 1025, 64, 1234ULL},
 
   // Repeat with smaller values of k
   {0.006f, 32, 32, 1, 1234ULL},
@@ -308,6 +307,8 @@ const std::vector<Inputs<float>> inputsf = {
   {0.001f, 128, 128, 23, 1234ULL},
   {0.00001, 64, 128, 24, 1234ULL},
   {0.001f, 1805, 134, 25, 1234ULL},
+  {0.006f, 8192, 1024, 25, 1234ULL},
+  {0.006f, 8192, 1024, 66, 1234ULL},
 };
 typedef FusedL2NNTest<float, false> FusedL2NNTestF_Sq;
 TEST_P(FusedL2NNTestF_Sq, Result)
@@ -342,7 +343,7 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
 
-  {0.00001, 1805, 134, 2, 1234ULL},
+  {0.00001, 1805, 134, 2, 1234ULL}, {0.00001, 8192, 1024, 25, 1234ULL},
 };
 typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
 TEST_P(FusedL2NNTestD_Sq, Result)
@@ -365,7 +366,7 @@ INSTANTIATE_TEST_CASE_P(FusedL2NNTests, FusedL2NNTestD_Sqrt, ::testing::ValuesIn
 template <typename DataT, bool Sqrt>
 class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
  public:
-  FusedL2NNDetTest() : stream(handle.get_stream()), min1(0, stream) {}
+  FusedL2NNDetTest() : stream(resource::get_cuda_stream(handle)), min1(0, stream) {}
 
   void SetUp() override
   {
@@ -378,7 +379,7 @@ class FusedL2NNDetTest : public FusedL2NNTest<DataT, Sqrt> {
   void TearDown() override { FusedL2NNTest<DataT, Sqrt>::TearDown(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<raft::KeyValuePair<int, DataT>> min1;

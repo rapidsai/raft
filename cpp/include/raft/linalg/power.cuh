@@ -20,6 +20,7 @@
 
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/input_validation.hpp>
@@ -73,7 +74,7 @@ void power(out_t* out, const in_t* in1, const in_t* in2, IdxType len, cudaStream
  * @brief Elementwise power operation on the input buffers
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in1    First Input
  * @param[in] in2    Second Input
  * @param[out] out    Output
@@ -82,7 +83,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void power(raft::device_resources const& handle, InType in1, InType in2, OutType out)
+void power(raft::resources const& handle, InType in1, InType in2, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -98,13 +99,13 @@ void power(raft::device_resources const& handle, InType in1, InType in2, OutType
                                                   in1.data_handle(),
                                                   in2.data_handle(),
                                                   static_cast<std::uint32_t>(out.size()),
-                                                  handle.get_stream());
+                                                  resource::get_cuda_stream(handle));
   } else {
     power<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                   in1.data_handle(),
                                                   in2.data_handle(),
                                                   static_cast<std::uint64_t>(out.size()),
-                                                  handle.get_stream());
+                                                  resource::get_cuda_stream(handle));
   }
 }
 
@@ -113,7 +114,7 @@ void power(raft::device_resources const& handle, InType in1, InType in2, OutType
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
  * @tparam ScalarIdxType Index Type of scalar
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in    Input
  * @param[out] out    Output
  * @param[in] scalar    raft::host_scalar_view
@@ -124,7 +125,7 @@ template <typename InType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
 void power_scalar(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   InType in,
   OutType out,
   const raft::host_scalar_view<const typename InType::value_type, ScalarIdxType> scalar)
@@ -141,19 +142,19 @@ void power_scalar(
                                                         in.data_handle(),
                                                         *scalar.data_handle(),
                                                         static_cast<std::uint32_t>(out.size()),
-                                                        handle.get_stream());
+                                                        resource::get_cuda_stream(handle));
   } else {
     powerScalar<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                         in.data_handle(),
                                                         *scalar.data_handle(),
                                                         static_cast<std::uint64_t>(out.size()),
-                                                        handle.get_stream());
+                                                        resource::get_cuda_stream(handle));
   }
 }
 
 /** @} */  // end of group add
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

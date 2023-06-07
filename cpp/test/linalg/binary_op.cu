@@ -18,6 +18,7 @@
 #include "binary_op.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -30,11 +31,8 @@ namespace linalg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename InType, typename IdxType, typename OutType>
-void binaryOpLaunch(const raft::device_resources& handle,
-                    OutType* out,
-                    const InType* in1,
-                    const InType* in2,
-                    IdxType len)
+void binaryOpLaunch(
+  const raft::resources& handle, OutType* out, const InType* in1, const InType* in2, IdxType len)
 {
   auto out_view = raft::make_device_vector_view(out, len);
   auto in1_view = raft::make_device_vector_view(in1, len);
@@ -48,7 +46,7 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
  public:
   BinaryOpTest()
     : params(::testing::TestWithParam<BinaryOpInputs<InType, IdxType, OutType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
@@ -65,11 +63,11 @@ class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<InType, IdxT
     uniform(handle, r, in2.data(), len, InType(-1.0), InType(1.0));
     naiveAdd(out_ref.data(), in1.data(), in2.data(), len);
     binaryOpLaunch(handle, out.data(), in1.data(), in2.data(), len);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   BinaryOpInputs<InType, IdxType, OutType> params;
@@ -132,7 +130,7 @@ class BinaryOpAlignment : public ::testing::Test {
  public:
   void Misaligned()
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     // Test to trigger cudaErrorMisalignedAddress if veclen is incorrectly
     // chosen.
     int n = 1024;
@@ -141,11 +139,15 @@ class BinaryOpAlignment : public ::testing::Test {
     rmm::device_uvector<math_t> z(n, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(x.data(), 0, n * sizeof(math_t), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n * sizeof(math_t), stream));
-    raft::linalg::binaryOp(
-      z.data() + 9, x.data() + 137, y.data() + 19, 256, raft::add_op{}, handle.get_stream());
+    raft::linalg::binaryOp(z.data() + 9,
+                           x.data() + 137,
+                           y.data() + 19,
+                           256,
+                           raft::add_op{},
+                           resource::get_cuda_stream(handle));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
 };
 typedef ::testing::Types<float, double> FloatTypes;
 TYPED_TEST_CASE(BinaryOpAlignment, FloatTypes);

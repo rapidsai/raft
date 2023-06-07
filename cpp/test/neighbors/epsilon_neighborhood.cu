@@ -18,14 +18,11 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/epsilon_neighborhood.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
-
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 namespace raft {
 namespace spatial {
@@ -46,16 +43,16 @@ template <typename T, typename IdxT>
 class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
  protected:
   EpsNeighTest()
-    : data(0, handle.get_stream()),
-      adj(0, handle.get_stream()),
-      labels(0, handle.get_stream()),
-      vd(0, handle.get_stream())
+    : data(0, resource::get_cuda_stream(handle)),
+      adj(0, resource::get_cuda_stream(handle)),
+      labels(0, resource::get_cuda_stream(handle)),
+      vd(0, resource::get_cuda_stream(handle))
   {
   }
 
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     param       = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     data.resize(param.n_row * param.n_col, stream);
     labels.resize(param.n_row, stream);
@@ -76,7 +73,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
                                 false);
   }
 
-  const raft::device_resources handle;
+  const raft::resources handle;
   EpsInputs<T, IdxT> param;
   cudaStream_t stream = 0;
   rmm::device_uvector<T> data;

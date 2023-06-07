@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/dot.cuh>
 
 #include "../test_utils.cuh"
@@ -57,8 +58,8 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
   {
     params = ::testing::TestWithParam<DotInputs<T>>::GetParam();
 
-    raft::device_resources handle;
-    cudaStream_t stream = handle.get_stream();
+    raft::resources handle;
+    cudaStream_t stream = resource::get_cuda_stream(handle);
 
     raft::random::RngState r(params.seed);
 
@@ -70,13 +71,13 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
     uniform(handle, r, x.data(), x_len, T(-1.0), T(1.0));
     uniform(handle, r, y.data(), y_len, T(-1.0), T(1.0));
 
-    rmm::device_scalar<T> ref(0, handle.get_stream());
+    rmm::device_scalar<T> ref(0, resource::get_cuda_stream(handle));
     naiveDot<<<256, 256, 0, stream>>>(
       params.len, x.data(), params.incx, y.data(), params.incy, ref.data());
     raft::update_host(&ref_output, ref.data(), 1, stream);
 
     // Test out both the device and host api's
-    rmm::device_scalar<T> out(0, handle.get_stream());
+    rmm::device_scalar<T> out(0, resource::get_cuda_stream(handle));
     auto device_out_view = make_device_scalar_view<T, IndexType>(out.data());
     auto host_out_view   = make_host_scalar_view<T, IndexType>(&host_output);
 
@@ -106,7 +107,7 @@ class DotTest : public ::testing::TestWithParam<DotInputs<T>> {
       dot(handle, x_view, y_view, host_out_view);
     }
     raft::update_host(&device_output, out.data(), 1, stream);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
   void TearDown() override {}

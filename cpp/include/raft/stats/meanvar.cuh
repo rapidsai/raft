@@ -19,6 +19,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/meanvar.cuh>
 
 namespace raft::stats {
@@ -80,7 +81,7 @@ void meanvar(Type* mean,
  * normalize the variance using N-1 or N, for true or false respectively.
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void meanvar(raft::device_resources const& handle,
+void meanvar(raft::resources const& handle,
              raft::device_matrix_view<const value_t, idx_t, layout_t> data,
              raft::device_vector_view<value_t, idx_t> mean,
              raft::device_vector_view<value_t, idx_t> var,
@@ -101,11 +102,11 @@ void meanvar(raft::device_resources const& handle,
                   data.extent(0),
                   sample,
                   std::is_same_v<layout_t, raft::row_major>,
-                  handle.get_stream());
+                  resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_mean_var
 
-};  // namespace raft::stats
+};         // namespace raft::stats
 
 #endif

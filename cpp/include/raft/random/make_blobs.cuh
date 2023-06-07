@@ -22,6 +22,8 @@
 #include "detail/make_blobs.cuh"
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::random {
 
@@ -129,7 +131,7 @@ void make_blobs(DataT* out,
  */
 template <typename DataT, typename IdxT, typename layout>
 void make_blobs(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<DataT, IdxT, layout> out,
   raft::device_vector_view<IdxT, IdxT> labels,
   IdxT n_clusters                                                        = 5,
@@ -167,7 +169,7 @@ void make_blobs(
                             (IdxT)out.extent(0),
                             (IdxT)out.extent(1),
                             n_clusters,
-                            handle.get_stream(),
+                            resource::get_cuda_stream(handle),
                             row_major,
                             prm_centers,
                             prm_cluster_std,

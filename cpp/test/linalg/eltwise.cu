@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -60,7 +61,7 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
  public:
   ScalarMultiplyTest()
     : params(::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(len, stream),
       out_ref(len, stream),
       out(len, stream)
@@ -76,11 +77,11 @@ class ScalarMultiplyTest : public ::testing::TestWithParam<ScalarMultiplyInputs<
     uniform(handle, r, in, len, T(-1.0), T(1.0));
     naiveScale(out_ref, in, scalar, len, stream);
     scalarMultiply(out, in, scalar, len, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   ScalarMultiplyInputs<T> params;
@@ -146,7 +147,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
  public:
   EltwiseAddTest()
     : params(::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
@@ -164,11 +165,11 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
     uniform(handle, r, in2, len, T(-1.0), T(1.0));
     naiveAdd(out_ref, in1, in2, len, stream);
     eltwiseAdd(out, in1, in2, len, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   EltwiseAddInputs<T> params;

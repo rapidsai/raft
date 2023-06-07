@@ -49,7 +49,7 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), 136>;
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& res, std::ostream& os, const index<T, IdxT>& index_)
+void serialize(raft::resources const& res, std::ostream& os, const index<T, IdxT>& index_)
 {
   RAFT_LOG_DEBUG(
     "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
@@ -64,7 +64,7 @@ void serialize(raft::device_resources const& res, std::ostream& os, const index<
 }
 
 template <typename T, typename IdxT>
-void serialize(raft::device_resources const& res,
+void serialize(raft::resources const& res,
                const std::string& filename,
                const index<T, IdxT>& index_)
 {
@@ -87,7 +87,7 @@ void serialize(raft::device_resources const& res,
  *
  */
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& res, std::istream& is) -> index<T, IdxT>
+auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
 {
   auto ver = deserialize_scalar<int>(res, is);
   if (ver != serialization_version) {
@@ -108,7 +108,7 @@ auto deserialize(raft::device_resources const& res, std::istream& is) -> index<T
 }
 
 template <typename T, typename IdxT>
-auto deserialize(raft::device_resources const& res, const std::string& filename) -> index<T, IdxT>
+auto deserialize(raft::resources const& res, const std::string& filename) -> index<T, IdxT>
 {
   std::ifstream is(filename, std::ios::in | std::ios::binary);
 

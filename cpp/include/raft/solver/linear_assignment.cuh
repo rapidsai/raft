@@ -28,7 +28,8 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -61,7 +62,7 @@ class LinearAssignmentProblem {
   Vertices<vertex_t, weight_t> d_vertices_dev;
   VertexData<vertex_t> d_row_data_dev, d_col_data_dev;
 
-  raft::device_resources const& handle_;
+  raft::resources const& handle_;
   rmm::device_uvector<int> row_covers_v;
   rmm::device_uvector<int> col_covers_v;
   rmm::device_uvector<weight_t> row_duals_v;
@@ -84,7 +85,7 @@ class LinearAssignmentProblem {
    * @param batchsize
    * @param epsilon
    */
-  LinearAssignmentProblem(raft::device_resources const& handle,
+  LinearAssignmentProblem(raft::resources const& handle,
                           vertex_t size,
                           vertex_t batchsize,
                           weight_t epsilon)
@@ -93,19 +94,19 @@ class LinearAssignmentProblem {
       batchsize_(batchsize),
       epsilon_(epsilon),
       d_costs_(nullptr),
-      row_covers_v(0, handle_.get_stream()),
-      col_covers_v(0, handle_.get_stream()),
-      row_duals_v(0, handle_.get_stream()),
-      col_duals_v(0, handle_.get_stream()),
-      col_slacks_v(0, handle_.get_stream()),
-      row_is_visited_v(0, handle_.get_stream()),
-      col_is_visited_v(0, handle_.get_stream()),
-      row_parents_v(0, handle_.get_stream()),
-      col_parents_v(0, handle_.get_stream()),
-      row_children_v(0, handle_.get_stream()),
-      col_children_v(0, handle_.get_stream()),
-      obj_val_primal_v(0, handle_.get_stream()),
-      obj_val_dual_v(0, handle_.get_stream())
+      row_covers_v(0, resource::get_cuda_stream(handle_)),
+      col_covers_v(0, resource::get_cuda_stream(handle_)),
+      row_duals_v(0, resource::get_cuda_stream(handle_)),
+      col_duals_v(0, resource::get_cuda_stream(handle_)),
+      col_slacks_v(0, resource::get_cuda_stream(handle_)),
+      row_is_visited_v(0, resource::get_cuda_stream(handle_)),
+      col_is_visited_v(0, resource::get_cuda_stream(handle_)),
+      row_parents_v(0, resource::get_cuda_stream(handle_)),
+      col_parents_v(0, resource::get_cuda_stream(handle_)),
+      row_children_v(0, resource::get_cuda_stream(handle_)),
+      col_children_v(0, resource::get_cuda_stream(handle_)),
+      obj_val_primal_v(0, resource::get_cuda_stream(handle_)),
+      obj_val_dual_v(0, resource::get_cuda_stream(handle_))
   {
   }
 
@@ -169,8 +170,9 @@ class LinearAssignmentProblem {
   weight_t getPrimalObjectiveValue(int spId)
   {
     weight_t result;
-    raft::update_host(&result, obj_val_primal_v.data() + spId, 1, handle_.get_stream());
-    RAFT_CHECK_CUDA(handle_.get_stream());
+    raft::update_host(
+      &result, obj_val_primal_v.data() + spId, 1, resource::get_cuda_stream(handle_));
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle_));
     return result;
   }
 
@@ -182,8 +184,8 @@ class LinearAssignmentProblem {
   weight_t getDualObjectiveValue(int spId)
   {
     weight_t result;
-    raft::update_host(&result, obj_val_dual_v.data() + spId, 1, handle_.get_stream());
-    RAFT_CHECK_CUDA(handle_.get_stream());
+    raft::update_host(&result, obj_val_dual_v.data() + spId, 1, resource::get_cuda_stream(handle_));
+    RAFT_CHECK_CUDA(resource::get_cuda_stream(handle_));
     return result;
   }
 
@@ -191,7 +193,7 @@ class LinearAssignmentProblem {
   // Helper function for initializing global variables and arrays on a single host.
   void initializeDevice()
   {
-    cudaStream_t stream = handle_.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(handle_);
     row_covers_v.resize(batchsize_ * size_, stream);
     col_covers_v.resize(batchsize_ * size_, stream);
     row_duals_v.resize(batchsize_ * size_, stream);
@@ -269,10 +271,10 @@ class LinearAssignmentProblem {
   {
     int next;
 
-    rmm::device_scalar<bool> flag_v(handle_.get_stream());
+    rmm::device_scalar<bool> flag_v(resource::get_cuda_stream(handle_));
 
     bool h_flag = false;
-    flag_v.set_value_async(h_flag, handle_.get_stream());
+    flag_v.set_value_async(h_flag, resource::get_cuda_stream(handle_));
 
     detail::executeZeroCover(handle_,
                              d_costs_,
@@ -284,7 +286,7 @@ class LinearAssignmentProblem {
                              size_,
                              epsilon_);
 
-    h_flag = flag_v.value(handle_.get_stream());
+    h_flag = flag_v.value(resource::get_cuda_stream(handle_));
 
     next = h_flag ? 4 : 5;
 

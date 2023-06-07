@@ -21,6 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/linewise_op.cuh>
 #include <raft/random/rng.cuh>
@@ -43,7 +44,7 @@ struct LinewiseTestParams {
 
 template <typename T, typename I, typename ParamsReader>
 struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Params> {
-  const raft::device_resources handle;
+  const raft::resources handle;
   const LinewiseTestParams params;
   rmm::cuda_stream_view stream;
 
@@ -52,7 +53,7 @@ struct LinewiseTest : public ::testing::TestWithParam<typename ParamsReader::Par
       params(
         ParamsReader::read(::testing::TestWithParam<typename ParamsReader::Params>::GetParam())),
       handle(),
-      stream(handle.get_stream())
+      stream(resource::get_cuda_stream(handle))
   {
   }
 

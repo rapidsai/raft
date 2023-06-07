@@ -20,10 +20,10 @@
 #include <raft/neighbors/ivf_list_types.hpp>
 
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
 
@@ -325,14 +325,14 @@ struct index : ann::index {
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
-  index(const index&) = delete;
-  index(index&&)      = default;
+  index(const index&)                    = delete;
+  index(index&&)                         = default;
   auto operator=(const index&) -> index& = delete;
-  auto operator=(index&&) -> index& = default;
-  ~index()                          = default;
+  auto operator=(index&&) -> index&      = default;
+  ~index()                               = default;
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& handle,
+  index(raft::resources const& handle,
         raft::distance::DistanceType metric,
         codebook_gen codebook_kind,
         uint32_t n_lists,
@@ -362,7 +362,7 @@ struct index : ann::index {
   }
 
   /** Construct an empty index. It needs to be trained and then populated. */
-  index(raft::device_resources const& handle, const index_params& params, uint32_t dim)
+  index(raft::resources const& handle, const index_params& params, uint32_t dim)
     : index(handle,
             params.metric,
             params.codebook_kind,

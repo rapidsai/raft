@@ -20,6 +20,8 @@
 #include <cstdio>
 #include <ctime>
 #include <optional>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <random>
 
 #include <cuda.h>
@@ -31,12 +33,12 @@
 #include <raft/common/nvtx.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/kvp.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -59,13 +61,13 @@ namespace detail {
 
 // Selects 'n_clusters' samples randomly from X
 template <typename DataT, typename IndexT>
-void initRandom(raft::device_resources const& handle,
+void initRandom(raft::resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 raft::device_matrix_view<DataT, IndexT> centroids)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("initRandom");
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_clusters     = params.n_clusters;
   detail::shuffleAndGather<DataT, IndexT>(handle, X, centroids, n_clusters, params.rng_state.seed);
 }
@@ -85,14 +87,14 @@ void initRandom(raft::device_resources const& handle,
  * 5: end for
  */
 template <typename DataT, typename IndexT>
-void kmeansPlusPlus(raft::device_resources const& handle,
+void kmeansPlusPlus(raft::resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                     rmm::device_uvector<char>& workspace)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeansPlusPlus");
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -244,7 +246,7 @@ void kmeansPlusPlus(raft::device_resources const& handle,
 
       int bestCandidateIdx = -1;
       raft::copy(&bestCandidateIdx, &minClusterIndexAndDistance.data()->key, 1, stream);
-      handle.sync_stream();
+      resource::sync_stream(handle);
       /// <<< End of Step-3 >>>
 
       /// <<< Step-4 >>>: C = C U {x}
@@ -282,7 +284,7 @@ void kmeansPlusPlus(raft::device_resources const& handle,
  * @param[inout] workspace
  */
 template <typename DataT, typename IndexT, typename LabelsIterator>
-void update_centroids(raft::device_resources const& handle,
+void update_centroids(raft::resources const& handle,
                       raft::device_matrix_view<const DataT, IndexT, row_major> X,
                       raft::device_vector_view<const DataT, IndexT> sample_weights,
                       raft::device_matrix_view<const DataT, IndexT, row_major> centroids,
@@ -296,7 +298,7 @@ void update_centroids(raft::device_resources const& handle,
   auto n_clusters = centroids.extent(0);
   auto n_samples  = X.extent(0);
 
-  workspace.resize(n_samples, handle.get_stream());
+  workspace.resize(n_samples, resource::get_cuda_stream(handle));
 
   // Calculates weighted sum of all the samples assigned to cluster-i and stores the
   // result in new_centroids[i]
@@ -309,7 +311,7 @@ void update_centroids(raft::device_resources const& handle,
                                    X.extent(1),
                                    n_clusters,
                                    new_centroids.data_handle(),
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 
   // Reduce weights by key to compute weight in each cluster
   raft::linalg::reduce_cols_by_key(sample_weights.data_handle(),
@@ -318,7 +320,7 @@ void update_centroids(raft::device_resources const& handle,
                                    (IndexT)1,
                                    (IndexT)sample_weights.extent(0),
                                    (IndexT)n_clusters,
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 
   // Computes new_centroids[i] = new_centroids[i]/weight_per_cluster[i] where
   //   new_centroids[n_clusters x n_features] - 2D array, new_centroids[i] has sum of all the
@@ -334,7 +336,7 @@ void update_centroids(raft::device_resources const& handle,
                                true,
                                false,
                                raft::div_checkzero_op{},
-                               handle.get_stream());
+                               resource::get_cuda_stream(handle));
 
   // copy centroids[i] to new_centroids[i] when weight_per_cluster[i] is 0
   cub::ArgIndexInputIterator<DataT*> itr_wt(weight_per_cluster.data_handle());
@@ -351,12 +353,12 @@ void update_centroids(raft::device_resources const& handle,
       return map.value == 0;
     },
     raft::key_op{},
-    handle.get_stream());
+    resource::get_cuda_stream(handle));
 }
 
 // TODO: Resizing is needed to use mdarray instead of rmm::device_uvector
 template <typename DataT, typename IndexT>
-void kmeans_fit_main(raft::device_resources const& handle,
+void kmeans_fit_main(raft::resources const& handle,
                      const KMeansParams& params,
                      raft::device_matrix_view<const DataT, IndexT> X,
                      raft::device_vector_view<const DataT, IndexT> weight,
@@ -367,7 +369,7 @@ void kmeans_fit_main(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_fit_main");
   logger::get(RAFT_NAME).set_level(params.verbosity);
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -498,7 +500,7 @@ void kmeans_fit_main(raft::device_resources const& handle,
       priorClusteringCost = curClusteringCost;
     }
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
     if (sqrdNormError < params.tol) done = true;
 
     if (done) {
@@ -522,7 +524,7 @@ void kmeans_fit_main(raft::device_resources const& handle,
                                                       workspace);
 
   // TODO: add different templates for InType of binaryOp to avoid thrust transform
-  thrust::transform(handle.get_thrust_policy(),
+  thrust::transform(resource::get_thrust_policy(handle),
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     weight.data_handle(),
@@ -573,14 +575,14 @@ void kmeans_fit_main(raft::device_resources const& handle,
 
  */
 template <typename DataT, typename IndexT>
-void initScalableKMeansPlusPlus(raft::device_resources const& handle,
+void initScalableKMeansPlusPlus(raft::resources const& handle,
                                 const KMeansParams& params,
                                 raft::device_matrix_view<const DataT, IndexT> X,
                                 raft::device_matrix_view<DataT, IndexT> centroidsRawData,
                                 rmm::device_uvector<char>& workspace)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("initScalableKMeansPlusPlus");
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -662,7 +664,7 @@ void initScalableKMeansPlusPlus(raft::device_resources const& handle,
   // <<< End of Step-2 >>>
 
   // Scalable kmeans++ paper claims 8 rounds is sufficient
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
   int niter = std::min(8, (int)ceil(log(psi)));
   RAFT_LOG_DEBUG("KMeans||: psi = %g, log(psi) = %g, niter = %d ", psi, log(psi), niter);
 
@@ -816,7 +818,7 @@ void initScalableKMeansPlusPlus(raft::device_resources const& handle,
  * @param[out]    n_iter        Number of iterations run.
  */
 template <typename DataT, typename IndexT>
-void kmeans_fit(raft::device_resources const& handle,
+void kmeans_fit(raft::resources const& handle,
                 const KMeansParams& params,
                 raft::device_matrix_view<const DataT, IndexT> X,
                 std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -828,7 +830,7 @@ void kmeans_fit(raft::device_resources const& handle,
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   // Check that parameters are valid
   if (sample_weight.has_value())
     RAFT_EXPECTS(sample_weight.value().extent(0) == n_samples,
@@ -870,8 +872,10 @@ void kmeans_fit(raft::device_resources const& handle,
   if (sample_weight.has_value())
     raft::copy(weight.data_handle(), sample_weight.value().data_handle(), n_samples, stream);
   else
-    thrust::fill(
-      handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + weight.size(), 1);
+    thrust::fill(resource::get_thrust_policy(handle),
+                 weight.data_handle(),
+                 weight.data_handle() + weight.size(),
+                 1);
 
   // check if weights sum up to n_samples
   checkWeight<DataT>(handle, weight.view(), workspace);
@@ -955,7 +959,7 @@ void kmeans_fit(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit(raft::device_resources const& handle,
+void kmeans_fit(raft::resources const& handle,
                 const KMeansParams& params,
                 const DataT* X,
                 const DataT* sample_weight,
@@ -980,7 +984,7 @@ void kmeans_fit(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT>
-void kmeans_predict(raft::device_resources const& handle,
+void kmeans_predict(raft::resources const& handle,
                     const KMeansParams& params,
                     raft::device_matrix_view<const DataT, IndexT> X,
                     std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -992,7 +996,7 @@ void kmeans_predict(raft::device_resources const& handle,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_predict");
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   // Check that parameters are valid
   if (sample_weight.has_value())
     RAFT_EXPECTS(sample_weight.value().extent(0) == n_samples,
@@ -1015,8 +1019,10 @@ void kmeans_predict(raft::device_resources const& handle,
   if (sample_weight.has_value())
     raft::copy(weight.data_handle(), sample_weight.value().data_handle(), n_samples, stream);
   else
-    thrust::fill(
-      handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + weight.size(), 1);
+    thrust::fill(resource::get_thrust_policy(handle),
+                 weight.data_handle(),
+                 weight.data_handle() + weight.size(),
+                 1);
 
   // check if weights sum up to n_samples
   if (normalize_weight) checkWeight(handle, weight.view(), workspace);
@@ -1059,7 +1065,7 @@ void kmeans_predict(raft::device_resources const& handle,
   // calculate cluster cost phi_x(C)
   rmm::device_scalar<DataT> clusterCostD(stream);
   // TODO: add different templates for InType of binaryOp to avoid thrust transform
-  thrust::transform(handle.get_thrust_policy(),
+  thrust::transform(resource::get_thrust_policy(handle),
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     weight.data_handle(),
@@ -1078,7 +1084,7 @@ void kmeans_predict(raft::device_resources const& handle,
                              raft::value_op{},
                              raft::add_op{});
 
-  thrust::transform(handle.get_thrust_policy(),
+  thrust::transform(resource::get_thrust_policy(handle),
                     minClusterAndDistance.data_handle(),
                     minClusterAndDistance.data_handle() + minClusterAndDistance.size(),
                     labels.data_handle(),
@@ -1088,7 +1094,7 @@ void kmeans_predict(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_predict(raft::device_resources const& handle,
+void kmeans_predict(raft::resources const& handle,
                     const KMeansParams& params,
                     const DataT* X,
                     const DataT* sample_weight,
@@ -1120,7 +1126,7 @@ void kmeans_predict(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(raft::device_resources const& handle,
+void kmeans_fit_predict(raft::resources const& handle,
                         const KMeansParams& params,
                         raft::device_matrix_view<const DataT, IndexT> X,
                         std::optional<raft::device_vector_view<const DataT, IndexT>> sample_weight,
@@ -1147,7 +1153,7 @@ void kmeans_fit_predict(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_fit_predict(raft::device_resources const& handle,
+void kmeans_fit_predict(raft::resources const& handle,
                         const KMeansParams& params,
                         const DataT* X,
                         const DataT* sample_weight,
@@ -1187,7 +1193,7 @@ void kmeans_fit_predict(raft::device_resources const& handle,
  * @param[out]    X_new         X transformed in the new space..
  */
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(raft::device_resources const& handle,
+void kmeans_transform(raft::resources const& handle,
                       const KMeansParams& params,
                       raft::device_matrix_view<const DataT> X,
                       raft::device_matrix_view<const DataT> centroids,
@@ -1195,7 +1201,7 @@ void kmeans_transform(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("kmeans_transform");
   logger::get(RAFT_NAME).set_level(params.verbosity);
-  cudaStream_t stream = handle.get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(handle);
   auto n_samples      = X.extent(0);
   auto n_features     = X.extent(1);
   auto n_clusters     = params.n_clusters;
@@ -1228,7 +1234,7 @@ void kmeans_transform(raft::device_resources const& handle,
 }
 
 template <typename DataT, typename IndexT = int>
-void kmeans_transform(raft::device_resources const& handle,
+void kmeans_transform(raft::resources const& handle,
                       const KMeansParams& params,
                       const DataT* X,
                       const DataT* centroids,

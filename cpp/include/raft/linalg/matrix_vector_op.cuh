@@ -20,8 +20,10 @@
 
 #include "detail/matrix_vector_op.cuh"
 #include "linalg_types.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -122,7 +124,7 @@ void matrixVectorOp(MatT* out,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IndexType Integer used for addressing
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] matrix input raft::matrix_view
  * @param[in] vec vector raft::vector_view
  * @param[out] out output raft::matrix_view
@@ -135,7 +137,7 @@ template <typename MatValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename IndexType>
-void matrix_vector_op(raft::device_resources const& handle,
+void matrix_vector_op(raft::resources const& handle,
                       raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
                       raft::device_vector_view<const VecValueType, IndexType> vec,
                       raft::device_matrix_view<MatValueType, IndexType, LayoutPolicy> out,
@@ -165,7 +167,7 @@ void matrix_vector_op(raft::device_resources const& handle,
                  rowMajor,
                  bcastAlongRows,
                  op,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
 }
 
 /**
@@ -182,7 +184,7 @@ void matrix_vector_op(raft::device_resources const& handle,
  * @tparam LayoutPolicy the layout of input and output (raft::row_major or raft::col_major)
  * @tparam Lambda a device function which represents a binary operator
  * @tparam IndexType Integer used for addressing
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param matrix input raft::matrix_view
  * @param vec1 the first vector raft::vector_view
  * @param vec2 the second vector raft::vector_view
@@ -197,7 +199,7 @@ template <typename MatValueType,
           typename LayoutPolicy,
           typename Lambda,
           typename IndexType>
-void matrix_vector_op(raft::device_resources const& handle,
+void matrix_vector_op(raft::resources const& handle,
                       raft::device_matrix_view<const MatValueType, IndexType, LayoutPolicy> matrix,
                       raft::device_vector_view<const Vec1ValueType, IndexType> vec1,
                       raft::device_vector_view<const Vec2ValueType, IndexType> vec2,
@@ -233,12 +235,12 @@ void matrix_vector_op(raft::device_resources const& handle,
                  rowMajor,
                  bcastAlongRows,
                  op,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group matrix_vector_op
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

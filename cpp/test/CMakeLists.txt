@@ -17,7 +17,7 @@
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -31,12 +31,13 @@ function(ConfigureTest)
 
   target_link_libraries(
     ${TEST_NAME}
-    PRIVATE raft::raft
+    PRIVATE raft
             raft_internal
             $<$<BOOL:${ConfigureTest_LIB}>:raft::compiled>
             GTest::gtest
             GTest::gtest_main
             Threads::Threads
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
   )
@@ -57,6 +58,10 @@ function(ConfigureTest)
     ${TEST_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
                          "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
+
+  if(ConfigureTest_EXPLICIT_INSTANTIATE_ONLY)
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
 
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
 
@@ -87,6 +92,7 @@ if(BUILD_TESTS)
     test/cluster/kmeans_find_k.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -111,6 +117,9 @@ if(BUILD_TESTS)
     test/core/span.cu
     test/core/temporary_device_buffer.cu
     test/test.cpp
+    OPTIONAL
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -118,6 +127,7 @@ if(BUILD_TESTS)
     DISTANCE_TEST
     PATH
     test/distance/dist_adj.cu
+    test/distance/dist_adj_distance_instance.cu
     test/distance/dist_canberra.cu
     test/distance/dist_correlation.cu
     test/distance/dist_cos.cu
@@ -139,7 +149,45 @@ if(BUILD_TESTS)
     test/distance/gram.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
+
+  list(
+    APPEND
+    EXT_HEADER_TEST_SOURCES
+    test/ext_headers/raft_neighbors_brute_force.cu
+    test/ext_headers/raft_distance_distance.cu
+    test/ext_headers/raft_distance_detail_pairwise_matrix_dispatch.cu
+    test/ext_headers/raft_matrix_detail_select_k.cu
+    test/ext_headers/raft_neighbors_ball_cover.cu
+    test/ext_headers/raft_spatial_knn_detail_fused_l2_knn.cu
+    test/ext_headers/raft_distance_fused_l2_nn.cu
+    test/ext_headers/raft_neighbors_ivf_pq.cu
+    test/ext_headers/raft_util_memory_pool.cpp
+    test/ext_headers/raft_neighbors_ivf_flat.cu
+    test/ext_headers/raft_core_logger.cpp
+    test/ext_headers/raft_neighbors_refine.cu
+    test/ext_headers/raft_neighbors_detail_ivf_flat_search.cu
+    test/ext_headers/raft_neighbors_detail_selection_faiss.cu
+    test/ext_headers/raft_linalg_detail_coalesced_reduction.cu
+    test/ext_headers/raft_spatial_knn_detail_ball_cover_registers.cu
+    test/ext_headers/raft_neighbors_detail_ivf_flat_interleaved_scan.cu
+    test/ext_headers/raft_neighbors_detail_ivf_pq_compute_similarity.cu
+  )
+
+  # Test that the split headers compile in isolation with:
+  #
+  # * EXT_HEADERS_TEST_COMPILED_EXPLICIT: RAFT_COMPILED, RAFT_EXPLICIT_INSTANTIATE_ONLY defined
+  # * EXT_HEADERS_TEST_COMPILED_IMPLICIT: RAFT_COMPILED defined
+  # * EXT_HEADERS_TEST_IMPLICIT:          no macros defined.
+  ConfigureTest(
+    NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
+  ConfigureTest(
+    NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} OPTIONAL LIB
+  )
+  ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
 
@@ -167,6 +215,7 @@ if(BUILD_TESTS)
     test/linalg/norm.cu
     test/linalg/normalize.cu
     test/linalg/power.cu
+    test/linalg/randomized_svd.cu
     test/linalg/reduce.cu
     test/linalg/reduce_cols_by_key.cu
     test/linalg/reduce_rows_by_key.cu
@@ -200,6 +249,7 @@ if(BUILD_TESTS)
     test/sparse/spectral_matrix.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -219,7 +269,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
-    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB
+    test/lap/lap.cu test/sparse/mst.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -235,6 +285,7 @@ if(BUILD_TESTS)
     test/sparse/degree.cu
     test/sparse/filter.cu
     test/sparse/norm.cu
+    test/sparse/normalize.cu
     test/sparse/reduce.cu
     test/sparse/row_op.cu
     test/sparse/sort.cu
@@ -243,12 +294,20 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
-    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu OPTIONAL LIB
+    NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
+    test/sparse/gram.cu OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
-    NAME SPARSE_NEIGHBORS_TEST PATH test/sparse/neighbors/connect_components.cu
-    test/sparse/neighbors/brute_force.cu test/sparse/neighbors/knn_graph.cu OPTIONAL LIB
+    NAME
+    SPARSE_NEIGHBORS_TEST
+    PATH
+    test/sparse/neighbors/connect_components.cu
+    test/sparse/neighbors/brute_force.cu
+    test/sparse/neighbors/knn_graph.cu
+    OPTIONAL
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -256,6 +315,9 @@ if(BUILD_TESTS)
     NEIGHBORS_TEST
     PATH
     test/neighbors/ann_cagra/test_float_uint32_t.cu
+    test/neighbors/ann_cagra/test_int8_t_uint32_t.cu
+    test/neighbors/ann_cagra/test_uint8_t_uint32_t.cu
+    test/neighbors/ann_cagra/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
@@ -274,6 +336,7 @@ if(BUILD_TESTS)
     test/neighbors/selection.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -307,10 +370,19 @@ if(BUILD_TESTS)
     test/stats/v_measure.cu
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
-    NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
-    test/util/device_atomics.cu test/util/integer_utils.cpp test/util/pow2_utils.cu
+    NAME
+    UTILS_TEST
+    PATH
+    test/core/seive.cu
+    test/util/bitonic_sort.cu
+    test/util/cudart_utils.cpp
+    test/util/device_atomics.cu
+    test/util/integer_utils.cpp
+    test/util/pow2_utils.cu
+    test/util/reduction.cu
   )
 endif()

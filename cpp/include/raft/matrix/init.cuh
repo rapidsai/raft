@@ -18,9 +18,9 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/matrix/detail/math.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -40,7 +40,7 @@ namespace raft::matrix {
  * @param[in] scalar scalar value to fill matrix elements
  */
 template <typename math_t, typename extents, typename layout>
-void fill(raft::device_resources const& handle,
+void fill(raft::resources const& handle,
           raft::device_mdspan<const math_t, extents, layout> in,
           raft::device_mdspan<math_t, extents, layout> out,
           raft::host_scalar_view<math_t> scalar)
@@ -48,8 +48,11 @@ void fill(raft::device_resources const& handle,
   RAFT_EXPECTS(raft::is_row_or_column_major(out), "Data layout not supported");
   RAFT_EXPECTS(in.size() == out.size(), "Input and output matrices must be the same size.");
   RAFT_EXPECTS(scalar.data_handle() != nullptr, "Empty scalar");
-  detail::setValue(
-    out.data_handle(), in.data_handle(), *(scalar.data_handle()), in.size(), handle.get_stream());
+  detail::setValue(out.data_handle(),
+                   in.data_handle(),
+                   *(scalar.data_handle()),
+                   in.size(),
+                   resource::get_cuda_stream(handle));
 }
 
 /**
@@ -62,7 +65,7 @@ void fill(raft::device_resources const& handle,
  * @param[in] scalar scalar value to fill matrix elements
  */
 template <typename math_t, typename extents, typename layout>
-void fill(raft::device_resources const& handle,
+void fill(raft::resources const& handle,
           raft::device_mdspan<math_t, extents, layout> inout,
           math_t scalar)
 {

@@ -17,7 +17,8 @@
 #include "../test_utils.cuh"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -30,7 +31,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
  public:
   UnaryOpTest()
     : params(::testing::TestWithParam<UnaryOpInputs<InType, IdxType, OutType>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.len, stream),
       out_ref(params.len, stream),
       out(params.len, stream)
@@ -43,7 +44,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
     raft::random::RngState r(params.seed);
     auto len = params.len;
     uniform(handle, r, in.data(), len, InType(-1.0), InType(1.0));
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   virtual void DoTest()
@@ -58,11 +59,11 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
              in_view,
              out_view,
              raft::compose_op(raft::cast_op<OutType>(), raft::mul_const_op<InType>(scalar)));
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   UnaryOpInputs<InType, IdxType, OutType> params;
@@ -74,10 +75,7 @@ class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<InType, IdxTyp
 // The enclosing parent function ("DoTest") for an extended __device__ lambda cannot have private or
 // protected access within its class
 template <typename InType, typename IdxType, typename OutType>
-void launchWriteOnlyUnaryOp(const raft::device_resources& handle,
-                            OutType* out,
-                            InType scalar,
-                            IdxType len)
+void launchWriteOnlyUnaryOp(const raft::resources& handle, OutType* out, InType scalar, IdxType len)
 {
   auto out_view = raft::make_device_vector_view(out, len);
   auto op       = [scalar] __device__(OutType * ptr, IdxType idx) {
@@ -96,7 +94,7 @@ class WriteOnlyUnaryOpTest : public UnaryOpTest<OutType, IdxType, OutType> {
     naiveScale(this->out_ref.data(), (OutType*)nullptr, scalar, len, this->stream);
 
     launchWriteOnlyUnaryOp(this->handle, this->out.data(), scalar, len);
-    this->handle.sync_stream(this->stream);
+    resource::sync_stream(this->handle, this->stream);
   }
 };
 
