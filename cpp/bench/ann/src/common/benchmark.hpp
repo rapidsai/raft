@@ -429,7 +429,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
       }
       RAFT_CUDA_TRY(cudaDeviceSynchronize());
       RAFT_CUDA_TRY(cudaPeekAtLastError());
-      const auto query_per_second = (run_count * query_set_size) / total_search_time;
+      const auto query_per_second = (run_count * raft::round_down_safe(query_set_size, batch_size)) / total_search_time;
 
       if (algo_property.query_memory_type == MemoryType::Device) {
         RAFT_CUDA_TRY(cudaMemcpy(neighbors,
