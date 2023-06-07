@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.06")
-set(RAFT_VERSION "23.06.00")
+set(RAPIDS_VERSION "23.08")
+set(RAFT_VERSION "23.08.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -602,7 +602,9 @@ target_link_libraries(raft::raft INTERFACE
 # Use `rapids_export` for 22.04 as it will have COMPONENT support
 rapids_export(
   INSTALL raft
-  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   NAMESPACE raft::
   DOCUMENTATION doc_string
@@ -613,7 +615,9 @@ rapids_export(
 # * build export -------------------------------------------------------------
 rapids_export(
   BUILD raft
-  EXPORT_SET raft-exports COMPONENTS ${raft_components} COMPONENTS_EXPORT_SET ${raft_export_sets}
+  EXPORT_SET raft-exports
+  COMPONENTS ${raft_components}
+  COMPONENTS_EXPORT_SET ${raft_export_sets}
   GLOBAL_TARGETS raft compiled distributed
   DOCUMENTATION doc_string
   NAMESPACE raft::
