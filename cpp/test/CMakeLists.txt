@@ -239,6 +239,7 @@ if(BUILD_TESTS)
     test/matrix/diagonal.cu
     test/matrix/gather.cu
     test/matrix/scatter.cu
+    test/matrix/eye.cu
     test/matrix/linewise_op.cu
     test/matrix/math.cu
     test/matrix/matrix.cu
