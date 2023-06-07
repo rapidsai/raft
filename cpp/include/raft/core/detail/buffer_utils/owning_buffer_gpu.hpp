@@ -22,12 +22,14 @@
 
 namespace raft {
 namespace detail {
-template <typename ElementType,
-          typename Extents>
-struct owning_buffer<ElementType, device_type::gpu, Extents> {
+  template <typename ElementType,
+  typename Extents,
+  typename LayoutPolicy                        = layout_c_contiguous,
+  template <typename> typename ContainerPolicy = device_uvector_policy>
+struct owning_buffer<ElementType, device_type::gpu, Extents, LayoutPolicy, ContainerPolicy> {
   using element_type     = std::remove_cv_t<ElementType>;
-  using container_policy = device_uvector_policy<element_type>;
-  using owning_device_buffer = device_mdarray<element_type, Extents, layout_c_contiguous, container_policy>;
+  using container_policy = ContainerPolicy<element_type>;
+  using owning_device_buffer = device_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
   
   owning_buffer() : data_{} {}
 

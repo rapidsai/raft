@@ -24,12 +24,14 @@
 
 namespace raft {
 namespace detail {
-template <typename ElementType,
-          typename Extents>
-struct owning_buffer<ElementType, device_type::cpu, Extents> {
+  template <typename ElementType,
+  typename Extents,
+  typename LayoutPolicy                        = layout_c_contiguous,
+  template <typename> typename ContainerPolicy = host_vector_policy>
+struct owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, ContainerPolicy> {
   using element_type     = std::remove_cv_t<ElementType>;
-  using container_policy = host_vector_policy<element_type>;
-  using owning_host_buffer = host_mdarray<element_type, Extents, layout_c_contiguous, container_policy>;
+  using container_policy = ContainerPolicy<element_type>;
+  using owning_host_buffer = host_mdarray<element_type, Extents, LayoutPolicy, container_policy>;
   owning_buffer(raft::resources const& handle, Extents extents) noexcept(false)
     : extents_{extents}, data_{[&extents, handle]() {
         typename owning_host_buffer::mapping_type layout{extents};

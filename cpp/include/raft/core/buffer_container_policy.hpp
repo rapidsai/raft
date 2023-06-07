@@ -14,23 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/core/device_type.hpp>
-#include <raft/core/resources.hpp>
-#include <type_traits>
+#include <raft/util/cudart_utils.hpp>
+#include <raft/core/host_container_policy.hpp>
+#include <variant>
+#ifndef RAFT_DISABLE_GPU
+#include <raft/core/device_container_policy.hpp>
+#endif
 
 namespace raft {
-namespace detail {
-
-template <typename ElementType,
-  device_type D,
-  typename Extents,
-  typename LayoutPolicy,
-  template <typename> typename ContainerPolicy>
-struct owning_buffer {
-  owning_buffer() {}
-  owning_buffer(raft::resources const& handle, Extents extents) {}
-  auto* get() const { return static_cast<ElementType*>(nullptr); }
-};
-
-}  // namespace detail
-}  // namespace raft
+#ifdef RAFT_DISABLE_GPU
+template <typename T>
+using buffer_container_policy = std::variant<raft::host_vector_policy<T>>;
+#else
+template <typename T>
+using buffer_container_policy = std::variant<raft::host_vector_policy<T>, raft::device_uvector_policy<T>>;
+#endif
+}

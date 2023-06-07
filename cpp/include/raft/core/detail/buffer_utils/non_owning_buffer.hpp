@@ -14,31 +14,32 @@
  * limitations under the License.
  */
 #pragma once
-#include "raft/core/host_container_policy.hpp"
-#include "raft/core/logger.hpp"
-// #include "raft/core/mdspan.hpp"
-#include <memory>
-#include <raft/core/device_type.hpp>
-// #include <raft/core/host_mdspan.hpp>
-// #include <raft/core/device_mdspan.hpp>
+#include <raft/core/mdspan.hpp>
+#include <raft/core/memory_type.hpp>
 
 namespace raft {
 namespace detail {
 template <typename ElementType,
-          device_type D,
-          typename Extents>
+          memory_type M,
+          typename Extents,
+          typename LayoutPolicy = layout_c_contiguous>
 struct non_owning_buffer {
 
   non_owning_buffer() : data_{nullptr} {}
 
-  non_owning_buffer(ElementType* ptr) : data_{ptr} {
+  non_owning_buffer(ElementType* ptr, Extents extents) : data_{ptr}, extents_{extents} {
   }
 
-  auto* get() const { return data_; }
+  auto* data_handle() const { return data_; }
 
+  auto* view() {
+    bool device_accessible = is_device_accessible(M);
+    bool host_accessible = is_host_accessible(M);
+    return make_mdspan<ElementType, LayoutPolicy, host_accessible, device_accessible>(data_, extents_);
+  }
  private:
-  // TODO(wphicks): Back this with RMM-allocated host memory
   ElementType* data_;
+  Extents extents_;
 };
 
 }  // namespace detail

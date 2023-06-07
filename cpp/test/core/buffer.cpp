@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <raft/core/buffer.hpp>
+#include <raft/core/mdbuffer.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/memory_type.hpp>
 #include <raft/core/error.hpp>
@@ -26,7 +26,8 @@ namespace raft {
 
 TEST(Buffer, default_buffer)
 {
-  auto buf = buffer<int>();
+  auto exts = raft::make_extents<int>(5);
+  auto buf = buffer<int, decltype(exts)>();
   EXPECT_EQ(buf.mem_type(), memory_type::host);
   EXPECT_EQ(buf.size(), 0);
 }
