@@ -121,7 +121,7 @@ void norm(raft::resources const& handle,
 {
   RAFT_EXPECTS(raft::is_row_or_column_major(in), "Input must be contiguous");
 
-  auto constexpr row_major = std::is_same_v<typename decltype(out)::layout_type, raft::row_major>;
+  auto constexpr row_major = std::is_same_v<LayoutPolicy, raft::row_major>;
   auto along_rows          = apply == Apply::ALONG_ROWS;
 
   if (along_rows) {
