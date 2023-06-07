@@ -22,6 +22,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
@@ -134,30 +135,6 @@ void RaftCagra<T, IdxT>::load(const std::string& file)
   return;
 }
 
-namespace {
-template <typename IdxT>
-__global__ void convert_neighbor_index_type_kernel(size_t* const dst_ptr,
-                                                   const IdxT* const src_ptr,
-                                                   const size_t len)
-{
-  const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= len) { return; }
-  dst_ptr[tid] = src_ptr[tid];
-}
-
-template <typename IdxT>
-void convert_neighbor_index_type(size_t* const dst_ptr,
-                                 const IdxT* const src_ptr,
-                                 const size_t len,
-                                 cudaStream_t cuda_stream)
-{
-  const size_t block_size = 256;
-  const size_t grid_size  = (len + block_size - 1) / block_size;
-  convert_neighbor_index_type_kernel<IdxT>
-    <<<grid_size, block_size, 0, cuda_stream>>>(dst_ptr, src_ptr, len);
-}
-}  // anonymous namespace
-
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
@@ -180,8 +157,11 @@ void RaftCagra<T, IdxT>::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
 
   if (!std::is_same<IdxT, size_t>::value) {
-    convert_neighbor_index_type(
-      neighbors, neighbors_IdxT, batch_size * k, resource::get_cuda_stream(handle_));
+    raft::linalg::unaryOp(neighbors,
+                          neighbors_IdxT,
+                          batch_size * k,
+                          raft::cast_op<size_t>(),
+                          resource::get_cuda_stream(handle_));
     mr_ptr->deallocate(
       neighbors_IdxT, batch_size * k * sizeof(IdxT), resource::get_cuda_stream(handle_));
   }
