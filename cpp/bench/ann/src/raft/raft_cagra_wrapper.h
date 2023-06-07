@@ -96,7 +96,7 @@ RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
     dimension_(dim),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
-  rmm:mr::set_current_device_resource(&mr_);
+  rmm::mr::set_current_device_resource(&mr_);
   index_params_.metric = parse_metric_type(metric);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
@@ -140,14 +140,13 @@ template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
 {
-  rmm::mr::device_memory_resource* mr_ptr = &const_cast<RaftCagra*>(this)->mr_;
-
   IdxT* neighbors_IdxT;
+  rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
   if constexpr (std::is_same<IdxT, size_t>::value) {
     neighbors_IdxT = neighbors;
   } else {
-    neighbors_IdxT = reinterpret_cast<IdxT*>(
-      mr_ptr->allocate(batch_size * k * sizeof(IdxT), resource::get_cuda_stream(handle_)));
+    neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage.data();
   }
 
   auto queries_view = raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, dimension_);
@@ -163,8 +162,6 @@ void RaftCagra<T, IdxT>::search(
                           batch_size * k,
                           raft::cast_op<size_t>(),
                           resource::get_cuda_stream(handle_));
-    mr_ptr->deallocate(
-      neighbors_IdxT, batch_size * k * sizeof(IdxT), resource::get_cuda_stream(handle_));
   }
 
   handle_.sync_stream();
