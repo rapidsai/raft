@@ -138,8 +138,7 @@ template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
-  param.search_params.max_queries = conf.at("max_batch");
-  param.search_params.itopk_size  = conf.at("itopk");
+  param.search_params.itopk_size = conf.at("itopk");
 }
 #endif
 
@@ -186,7 +185,6 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
     parse_build_param<T, uint32_t>(conf, param);
     ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
   }
-  printf("here %d\n", __LINE__);
 #endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
@@ -225,7 +223,6 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
-  printf("here %d\n", __LINE__);
 #endif
   // else
   throw std::runtime_error("invalid algo: '" + algo + "'");

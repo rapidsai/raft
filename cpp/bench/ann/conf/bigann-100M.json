@@ -176,12 +176,8 @@
       },
       "file" : "index/bigann-100M/cagra/dim32",
       "search_params" : [
-        {"max_batch": 1    , "itopk": 32},
-        {"max_batch": 100  , "itopk": 32},
-        {"max_batch": 10000, "itopk": 32},
-        {"max_batch": 1    , "itopk": 64},
-        {"max_batch": 100  , "itopk": 64},
-        {"max_batch": 10000, "itopk": 64}
+        "itopk": 32,
+        "itopk": 64
       ],
       "search_result_file" : "result/bigann-100M/cagra/dim32"
     },
@@ -195,12 +191,8 @@
       },
       "file" : "index/bigann-100M/cagra/dim64",
       "search_params" : [
-        {"max_batch": 1    , "itopk": 32},
-        {"max_batch": 100  , "itopk": 32},
-        {"max_batch": 10000, "itopk": 32},
-        {"max_batch": 1    , "itopk": 64},
-        {"max_batch": 100  , "itopk": 64},
-        {"max_batch": 10000, "itopk": 64}
+        "itopk": 32,
+        "itopk": 64
       ],
       "search_result_file" : "result/bigann-100M/cagra/dim64"
     }
