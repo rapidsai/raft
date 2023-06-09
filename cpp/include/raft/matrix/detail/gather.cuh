@@ -377,12 +377,14 @@ void gatherInplaceImpl(raft::resources const& handle,
   RAFT_EXPECTS(batch_size <= n, "batch size should be <= number of columns");
 
   auto exec_policy = resource::get_thrust_policy(handle);
+
   IndexT n_batches = raft::ceildiv(n, batch_size);
+
+  auto scratch_space = raft::make_device_vector<MatrixT, IndexT>(handle, m * batch_size);
+
   for (IndexT bid = 0; bid < n_batches; bid++) {
     IndexT batch_offset   = bid * batch_size;
     IndexT cols_per_batch = min(batch_size, n - batch_offset);
-    auto scratch_space =
-      raft::make_device_vector<MatrixT, IndexT>(handle, map_length * cols_per_batch);
 
     auto gather_op = [inout = inout.data_handle(),
                       map   = map.data_handle(),
@@ -398,7 +400,10 @@ void gatherInplaceImpl(raft::resources const& handle,
       IndexT i_src = transform_op(map_val);
       return inout[i_src * n + batch_offset + col];
     };
-    raft::linalg::map_offset(handle, scratch_space.view(), gather_op);
+    raft::linalg::map_offset(
+      handle,
+      raft::make_device_vector_view(scratch_space.data_handle(), m * cols_per_batch),
+      gather_op);
 
     auto copy_op = [inout         = inout.data_handle(),
                     map           = map.data_handle(),
