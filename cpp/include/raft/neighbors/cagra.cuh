@@ -237,21 +237,28 @@ index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<IdxT>, row_major, Accessor> dataset)
 {
-  size_t degree = params.intermediate_graph_degree;
-  if (degree >= static_cast<size_t>(dataset.extent(0))) {
+  size_t intermediate_degree = params.intermediate_graph_degree;
+  size_t graph_degree        = params.graph_degree;
+  if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
     RAFT_LOG_WARN(
       "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
       dataset.extent(0));
-    degree = dataset.extent(0) - 1;
+    intermediate_degree = dataset.extent(0) - 1;
   }
-  RAFT_EXPECTS(degree >= params.graph_degree,
-               "Intermediate graph degree cannot be smaller than final graph degree");
+  if (intermediate_degree < graph_degree) {
+    RAFT_LOG_WARN(
+      "Graph degree (%lu) cannot be larger than intermediate graph degree (%lu), reducing "
+      "graph_degree.",
+      graph_degree,
+      intermediate_degree);
+    graph_degree = intermediate_degree;
+  }
 
-  auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), degree);
+  auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), intermediate_degree);
 
   build_knn_graph(res, dataset, knn_graph.view());
 
-  auto cagra_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), params.graph_degree);
+  auto cagra_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), graph_degree);
 
   prune<IdxT>(res, knn_graph.view(), cagra_graph.view());
 
@@ -290,7 +297,6 @@ void search(raft::resources const& res,
 
   RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
                "Number of columns in output neighbors and distances matrices must equal k");
-
   RAFT_EXPECTS(queries.extent(1) == idx.dim(),
                "Number of query dimensions should equal number of dimensions in the index.");
 
