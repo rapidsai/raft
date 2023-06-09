@@ -80,6 +80,38 @@ DI void myAtomicReduce(float* address, float val, ReduceLambda op)
 }
 
 template <typename ReduceLambda>
+DI void myAtomicReduce(__half* address, __half val, ReduceLambda op)
+{
+#if (__CUDA_ARCH__ >= 530)
+  unsigned short int* address_as_uint = (unsigned short int*)address;
+  unsigned short int old              = *address_as_uint, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_uint, assumed, __half_as_ushort(op(val, __ushort_as_half(assumed))));
+  } while (assumed != old);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(__half) != sizeof(__half), "__half is only supported on __CUDA_ARCH__ >= 530");
+#endif
+}
+
+template <typename ReduceLambda>
+DI void myAtomicReduce(nv_bfloat16* address, nv_bfloat16 val, ReduceLambda op)
+{
+#if (__CUDA_ARCH__ >= 800)
+  unsigned short int* address_as_uint = (unsigned short int*)address;
+  unsigned short int old              = *address_as_uint, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_uint, assumed, __bfloat16_as_ushort(op(val, __ushort_as_bfloat16(assumed))));
+  } while (assumed != old);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(nv_bfloat16) != sizeof(nv_bfloat16), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+#endif
+}
+
+template <typename ReduceLambda>
 DI void myAtomicReduce(int* address, int val, ReduceLambda op)
 {
   int old = *address, assumed;
