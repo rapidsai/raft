@@ -20,6 +20,11 @@
 #include <stdint.h>
 #include <type_traits>
 
+#if defined(_RAFT_HAS_CUDA)
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+#endif
+
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/math.hpp>
 #include <raft/core/operators.hpp>
@@ -79,27 +84,25 @@ DI void myAtomicReduce(float* address, float val, ReduceLambda op)
   } while (assumed != old);
 }
 
+// Needed for atomicCas on ushort
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700)
 template <typename ReduceLambda>
 DI void myAtomicReduce(__half* address, __half val, ReduceLambda op)
 {
-#if (__CUDA_ARCH__ >= 530)
   unsigned short int* address_as_uint = (unsigned short int*)address;
   unsigned short int old              = *address_as_uint, assumed;
   do {
     assumed = old;
     old = atomicCAS(address_as_uint, assumed, __half_as_ushort(op(val, __ushort_as_half(assumed))));
   } while (assumed != old);
-#else
-  // Fail during template instantiation if the compute capability doesn't support this operation
-  static_assert(sizeof(__half) != sizeof(__half),
-                "__half is only supported on __CUDA_ARCH__ >= 530");
-#endif
 }
+#endif
 
+// Needed for nv_bfloat16 support
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 800)
 template <typename ReduceLambda>
 DI void myAtomicReduce(nv_bfloat16* address, nv_bfloat16 val, ReduceLambda op)
 {
-#if (__CUDA_ARCH__ >= 800)
   unsigned short int* address_as_uint = (unsigned short int*)address;
   unsigned short int old              = *address_as_uint, assumed;
   do {
@@ -107,12 +110,8 @@ DI void myAtomicReduce(nv_bfloat16* address, nv_bfloat16 val, ReduceLambda op)
     old     = atomicCAS(
       address_as_uint, assumed, __bfloat16_as_ushort(op(val, __ushort_as_bfloat16(assumed))));
   } while (assumed != old);
-#else
-  // Fail during template instantiation if the compute capability doesn't support this operation
-  static_assert(sizeof(nv_bfloat16) != sizeof(nv_bfloat16),
-                "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
-#endif
 }
+#endif
 
 template <typename ReduceLambda>
 DI void myAtomicReduce(int* address, int val, ReduceLambda op)
