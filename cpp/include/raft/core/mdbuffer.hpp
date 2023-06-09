@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include "raft/core/device_container_policy.hpp"
 #include "raft/core/logger.hpp"
 #include <cstddef>
 #include <cstdint>
@@ -69,13 +68,6 @@ struct buffer {
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
       }()},
       extents_{extents},
-      length_([this]() {
-        std::size_t length = 1;
-        for (std::size_t i = 0; i < extents_.rank(); ++i) {
-          length *= extents_.extent(i);
-        }
-        return length;
-      }()),
       data_{[this, mem_type, handle]() {
         auto result = data_store{};
         if (is_device_accessible(mem_type)) {
@@ -85,6 +77,13 @@ struct buffer {
         }
         return result;
       }()},
+      length_([this]() {
+        size_t length = 1;
+        for (size_t i = 0; i < extents_.rank(); ++i) {
+          length *= extents_.extent(i);
+        }
+        return length;
+      }()),
       memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<ElementType*>(nullptr);
@@ -107,13 +106,6 @@ struct buffer {
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
       }()},
       extents_{extents},
-      length_([this]() {
-        std::size_t length = 1;
-        for (std::size_t i = 0; i < extents_.rank(); ++i) {
-          length *= extents_.extent(i);
-        }
-        return length;
-      }()),
       data_{[this, input_data, mem_type]() {
         auto result = data_store{};
         if (is_host_device_accessible(mem_type)) {
@@ -125,6 +117,13 @@ struct buffer {
         }
         return result;
       }()},
+      length_([this]() {
+        std::size_t length = 1;
+        for (std::size_t i = 0; i < extents_.rank(); ++i) {
+          length *= extents_.extent(i);
+        }
+        return length;
+      }()),
       memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<ElementType*>(nullptr);
@@ -152,13 +151,6 @@ struct buffer {
         return is_device_accessible(mem_type) ? device_type::gpu : device_type::cpu;
       }()},
       extents_{other.extents()},
-      length_([this]() {
-        std::size_t length = 1;
-        for (std::size_t i = 0; i < extents_.rank(); ++i) {
-          length *= extents_.extent(i);
-        }
-        return length;
-      }()),
       data_{[this, &other, mem_type, handle]() {
         auto result      = data_store{};
         auto result_data = static_cast<ElementType*>(nullptr);
@@ -178,6 +170,13 @@ struct buffer {
         }
         return result;
       }()},
+      length_([this]() {
+        std::size_t length = 1;
+        for (std::size_t i = 0; i < extents_.rank(); ++i) {
+          length *= extents_.extent(i);
+        }
+        return length;
+      }()),
       memory_type_{mem_type},
       cached_ptr{[this]() {
         auto result = static_cast<ElementType*>(nullptr);
@@ -264,22 +263,18 @@ struct buffer {
   {
     RAFT_LOG_INFO("main move called");
   }
-  // buffer(buffer<T>&& other, device_type mem_type)
-  //   : buffer{std::move(other), mem_type, 0, execution_stream{}}
-  // {
-  //   RAFT_LOG_INFO("copy constructor without stream and device called");
-  // }
 
   buffer(buffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>&& other) noexcept
     : device_type_{[&other]() {
         return is_device_accessible(other.mem_type()) ? device_type::gpu : device_type::cpu;
       }()},
+      extents_{other.extents_},
       data_{[&other]() {
         auto result = data_store{};
           result = std::move(other.data_);
           return result;
       }()},
-      extents_{other.extents_},
+      length_{other.length_},
       memory_type_{other.mem_type()},
       cached_ptr{[this]() {
         auto result = static_cast<ElementType*>(nullptr);
@@ -288,6 +283,7 @@ struct buffer {
           case 1: result = std::get<1>(data_).get(); break;
           case 2: result = std::get<2>(data_).get(); break;
           case 3: result = std::get<3>(data_).get(); break;
+          case 4: result = std::get<4>(data_).get(); break;
         }
         return result;
       }()}
@@ -296,25 +292,29 @@ struct buffer {
   }
   buffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& operator=(buffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>&& other) noexcept {
     RAFT_LOG_INFO("operator= move called");
-    data_ = std::move(other.data_);
     device_type_ = std::move(other.device_type_);
     extents_ = std::move(other.extents_);
+    data_ = std::move(other.data_);
+    length_ = std::move(other.size());
     memory_type_ = std::move(other.memory_type_);
     cached_ptr = std::move(other.cached_ptr);
     return *this;
   }
   auto extents() const noexcept { return extents_; }
   HOST DEVICE auto* data_handle() const noexcept { 
-    auto result = static_cast<ElementType*>(nullptr);
-    switch (data_.index()) {
-      case 0: result = std::get<0>(data_).get(); break;
-      case 1: result = std::get<1>(data_).get(); break;
-      case 2: result = std::get<2>(data_).get(); break;
-      case 3: result = std::get<3>(data_).get(); break;
-      case 4: result = std::get<4>(data_).get(); break;
-    }
-      RAFT_LOG_INFO("data_handle() called: data %p; cached_ptr %p\n", result, cached_ptr);
-        return result;}
+    // auto result = static_cast<ElementType*>(nullptr);
+    // switch (data_.index()) {
+    //   case 0: {RAFT_LOG_INFO("0th"); result = std::get<0>(data_).get(); break;}
+    //   case 1: {RAFT_LOG_INFO("1th"); result = std::get<1>(data_).get(); break;}
+    //   case 2: {RAFT_LOG_INFO("2th"); result = std::get<2>(data_).get(); break;}
+    //   case 3: {RAFT_LOG_INFO("3th"); result = std::get<3>(data_).get(); break;}
+    //   case 4: {RAFT_LOG_INFO("4th"); result = std::get<4>(data_).get(); break;}
+
+    // }
+      // RAFT_LOG_INFO("data_handle() called: data %p; cached_ptr %p\n", result, cached_ptr);
+      //   return result;
+      return cached_ptr;
+        }
 
   auto mem_type() const noexcept
   {
@@ -355,34 +355,34 @@ struct buffer {
   ElementType* cached_ptr;
 };
 
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
-                                         buffer<T> & dst,
-                                         buffer<U> const& src,
-                                         size_t dst_offset,
-                                         size_t src_offset,
-                                         size_t size)
-{
-  if constexpr (bounds_check) {
-    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
-      throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
-    }
-  }
-  auto src_device_type = is_device_accessible(src.mem_type()) ? device_type::gpu : device_type::cpu;
-  auto dst_device_type = is_device_accessible(dst.mem_type()) ? device_type::gpu : device_type::cpu;
-  detail::buffer_copy(handle,
-                      dst.data_handle() + dst_offset,
-                      src.data_handle() + src_offset,
-                      size,
-                      dst_device_type,
-                      src_device_type);
-}
+// template <bool bounds_check, typename T, typename U>
+// detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
+//                                          buffer<T> & dst,
+//                                          buffer<U> const& src,
+//                                          size_t dst_offset,
+//                                          size_t src_offset,
+//                                          size_t size)
+// {
+//   if constexpr (bounds_check) {
+//     if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+//       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
+//     }
+//   }
+//   auto src_device_type = is_device_accessible(src.mem_type()) ? device_type::gpu : device_type::cpu;
+//   auto dst_device_type = is_device_accessible(dst.mem_type()) ? device_type::gpu : device_type::cpu;
+//   detail::buffer_copy(handle,
+//                       dst.data_handle() + dst_offset,
+//                       src.data_handle() + src_offset,
+//                       size,
+//                       dst_device_type,
+//                       src_device_type);
+// }
 
-template <bool bounds_check, typename T, typename U>
-detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
-                                         buffer<T>& dst,
-                                         buffer<U> const& src)
-{
-  copy<bounds_check>(handle, dst, src, 0, 0, src.size());
-}
+// template <bool bounds_check, typename T, typename U>
+// detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
+//                                          buffer<T>& dst,
+//                                          buffer<U> const& src)
+// {
+//   copy<bounds_check>(handle, dst, src, 0, 0, src.size());
+// }
 }  // namespace raft

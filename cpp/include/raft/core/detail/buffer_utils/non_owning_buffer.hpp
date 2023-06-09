@@ -24,18 +24,23 @@ template <typename ElementType,
           typename Extents,
           typename LayoutPolicy = layout_c_contiguous>
 struct non_owning_buffer {
+  using index_type       = typename Extents::index_type;
 
   non_owning_buffer() : data_{nullptr} {}
 
   non_owning_buffer(ElementType* ptr, Extents extents) : data_{ptr}, extents_{extents} {
   }
 
-  auto* data_handle() const { return data_; }
+  auto* get() const { return data_; }
 
-  auto* view() {
-    bool device_accessible = is_device_accessible(M);
-    bool host_accessible = is_host_accessible(M);
-    return make_mdspan<ElementType, LayoutPolicy, host_accessible, device_accessible>(data_, extents_);
+  auto view() {
+    if (is_host_device_accessible(M)) {
+    return make_mdspan<ElementType, index_type, LayoutPolicy, true, true>(data_, extents_);
+    } else if (is_device_accessible(M)) {
+      return make_mdspan<ElementType, index_type, LayoutPolicy, false, true>(data_, extents_);
+    } else {
+      return make_mdspan<ElementType, index_type, LayoutPolicy, true, false>(data_, extents_);
+    }
   }
  private:
   ElementType* data_;
