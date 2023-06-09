@@ -23,6 +23,8 @@
 #include <cuda_runtime.h>
 #include <raft/core/error.hpp>
 
+#include <cstdio>
+
 namespace raft {
 
 /**
