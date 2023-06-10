@@ -34,41 +34,6 @@
 #include <mutex>
 #include <string>
 
-/**
- * @brief Debug macro to check for CUDA errors
- *
- * In a non-release build, this macro will synchronize the specified stream
- * before error checking. In both release and non-release builds, this macro
- * checks for any pending CUDA errors from previous calls. If an error is
- * reported, an exception is thrown detailing the CUDA error that occurred.
- *
- * The intent of this macro is to provide a mechanism for synchronous and
- * deterministic execution for debugging asynchronous CUDA execution. It should
- * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
- * asynchronous kernel launch.
- */
-#ifndef NDEBUG
-#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
-#endif
-
-// /**
-//  * @brief check for cuda runtime API errors but log error instead of raising
-//  *        exception.
-//  */
-#define RAFT_CUDA_TRY_NO_THROW(call)                               \
-  do {                                                             \
-    cudaError_t const status = call;                               \
-    if (cudaSuccess != status) {                                   \
-      printf("CUDA call='%s' at file=%s line=%d failed with %s\n", \
-             #call,                                                \
-             __FILE__,                                             \
-             __LINE__,                                             \
-             cudaGetErrorString(status));                          \
-    }                                                              \
-  } while (0)
-
 namespace raft {
 
 /** Helper method to get to know warp size in device code */
