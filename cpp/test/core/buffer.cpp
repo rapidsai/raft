@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "raft/core/mdspan.hpp"
 #include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <raft/core/mdbuffer.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/memory_type.hpp>
 #include <raft/core/error.hpp>
