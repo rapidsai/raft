@@ -203,7 +203,7 @@ void sliceMatrix(m_t* in,
                  idx_t y2,
                  cudaStream_t stream)
 {
-  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
+  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, false, stream);
 }
 
 /**
