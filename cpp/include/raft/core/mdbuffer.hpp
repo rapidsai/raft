@@ -50,9 +50,9 @@ template <typename ElementType,
           typename LayoutPolicy = layout_c_contiguous,
           template <typename> typename ContainerPolicy = buffer_container_policy>
 struct buffer {
-  using data_store = std::variant<detail::non_owning_buffer<ElementType, memory_type::host, Extents, LayoutPolicy>,
-                                  detail::non_owning_buffer<ElementType, memory_type::device, Extents, LayoutPolicy>,
-                                  detail::non_owning_buffer<ElementType, memory_type::managed, Extents, LayoutPolicy>,   
+  using data_store = std::variant<detail::non_owning_buffer<ElementType, memory_type::host, Extents, LayoutPolicy, ContainerPolicy>,
+                                  detail::non_owning_buffer<ElementType, memory_type::device, Extents, LayoutPolicy, ContainerPolicy>,
+                                  detail::non_owning_buffer<ElementType, memory_type::managed, Extents, LayoutPolicy, ContainerPolicy>,   
                                   detail::owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, ContainerPolicy>,
                                   detail::owning_buffer<ElementType, device_type::gpu, Extents, LayoutPolicy, ContainerPolicy>>;
 
@@ -109,11 +109,11 @@ struct buffer {
       data_{[this, input_data, mem_type]() {
         auto result = data_store{};
         if (is_host_device_accessible(mem_type)) {
-          result = detail::non_owning_buffer<ElementType, memory_type::managed, Extents, LayoutPolicy>{input_data, extents_};
+          result = detail::non_owning_buffer<ElementType, memory_type::managed, Extents, LayoutPolicy, ContainerPolicy>{input_data, extents_};
         } else if (is_device_accessible(mem_type)) {
-          result = detail::non_owning_buffer<ElementType, memory_type::device, Extents, LayoutPolicy>{input_data, extents_};
+          result = detail::non_owning_buffer<ElementType, memory_type::device, Extents, LayoutPolicy, ContainerPolicy>{input_data, extents_};
         } else {
-          result = detail::non_owning_buffer<ElementType, memory_type::host, Extents, LayoutPolicy>{input_data, extents_};
+          result = detail::non_owning_buffer<ElementType, memory_type::host, Extents, LayoutPolicy, ContainerPolicy>{input_data, extents_};
         }
         return result;
       }()},

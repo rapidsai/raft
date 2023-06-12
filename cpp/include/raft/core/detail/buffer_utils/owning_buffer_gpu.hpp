@@ -52,8 +52,7 @@ struct owning_buffer<ElementType, device_type::gpu, Extents, LayoutPolicy, Conta
   auto* get() const {return const_cast<ElementType*>(data_.data_handle());}
 
   auto view() {
-    return make_mdspan<ElementType, index_type, LayoutPolicy, false, true>(data_.data_handle(),
-                                                                             extents_);
+    data_.view();
   }
  private:
   Extents extents_;

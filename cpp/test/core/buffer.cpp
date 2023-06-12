@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "raft/core/mdspan.hpp"
 #include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -28,10 +29,10 @@ namespace raft {
 
 TEST(Buffer, default_buffer)
 {
-  auto exts = raft::make_extents<int>(5);
-  auto buf = buffer<int, decltype(exts)>();
+  auto buf = buffer<int, raft::extents<size_t>>();
   EXPECT_EQ(buf.mem_type(), memory_type::host);
   EXPECT_EQ(buf.size(), 0);
+  ASSERT_NE(buf.data_handle(), nullptr);
 }
 
 TEST(Buffer, device_buffer)
@@ -57,80 +58,84 @@ TEST(Buffer, device_buffer)
   }
 }
 
-// TEST(Buffer, non_owning_device_buffer)
-// {
-//   raft::resources handle;
-//   auto data = std::vector<int>{1, 2, 3};
-//   auto* ptr_d = static_cast<int*>(nullptr);
-// #ifndef RAFT_DISABLE_GPU
-//   cudaMalloc(reinterpret_cast<void**>(&ptr_d), sizeof(int) * data.size());
-//   cudaMemcpy(static_cast<void*>(ptr_d),
-//              static_cast<void*>(data.data()),
-//              sizeof(int) * data.size(),
-//              cudaMemcpyHostToDevice);
-// #endif
-//   auto test_buffers = std::vector<buffer<int>>{};
-//   test_buffers.emplace_back(handle, ptr_d, data.size(), memory_type::device);
-//   test_buffers.emplace_back(handle, ptr_d, data.size(), memory_type::device);
-// #ifndef RAFT_DISABLE_GPU
+TEST(Buffer, non_owning_device_buffer)
+{
+  raft::resources handle;
+  auto data = std::vector<int>{1, 2, 3};
+  auto exts = raft::make_extents<size_t>(data.size());
+  auto* ptr_d = static_cast<int*>(nullptr);
+#ifndef RAFT_DISABLE_GPU
+  cudaMalloc(reinterpret_cast<void**>(&ptr_d), sizeof(int) * data.size());
+  cudaMemcpy(static_cast<void*>(ptr_d),
+             static_cast<void*>(data.data()),
+             sizeof(int) * data.size(),
+             cudaMemcpyHostToDevice);
+#endif
+  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, ptr_d, exts, memory_type::device);
+  test_buffers.emplace_back(handle, ptr_d, exts, memory_type::device);
+#ifndef RAFT_DISABLE_GPU
 
-//   for (auto& buf : test_buffers) {
-//     ASSERT_EQ(buf.mem_type(), memory_type::device);
-//     ASSERT_EQ(buf.size(), data.size());
-//     ASSERT_EQ(buf.data_handle(), ptr_d);
+  for (auto& buf : test_buffers) {
+    ASSERT_EQ(buf.mem_type(), memory_type::device);
+    ASSERT_EQ(buf.size(), data.size());
+    ASSERT_EQ(buf.data_handle(), ptr_d);
 
-//     auto data_out = std::vector<int>(data.size());
-//     cudaMemcpy(static_cast<void*>(data_out.data()),
-//                static_cast<void*>(buf.data_handle()),
-//                sizeof(int) * data.size(),
-//                cudaMemcpyDeviceToHost);
-//     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
-//   }
-//   cudaFree(reinterpret_cast<void*>(ptr_d));
-// #endif
-// }
+    auto data_out = std::vector<int>(data.size());
+    cudaMemcpy(static_cast<void*>(data_out.data()),
+               static_cast<void*>(buf.data_handle()),
+               sizeof(int) * data.size(),
+               cudaMemcpyDeviceToHost);
+    EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
+  }
+  cudaFree(reinterpret_cast<void*>(ptr_d));
+#endif
+}
 
-// TEST(Buffer, host_buffer)
-// { 
-//   raft::resources handle;
-//   auto data   = std::vector<int>{1, 2, 3};
-//   auto test_buffers = std::vector<buffer<int>>{};
-//   test_buffers.emplace_back(handle, data.size(), memory_type::host);
-//   test_buffers.emplace_back(handle, data.size(), memory_type::host);
-//   test_buffers.emplace_back(handle, data.size(), memory_type::host);
-//   test_buffers.emplace_back(handle, data.size());
+TEST(Buffer, host_buffer)
+{ 
+  raft::resources handle;
+  auto data   = std::vector<int>{1, 2, 3};
+  auto exts = raft::make_extents<size_t>(data.size());
 
-//   for (auto& buf : test_buffers) {
-//     ASSERT_EQ(buf.mem_type(), memory_type::host);
-//     ASSERT_EQ(buf.size(), data.size());
-//     ASSERT_NE(buf.data_handle(), nullptr);
+  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, exts, memory_type::host);
+  test_buffers.emplace_back(handle, exts, memory_type::host);
+  test_buffers.emplace_back(handle, exts, memory_type::host);
+  test_buffers.emplace_back(handle, exts);
 
-//     std::memcpy(
-//       static_cast<void*>(buf.data_handle()), static_cast<void*>(data.data()), data.size() * sizeof(int));
+  for (auto& buf : test_buffers) {
+    ASSERT_EQ(buf.mem_type(), memory_type::host);
+    ASSERT_EQ(buf.size(), data.size());
+    ASSERT_NE(buf.data_handle(), nullptr);
 
-//     auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
-//     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
-//   }
-// }
+    std::memcpy(
+      static_cast<void*>(buf.data_handle()), static_cast<void*>(data.data()), data.size() * sizeof(int));
 
-// TEST(Buffer, non_owning_host_buffer)
-// {
-//   raft::resources handle;
-//   auto data   = std::vector<int>{1, 2, 3};
-//   std::vector<buffer<int>> test_buffers;
-//   test_buffers.emplace_back(handle, data.data(), data.size(), memory_type::host);
-//   test_buffers.emplace_back(handle, data.data(), data.size(), memory_type::host);
-//   test_buffers.emplace_back(handle, data.data(), data.size());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
+    EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
+  }
+}
 
-//   for (auto& buf : test_buffers) { 
-//     ASSERT_EQ(buf.mem_type(), memory_type::host);
-//     ASSERT_EQ(buf.size(), data.size());
-//     ASSERT_EQ(buf.data_handle(), data.data());
+TEST(Buffer, non_owning_host_buffer)
+{
+  raft::resources handle;
+  auto data   = std::vector<int>{1, 2, 3};
+  auto exts = raft::make_extents<size_t>(data.size());
+  std::vector<buffer<int, decltype(exts)>> test_buffers;
+  test_buffers.emplace_back(handle, data.data(), exts, memory_type::host);
+  test_buffers.emplace_back(handle, data.data(), exts, memory_type::host);
+  test_buffers.emplace_back(handle, data.data(), exts);
 
-//     auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
-//     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
-//   }
-// }
+  for (auto& buf : test_buffers) { 
+    ASSERT_EQ(buf.mem_type(), memory_type::host);
+    ASSERT_EQ(buf.size(), data.size());
+    ASSERT_EQ(buf.data_handle(), data.data());
+
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
+    EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
+  }
+}
 
 // TEST(Buffer, copy_constructor)
 // {

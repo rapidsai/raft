@@ -14,16 +14,25 @@
  * limitations under the License.
  */
 #pragma once
+#include "raft/core/buffer_container_policy.hpp"
+#include "raft/core/host_container_policy.hpp"
+#include "raft/core/host_device_accessor.hpp"
 #include <raft/core/mdspan.hpp>
 #include <raft/core/memory_type.hpp>
+#include <type_traits>
 
 namespace raft {
 namespace detail {
 template <typename ElementType,
           memory_type M,
           typename Extents,
-          typename LayoutPolicy = layout_c_contiguous>
+          typename LayoutPolicy = layout_c_contiguous,
+          template <typename> typename ContainerPolicy = buffer_container_policy>
 struct non_owning_buffer {
+  using container_policy = std::conditional_t<std::is_same_v<buffer_container_policy<ElementType>, ContainerPolicy<ElementType>>,
+                                                          std::variant_alternative_t<0, buffer_container_policy<ElementType>>,
+                                                          ContainerPolicy<ElementType>>;
+  using accessor_policy = typename container_policy::accessor_policy;
   using index_type       = typename Extents::index_type;
 
   non_owning_buffer() : data_{nullptr} {}
@@ -34,13 +43,9 @@ struct non_owning_buffer {
   auto* get() const { return data_; }
 
   auto view() {
-    if (is_host_device_accessible(M)) {
-    return make_mdspan<ElementType, index_type, LayoutPolicy, true, true>(data_, extents_);
-    } else if (is_device_accessible(M)) {
-      return make_mdspan<ElementType, index_type, LayoutPolicy, false, true>(data_, extents_);
-    } else {
-      return make_mdspan<ElementType, index_type, LayoutPolicy, true, false>(data_, extents_);
-    }
+    using accessor_type = host_device_accessor<
+    accessor_policy, M>();
+    return mdspan<ElementType, Extents, LayoutPolicy, accessor_type>{data_, extents_};
   }
  private:
   ElementType* data_;

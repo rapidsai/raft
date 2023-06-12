@@ -50,8 +50,7 @@ struct owning_buffer<ElementType, device_type::cpu, Extents, LayoutPolicy, Conta
    auto* get() const { return const_cast<ElementType*>(data_.data_handle()); }
 
    auto view() {
-    return make_mdspan<ElementType, index_type, LayoutPolicy, true, false>(data_.data_handle(),
-                                                                             extents_);
+    return data_.view();
   }
 
  private:
