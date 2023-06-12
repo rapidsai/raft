@@ -11,7 +11,7 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 set(RAPIDS_VERSION "23.06")
-set(RAFT_VERSION "23.06.00")
+set(RAFT_VERSION "23.06.01")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
