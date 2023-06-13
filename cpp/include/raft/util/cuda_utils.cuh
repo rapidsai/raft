@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
 #include <math_constants.h>
 #include <stdint.h>
 #include <type_traits>
@@ -278,16 +280,26 @@ template <>
  * @{
  */
 template <typename T>
-inline __device__ T myInf();
+RAFT_DEVICE_INLINE_FUNCTION T myInf();
 template <>
-inline __device__ float myInf<float>()
+RAFT_DEVICE_INLINE_FUNCTION float myInf<float>()
 {
   return CUDART_INF_F;
 }
 template <>
-inline __device__ double myInf<double>()
+RAFT_DEVICE_INLINE_FUNCTION double myInf<double>()
 {
   return CUDART_INF;
+}
+template <>
+RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
+{
+  return INFINITY;
+}
+template <>
+RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
+{
+  return INFINITY;
 }
 /** @} */
 

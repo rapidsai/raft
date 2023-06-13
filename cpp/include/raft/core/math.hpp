@@ -49,11 +49,36 @@ RAFT_INLINE_FUNCTION auto abs(T x)
 template <typename T>
 constexpr RAFT_INLINE_FUNCTION auto abs(T x)
   -> std::enable_if_t<!std::is_same_v<float, T> && !std::is_same_v<double, T> &&
+                        !std::is_same_v<__half, T> && !std::is_same_v<nv_bfloat16, T> &&
                         !std::is_same_v<int, T> && !std::is_same_v<long int, T> &&
                         !std::is_same_v<long long int, T>,
                       T>
 {
   return x < T{0} ? -x : x;
+}
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> abs(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return __habs(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+abs(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return __habs(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
 }
 /** @} */
 
