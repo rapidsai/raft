@@ -34,8 +34,8 @@ copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)
 
 template <device_type dst_type, device_type src_type, typename T>
 std::enable_if_t<
-  std::conjunction_v<std::disjunction<std::bool_constant<dst_type != device_type::gpu>,
-                                      std::bool_constant<src_type != device_type::gpu>>,
+  std::conjunction_v<std::disjunction<std::bool_constant<dst_type == device_type::gpu>,
+                                      std::bool_constant<src_type == device_type::gpu>>,
                      std::bool_constant<!CUDA_ENABLED>>,
   void>
 copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)

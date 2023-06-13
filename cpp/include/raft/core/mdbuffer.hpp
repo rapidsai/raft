@@ -302,19 +302,8 @@ struct buffer {
   }
   auto extents() const noexcept { return extents_; }
   HOST DEVICE auto* data_handle() const noexcept { 
-    // auto result = static_cast<ElementType*>(nullptr);
-    // switch (data_.index()) {
-    //   case 0: {RAFT_LOG_INFO("0th"); result = std::get<0>(data_).get(); break;}
-    //   case 1: {RAFT_LOG_INFO("1th"); result = std::get<1>(data_).get(); break;}
-    //   case 2: {RAFT_LOG_INFO("2th"); result = std::get<2>(data_).get(); break;}
-    //   case 3: {RAFT_LOG_INFO("3th"); result = std::get<3>(data_).get(); break;}
-    //   case 4: {RAFT_LOG_INFO("4th"); result = std::get<4>(data_).get(); break;}
-
-    // }
-      // RAFT_LOG_INFO("data_handle() called: data %p; cached_ptr %p\n", result, cached_ptr);
-      //   return result;
       return cached_ptr;
-        }
+  }
 
   auto mem_type() const noexcept
   {
@@ -322,10 +311,6 @@ struct buffer {
   }
 
   ~buffer() = default;
-
-  // auto view() -> view_type {
-  // return make_mdspan<ElementType, IndexType, LayoutPolicy, is_host_accessible(this -> mem_type()), is_device_accessible(this -> mem_type())>(data_, make_extents<IndexType>(size_));
-  // }
 
   HOST DEVICE auto view() const noexcept { 
     if (data_.index() == 0)
@@ -355,34 +340,34 @@ struct buffer {
   ElementType* cached_ptr;
 };
 
-// template <bool bounds_check, typename T, typename U>
-// detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
-//                                          buffer<T> & dst,
-//                                          buffer<U> const& src,
-//                                          size_t dst_offset,
-//                                          size_t src_offset,
-//                                          size_t size)
-// {
-//   if constexpr (bounds_check) {
-//     if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
-//       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
-//     }
-//   }
-//   auto src_device_type = is_device_accessible(src.mem_type()) ? device_type::gpu : device_type::cpu;
-//   auto dst_device_type = is_device_accessible(dst.mem_type()) ? device_type::gpu : device_type::cpu;
-//   detail::buffer_copy(handle,
-//                       dst.data_handle() + dst_offset,
-//                       src.data_handle() + src_offset,
-//                       size,
-//                       dst_device_type,
-//                       src_device_type);
-// }
+template <bool bounds_check, typename T, typename U, typename DstExtents, typename SrcExtents, typename DstLayoutPolicy, typename SrcLayoutPolicy, template<typename> typename DstContainerPolicy, template<typename> typename SrcContainerPolicy>
+detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
+                                         buffer<T, DstExtents, DstLayoutPolicy, DstContainerPolicy> & dst,
+                                         buffer<U, SrcExtents, SrcLayoutPolicy, SrcContainerPolicy> const& src,
+                                         size_t dst_offset,
+                                         size_t src_offset,
+                                         size_t size)
+{
+  if constexpr (bounds_check) {
+    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+      throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
+    }
+  }
+  auto src_device_type = is_device_accessible(src.mem_type()) ? device_type::gpu : device_type::cpu;
+  auto dst_device_type = is_device_accessible(dst.mem_type()) ? device_type::gpu : device_type::cpu;
+  detail::buffer_copy(handle,
+                      dst.data_handle() + dst_offset,
+                      src.data_handle() + src_offset,
+                      size,
+                      dst_device_type,
+                      src_device_type);
+}
 
-// template <bool bounds_check, typename T, typename U>
-// detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
-//                                          buffer<T>& dst,
-//                                          buffer<U> const& src)
-// {
-//   copy<bounds_check>(handle, dst, src, 0, 0, src.size());
-// }
+template <bool bounds_check, typename T, typename U, typename DstExtents, typename SrcExtents, typename DstLayoutPolicy, typename SrcLayoutPolicy, template<typename> typename DstContainerPolicy, template<typename> typename SrcContainerPolicy>
+detail::const_agnostic_same_t<T, U> copy(raft::resources const& handle,
+                                         buffer<T, DstExtents, DstLayoutPolicy, DstContainerPolicy>& dst,
+                                         buffer<U, SrcExtents, SrcLayoutPolicy, SrcContainerPolicy> const& src)
+{
+  copy<bounds_check>(handle, dst, src, 0, 0, src.size());
+}
 }  // namespace raft

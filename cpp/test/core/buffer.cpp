@@ -194,56 +194,58 @@ TEST(Buffer, non_owning_host_buffer)
 //   }
 // }
 
-// TEST(Buffer, move_buffer)
-// {
-//   raft::resources handle;
-//   auto data   = std::vector<int>{1, 2, 3};
-//   auto test_buffers = std::vector<buffer<int>>{};
-//   test_buffers.emplace_back(buffer<int>(handle, data.data(), data.size(), memory_type::host));
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::host);
+TEST(Buffer, move_buffer)
+{
+  raft::resources handle;
+  auto data   = std::vector<int>{1, 2, 3};
+  auto exts = raft::make_extents<size_t>(data.size());
+  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
 
-//   for (auto& buf : test_buffers) {
-//     ASSERT_EQ(buf.mem_type(), memory_type::host);
-//     ASSERT_EQ(buf.size(), data.size());
-//     ASSERT_EQ(buf.data_handle(), data.data());
+  for (auto& buf : test_buffers) {
+    ASSERT_EQ(buf.mem_type(), memory_type::host);
+    ASSERT_EQ(buf.size(), data.size());
+    ASSERT_EQ(buf.data_handle(), data.data());
 
-//     auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
-//     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
-//   }
-// #ifndef RAFT_DISABLE_GPU
-//   test_buffers = std::vector<buffer<int>>{};
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
-//   test_buffers.emplace_back(handle, buffer<int>(handle, data.data(), data.size(), memory_type::host), memory_type::device);
-//   for (auto& buf : test_buffers) {
-//     ASSERT_EQ(buf.mem_type(), memory_type::device);
-//     ASSERT_EQ(buf.size(), data.size());
-//     ASSERT_NE(buf.data_handle(), data.data());
+    auto data_out = std::vector<int>(buf.data_handle(), buf.data_handle() + buf.size());
+    EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
+  }
+#ifndef RAFT_DISABLE_GPU
+  auto test_dev_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  for (auto& buf : test_dev_buffers) {
+    ASSERT_EQ(buf.mem_type(), memory_type::device);
+    ASSERT_EQ(buf.size(), data.size());
+    ASSERT_NE(buf.data_handle(), data.data());
 
-//     auto data_out = std::vector<int>(buf.size());
-//     RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(buf.data_handle()), buf.size() * sizeof(int), cudaMemcpyDefault));
-//     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
-//   }
-// #endif
-// }
+    auto data_out = std::vector<int>(buf.size());
+    RAFT_CUDA_TRY(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(buf.data_handle()), buf.size() * sizeof(int), cudaMemcpyDefault));
+    EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
+  }
+#endif
+}
 
-// TEST(Buffer, move_assignment_buffer)
-// {
-//   raft::resources handle;
-//   auto data = std::vector<int>{1, 2, 3};
+TEST(Buffer, move_assignment_buffer)
+{
+  raft::resources handle;
+  auto data = std::vector<int>{1, 2, 3};
+  auto exts1 = raft::make_extents<size_t>(data.size() - 1);
+  auto exts2 = raft::make_extents<size_t>(data.size());
 
-// #ifndef RAFT_DISABLE_GPU
-//   auto buf = buffer<int>{handle, data.data(), data.size() - 1, memory_type::device};
-// #else
-//   auto buf = buffer<int>{handle, data.data(), data.size() - 1, memory_type::host};
-// #endif
-//   buf      = buffer<int>{handle, data.size(), memory_type::host};
+#ifndef RAFT_DISABLE_GPU
+  auto buf = buffer<int, decltype(exts1)>{handle, data.data(), exts1, memory_type::device};
+#else
+  auto buf = buffer<int>{handle, data.data(), exts1, memory_type::host};
+#endif
+  buf = buffer<int, decltype(exts2)>{handle, exts2, memory_type::host};
 
-//   ASSERT_EQ(buf.mem_type(), memory_type::host);
-//   ASSERT_EQ(buf.size(), data.size());
-// }
+  ASSERT_EQ(buf.mem_type(), memory_type::host);
+  ASSERT_EQ(buf.size(), data.size());
+}
 
 // TEST(Buffer, partial_buffer_copy)
 // {
@@ -313,5 +315,8 @@ TEST(Buffer, non_owning_host_buffer)
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 // #endif
 // }
-
+TEST(Buffer, view_buffer)
+{
+  raft::resources handle;
+}
 }

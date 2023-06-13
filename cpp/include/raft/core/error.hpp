@@ -126,11 +126,6 @@ struct mem_type_mismatch : logic_error {
   mem_type_mismatch() : mem_type_mismatch("Memory type does not match expected type") {}
   explicit mem_type_mismatch(char const* msg) : logic_error(msg) {}
 };
-
-struct wrong_device : logic_error {
-  wrong_device() : wrong_device("Attempted to use incorrect device") {}
-  explicit wrong_device(char const* msg) : logic_error(msg) {}
-};
 }  // namespace raft
 
 // FIXME: Need to be replaced with RAFT_FAIL
