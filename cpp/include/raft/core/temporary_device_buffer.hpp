@@ -18,6 +18,7 @@
 
 #include "device_mdarray.hpp"
 #include "device_mdspan.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/util/cudart_utils.hpp>
 
@@ -55,26 +56,26 @@ class temporary_device_buffer {
   static constexpr bool is_const_pointer_ = std::is_const_v<ElementType>;
 
  public:
-  temporary_device_buffer(temporary_device_buffer const&) = delete;
+  temporary_device_buffer(temporary_device_buffer const&)            = delete;
   temporary_device_buffer& operator=(temporary_device_buffer const&) = delete;
 
-  constexpr temporary_device_buffer(temporary_device_buffer&&) = default;
+  constexpr temporary_device_buffer(temporary_device_buffer&&)            = default;
   constexpr temporary_device_buffer& operator=(temporary_device_buffer&&) = default;
 
   /**
    * @brief Construct a new temporary device buffer object
    *
-   * @param handle raft::device_resources
+   * @param handle raft::resources
    * @param data input pointer
    * @param extents dimensions of input array
    * @param write_back if true, any writes to the `view()` of this object will be copid
    *                   back if the original pointer was in host memory
    */
-  temporary_device_buffer(device_resources const& handle,
+  temporary_device_buffer(resources const& handle,
                           ElementType* data,
                           Extents extents,
                           bool write_back = false)
-    : stream_(handle.get_stream()),
+    : stream_(resource::get_cuda_stream(handle)),
       original_data_(data),
       extents_{extents},
       write_back_(write_back),
@@ -92,7 +93,7 @@ class temporary_device_buffer {
       typename owning_device_buffer::container_policy_type policy{};
 
       owning_device_buffer device_data{handle, layout, policy};
-      raft::copy(device_data.data_handle(), data, length_, handle.get_stream());
+      raft::copy(device_data.data_handle(), data, length_, resource::get_cuda_stream(handle));
       data_ = data_store{std::in_place_index<1>, std::move(device_data)};
     } else {
       data_ = data_store{std::in_place_index<0>, data};
@@ -140,9 +141,9 @@ class temporary_device_buffer {
  * @brief Factory to create a `raft::temporary_device_buffer`
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // Initialize raft::device_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
@@ -157,7 +158,7 @@ class temporary_device_buffer {
  * @tparam LayoutPolicy layout of the input
  * @tparam ContainerPolicy container to be used to own device memory if needed
  * @tparam Extents variadic dimensions for `raft::extents`
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param data input pointer
  * @param extents dimensions of input array
  * @param write_back if true, any writes to the `view()` of this object will be copid
@@ -169,7 +170,7 @@ template <typename ElementType,
           typename LayoutPolicy                        = layout_c_contiguous,
           template <typename> typename ContainerPolicy = device_uvector_policy,
           size_t... Extents>
-auto make_temporary_device_buffer(raft::device_resources const& handle,
+auto make_temporary_device_buffer(raft::resources const& handle,
                                   ElementType* data,
                                   raft::extents<IndexType, Extents...> extents,
                                   bool write_back = false)
@@ -184,9 +185,9 @@ auto make_temporary_device_buffer(raft::device_resources const& handle,
  *        `write_back=false`
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // Initialize raft::device_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
@@ -201,7 +202,7 @@ auto make_temporary_device_buffer(raft::device_resources const& handle,
  * @tparam LayoutPolicy layout of the input
  * @tparam ContainerPolicy container to be used to own device memory if needed
  * @tparam Extents variadic dimensions for `raft::extents`
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param data input pointer
  * @param extents dimensions of input array
  * @return raft::temporary_device_buffer
@@ -211,7 +212,7 @@ template <typename ElementType,
           typename LayoutPolicy                        = layout_c_contiguous,
           template <typename> typename ContainerPolicy = device_uvector_policy,
           size_t... Extents>
-auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
+auto make_readonly_temporary_device_buffer(raft::resources const& handle,
                                            ElementType* data,
                                            raft::extents<IndexType, Extents...> extents)
 {
@@ -227,9 +228,9 @@ auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
  *        `write_back=true`
  *
  * @code{.cpp}
- * #include <raft/core/device_resources.hpp>
+ * #include <raft/core/resources.hpp>
  *
- * raft::device_resources handle;
+ * raft::resources handle;
  *
  * // Initialize raft::host_mdarray and raft::extents
  * // Can be either raft::device_mdarray or raft::host_mdarray
@@ -244,7 +245,7 @@ auto make_readonly_temporary_device_buffer(raft::device_resources const& handle,
  * @tparam LayoutPolicy layout of the input
  * @tparam ContainerPolicy container to be used to own device memory if needed
  * @tparam Extents variadic dimensions for `raft::extents`
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param data input pointer
  * @param extents dimensions of input array
  * @return raft::temporary_device_buffer
@@ -255,7 +256,7 @@ template <typename ElementType,
           template <typename> typename ContainerPolicy = device_uvector_policy,
           size_t... Extents,
           typename = std::enable_if_t<not std::is_const_v<ElementType>>>
-auto make_writeback_temporary_device_buffer(raft::device_resources const& handle,
+auto make_writeback_temporary_device_buffer(raft::resources const& handle,
                                             ElementType* data,
                                             raft::extents<IndexType, Extents...> extents)
 {

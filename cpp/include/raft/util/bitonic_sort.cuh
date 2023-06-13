@@ -60,17 +60,17 @@ _RAFT_DEVICE _RAFT_FORCEINLINE void conditional_assign(bool cond, T& ptr, T x)
  *   3  48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63    48  49  50 ...
  * `
  *
- * Here is a small usage example of device code, which sorts the arrays of length 6 (= 3 * 2)
+ * Here is a small usage example of device code, which sorts the arrays of length 8 (= 4 * 2)
  * grouped in pairs of threads in ascending order:
  * @code{.cpp}
- *   // Fill an array of three ints in each thread of a warp.
+ *   // Fill an array of four ints in each thread of a warp.
  *   int i = laneId();
- *   int arr[3] = {i+1, i+5, i};
+ *   int arr[4] = {i+1, i+5, i, i+7};
  *   // Sort the arrays in groups of two threads.
- *   bitonic<3>(ascending=true, warp_width=2).sort(arr);
+ *   bitonic<4>(ascending=true, warp_width=2).sort(arr);
  *   // As a result,
- *   //  for every even thread (`i == 2j`):    arr == {2j,   2j+1, 2j+5}
- *   //  for every odd  thread (`i == 2j+1`):  arr == {2j+1, 2j+2, 2j+6}
+ *   //  for every even thread (`i == 2j`):    arr == {2j,   2j+1, 2j+5, 2j+7}
+ *   //  for every odd  thread (`i == 2j+1`):  arr == {2j+1, 2j+2, 2j+6, 2j+8}
  * @endcode
  *
  * @tparam Size
@@ -99,10 +99,10 @@ class bitonic {
   {
   }
 
-  bitonic(bitonic const&) = delete;
-  bitonic(bitonic&&)      = delete;
+  bitonic(bitonic const&)                    = delete;
+  bitonic(bitonic&&)                         = delete;
   auto operator=(bitonic const&) -> bitonic& = delete;
-  auto operator=(bitonic&&) -> bitonic& = delete;
+  auto operator=(bitonic&&) -> bitonic&      = delete;
 
   /**
    * You can think of this function in two ways:

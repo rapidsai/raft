@@ -68,6 +68,11 @@ template <typename ElementType,
 using host_matrix = host_mdarray<ElementType, matrix_extent<IndexType>, LayoutPolicy>;
 
 /**
+ * @defgroup host_mdarray_factories factories to create host mdarrays
+ * @{
+ */
+
+/**
  * @brief Create a host mdarray.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
@@ -89,6 +94,10 @@ auto make_host_mdarray(raft::resources& res, extents<IndexType, Extents...> exts
 
   return mdarray_t{res, layout, policy};
 }
+
+/**
+ * @}
+ */
 
 /**
  * @brief Create a host mdarray.
@@ -117,6 +126,7 @@ auto make_host_mdarray(extents<IndexType, Extents...> exts)
 }
 
 /**
+ * @ingroup host_mdarray_factories
  * @brief Create a 2-dim c-contiguous host mdarray.
  * @tparam ElementType the data type of the matrix elements
  * @tparam IndexType the index type of the extents
@@ -157,6 +167,7 @@ auto make_host_matrix(IndexType n_rows, IndexType n_cols)
 }
 
 /**
+ * @ingroup host_mdarray_factories
  * @brief Create a host scalar from v.
  *
  * @tparam ElementType the data type of the scalar element
@@ -206,6 +217,7 @@ auto make_host_scalar(ElementType const& v)
 }
 
 /**
+ * @ingroup host_mdarray_factories
  * @brief Create a 1-dim host mdarray.
  * @tparam ElementType the data type of the vector elements
  * @tparam IndexType the index type of the extents

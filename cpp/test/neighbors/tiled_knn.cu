@@ -17,17 +17,17 @@
 #include "../test_utils.cuh"
 #include "./ann_utils.cuh"
 #include "./knn_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/distance/distance.cuh>  // raft::distance::pairwise_distance
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
-
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
+#include <raft/neighbors/detail/knn_brute_force.cuh>  // raft::neighbors::detail::brute_force_knn_impl
+#include <raft/neighbors/detail/selection_faiss.cuh>  // raft::neighbors::detail::select_k
 
 #include <rmm/device_buffer.hpp>
 
@@ -61,7 +61,7 @@ template <typename T>
 class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
  public:
   TiledKNNTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       params_(::testing::TestWithParam<TiledKNNInputs>::GetParam()),
       database(params_.num_db_vecs * params_.dim, stream_),
       search_queries(params_.num_queries * params_.dim, stream_),
@@ -178,7 +178,8 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                        num_queries,
                                                        k_,
                                                        float(0.001),
-                                                       stream_));
+                                                       stream_,
+                                                       true));
   }
 
   void SetUp() override
@@ -199,7 +200,7 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   cudaStream_t stream_ = 0;
   TiledKNNInputs params_;
   int num_queries;

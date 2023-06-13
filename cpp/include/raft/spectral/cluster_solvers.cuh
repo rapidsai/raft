@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/cluster/kmeans.cuh>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <utility>  // for std::pair
 
 namespace raft {
@@ -47,7 +48,7 @@ struct kmeans_solver_t {
   {
   }
 
-  std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
+  std::pair<value_type_t, index_type_t> solve(raft::resources const& handle,
                                               size_type_t n_obs_vecs,
                                               size_type_t dim,
                                               value_type_t const* __restrict__ obs,
@@ -68,8 +69,10 @@ struct kmeans_solver_t {
     auto centroids =
       raft::make_device_matrix<value_type_t, index_type_t>(handle, config_.n_clusters, dim);
     auto weight = raft::make_device_vector<value_type_t, index_type_t>(handle, n_obs_vecs);
-    thrust::fill(
-      handle.get_thrust_policy(), weight.data_handle(), weight.data_handle() + n_obs_vecs, 1);
+    thrust::fill(resource::get_thrust_policy(handle),
+                 weight.data_handle(),
+                 weight.data_handle() + n_obs_vecs,
+                 1);
 
     auto sw = std::make_optional((raft::device_vector_view<const value_type_t>)weight.view());
     raft::cluster::kmeans_fit_predict<value_type_t, index_type_t>(

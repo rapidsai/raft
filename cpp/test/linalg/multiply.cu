@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "unary_op.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/multiply.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -29,7 +30,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
  public:
   MultiplyTest()
     : params(::testing::TestWithParam<UnaryOpInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in(params.len, stream),
       out_ref(params.len, stream),
       out(params.len, stream)
@@ -48,11 +49,11 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
     auto in_view     = raft::make_device_vector_view<const T>(in.data(), len);
     auto scalar_view = raft::make_host_scalar_view<const T>(&params.scalar);
     multiply_scalar(handle, in_view, out_view, scalar_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   UnaryOpInputs<T> params;

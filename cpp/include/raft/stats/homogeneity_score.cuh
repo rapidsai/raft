@@ -20,6 +20,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/detail/homogeneity_score.cuh>
 
 namespace raft {
@@ -68,7 +69,7 @@ double homogeneity_score(const T* truthClusterArray,
  * @return the homogeneity score
  */
 template <typename value_t, typename idx_t>
-double homogeneity_score(raft::device_resources const& handle,
+double homogeneity_score(raft::resources const& handle,
                          raft::device_vector_view<const value_t, idx_t> truth_cluster_array,
                          raft::device_vector_view<const value_t, idx_t> pred_cluster_array,
                          value_t lower_label_range,
@@ -82,12 +83,12 @@ double homogeneity_score(raft::device_resources const& handle,
                                    truth_cluster_array.extent(0),
                                    lower_label_range,
                                    upper_label_range,
-                                   handle.get_stream());
+                                   resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_homogeneity_score
 
-};  // end namespace stats
-};  // end namespace raft
+};         // end namespace stats
+};         // end namespace raft
 
 #endif

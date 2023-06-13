@@ -16,11 +16,12 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/refine_helper.cuh>
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/refine.cuh>
@@ -31,10 +32,6 @@
 
 #include <gtest/gtest.h>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <vector>
 
 namespace raft::neighbors {
@@ -43,7 +40,7 @@ template <typename DataT, typename DistanceT, typename IdxT>
 class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
  public:
   RefineTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       data(handle_, ::testing::TestWithParam<RefineInputs<IdxT>>::GetParam())
   {
   }
@@ -87,7 +84,7 @@ class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
       update_host(
         indices.data(), data.refined_indices.data_handle(), data.refined_indices.size(), stream_);
     }
-    handle_.sync_stream(stream_);
+    resource::sync_stream(handle_);
 
     double min_recall = 1;
 
@@ -102,7 +99,7 @@ class RefineTest : public ::testing::TestWithParam<RefineInputs<IdxT>> {
   }
 
  public:
-  raft::device_resources handle_;
+  raft::resources handle_;
   rmm::cuda_stream_view stream_;
   RefineHelper<DataT, DistanceT, IdxT> data;
 };

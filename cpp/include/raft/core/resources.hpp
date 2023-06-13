@@ -18,6 +18,7 @@
 #include "resource/resource_types.hpp"
 #include <algorithm>
 #include <mutex>
+#include <raft/core/error.hpp>  // RAFT_EXPECTS
 #include <raft/core/logger.hpp>
 #include <string>
 #include <vector>
@@ -67,7 +68,7 @@ class resources {
    * Note that this does not create any new resources.
    */
   resources(const resources& res) : factories_(res.factories_), resources_(res.resources_) {}
-  resources(resources&&) = delete;
+  resources(resources&&)            = delete;
   resources& operator=(resources&&) = delete;
 
   /**

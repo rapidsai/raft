@@ -22,6 +22,11 @@
 
 #include <raft/core/detail/macros.hpp>
 
+#if defined(_RAFT_HAS_CUDA)
+#include <cuda_bf16.h>
+#include <cuda_fp16.h>
+#endif
+
 namespace raft {
 
 /**
@@ -90,7 +95,10 @@ RAFT_INLINE_FUNCTION auto atanh(T x)
 }
 
 /** Cosine */
-template <typename T>
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
 RAFT_INLINE_FUNCTION auto cos(T x)
 {
 #ifdef __CUDA_ARCH__
@@ -100,8 +108,38 @@ RAFT_INLINE_FUNCTION auto cos(T x)
 #endif
 }
 
-/** Sine */
+#if defined(_RAFT_HAS_CUDA)
 template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> cos(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::hcos(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+cos(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::hcos(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
+
+/** Sine */
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
 RAFT_INLINE_FUNCTION auto sin(T x)
 {
 #ifdef __CUDA_ARCH__
@@ -110,6 +148,33 @@ RAFT_INLINE_FUNCTION auto sin(T x)
   return std::sin(x);
 #endif
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> sin(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::hsin(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+sin(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::hsin(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
 
 /** Sine and cosine */
 template <typename T>
@@ -141,7 +206,10 @@ RAFT_INLINE_FUNCTION auto tanh(T x)
  * @{
  */
 /** Exponential function */
-template <typename T>
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
 RAFT_INLINE_FUNCTION auto exp(T x)
 {
 #ifdef __CUDA_ARCH__
@@ -151,8 +219,38 @@ RAFT_INLINE_FUNCTION auto exp(T x)
 #endif
 }
 
-/** Natural logarithm */
+#if defined(_RAFT_HAS_CUDA)
 template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> exp(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::hexp(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+exp(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::hexp(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
+
+/** Natural logarithm */
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
 RAFT_INLINE_FUNCTION auto log(T x)
 {
 #ifdef __CUDA_ARCH__
@@ -161,6 +259,33 @@ RAFT_INLINE_FUNCTION auto log(T x)
   return std::log(x);
 #endif
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> log(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::hlog(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+log(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::hlog(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
 /** @} */
 
 /**
@@ -176,7 +301,13 @@ RAFT_INLINE_FUNCTION auto log(T x)
  * same (and that the less-than operator be defined).
  * @{
  */
-template <typename T1, typename T2>
+template <
+  typename T1,
+  typename T2,
+  std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(RAFT_DEPAREN(
+                     ((!std::is_same_v<T1, __half> && !std::is_same_v<T2, __half>) ||
+                      (!std::is_same_v<T1, nv_bfloat16> && !std::is_same_v<T2, nv_bfloat16>)))),
+                   int> = 0>
 RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 {
 #ifdef __CUDA_ARCH__
@@ -208,6 +339,34 @@ RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y)
 #endif
 }
 
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> max(T x,
+                                                                                             T y)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::__hmax(x, y);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+max(T x, T y)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::__hmax(x, y);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
+
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
 RAFT_INLINE_FUNCTION auto max(const T1& x, const T2& y, Args&&... args)
@@ -221,6 +380,34 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
 {
   return x;
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> max(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return x;
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+max(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return x;
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
+
 /** @} */
 
 /**
@@ -236,7 +423,13 @@ constexpr RAFT_INLINE_FUNCTION auto max(const T& x)
  * same (and that the less-than operator be defined).
  * @{
  */
-template <typename T1, typename T2>
+template <
+  typename T1,
+  typename T2,
+  std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(RAFT_DEPAREN(
+                     ((!std::is_same_v<T1, __half> && !std::is_same_v<T2, __half>) ||
+                      (!std::is_same_v<T1, nv_bfloat16> && !std::is_same_v<T2, nv_bfloat16>)))),
+                   int> = 0>
 RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 {
 #ifdef __CUDA_ARCH__
@@ -268,6 +461,34 @@ RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y)
 #endif
 }
 
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> min(T x,
+                                                                                             T y)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::__hmin(x, y);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+min(T x, T y)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::__hmin(x, y);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
+
 /** Many-argument overload to avoid verbose nested calls or use with variadic arguments */
 template <typename T1, typename T2, typename... Args>
 RAFT_INLINE_FUNCTION auto min(const T1& x, const T2& y, Args&&... args)
@@ -281,6 +502,34 @@ constexpr RAFT_INLINE_FUNCTION auto min(const T& x)
 {
   return x;
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, __half> min(
+  T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return x;
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+min(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return x;
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
 /** @} */
 
 /**
@@ -299,7 +548,10 @@ RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
 }
 
 /** Square root */
-template <typename T>
+template <typename T,
+          std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
+                                                      (!std::is_same_v<T, nv_bfloat16>)))),
+                           int> = 0>
 RAFT_INLINE_FUNCTION auto sqrt(T x)
 {
 #ifdef __CUDA_ARCH__
@@ -308,6 +560,33 @@ RAFT_INLINE_FUNCTION auto sqrt(T x)
   return std::sqrt(x);
 #endif
 }
+
+#if defined(_RAFT_HAS_CUDA)
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, __half>, __half> sqrt(T x)
+{
+#if (__CUDA_ARCH__ >= 530)
+  return ::hsqrt(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "__half is only supported on __CUDA_ARCH__ >= 530");
+  return T{};
+#endif
+}
+
+template <typename T>
+RAFT_DEVICE_INLINE_FUNCTION typename std::enable_if_t<std::is_same_v<T, nv_bfloat16>, nv_bfloat16>
+sqrt(T x)
+{
+#if (__CUDA_ARCH__ >= 800)
+  return ::hsqrt(x);
+#else
+  // Fail during template instantiation if the compute capability doesn't support this operation
+  static_assert(sizeof(T) != sizeof(T), "nv_bfloat16 is only supported on __CUDA_ARCH__ >= 800");
+  return T{};
+#endif
+}
+#endif
 /** @} */
 
 /** Sign */

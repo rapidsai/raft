@@ -15,10 +15,11 @@
  */
 
 #include <cusparse_v2.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <gtest/gtest.h>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -56,7 +57,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
  public:
   CSRTransposeTest()
     : params(::testing::TestWithParam<CSRTransposeInputs<value_idx, value_t>>::GetParam()),
-      stream(raft_handle.get_stream()),
+      stream(resource::get_cuda_stream(raft_handle)),
       indptr(0, stream),
       indices(0, stream),
       data(0, stream),
@@ -101,7 +102,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
 
   void SetUp() override
   {
-    raft::device_resources handle;
+    raft::resources handle;
 
     make_data();
 
@@ -117,7 +118,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
                                         params.nnz,
                                         stream);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void compare()
@@ -135,7 +136,7 @@ class CSRTransposeTest : public ::testing::TestWithParam<CSRTransposeInputs<valu
   }
 
  protected:
-  raft::device_resources raft_handle;
+  raft::resources raft_handle;
   cudaStream_t stream;
 
   cusparseHandle_t handle;

@@ -20,6 +20,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/unary_op.cuh>
 
 namespace raft {
@@ -51,7 +52,7 @@ void sqrt(out_t* out, const in_t* in, IdxType len, cudaStream_t stream)
  * @brief Elementwise sqrt operation
  * @tparam InType    Input Type raft::device_mdspan
  * @tparam OutType   Output Type raft::device_mdspan
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] in     Input
  * @param[out] out    Output
  */
@@ -59,7 +60,7 @@ template <typename InType,
           typename OutType,
           typename = raft::enable_if_input_device_mdspan<InType>,
           typename = raft::enable_if_output_device_mdspan<OutType>>
-void sqrt(raft::device_resources const& handle, InType in, OutType out)
+void sqrt(raft::resources const& handle, InType in, OutType out)
 {
   using in_value_t  = typename InType::value_type;
   using out_value_t = typename OutType::value_type;
@@ -72,18 +73,18 @@ void sqrt(raft::device_resources const& handle, InType in, OutType out)
     sqrt<in_value_t, out_value_t, std::uint32_t>(out.data_handle(),
                                                  in.data_handle(),
                                                  static_cast<std::uint32_t>(out.size()),
-                                                 handle.get_stream());
+                                                 resource::get_cuda_stream(handle));
   } else {
     sqrt<in_value_t, out_value_t, std::uint64_t>(out.data_handle(),
                                                  in.data_handle(),
                                                  static_cast<std::uint64_t>(out.size()),
-                                                 handle.get_stream());
+                                                 resource::get_cuda_stream(handle));
   }
 }
 
 /** @} */  // end of group add
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

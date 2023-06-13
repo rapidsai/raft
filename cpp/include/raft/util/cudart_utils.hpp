@@ -18,10 +18,9 @@
 
 #include <raft/core/error.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
+#include <raft/util/memory_pool.hpp>
+
 #include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <cuda_fp16.h>
 #include <cuda_runtime_api.h>
@@ -34,41 +33,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
-
-/**
- * @brief Debug macro to check for CUDA errors
- *
- * In a non-release build, this macro will synchronize the specified stream
- * before error checking. In both release and non-release builds, this macro
- * checks for any pending CUDA errors from previous calls. If an error is
- * reported, an exception is thrown detailing the CUDA error that occurred.
- *
- * The intent of this macro is to provide a mechanism for synchronous and
- * deterministic execution for debugging asynchronous CUDA execution. It should
- * be used after any asynchronous CUDA call, e.g., cudaMemcpyAsync, or an
- * asynchronous kernel launch.
- */
-#ifndef NDEBUG
-#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-#else
-#define RAFT_CHECK_CUDA(stream) RAFT_CUDA_TRY(cudaPeekAtLastError());
-#endif
-
-// /**
-//  * @brief check for cuda runtime API errors but log error instead of raising
-//  *        exception.
-//  */
-#define RAFT_CUDA_TRY_NO_THROW(call)                               \
-  do {                                                             \
-    cudaError_t const status = call;                               \
-    if (cudaSuccess != status) {                                   \
-      printf("CUDA call='%s' at file=%s line=%d failed with %s\n", \
-             #call,                                                \
-             __FILE__,                                             \
-             __LINE__,                                             \
-             cudaGetErrorString(status));                          \
-    }                                                              \
-  } while (0)
 
 namespace raft {
 
@@ -449,53 +413,6 @@ template <>
 constexpr inline auto upper_bound<half>() -> half
 {
   return static_cast<half>(__half_constexpr{0x7c00u});
-}
-
-/**
- * @brief Get a pointer to a pooled memory resource within the scope of the lifetime of the returned
- * unique pointer.
- *
- * This function is useful in the code where multiple repeated allocations/deallocations are
- * expected.
- * Use case example:
- * @code{.cpp}
- *   void my_func(..., size_t n, rmm::mr::device_memory_resource* mr = nullptr) {
- *     auto pool_guard = raft::get_pool_memory_resource(mr, 2 * n * sizeof(float));
- *     if (pool_guard){
- *       RAFT_LOG_INFO("Created a pool %zu bytes", pool_guard->pool_size());
- *     } else {
- *       RAFT_LOG_INFO("Using the current default or explicitly passed device memory resource");
- *     }
- *     rmm::device_uvector<float> x(n, stream, mr);
- *     rmm::device_uvector<float> y(n, stream, mr);
- *     ...
- *   }
- * @endcode
- * Here, the new memory resource would be created within the function scope if the passed `mr` is
- * null and the default resource is not a pool. After the call, `mr` contains a valid memory
- * resource in any case.
- *
- * @param[inout] mr if not null do nothing; otherwise get the current device resource and wrap it
- * into a `pool_memory_resource` if necessary and return the pointer to the result.
- * @param initial_size if a new memory pool is created, this would be its initial size (rounded up
- * to 256 bytes).
- *
- * @return if a new memory pool is created, it returns a unique_ptr to it;
- *   this managed pointer controls the lifetime of the created memory resource.
- */
-inline auto get_pool_memory_resource(rmm::mr::device_memory_resource*& mr, size_t initial_size)
-{
-  using pool_res_t = rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>;
-  std::unique_ptr<pool_res_t> pool_res{};
-  if (mr) return pool_res;
-  mr = rmm::mr::get_current_device_resource();
-  if (!dynamic_cast<pool_res_t*>(mr) &&
-      !dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(mr) &&
-      !dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource>*>(mr)) {
-    pool_res = std::make_unique<pool_res_t>(mr, (initial_size + 255) & (~255));
-    mr       = pool_res.get();
-  }
-  return pool_res;
 }
 
 }  // namespace raft

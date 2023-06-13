@@ -17,7 +17,7 @@
 
 function(ConfigureBench)
 
-  set(options OPTIONAL LIB)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -55,7 +55,13 @@ function(ConfigureBench)
                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
   )
 
-  target_include_directories(${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench>")
+  if(ConfigureTest_EXPLICIT_INSTANTIATE_ONLY)
+    target_compile_definitions(${BENCH_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
+
+  target_include_directories(
+    ${BENCH_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/bench/prims>"
+  )
 
   install(
     TARGETS ${BENCH_NAME}
@@ -66,10 +72,10 @@ function(ConfigureBench)
 
 endfunction()
 
-if(BUILD_BENCH)
+if(BUILD_PRIMS_BENCH)
   ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
-    bench/prims/main.cpp OPTIONAL LIB
+    bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
@@ -91,6 +97,7 @@ if(BUILD_BENCH)
     bench/prims/main.cpp
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
@@ -109,8 +116,16 @@ if(BUILD_BENCH)
   )
 
   ConfigureBench(
-    NAME MATRIX_BENCH PATH bench/prims/matrix/argmin.cu bench/prims/matrix/gather.cu
-    bench/prims/matrix/select_k.cu bench/prims/main.cpp OPTIONAL LIB
+    NAME
+    MATRIX_BENCH
+    PATH
+    bench/prims/matrix/argmin.cu
+    bench/prims/matrix/gather.cu
+    bench/prims/matrix/select_k.cu
+    bench/prims/matrix/main.cpp
+    OPTIONAL
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureBench(
@@ -137,5 +152,6 @@ if(BUILD_BENCH)
     bench/prims/main.cpp
     OPTIONAL
     LIB
+    EXPLICIT_INSTANTIATE_ONLY
   )
 endif()

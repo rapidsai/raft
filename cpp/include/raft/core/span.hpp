@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,11 @@
 #include <type_traits>
 
 namespace raft {
+
+/**
+ * @defgroup span one-dimensional span type
+ * @{
+ */
 /**
  * @brief The span class defined in ISO C++20.  Iterator is defined as plain pointer and
  *        most of the methods have bound check on debug build.
@@ -104,7 +109,7 @@ class span {
   constexpr span(span&& other) noexcept      = default;
 
   constexpr auto operator=(span const& other) noexcept -> span& = default;
-  constexpr auto operator=(span&& other) noexcept -> span& = default;
+  constexpr auto operator=(span&& other) noexcept -> span&      = default;
 
   constexpr auto begin() const noexcept -> iterator { return data(); }
 
@@ -274,4 +279,8 @@ auto as_writable_bytes(span<T, is_device, E> s) noexcept
 {
   return {reinterpret_cast<std::byte*>(s.data()), s.size_bytes()};
 }
+
+/**
+ * @}
+ */
 }  // namespace raft

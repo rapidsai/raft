@@ -7,20 +7,10 @@ mdarray: Multi-dimensional Owning Container
 
 ``#include <raft/core/mdarray.hpp>``
 
-.. doxygenclass:: raft::mdarray
+.. doxygengroup:: mdarray
     :project: RAFT
     :members:
-
-.. doxygenclass:: raft::array_interface
-    :project: RAFT
-    :members:
-
-.. doxygenstruct:: raft::is_array_interface
-    :project: RAFT
-    :members:
-
-.. doxygentypedef:: raft::is_array_interface_t
-    :project RAFT
+    :content-only:
 
 Device Vocabulary
 -----------------
@@ -75,11 +65,7 @@ Host Factories
 
 ``#include <raft/core/host_mdarray.hpp>``
 
-.. doxygenfunction:: raft::make_host_matrix
+.. doxygengroup:: host_mdarray_factories
     :project: RAFT
-
-.. doxygenfunction:: raft::make_host_vector
-    :project: RAFT
-
-.. doxygenfunction:: raft::make_device_scalar
-    :project: RAFT
+    :members:
+    :content-only:

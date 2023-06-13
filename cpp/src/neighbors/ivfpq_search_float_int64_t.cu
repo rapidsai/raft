@@ -14,26 +14,29 @@
  * limitations under the License.
  */
 
-#include <raft/neighbors/ivf_pq.cuh>
-#include <raft/neighbors/specializations.cuh>
+#include <raft/neighbors/ivf_pq-inl.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>  // raft::neighbors::ivf_pq::index
 
-#include <raft_runtime/neighbors/ivf_pq.hpp>
+#define instantiate_raft_neighbors_ivf_pq_search(T, IdxT)            \
+  template void raft::neighbors::ivf_pq::search<T, IdxT>(            \
+    raft::resources const& handle,                                   \
+    const raft::neighbors::ivf_pq::search_params& params,            \
+    const raft::neighbors::ivf_pq::index<IdxT>& idx,                 \
+    raft::device_matrix_view<const T, uint32_t, row_major> queries,  \
+    raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,   \
+    raft::device_matrix_view<float, uint32_t, row_major> distances); \
+                                                                     \
+  template void raft::neighbors::ivf_pq::search<T, IdxT>(            \
+    raft::resources const& handle,                                   \
+    const raft::neighbors::ivf_pq::search_params& params,            \
+    const raft::neighbors::ivf_pq::index<IdxT>& idx,                 \
+    const T* queries,                                                \
+    uint32_t n_queries,                                              \
+    uint32_t k,                                                      \
+    IdxT* neighbors,                                                 \
+    float* distances,                                                \
+    rmm::mr::device_memory_resource* mr)
 
-namespace raft::runtime::neighbors::ivf_pq {
+instantiate_raft_neighbors_ivf_pq_search(float, int64_t);
 
-#define RAFT_SEARCH_INST(T, IdxT)                                                                 \
-  void search(raft::device_resources const& handle,                                               \
-              const raft::neighbors::ivf_pq::search_params& params,                               \
-              const raft::neighbors::ivf_pq::index<IdxT>& idx,                                    \
-              raft::device_matrix_view<const T, IdxT, row_major> queries,                         \
-              raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,                          \
-              raft::device_matrix_view<float, IdxT, row_major> distances)                         \
-  {                                                                                               \
-    raft::neighbors::ivf_pq::search<T, IdxT>(handle, params, idx, queries, neighbors, distances); \
-  }
-
-RAFT_SEARCH_INST(float, int64_t);
-
-#undef RAFT_INST_SEARCH
-
-}  // namespace raft::runtime::neighbors::ivf_pq
+#undef instantiate_raft_neighbors_ivf_pq_search

@@ -21,8 +21,7 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-class DistanceLinf : public DistanceTest<raft::distance::DistanceType::Linf, DataType> {
-};
+class DistanceLinf : public DistanceTest<raft::distance::DistanceType::Linf, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
   {0.001f, 1024, 1024, 32, true, 1234ULL},
@@ -64,8 +63,7 @@ TEST_P(DistanceLinfD, Result)
 }
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceLinfD, ::testing::ValuesIn(inputsd));
 
-class BigMatrixLinf : public BigMatrixDistanceTest<raft::distance::DistanceType::Linf> {
-};
+class BigMatrixLinf : public BigMatrixDistanceTest<raft::distance::DistanceType::Linf> {};
 TEST_F(BigMatrixLinf, Result) {}
 
 }  // end namespace distance

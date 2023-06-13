@@ -20,6 +20,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/detail/masked_nn.cuh>
 #include <raft/distance/masked_nn.cuh>
 #include <raft/linalg/norm.cuh>
@@ -27,10 +28,6 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/itertools.hpp>
-
-#ifdef RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
 
 namespace raft::distance::masked_nn {
 
@@ -190,7 +187,7 @@ struct Inputs {
     // Initialize adj, group_idxs.
     dim3 block(32, 32);
     dim3 grid(10, 10);
-    init_adj<<<grid, block, 0, handle.get_stream()>>>(
+    init_adj<<<grid, block, 0, resource::get_cuda_stream(handle)>>>(
       p.pattern, p.n, adj.view(), group_idxs.view());
     RAFT_CUDA_TRY(cudaGetLastError());
   }
@@ -210,7 +207,7 @@ auto reference(const raft::handle_t& handle, Inputs<DataT> inp, const Params& p)
   }
 
   // Initialize workspace
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   rmm::device_uvector<char> workspace(p.m * sizeof(int), stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(workspace.data(), 0, sizeof(int) * m, stream));
 
@@ -286,7 +283,7 @@ auto run_masked_nn(const raft::handle_t& handle, Inputs<DataT> inp, const Params
                                                   inp.group_idxs.view(),
                                                   out.view());
 
-  handle.sync_stream();
+  resource::sync_stream(handle);
 
   return out;
 }
@@ -387,7 +384,7 @@ TEST_P(MaskedL2NNTest, ReferenceCheckFloat)
                           out_fast.data_handle(),
                           p.m,
                           CompareApproxAbsKVP<DataT>(p.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 // This test checks whether running the masked_l2_nn twice returns the same
@@ -410,7 +407,7 @@ TEST_P(MaskedL2NNTest, DeterminismCheck)
                           out2.data_handle(),
                           p.m,
                           CompareApproxAbsKVP<DataT>(p.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 TEST_P(MaskedL2NNTest, ReferenceCheckDouble)
@@ -431,7 +428,7 @@ TEST_P(MaskedL2NNTest, ReferenceCheckDouble)
                           out_fast.data_handle(),
                           p.m,
                           CompareApproxAbsKVP<DataT>(p.tolerance),
-                          handle.get_stream()));
+                          resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_CASE_P(MaskedL2NNTests, MaskedL2NNTest, ::testing::ValuesIn(gen_params()));

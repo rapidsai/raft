@@ -17,16 +17,13 @@
 #pragma once
 
 #include <common/benchmark.hpp>
+#include <raft/core/resource/device_id.hpp>
 
 #include <raft/random/rng.cuh>
 
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/spatial/knn/knn.cuh>
-
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 #include <rmm/mr/device/managed_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -184,9 +181,10 @@ struct ivf_pq_knn {
   {
     search_params.n_probes = 20;
     auto queries_view =
-      raft::make_device_matrix_view<const ValT, IdxT>(search_items, ps.n_queries, ps.n_dims);
-    auto idxs_view  = raft::make_device_matrix_view<IdxT, IdxT>(out_idxs, ps.n_queries, ps.k);
-    auto dists_view = raft::make_device_matrix_view<dist_t, IdxT>(out_dists, ps.n_queries, ps.k);
+      raft::make_device_matrix_view<const ValT, uint32_t>(search_items, ps.n_queries, ps.n_dims);
+    auto idxs_view = raft::make_device_matrix_view<IdxT, uint32_t>(out_idxs, ps.n_queries, ps.k);
+    auto dists_view =
+      raft::make_device_matrix_view<dist_t, uint32_t>(out_dists, ps.n_queries, ps.k);
     raft::neighbors::ivf_pq::search(
       handle, search_params, *index, queries_view, idxs_view, dists_view);
   }
@@ -226,7 +224,8 @@ struct brute_force_knn {
 template <typename ValT, typename IdxT, typename ImplT>
 struct knn : public fixture {
   explicit knn(const params& p, const TransferStrategy& strategy, const Scope& scope)
-    : params_(p),
+    : fixture(true),
+      params_(p),
       strategy_(strategy),
       scope_(scope),
       dev_mem_res_(strategy == TransferStrategy::MANAGED),
@@ -278,8 +277,6 @@ struct knn : public fixture {
         "device (TransferStrategy::NO_COPY)");
     }
 
-    using_pool_memory_res default_resource;
-
     try {
       std::ostringstream label_stream;
       label_stream << params_ << "#" << strategy_ << "#" << scope_;
@@ -316,12 +313,18 @@ struct knn : public fixture {
             RAFT_CUDA_TRY(cudaHostGetDevicePointer(&data_ptr, data_host_.data(), 0));
             break;
           case TransferStrategy::MANAGED:  // sic! using std::memcpy rather than cuda copy
-            CUDA_CHECK(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetPreferredLocation, handle.get_device()));
-            CUDA_CHECK(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetAccessedBy, handle.get_device()));
-            CUDA_CHECK(cudaMemAdvise(
-              data_ptr, allocation_size, cudaMemAdviseSetReadMostly, handle.get_device()));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetPreferredLocation,
+                                        resource::get_device_id(handle)));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetAccessedBy,
+                                        resource::get_device_id(handle)));
+            RAFT_CUDA_TRY(cudaMemAdvise(data_ptr,
+                                        allocation_size,
+                                        cudaMemAdviseSetReadMostly,
+                                        resource::get_device_id(handle)));
             std::memcpy(data_ptr, data_host_.data(), allocation_size);
             break;
           default: break;
@@ -384,11 +387,10 @@ inline const std::vector<TransferStrategy> kNoCopyOnly{TransferStrategy::NO_COPY
 inline const std::vector<Scope> kScopeFull{Scope::BUILD_SEARCH};
 inline const std::vector<Scope> kAllScopes{Scope::BUILD_SEARCH, Scope::SEARCH, Scope::BUILD};
 
-#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                   \
-  namespace BENCHMARK_PRIVATE_NAME(knn)                                          \
-  {                                                                              \
-    using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
-    RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
+#define KNN_REGISTER(ValT, IdxT, ImplT, inputs, strats, scope)                 \
+  namespace BENCHMARK_PRIVATE_NAME(knn) {                                      \
+  using KNN = knn<ValT, IdxT, ImplT<ValT, IdxT>>;                              \
+  RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT "/" #ImplT, inputs, strats, scope); \
   }
 
 }  // namespace raft::bench::spatial

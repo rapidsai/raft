@@ -19,10 +19,11 @@
 #pragma once
 
 #include "detail/coalesced_reduction.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace linalg {
@@ -101,7 +102,7 @@ void coalescedReduction(OutType* dots,
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
  * <pre>OutType (*FinalLambda)(OutType);</pre>
- * @param handle raft::device_resources
+ * @param handle raft::resources
  * @param[in] data Input of type raft::device_matrix_view
  * @param[out] dots Output of type raft::device_matrix_view
  * @param[in] init initial value to use for the reduction
@@ -117,7 +118,7 @@ template <typename InValueType,
           typename MainLambda   = raft::identity_op,
           typename ReduceLambda = raft::add_op,
           typename FinalLambda  = raft::identity_op>
-void coalesced_reduction(raft::device_resources const& handle,
+void coalesced_reduction(raft::resources const& handle,
                          raft::device_matrix_view<const InValueType, IdxType, LayoutPolicy> data,
                          raft::device_vector_view<OutValueType, IdxType> dots,
                          OutValueType init,
@@ -135,7 +136,7 @@ void coalesced_reduction(raft::device_resources const& handle,
                        data.extent(1),
                        data.extent(0),
                        init,
-                       handle.get_stream(),
+                       resource::get_cuda_stream(handle),
                        inplace,
                        main_op,
                        reduce_op,
@@ -149,7 +150,7 @@ void coalesced_reduction(raft::device_resources const& handle,
                        data.extent(0),
                        data.extent(1),
                        init,
-                       handle.get_stream(),
+                       resource::get_cuda_stream(handle),
                        inplace,
                        main_op,
                        reduce_op,
@@ -159,7 +160,7 @@ void coalesced_reduction(raft::device_resources const& handle,
 
 /** @} */  // end of group coalesced_reduction
 
-};  // end namespace linalg
-};  // end namespace raft
+};         // end namespace linalg
+};         // end namespace raft
 
 #endif

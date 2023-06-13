@@ -19,7 +19,7 @@
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/test.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace comms {
@@ -31,7 +31,7 @@ namespace comms {
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_allreduce(raft::device_resources const& handle, int root)
+bool test_collective_allreduce(raft::resources const& handle, int root)
 {
   return detail::test_collective_allreduce(handle, root);
 }
@@ -43,7 +43,7 @@ bool test_collective_allreduce(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_broadcast(raft::device_resources const& handle, int root)
+bool test_collective_broadcast(raft::resources const& handle, int root)
 {
   return detail::test_collective_broadcast(handle, root);
 }
@@ -55,7 +55,7 @@ bool test_collective_broadcast(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_reduce(raft::device_resources const& handle, int root)
+bool test_collective_reduce(raft::resources const& handle, int root)
 {
   return detail::test_collective_reduce(handle, root);
 }
@@ -67,7 +67,7 @@ bool test_collective_reduce(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_allgather(raft::device_resources const& handle, int root)
+bool test_collective_allgather(raft::resources const& handle, int root)
 {
   return detail::test_collective_allgather(handle, root);
 }
@@ -79,7 +79,7 @@ bool test_collective_allgather(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_gather(raft::device_resources const& handle, int root)
+bool test_collective_gather(raft::resources const& handle, int root)
 {
   return detail::test_collective_gather(handle, root);
 }
@@ -91,7 +91,7 @@ bool test_collective_gather(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_gatherv(raft::device_resources const& handle, int root)
+bool test_collective_gatherv(raft::resources const& handle, int root)
 {
   return detail::test_collective_gatherv(handle, root);
 }
@@ -103,7 +103,7 @@ bool test_collective_gatherv(raft::device_resources const& handle, int root)
  *        initialized comms instance.
  *  @param[in] root the root rank id
  */
-bool test_collective_reducescatter(raft::device_resources const& handle, int root)
+bool test_collective_reducescatter(raft::resources const& handle, int root)
 {
   return detail::test_collective_reducescatter(handle, root);
 }
@@ -115,7 +115,7 @@ bool test_collective_reducescatter(raft::device_resources const& handle, int roo
  *        initialized comms instance.
  * @param[in] numTrials number of iterations of all-to-all messaging to perform
  */
-bool test_pointToPoint_simple_send_recv(raft::device_resources const& h, int numTrials)
+bool test_pointToPoint_simple_send_recv(raft::resources const& h, int numTrials)
 {
   return detail::test_pointToPoint_simple_send_recv(h, numTrials);
 }
@@ -127,7 +127,7 @@ bool test_pointToPoint_simple_send_recv(raft::device_resources const& h, int num
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_send_or_recv(raft::device_resources const& h, int numTrials)
+bool test_pointToPoint_device_send_or_recv(raft::resources const& h, int numTrials)
 {
   return detail::test_pointToPoint_device_send_or_recv(h, numTrials);
 }
@@ -139,7 +139,7 @@ bool test_pointToPoint_device_send_or_recv(raft::device_resources const& h, int 
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_sendrecv(raft::device_resources const& h, int numTrials)
+bool test_pointToPoint_device_sendrecv(raft::resources const& h, int numTrials)
 {
   return detail::test_pointToPoint_device_sendrecv(h, numTrials);
 }
@@ -151,7 +151,7 @@ bool test_pointToPoint_device_sendrecv(raft::device_resources const& h, int numT
  *        initialized comms instance.
  * @param numTrials number of iterations of send or receive messaging to perform
  */
-bool test_pointToPoint_device_multicast_sendrecv(raft::device_resources const& h, int numTrials)
+bool test_pointToPoint_device_multicast_sendrecv(raft::resources const& h, int numTrials)
 {
   return detail::test_pointToPoint_device_multicast_sendrecv(h, numTrials);
 }
@@ -163,7 +163,7 @@ bool test_pointToPoint_device_multicast_sendrecv(raft::device_resources const& h
  *        initialized comms instance.
  * @param n_colors number of different colors to test
  */
-bool test_commsplit(raft::device_resources const& h, int n_colors)
+bool test_commsplit(raft::resources const& h, int n_colors)
 {
   return detail::test_commsplit(h, n_colors);
 }

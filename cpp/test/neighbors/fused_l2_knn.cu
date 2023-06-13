@@ -16,16 +16,13 @@
 
 #include "../test_utils.cuh"
 #include "./knn_utils.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
-
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
 
 #include <raft/distance/distance.cuh>
 
@@ -52,7 +49,7 @@ template <typename T>
 class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
  public:
   FusedL2KNNTest()
-    : stream_(handle_.get_stream()),
+    : stream_(resource::get_cuda_stream(handle_)),
       params_(::testing::TestWithParam<FusedL2KNNInputs>::GetParam()),
       database(params_.num_db_vecs * params_.dim, stream_),
       search_queries(params_.num_queries * params_.dim, stream_),
@@ -81,9 +78,9 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
     rmm::device_uvector<T> temp_distances(num_db_vecs * num_queries, stream_);
     distance::pairwise_distance(
       handle_,
-      raft::make_device_matrix_view<T, int64_t>(search_queries.data(), num_queries, dim),
-      raft::make_device_matrix_view<T, int64_t>(database.data(), num_db_vecs, dim),
-      raft::make_device_matrix_view<T, int64_t>(temp_distances.data(), num_queries, num_db_vecs),
+      raft::make_device_matrix_view<T, int32_t>(search_queries.data(), num_queries, dim),
+      raft::make_device_matrix_view<T, int32_t>(database.data(), num_db_vecs, dim),
+      raft::make_device_matrix_view<T, int32_t>(temp_distances.data(), num_queries, num_db_vecs),
       metric);
 
     spatial::knn::select_k<int64_t, T>(temp_distances.data(),
@@ -133,7 +130,7 @@ class FusedL2KNNTest : public ::testing::TestWithParam<FusedL2KNNInputs> {
   }
 
  private:
-  raft::device_resources handle_;
+  raft::resources handle_;
   cudaStream_t stream_ = 0;
   FusedL2KNNInputs params_;
   int num_queries;

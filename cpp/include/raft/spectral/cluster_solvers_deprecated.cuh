@@ -52,7 +52,7 @@ struct kmeans_solver_deprecated_t {
   {
   }
 
-  std::pair<value_type_t, index_type_t> solve(raft::device_resources const& handle,
+  std::pair<value_type_t, index_type_t> solve(raft::resources const& handle,
                                               size_type_t n_obs_vecs,
                                               size_type_t dim,
                                               value_type_t const* __restrict__ obs,

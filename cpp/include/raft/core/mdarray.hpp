@@ -29,9 +29,15 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/memory_type.hpp>
-#include <rmm/cuda_stream_view.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
+
+/**
+ * @defgroup mdarray multi-dimensional memory-owning type
+ * @{
+ */
+
 /**
  * @brief Interface to implement an owning multi-dimensional array
  *
@@ -45,23 +51,21 @@ namespace raft {
 template <typename Base>
 class array_interface {
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get an mdspan
    */
   auto view() noexcept { return static_cast<Base*>(this)->view(); }
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept { return static_cast<Base*>(this)->view(); }
 };
 
 namespace detail {
 template <typename T, typename = void>
-struct is_array_interface : std::false_type {
-};
+struct is_array_interface : std::false_type {};
 template <typename T>
 struct is_array_interface<T, std::void_t<decltype(std::declval<T>().view())>>
-  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {
-};
+  : std::bool_constant<is_mdspan_v<decltype(std::declval<T>().view())>> {};
 
 template <typename T>
 using is_array_interface_t = is_array_interface<std::remove_const_t<T>>;
@@ -76,16 +80,13 @@ inline constexpr bool is_array_interface_v = is_array_interface<std::remove_cons
 }  // namespace detail
 
 template <typename...>
-struct is_array_interface : std::true_type {
-};
+struct is_array_interface : std::true_type {};
 template <typename T1>
-struct is_array_interface<T1> : detail::is_array_interface_t<T1> {
-};
+struct is_array_interface<T1> : detail::is_array_interface_t<T1> {};
 template <typename T1, typename... Tn>
 struct is_array_interface<T1, Tn...> : std::conditional_t<detail::is_array_interface_v<T1>,
                                                           is_array_interface<Tn...>,
-                                                          std::false_type> {
-};
+                                                          std::false_type> {};
 /**
  * @\brief Boolean to determine if variadic template types Tn are raft::array_interface
  *         or derived type or any type that has a member function `view()` that returns either
@@ -108,7 +109,8 @@ inline constexpr bool is_array_interface_v = is_array_interface<Tn...>::value;
  *   template.
  *
  * - Most of the constructors from the reference implementation is removed to make sure
- *   CUDA stream is honorred.
+ *   CUDA stream is honored. Note that this class is not coupled to CUDA and therefore
+ *   will only be used in the case where the device variant is used.
  *
  * - unique_size is not implemented, which is still working in progress in the proposal
  *
@@ -177,9 +179,9 @@ class mdarray
   constexpr mdarray(mdarray&&) noexcept(std::is_nothrow_move_constructible<container_type>::value) =
     default;
 
-  constexpr auto operator                                               =(mdarray const&) noexcept(
+  constexpr auto operator=(mdarray const&) noexcept(
     std::is_nothrow_copy_assignable<container_type>::value) -> mdarray& = default;
-  constexpr auto operator                                               =(mdarray&&) noexcept(
+  constexpr auto operator=(mdarray&&) noexcept(
     std::is_nothrow_move_assignable<container_type>::value) -> mdarray& = default;
 
   ~mdarray() noexcept(std::is_nothrow_destructible<container_type>::value) = default;
@@ -201,8 +203,9 @@ class mdarray
 #endif  // RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief The only constructor that can create storage, this is to make sure CUDA stream is being
-   * used.
+   * @brief The only constructor that can create storage, raft::resources is accepted
+   * so that the device implementation can make sure the relevant CUDA stream is
+   * being used for allocation.
    */
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
@@ -210,6 +213,7 @@ class mdarray
     : cp_(cp), map_(m), c_(cp_.create(handle, map_.required_span_size()))
   {
   }
+
   RAFT_MDARRAY_CTOR_CONSTEXPR mdarray(raft::resources const& handle,
                                       mapping_type const& m,
                                       container_policy_type& cp)
@@ -220,11 +224,11 @@ class mdarray
 #undef RAFT_MDARRAY_CTOR_CONSTEXPR
 
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get an mdspan
    */
   auto view() noexcept { return view_type(c_.data(), map_, cp_.make_accessor_policy()); }
   /**
-   * @brief Get a mdspan that can be passed down to CUDA kernels.
+   * @brief Get an mdspan<const T>
    */
   auto view() const noexcept
   {
@@ -340,6 +344,15 @@ class mdarray
 };
 
 /**
+ * @}
+ */
+
+/**
+ * @defgroup mdarray_reshape Row- or Col-norm computation
+ * @{
+ */
+
+/**
  * @brief Flatten object implementing raft::array_interface into a 1-dim array view
  *
  * @tparam array_interface_type Expected type implementing raft::array_interface
@@ -373,5 +386,9 @@ auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new
 {
   return reshape(mda.view(), new_shape);
 }
+
+/**
+ * }@
+ */
 
 }  // namespace raft

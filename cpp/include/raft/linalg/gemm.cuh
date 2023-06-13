@@ -21,9 +21,10 @@
 #include "detail/gemm.hpp"
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/util/input_validation.hpp>
 
 namespace raft {
@@ -213,7 +214,7 @@ template <typename ValueType,
           typename                = std::enable_if_t<std::disjunction_v<
             std::is_same<ScalarViewType, raft::host_scalar_view<ValueType, ScalarIdxType>>,
             std::is_same<ScalarViewType, raft::device_scalar_view<ValueType, ScalarIdxType>>>>>
-void gemm(raft::device_resources const& handle,
+void gemm(raft::resources const& handle,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyX> x,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyY> y,
           raft::device_matrix_view<ValueType, IndexType, LayoutPolicyZ> z,
@@ -265,7 +266,7 @@ void gemm(raft::device_resources const& handle,
                                        is_z_col_major,
                                        is_x_col_major,
                                        is_y_col_major,
-                                       handle.get_stream(),
+                                       resource::get_cuda_stream(handle),
                                        alpha.value().data_handle(),
                                        beta.value().data_handle());
 }

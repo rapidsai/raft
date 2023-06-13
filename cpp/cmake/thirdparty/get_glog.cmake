@@ -26,7 +26,6 @@ function(find_and_configure_glog)
             CPM_ARGS
             GIT_REPOSITORY         https://github.com/${PKG_FORK}/glog.git
             GIT_TAG                ${PKG_PINNED_TAG}
-            SOURCE_SUBDIR          cpp
             EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
             )
 

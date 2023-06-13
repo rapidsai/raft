@@ -19,7 +19,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/stats/detail/stddev.cuh>
 
 namespace raft {
@@ -109,7 +110,7 @@ void vars(Type* var,
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void stddev(raft::device_resources const& handle,
+void stddev(raft::resources const& handle,
             raft::device_matrix_view<const value_t, idx_t, layout_t> data,
             raft::device_vector_view<const value_t, idx_t> mu,
             raft::device_vector_view<value_t, idx_t> std,
@@ -129,7 +130,7 @@ void stddev(raft::device_resources const& handle,
                  data.extent(0),
                  sample,
                  is_row_major,
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_stddev
@@ -156,7 +157,7 @@ void stddev(raft::device_resources const& handle,
  *  to normalize the output using N-1 or N, for true or false, respectively
  */
 template <typename value_t, typename idx_t, typename layout_t>
-void vars(raft::device_resources const& handle,
+void vars(raft::resources const& handle,
           raft::device_matrix_view<const value_t, idx_t, layout_t> data,
           raft::device_vector_view<const value_t, idx_t> mu,
           raft::device_vector_view<value_t, idx_t> var,
@@ -176,12 +177,12 @@ void vars(raft::device_resources const& handle,
                data.extent(0),
                sample,
                is_row_major,
-               handle.get_stream());
+               resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group stats_variance
 
-};  // namespace stats
-};  // namespace raft
+};         // namespace stats
+};         // namespace raft
 
 #endif
