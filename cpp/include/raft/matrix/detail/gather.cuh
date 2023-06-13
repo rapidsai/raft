@@ -16,14 +16,8 @@
 
 #pragma once
 
-#include <raft/core/device_mdarray.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/util/cuda_dev_essentials.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
 namespace matrix {
@@ -348,97 +342,6 @@ void gather_if(const InputIteratorT in,
 {
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   gatherImpl(in, D, N, map, stencil, map_length, out, pred_op, transform_op, stream);
-}
-
-template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
-void gatherInplaceImpl(raft::resources const& handle,
-                       raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
-                       raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
-                       MapTransformOp transform_op,
-                       IndexT batch_size)
-{
-  // return type of MapTransformOp, must be convertible to IndexT
-  typedef typename std::result_of<decltype(transform_op)(MapT)>::type MapTransformOpReturnT;
-  RAFT_EXPECTS((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
-               "MapTransformOp's result type must be convertible to signed integer");
-
-  IndexT m          = inout.extent(0);
-  IndexT n          = inout.extent(1);
-  IndexT map_length = map.extent(0);
-
-  // skip in case of 0 length input
-  if (map_length <= 0 || m <= 0 || n <= 0 || batch_size < 0) return;
-
-  RAFT_EXPECTS(map_length <= m, "Length of map should be <= number of rows for inplace gather");
-
-  // re-assign batch_size for default case
-  if (batch_size == 0) batch_size = n;
-
-  RAFT_EXPECTS(batch_size <= n, "batch size should be <= number of columns");
-
-  auto exec_policy = resource::get_thrust_policy(handle);
-
-  IndexT n_batches = raft::ceildiv(n, batch_size);
-
-  auto scratch_space = raft::make_device_vector<MatrixT, IndexT>(handle, m * batch_size);
-
-  for (IndexT bid = 0; bid < n_batches; bid++) {
-    IndexT batch_offset   = bid * batch_size;
-    IndexT cols_per_batch = min(batch_size, n - batch_offset);
-
-    auto gather_op = [inout = inout.data_handle(),
-                      map   = map.data_handle(),
-                      transform_op,
-                      batch_offset,
-                      map_length,
-                      cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                      n] __device__(auto idx) {
-      IndexT row   = idx / cols_per_batch;
-      IndexT col   = idx % cols_per_batch;
-      MapT map_val = map[row];
-
-      IndexT i_src = transform_op(map_val);
-      return inout[i_src * n + batch_offset + col];
-    };
-    raft::linalg::map_offset(
-      handle,
-      raft::make_device_vector_view(scratch_space.data_handle(), m * cols_per_batch),
-      gather_op);
-
-    auto copy_op = [inout         = inout.data_handle(),
-                    map           = map.data_handle(),
-                    scratch_space = scratch_space.data_handle(),
-                    batch_offset,
-                    map_length,
-                    cols_per_batch = raft::util::FastIntDiv(cols_per_batch),
-                    n] __device__(auto idx) {
-      IndexT row                          = idx / cols_per_batch;
-      IndexT col                          = idx % cols_per_batch;
-      inout[row * n + batch_offset + col] = scratch_space[idx];
-      return;
-    };
-    auto counting = thrust::make_counting_iterator<IndexT>(0);
-    thrust::for_each(exec_policy, counting, counting + map_length * cols_per_batch, copy_op);
-  }
-}
-
-template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
-void gather(raft::resources const& handle,
-            raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
-            raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
-            MapTransformOp transform_op,
-            IndexT batch_size)
-{
-  gatherInplaceImpl(handle, inout, map, transform_op, batch_size);
-}
-
-template <typename MatrixT, typename MapT, typename IndexT>
-void gather(raft::resources const& handle,
-            raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
-            raft::device_vector_view<const MapT, IndexT, raft::layout_c_contiguous> map,
-            IndexT batch_size)
-{
-  gatherInplaceImpl(handle, inout, map, raft::identity_op(), batch_size);
 }
 
 }  // namespace detail

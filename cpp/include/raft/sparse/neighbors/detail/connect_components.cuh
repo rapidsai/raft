@@ -58,10 +58,7 @@ namespace raft::sparse::neighbors::detail {
 
 /**
  * Functor with reduction ops for performing masked 1-nn
- * computation. this change introduces a breaking change to
- * the public API because colors are no longer a part of this
- * op. The connect_components function internally ensures that
- * only cross-component nearest neighbors are found.
+ * computation.
  * @tparam value_idx
  * @tparam value_t
  */
@@ -106,6 +103,9 @@ struct FixConnectivitiesRedOp {
 
   DI value_t get_value(value_t& out) const { return out; }
 
+  // Gather and scatter are necessary because this functor is used in connect_components, which
+  // rearranges the data internally. The gather and scatter ensure that operator() is still
+  // consistent after rearranging.
   void gather(const raft::resources& handle, value_idx* map)
   {
     auto tmp_colors = raft::make_device_vector<value_idx>(handle, m);

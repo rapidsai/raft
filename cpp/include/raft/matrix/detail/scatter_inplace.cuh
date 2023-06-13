@@ -66,10 +66,10 @@ void scatterInplaceImpl(
   RAFT_EXPECTS(map_length == m,
                "Length of map should be equal to number of rows for inplace scatter");
 
-  // re-assign batch_size for default case
-  if (batch_size == 0) batch_size = n;
+  RAFT_EXPECTS(batch_size >= 0, "batch size should be >= 0");
 
-  RAFT_EXPECTS(batch_size <= n, "batch size should be <= number of columns");
+  // re-assign batch_size for default case
+  if (batch_size == 0 || batch_size > n) batch_size = n;
 
   auto exec_policy = resource::get_thrust_policy(handle);
 

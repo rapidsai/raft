@@ -18,7 +18,7 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/matrix/detail/scatter.cuh>
+#include <raft/matrix/detail/scatter_inplace.cuh>
 
 namespace raft::matrix {
 /**

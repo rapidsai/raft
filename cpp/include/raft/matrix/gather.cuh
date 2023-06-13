@@ -20,6 +20,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/detail/gather.cuh>
+#include <raft/matrix/detail/gather_inplace.cuh>
 #include <raft/util/itertools.hpp>
 
 namespace raft::matrix {
