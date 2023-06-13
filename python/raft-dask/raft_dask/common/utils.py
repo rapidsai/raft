@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from dask.distributed import default_client
+from dask.distributed import Client, default_client
+from dask_cuda import LocalCUDACluster
 
 
 def get_client(client=None):
@@ -37,3 +38,10 @@ def parse_host_port(address):
     host, port = address.split(":")
     port = int(port)
     return host, port
+
+
+def create_client(cluster):
+    if isinstance(cluster, LocalCUDACluster):
+        return Client(cluster)
+    else:
+        return Client(scheduler_file=cluster)

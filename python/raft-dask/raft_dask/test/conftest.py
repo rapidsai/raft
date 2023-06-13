@@ -4,8 +4,9 @@ import os
 
 import pytest
 
-from dask.distributed import Client
 from dask_cuda import LocalCUDACluster
+
+from raft_dask.common.utils import create_client
 
 os.environ["UCX_LOG_LEVEL"] = "error"
 
@@ -14,7 +15,7 @@ os.environ["UCX_LOG_LEVEL"] = "error"
 def cluster():
     scheduler_file = os.environ.get("SCHEDULER_FILE")
     if scheduler_file:
-        return scheduler_file
+        yield scheduler_file
     else:
         cluster = LocalCUDACluster(protocol="tcp", scheduler_port=0)
         yield cluster
@@ -25,7 +26,7 @@ def cluster():
 def ucx_cluster():
     scheduler_file = os.environ.get("SCHEDULER_FILE")
     if scheduler_file:
-        return scheduler_file
+        yield scheduler_file
     else:
         cluster = LocalCUDACluster(
             protocol="ucx",
@@ -36,19 +37,13 @@ def ucx_cluster():
 
 @pytest.fixture(scope="session")
 def client(cluster):
-    if isinstance(cluster, LocalCUDACluster):
-        client = Client(cluster)
-    else:
-        client = Client(scheduler_file=cluster)
+    client = create_client(cluster)
     yield client
     client.close()
 
 
 @pytest.fixture()
 def ucx_client(ucx_cluster):
-    if isinstance(ucx_cluster, LocalCUDACluster):
-        client = Client(ucx_cluster)
-    else:
-        client = Client(scheduler_file=cluster)
+    client = create_client(ucx_cluster)
     yield client
     client.close()
