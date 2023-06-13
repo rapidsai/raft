@@ -294,12 +294,12 @@ RAFT_DEVICE_INLINE_FUNCTION double myInf<double>()
 template <>
 RAFT_DEVICE_INLINE_FUNCTION __half myInf<__half>()
 {
-  return INFINITY;
+  return CUDART_INF_FP16;
 }
 template <>
 RAFT_DEVICE_INLINE_FUNCTION nv_bfloat16 myInf<nv_bfloat16>()
 {
-  return INFINITY;
+  return CUDART_INF_BF16;
 }
 /** @} */
 
