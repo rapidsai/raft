@@ -216,7 +216,7 @@ struct LookupColorOp {
  * @param[in] n_rows number of rows in original dense data
  * @param[in] n_cols number of columns in original dense data
  * @param[in] row_batch_size row batch size for computing nearest neighbors
- & @param[in] col_batch_size column batch size for sorting and 'unsorting'
+ * @param[in] col_batch_size column batch size for sorting and 'unsorting'
  * @param[in] reduction_op reduction operation for computing nearest neighbors
  */
 template <typename value_idx, typename value_t, typename red_op>
@@ -320,6 +320,7 @@ void perform_1nn(raft::resources const& handle,
                                                                            kvp_view);
   }
 
+  // Transform the keys so that they correctly point to the unpermuted indices.
   thrust::transform(exec_policy,
                     kvp,
                     kvp + n_rows,
@@ -331,8 +332,11 @@ void perform_1nn(raft::resources const& handle,
                       return res;
                     });
 
+  // Undo permutation of the rows of X by scattering in place.
   raft::matrix::scatter(handle, X_mutable_view, sort_plan_const_view, (value_idx)col_batch_size);
 
+  // Undo permutation of the key-value pair and color vectors. This is not done
+  // inplace, so using two temporary vectors.
   auto tmp_colors = raft::make_device_vector<value_idx>(handle, n_rows);
   auto tmp_kvp    = raft::make_device_vector<OutT>(handle, n_rows);
 

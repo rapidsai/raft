@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ namespace matrix {
 namespace detail {
 
 #pragma once
+
 template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
 void gatherInplaceImpl(raft::resources const& handle,
                        raft::device_matrix_view<MatrixT, IndexT, raft::layout_c_contiguous> inout,
@@ -33,6 +34,9 @@ void gatherInplaceImpl(raft::resources const& handle,
                        IndexT batch_size)
 {
   // return type of MapTransformOp, must be convertible to IndexT
+  // TODO (tarang-jain): Use cuda::std::result_of here to ensure that the return type of a
+  // device function is being correctly obtained. Reference:
+  // https://github.com/rapidsai/raft/pull/1445.
   typedef typename std::result_of<decltype(transform_op)(MapT)>::type MapTransformOpReturnT;
   RAFT_EXPECTS((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
                "MapTransformOp's result type must be convertible to signed integer");

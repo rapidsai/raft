@@ -73,6 +73,7 @@ class ConnectComponentsTest
     params = ::testing::TestWithParam<ConnectComponentsInputs<value_t, value_idx>>::GetParam();
 
     raft::sparse::COO<value_t, value_idx> out_edges(resource::get_cuda_stream(handle));
+    raft::sparse::COO<value_t, value_idx> out_edges_batched(resource::get_cuda_stream(handle));
 
     rmm::device_uvector<value_t> data(params.n_row * params.n_col,
                                       resource::get_cuda_stream(handle));
@@ -126,6 +127,27 @@ class ConnectComponentsTest
                                                           red_op,
                                                           params.n_row,
                                                           params.n_col);
+
+    raft::linkage::connect_components<value_idx, value_t>(handle,
+                                                          out_edges_batched,
+                                                          data.data(),
+                                                          colors.data(),
+                                                          params.n_row,
+                                                          params.n_col,
+                                                          red_op,
+                                                          params.n_row / 2,
+                                                          params.n_col / 2);
+
+    ASSERT_TRUE(out_edges.nnz == out_edges_batched.nnz);
+
+    ASSERT_TRUE(
+      devArrMatch(out_edges.rows(), out_edges_batched.rows(), out_edges.nnz, Compare<int>()));
+
+    ASSERT_TRUE(
+      devArrMatch(out_edges.cols(), out_edges_batched.cols(), out_edges.nnz, Compare<int>()));
+
+    ASSERT_TRUE(devArrMatch(
+      out_edges.vals(), out_edges_batched.vals(), out_edges.nnz, CompareApprox<float>(1e-4)));
 
     /**
      * Construct final edge list
@@ -473,7 +495,8 @@ class ConnectComponentsEdgesTest
     params = ::testing::TestWithParam<
       ConnectComponentsMutualReachabilityInputs<value_t, value_idx>>::GetParam();
 
-    raft::sparse::COO<value_t, value_idx> out_edges(resource::get_cuda_stream(handle));
+    raft::sparse::COO<value_t, value_idx> out_edges_unbatched(resource::get_cuda_stream(handle));
+    raft::sparse::COO<value_t, value_idx> out_edges_batched(resource::get_cuda_stream(handle));
 
     rmm::device_uvector<value_t> data(params.n_row * params.n_col,
                                       resource::get_cuda_stream(handle));
@@ -494,17 +517,58 @@ class ConnectComponentsEdgesTest
     MutualReachabilityFixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists.data(),
                                                                         params.n_row);
 
-    raft::linkage::connect_components<value_idx, value_t>(
-      handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op, 13, 1);
+    raft::linkage::connect_components<value_idx, value_t>(handle,
+                                                          out_edges_unbatched,
+                                                          data.data(),
+                                                          colors.data(),
+                                                          params.n_row,
+                                                          params.n_col,
+                                                          red_op,
+                                                          params.n_row,
+                                                          params.n_col);
 
-    ASSERT_TRUE(
-      devArrMatch(out_edges.rows(), params.expected_rows.data(), out_edges.nnz, Compare<int>()));
+    raft::linkage::connect_components<value_idx, value_t>(handle,
+                                                          out_edges_unbatched,
+                                                          data.data(),
+                                                          colors.data(),
+                                                          params.n_row,
+                                                          params.n_col,
+                                                          red_op,
+                                                          11,
+                                                          1);
 
-    ASSERT_TRUE(
-      devArrMatch(out_edges.cols(), params.expected_cols.data(), out_edges.nnz, Compare<int>()));
+    ASSERT_TRUE(out_edges_unbatched.nnz == out_edges_batched.nnz &&
+                out_edges_unbatched.nnz == params.expected_rows.size());
 
-    ASSERT_TRUE(devArrMatch(
-      out_edges.vals(), params.expected_vals.data(), out_edges.nnz, CompareApprox<float>(1e-4)));
+    ASSERT_TRUE(devArrMatch(out_edges_unbatched.rows(),
+                            params.expected_rows.data(),
+                            out_edges_unbatched.nnz,
+                            Compare<int>()));
+
+    ASSERT_TRUE(devArrMatch(out_edges_unbatched.cols(),
+                            params.expected_cols.data(),
+                            out_edges_unbatched.nnz,
+                            Compare<int>()));
+
+    ASSERT_TRUE(devArrMatch(out_edges_unbatched.vals(),
+                            params.expected_vals.data(),
+                            out_edges_unbatched.nnz,
+                            CompareApprox<float>(1e-4)));
+
+    ASSERT_TRUE(devArrMatch(out_edges_batched.rows(),
+                            params.expected_rows.data(),
+                            out_edges_batched.nnz,
+                            Compare<int>()));
+
+    ASSERT_TRUE(devArrMatch(out_edges_batched.cols(),
+                            params.expected_cols.data(),
+                            out_edges_batched.nnz,
+                            Compare<int>()));
+
+    ASSERT_TRUE(devArrMatch(out_edges_batched.vals(),
+                            params.expected_vals.data(),
+                            out_edges_batched.nnz,
+                            CompareApprox<float>(1e-4)));
   }
 
   void SetUp() override { basicTest(); }
