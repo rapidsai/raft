@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
@@ -23,8 +24,6 @@
 namespace raft {
 namespace matrix {
 namespace detail {
-
-#pragma once
 
 template <typename MatrixT, typename MapT, typename MapTransformOp, typename IndexT>
 void gatherInplaceImpl(raft::resources const& handle,
