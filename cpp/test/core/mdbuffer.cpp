@@ -29,7 +29,7 @@ namespace raft {
 
 TEST(Buffer, default_buffer)
 {
-  auto buf = buffer<int, raft::extents<size_t>>();
+  auto buf = mdbuffer<int, raft::extents<size_t>>();
   EXPECT_EQ(buf.mem_type(), memory_type::host);
   EXPECT_EQ(buf.size(), 0);
   ASSERT_NE(buf.data_handle(), nullptr);
@@ -40,7 +40,7 @@ TEST(Buffer, device_buffer)
   raft::resources handle;
   auto data = std::vector<int>{1, 2, 3};
   auto exts = raft::make_extents<size_t>(data.size());
-  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  auto test_buffers = std::vector<mdbuffer<int, decltype(exts)>>{};
   test_buffers.emplace_back(handle, exts, memory_type::device);
   test_buffers.emplace_back(handle, exts, memory_type::device);
   test_buffers.emplace_back(handle, exts, memory_type::device);
@@ -71,7 +71,7 @@ TEST(Buffer, non_owning_device_buffer)
              sizeof(int) * data.size(),
              cudaMemcpyHostToDevice);
 #endif
-  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  auto test_buffers = std::vector<mdbuffer<int, decltype(exts)>>{};
   test_buffers.emplace_back(handle, ptr_d, exts, memory_type::device);
   test_buffers.emplace_back(handle, ptr_d, exts, memory_type::device);
 #ifndef RAFT_DISABLE_GPU
@@ -98,7 +98,7 @@ TEST(Buffer, host_buffer)
   auto data   = std::vector<int>{1, 2, 3};
   auto exts = raft::make_extents<size_t>(data.size());
 
-  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
+  auto test_buffers = std::vector<mdbuffer<int, decltype(exts)>>{};
   test_buffers.emplace_back(handle, exts, memory_type::host);
   test_buffers.emplace_back(handle, exts, memory_type::host);
   test_buffers.emplace_back(handle, exts, memory_type::host);
@@ -122,7 +122,7 @@ TEST(Buffer, non_owning_host_buffer)
   raft::resources handle;
   auto data   = std::vector<int>{1, 2, 3};
   auto exts = raft::make_extents<size_t>(data.size());
-  std::vector<buffer<int, decltype(exts)>> test_buffers;
+  std::vector<mdbuffer<int, decltype(exts)>> test_buffers;
   test_buffers.emplace_back(handle, data.data(), exts, memory_type::host);
   test_buffers.emplace_back(handle, data.data(), exts, memory_type::host);
   test_buffers.emplace_back(handle, data.data(), exts);
@@ -141,10 +141,10 @@ TEST(Buffer, non_owning_host_buffer)
 // {
 //   raft::resources handle;
 //   auto data        = std::vector<int>{1, 2, 3};
-//   buffer<int> const orig_buffer = buffer(handle, data.data(), data.size(), memory_type::host);
+//   mdbuffer<int> const orig_buffer = mdbuffer(handle, data.data(), data.size(), memory_type::host);
 
 //   // host to host copy operations
-//   auto test_buffers = std::vector<buffer<int>>{};
+//   auto test_buffers = std::vector<mdbuffer<int>>{};
 //   test_buffers.emplace_back(handle, orig_buffer);
 //   test_buffers.emplace_back(handle, orig_buffer, memory_type::host);
 //   test_buffers.emplace_back(handle, orig_buffer, memory_type::host);
@@ -160,7 +160,7 @@ TEST(Buffer, non_owning_host_buffer)
 
 // #ifndef RAFT_DISABLE_GPU
 //     // host to device copy operations
-//     auto test_dev_buffers = std::vector<buffer<int>>{};
+//     auto test_dev_buffers = std::vector<mdbuffer<int>>{};
 //     test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
 //     test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
 //     test_dev_buffers.emplace_back(handle, orig_buffer, memory_type::device);
@@ -170,7 +170,7 @@ TEST(Buffer, non_owning_host_buffer)
 //       EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
       
 //       // device to device copy operations
-//       auto test_dev_copies = std::vector<buffer<int>>{};
+//       auto test_dev_copies = std::vector<mdbuffer<int>>{};
 //       test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
 //       test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
 //       test_dev_copies.emplace_back(handle, dev_buf, memory_type::device);
@@ -181,7 +181,7 @@ TEST(Buffer, non_owning_host_buffer)
 //       // }
 
 //     //   // device to host copy operations
-//     //   auto test_host_buffers = std::vector<buffer<int>>{};
+//     //   auto test_host_buffers = std::vector<mdbuffer<int>>{};
 //     //   test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
 //     //   test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
 //     //   test_host_buffers.emplace_back(handle, dev_buf, memory_type::host);
@@ -199,10 +199,10 @@ TEST(Buffer, move_buffer)
   raft::resources handle;
   auto data   = std::vector<int>{1, 2, 3};
   auto exts = raft::make_extents<size_t>(data.size());
-  auto test_buffers = std::vector<buffer<int, decltype(exts)>>{};
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
+  auto test_buffers = std::vector<mdbuffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::host);
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::host);
@@ -213,10 +213,10 @@ TEST(Buffer, move_buffer)
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 #ifndef RAFT_DISABLE_GPU
-  auto test_dev_buffers = std::vector<buffer<int, decltype(exts)>>{};
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
-  test_buffers.emplace_back(handle, buffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  auto test_dev_buffers = std::vector<mdbuffer<int, decltype(exts)>>{};
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
+  test_buffers.emplace_back(handle, mdbuffer<int, decltype(exts)>(handle, data.data(), exts, memory_type::host), memory_type::device);
   for (auto& buf : test_dev_buffers) {
     ASSERT_EQ(buf.mem_type(), memory_type::device);
     ASSERT_EQ(buf.size(), data.size());
@@ -237,57 +237,58 @@ TEST(Buffer, move_assignment_buffer)
   auto exts2 = raft::make_extents<size_t>(data.size());
 
 #ifndef RAFT_DISABLE_GPU
-  auto buf = buffer<int, decltype(exts1)>{handle, data.data(), exts1, memory_type::device};
+  auto buf = mdbuffer<int, decltype(exts1)>{handle, data.data(), exts1, memory_type::device};
 #else
-  auto buf = buffer<int>{handle, data.data(), exts1, memory_type::host};
+  auto buf = mdbuffer<int, decltype(exts1)>{handle, data.data(), exts1, memory_type::host};
 #endif
-  buf = buffer<int, decltype(exts2)>{handle, exts2, memory_type::host};
+  buf = mdbuffer<int, decltype(exts2)>{handle, exts2, memory_type::host};
 
   ASSERT_EQ(buf.mem_type(), memory_type::host);
   ASSERT_EQ(buf.size(), data.size());
 }
 
-// TEST(Buffer, partial_buffer_copy)
-// {
-//   raft::resources handle;
-//   auto data1 = std::vector<int>{1, 2, 3, 4, 5};
-//   auto data2 = std::vector<int>{0, 0, 0, 0, 0};
-//   auto expected = std::vector<int>{0, 3, 4, 5, 0};
-// #ifndef RAFT_DISABLE_GPU
-//   auto buf1 = buffer<int>{handle, buffer<int>{handle, data1.data(), data1.size(), memory_type::host}, memory_type::device};
-// #else
-//   auto buf1 = buffer<int>{handle, data1.data(), data1.size(), memory_type::host};
-// #endif
-//   auto buf2 = buffer<int>{handle, data2.data(), data2.size(), memory_type::host};
-//   copy<true>(handle, buf2, buf1, 1, 2, 3);
-//   copy<false>(handle, buf2, buf1, 1, 2, 3);
-//   EXPECT_THROW(copy<true>(handle, buf2, buf1, 1, 2, 4), out_of_bounds);
-// }
+TEST(Buffer, partial_buffer_copy)
+{
+  raft::resources handle;
+  auto data1 = std::vector<int>{1, 2, 3, 4, 5};
+  auto data2 = std::vector<int>{0, 0, 0, 0, 0};
+  auto expected = std::vector<int>{0, 3, 4, 5, 0};
+  auto exts = raft::make_extents<size_t>(data1.size());
+#ifndef RAFT_DISABLE_GPU
+  auto buf1 = mdbuffer<int, decltype(exts)>{handle, mdbuffer<int, decltype(exts)>{handle, data1.data(), exts, memory_type::host}, memory_type::device};
+#else
+  auto buf1 = mdbuffer<int, decltype(exts)>{handle, data1.data(), exts, memory_type::host};
+#endif
+  auto buf2 = mdbuffer<int, decltype(exts)>{handle, data2.data(), exts, memory_type::host};
+  copy<true>(handle, buf2, buf1, 1, 2, 3);
+  copy<false>(handle, buf2, buf1, 1, 2, 3);
+  EXPECT_THROW(copy<true>(handle, buf2, buf1, 1, 2, 4), out_of_bounds);
+}
 
 // TEST(Buffer, buffer_copy_overloads)
 // {
 //   raft::resources handle;
 //   auto data        = std::vector<int>{1, 2, 3};
 //   auto expected = data;
-//   auto orig_host_buffer = buffer<int>(handle, data.data(), data.size(), memory_type::host);
-//   auto orig_dev_buffer = buffer<int>(handle, orig_host_buffer, memory_type::device);
-//   auto copy_dev_buffer = buffer<int>(handle, data.size(), memory_type::device);
+//   auto orig_host_buffer = mdbuffer<int>(handle, data.data(), data.size(), memory_type::host);
+//   auto orig_dev_buffer = mdbuffer<int>(handle, orig_host_buffer, memory_type::device);
+//   auto copy_dev_buffer = mdbuffer<int>(handle, data.size(), memory_type::device);
   
 //   // copying host to host
 //   auto data_out = std::vector<int>(data.size());
-//   auto copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   auto copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_host_buffer);
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
 //   // copying host to host with stream
 //   data_out = std::vector<int>(data.size());
-//   copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_host_buffer);
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
 //   // copying host to host with offset
 //   data_out = std::vector<int>(data.size() + 1);
-//   copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_host_buffer, 2, 1, 1);
 //   expected = std::vector<int>{0, 0, 2, 0};
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
@@ -295,21 +296,21 @@ TEST(Buffer, move_assignment_buffer)
 // #ifndef RAFT_DISABLE_GPU
 //   // copy device to host
 //   data_out = std::vector<int>(data.size());
-//   copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_dev_buffer);
 //   expected = data;
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
 //   // copy device to host with stream
 //   data_out = std::vector<int>(data.size());
-//   copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_dev_buffer);
 //   expected = data;
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
   
 //   // copy device to host with offset
 //   data_out = std::vector<int>(data.size() + 1);
-//   copy_host_buffer = buffer<int>(handle, data_out.data(), data.size(), memory_type::host);
+//   copy_host_buffer = mdbuffer<int>(handle, data_out.data(), data.size(), memory_type::host);
 //   copy<true>(handle, copy_host_buffer, orig_dev_buffer, 2, 1, 1);
 //   expected = std::vector<int>{0, 0, 2, 0};
 //   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
