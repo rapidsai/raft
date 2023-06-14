@@ -528,7 +528,7 @@ class ConnectComponentsEdgesTest
                                                           params.n_col);
 
     raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges_unbatched,
+                                                          out_edges_batched,
                                                           data.data(),
                                                           colors.data(),
                                                           params.n_row,

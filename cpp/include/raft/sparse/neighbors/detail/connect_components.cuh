@@ -348,10 +348,6 @@ void perform_1nn(raft::resources const& handle,
   raft::copy_async(colors, tmp_colors.data_handle(), n_rows, stream);
   raft::copy_async(kvp, tmp_kvp.data_handle(), n_rows, stream);
 
-  auto keys = raft::make_device_vector<value_idx>(handle, n_rows);
-  raft::linalg::map_offset(
-    handle, keys.view(), [kvp] __device__(auto idx) { return kvp[idx].key; });
-
   LookupColorOp<value_idx, value_t> extract_colors_op(colors);
   thrust::transform(exec_policy, kvp, kvp + n_rows, nn_colors, extract_colors_op);
 }
