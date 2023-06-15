@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 
-from .comms import Comms, local_handle
-from .comms_utils import (
+from raft_dask.common.comms import Comms, local_handle
+from raft_dask.common.comms_utils import (
     inject_comms_on_handle,
     inject_comms_on_handle_coll_only,
     perform_test_comm_split,
@@ -30,4 +30,4 @@ from .comms_utils import (
     perform_test_comms_reducescatter,
     perform_test_comms_send_recv,
 )
-from .ucx import UCX
+from raft_dask.common.ucx import UCX
