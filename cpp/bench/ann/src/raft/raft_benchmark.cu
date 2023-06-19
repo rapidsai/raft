@@ -138,7 +138,7 @@ template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
-  param.search_params.itopk_size = conf.at("itopk");
+  param.itopk_size = conf.at("itopk");
 }
 #endif
 

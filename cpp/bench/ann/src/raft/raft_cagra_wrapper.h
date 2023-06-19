@@ -47,7 +47,7 @@ class RaftCagra : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
 
   struct SearchParam : public AnnSearchParam {
-    raft::neighbors::experimental::cagra::search_params search_params;
+    unsigned itopk_size;
   };
 
   using BuildParam = raft::neighbors::experimental::cagra::index_params;
@@ -112,14 +112,7 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
-  auto search_param = dynamic_cast<const SearchParam&>(param);
-  search_params_    = search_param.search_params;
-
-  if (search_params_.team_size != 0 && search_params_.team_size != 2 &&
-      search_params_.team_size != 4 && search_params_.team_size != 8 &&
-      search_params_.team_size != 16 && search_params_.team_size != 32) {
-    throw std::runtime_error("team size must be 2, 4, 8, 16, or 32.");
-  }
+  return;
 }
 
 template <typename T, typename IdxT>
@@ -153,8 +146,11 @@ void RaftCagra<T, IdxT>::search(
   auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, k);
   auto distances_view = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
 
+  raft::neighbors::experimental::cagra::search_params search_params;
+  search_params.max_queries = batch_size;
+  search_params.itopk_size  = search_params_.max_queries;
   raft::neighbors::experimental::cagra::search(
-    handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);
+    handle_, search_params, *index_, queries_view, neighbors_view, distances_view);
 
   if (!std::is_same<IdxT, size_t>::value) {
     raft::linalg::unaryOp(neighbors,
