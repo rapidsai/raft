@@ -77,7 +77,6 @@ struct search_plan_impl : public search_plan_impl_base {
   uint32_t result_buffer_size;
 
   uint32_t smem_size;
-  uint32_t load_bit_lenght;
   uint32_t topk;
   uint32_t num_seeds;
 
@@ -107,7 +106,7 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+                          raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
                           raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
@@ -286,14 +285,10 @@ struct search_plan_impl : public search_plan_impl_base {
       error_message +=
         "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(team_size) + " has been given.";
     }
-    if (load_bit_length != 0 && load_bit_length != 64 && load_bit_length != 128) {
-      error_message += "`load_bit_length` must be 0, 64 or 128. " +
-                       std::to_string(load_bit_length) + " has been given.";
-    }
     if (thread_block_size != 0 && thread_block_size != 64 && thread_block_size != 128 &&
         thread_block_size != 256 && thread_block_size != 512 && thread_block_size != 1024) {
       error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
-                       std::to_string(load_bit_length) + " has been given.";
+                       std::to_string(thread_block_size) + " has been given.";
     }
     if (hashmap_min_bitlen > 20) {
       error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
