@@ -90,8 +90,8 @@
 
 
 
-      
-	  {
+
+    {
       "name": "raft_bfknn",
       "algo": "raft_bfknn",
       "build_param": {},
@@ -1316,6 +1316,36 @@
         }
       ],
       "search_result_file": "result/sift-128-euclidean/raft_ivf_flat/nlist16384"
+    },
+
+    {
+      "name" : "cagra.dim32",
+      "algo" : "raft_cagra",
+      "build_param": {
+        "index_dim" : 32
+      },
+      "file" : "index/sift-128-euclidean/cagra/dim32",
+      "search_params" : [
+        {"itopk": 32},
+        {"itopk": 64},
+        {"itopk": 128}
+      ],
+      "search_result_file" : "result/sift-128-euclidean/cagra/dim32"
+    },
+
+    {
+      "name" : "cagra.dim64",
+      "algo" : "raft_cagra",
+      "build_param": {
+        "index_dim" : 64
+      },
+      "file" : "index/sift-128-euclidean/cagra/dim64",
+      "search_params" : [
+        {"itopk": 32},
+        {"itopk": 64},
+        {"itopk": 128}
+      ],
+      "search_result_file" : "result/sift-128-euclidean/cagra/dim64"
     }
   ]
 }
