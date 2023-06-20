@@ -21,6 +21,9 @@
 #include <raft/util/fast_int_div.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cuda/std/type_traits>
+#include <cuda/functional>
+
 namespace raft {
 namespace matrix {
 namespace detail {

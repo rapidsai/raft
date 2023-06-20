@@ -158,6 +158,8 @@ include(cmake/thirdparty/get_cutlass.cmake)
 include(${rapids-cmake-dir}/cpm/cuco.cmake)
 rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
 
+include(cmake/thirdparty/get_libcudacxx.cmake)
+
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()

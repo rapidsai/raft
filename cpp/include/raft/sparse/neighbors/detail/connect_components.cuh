@@ -64,18 +64,17 @@ namespace raft::sparse::neighbors::detail {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-  value_idx* colors;
   value_idx m;
 
   // default constructor for cutlass
-  DI FixConnectivitiesRedOp() : colors(0), m(0) {}
+  DI FixConnectivitiesRedOp() : m(0) {}
 
-  FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
+  FixConnectivitiesRedOp(value_idx m_) : m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
-    if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
+    if (rit < m && other.value < out->value) {
       out->key   = other.key;
       out->value = other.value;
     }
@@ -83,7 +82,7 @@ struct FixConnectivitiesRedOp {
 
   DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
   {
-    if (rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
+    if (rit < m && a.value < b.value) {
       return a;
     } else
       return b;
@@ -108,18 +107,10 @@ struct FixConnectivitiesRedOp {
   // consistent after rearranging.
   void gather(const raft::resources& handle, value_idx* map)
   {
-    auto tmp_colors = raft::make_device_vector<value_idx>(handle, m);
-    thrust::gather(
-      raft::resource::get_thrust_policy(handle), map, map + m, colors, tmp_colors.data_handle());
-    raft::copy_async(colors, tmp_colors.data_handle(), m, raft::resource::get_cuda_stream(handle));
   }
 
   void scatter(const raft::resources& handle, value_idx* map)
   {
-    auto tmp_colors = raft::make_device_vector<value_idx>(handle, m);
-    thrust::scatter(
-      raft::resource::get_thrust_policy(handle), colors, colors + m, map, tmp_colors.data_handle());
-    raft::copy_async(colors, tmp_colors.data_handle(), m, raft::resource::get_cuda_stream(handle));
   }
 };
 
