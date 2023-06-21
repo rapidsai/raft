@@ -19,6 +19,8 @@
 #include <raft/core/operators.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/type_traits>
+
 namespace raft {
 namespace matrix {
 namespace detail {
@@ -136,12 +138,13 @@ void gatherImpl(const InputIteratorT in,
   typedef typename std::iterator_traits<StencilIteratorT>::value_type StencilValueT;
 
   // return type of MapTransformOp, must be convertible to IndexT
-  typedef typename std::result_of<decltype(transform_op)(MapValueT)>::type MapTransformOpReturnT;
+  typedef
+    typename cuda::std::result_of<decltype(transform_op)(MapValueT)>::type MapTransformOpReturnT;
   static_assert((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
                 "MapTransformOp's result type must be convertible to signed integer");
 
   // return type of UnaryPredicateOp, must be convertible to bool
-  typedef typename std::result_of<decltype(pred_op)(StencilValueT)>::type PredicateOpReturnT;
+  typedef typename cuda::std::result_of<decltype(pred_op)(StencilValueT)>::type PredicateOpReturnT;
   static_assert((std::is_convertible<PredicateOpReturnT, bool>::value),
                 "UnaryPredicateOp's result type must be convertible to bool type");
 

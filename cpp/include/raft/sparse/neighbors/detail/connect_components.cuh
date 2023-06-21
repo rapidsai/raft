@@ -105,13 +105,9 @@ struct FixConnectivitiesRedOp {
   // Gather and scatter are necessary because this functor is used in connect_components, which
   // rearranges the data internally. The gather and scatter ensure that operator() is still
   // consistent after rearranging.
-  void gather(const raft::resources& handle, value_idx* map)
-  {
-  }
+  void gather(const raft::resources& handle, value_idx* map) {}
 
-  void scatter(const raft::resources& handle, value_idx* map)
-  {
-  }
+  void scatter(const raft::resources& handle, value_idx* map) {}
 };
 
 /**
