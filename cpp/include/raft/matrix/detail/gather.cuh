@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include <functional>
 #include <raft/core/operators.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/functional>
 #include <cuda/std/type_traits>
 
 namespace raft {
@@ -144,7 +146,8 @@ void gatherImpl(const InputIteratorT in,
                 "MapTransformOp's result type must be convertible to signed integer");
 
   // return type of UnaryPredicateOp, must be convertible to bool
-  typedef typename cuda::std::result_of<decltype(pred_op)(StencilValueT)>::type PredicateOpReturnT;
+  typedef typename cuda::std::result_of<decltype(cuda::proclaim_return_type<bool>(pred_op))(
+    StencilValueT)>::type PredicateOpReturnT;
   static_assert((std::is_convertible<PredicateOpReturnT, bool>::value),
                 "UnaryPredicateOp's result type must be convertible to bool type");
 
