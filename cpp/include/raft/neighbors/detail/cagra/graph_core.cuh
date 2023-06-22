@@ -284,12 +284,11 @@ void sort_knn_graph(raft::resources const& res,
     constexpr int numElementsPerThread = 32;
     kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
   } else {
-    RAFT_LOG_ERROR(
-      "[ERROR] The degree of input knn graph is too large (%u). "
-      "It must be equal to or small than %d.\n",
+    RAFT_FAIL(
+      "The degree of input knn graph is too large (%u). "
+      "It must be equal to or smaller than %d.",
       input_graph_degree,
       1024);
-    exit(-1);
   }
   const auto block_size          = 256;
   const auto num_warps_per_block = block_size / raft::WarpSize;
@@ -318,9 +317,9 @@ void sort_knn_graph(raft::resources const& res,
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void prune(raft::resources const& res,
-           mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
-           raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
+void optimize(raft::resources const& res,
+              mdspan<IdxT, matrix_extent<IdxT>, row_major, g_accessor> knn_graph,
+              raft::host_matrix_view<IdxT, IdxT, row_major> new_graph)
 {
   RAFT_LOG_DEBUG(
     "# Pruning kNN graph (size=%lu, degree=%lu)\n", knn_graph.extent(0), knn_graph.extent(1));
@@ -394,12 +393,11 @@ void prune(raft::resources const& res,
     if (input_graph_degree <= MAX_DEGREE) {
       kernel_prune = kern_prune<MAX_DEGREE, IdxT>;
     } else {
-      RAFT_LOG_ERROR(
-        "[ERROR] The degree of input knn graph is too large (%u). "
-        "It must be equal to or small than %d.\n",
+      RAFT_FAIL(
+        "The degree of input knn graph is too large (%u). "
+        "It must be equal to or smaller than %d.",
         input_graph_degree,
         1024);
-      exit(-1);
     }
     const uint32_t batch_size =
       std::min(static_cast<uint32_t>(graph_size), static_cast<uint32_t>(256 * 1024));

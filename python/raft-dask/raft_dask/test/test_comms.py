@@ -17,7 +17,9 @@ from collections import OrderedDict
 
 import pytest
 
-from dask.distributed import Client, get_worker, wait
+from dask.distributed import get_worker, wait
+
+from .conftest import create_client
 
 try:
     from raft_dask.common import (
@@ -43,9 +45,7 @@ except ImportError:
 
 
 def test_comms_init_no_p2p(cluster):
-
-    client = Client(cluster)
-
+    client = create_client(cluster)
     try:
         cb = Comms(verbose=True)
         cb.init()
@@ -121,8 +121,7 @@ def func_check_uid_on_worker(sessionId, uniqueId, dask_worker=None):
 
 
 def test_handles(cluster):
-
-    client = Client(cluster)
+    client = create_client(cluster)
 
     def _has_handle(sessionId):
         return local_handle(sessionId, dask_worker=get_worker()) is not None
