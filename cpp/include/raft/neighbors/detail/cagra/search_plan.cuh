@@ -187,11 +187,9 @@ struct search_plan_impl : public search_plan_impl_base {
           hash_bitlen = 0;
           break;
         } else {
-          RAFT_LOG_DEBUG(
-            "[CAGRA Error]"
+          RAFT_FAIL(
             "small-hash cannot be used because the required hash size exceeds the limit (%u)",
             hashmap::get_size(max_bitlen));
-          exit(-1);
         }
       }
       small_hash_bitlen = hash_bitlen;
