@@ -273,6 +273,11 @@ const static size_t MAX_MEMORY = 16 * 1024 * 1024 * 1024ULL;
       SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix8bits, input)            \
       SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix11bits, input)           \
       SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kRadix11bitsExtraPass, input)  \
+      if (input.k <= 1024) {                                                   \
+        if constexpr (std::is_same_v<KeyT, float>) {                           \
+          SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kCagra, input)             \
+        }                                                                      \
+      }                                                                        \
       if (input.k <= raft::matrix::detail::select::warpsort::kMaxCapacity) {   \
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpImmediate, input)       \
         SELECTION_REGISTER_ALGO_INPUT(KeyT, IdxT, kWarpFiltered, input)        \

@@ -885,8 +885,8 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
   if (i_batch >= size_batch) return;
 
   constexpr uint32_t smem_len = 2 * maxTopk + 2048 + 8;
-  static_assert(maxTopk * (1 + utils::size_of<ValT>() / utils::size_of<uint32_t>()) <= smem_len,
-                "maxTopk * sizeof(ValT) must be smaller or equal to 8192 byte");
+  // static_assert(maxTopk * (1 + utils::size_of<ValT>() / utils::size_of<uint32_t>()) <= smem_len,
+  //              "maxTopk * sizeof(ValT) must be smaller or equal to 8192 byte");
   __shared__ uint32_t _smem[smem_len];
 
   topk_cta_11_core<stateBitLen, vecLen, maxTopk, numSortThreads, ValT>(

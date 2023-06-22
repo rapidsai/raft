@@ -22,6 +22,9 @@
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
 #include <raft/neighbors/detail/selection_faiss.cuh>
+// #include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
+#include <raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh>
+#include <raft/neighbors/detail/cagra/utils.hpp>
 
 namespace raft::matrix::select {
 
@@ -59,7 +62,8 @@ enum class Algo {
   kWarpFiltered,
   kWarpDistributed,
   kWarpDistributedShm,
-  kFaissBlockSelect
+  kFaissBlockSelect,
+  kCagra
 };
 
 inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
@@ -75,6 +79,7 @@ inline auto operator<<(std::ostream& os, const Algo& algo) -> std::ostream&
     case Algo::kWarpDistributed: return os << "kWarpDistributed";
     case Algo::kWarpDistributedShm: return os << "kWarpDistributedShm";
     case Algo::kFaissBlockSelect: return os << "kFaissBlockSelect";
+    case Algo::kCagra: return os << "kCagra";
     default: return os << "unknown enum value";
   }
 }
@@ -170,6 +175,33 @@ void select_k_impl(const resources& handle,
     case Algo::kFaissBlockSelect:
       return neighbors::detail::select_k(
         in, in_idx, batch_size, len, out, out_idx, select_min, k, stream);
+    case Algo::kCagra: {
+      // TODO: afaict cagra top-k only works on floats
+      if constexpr (std::is_same_v<T, float>) {
+        auto dtype = raft::neighbors::experimental::cagra::detail::utils::get_cuda_data_type<T>();
+        size_t buffer_size =
+          raft::neighbors::experimental::cagra::detail::_cuann_find_topk_bufferSize(
+            k, batch_size, len, dtype);
+        rmm::device_uvector<char> buffer(buffer_size, stream);
+        raft::neighbors::experimental::cagra::detail::_cuann_find_topk<IdxT>(k,
+                                                                             batch_size,
+                                                                             len,
+                                                                             in,
+                                                                             len,
+                                                                             in_idx,
+                                                                             len,
+                                                                             out,
+                                                                             len,
+                                                                             out_idx,
+                                                                             len,
+                                                                             buffer.data(),
+                                                                             false,
+                                                                             NULL,
+                                                                             stream);
+      } else {
+        throw std::logic_error("TODO: CAGRA topk for double/half");
+      }
+    }
   }
 }
 }  // namespace raft::matrix::select

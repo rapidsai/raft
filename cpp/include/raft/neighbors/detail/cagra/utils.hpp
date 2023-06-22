@@ -34,6 +34,11 @@ inline cudaDataType_t get_cuda_data_type<float>()
   return CUDA_R_32F;
 }
 template <>
+inline cudaDataType_t get_cuda_data_type<double>()
+{
+  return CUDA_R_64F;
+}
+template <>
 inline cudaDataType_t get_cuda_data_type<half>()
 {
   return CUDA_R_16F;
@@ -83,6 +88,11 @@ _RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint32_t>()
 }
 template <>
 _RAFT_HOST_DEVICE constexpr unsigned size_of<std::uint64_t>()
+{
+  return 8;
+}
+template <>
+_RAFT_HOST_DEVICE constexpr unsigned size_of<std::int64_t>()
 {
   return 8;
 }
