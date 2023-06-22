@@ -13,8 +13,7 @@
 # limitations under the License.
 #
 
-from dask.distributed import Client, default_client
-from dask_cuda import LocalCUDACluster
+from dask.distributed import default_client
 
 
 def get_client(client=None):
@@ -38,26 +37,3 @@ def parse_host_port(address):
     host, port = address.split(":")
     port = int(port)
     return host, port
-
-
-def create_client(cluster):
-    """
-    Create a Dask distributed client for a specified cluster.
-
-    Parameters
-    ----------
-    cluster : LocalCUDACluster instance or str
-        If a LocalCUDACluster instance is provided, a client will be created
-        for it directly. If a string is provided, it should specify the path to
-        a Dask scheduler file. A client will then be created for the cluster
-        referenced by this scheduler file.
-
-    Returns
-    -------
-    dask.distributed.Client
-        A client connected to the specified cluster.
-    """
-    if isinstance(cluster, LocalCUDACluster):
-        return Client(cluster)
-    else:
-        return Client(scheduler_file=cluster)

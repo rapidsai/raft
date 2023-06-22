@@ -19,7 +19,7 @@ import pytest
 
 from dask.distributed import get_worker, wait
 
-from raft_dask.common.utils import create_client
+from .conftest import create_client
 
 try:
     from raft_dask.common import (
