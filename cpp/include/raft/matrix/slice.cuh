@@ -57,7 +57,7 @@ void slice(raft::resources const& handle,
            raft::device_matrix_view<m_t, idx_t, layout_t> out,
            slice_coordinates<idx_t> coords)
 {
-  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Unsupported matrix layout");
+  RAFT_EXPECTS(raft::is_row_or_column_major(in), "Matrix layout must be row- or column-major");
   RAFT_EXPECTS(coords.row2 > coords.row1, "row2 must be > row1");
   RAFT_EXPECTS(coords.col2 > coords.col1, "col2 must be > col1");
   RAFT_EXPECTS(coords.row1 >= 0, "row1 must be >= 0");
