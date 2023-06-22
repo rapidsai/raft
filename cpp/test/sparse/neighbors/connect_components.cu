@@ -16,7 +16,7 @@
 
 // XXX: We allow the instantiation of masked_l2_nn here:
 // raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(params.n_row);
-// raft::linkage::connect_components<value_idx, value_t>(
+// raft::linkage::cross_component_1nn<value_idx, value_t>(
 //   handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
 //
 // TODO: consider adding this to libraft.so or creating an instance in a
@@ -117,28 +117,28 @@ class ConnectComponentsTest
                                                                          true);
 
     /**
-     * 3. connect_components to fix connectivities
+     * 3. cross_component_1nn to fix connectivities
      */
     raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(params.n_row);
-    raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges,
-                                                          data.data(),
-                                                          colors.data(),
-                                                          params.n_row,
-                                                          params.n_col,
-                                                          red_op,
-                                                          params.n_row,
-                                                          params.n_col);
+    raft::linkage::cross_component_1nn<value_idx, value_t>(handle,
+                                                           out_edges,
+                                                           data.data(),
+                                                           colors.data(),
+                                                           params.n_row,
+                                                           params.n_col,
+                                                           red_op,
+                                                           params.n_row,
+                                                           params.n_col);
 
-    raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges_batched,
-                                                          data.data(),
-                                                          colors.data(),
-                                                          params.n_row,
-                                                          params.n_col,
-                                                          red_op,
-                                                          params.n_row / 2,
-                                                          params.n_col / 2);
+    raft::linkage::cross_component_1nn<value_idx, value_t>(handle,
+                                                           out_edges_batched,
+                                                           data.data(),
+                                                           colors.data(),
+                                                           params.n_row,
+                                                           params.n_col,
+                                                           red_op,
+                                                           params.n_row / 2,
+                                                           params.n_col / 2);
 
     ASSERT_TRUE(out_edges.nnz == out_edges_batched.nnz);
 
@@ -514,30 +514,30 @@ class ConnectComponentsEdgesTest
       colors.data(), params.colors.data(), colors.size(), resource::get_cuda_stream(handle));
 
     /**
-     * 3. connect_components to fix connectivities
+     * 3. cross_component_1nn to fix connectivities
      */
     MutualReachabilityFixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists.data(),
                                                                         params.n_row);
 
-    raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges_unbatched,
-                                                          data.data(),
-                                                          colors.data(),
-                                                          params.n_row,
-                                                          params.n_col,
-                                                          red_op,
-                                                          params.n_row,
-                                                          params.n_col);
+    raft::linkage::cross_component_1nn<value_idx, value_t>(handle,
+                                                           out_edges_unbatched,
+                                                           data.data(),
+                                                           colors.data(),
+                                                           params.n_row,
+                                                           params.n_col,
+                                                           red_op,
+                                                           params.n_row,
+                                                           params.n_col);
 
-    raft::linkage::connect_components<value_idx, value_t>(handle,
-                                                          out_edges_batched,
-                                                          data.data(),
-                                                          colors.data(),
-                                                          params.n_row,
-                                                          params.n_col,
-                                                          red_op,
-                                                          11,
-                                                          1);
+    raft::linkage::cross_component_1nn<value_idx, value_t>(handle,
+                                                           out_edges_batched,
+                                                           data.data(),
+                                                           colors.data(),
+                                                           params.n_row,
+                                                           params.n_col,
+                                                           red_op,
+                                                           11,
+                                                           1);
 
     ASSERT_TRUE(out_edges_unbatched.nnz == out_edges_batched.nnz &&
                 out_edges_unbatched.nnz == params.expected_rows.size());

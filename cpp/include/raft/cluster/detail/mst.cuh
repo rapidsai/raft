@@ -81,15 +81,20 @@ void connect_knn_graph(
 
   raft::sparse::COO<value_t, value_idx> connected_edges(stream);
 
-  raft::sparse::neighbors::connect_components<value_idx, value_t>(handle,
-                                                                  connected_edges,
-                                                                  X,
-                                                                  color,
-                                                                  m,
-                                                                  n,
-                                                                  reduction_op,
-                                                                  min(m, (size_t)4096),
-                                                                  min(n, (size_t)16));
+  // default row and column batch sizes are chosen for computing cross component nearest neighbors.
+  // Reference: PR #1445
+  static constexpr size_t default_row_batch_size = 4096;
+  static constexpr size_t default_col_batch_size = 16;
+
+  raft::sparse::neighbors::cross_component_1nn<value_idx, value_t>(handle,
+                                                                   connected_edges,
+                                                                   X,
+                                                                   color,
+                                                                   m,
+                                                                   n,
+                                                                   reduction_op,
+                                                                   min(m, default_row_batch_size),
+                                                                   min(n, default_col_batch_size));
 
   rmm::device_uvector<value_idx> indptr2(m + 1, stream);
   raft::sparse::convert::sorted_coo_to_csr(

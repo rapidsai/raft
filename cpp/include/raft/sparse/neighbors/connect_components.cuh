@@ -72,18 +72,28 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  * increase in compute time as the col_batch_size is reduced
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(raft::resources const& handle,
-                        raft::sparse::COO<value_t, value_idx>& out,
-                        const value_t* X,
-                        const value_idx* orig_colors,
-                        size_t n_rows,
-                        size_t n_cols,
-                        red_op reduction_op,
-                        size_t row_batch_size = 0,
-                        size_t col_batch_size = 0)
+void cross_component_1nn(
+  raft::resources const& handle,
+  raft::sparse::COO<value_t, value_idx>& out,
+  const value_t* X,
+  const value_idx* orig_colors,
+  size_t n_rows,
+  size_t n_cols,
+  red_op reduction_op,
+  size_t row_batch_size               = 0,
+  size_t col_batch_size               = 0,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
-  detail::connect_components(
-    handle, out, X, orig_colors, n_rows, n_cols, reduction_op, row_batch_size, col_batch_size);
+  detail::cross_component_1nn(handle,
+                              out,
+                              X,
+                              orig_colors,
+                              n_rows,
+                              n_cols,
+                              reduction_op,
+                              row_batch_size,
+                              col_batch_size,
+                              metric);
 }
 
 };  // end namespace raft::sparse::neighbors

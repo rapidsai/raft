@@ -17,12 +17,12 @@
 
 #include <cstdint>
 #include <cub/cub.cuh>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/kvp.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/distance/masked_nn.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/map.cuh>
@@ -57,13 +57,46 @@
 namespace raft::sparse::neighbors::detail {
 
 /**
+ * Base functor with reduction ops for performing masked 1-nn
+ * computation.
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+struct FixConnectivitiesRedOpBase {
+  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
+  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
+  {
+    out->key   = other.key;
+    out->value = other.value;
+  }
+
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const { return b; }
+
+  DI void init(value_t* out, value_t maxVal) const {}
+  DI void init(KVP* out, value_t maxVal) const {}
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const {}
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+
+  DI value_t get_value(value_t& out) const { return out; }
+
+  // The gather and scatter ensure that operator() is still consistent after rearranging.
+  void gather(const raft::resources& handle, value_idx* map) {}
+
+  void scatter(const raft::resources& handle, value_idx* map) {}
+};
+
+/**
  * Functor with reduction ops for performing masked 1-nn
  * computation.
  * @tparam value_idx
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct FixConnectivitiesRedOp {
+struct FixConnectivitiesRedOp : public FixConnectivitiesRedOpBase<value_idx, value_t> {
   value_idx m;
 
   // default constructor for cutlass
@@ -87,27 +120,6 @@ struct FixConnectivitiesRedOp {
     } else
       return b;
   }
-
-  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal) const
-  {
-    out->key   = -1;
-    out->value = maxVal;
-  }
-
-  DI void init_key(value_t& out, value_idx idx) const { return; }
-  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
-
-  DI value_t get_value(KVP& out) const { return out.value; }
-
-  DI value_t get_value(value_t& out) const { return out; }
-
-  // Gather and scatter are necessary because this functor is used in connect_components, which
-  // rearranges the data internally. The gather and scatter ensure that operator() is still
-  // consistent after rearranging.
-  void gather(const raft::resources& handle, value_idx* map) {}
-
-  void scatter(const raft::resources& handle, value_idx* map) {}
 };
 
 /**
@@ -227,7 +239,7 @@ void perform_1nn(raft::resources const& handle,
   thrust::sort_by_key(
     resource::get_thrust_policy(handle), colors, colors + n_rows, sort_plan.data_handle());
 
-  // Modify the reduction operation based on the sort plan. This is particularly needed for HDBSCAN
+  // Modify the reduction operation based on the sort plan.
   reduction_op.gather(handle, sort_plan.data_handle());
 
   auto X_mutable_view =
@@ -439,8 +451,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * @param[in] n_rows number of rows in X
  * @param[in] n_cols number of cols in X
  * @param[in] reduction_op reduction operation for computing nearest neighbors. The reduction
- * operation must have `gather` and `scatter` functions defined. For single linkage clustering,
- * these functions are no-ops. For HDBSCAN, they sort and 'unsort' the core distances based on color
+ * operation must have `gather` and `scatter` functions defined
  * @param[in] row_batch_size the batch size for computing nearest neighbors. This parameter controls
  * the number of samples for which the nearest neighbors are computed at once. Therefore, it affects
  * the memory consumption mainly by reducing the size of the adjacency matrix for masked nearest
@@ -452,26 +463,32 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * is done
  */
 template <typename value_idx, typename value_t, typename red_op>
-void connect_components(raft::resources const& handle,
-                        raft::sparse::COO<value_t, value_idx>& out,
-                        const value_t* X,
-                        const value_idx* orig_colors,
-                        size_t n_rows,
-                        size_t n_cols,
-                        red_op reduction_op,
-                        size_t row_batch_size,
-                        size_t col_batch_size)
+void cross_component_1nn(
+  raft::resources const& handle,
+  raft::sparse::COO<value_t, value_idx>& out,
+  const value_t* X,
+  const value_idx* orig_colors,
+  size_t n_rows,
+  size_t n_cols,
+  red_op reduction_op,
+  size_t row_batch_size,
+  size_t col_batch_size,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
-  RAFT_EXPECTS(col_batch_size <= n_cols, "col_batch_size should be >= 0 and <= n_cols");
-  RAFT_EXPECTS(row_batch_size <= n_rows, "row_batch_size should be >= 0 and <= n_rows");
-  if (row_batch_size == 0) { row_batch_size = n_rows; }
-  if (col_batch_size == 0) { col_batch_size = n_cols; }
   auto stream = resource::get_cuda_stream(handle);
+
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Fixing connectivities for an unconnected k-NN graph only "
+               "supports L2SqrtExpanded currently.");
+
+  if (row_batch_size == 0 || row_batch_size > n_rows) { row_batch_size = n_rows; }
+
+  if (col_batch_size == 0 || col_batch_size > n_cols) { col_batch_size = n_cols; }
 
   rmm::device_uvector<value_idx> colors(n_rows, stream);
 
   // Normalize colors so they are drawn from a monotonically increasing set
-  bool zero_based = true;
+  constexpr bool zero_based = true;
   raft::label::make_monotonic(
     colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
 

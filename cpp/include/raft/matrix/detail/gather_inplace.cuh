@@ -21,8 +21,6 @@
 #include <raft/util/fast_int_div.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <cuda/std/type_traits>
-
 namespace raft {
 namespace matrix {
 namespace detail {
@@ -34,14 +32,6 @@ void gatherInplaceImpl(raft::resources const& handle,
                        MapTransformOp transform_op,
                        IndexT batch_size)
 {
-  // return type of MapTransformOp, must be convertible to IndexT
-  // TODO (tarang-jain): Use cuda::std::result_of here to ensure that the return type of a
-  // device function is being correctly obtained. Reference:
-  // https://github.com/rapidsai/raft/pull/1445.
-  typedef typename cuda::std::result_of<decltype(transform_op)(MapT)>::type MapTransformOpReturnT;
-  RAFT_EXPECTS((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
-               "MapTransformOp's result type must be convertible to signed integer");
-
   IndexT m          = inout.extent(0);
   IndexT n          = inout.extent(1);
   IndexT map_length = map.extent(0);
