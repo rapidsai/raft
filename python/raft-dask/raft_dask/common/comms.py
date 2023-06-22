@@ -25,13 +25,13 @@ from dask_cuda.utils import nvml_device_index
 
 from pylibraft.common.handle import Handle
 
-from raft_dask.common.comms_utils import (
+from .comms_utils import (
     inject_comms_on_handle,
     inject_comms_on_handle_coll_only,
 )
-from raft_dask.common.nccl import nccl
-from raft_dask.common.ucx import UCX
-from raft_dask.common.utils import parse_host_port
+from .nccl import nccl
+from .ucx import UCX
+from .utils import parse_host_port
 
 logger = logging.getLogger(__name__)
 
