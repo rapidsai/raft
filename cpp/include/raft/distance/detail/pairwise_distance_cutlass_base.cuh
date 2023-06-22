@@ -162,7 +162,7 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
   RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
 
   // Launch initialized CUTLASS kernel
-  RAFT_CUTLASS_TRY(cutlassDist_op());
+  RAFT_CUTLASS_TRY(cutlassDist_op(stream));
 }
 
 };  // namespace detail
