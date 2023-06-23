@@ -101,9 +101,9 @@ struct FixConnectivitiesRedOp {
   /** The gather and scatter ensure that operator() is still consistent after rearranging the data.
    * TODO (tarang-jain): refactor cross_component_nn API to separate out the gather and scatter
    * functions from the reduction op. */
-  virtual void gather(const raft::resources& handle, value_idx* map) {}
+  void gather(const raft::resources& handle, value_idx* map) {}
 
-  virtual void scatter(const raft::resources& handle, value_idx* map) {}
+  void scatter(const raft::resources& handle, value_idx* map) {}
 };
 
 /**
@@ -301,6 +301,7 @@ void perform_1nn(raft::resources const& handle,
                                                                            adj_view,
                                                                            group_idxs_view,
                                                                            kvp_view);
+    RAFT_LOG_INFO("l2_nn done");
   }
 
   // Transform the keys so that they correctly point to the unpermuted indices.
@@ -475,6 +476,8 @@ void cross_component_nn(
   constexpr bool zero_based = true;
   raft::label::make_monotonic(
     colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
+  
+  raft::print_device_vector("colors", colors.data(), n_rows, std::cout);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -494,6 +497,8 @@ void cross_component_nn(
               row_batch_size,
               col_batch_size,
               reduction_op);
+  
+  raft::print_device_vector("nn_colros", nn_colors.data(), n_rows, std::cout);
 
   /**
    * Sort data points by color (neighbors are not sorted)
