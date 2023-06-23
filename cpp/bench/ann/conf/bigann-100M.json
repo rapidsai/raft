@@ -168,7 +168,35 @@
       "search_result_file" : "result/bigann-100M/ivf_flat/nlist100K"
     },
 
+    {
+      "name" : "cagra.dim32",
+      "algo" : "cagra",
+      "build_param": {
+        "index_dim" : 32
+      },
+      "file" : "index/bigann-100M/cagra/dim32",
+      "search_params" : [
+        "itopk": 32,
+        "itopk": 64,
+        "itopk": 128
+      ],
+      "search_result_file" : "result/bigann-100M/cagra/dim32"
+    },
 
 
+    {
+      "name" : "cagra.dim64",
+      "algo" : "cagra",
+      "build_param": {
+        "index_dim" : 64
+      },
+      "file" : "index/bigann-100M/cagra/dim64",
+      "search_params" : [
+        "itopk": 32,
+        "itopk": 64,
+        "itopk": 128
+      ],
+      "search_result_file" : "result/bigann-100M/cagra/dim64"
+    }
   ]
 }
