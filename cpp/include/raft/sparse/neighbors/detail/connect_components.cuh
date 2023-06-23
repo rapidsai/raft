@@ -104,7 +104,7 @@ struct FixConnectivitiesRedOp {
 
   /** The gather and scatter ensure that operator() is still consistent after rearranging the data.
    * TODO (tarang-jain): refactor cross_component_nn API to separate out the gather and scatter
-   * functions from the reduction op. */
+   * functions from the reduction op. Reference: https://github.com/rapidsai/raft/issues/1614 */
   void gather(const raft::resources& handle, value_idx* map) {}
 
   void scatter(const raft::resources& handle, value_idx* map) {}
