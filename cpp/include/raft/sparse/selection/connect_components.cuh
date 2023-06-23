@@ -31,7 +31,7 @@
 #include <raft/sparse/neighbors/connect_components.cuh>
 
 namespace raft::linkage {
-using raft::sparse::neighbors::cross_component_1nn;
+using raft::sparse::neighbors::cross_component_nn;
 using raft::sparse::neighbors::FixConnectivitiesRedOp;
 using raft::sparse::neighbors::get_n_components;
 }  // namespace raft::linkage

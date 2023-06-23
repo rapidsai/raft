@@ -63,41 +63,8 @@ namespace raft::sparse::neighbors::detail {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct FixConnectivitiesRedOpBase {
-  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
-  {
-    out->key   = other.key;
-    out->value = other.value;
-  }
-
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const { return b; }
-
-  DI void init(value_t* out, value_t maxVal) const {}
-  DI void init(KVP* out, value_t maxVal) const {}
-
-  DI void init_key(value_t& out, value_idx idx) const { return; }
-  DI void init_key(KVP& out, value_idx idx) const {}
-
-  DI value_t get_value(KVP& out) const { return out.value; }
-
-  DI value_t get_value(value_t& out) const { return out; }
-
-  // The gather and scatter ensure that operator() is still consistent after rearranging.
-  void gather(const raft::resources& handle, value_idx* map) {}
-
-  void scatter(const raft::resources& handle, value_idx* map) {}
-};
-
-/**
- * Functor with reduction ops for performing masked 1-nn
- * computation.
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-struct FixConnectivitiesRedOp : public FixConnectivitiesRedOpBase<value_idx, value_t> {
-  value_idx m;
+struct FixConnectivitiesRedOp {
+    value_idx m;
 
   // default constructor for cutlass
   DI FixConnectivitiesRedOp() : m(0) {}
@@ -120,6 +87,23 @@ struct FixConnectivitiesRedOp : public FixConnectivitiesRedOpBase<value_idx, val
     } else
       return b;
   }
+
+  DI void init(value_t* out, value_t maxVal) const {}
+  DI void init(KVP* out, value_t maxVal) const {}
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const {}
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+
+  DI value_t get_value(value_t& out) const { return out; }
+
+  /** The gather and scatter ensure that operator() is still consistent after rearranging the data.
+   * TODO (tarang-jain): refactor cross_component_nn API to separate out the gather and scatter
+   * functions from the reduction op. */
+  virtual void gather(const raft::resources& handle, value_idx* map) {}
+
+  virtual void scatter(const raft::resources& handle, value_idx* map) {}
 };
 
 /**
@@ -238,7 +222,7 @@ void perform_1nn(raft::resources const& handle,
 
   thrust::sort_by_key(
     resource::get_thrust_policy(handle), colors, colors + n_rows, sort_plan.data_handle());
-
+  
   // Modify the reduction operation based on the sort plan.
   reduction_op.gather(handle, sort_plan.data_handle());
 
@@ -463,7 +447,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * is done
  */
 template <typename value_idx, typename value_t, typename red_op>
-void cross_component_1nn(
+void cross_component_nn(
   raft::resources const& handle,
   raft::sparse::COO<value_t, value_idx>& out,
   const value_t* X,

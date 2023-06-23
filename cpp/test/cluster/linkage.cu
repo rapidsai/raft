@@ -16,7 +16,7 @@
 
 // XXX: We allow the instantiation of masked_l2_nn here:
 // raft::linkage::FixConnectivitiesRedOp<value_idx, value_t> red_op(params.n_row);
-// raft::linkage::cross_component_1nn<value_idx, value_t>(
+// raft::linkage::cross_component_nn<value_idx, value_t>(
 //   handle, out_edges, data.data(), colors.data(), params.n_row, params.n_col, red_op);
 //
 // TODO: consider adding this to libraft.so or creating an instance in a
