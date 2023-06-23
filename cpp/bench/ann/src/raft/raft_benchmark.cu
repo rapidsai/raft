@@ -40,6 +40,12 @@ extern template class raft::bench::ann::RaftIvfPQ<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
+#include "raft_cagra_wrapper.h"
+extern template class raft::bench::ann::RaftCagra<float, uint32_t>;
+extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
+extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
+#endif
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
@@ -117,28 +123,24 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
-template <typename T, template <typename> class Algo>
-std::unique_ptr<raft::bench::ann::ANN<T>> make_algo(raft::bench::ann::Metric metric,
-                                                    int dim,
-                                                    const nlohmann::json& conf)
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
+template <typename T, typename IdxT>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::RaftCagra<T, IdxT>::BuildParam& param)
 {
-  typename Algo<T>::BuildParam param;
-  parse_build_param<T>(conf, param);
-  return std::make_unique<Algo<T>>(metric, dim, param);
+  if (conf.contains("index_dim")) {
+    param.graph_degree              = conf.at("index_dim");
+    param.intermediate_graph_degree = param.graph_degree * 2;
+  }
 }
 
-template <typename T, template <typename> class Algo>
-std::unique_ptr<raft::bench::ann::ANN<T>> make_algo(raft::bench::ann::Metric metric,
-                                                    int dim,
-                                                    const nlohmann::json& conf,
-                                                    const std::vector<int>& dev_list)
+template <typename T, typename IdxT>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
-  typename Algo<T>::BuildParam param;
-  parse_build_param<T>(conf, param);
-
-  (void)dev_list;
-  return std::make_unique<Algo<T>>(metric, dim, param);
+  param.itopk_size = conf.at("itopk");
 }
+#endif
 
 template <typename T>
 std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
@@ -177,6 +179,13 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
       std::make_unique<raft::bench::ann::RaftIvfPQ<T, int64_t>>(metric, dim, param, refine_ratio);
   }
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
+  if (algo == "raft_cagra") {
+    typename raft::bench::ann::RaftCagra<T, uint32_t>::BuildParam param;
+    parse_build_param<T, uint32_t>(conf, param);
+    ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
+  }
+#endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
   if (refine_ratio > 1.0) {}
@@ -205,6 +214,13 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   if (algo == "raft_ivf_pq") {
     auto param = std::make_unique<typename raft::bench::ann::RaftIvfPQ<T, int64_t>::SearchParam>();
     parse_search_param<T, int64_t>(conf, *param);
+    return param;
+  }
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
+  if (algo == "raft_cagra") {
+    auto param = std::make_unique<typename raft::bench::ann::RaftCagra<T, uint32_t>::SearchParam>();
+    parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
 #endif
