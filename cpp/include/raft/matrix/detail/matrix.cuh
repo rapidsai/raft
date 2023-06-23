@@ -170,14 +170,14 @@ void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
  */
 template <typename m_t, typename idx_t = int>
 __global__ void slice(
-  const m_t* src_d, idx_t m, idx_t n, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
+  const m_t* src_d, idx_t lda, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t dm = x2 - x1, dn = y2 - y1;
   if (idx < dm * dn) {
     idx_t i = idx % dm, j = idx / dm;
     idx_t is = i + x1, js = j + y1;
-    dst_d[idx] = src_d[is + js * m];
+    dst_d[idx] = src_d[is + js * lda];
   }
 }
 
@@ -190,12 +190,16 @@ void sliceMatrix(const m_t* in,
                  idx_t y1,
                  idx_t x2,
                  idx_t y2,
+                 bool row_major,
                  cudaStream_t stream)
 {
-  // Slicing
+  auto lda = row_major ? n_cols : n_rows;
   dim3 block(64);
   dim3 grid(((x2 - x1) * (y2 - y1) + block.x - 1) / block.x);
-  slice<<<grid, block, 0, stream>>>(in, n_rows, n_cols, out, x1, y1, x2, y2);
+  if (row_major)
+    slice<<<grid, block, 0, stream>>>(in, lda, out, y1, x1, y2, x2);
+  else
+    slice<<<grid, block, 0, stream>>>(in, lda, out, x1, y1, x2, y2);
 }
 
 /**
