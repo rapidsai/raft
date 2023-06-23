@@ -70,6 +70,7 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  * scratch space buffer of shape (n_rows, col_batch_size) is created for this. Usually, this
  * parameter affects the memory consumption more drastically than the row_batch_size with a marginal
  * increase in compute time as the col_batch_size is reduced
+ * @param[in] metric distance metric
  */
 template <typename value_idx, typename value_t, typename red_op>
 void cross_component_nn(

@@ -449,6 +449,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  * parameter affects the memory consumption more drastically than the col_batch_size with a marginal
  * increase in compute time as the col_batch_size is reduced. default 0 indicates that no batching
  * is done
+ * @param[in] metric distance metric
  */
 template <typename value_idx, typename value_t, typename red_op>
 void cross_component_nn(
