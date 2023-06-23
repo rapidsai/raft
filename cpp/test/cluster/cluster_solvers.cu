@@ -17,7 +17,9 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <memory>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_id.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft/spectral/cluster_solvers.cuh>
 #include <raft/spectral/modularity_maximization.cuh>
@@ -31,13 +33,13 @@ TEST(Raft, ClusterSolvers)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
+  raft::resources h;
 
   index_type maxiter{100};
   value_type tol{1.0e-10};
   unsigned long long seed{100110021003};
 
-  auto stream = h.get_stream();
+  auto stream = resource::get_cuda_stream(h);
 
   index_type n{100};
   index_type d{10};
@@ -61,8 +63,8 @@ TEST(Raft, ModularitySolvers)
   using index_type = int;
   using value_type = double;
 
-  raft::device_resources h;
-  ASSERT_EQ(0, h.get_device());
+  raft::resources h;
+  ASSERT_EQ(0, resource::get_device_id(h));
 
   index_type neigvs{10};
   index_type maxiter{100};
@@ -87,7 +89,7 @@ TEST(Raft, ModularitySolvers)
   cluster_solver_config_t<index_type, value_type> clust_cfg{k, maxiter, tol, seed};
   kmeans_solver_t<index_type, value_type> cluster_solver{clust_cfg};
 
-  auto stream = h.get_stream();
+  auto stream = resource::get_cuda_stream(h);
   sparse_matrix_t<index_type, value_type> sm{h, nullptr, nullptr, nullptr, 0, 0};
 
   EXPECT_ANY_THROW(spectral::modularity_maximization(

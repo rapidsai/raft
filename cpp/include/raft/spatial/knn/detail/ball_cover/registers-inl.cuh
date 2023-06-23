@@ -17,6 +17,8 @@
 #pragma once
 
 #include "common.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include "../../ball_cover_types.hpp"
 #include "../haversine_distance.cuh"
@@ -457,7 +459,7 @@ template <typename value_idx,
           typename value_int = std::uint32_t,
           int dims           = 2,
           typename dist_func>
-void rbc_low_dim_pass_one(raft::device_resources const& handle,
+void rbc_low_dim_pass_one(raft::resources const& handle,
                           const BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
                           const value_int n_query_rows,
@@ -472,116 +474,122 @@ void rbc_low_dim_pass_one(raft::device_resources const& handle,
 {
   if (k <= 32)
     block_rbc_kernel_registers<value_idx, value_t, 32, 2, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                      query,
-                                                      index.n,
-                                                      R_knn_inds,
-                                                      R_knn_dists,
-                                                      index.m,
-                                                      k,
-                                                      index.get_R_indptr().data_handle(),
-                                                      index.get_R_1nn_cols().data_handle(),
-                                                      index.get_R_1nn_dists().data_handle(),
-                                                      inds,
-                                                      dists,
-                                                      dists_counter,
-                                                      index.get_R_radius().data_handle(),
-                                                      dfunc,
-                                                      weight);
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
 
   else if (k <= 64)
     block_rbc_kernel_registers<value_idx, value_t, 64, 3, 128, 2, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                      query,
-                                                      index.n,
-                                                      R_knn_inds,
-                                                      R_knn_dists,
-                                                      index.m,
-                                                      k,
-                                                      index.get_R_indptr().data_handle(),
-                                                      index.get_R_1nn_cols().data_handle(),
-                                                      index.get_R_1nn_dists().data_handle(),
-                                                      inds,
-                                                      dists,
-                                                      dists_counter,
-                                                      index.get_R_radius().data_handle(),
-                                                      dfunc,
-                                                      weight);
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
   else if (k <= 128)
     block_rbc_kernel_registers<value_idx, value_t, 128, 3, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                      query,
-                                                      index.n,
-                                                      R_knn_inds,
-                                                      R_knn_dists,
-                                                      index.m,
-                                                      k,
-                                                      index.get_R_indptr().data_handle(),
-                                                      index.get_R_1nn_cols().data_handle(),
-                                                      index.get_R_1nn_dists().data_handle(),
-                                                      inds,
-                                                      dists,
-                                                      dists_counter,
-                                                      index.get_R_radius().data_handle(),
-                                                      dfunc,
-                                                      weight);
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
 
   else if (k <= 256)
     block_rbc_kernel_registers<value_idx, value_t, 256, 4, 128, dims, value_int>
-      <<<n_query_rows, 128, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                      query,
-                                                      index.n,
-                                                      R_knn_inds,
-                                                      R_knn_dists,
-                                                      index.m,
-                                                      k,
-                                                      index.get_R_indptr().data_handle(),
-                                                      index.get_R_1nn_cols().data_handle(),
-                                                      index.get_R_1nn_dists().data_handle(),
-                                                      inds,
-                                                      dists,
-                                                      dists_counter,
-                                                      index.get_R_radius().data_handle(),
-                                                      dfunc,
-                                                      weight);
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
 
   else if (k <= 512)
     block_rbc_kernel_registers<value_idx, value_t, 512, 8, 64, dims, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                     query,
-                                                     index.n,
-                                                     R_knn_inds,
-                                                     R_knn_dists,
-                                                     index.m,
-                                                     k,
-                                                     index.get_R_indptr().data_handle(),
-                                                     index.get_R_1nn_cols().data_handle(),
-                                                     index.get_R_1nn_dists().data_handle(),
-                                                     inds,
-                                                     dists,
-                                                     dists_counter,
-                                                     index.get_R_radius().data_handle(),
-                                                     dfunc,
-                                                     weight);
+      <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
 
   else if (k <= 1024)
     block_rbc_kernel_registers<value_idx, value_t, 1024, 8, 64, dims, value_int>
-      <<<n_query_rows, 64, 0, handle.get_stream()>>>(index.get_X().data_handle(),
-                                                     query,
-                                                     index.n,
-                                                     R_knn_inds,
-                                                     R_knn_dists,
-                                                     index.m,
-                                                     k,
-                                                     index.get_R_indptr().data_handle(),
-                                                     index.get_R_1nn_cols().data_handle(),
-                                                     index.get_R_1nn_dists().data_handle(),
-                                                     inds,
-                                                     dists,
-                                                     dists_counter,
-                                                     index.get_R_radius().data_handle(),
-                                                     dfunc,
-                                                     weight);
+      <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        R_knn_inds,
+        R_knn_dists,
+        index.m,
+        k,
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        dists_counter,
+        index.get_R_radius().data_handle(),
+        dfunc,
+        weight);
 }
 
 template <typename value_idx,
@@ -589,7 +597,7 @@ template <typename value_idx,
           typename value_int = std::uint32_t,
           int dims           = 2,
           typename dist_func>
-void rbc_low_dim_pass_two(raft::device_resources const& handle,
+void rbc_low_dim_pass_two(raft::resources const& handle,
                           const BallCoverIndex<value_idx, value_t, value_int>& index,
                           const value_t* query,
                           const value_int n_query_rows,
@@ -604,11 +612,13 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
 {
   const value_int bitset_size = ceil(index.n_landmarks / 32.0);
 
-  rmm::device_uvector<std::uint32_t> bitset(bitset_size * n_query_rows, handle.get_stream());
-  thrust::fill(handle.get_thrust_policy(), bitset.data(), bitset.data() + bitset.size(), 0);
+  rmm::device_uvector<std::uint32_t> bitset(bitset_size * n_query_rows,
+                                            resource::get_cuda_stream(handle));
+  thrust::fill(
+    resource::get_thrust_policy(handle), bitset.data(), bitset.data() + bitset.size(), 0);
 
   perform_post_filter_registers<value_idx, value_t, value_int, dims, 128>
-    <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), handle.get_stream()>>>(
+    <<<n_query_rows, 128, bitset_size * sizeof(std::uint32_t), resource::get_cuda_stream(handle)>>>(
       query,
       index.n,
       R_knn_inds,
@@ -631,22 +641,23 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   32,
                                   2,
                                   128,
-                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
-      index.get_X().data_handle(),
-      query,
-      index.n,
-      bitset.data(),
-      bitset_size,
-      index.get_R_closest_landmark_dists().data_handle(),
-      index.get_R_indptr().data_handle(),
-      index.get_R_1nn_cols().data_handle(),
-      index.get_R_1nn_dists().data_handle(),
-      inds,
-      dists,
-      index.n_landmarks,
-      k,
-      dfunc,
-      post_dists_counter);
+                                  dims>
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        bitset.data(),
+        bitset_size,
+        index.get_R_closest_landmark_dists().data_handle(),
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        index.n_landmarks,
+        k,
+        dfunc,
+        post_dists_counter);
   else if (k <= 64)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -656,22 +667,23 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   64,
                                   3,
                                   128,
-                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
-      index.get_X().data_handle(),
-      query,
-      index.n,
-      bitset.data(),
-      bitset_size,
-      index.get_R_closest_landmark_dists().data_handle(),
-      index.get_R_indptr().data_handle(),
-      index.get_R_1nn_cols().data_handle(),
-      index.get_R_1nn_dists().data_handle(),
-      inds,
-      dists,
-      index.n_landmarks,
-      k,
-      dfunc,
-      post_dists_counter);
+                                  dims>
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        bitset.data(),
+        bitset_size,
+        index.get_R_closest_landmark_dists().data_handle(),
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        index.n_landmarks,
+        k,
+        dfunc,
+        post_dists_counter);
   else if (k <= 128)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -681,22 +693,23 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   128,
                                   3,
                                   128,
-                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
-      index.get_X().data_handle(),
-      query,
-      index.n,
-      bitset.data(),
-      bitset_size,
-      index.get_R_closest_landmark_dists().data_handle(),
-      index.get_R_indptr().data_handle(),
-      index.get_R_1nn_cols().data_handle(),
-      index.get_R_1nn_dists().data_handle(),
-      inds,
-      dists,
-      index.n_landmarks,
-      k,
-      dfunc,
-      post_dists_counter);
+                                  dims>
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        bitset.data(),
+        bitset_size,
+        index.get_R_closest_landmark_dists().data_handle(),
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        index.n_landmarks,
+        k,
+        dfunc,
+        post_dists_counter);
   else if (k <= 256)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -706,22 +719,23 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   256,
                                   4,
                                   128,
-                                  dims><<<n_query_rows, 128, 0, handle.get_stream()>>>(
-      index.get_X().data_handle(),
-      query,
-      index.n,
-      bitset.data(),
-      bitset_size,
-      index.get_R_closest_landmark_dists().data_handle(),
-      index.get_R_indptr().data_handle(),
-      index.get_R_1nn_cols().data_handle(),
-      index.get_R_1nn_dists().data_handle(),
-      inds,
-      dists,
-      index.n_landmarks,
-      k,
-      dfunc,
-      post_dists_counter);
+                                  dims>
+      <<<n_query_rows, 128, 0, resource::get_cuda_stream(handle)>>>(
+        index.get_X().data_handle(),
+        query,
+        index.n,
+        bitset.data(),
+        bitset_size,
+        index.get_R_closest_landmark_dists().data_handle(),
+        index.get_R_indptr().data_handle(),
+        index.get_R_1nn_cols().data_handle(),
+        index.get_R_1nn_dists().data_handle(),
+        inds,
+        dists,
+        index.n_landmarks,
+        k,
+        dfunc,
+        post_dists_counter);
   else if (k <= 512)
     compute_final_dists_registers<value_idx,
                                   value_t,
@@ -731,7 +745,7 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   512,
                                   8,
                                   64,
-                                  dims><<<n_query_rows, 64, 0, handle.get_stream()>>>(
+                                  dims><<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
       index.get_X().data_handle(),
       query,
       index.n,
@@ -756,7 +770,7 @@ void rbc_low_dim_pass_two(raft::device_resources const& handle,
                                   1024,
                                   8,
                                   64,
-                                  dims><<<n_query_rows, 64, 0, handle.get_stream()>>>(
+                                  dims><<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
       index.get_X().data_handle(),
       query,
       index.n,

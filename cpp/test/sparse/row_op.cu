@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/op/row_op.cuh>
@@ -56,7 +57,7 @@ class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Inde
  public:
   CSRRowOpTest()
     : params(::testing::TestWithParam<CSRRowOpInputs<Type_f, Index_>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       verify(params.verify.size(), stream),
       ex_scan(params.ex_scan.size(), stream),
       result(params.verify.size(), stream)
@@ -82,7 +83,7 @@ class CSRRowOpTest : public ::testing::TestWithParam<CSRRowOpInputs<Type_f, Inde
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   CSRRowOpInputs<Type_f, Index_> params;

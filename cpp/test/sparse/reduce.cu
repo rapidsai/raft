@@ -15,11 +15,12 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include "../test_utils.cuh"
 #include <iostream>
 #include <limits>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/reduce.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -51,9 +52,9 @@ class SparseReduceTest : public ::testing::TestWithParam<SparseReduceInputs<valu
 
   void Run()
   {
-    raft::device_resources handle;
+    raft::resources handle;
 
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
 
     rmm::device_uvector<value_idx> in_rows(params.in_rows.size(), stream);
     rmm::device_uvector<value_idx> in_cols(params.in_cols.size(), stream);

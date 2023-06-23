@@ -18,6 +18,7 @@
 #include "reduce.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -37,7 +38,8 @@ template <typename T>
 void stridedReductionLaunch(
   T* dots, const T* data, int cols, int rows, bool inplace, cudaStream_t stream)
 {
-  raft::device_resources handle{stream};
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
   auto dots_view = raft::make_device_vector_view(dots, cols);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
   strided_reduction(handle, data_view, dots_view, (T)0, inplace, raft::sq_op{});
@@ -48,7 +50,7 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
  public:
   stridedReductionTest()
     : params(::testing::TestWithParam<stridedReductionInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       dots_exp(params.cols, stream),  // expected dot products (from test)
       dots_act(params.cols, stream)   // actual dot products (from prim)
@@ -87,11 +89,11 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
                           raft::identity_op{});
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, false, stream);
     stridedReductionLaunch(dots_act.data(), data.data(), cols, rows, true, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   stridedReductionInputs<T> params;

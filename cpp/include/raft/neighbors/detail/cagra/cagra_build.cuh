@@ -19,6 +19,7 @@
 #include "graph_core.cuh"
 #include <chrono>
 #include <cstdio>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <vector>
 
 #include <raft/core/device_mdarray.hpp>
@@ -37,20 +38,14 @@
 
 namespace raft::neighbors::experimental::cagra::detail {
 
-using INDEX_T = std::uint32_t;
-
 template <typename DataT, typename IdxT, typename accessor>
-void build_knn_graph(raft::device_resources const& res,
+void build_knn_graph(raft::resources const& res,
                      mdspan<const DataT, matrix_extent<IdxT>, row_major, accessor> dataset,
                      raft::host_matrix_view<IdxT, IdxT, row_major> knn_graph,
                      std::optional<float> refine_rate                   = std::nullopt,
                      std::optional<ivf_pq::index_params> build_params   = std::nullopt,
                      std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
-  RAFT_EXPECTS(
-    dataset.extent(1) * sizeof(DataT) % 8 == 0,
-    "Dataset rows are expected to have at least 8 bytes alignment. Try padding feature dims.");
-
   RAFT_EXPECTS(!build_params || build_params->metric == distance::DistanceType::L2Expanded,
                "Currently only L2Expanded metric is supported");
 
@@ -95,14 +90,14 @@ void build_knn_graph(raft::device_resources const& res,
   // search top (k + 1) neighbors
   //
   if (!search_params) {
-    search_params                          = ivf_pq::search_params{};
-    search_params->n_probes                = std::min(dataset.extent(1) * 2, build_params->n_lists);
-    search_params->lut_dtype               = CUDA_R_8U;
+    search_params            = ivf_pq::search_params{};
+    search_params->n_probes  = std::min<IdxT>(dataset.extent(1) * 2, build_params->n_lists);
+    search_params->lut_dtype = CUDA_R_8U;
     search_params->internal_distance_dtype = CUDA_R_32F;
   }
   const auto top_k          = node_degree + 1;
   uint32_t gpu_top_k        = node_degree * refine_rate.value_or(2.0f);
-  gpu_top_k                 = std::min(std::max(gpu_top_k, top_k), dataset.extent(0));
+  gpu_top_k                 = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries    = dataset.extent(0);
   const auto max_batch_size = 1024;
   RAFT_LOG_DEBUG(
@@ -132,19 +127,20 @@ void build_knn_graph(raft::device_resources const& res,
   auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
   if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq using pool memory resource"); }
 
-  raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(dataset.data_handle(),
-                                                                            dataset.extent(0),
-                                                                            dataset.extent(1),
-                                                                            max_batch_size,
-                                                                            res.get_stream(),
-                                                                            device_memory);
+  raft::spatial::knn::detail::utils::batch_load_iterator<DataT> vec_batches(
+    dataset.data_handle(),
+    dataset.extent(0),
+    dataset.extent(1),
+    max_batch_size,
+    resource::get_cuda_stream(res),
+    device_memory);
 
   for (const auto& batch : vec_batches) {
-    auto queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
+    auto queries_view = raft::make_device_matrix_view<const DataT, uint32_t>(
       batch.data(), batch.size(), batch.row_width());
-    auto neighbors_view = make_device_matrix_view<int64_t, int64_t>(
+    auto neighbors_view = make_device_matrix_view<int64_t, uint32_t>(
       neighbors.data_handle(), batch.size(), neighbors.extent(1));
-    auto distances_view = make_device_matrix_view<float, int64_t>(
+    auto distances_view = make_device_matrix_view<float, uint32_t>(
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
@@ -153,8 +149,11 @@ void build_knn_graph(raft::device_resources const& res,
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),
                  neighbors_view.size(),
-                 res.get_stream());
-      raft::copy(queries_host.data_handle(), batch.data(), queries_view.size(), res.get_stream());
+                 resource::get_cuda_stream(res));
+      raft::copy(queries_host.data_handle(),
+                 batch.data(),
+                 queries_view.size(),
+                 resource::get_cuda_stream(res));
       auto queries_host_view = make_host_matrix_view<const DataT, int64_t>(
         queries_host.data_handle(), batch.size(), batch.row_width());
       auto neighbors_host_view = make_host_matrix_view<const int64_t, int64_t>(
@@ -163,7 +162,7 @@ void build_knn_graph(raft::device_resources const& res,
         refined_neighbors_host.data_handle(), batch.size(), top_k);
       auto refined_distances_host_view = make_host_matrix_view<float, int64_t>(
         refined_distances_host.data_handle(), batch.size(), top_k);
-      res.sync_stream();
+      resource::sync_stream(res);
 
       raft::neighbors::detail::refine_host<int64_t, DataT, float, int64_t>(  // res,
         dataset,
@@ -193,8 +192,8 @@ void build_knn_graph(raft::device_resources const& res,
       raft::copy(refined_neighbors_host.data_handle(),
                  refined_neighbors_view.data_handle(),
                  refined_neighbors_view.size(),
-                 res.get_stream());
-      res.sync_stream();
+                 resource::get_cuda_stream(res));
+      resource::sync_stream(res);
     }
     // omit itself & write out
     // TODO(tfeher): do this in parallel with GPU processing of next batch

@@ -18,7 +18,9 @@
 
 #include "cublas_wrappers.hpp"
 #include "cusolver_wrappers.hpp"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cublas_handle.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/binary_op.cuh>
 
 namespace raft {
@@ -26,7 +28,7 @@ namespace linalg {
 namespace detail {
 
 template <typename math_t>
-void choleskyRank1Update(raft::device_resources const& handle,
+void choleskyRank1Update(raft::resources const& handle,
                          math_t* L,
                          int n,
                          int ld,
@@ -75,13 +77,14 @@ void choleskyRank1Update(raft::device_resources const& handle,
     // contiguous. We copy elements from A_row to a contiguous workspace A_new.
     A_row = L + n - 1;
     A_new = reinterpret_cast<math_t*>(workspace);
-    RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_row, ld, A_new, 1, stream));
+    RAFT_CUBLAS_TRY(
+      cublasCopy(resource::get_cublas_handle(handle), n - 1, A_row, ld, A_new, 1, stream));
   }
   cublasOperation_t op = (uplo == CUBLAS_FILL_MODE_UPPER) ? CUBLAS_OP_T : CUBLAS_OP_N;
   if (n > 1) {
     // Calculate L_12 = x by solving equation L_11 x = A_12
     math_t alpha = 1;
-    RAFT_CUBLAS_TRY(cublastrsm(handle.get_cublas_handle(),
+    RAFT_CUBLAS_TRY(cublastrsm(resource::get_cublas_handle(handle),
                                CUBLAS_SIDE_LEFT,
                                uplo,
                                op,
@@ -96,11 +99,13 @@ void choleskyRank1Update(raft::device_resources const& handle,
                                stream));
 
     // A_new now stores L_12, we calculate s = L_12 * L_12
-    RAFT_CUBLAS_TRY(cublasdot(handle.get_cublas_handle(), n - 1, A_new, 1, A_new, 1, s, stream));
+    RAFT_CUBLAS_TRY(
+      cublasdot(resource::get_cublas_handle(handle), n - 1, A_new, 1, A_new, 1, s, stream));
 
     if (uplo == CUBLAS_FILL_MODE_LOWER) {
       // Copy back the L_12 elements as the n-th row of L
-      RAFT_CUBLAS_TRY(cublasCopy(handle.get_cublas_handle(), n - 1, A_new, 1, A_row, ld, stream));
+      RAFT_CUBLAS_TRY(
+        cublasCopy(resource::get_cublas_handle(handle), n - 1, A_new, 1, A_row, ld, stream));
     }
   } else {  // n == 1 case
     RAFT_CUDA_TRY(cudaMemsetAsync(s, 0, sizeof(math_t), stream));
@@ -111,7 +116,7 @@ void choleskyRank1Update(raft::device_resources const& handle,
   math_t L_22_host;
   raft::update_host(&s_host, s, 1, stream);
   raft::update_host(&L_22_host, L_22, 1, stream);  // L_22 stores A_22
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
   L_22_host = std::sqrt(L_22_host - s_host);
 
   // Check for numeric error with sqrt. If the matrix is not positive definite or

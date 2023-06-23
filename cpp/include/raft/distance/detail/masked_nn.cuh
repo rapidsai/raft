@@ -17,6 +17,8 @@
 #pragma once
 
 #include <limits>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <stdint.h>
 
 #include <raft/distance/detail/compress_to_bits.cuh>
@@ -230,7 +232,7 @@ __global__ __launch_bounds__(P::Nthreads, 2) void masked_l2_nn_kernel(OutT* min,
  *
  */
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT, typename KVPReduceOpT>
-void masked_l2_nn_impl(raft::device_resources const& handle,
+void masked_l2_nn_impl(raft::resources const& handle,
                        OutT* out,
                        const DataT* x,
                        const DataT* y,
@@ -253,8 +255,8 @@ void masked_l2_nn_impl(raft::device_resources const& handle,
 
   // Get stream and workspace memory resource
   rmm::mr::device_memory_resource* ws_mr =
-    dynamic_cast<rmm::mr::device_memory_resource*>(handle.get_workspace_resource());
-  auto stream = handle.get_stream();
+    dynamic_cast<rmm::mr::device_memory_resource*>(resource::get_workspace_resource(handle));
+  auto stream = resource::get_cuda_stream(handle);
 
   // Acquire temporary buffers and initialize to zero:
   // 1) Adjacency matrix bitfield

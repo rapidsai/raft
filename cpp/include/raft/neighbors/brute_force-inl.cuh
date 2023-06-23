@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
@@ -53,11 +54,11 @@ namespace raft::neighbors::brute_force {
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  compute multiple knn graphs and aggregate row-wise
  *  (see detailed description above)
@@ -78,7 +79,7 @@ namespace raft::neighbors::brute_force {
  */
 template <typename value_t, typename idx_t>
 inline void knn_merge_parts(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
   raft::device_matrix_view<const idx_t, idx_t, row_major> in_values,
   raft::device_matrix_view<value_t, idx_t, row_major> out_keys,
@@ -106,7 +107,7 @@ inline void knn_merge_parts(
                           n_samples,
                           n_parts,
                           in_keys.extent(1),
-                          handle.get_stream(),
+                          resource::get_cuda_stream(handle),
                           translations_ptr);
 }
 
@@ -119,12 +120,12 @@ inline void knn_merge_parts(
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::knn(handle, index, search, indices, distances, metric);
@@ -151,7 +152,7 @@ template <typename idx_t,
           typename index_layout,
           typename search_layout,
           typename epilogue_op = raft::identity_op>
-void knn(raft::device_resources const& handle,
+void knn(raft::resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
@@ -212,12 +213,12 @@ void knn(raft::device_resources const& handle,
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
@@ -235,7 +236,7 @@ void knn(raft::device_resources const& handle,
  * @param[in] metric type of distance computation to perform (must be a variant of L2)
  */
 template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
-void fused_l2_knn(raft::device_resources const& handle,
+void fused_l2_knn(raft::resources const& handle,
                   raft::device_matrix_view<const value_t, idx_t, idx_layout> index,
                   raft::device_matrix_view<const value_t, idx_t, query_layout> query,
                   raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,
@@ -275,7 +276,7 @@ void fused_l2_knn(raft::device_resources const& handle,
                                          k,
                                          rowMajorIndex,
                                          rowMajorQuery,
-                                         handle.get_stream(),
+                                         resource::get_cuda_stream(handle),
                                          metric);
 }
 

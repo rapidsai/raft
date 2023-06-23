@@ -18,7 +18,8 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/detail/lstsq.cuh>
 namespace raft {
 namespace linalg {
@@ -37,7 +38,7 @@ namespace linalg {
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqSvdQR(raft::device_resources const& handle,
+void lstsqSvdQR(raft::resources const& handle,
                 math_t* A,
                 const int n_rows,
                 const int n_cols,
@@ -62,7 +63,7 @@ void lstsqSvdQR(raft::device_resources const& handle,
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqSvdJacobi(raft::device_resources const& handle,
+void lstsqSvdJacobi(raft::resources const& handle,
                     math_t* A,
                     const int n_rows,
                     const int n_cols,
@@ -78,7 +79,7 @@ void lstsqSvdJacobi(raft::device_resources const& handle,
  *  (`w = (A^T A)^-1  A^T b`)
  */
 template <typename math_t>
-void lstsqEig(raft::device_resources const& handle,
+void lstsqEig(raft::resources const& handle,
               const math_t* A,
               const int n_rows,
               const int n_cols,
@@ -104,7 +105,7 @@ void lstsqEig(raft::device_resources const& handle,
  * @param[in] stream cuda stream for ordering operations
  */
 template <typename math_t>
-void lstsqQR(raft::device_resources const& handle,
+void lstsqQR(raft::resources const& handle,
              math_t* A,
              const int n_rows,
              const int n_cols,
@@ -125,7 +126,7 @@ void lstsqQR(raft::device_resources const& handle,
  * Via SVD decomposition of `A = U S Vt`.
  *
  * @tparam ValueType the data-type of input/output
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[inout] A input raft::device_matrix_view
  *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
@@ -133,7 +134,7 @@ void lstsqQR(raft::device_resources const& handle,
  * @param[out] w output coefficient raft::device_vector_view
  */
 template <typename ValueType, typename IndexType>
-void lstsq_svd_qr(raft::device_resources const& handle,
+void lstsq_svd_qr(raft::resources const& handle,
                   raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
                   raft::device_vector_view<const ValueType, IndexType> b,
                   raft::device_vector_view<ValueType, IndexType> w)
@@ -147,7 +148,7 @@ void lstsq_svd_qr(raft::device_resources const& handle,
              A.extent(1),
              const_cast<ValueType*>(b.data_handle()),
              w.data_handle(),
-             handle.get_stream());
+             resource::get_cuda_stream(handle));
 }
 
 /**
@@ -155,7 +156,7 @@ void lstsq_svd_qr(raft::device_resources const& handle,
  *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations.
  *
  * @tparam ValueType the data-type of input/output
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[inout] A input raft::device_matrix_view
  *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
@@ -163,7 +164,7 @@ void lstsq_svd_qr(raft::device_resources const& handle,
  * @param[out] w output coefficient raft::device_vector_view
  */
 template <typename ValueType, typename IndexType>
-void lstsq_svd_jacobi(raft::device_resources const& handle,
+void lstsq_svd_jacobi(raft::resources const& handle,
                       raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
                       raft::device_vector_view<const ValueType, IndexType> b,
                       raft::device_vector_view<ValueType, IndexType> w)
@@ -177,7 +178,7 @@ void lstsq_svd_jacobi(raft::device_resources const& handle,
                  A.extent(1),
                  const_cast<ValueType*>(b.data_handle()),
                  w.data_handle(),
-                 handle.get_stream());
+                 resource::get_cuda_stream(handle));
 }
 
 /**
@@ -186,7 +187,7 @@ void lstsq_svd_jacobi(raft::device_resources const& handle,
  *  (`w = (A^T A)^-1  A^T b`)
  *
  * @tparam ValueType the data-type of input/output
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[inout] A input raft::device_matrix_view
  *            Warning: the content of this matrix is modified by the cuSOLVER routines.
  * @param[inout] b input target raft::device_vector_view
@@ -194,7 +195,7 @@ void lstsq_svd_jacobi(raft::device_resources const& handle,
  * @param[out] w output coefficient raft::device_vector_view
  */
 template <typename ValueType, typename IndexType>
-void lstsq_eig(raft::device_resources const& handle,
+void lstsq_eig(raft::resources const& handle,
                raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
                raft::device_vector_view<const ValueType, IndexType> b,
                raft::device_vector_view<ValueType, IndexType> w)
@@ -208,7 +209,7 @@ void lstsq_eig(raft::device_resources const& handle,
            A.extent(1),
            const_cast<ValueType*>(b.data_handle()),
            w.data_handle(),
-           handle.get_stream());
+           resource::get_cuda_stream(handle));
 }
 
 /**
@@ -217,7 +218,7 @@ void lstsq_eig(raft::device_resources const& handle,
  *  (triangular system of equations `Rw = Q^T b`)
  *
  * @tparam ValueType the data-type of input/output
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[inout] A input raft::device_matrix_view
  *            Warning: the content of this matrix is modified.
  * @param[inout] b input target raft::device_vector_view
@@ -225,7 +226,7 @@ void lstsq_eig(raft::device_resources const& handle,
  * @param[out] w output coefficient raft::device_vector_view
  */
 template <typename ValueType, typename IndexType>
-void lstsq_qr(raft::device_resources const& handle,
+void lstsq_qr(raft::resources const& handle,
               raft::device_matrix_view<const ValueType, IndexType, raft::col_major> A,
               raft::device_vector_view<const ValueType, IndexType> b,
               raft::device_vector_view<ValueType, IndexType> w)
@@ -239,7 +240,7 @@ void lstsq_qr(raft::device_resources const& handle,
           A.extent(1),
           const_cast<ValueType*>(b.data_handle()),
           w.data_handle(),
-          handle.get_stream());
+          resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of lstsq

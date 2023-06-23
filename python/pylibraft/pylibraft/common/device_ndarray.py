@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,12 +89,8 @@ class device_ndarray:
         """
         Is the current device_ndarray laid out in row-major format?
         """
-        array_interface = self.ndarray_.__array_interface__
         strides = self.strides
-        return (
-            strides is None
-            or array_interface["strides"][1] == self.dtype.itemsize
-        )
+        return strides is None or strides[1] == self.dtype.itemsize
 
     @property
     def f_contiguous(self):
@@ -125,11 +121,7 @@ class device_ndarray:
         Strides of the current device_ndarray instance
         """
         array_interface = self.ndarray_.__array_interface__
-        return (
-            None
-            if "strides" not in array_interface
-            else array_interface["strides"]
-        )
+        return array_interface.get("strides")
 
     @property
     def __cuda_array_interface__(self):

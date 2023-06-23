@@ -17,11 +17,12 @@
 #pragma once
 
 #include "hashmap.hpp"
+#include <raft/core/resource/cuda_stream.hpp>
 // #include "search_single_cta.cuh"
 // #include "topk_for_cagra/topk_core.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
@@ -76,37 +77,36 @@ struct search_plan_impl : public search_plan_impl_base {
   uint32_t result_buffer_size;
 
   uint32_t smem_size;
-  uint32_t load_bit_lenght;
   uint32_t topk;
   uint32_t num_seeds;
 
-  rmm::device_uvector<uint32_t> hashmap;
+  rmm::device_uvector<INDEX_T> hashmap;
   rmm::device_uvector<uint32_t> num_executed_iterations;  // device or managed?
-  rmm::device_uvector<uint32_t> dev_seed;                 // IdxT
+  rmm::device_uvector<INDEX_T> dev_seed;
 
-  search_plan_impl(raft::device_resources const& res,
+  search_plan_impl(raft::resources const& res,
                    search_params params,
                    int64_t dim,
                    int64_t graph_degree,
                    uint32_t topk)
     : search_plan_impl_base(params, dim, graph_degree, topk),
-      hashmap(0, res.get_stream()),
-      num_executed_iterations(0, res.get_stream()),
-      dev_seed(0, res.get_stream()),
+      hashmap(0, resource::get_cuda_stream(res)),
+      num_executed_iterations(0, resource::get_cuda_stream(res)),
+      dev_seed(0, resource::get_cuda_stream(res)),
       num_seeds(0)
   {
     adjust_search_params();
     check_params();
     calc_hashmap_params(res);
     set_max_dim_team(dim);
-    num_executed_iterations.resize(max_queries, res.get_stream());
+    num_executed_iterations.resize(max_queries, resource::get_cuda_stream(res));
     RAFT_LOG_DEBUG("# algo = %d", static_cast<int>(algo));
   }
 
   virtual ~search_plan_impl() {}
 
-  virtual void operator()(raft::device_resources const& res,
-                          raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+  virtual void operator()(raft::resources const& res,
+                          raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
                           raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
@@ -144,7 +144,7 @@ struct search_plan_impl : public search_plan_impl_base {
   }
 
   // defines hash_bitlen, small_hash_bitlen, small_hash_reset interval, hash_size
-  inline void calc_hashmap_params(raft::device_resources const& res)
+  inline void calc_hashmap_params(raft::resources const& res)
   {
     // for multipel CTA search
     uint32_t mc_num_cta_per_query = 0;
@@ -187,11 +187,9 @@ struct search_plan_impl : public search_plan_impl_base {
           hash_bitlen = 0;
           break;
         } else {
-          RAFT_LOG_DEBUG(
-            "[CAGRA Error]"
+          RAFT_FAIL(
             "small-hash cannot be used because the required hash size exceeds the limit (%u)",
             hashmap::get_size(max_bitlen));
-          exit(-1);
         }
       }
       small_hash_bitlen = hash_bitlen;
@@ -242,7 +240,7 @@ struct search_plan_impl : public search_plan_impl_base {
     if (small_hash_bitlen > 0) {
       RAFT_LOG_DEBUG("# small_hash_reset_interval = %lu", small_hash_reset_interval);
     }
-    hashmap_size = sizeof(std::uint32_t) * max_queries * hashmap::get_size(hash_bitlen);
+    hashmap_size = sizeof(INDEX_T) * max_queries * hashmap::get_size(hash_bitlen);
     RAFT_LOG_DEBUG("# hashmap size: %lu", hashmap_size);
     if (hashmap_size >= 1024 * 1024 * 1024) {
       RAFT_LOG_DEBUG(" (%.2f GiB)", (double)hashmap_size / (1024 * 1024 * 1024));
@@ -285,14 +283,10 @@ struct search_plan_impl : public search_plan_impl_base {
       error_message +=
         "`team_size` must be 0, 4, 8, 16 or 32. " + std::to_string(team_size) + " has been given.";
     }
-    if (load_bit_length != 0 && load_bit_length != 64 && load_bit_length != 128) {
-      error_message += "`load_bit_length` must be 0, 64 or 128. " +
-                       std::to_string(load_bit_length) + " has been given.";
-    }
     if (thread_block_size != 0 && thread_block_size != 64 && thread_block_size != 128 &&
         thread_block_size != 256 && thread_block_size != 512 && thread_block_size != 1024) {
       error_message += "`thread_block_size` must be 0, 64, 128, 256 or 512. " +
-                       std::to_string(load_bit_length) + " has been given.";
+                       std::to_string(thread_block_size) + " has been given.";
     }
     if (hashmap_min_bitlen > 20) {
       error_message += "`hashmap_min_bitlen` must be equal to or smaller than 20. " +
@@ -317,7 +311,7 @@ struct search_plan_impl : public search_plan_impl_base {
 
 // template <class DATA_T, class DISTANCE_T, class INDEX_T>
 // struct search_plan {
-//   search_plan(raft::device_resources const& res,
+//   search_plan(raft::resources const& res,
 //               search_params param,
 //               int64_t dim,
 //               int64_t graph_degree)

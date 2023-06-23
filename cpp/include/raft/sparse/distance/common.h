@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft {
 namespace sparse {
@@ -24,7 +24,7 @@ namespace distance {
 
 template <typename value_idx, typename value_t>
 struct distances_config_t {
-  distances_config_t(raft::device_resources const& handle_) : handle(handle_) {}
+  distances_config_t(raft::resources const& handle_) : handle(handle_) {}
 
   // left side
   value_idx a_nrows;
@@ -42,7 +42,7 @@ struct distances_config_t {
   value_idx* b_indices;
   value_t* b_data;
 
-  raft::device_resources const& handle;
+  raft::resources const& handle;
 };
 
 template <typename value_t>

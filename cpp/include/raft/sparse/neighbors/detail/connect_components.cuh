@@ -16,6 +16,8 @@
 #pragma once
 
 #include <cub/cub.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -59,10 +61,13 @@ struct FixConnectivitiesRedOp {
   value_idx* colors;
   value_idx m;
 
+  // default constructor for cutlass
+  DI FixConnectivitiesRedOp() : colors(0), m(0) {}
+
   FixConnectivitiesRedOp(value_idx* colors_, value_idx m_) : colors(colors_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other)
+  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
     if (rit < m && other.value < out->value && colors[rit] != colors[other.key]) {
       out->key   = other.key;
@@ -70,9 +75,7 @@ struct FixConnectivitiesRedOp {
     }
   }
 
-  DI KVP
-
-  operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
   {
     if (rit < m && a.value < b.value && colors[rit] != colors[a.key]) {
       return a;
@@ -80,12 +83,19 @@ struct FixConnectivitiesRedOp {
       return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
   {
     out->key   = -1;
     out->value = maxVal;
   }
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+
+  DI value_t get_value(value_t& out) const { return out; }
 };
 
 /**
@@ -320,7 +330,7 @@ void min_components_by_color(raft::sparse::COO<value_t, value_idx>& coo,
  */
 template <typename value_idx, typename value_t, typename red_op>
 void connect_components(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::sparse::COO<value_t, value_idx>& out,
   const value_t* X,
   const value_idx* orig_colors,
@@ -329,7 +339,7 @@ void connect_components(
   red_op reduction_op,
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Fixing connectivities for an unconnected k-NN graph only "
@@ -376,7 +386,7 @@ void connect_components(
   raft::sparse::op::compute_duplicates_mask(
     out_index.data(), colors.data(), nn_colors.data(), n_rows, stream);
 
-  thrust::exclusive_scan(handle.get_thrust_policy(),
+  thrust::exclusive_scan(resource::get_thrust_policy(handle),
                          out_index.data(),
                          out_index.data() + out_index.size(),
                          out_index.data());
@@ -384,7 +394,7 @@ void connect_components(
   // compute final size
   value_idx size = 0;
   raft::update_host(&size, out_index.data() + (out_index.size() - 1), 1, stream);
-  handle.sync_stream(stream);
+  resource::sync_stream(handle, stream);
 
   size++;
 

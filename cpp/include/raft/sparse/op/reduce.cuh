@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/detail/reduce.cuh>
 
@@ -69,7 +69,7 @@ void compute_duplicates_mask(
  * @param[in] n number of columns in COO input matrix
  */
 template <typename value_idx, typename value_t>
-void max_duplicates(raft::device_resources const& handle,
+void max_duplicates(raft::resources const& handle,
                     raft::sparse::COO<value_t, value_idx>& out,
                     const value_idx* rows,
                     const value_idx* cols,

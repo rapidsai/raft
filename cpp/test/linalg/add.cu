@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include "add.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -29,7 +30,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
  public:
   AddTest()
     : params(::testing::TestWithParam<AddInputs<InT, OutT>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in1(params.len, stream),
       in2(params.len, stream),
       out_ref(params.len, stream),
@@ -52,7 +53,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
     auto in2_view = raft::make_device_vector_view<const InT>(in2.data(), in2.size());
 
     add(handle, in1_view, in2_view, out_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void compare()
@@ -62,7 +63,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<InT, OutT>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   AddInputs<InT, OutT> params;

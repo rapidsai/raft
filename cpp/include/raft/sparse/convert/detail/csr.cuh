@@ -17,8 +17,10 @@
 #pragma once
 
 #include <cusparse_v2.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/cusparse_handle.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -44,7 +46,7 @@ namespace convert {
 namespace detail {
 
 template <typename value_t>
-void coo_to_csr(raft::device_resources const& handle,
+void coo_to_csr(raft::resources const& handle,
                 const int* srcRows,
                 const int* srcCols,
                 const value_t* srcVals,
@@ -54,8 +56,8 @@ void coo_to_csr(raft::device_resources const& handle,
                 int* dstCols,
                 value_t* dstVals)
 {
-  auto stream         = handle.get_stream();
-  auto cusparseHandle = handle.get_cusparse_handle();
+  auto stream         = resource::get_cuda_stream(handle);
+  auto cusparseHandle = resource::get_cusparse_handle(handle);
   rmm::device_uvector<int> dstRows(nnz, stream);
   RAFT_CUDA_TRY(
     cudaMemcpyAsync(dstRows.data(), srcRows, sizeof(int) * nnz, cudaMemcpyDeviceToDevice, stream));

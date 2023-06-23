@@ -27,7 +27,7 @@
 
 #define instantiate_raft_neighbors_ivf_flat_search(T, IdxT)     \
   template void raft::neighbors::ivf_flat::search<T, IdxT>(     \
-    raft::device_resources const& handle,                       \
+    raft::resources const& handle,                              \
     const raft::neighbors::ivf_flat::search_params& params,     \
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,     \
     const T* queries,                                           \
@@ -38,7 +38,7 @@
     rmm::mr::device_memory_resource* mr);                       \
                                                                 \
   template void raft::neighbors::ivf_flat::search<T, IdxT>(     \
-    raft::device_resources const& handle,                       \
+    raft::resources const& handle,                              \
     const raft::neighbors::ivf_flat::search_params& params,     \
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,     \
     raft::device_matrix_view<const T, IdxT, row_major> queries, \

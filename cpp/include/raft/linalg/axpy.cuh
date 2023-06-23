@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/axpy.cuh"
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
@@ -41,7 +42,7 @@ namespace raft::linalg {
  * @param [in] stream
  */
 template <typename T, bool DevicePointerMode = false>
-void axpy(raft::device_resources const& handle,
+void axpy(raft::resources const& handle,
           const int n,
           const T* alpha,
           const T* x,
@@ -62,7 +63,7 @@ void axpy(raft::device_resources const& handle,
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
  *
- * @param [in] handle raft::device_resources
+ * @param [in] handle raft::resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
@@ -72,7 +73,7 @@ template <typename ElementType,
           typename InLayoutPolicy,
           typename OutLayoutPolicy,
           typename ScalarIdxType>
-void axpy(raft::device_resources const& handle,
+void axpy(raft::resources const& handle,
           raft::device_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
           raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
@@ -86,13 +87,13 @@ void axpy(raft::device_resources const& handle,
                           x.stride(0),
                           y.data_handle(),
                           y.stride(0),
-                          handle.get_stream());
+                          resource::get_cuda_stream(handle));
 }
 
 /**
  * @brief axpy function
  *  It computes the following equation: y = alpha * x + y
- * @param [in] handle raft::device_resources
+ * @param [in] handle raft::resources
  * @param [in] alpha raft::device_scalar_view
  * @param [in] x Input vector
  * @param [inout] y Output vector
@@ -102,7 +103,7 @@ template <typename ElementType,
           typename InLayoutPolicy,
           typename OutLayoutPolicy,
           typename ScalarIdxType>
-void axpy(raft::device_resources const& handle,
+void axpy(raft::resources const& handle,
           raft::host_scalar_view<const ElementType, ScalarIdxType> alpha,
           raft::device_vector_view<const ElementType, IndexType, InLayoutPolicy> x,
           raft::device_vector_view<ElementType, IndexType, OutLayoutPolicy> y)
@@ -116,7 +117,7 @@ void axpy(raft::device_resources const& handle,
                            x.stride(0),
                            y.data_handle(),
                            y.stride(0),
-                           handle.get_stream());
+                           resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end of group axpy

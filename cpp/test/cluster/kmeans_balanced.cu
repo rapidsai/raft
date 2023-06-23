@@ -17,6 +17,7 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <optional>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <vector>
 
 #include <raft/cluster/kmeans_balanced.cuh>
@@ -58,7 +59,7 @@ template <typename DataT, typename MathT, typename LabelT, typename IdxT, typena
 class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<MathT, IdxT>> {
  protected:
   KmeansBalancedTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       d_labels(0, stream),
       d_labels_ref(0, stream),
       d_centroids(0, stream)
@@ -120,10 +121,10 @@ class KmeansBalancedTest : public ::testing::TestWithParam<KmeansBalancedInputs<
     raft::cluster::kmeans_balanced::fit_predict(
       handle, p.kb_params, X_view, d_centroids_view, d_labels_view, op);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     score = raft::stats::adjusted_rand_index(
-      d_labels_ref.data(), d_labels.data(), p.n_rows, handle.get_stream());
+      d_labels_ref.data(), d_labels.data(), p.n_rows, resource::get_cuda_stream(handle));
 
     if (score < 1.0) {
       std::stringstream ss;

@@ -47,6 +47,7 @@ from pylibraft.distance.distance_type cimport DistanceType
 # TODO: Centralize this
 
 from pylibraft.distance.pairwise_distance import DISTANCE_TYPES
+from pylibraft.neighbors.common import _check_input_array
 
 from pylibraft.common.cpp.mdspan cimport (
     device_matrix_view,
@@ -142,6 +143,11 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
         else:
             raise ValueError("Argument k must be specified if both indices "
                              "and distances arg is None")
+
+    # we require c-contiguous (rowmajor) inputs here
+    _check_input_array(dataset_cai, [np.dtype("float32")])
+    _check_input_array(queries_cai, [np.dtype("float32")],
+                       exp_cols=dataset_cai.shape[1])
 
     n_queries = queries_cai.shape[0]
 

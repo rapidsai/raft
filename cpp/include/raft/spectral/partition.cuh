@@ -47,7 +47,7 @@ namespace spectral {
  */
 template <typename vertex_t, typename weight_t, typename EigenSolver, typename ClusterSolver>
 std::tuple<vertex_t, weight_t, vertex_t> partition(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
   EigenSolver const& eigen_solver,
   ClusterSolver const& cluster_solver,
@@ -78,7 +78,7 @@ std::tuple<vertex_t, weight_t, vertex_t> partition(
  *  @param cost On exit, partition cost function.
  */
 template <typename vertex_t, typename weight_t>
-void analyzePartition(raft::device_resources const& handle,
+void analyzePartition(raft::resources const& handle,
                       matrix::sparse_matrix_t<vertex_t, weight_t> const& csr_m,
                       vertex_t nClusters,
                       const vertex_t* __restrict__ clusters,
