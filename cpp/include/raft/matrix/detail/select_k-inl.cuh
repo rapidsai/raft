@@ -19,11 +19,15 @@
 #include "select_radix.cuh"
 #include "select_warpsort.cuh"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/matrix/init.cuh>
 
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/neighbors/detail/selection_faiss.cuh>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
+#include <thrust/scan.h>
 
 namespace raft::matrix::detail {
 
@@ -116,6 +120,83 @@ inline Algo choose_select_k_algorithm(size_t rows, size_t cols, int k)
   }
 }
 
+template <typename T, typename IdxT>
+void sort_k(
+  raft::resources const& handle, IdxT* indices, T* distances, size_t n_rows, int k, bool select_min)
+{
+  auto stream    = raft::resource::get_cuda_stream(handle);
+  auto out_inds  = raft::make_device_matrix<IdxT, IdxT>(handle, n_rows, k);
+  auto out_dists = raft::make_device_matrix<T, IdxT>(handle, n_rows, k);
+  auto offsets   = raft::make_device_vector<IdxT, IdxT>(handle, n_rows + 1);
+
+  raft::matrix::fill(handle, offsets.view(), (IdxT)k);
+
+  thrust::exclusive_scan(raft::resource::get_thrust_policy(handle),
+                         offsets.data_handle(),
+                         offsets.data_handle() + offsets.size(),
+                         offsets.data_handle(),
+                         0);
+
+  // Determine temporary device storage requirements
+  void* d_temp_storage      = NULL;
+  size_t temp_storage_bytes = 0;
+  if (select_min) {
+    cub::DeviceSegmentedRadixSort::SortPairs(d_temp_storage,
+                                             temp_storage_bytes,
+                                             distances,
+                                             out_dists.data_handle(),
+                                             indices,
+                                             out_inds.data_handle(),
+                                             n_rows * k,
+                                             n_rows,
+                                             offsets.data_handle(),
+                                             offsets.data_handle() + 1);
+  } else {
+    cub::DeviceSegmentedRadixSort::SortPairsDescending(d_temp_storage,
+                                                       temp_storage_bytes,
+                                                       distances,
+                                                       out_dists.data_handle(),
+                                                       indices,
+                                                       out_inds.data_handle(),
+                                                       n_rows * k,
+                                                       n_rows,
+                                                       offsets.data_handle(),
+                                                       offsets.data_handle() + 1);
+  }
+  // Allocate temporary storage
+  cudaMalloc(&d_temp_storage, temp_storage_bytes);
+
+  if (select_min) {
+    // Run sorting operation
+    cub::DeviceSegmentedRadixSort::SortPairs(d_temp_storage,
+                                             temp_storage_bytes,
+                                             distances,
+                                             out_dists.data_handle(),
+                                             indices,
+                                             out_inds.data_handle(),
+                                             n_rows * k,
+                                             n_rows,
+                                             offsets.data_handle(),
+                                             offsets.data_handle() + 1);
+
+  } else {
+    // Run sorting operation
+    cub::DeviceSegmentedRadixSort::SortPairsDescending(d_temp_storage,
+                                                       temp_storage_bytes,
+                                                       distances,
+                                                       out_dists.data_handle(),
+                                                       indices,
+                                                       out_inds.data_handle(),
+                                                       n_rows * k,
+                                                       n_rows,
+                                                       offsets.data_handle(),
+                                                       offsets.data_handle() + 1);
+  }
+
+  raft::copy(indices, out_inds.data_handle(), out_inds.size(), stream);
+  raft::copy(distances, out_dists.data_handle(), out_dists.size(), stream);
+}
+
 /**
  * Select k smallest or largest key/values from each row in the input data.
  *
@@ -154,7 +235,8 @@ inline Algo choose_select_k_algorithm(size_t rows, size_t cols, int k)
  *           memory pool here to avoid memory allocations within the call).
  */
 template <typename T, typename IdxT>
-void select_k(const T* in_val,
+void select_k(raft::resources const& handle,
+              const T* in_val,
               const IdxT* in_idx,
               size_t batch_size,
               size_t len,
@@ -162,25 +244,29 @@ void select_k(const T* in_val,
               T* out_val,
               IdxT* out_idx,
               bool select_min,
-              rmm::cuda_stream_view stream,
-              rmm::mr::device_memory_resource* mr = nullptr)
+              rmm::mr::device_memory_resource* mr = nullptr,
+              bool sorted                         = false)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "matrix::select_k(batch_size = %zu, len = %zu, k = %d)", batch_size, len, k);
 
-  auto algo = choose_select_k_algorithm(batch_size, len, k);
+  auto stream = raft::resource::get_cuda_stream(handle);
+  auto algo   = choose_select_k_algorithm(batch_size, len, k);
   switch (algo) {
     case Algo::kRadix11bits:
-      return detail::select::radix::select_k<T, IdxT, 11, 512>(in_val,
-                                                               in_idx,
-                                                               batch_size,
-                                                               len,
-                                                               k,
-                                                               out_val,
-                                                               out_idx,
-                                                               select_min,
-                                                               true,  // fused_last_filter
-                                                               stream);
+      detail::select::radix::select_k<T, IdxT, 11, 512>(in_val,
+                                                        in_idx,
+                                                        batch_size,
+                                                        len,
+                                                        k,
+                                                        out_val,
+                                                        out_idx,
+                                                        select_min,
+                                                        true,  // fused_last_filter
+                                                        stream);
+
+      if (sorted) { sort_k<T, IdxT>(handle, out_idx, out_val, batch_size, k, select_min); }
+      return;
     case Algo::kWarpDistributedShm:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(

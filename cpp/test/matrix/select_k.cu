@@ -130,9 +130,11 @@ struct io_computed {
 
     interruptible::synchronize(stream);
 
-    auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
-    apply_permutation(out_dists_, p);
-    apply_permutation(out_ids_, p);
+    if (algo != select::Algo::kPublicApi) {
+      auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
+      apply_permutation(out_dists_, p);
+      apply_permutation(out_ids_, p);
+    }
   }
 
   auto get_in_dists() -> std::vector<KeyT>& { return in_dists_; }
