@@ -64,7 +64,7 @@ namespace raft::sparse::neighbors::detail {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-    value_idx m;
+  value_idx m;
 
   // default constructor for cutlass
   DI FixConnectivitiesRedOp() : m(0) {}
@@ -88,11 +88,15 @@ struct FixConnectivitiesRedOp {
       return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) const {}
-  DI void init(KVP* out, value_t maxVal) const {}
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
+  {
+    out->key   = -1;
+    out->value = maxVal;
+  }
 
   DI void init_key(value_t& out, value_idx idx) const { return; }
-  DI void init_key(KVP& out, value_idx idx) const {}
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
 
   DI value_t get_value(KVP& out) const { return out.value; }
 
@@ -222,7 +226,7 @@ void perform_1nn(raft::resources const& handle,
 
   thrust::sort_by_key(
     resource::get_thrust_policy(handle), colors, colors + n_rows, sort_plan.data_handle());
-  
+
   // Modify the reduction operation based on the sort plan.
   reduction_op.gather(handle, sort_plan.data_handle());
 
@@ -301,7 +305,6 @@ void perform_1nn(raft::resources const& handle,
                                                                            adj_view,
                                                                            group_idxs_view,
                                                                            kvp_view);
-    RAFT_LOG_INFO("l2_nn done");
   }
 
   // Transform the keys so that they correctly point to the unpermuted indices.
@@ -476,8 +479,6 @@ void cross_component_nn(
   constexpr bool zero_based = true;
   raft::label::make_monotonic(
     colors.data(), const_cast<value_idx*>(orig_colors), n_rows, stream, zero_based);
-  
-  raft::print_device_vector("colors", colors.data(), n_rows, std::cout);
 
   /**
    * First compute 1-nn for all colors where the color of each data point
@@ -497,8 +498,6 @@ void cross_component_nn(
               row_batch_size,
               col_batch_size,
               reduction_op);
-  
-  raft::print_device_vector("nn_colros", nn_colors.data(), n_rows, std::cout);
 
   /**
    * Sort data points by color (neighbors are not sorted)
