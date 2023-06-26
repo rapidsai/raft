@@ -20,6 +20,7 @@
 #include "select_warpsort.cuh"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/matrix/init.cuh>
 
@@ -120,81 +121,119 @@ inline Algo choose_select_k_algorithm(size_t rows, size_t cols, int k)
   }
 }
 
-template <typename T, typename IdxT>
-void sort_k(
-  raft::resources const& handle, IdxT* indices, T* distances, size_t n_rows, int k, bool select_min)
+/**
+ * Performs a segmented sorting of a keys array with respect to
+ * the segments of a values array.
+ * @tparam KeyT
+ * @tparam ValT
+ * @param handle
+ * @param values
+ * @param keys
+ * @param n_segments
+ * @param k
+ * @param select_min
+ */
+template <typename KeyT, typename ValT>
+void segmented_sort_by_key(raft::resources const& handle,
+                           KeyT* keys,
+                           ValT* values,
+                           size_t n_segments,
+                           size_t n_elements,
+                           const ValT* offsets,
+                           bool asc)
 {
   auto stream    = raft::resource::get_cuda_stream(handle);
-  auto out_inds  = raft::make_device_matrix<IdxT, IdxT>(handle, n_rows, k);
-  auto out_dists = raft::make_device_matrix<T, IdxT>(handle, n_rows, k);
-  auto offsets   = raft::make_device_vector<IdxT, IdxT>(handle, n_rows + 1);
-
-  raft::matrix::fill(handle, offsets.view(), (IdxT)k);
-
-  thrust::exclusive_scan(raft::resource::get_thrust_policy(handle),
-                         offsets.data_handle(),
-                         offsets.data_handle() + offsets.size(),
-                         offsets.data_handle(),
-                         0);
+  auto out_inds  = raft::make_device_vector<ValT, ValT>(handle, n_elements);
+  auto out_dists = raft::make_device_vector<KeyT, ValT>(handle, n_elements);
 
   // Determine temporary device storage requirements
-  void* d_temp_storage      = NULL;
+  auto d_temp_storage       = raft::make_device_vector<char, int>(handle, 0);
   size_t temp_storage_bytes = 0;
-  if (select_min) {
-    cub::DeviceSegmentedRadixSort::SortPairs(d_temp_storage,
+  if (asc) {
+    cub::DeviceSegmentedRadixSort::SortPairs((void*)d_temp_storage.data_handle(),
                                              temp_storage_bytes,
-                                             distances,
+                                             keys,
                                              out_dists.data_handle(),
-                                             indices,
+                                             values,
                                              out_inds.data_handle(),
-                                             n_rows * k,
-                                             n_rows,
-                                             offsets.data_handle(),
-                                             offsets.data_handle() + 1);
+                                             n_elements,
+                                             n_segments,
+                                             offsets,
+                                             offsets + 1,
+                                             0,
+                                             sizeof(ValT) * 8,
+                                             stream);
   } else {
-    cub::DeviceSegmentedRadixSort::SortPairsDescending(d_temp_storage,
+    cub::DeviceSegmentedRadixSort::SortPairsDescending((void*)d_temp_storage.data_handle(),
                                                        temp_storage_bytes,
-                                                       distances,
+                                                       keys,
                                                        out_dists.data_handle(),
-                                                       indices,
+                                                       values,
                                                        out_inds.data_handle(),
-                                                       n_rows * k,
-                                                       n_rows,
-                                                       offsets.data_handle(),
-                                                       offsets.data_handle() + 1);
-  }
-  // Allocate temporary storage
-  cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
-  if (select_min) {
-    // Run sorting operation
-    cub::DeviceSegmentedRadixSort::SortPairs(d_temp_storage,
-                                             temp_storage_bytes,
-                                             distances,
-                                             out_dists.data_handle(),
-                                             indices,
-                                             out_inds.data_handle(),
-                                             n_rows * k,
-                                             n_rows,
-                                             offsets.data_handle(),
-                                             offsets.data_handle() + 1);
-
-  } else {
-    // Run sorting operation
-    cub::DeviceSegmentedRadixSort::SortPairsDescending(d_temp_storage,
-                                                       temp_storage_bytes,
-                                                       distances,
-                                                       out_dists.data_handle(),
-                                                       indices,
-                                                       out_inds.data_handle(),
-                                                       n_rows * k,
-                                                       n_rows,
-                                                       offsets.data_handle(),
-                                                       offsets.data_handle() + 1);
+                                                       n_elements,
+                                                       n_segments,
+                                                       offsets,
+                                                       offsets + 1,
+                                                       0,
+                                                       sizeof(ValT) * 8,
+                                                       stream);
   }
 
-  raft::copy(indices, out_inds.data_handle(), out_inds.size(), stream);
-  raft::copy(distances, out_dists.data_handle(), out_dists.size(), stream);
+  d_temp_storage = raft::make_device_vector<char, int>(handle, temp_storage_bytes);
+
+  if (asc) {
+    // Run sorting operation
+    cub::DeviceSegmentedRadixSort::SortPairs((void*)d_temp_storage.data_handle(),
+                                             temp_storage_bytes,
+                                             keys,
+                                             out_dists.data_handle(),
+                                             values,
+                                             out_inds.data_handle(),
+                                             n_elements,
+                                             n_segments,
+                                             offsets,
+                                             offsets + 1,
+                                             0,
+                                             sizeof(ValT) * 8,
+                                             stream);
+
+  } else {
+    // Run sorting operation
+    cub::DeviceSegmentedRadixSort::SortPairsDescending((void*)d_temp_storage.data_handle(),
+                                                       temp_storage_bytes,
+                                                       keys,
+                                                       out_dists.data_handle(),
+                                                       values,
+                                                       out_inds.data_handle(),
+                                                       n_elements,
+                                                       n_segments,
+                                                       offsets,
+                                                       offsets + 1,
+                                                       0,
+                                                       sizeof(ValT) * 8,
+                                                       stream);
+  }
+
+  raft::copy(values, out_inds.data_handle(), out_inds.size(), stream);
+  raft::copy(keys, out_dists.data_handle(), out_dists.size(), stream);
+}
+
+template <typename KeyT, typename ValT>
+void segmented_sort_by_key(raft::resources const& handle,
+                           raft::device_vector_view<const ValT, ValT> offsets,
+                           raft::device_vector_view<KeyT, ValT> keys,
+                           raft::device_vector_view<ValT, ValT> values,
+                           bool asc)
+{
+  RAFT_EXPECTS(keys.size() == values.size(),
+               "Keys and values must contain the same number of elements.");
+  segmented_sort_by_key<KeyT, ValT>(handle,
+                                    keys.data_handle(),
+                                    values.data_handle(),
+                                    offsets.size() - 1,
+                                    keys.size(),
+                                    offsets.data_handle(),
+                                    asc);
 }
 
 /**
@@ -265,7 +304,23 @@ void select_k(raft::resources const& handle,
                                                         true,  // fused_last_filter
                                                         stream);
 
-      if (sorted) { sort_k<T, IdxT>(handle, out_idx, out_val, batch_size, k, select_min); }
+      if (sorted) {
+        auto offsets = raft::make_device_vector<IdxT, IdxT>(handle, (IdxT)(batch_size + 1));
+
+        raft::matrix::fill(handle, offsets.view(), (IdxT)k);
+
+        thrust::exclusive_scan(raft::resource::get_thrust_policy(handle),
+                               offsets.data_handle(),
+                               offsets.data_handle() + offsets.size(),
+                               offsets.data_handle(),
+                               0);
+
+        auto keys = raft::make_device_vector_view<T, IdxT>(out_val, (IdxT)(batch_size * k));
+        auto vals = raft::make_device_vector_view<IdxT, IdxT>(out_idx, (IdxT)(batch_size * k));
+
+        segmented_sort_by_key<T, IdxT>(
+          handle, raft::make_const_mdspan(offsets.view()), keys, vals, select_min);
+      }
       return;
     case Algo::kWarpDistributedShm:
       return detail::select::warpsort::
