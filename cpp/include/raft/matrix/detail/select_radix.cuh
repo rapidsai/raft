@@ -1170,8 +1170,6 @@ void select_k(const T* in,
                                                         stream,
                                                         mr);
     }
-
-    // TODO SORT
   }
 }
 
