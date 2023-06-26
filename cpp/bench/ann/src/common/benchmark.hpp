@@ -30,6 +30,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <raft/util/integer_utils.hpp>
+
 #include "benchmark_util.hpp"
 #include "conf.h"
 #include "dataset.h"
@@ -108,8 +110,8 @@ inline bool mkdir(const std::vector<std::string>& dirs)
 }
 
 inline bool check(const std::vector<Configuration::Index>& indices,
-                  bool build_mode,
-                  bool force_overwrite)
+                  const bool build_mode,
+                  const bool force_overwrite)
 {
   std::vector<std::string> files_should_exist;
   std::vector<std::string> dirs_should_exist;
@@ -119,7 +121,7 @@ inline bool check(const std::vector<Configuration::Index>& indices,
       output_files.push_back(index.file);
       output_files.push_back(index.file + ".txt");
 
-      auto pos = index.file.rfind('/');
+      const auto pos = index.file.rfind('/');
       if (pos != std::string::npos) { dirs_should_exist.push_back(index.file.substr(0, pos)); }
     } else {
       files_should_exist.push_back(index.file);
@@ -128,7 +130,7 @@ inline bool check(const std::vector<Configuration::Index>& indices,
       output_files.push_back(index.search_result_file + ".0.ibin");
       output_files.push_back(index.search_result_file + ".0.txt");
 
-      auto pos = index.search_result_file.rfind('/');
+      const auto pos = index.search_result_file.rfind('/');
       if (pos != std::string::npos) {
         dirs_should_exist.push_back(index.search_result_file.substr(0, pos));
       }
@@ -149,7 +151,7 @@ inline void write_build_info(const std::string& file_prefix,
                              const std::string& name,
                              const std::string& algo,
                              const std::string& build_param,
-                             float build_time)
+                             const float build_time)
 {
   std::ofstream ofs(file_prefix + ".txt");
   if (!ofs) { throw std::runtime_error("can't open build info file: " + file_prefix + ".txt"); }
@@ -175,13 +177,13 @@ void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& i
 
   for (const auto& index : indices) {
     log_info("creating algo '%s', param=%s", index.algo.c_str(), index.build_param.dump().c_str());
-    auto algo          = create_algo<T>(index.algo,
-                               dataset->distance(),
-                               dataset->dim(),
-                               index.refine_ratio,
-                               index.build_param,
-                               index.dev_list);
-    auto algo_property = algo->get_property();
+    const auto algo          = create_algo<T>(index.algo,
+                                     dataset->distance(),
+                                     dataset->dim(),
+                                     index.refine_ratio,
+                                     index.build_param,
+                                     index.dev_list);
+    const auto algo_property = algo->get_property();
 
     const T* base_set_ptr = nullptr;
     if (algo_property.dataset_memory_type == MemoryType::Host) {
@@ -203,7 +205,7 @@ void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& i
     Timer timer;
     algo->build(base_set_ptr, dataset->base_set_size(), stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    float elapsed_ms = timer.elapsed_ms();
+    const float elapsed_ms = timer.elapsed_ms();
 #ifdef NVTX
     nvtxRangePop();
 #endif
@@ -232,15 +234,17 @@ inline void write_search_result(const std::string& file_prefix,
                                 const std::string& algo,
                                 const std::string& build_param,
                                 const std::string& search_param,
-                                int batch_size,
-                                int run_count,
-                                int k,
+                                std::size_t batch_size,
+                                unsigned run_count,
+                                unsigned k,
                                 float search_time_average,
                                 float search_time_p99,
                                 float search_time_p999,
+                                float query_per_second,
                                 const int* neighbors,
                                 size_t query_set_size)
 {
+  log_info("throughput : %e [QPS]", query_per_second);
   std::ofstream ofs(file_prefix + ".txt");
   if (!ofs) { throw std::runtime_error("can't open search result file: " + file_prefix + ".txt"); }
   ofs << "dataset: " << dataset << "\n"
@@ -254,13 +258,16 @@ inline void write_search_result(const std::string& file_prefix,
       << "batch_size: " << batch_size << "\n"
       << "run_count: " << run_count << "\n"
       << "k: " << k << "\n"
+      << "query_per_second: " << query_per_second << "\n"
       << "average_search_time: " << search_time_average << endl;
+
   if (search_time_p99 != std::numeric_limits<float>::max()) {
     ofs << "p99_search_time: " << search_time_p99 << endl;
   }
   if (search_time_p999 != std::numeric_limits<float>::max()) {
     ofs << "p999_search_time: " << search_time_p999 << endl;
   }
+
   ofs.close();
   if (!ofs) {
     throw std::runtime_error("can't write to search result file: " + file_prefix + ".txt");
@@ -280,15 +287,15 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
   log_info("loading query set from dataset '%s', #vector = %zu",
            dataset->name().c_str(),
            dataset->query_set_size());
-  const T* query_set = dataset->query_set();
+  const T* const query_set = dataset->query_set();
   // query set is usually much smaller than base set, so load it eagerly
-  const T* d_query_set  = dataset->query_set_on_gpu();
-  size_t query_set_size = dataset->query_set_size();
+  const T* const d_query_set  = dataset->query_set_on_gpu();
+  const size_t query_set_size = dataset->query_set_size();
 
   // currently all indices has same batch_size, k and run_count
-  const int batch_size = indices[0].batch_size;
-  const int k          = indices[0].k;
-  const int run_count  = indices[0].run_count;
+  const std::size_t batch_size = indices[0].batch_size;
+  const unsigned k             = indices[0].k;
+  const unsigned run_count     = indices[0].run_count;
   log_info(
     "basic search parameters: batch_size = %d, k = %d, run_count = %d", batch_size, k, run_count);
   if (query_set_size % batch_size != 0) {
@@ -297,10 +304,10 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
              batch_size,
              query_set_size % batch_size);
   }
-  const size_t num_batches = (query_set_size - 1) / batch_size + 1;
-  std::size_t* neighbors   = new std::size_t[query_set_size * k];
-  int* neighbors_buf       = new int[query_set_size * k];
-  float* distances         = new float[query_set_size * k];
+  const std::size_t num_batches = (query_set_size - 1) / batch_size + 1;
+  std::size_t* const neighbors  = new std::size_t[query_set_size * k];
+  int* const neighbors_buf      = new int[query_set_size * k];
+  float* const distances        = new float[query_set_size * k];
   std::vector<float> search_times;
   search_times.reserve(num_batches);
   std::size_t* d_neighbors;
@@ -310,13 +317,13 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
 
   for (const auto& index : indices) {
     log_info("creating algo '%s', param=%s", index.algo.c_str(), index.build_param.dump().c_str());
-    auto algo          = create_algo<T>(index.algo,
-                               dataset->distance(),
-                               dataset->dim(),
-                               index.refine_ratio,
-                               index.build_param,
-                               index.dev_list);
-    auto algo_property = algo->get_property();
+    const auto algo          = create_algo<T>(index.algo,
+                                     dataset->distance(),
+                                     dataset->dim(),
+                                     index.refine_ratio,
+                                     index.build_param,
+                                     index.dev_list);
+    const auto algo_property = algo->get_property();
 
     log_info("loading index '%s' from file '%s'", index.name.c_str(), index.file.c_str());
     algo->load(index.file);
@@ -349,7 +356,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
     }
 
     for (int i = 0, end_i = index.search_params.size(); i != end_i; ++i) {
-      auto p_param = create_search_param<T>(index.algo, index.search_params[i]);
+      const auto p_param = create_search_param<T>(index.algo, index.search_params[i]);
       algo->set_search_param(*p_param);
       log_info("search with param: %s", index.search_params[i].dump().c_str());
 
@@ -364,11 +371,13 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
       float best_search_time_average = std::numeric_limits<float>::max();
       float best_search_time_p99     = std::numeric_limits<float>::max();
       float best_search_time_p999    = std::numeric_limits<float>::max();
-      for (int run = 0; run < run_count; ++run) {
+      float total_search_time        = 0;
+      for (unsigned run = 0; run < run_count; ++run) {
         log_info("run %d / %d", run + 1, run_count);
         for (std::size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
-          std::size_t row       = batch_id * batch_size;
-          int actual_batch_size = (batch_id == num_batches - 1) ? query_set_size - row : batch_size;
+          const std::size_t row = batch_id * batch_size;
+          const std::size_t actual_batch_size =
+            (batch_id == num_batches - 1) ? query_set_size - row : batch_size;
           RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 #ifdef NVTX
           string nvtx_label = "batch" + to_string(batch_id);
@@ -389,7 +398,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                        this_distances + row * k,
                        stream);
           RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-          float elapsed_ms = timer.elapsed_ms();
+          const float elapsed_ms = timer.elapsed_ms();
 #ifdef NVTX
           nvtxRangePop();
 #endif
@@ -401,29 +410,34 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
           }
         }
 
-        float search_time_average =
-          std::accumulate(search_times.cbegin(), search_times.cend(), 0.0f) / search_times.size();
+        const float total_search_time_run =
+          std::accumulate(search_times.cbegin(), search_times.cend(), 0.0f);
+        const float search_time_average = total_search_time_run / search_times.size();
+        total_search_time += total_search_time_run;
         best_search_time_average = std::min(best_search_time_average, search_time_average);
 
         if (search_times.size() >= 100) {
           std::sort(search_times.begin(), search_times.end());
 
-          auto calc_percentile_pos = [](float percentile, size_t N) {
+          const auto calc_percentile_pos = [](float percentile, size_t N) {
             return static_cast<size_t>(std::ceil(percentile / 100.0 * N)) - 1;
           };
 
-          float search_time_p99 = search_times[calc_percentile_pos(99, search_times.size())];
-          best_search_time_p99  = std::min(best_search_time_p99, search_time_p99);
+          const float search_time_p99 = search_times[calc_percentile_pos(99, search_times.size())];
+          best_search_time_p99        = std::min(best_search_time_p99, search_time_p99);
 
           if (search_times.size() >= 1000) {
-            float search_time_p999 = search_times[calc_percentile_pos(99.9, search_times.size())];
-            best_search_time_p999  = std::min(best_search_time_p999, search_time_p999);
+            const float search_time_p999 =
+              search_times[calc_percentile_pos(99.9, search_times.size())];
+            best_search_time_p999 = std::min(best_search_time_p999, search_time_p999);
           }
         }
         search_times.clear();
       }
       RAFT_CUDA_TRY(cudaDeviceSynchronize());
       RAFT_CUDA_TRY(cudaPeekAtLastError());
+      const auto query_per_second =
+        (run_count * raft::round_down_safe(query_set_size, batch_size)) / total_search_time;
 
       if (algo_property.query_memory_type == MemoryType::Device) {
         RAFT_CUDA_TRY(cudaMemcpy(neighbors,
@@ -436,7 +450,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                                  cudaMemcpyDeviceToHost));
       }
 
-      for (size_t j = 0; j < query_set_size * k; ++j) {
+      for (std::size_t j = 0; j < query_set_size * k; ++j) {
         neighbors_buf[j] = neighbors[j];
       }
       write_search_result(index.search_result_file + "." + to_string(i),
@@ -452,6 +466,7 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                           best_search_time_average,
                           best_search_time_p99,
                           best_search_time_p999,
+                          query_per_second,
                           neighbors_buf,
                           query_set_size);
     }
@@ -483,15 +498,15 @@ inline const std::string usage(const string& argv0)
 }
 
 template <typename T>
-inline int dispatch_benchmark(Configuration& conf,
-                              std::string& index_patterns,
+inline int dispatch_benchmark(const Configuration& conf,
+                              const std::string& index_patterns,
                               bool force_overwrite,
                               bool only_check,
                               bool build_mode,
                               bool search_mode)
 {
   try {
-    auto dataset_conf = conf.get_dataset_conf();
+    const auto dataset_conf = conf.get_dataset_conf();
 
     BinDataset<T> dataset(dataset_conf.name,
                           dataset_conf.base_file,
