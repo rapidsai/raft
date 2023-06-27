@@ -74,9 +74,9 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
-        - cuda-cudart {{ cuda_spec }}
-        - cuda-cudart-dev {{ cuda_spec }}
-        - libnvjitlink {{ libnvjitlink_run_version }}
+        - cuda-cudart
+        - cuda-cudart-dev
+        - libnvjitlink
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - librmm ={{ minor_version }}
@@ -113,6 +113,8 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
+        - cuda-cudart
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas
         - libcublas-dev
