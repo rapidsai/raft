@@ -153,6 +153,7 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
@@ -215,6 +216,7 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
@@ -280,6 +282,7 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
@@ -341,6 +344,7 @@ outputs:
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
