@@ -29,18 +29,19 @@ requirements:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }} {{ cuda_version }}
     {% else %}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    - {{ compiler('cuda') }}
     {% endif %}
+    - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0
+    - cuda-python >=11.7.1,<12.0a0
     - cudatoolkit
-    {% else}
+    {% else %}
     - cuda-python >=12.0,<13.0a0
-    {% endif}
+    {% endif %}
     - cython >=0.29,<0.30
     - nccl >=2.9.9
     - pylibraft {{ version }}
@@ -53,11 +54,11 @@ requirements:
     - ucx-py {{ ucx_py_version }}
   run:
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0
+    - cuda-python >=11.7.1,<12.0a0
     - cudatoolkit
-    {% else}
+    {% else %}
     - cuda-python >=12.0,<13.0a0
-    {% endif}
+    {% endif %}
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     - dask >=2023.5.1
     - dask-core >=2023.5.1
@@ -75,7 +76,6 @@ requirements:
 tests:
   requirements:
     - cuda-version ={{ cuda_version }
-    - cudatoolkit
   imports:
     - raft_dask
 

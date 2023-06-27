@@ -41,9 +41,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
         - librmm
     requirements:
@@ -53,10 +51,10 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
+        - {{ compiler('cuda') }}
         - cuda-cudart-dev {{ cuda_version }}
         {% endif %}
+        - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -64,7 +62,6 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
-        - cuda-cudart
         - cuda-cudart-dev
         - libnvjitlink
         {% endif %}
@@ -74,7 +71,6 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
-        - cuda-cudart
         - cuda-cudart-dev
         - libnvjitlink
         {% endif %}
@@ -90,11 +86,8 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
         - librmm
     requirements:
@@ -113,16 +106,11 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-cudart
         - cuda-cudart-dev
         - cuda-profiler-api
-        - libcublas
         - libcublas-dev
-        - libcurand
         - libcurand-dev
-        - libcusolver
         - libcusolver-dev
-        - libcusparse
         - libcusparse-dev
         - libnvjitlink
         {% endif %}
@@ -139,9 +127,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
       build:
@@ -149,9 +135,8 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
@@ -173,15 +158,10 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
-        - cuda-cudart
         - cuda-cudart-dev
-        - libcublas
         - libcublas-dev
-        - libcurand
         - libcurand-dev
-        - libcusolver
         - libcusolver-dev
-        - libcusparse
         - libcusparse-dev
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -200,11 +180,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
       build:
@@ -212,9 +188,7 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
+        - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
@@ -236,16 +210,11 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
-        - cuda-cudart
         - cuda-cudart-dev
         - cuda-cudart-static
-        - libcublas
         - libcublas-dev
-        - libcurand
         - libcurand-dev
-        - libcusolver
         - libcusolver-dev
-        - libcusparse
         - libcusparse-dev
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -268,9 +237,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
       build:
@@ -278,9 +245,7 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
+        - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
@@ -303,15 +268,10 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
-        - cuda-cudart
         - cuda-cudart-dev
-        - libcublas
         - libcublas-dev
-        - libcurand
         - libcurand-dev
-        - libcusolver
         - libcusolver-dev
-        - libcusparse
         - libcusparse-dev
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -330,9 +290,7 @@ outputs:
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
       build:
@@ -340,9 +298,7 @@ outputs:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
-        - {{ compiler('cuda') }} {{ cuda_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
+        - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - {{ compiler('cxx') }}
@@ -364,16 +320,11 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
-        - cuda-cudart
         - cuda-cudart-dev
         - cuda-cudart-static
-        - libcublas
         - libcublas-dev
-        - libcurand
         - libcurand-dev
-        - libcusolver
         - libcusolver-dev
-        - libcusparse
         - libcusparse-dev
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}

@@ -169,17 +169,12 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
-              - cuda-cudart
               - cuda-cudart-dev
               - cuda-profiler-api
               - libcublas-dev
-              - libcublas
               - libcurand-dev
-              - libcurand
               - libcusolver-dev
-              - libcusolver
               - libcusparse-dev
-              - libcusparse
           - matrix:
               cuda: "11.8"
             packages:
