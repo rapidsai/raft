@@ -64,9 +64,9 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
-        - libnvjitlink {{ libnvjitlink_host_version }}
+        - cuda-cudart
+        - cuda-cudart-dev
+        - libnvjitlink
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - librmm ={{ minor_version }}
