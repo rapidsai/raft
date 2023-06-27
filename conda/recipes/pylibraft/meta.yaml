@@ -64,7 +64,8 @@ requirements:
 
 tests:
   requirements:
-    - cudatoolkit ={{ cuda_version }}
+    - cuda-version ={{ cuda_version }
+    - cudatoolkit
   imports:
     - pylibraft
 

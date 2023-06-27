@@ -291,7 +291,7 @@ outputs:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -352,7 +352,7 @@ outputs:
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
