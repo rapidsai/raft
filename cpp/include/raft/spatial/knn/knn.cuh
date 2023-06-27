@@ -50,8 +50,8 @@ namespace raft::spatial::knn {
  * @param translations
  */
 template <typename idx_t = int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t* in_keys,
-                            idx_t* in_values,
+inline void knn_merge_parts(const value_t* in_keys,
+                            const idx_t* in_values,
                             value_t* out_keys,
                             idx_t* out_values,
                             size_t n_samples,
