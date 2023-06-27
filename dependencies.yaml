@@ -135,8 +135,17 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cuda_python cuda-python>=11.7.1,<12.0
           - &rmm rmm==23.8.*
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - cuda-python>=11.7.1,<12.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -278,8 +287,17 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - &numpy numpy>=1.21
-          - *cuda_python
           - *rmm
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - cuda-python>=11.7.1,<12.0a0
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
