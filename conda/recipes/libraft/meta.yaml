@@ -96,7 +96,7 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_run_version }}
         - libcublas-dev {{ cuda11_libcublas_run_version }}
@@ -107,17 +107,18 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-profiler-api {{ cuda_profiler_api_run_version }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
-        - libcurand {{ libcurand_run_version }}
-        - libcurand-dev {{ libcurand_run_version }}
-        - libcusolver {{ libcusolver_run_version }}
-        - libcusolver-dev {{ libcusolver_run_version }}
-        - libcusparse {{ libcusparse_run_version }}
-        - libcusparse-dev {{ libcusparse_run_version }}
-        - libnvjitlink {{ libnvjitlink_run_version }}
+        - cuda-profiler-api
+        - libcublas
+        - libcublas-dev
+        - libcurand
+        - libcurand-dev
+        - libcusolver
+        - libcusolver-dev
+        - libcusparse
+        - libcusparse-dev
+        - libnvjitlink
         {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -144,7 +145,6 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
@@ -153,7 +153,7 @@ outputs:
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_host_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -164,19 +164,19 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - cuda-profiler-api
+        - cuda-cudart
+        - cuda-cudart-dev
+        - libcublas
+        - libcublas-dev
+        - libcurand
+        - libcurand-dev
+        - libcusolver
+        - libcusolver-dev
+        - libcusparse
+        - libcusparse-dev
         {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
     about:
@@ -197,7 +197,6 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
     requirements:
       build:
@@ -208,7 +207,6 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
@@ -217,7 +215,7 @@ outputs:
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -228,19 +226,20 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - cuda-profiler-api
+        - cuda-cudart
+        - cuda-cudart-dev
+        - cuda-cudart-static
+        - libcublas
+        - libcublas-dev
+        - libcurand
+        - libcurand-dev
+        - libcusolver
+        - libcusolver-dev
+        - libcusparse
+        - libcusparse-dev
         {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
       run:
@@ -273,7 +272,6 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
@@ -294,19 +292,19 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - cuda-profiler-api
+        - cuda-cudart
+        - cuda-cudart-dev
+        - libcublas
+        - libcublas-dev
+        - libcurand
+        - libcurand-dev
+        - libcusolver
+        - libcusolver-dev
+        - libcusparse
+        - libcusparse-dev
         {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
     about:
@@ -335,7 +333,6 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
@@ -355,19 +352,20 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
-        - cuda-profiler-api {{ cuda_profiler_api_host_version }}
-        - cuda-cudart {{ cuda_version }}
-        - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
-        - libcublas {{ libcublas_host_version }}
-        - libcublas-dev {{ libcublas_host_version }}
-        - libcurand {{ libcurand_host_version }}
-        - libcurand-dev {{ libcurand_host_version }}
-        - libcusolver {{ libcusolver_host_version }}
-        - libcusolver-dev {{ libcusolver_host_version }}
-        - libcusparse {{ libcusparse_host_version }}
-        - libcusparse-dev {{ libcusparse_host_version }}
+        - cuda-profiler-api
+        - cuda-cudart
+        - cuda-cudart-dev
+        - cuda-cudart-static
+        - libcublas
+        - libcublas-dev
+        - libcurand
+        - libcurand-dev
+        - libcusolver
+        - libcusolver-dev
+        - libcusparse
+        - libcusparse-dev
         {% endif %}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
         # Temporarily ignore faiss benchmarks on CUDA 12
