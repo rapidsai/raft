@@ -111,7 +111,7 @@ class vector_t {
                           buffer_.data(),
                           buffer_.data() + buffer_.size(),
                           value_type{0},
-                          [] __device__(auto left, auto right) {
+                          [] __host__ __device__(auto left, auto right) {
                             auto abs_left  = left > 0 ? left : -left;
                             auto abs_right = right > 0 ? right : -right;
                             return abs_left + abs_right;
