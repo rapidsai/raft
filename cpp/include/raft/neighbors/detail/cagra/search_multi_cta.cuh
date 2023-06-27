@@ -377,7 +377,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
                                   const uint32_t min_iteration,             \
                                   const uint32_t max_iteration,             \
                                   uint32_t* const num_executed_iterations); \
-  search_kernel_t kernel;                                                   \
+  search_kernel_t kernel = nullptr;                                         \
   if (result_buffer_size <= 64) {                                           \
     SET_MC_KERNEL_1(64)                                                     \
   } else if (result_buffer_size <= 128) {                                   \
