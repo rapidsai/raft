@@ -56,31 +56,30 @@ outputs:
         - {{ compiler('cuda') }} {{ cuda_version }}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         {% endif %}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         {% if cuda_major == "11" %}
-        - cudatoolkit ={{ cuda_version }}
+        - cudatoolkit
         {% else %}
         - cuda-cudart {{ cuda_version }}
         - cuda-cudart-dev {{ cuda_version }}
-        - cuda-cudart-static {{ cuda_version }}
         - libnvjitlink {{ libnvjitlink_host_version }}
         {% endif %}
-        - librmm ={{ minor_version }}*=cuda{{ cuda_major }}*
+        - cuda-version ={{ cuda_version }}
+        - librmm ={{ minor_version }}
       run:
         {% if cuda_major == "11" %}
-        - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
+        - cudatoolkit
         {% else %}
         - cuda-cudart {{ cuda_spec }}
         - cuda-cudart-dev {{ cuda_spec }}
-        - cuda-cudart-static {{ cuda_spec }}
         - libnvjitlink {{ libnvjitlink_run_version }}
         {% endif %}
-        - librmm ={{ minor_version }}*=cuda{{ cuda_major }}*
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - librmm ={{ minor_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
