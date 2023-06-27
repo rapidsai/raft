@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <cuda/functional>
+
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusparse_handle.hpp>
@@ -107,15 +109,13 @@ class vector_t {
 
   value_type nrm1() const
   {
-    return thrust::reduce(thrust_policy,
-                          buffer_.data(),
-                          buffer_.data() + buffer_.size(),
-                          value_type{0},
-                          [] __host__ __device__(auto left, auto right) {
-                            auto abs_left  = left > 0 ? left : -left;
-                            auto abs_right = right > 0 ? right : -right;
-                            return abs_left + abs_right;
-                          });
+    auto f = cuda::proclaim_return_type<value_type>([] __device__(auto left, auto right) {
+      auto abs_left  = left > 0 ? left : -left;
+      auto abs_right = right > 0 ? right : -right;
+      return abs_left + abs_right;
+    });
+    return thrust::reduce(
+      thrust_policy, buffer_.data(), buffer_.data() + buffer_.size(), value_type{0}, f);
   }
 
   void fill(value_type value)
