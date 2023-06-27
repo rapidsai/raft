@@ -90,13 +90,17 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+        ignore_run_exports_from:
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }} {{ cuda_version }}
+        {% else %}
+        - {{ compiler('cuda') }} {{ cuda_version }}
+        {% endif %}
         - librmm
     requirements:
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
