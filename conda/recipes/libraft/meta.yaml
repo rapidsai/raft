@@ -211,7 +211,6 @@ outputs:
         {% else %}
         - cuda-profiler-api
         - cuda-cudart-dev
-        - cuda-cudart-static
         - libcublas-dev
         - libcurand-dev
         - libcusolver-dev
