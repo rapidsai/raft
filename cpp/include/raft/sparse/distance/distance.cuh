@@ -160,7 +160,7 @@ void pairwiseDistance(value_t* out,
  *
  * auto out = raft::make_device_matrix<float>(handle, x_nrows, y_nrows);
  * auto metric = raft::distance::DistanceType::L2Expanded;
- * raft::sparse::distance::pairwise_distance(handle, x, y, out, metric);
+ * raft::sparse::distance::pairwise_distance(handle, x.view(), y.view(), out, metric);
  * @endcode
  *
  * @tparam DeviceCSRMatrix raft::device_csr_matrix or raft::device_csr_matrix_view
@@ -168,8 +168,8 @@ void pairwiseDistance(value_t* out,
  * @tparam IndexType data-type for indexing
  *
  * @param[in] handle raft::resources
- * @param[in] x raft::SparsityType::PRESERVING sparse matrix
- * @param[in] y raft::SparsityType::PRESERVING sparse matrix
+ * @param[in] x raft::device_csr_matrix_view
+ * @param[in] y raft::device_csr_matrix_view
  * @param[out] dist raft::device_matrix_view dense matrix
  * @param[in] metric distance metric to use
  * @param[in] metric_arg metric argument (used for Minkowski distance)
@@ -177,7 +177,7 @@ void pairwiseDistance(value_t* out,
 template <typename DeviceCSRMatrix,
           typename ElementType,
           typename IndexType,
-          typename = std::enable_if_t<raft::is_device_csr_sparsity_preserving_v<DeviceCSRMatrix>>>
+          typename = std::enable_if_t<raft::is_device_csr_matrix_view_v<DeviceCSRMatrix>>>
 void pairwise_distance(raft::resources const& handle,
                        DeviceCSRMatrix x,
                        DeviceCSRMatrix y,

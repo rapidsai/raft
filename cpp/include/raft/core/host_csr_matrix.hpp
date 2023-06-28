@@ -91,6 +91,9 @@ struct is_host_csr_matrix_view<host_csr_matrix_view<ElementType, IndptrType, Ind
   : std::true_type {};
 
 template <typename T>
+constexpr bool is_host_csr_matrix_view_v = is_host_csr_matrix_view<T>::value;
+
+template <typename T>
 struct is_host_csr_matrix : std::false_type {};
 
 template <typename ElementType,

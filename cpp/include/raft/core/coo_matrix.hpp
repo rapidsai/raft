@@ -207,7 +207,6 @@ class coo_matrix_view
   using row_type     = RowType;
   using col_type     = ColType;
   using nnz_type     = NZType;
-  static constexpr auto get_sparsity_type() { return SparsityType::PRESERVING; }
   coo_matrix_view(raft::span<ElementType, is_device> element_span,
                   coordinate_structure_view<RowType, ColType, NZType, is_device> structure_view)
     : sparse_matrix_view<ElementType,

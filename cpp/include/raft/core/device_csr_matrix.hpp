@@ -92,6 +92,9 @@ struct is_device_csr_matrix_view<
   device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>> : std::true_type {};
 
 template <typename T>
+constexpr bool is_device_csr_matrix_view_v = is_device_csr_matrix_view<T>::value;
+
+template <typename T>
 struct is_device_csr_matrix : std::false_type {};
 
 template <typename ElementType,
@@ -113,9 +116,8 @@ constexpr bool is_device_csr_sparsity_owning_v =
   is_device_csr_matrix<T>::value and T::get_sparsity_type() == OWNING;
 
 template <typename T>
-constexpr bool is_device_csr_sparsity_preserving_v = std::disjunction_v<
-  is_device_csr_matrix_view<T>,
-  std::bool_constant<is_device_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING>>;
+constexpr bool is_device_csr_sparsity_preserving_v =
+  is_device_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
 
 /**
  * Create a sparsity-owning sparse matrix in the compressed-sparse row format. sparsity-owning

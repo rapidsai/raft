@@ -85,6 +85,9 @@ struct is_host_coo_matrix_view<host_coo_matrix_view<ElementType, RowType, ColTyp
   : std::true_type {};
 
 template <typename T>
+constexpr bool is_host_coo_matrix_view_v = is_host_coo_matrix_view<T>::value;
+
+template <typename T>
 struct is_host_coo_matrix : std::false_type {};
 
 template <typename ElementType,
@@ -106,9 +109,8 @@ constexpr bool is_host_coo_sparsity_owning_v =
   is_host_coo_matrix<T>::value and T::get_sparsity_type() == OWNING;
 
 template <typename T>
-constexpr bool is_host_coo_sparsity_preserving_v = std::disjunction_v<
-  is_host_coo_matrix_view<T>,
-  std::bool_constant<is_host_coo_matrix<T>::value and T::get_sparsity_type() == PRESERVING>>;
+constexpr bool is_host_coo_sparsity_preserving_v =
+  is_host_coo_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
 
 /**
  * Create a sparsity-owning sparse matrix in the coordinate format. sparsity-owning means that
