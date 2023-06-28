@@ -346,10 +346,10 @@ void train_per_subset(raft::resources const& handle,
                       const float* trainset,   // [n_rows, dim]
                       const uint32_t* labels,  // [n_rows]
                       uint32_t kmeans_n_iters,
-                      rmm::mr::device_memory_resource* managed_memory,
-                      rmm::mr::device_memory_resource* device_memory)
+                      rmm::mr::device_memory_resource* managed_memory)
 {
-  auto stream = resource::get_cuda_stream(handle);
+  auto stream        = resource::get_cuda_stream(handle);
+  auto device_memory = resource::get_workspace_resource(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<float> sub_trainset(n_rows * size_t(index.pq_len()), stream, device_memory);
@@ -392,11 +392,6 @@ void train_per_subset(raft::resources const& handle,
                  index.pq_len(),
                  stream);
 
-    // clone the handle and attached the device memory resource to it
-    // TODO(achirkin): check if we should remove the device memory in the arguments
-    const resources new_handle(handle);
-    resource::set_workspace_resource(new_handle, device_memory);
-
     // train PQ codebook for this subspace
     auto sub_trainset_view =
       raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), n_rows, index.pq_len());
@@ -428,10 +423,10 @@ void train_per_cluster(raft::resources const& handle,
                        const float* trainset,   // [n_rows, dim]
                        const uint32_t* labels,  // [n_rows]
                        uint32_t kmeans_n_iters,
-                       rmm::mr::device_memory_resource* managed_memory,
-                       rmm::mr::device_memory_resource* device_memory)
+                       rmm::mr::device_memory_resource* managed_memory)
 {
-  auto stream = resource::get_cuda_stream(handle);
+  auto stream        = resource::get_cuda_stream(handle);
+  auto device_memory = resource::get_workspace_resource(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, managed_memory);
@@ -474,11 +469,6 @@ void train_per_cluster(raft::resources const& handle,
                      trainset,
                      indices + cluster_offsets[l],
                      device_memory);
-
-    // clone the handle and attached the device memory resource to it
-    // TODO(achirkin): check if we should remove the device memory in the arguments
-    const resources new_handle(handle);
-    resource::set_workspace_resource(new_handle, device_memory);
 
     // limit the cluster size to bound the training time.
     // [sic] we interpret the data as pq_len-dimensional
@@ -1545,24 +1535,18 @@ auto build(raft::resources const& handle,
       size_t(n_rows) / std::max<size_t>(params.kmeans_trainset_fraction * n_rows, index.n_lists()));
     size_t n_rows_train = n_rows / trainset_ratio;
 
-    rmm::mr::device_memory_resource* device_memory = nullptr;
-    auto pool_guard = raft::get_pool_memory_resource(device_memory, 1024 * 1024);
-    if (pool_guard) { RAFT_LOG_DEBUG("ivf_pq::build: using pool memory resource"); }
-
+    auto* device_memory = resource::get_workspace_resource(handle);
     rmm::mr::managed_memory_resource managed_memory_upstream;
     rmm::mr::pool_memory_resource<rmm::mr::managed_memory_resource> managed_memory(
       &managed_memory_upstream, 1024 * 1024);
 
     // If the trainset is small enough to comfortably fit into device memory, put it there.
     // Otherwise, use the managed memory.
+    constexpr size_t kTolerableRatio                     = 4;
     rmm::mr::device_memory_resource* big_memory_resource = &managed_memory;
-    {
-      size_t free_mem, total_mem;
-      constexpr size_t kTolerableRatio = 4;
-      RAFT_CUDA_TRY(cudaMemGetInfo(&free_mem, &total_mem));
-      if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio < free_mem) {
-        big_memory_resource = device_memory;
-      }
+    if (sizeof(float) * n_rows_train * index.dim() * kTolerableRatio <
+        resource::get_workspace_free_bytes(handle)) {
+      big_memory_resource = device_memory;
     }
 
     // Besides just sampling, we transform the input dataset into floats to make it easier
@@ -1711,8 +1695,7 @@ auto build(raft::resources const& handle,
                          trainset.data(),
                          labels.data(),
                          params.kmeans_n_iters,
-                         &managed_memory,
-                         device_memory);
+                         &managed_memory);
         break;
       case codebook_gen::PER_CLUSTER:
         train_per_cluster(handle,
@@ -1721,8 +1704,7 @@ auto build(raft::resources const& handle,
                           trainset.data(),
                           labels.data(),
                           params.kmeans_n_iters,
-                          &managed_memory,
-                          device_memory);
+                          &managed_memory);
         break;
       default: RAFT_FAIL("Unreachable code");
     }
