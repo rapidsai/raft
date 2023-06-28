@@ -100,7 +100,7 @@ jobs:
       build_type: pull-request
       package-name: raft_dask
       # Always want to test against latest dask/distributed.
-      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_${{ '${PIP_CU_VERSION}' }} rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@new-wheel-containers"
-      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_${{ '${PIP_CU_VERSION}' }} rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@new-wheel-containers"
+      test-before-amd64: "RAPIDS_PY_WHEEL_NAME=pylibraft_${{ '${PIP_CU_VERSION}' }} rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
+      test-before-arm64: "RAPIDS_PY_WHEEL_NAME=pylibraft_${{ '${PIP_CU_VERSION}' }} rapids-download-wheels-from-s3 ./local-pylibraft-dep && pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
       test-unittest: "python -m pytest ./python/raft-dask/raft_dask/test"
       test-smoketest: "python ./ci/wheel_smoke_test_raft_dask.py"
