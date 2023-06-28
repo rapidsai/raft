@@ -164,10 +164,19 @@ class device_uvector_policy {
  public:
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, resource::get_cuda_stream(res));
+    if (mr_ == nullptr) {
+      // NB: not using the workspace resource by default!
+      //     The workspace resource is for short-lived temporary allocations.
+      return container_type(n, resource::get_cuda_stream(res));
+    } else {
+      return container_type(n, resource::get_cuda_stream(res), mr_);
+    }
   }
 
-  device_uvector_policy() = default;
+  constexpr device_uvector_policy() = default;
+  constexpr explicit device_uvector_policy(rmm::mr::device_memory_resource* mr) noexcept : mr_(mr)
+  {
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -181,45 +190,9 @@ class device_uvector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
-};
 
-/**
- * @brief A container policy for device mdarray allocated in the temporary workspace.
- */
-template <typename ElementType>
-class device_uvector_workspace_policy {
- public:
-  using element_type   = ElementType;
-  using container_type = device_uvector<element_type>;
-  // FIXME(jiamingy): allocator type is not supported by rmm::device_uvector
-  using pointer         = typename container_type::pointer;
-  using const_pointer   = typename container_type::const_pointer;
-  using reference       = device_reference<element_type>;
-  using const_reference = device_reference<element_type const>;
-
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
-
- public:
-  auto create(raft::resources const& res, size_t n) -> container_type
-  {
-    return container_type(n, resource::get_cuda_stream(res), resource::get_workspace_resource(res));
-  }
-
-  device_uvector_workspace_policy() = default;
-
-  [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
-  {
-    return c[n];
-  }
-  [[nodiscard]] constexpr auto access(container_type const& c, size_t n) const noexcept
-    -> const_reference
-  {
-    return c[n];
-  }
-
-  [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
-  [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+ private:
+  rmm::mr::device_memory_resource* mr_{nullptr};
 };
 
 }  // namespace raft
