@@ -164,30 +164,4 @@ inline void set_workspace_resource(resources const& res,
     std::make_shared<workspace_resource_factory>(mr, allocation_limit, alignment));
 };
 
-/**
- * Set a temporary workspace resource on a resources instance.
- *
- * @param res raft resources object for managing resources
- * @param mr an optional RMM device_memory_resource;
- *   note, the ownership of the object is not transferred with this raw pointer interface.
- * @param allocation_limit
- *   the total amount of memory in bytes available to the temporary workspace resources.
- * @param alignment optional alignment requirements passed to RMM allocations
- *
- */
-inline void set_workspace_resource(resources const& res,
-                                   rmm::mr::device_memory_resource* mr,
-                                   std::optional<std::size_t> allocation_limit = std::nullopt,
-                                   std::optional<std::size_t> alignment        = std::nullopt)
-{
-  // NB: to preserve the semantics of passing memory resource without transferring the ownership,
-  //     we create a shared pointer with a dummy deleter (void_op).
-  set_workspace_resource(res,
-                         mr != nullptr
-                           ? std::shared_ptr<rmm::mr::device_memory_resource>{mr, void_op{}}
-                           : std::shared_ptr<rmm::mr::device_memory_resource>{nullptr},
-                         allocation_limit,
-                         alignment);
-};
-
 }  // namespace raft::resource
