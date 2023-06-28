@@ -298,7 +298,7 @@ TEST(Raft, WorkspaceResource)
   auto stream = resource::get_cuda_stream(handle);
   rmm::device_buffer buf(max_size / 2, stream, new_mr);
 
-  // Note, the underlying pool allocator likey uses more space than reported here
+  // Note, the underlying pool allocator likely uses more space than reported here
   ASSERT_EQ(max_size, resource::get_workspace_total_bytes(handle));
   ASSERT_EQ(buf.size(), resource::get_workspace_used_bytes(handle));
   ASSERT_EQ(max_size - buf.size(), resource::get_workspace_free_bytes(handle));
