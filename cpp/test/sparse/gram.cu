@@ -15,6 +15,7 @@
  */
 
 #if defined RAFT_DISTANCE_COMPILED
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/specializations.cuh>
 #endif
 
@@ -170,7 +171,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
 
     std::vector<math_t> dense_host(dense_size);
     raft::update_host(dense_host.data(), dense, dense_size, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     std::vector<int> indptr_host(n_rows + 1);
     std::vector<int> indices_host(n_rows * n_cols);
@@ -202,7 +203,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::update_device(indptr, indptr_host.data(), n_rows + 1, stream);
     raft::update_device(indices, indices_host.data(), nnz, stream);
     raft::update_device(data, data_host.data(), nnz, stream);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     return nnz;
   }
@@ -287,13 +288,13 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                           stream,
                           handle);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
 
     ASSERT_TRUE(raft::devArrMatchHost(
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream = 0;
   GramMatrixInputs params;
 

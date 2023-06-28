@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -56,13 +57,15 @@ template <typename T>
 class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
   SqrtTest()
-    : in1(0, handle.get_stream()), out_ref(0, handle.get_stream()), out(0, handle.get_stream())
+    : in1(0, resource::get_cuda_stream(handle)),
+      out_ref(0, resource::get_cuda_stream(handle)),
+      out(0, resource::get_cuda_stream(handle))
   {
   }
 
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     params      = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     raft::random::RngState r(params.seed);
     int len = params.len;
@@ -82,7 +85,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   SqrtInputs<T> params;
   rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;

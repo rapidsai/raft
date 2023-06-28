@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/stats/kl_divergence.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <random>
@@ -39,7 +40,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
   {
     // getting the parameters
     params = ::testing::TestWithParam<klDivergenceParam>::GetParam();
-    stream = handle.get_stream();
+    stream = resource::get_cuda_stream(handle);
 
     nElements = params.nElements;
 
@@ -80,7 +81,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
   }
 
   // declaring the data values
-  raft::device_resources handle;
+  raft::resources handle;
   klDivergenceParam params;
   int nElements              = 0;
   DataT truthklDivergence    = 0;

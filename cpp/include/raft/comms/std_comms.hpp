@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/comms.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft/comms/comms.hpp>
 #include <raft/comms/detail/std_comms.hpp>
@@ -39,7 +41,7 @@ using std_comms = detail::std_comms;
  * Factory function to construct a RAFT NCCL communicator and inject it into a
  * RAFT handle.
  *
- * @param handle raft::device_resources for injecting the comms
+ * @param handle raft::resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
  * @param num_ranks number of ranks in communicator clique
  * @param rank rank of local instance
@@ -49,35 +51,35 @@ using std_comms = detail::std_comms;
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::raft::device_resources handle;
+ * raft::raft::resources handle;
  *
  * build_comms_nccl_only(&handle, nccl_comm, 5, 0);
  * ...
- * const auto& comm = handle.get_comms();
+ * const auto& comm = resource::get_comms(handle);
  * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
  * ...
  * comm.allgather((gather_data.data_handle())[comm.get_rank()],
  *                gather_data.data_handle(),
  *                1,
- *                handle.get_stream());
+ *                resource::get_cuda_stream(handle));
  *
- * comm.sync_stream(handle.get_stream());
+ * comm.sync_stream(resource::get_cuda_stream(handle));
  * @endcode
  */
-void build_comms_nccl_only(device_resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
+void build_comms_nccl_only(resources* handle, ncclComm_t nccl_comm, int num_ranks, int rank)
 {
-  cudaStream_t stream = handle->get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(*handle);
 
   auto communicator = std::make_shared<comms_t>(
     std::unique_ptr<comms_iface>(new raft::comms::std_comms(nccl_comm, num_ranks, rank, stream)));
-  handle->set_comms(communicator);
+  resource::set_comms(*handle, communicator);
 }
 
 /**
  * Factory function to construct a RAFT NCCL+UCX and inject it into a RAFT
  * handle.
  *
- * @param handle raft::device_resources for injecting the comms
+ * @param handle raft::resources for injecting the comms
  * @param nccl_comm initialized NCCL communicator to use for collectives
  * @param ucp_worker of local process
  *        Note: This is purposefully left as void* so that the ucp_worker_h
@@ -93,29 +95,25 @@ void build_comms_nccl_only(device_resources* handle, ncclComm_t nccl_comm, int n
  * #include <raft/core/device_mdarray.hpp>
  *
  * ncclComm_t nccl_comm;
- * raft::raft::device_resources handle;
+ * raft::raft::resources handle;
  * ucp_worker_h ucp_worker;
  * ucp_ep_h *ucp_endpoints_arr;
  *
  * build_comms_nccl_ucx(&handle, nccl_comm, &ucp_worker, ucp_endpoints_arr, 5, 0);
  * ...
- * const auto& comm = handle.get_comms();
+ * const auto& comm = resource::get_comms(handle);
  * auto gather_data = raft::make_device_vector<float>(handle, comm.get_size());
  * ...
  * comm.allgather((gather_data.data_handle())[comm.get_rank()],
  *                gather_data.data_handle(),
  *                1,
- *                handle.get_stream());
+ *                resource::get_cuda_stream(handle));
  *
- * comm.sync_stream(handle.get_stream());
+ * comm.sync_stream(resource::get_cuda_stream(handle));
  * @endcode
  */
-void build_comms_nccl_ucx(device_resources* handle,
-                          ncclComm_t nccl_comm,
-                          void* ucp_worker,
-                          void* eps,
-                          int num_ranks,
-                          int rank)
+void build_comms_nccl_ucx(
+  resources* handle, ncclComm_t nccl_comm, void* ucp_worker, void* eps, int num_ranks, int rank)
 {
   auto eps_sp = std::make_shared<ucp_ep_h*>(new ucp_ep_h[num_ranks]);
 
@@ -133,12 +131,12 @@ void build_comms_nccl_ucx(device_resources* handle,
     }
   }
 
-  cudaStream_t stream = handle->get_stream();
+  cudaStream_t stream = resource::get_cuda_stream(*handle);
 
   auto communicator =
     std::make_shared<comms_t>(std::unique_ptr<comms_iface>(new raft::comms::std_comms(
       nccl_comm, (ucp_worker_h)ucp_worker, eps_sp, num_ranks, rank, stream)));
-  handle->set_comms(communicator);
+  resource::set_comms(*handle, communicator);
 }
 
 /**

@@ -15,6 +15,7 @@
  */
 
 #include <common/benchmark.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
@@ -57,7 +58,7 @@ struct Gather : public fixture {
     if constexpr (Conditional) {
       raft::random::uniform(rng, stencil.data_handle(), params.map_length, T(-1), T(1), stream);
     }
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void run_benchmark(::benchmark::State& state) override

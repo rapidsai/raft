@@ -15,8 +15,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/csr.hpp>
 
@@ -41,7 +42,7 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
  public:
   CSRtoCOOTest()
     : params(::testing::TestWithParam<CSRtoCOOInputs<Index_>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       ex_scan(params.ex_scan.size(), stream),
       verify(params.verify.size(), stream),
       result(params.verify.size(), stream)
@@ -66,7 +67,7 @@ class CSRtoCOOTest : public ::testing::TestWithParam<CSRtoCOOInputs<Index_>> {
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   CSRtoCOOInputs<Index_> params;

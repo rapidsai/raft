@@ -74,7 +74,7 @@ void qrGetQR(raft::resources const& handle,
 
 /**
  * @brief Compute the QR decomposition of matrix M and return only the Q matrix.
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] M Input raft::device_matrix_view
  * @param[out] Q Output raft::device_matrix_view
  */
@@ -95,7 +95,7 @@ void qr_get_q(raft::resources const& handle,
 
 /**
  * @brief Compute the QR decomposition of matrix M and return both the Q and R matrices.
- * @param[in] handle raft::device_resources
+ * @param[in] handle raft::resources
  * @param[in] M Input raft::device_matrix_view
  * @param[in] Q Output raft::device_matrix_view
  * @param[out] R Output raft::device_matrix_view

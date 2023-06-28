@@ -16,7 +16,8 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -64,8 +65,8 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
   void SetUp() override
   {
-    raft::device_resources handle;
-    stream = handle.get_stream();
+    raft::resources handle;
+    stream = resource::get_cuda_stream(handle);
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
@@ -272,7 +273,7 @@ TEST_P(RsvdSanityCheckRightVecD, Result)
 typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result)
 {
-  raft::device_resources handle;
+  raft::resources handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
                                                 A.data(),
@@ -283,13 +284,13 @@ TEST_P(RsvdTestSquareMatrixNormF, Result)
                                                 params.n_col,
                                                 params.k,
                                                 4 * params.tolerance,
-                                                handle.get_stream()));
+                                                resource::get_cuda_stream(handle)));
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result)
 {
-  raft::device_resources handle;
+  raft::resources handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
                                                 A.data(),
@@ -300,7 +301,7 @@ TEST_P(RsvdTestSquareMatrixNormD, Result)
                                                 params.n_col,
                                                 params.k,
                                                 4 * params.tolerance,
-                                                handle.get_stream()));
+                                                resource::get_cuda_stream(handle)));
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF, ::testing::ValuesIn(sanity_inputs_fx));

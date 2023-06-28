@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <raft/matrix/matrix.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/matrix/linewise_op.cuh>
 
 namespace raft {
 namespace linalg {
@@ -33,10 +34,26 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  IdxType stride = rowMajor ? D : N;
-  IdxType nLines = rowMajor ? N : D;
-  return matrix::linewiseOp(
-    out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec);
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
+  bool along_lines = rowMajor == bcastAlongRows;
+  if (rowMajor) {
+    matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
+      handle,
+      make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
+      make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
+      along_lines,
+      op,
+      make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
+  } else {
+    matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
+      handle,
+      make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
+      make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),
+      along_lines,
+      op,
+      make_device_vector_view<const VecT, IdxType>(vec, bcastAlongRows ? N : D));
+  }
 }
 
 template <typename MatT,
@@ -56,10 +73,28 @@ void matrixVectorOp(MatT* out,
                     Lambda op,
                     cudaStream_t stream)
 {
-  IdxType stride = rowMajor ? D : N;
-  IdxType nLines = rowMajor ? N : D;
-  return matrix::linewiseOp(
-    out, matrix, stride, nLines, rowMajor == bcastAlongRows, op, stream, vec1, vec2);
+  raft::resources handle;
+  resource::set_cuda_stream(handle, stream);
+  bool along_lines = rowMajor == bcastAlongRows;
+  if (rowMajor) {
+    matrix::linewise_op<MatT, IdxType, row_major, Lambda>(
+      handle,
+      make_device_matrix_view<const MatT, IdxType, row_major>(matrix, N, D),
+      make_device_matrix_view<MatT, IdxType, row_major>(out, N, D),
+      along_lines,
+      op,
+      make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
+      make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));
+  } else {
+    matrix::linewise_op<MatT, IdxType, col_major, Lambda>(
+      handle,
+      make_device_matrix_view<const MatT, IdxType, col_major>(matrix, N, D),
+      make_device_matrix_view<MatT, IdxType, col_major>(out, N, D),
+      along_lines,
+      op,
+      make_device_vector_view<const Vec1T, IdxType>(vec1, bcastAlongRows ? N : D),
+      make_device_vector_view<const Vec2T, IdxType>(vec2, bcastAlongRows ? N : D));
+  }
 }
 
 };  // end namespace detail

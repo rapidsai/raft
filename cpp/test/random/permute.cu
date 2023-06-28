@@ -16,7 +16,8 @@
 
 #include "../test_utils.cuh"
 #include <algorithm>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 
@@ -47,13 +48,15 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
 
  protected:
   PermTest()
-    : in(0, handle.get_stream()), out(0, handle.get_stream()), outPerms(0, handle.get_stream())
+    : in(0, resource::get_cuda_stream(handle)),
+      out(0, resource::get_cuda_stream(handle)),
+      outPerms(0, resource::get_cuda_stream(handle))
   {
   }
 
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     params      = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
@@ -73,11 +76,11 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       uniform(handle, r, in_ptr, len, T(-1.0), T(1.0));
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;
@@ -93,7 +96,9 @@ class PermMdspanTest : public ::testing::TestWithParam<PermInputs<T>> {
 
  protected:
   PermMdspanTest()
-    : in(0, handle.get_stream()), out(0, handle.get_stream()), outPerms(0, handle.get_stream())
+    : in(0, resource::get_cuda_stream(handle)),
+      out(0, resource::get_cuda_stream(handle)),
+      outPerms(0, resource::get_cuda_stream(handle))
   {
   }
 
@@ -109,7 +114,7 @@ class PermMdspanTest : public ::testing::TestWithParam<PermInputs<T>> {
  protected:
   void SetUp() override
   {
-    auto stream = handle.get_stream();
+    auto stream = resource::get_cuda_stream(handle);
     params      = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
@@ -156,11 +161,11 @@ class PermMdspanTest : public ::testing::TestWithParam<PermInputs<T>> {
       set_up_views_and_test(raft::col_major{});
     }
 
-    handle.sync_stream();
+    resource::sync_stream(handle);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   PermInputs<T> params;
   rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;

@@ -18,6 +18,7 @@
 #include "reduce.cuh"
 #include <gtest/gtest.h>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -43,12 +44,8 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void coalescedReductionLaunch(const raft::device_resources& handle,
-                              T* dots,
-                              const T* data,
-                              int cols,
-                              int rows,
-                              bool inplace = false)
+void coalescedReductionLaunch(
+  const raft::resources& handle, T* dots, const T* data, int cols, int rows, bool inplace = false)
 {
   auto dots_view = raft::make_device_vector_view(dots, rows);
   auto data_view = raft::make_device_matrix_view(data, rows, cols);
@@ -60,7 +57,7 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
  public:
   coalescedReductionTest()
     : params(::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream),
       dots_exp(params.rows * params.cols, stream),
       dots_act(params.rows * params.cols, stream)
@@ -101,11 +98,11 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows);
     coalescedReductionLaunch(handle, dots_act.data(), data.data(), cols, rows, true);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   coalescedReductionInputs<T> params;

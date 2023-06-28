@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/matrix/power.cuh>
@@ -120,7 +121,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
  public:
   MathTest()
     : params(::testing::TestWithParam<MathInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       in_power(params.len, stream),
       out_power_ref(params.len, stream),
       in_sqrt(params.len, stream),
@@ -203,11 +204,11 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
     update_device(out_smallzero_ref.data(), in_small_val_zero_ref_h.data(), 4, stream);
     zero_small_values<T>(handle, in_smallzero_view, out_smallzero_view);
     zero_small_values<T>(handle, inout_smallzero_view);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   MathInputs<T> params;

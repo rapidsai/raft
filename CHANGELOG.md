@@ -1,3 +1,97 @@
+# raft 23.06.00 (7 Jun 2023)
+
+## 🚨 Breaking Changes
+
+- ivf-pq::search: fix the indexing type of the query-related mdspan arguments ([#1539](https://github.com/rapidsai/raft/pull/1539)) [@achirkin](https://github.com/achirkin)
+- Dropping Python 3.8 ([#1454](https://github.com/rapidsai/raft/pull/1454)) [@divyegala](https://github.com/divyegala)
+
+## 🐛 Bug Fixes
+
+- [HOTFIX] Fix  distance metrics L2/cosine/correlation when X &amp; Y are same buffer but with different shape and add unit test for such case. ([#1571](https://github.com/rapidsai/raft/pull/1571)) [@mdoijade](https://github.com/mdoijade)
+- Using raft::resources in rsvd ([#1543](https://github.com/rapidsai/raft/pull/1543)) [@cjnolet](https://github.com/cjnolet)
+- ivf-pq::search: fix the indexing type of the query-related mdspan arguments ([#1539](https://github.com/rapidsai/raft/pull/1539)) [@achirkin](https://github.com/achirkin)
+- Check python brute-force knn inputs ([#1537](https://github.com/rapidsai/raft/pull/1537)) [@benfred](https://github.com/benfred)
+- Fix failing TiledKNNTest unittest ([#1533](https://github.com/rapidsai/raft/pull/1533)) [@benfred](https://github.com/benfred)
+- ivf-flat: fix incorrect recomputed size of the index ([#1525](https://github.com/rapidsai/raft/pull/1525)) [@achirkin](https://github.com/achirkin)
+- ivf-flat: limit the workspace size of the search via batching ([#1515](https://github.com/rapidsai/raft/pull/1515)) [@achirkin](https://github.com/achirkin)
+- Support uint64_t in CAGRA index data type ([#1514](https://github.com/rapidsai/raft/pull/1514)) [@enp1s0](https://github.com/enp1s0)
+- Workaround for cuda 12 issue in cusparse ([#1508](https://github.com/rapidsai/raft/pull/1508)) [@cjnolet](https://github.com/cjnolet)
+- Un-scale output distances ([#1499](https://github.com/rapidsai/raft/pull/1499)) [@achirkin](https://github.com/achirkin)
+- Inline get_cache_idx ([#1492](https://github.com/rapidsai/raft/pull/1492)) [@ahendriksen](https://github.com/ahendriksen)
+- Pin to scikit-build&lt;17.2 ([#1487](https://github.com/rapidsai/raft/pull/1487)) [@vyasr](https://github.com/vyasr)
+- Remove pool_size() calls from debug printouts ([#1484](https://github.com/rapidsai/raft/pull/1484)) [@tfeher](https://github.com/tfeher)
+- Add missing ext declaration for log detail::format ([#1482](https://github.com/rapidsai/raft/pull/1482)) [@tfeher](https://github.com/tfeher)
+- Remove include statements from inside namespace ([#1467](https://github.com/rapidsai/raft/pull/1467)) [@robertmaynard](https://github.com/robertmaynard)
+- Use pin_compatible to ensure that lower CTKs can be used ([#1462](https://github.com/rapidsai/raft/pull/1462)) [@vyasr](https://github.com/vyasr)
+- fix ivf_pq n_probes ([#1456](https://github.com/rapidsai/raft/pull/1456)) [@benfred](https://github.com/benfred)
+- The glog project root CMakeLists.txt is where we should build from ([#1442](https://github.com/rapidsai/raft/pull/1442)) [@robertmaynard](https://github.com/robertmaynard)
+- Add missing resource factory virtual destructor ([#1433](https://github.com/rapidsai/raft/pull/1433)) [@cjnolet](https://github.com/cjnolet)
+- Removing cuda stream view include from mdarray ([#1429](https://github.com/rapidsai/raft/pull/1429)) [@cjnolet](https://github.com/cjnolet)
+- Fix dim param for IVF-PQ wrapper in ANN bench ([#1427](https://github.com/rapidsai/raft/pull/1427)) [@tfeher](https://github.com/tfeher)
+- Remove MetricProcessor code from brute_force::knn ([#1426](https://github.com/rapidsai/raft/pull/1426)) [@benfred](https://github.com/benfred)
+- Fix is_min_close ([#1419](https://github.com/rapidsai/raft/pull/1419)) [@benfred](https://github.com/benfred)
+- Have consistent compile lines between BUILD_TESTS enabled or not ([#1401](https://github.com/rapidsai/raft/pull/1401)) [@robertmaynard](https://github.com/robertmaynard)
+- Fix ucx-py pin in raft-dask recipe ([#1396](https://github.com/rapidsai/raft/pull/1396)) [@vyasr](https://github.com/vyasr)
+
+## 📖 Documentation
+
+- Various updates to the docs for 23.06 release ([#1538](https://github.com/rapidsai/raft/pull/1538)) [@cjnolet](https://github.com/cjnolet)
+- Rename kernel arch finding function for dispatch ([#1536](https://github.com/rapidsai/raft/pull/1536)) [@mdoijade](https://github.com/mdoijade)
+- Adding bfknn and ivf-pq python api to docs ([#1507](https://github.com/rapidsai/raft/pull/1507)) [@cjnolet](https://github.com/cjnolet)
+- Add RAPIDS cuDF as a library that supports cuda_array_interface ([#1444](https://github.com/rapidsai/raft/pull/1444)) [@miguelusque](https://github.com/miguelusque)
+
+## 🚀 New Features
+
+- IVF-PQ: manipulating individual lists ([#1298](https://github.com/rapidsai/raft/pull/1298)) [@achirkin](https://github.com/achirkin)
+- Gram matrix support for sparse input ([#1296](https://github.com/rapidsai/raft/pull/1296)) [@mfoerste4](https://github.com/mfoerste4)
+- [FEA] Add randomized svd from cusolver ([#1000](https://github.com/rapidsai/raft/pull/1000)) [@lowener](https://github.com/lowener)
+
+## 🛠️ Improvements
+
+- Require Numba 0.57.0+ ([#1559](https://github.com/rapidsai/raft/pull/1559)) [@jakirkham](https://github.com/jakirkham)
+- remove device_resources include from linalg::map ([#1540](https://github.com/rapidsai/raft/pull/1540)) [@benfred](https://github.com/benfred)
+- Learn heuristic to pick fastest select_k algorithm ([#1523](https://github.com/rapidsai/raft/pull/1523)) [@benfred](https://github.com/benfred)
+- [REVIEW] make raft::cache::Cache protected to allow overrides ([#1522](https://github.com/rapidsai/raft/pull/1522)) [@mfoerste4](https://github.com/mfoerste4)
+- [REVIEW] Fix padding assertion in sparse Gram evaluation ([#1521](https://github.com/rapidsai/raft/pull/1521)) [@mfoerste4](https://github.com/mfoerste4)
+- run docs nightly too ([#1520](https://github.com/rapidsai/raft/pull/1520)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Switch back to using primary shared-action-workflows branch ([#1519](https://github.com/rapidsai/raft/pull/1519)) [@vyasr](https://github.com/vyasr)
+- Python API for IVF-Flat serialization ([#1516](https://github.com/rapidsai/raft/pull/1516)) [@tfeher](https://github.com/tfeher)
+- Introduce sample filtering to IVFPQ index search ([#1513](https://github.com/rapidsai/raft/pull/1513)) [@alexanderguzhva](https://github.com/alexanderguzhva)
+- Migrate from raft::device_resources -&gt; raft::resources ([#1510](https://github.com/rapidsai/raft/pull/1510)) [@benfred](https://github.com/benfred)
+- Use rmm allocator in CAGRA prune ([#1503](https://github.com/rapidsai/raft/pull/1503)) [@enp1s0](https://github.com/enp1s0)
+- Update recipes to GTest version &gt;=1.13.0 ([#1501](https://github.com/rapidsai/raft/pull/1501)) [@bdice](https://github.com/bdice)
+- Remove raft/matrix/matrix.cuh includes ([#1498](https://github.com/rapidsai/raft/pull/1498)) [@benfred](https://github.com/benfred)
+- Generate dataset of select_k times ([#1497](https://github.com/rapidsai/raft/pull/1497)) [@benfred](https://github.com/benfred)
+- Re-use memory pool between benchmark runs ([#1495](https://github.com/rapidsai/raft/pull/1495)) [@benfred](https://github.com/benfred)
+- Support CUDA 12.0 for pip wheels ([#1489](https://github.com/rapidsai/raft/pull/1489)) [@divyegala](https://github.com/divyegala)
+- Update cupy dependency ([#1488](https://github.com/rapidsai/raft/pull/1488)) [@vyasr](https://github.com/vyasr)
+- Enable sccache hits from local builds ([#1478](https://github.com/rapidsai/raft/pull/1478)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Build wheels using new single image workflow ([#1477](https://github.com/rapidsai/raft/pull/1477)) [@vyasr](https://github.com/vyasr)
+- Revert shared-action-workflows pin ([#1475](https://github.com/rapidsai/raft/pull/1475)) [@divyegala](https://github.com/divyegala)
+- CAGRA: Separate graph index sorting functionality from prune function ([#1471](https://github.com/rapidsai/raft/pull/1471)) [@enp1s0](https://github.com/enp1s0)
+- Add generic reduction functions and separate reductions/warp_primitives ([#1470](https://github.com/rapidsai/raft/pull/1470)) [@akifcorduk](https://github.com/akifcorduk)
+- [ENH] [FINAL] Header structure: combine all PRs into one ([#1469](https://github.com/rapidsai/raft/pull/1469)) [@ahendriksen](https://github.com/ahendriksen)
+- use `matrix::select_k` in brute_force::knn call ([#1463](https://github.com/rapidsai/raft/pull/1463)) [@benfred](https://github.com/benfred)
+- Dropping Python 3.8 ([#1454](https://github.com/rapidsai/raft/pull/1454)) [@divyegala](https://github.com/divyegala)
+- Fix linalg::map to work with non-power-of-2-sized types again ([#1453](https://github.com/rapidsai/raft/pull/1453)) [@ahendriksen](https://github.com/ahendriksen)
+- [ENH] Enable building with clang (limit strict error checking to GCC) ([#1452](https://github.com/rapidsai/raft/pull/1452)) [@ahendriksen](https://github.com/ahendriksen)
+- Remove usage of rapids-get-rapids-version-from-git ([#1436](https://github.com/rapidsai/raft/pull/1436)) [@jjacobelli](https://github.com/jjacobelli)
+- Minor Updates to Sparse Structures ([#1432](https://github.com/rapidsai/raft/pull/1432)) [@divyegala](https://github.com/divyegala)
+- Use nvtx3 includes. ([#1431](https://github.com/rapidsai/raft/pull/1431)) [@bdice](https://github.com/bdice)
+- Remove wheel pytest verbosity ([#1424](https://github.com/rapidsai/raft/pull/1424)) [@sevagh](https://github.com/sevagh)
+- Add python bindings for matrix::select_k ([#1422](https://github.com/rapidsai/raft/pull/1422)) [@benfred](https://github.com/benfred)
+- Using `raft::resources` across `raft::random` ([#1420](https://github.com/rapidsai/raft/pull/1420)) [@cjnolet](https://github.com/cjnolet)
+- Generate build metrics report for test and benchmarks ([#1414](https://github.com/rapidsai/raft/pull/1414)) [@divyegala](https://github.com/divyegala)
+- Update clang-format to 16.0.1. ([#1412](https://github.com/rapidsai/raft/pull/1412)) [@bdice](https://github.com/bdice)
+- Use ARC V2 self-hosted runners for GPU jobs ([#1410](https://github.com/rapidsai/raft/pull/1410)) [@jjacobelli](https://github.com/jjacobelli)
+- Remove uses-setup-env-vars ([#1406](https://github.com/rapidsai/raft/pull/1406)) [@vyasr](https://github.com/vyasr)
+- Resolve conflicts in auto-merger of `branch-23.06` and `branch-23.04` ([#1403](https://github.com/rapidsai/raft/pull/1403)) [@galipremsagar](https://github.com/galipremsagar)
+- Adding base header-only conda package without cuda math libs ([#1386](https://github.com/rapidsai/raft/pull/1386)) [@cjnolet](https://github.com/cjnolet)
+- Fix IVF-PQ API to use `device_vector_view` ([#1384](https://github.com/rapidsai/raft/pull/1384)) [@lowener](https://github.com/lowener)
+- Branch 23.06 merge 23.04 ([#1379](https://github.com/rapidsai/raft/pull/1379)) [@vyasr](https://github.com/vyasr)
+- Forward merge branch 23.04 into 23.06 ([#1350](https://github.com/rapidsai/raft/pull/1350)) [@cjnolet](https://github.com/cjnolet)
+- Fused L2 1-NN based on cutlass 3xTF32 / DMMA ([#1118](https://github.com/rapidsai/raft/pull/1118)) [@mdoijade](https://github.com/mdoijade)
+
 # raft 23.04.00 (6 Apr 2023)
 
 ## 🚨 Breaking Changes

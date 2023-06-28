@@ -18,6 +18,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wtautological-compare"
 
 // We define CUTLASS_NAMESPACE in case
 // RAFT cmake is not used
@@ -38,19 +39,10 @@
 #include <cutlass/tensor_view.h>
 
 #include <raft/distance/detail/distance_ops/cutlass.cuh>
+#include <raft/util/cutlass_utils.cuh>
 
 #include "./pairwise_distance_epilogue_elementwise.h"
 #include "./pairwise_distance_gemm.h"
-
-#define CUTLASS_CHECK(status)                                                                    \
-  {                                                                                              \
-    cutlass::Status error = status;                                                              \
-    if (error != cutlass::Status::kSuccess) {                                                    \
-      std::cerr << "Got cutlass error: " << cutlassGetStatusString(error) << " at: " << __LINE__ \
-                << std::endl;                                                                    \
-      exit(EXIT_FAILURE);                                                                        \
-    }                                                                                            \
-  }
 
 namespace raft {
 namespace distance {
@@ -164,14 +156,13 @@ std::enable_if_t<ops::has_cutlass_op<OpT>::value> cutlassDistanceKernel(const Da
   // Instantiate CUTLASS kernel depending on templates
   cutlassDist cutlassDist_op;
   // Check the problem size is supported or not
-  cutlass::Status status = cutlassDist_op.can_implement(arguments);
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op.can_implement(arguments));
+
   // Initialize CUTLASS kernel with arguments and workspace pointer
-  status = cutlassDist_op.initialize(arguments, workspace.data(), stream);
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op.initialize(arguments, workspace.data(), stream));
+
   // Launch initialized CUTLASS kernel
-  status = cutlassDist_op();
-  CUTLASS_CHECK(status);
+  RAFT_CUTLASS_TRY(cutlassDist_op(stream));
 }
 
 };  // namespace detail

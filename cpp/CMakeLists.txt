@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.06")
-set(RAFT_VERSION "23.06.00")
+set(RAPIDS_VERSION "23.08")
+set(RAFT_VERSION "23.08.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -298,6 +298,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/matrix/detail/select_k_double_uint32_t.cu
     src/matrix/detail/select_k_float_int64_t.cu
     src/matrix/detail/select_k_float_uint32_t.cu
+    src/matrix/detail/select_k_float_int32.cu
     src/matrix/detail/select_k_half_int64_t.cu
     src/matrix/detail/select_k_half_uint32_t.cu
     src/neighbors/ball_cover.cu
@@ -323,6 +324,10 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/selection_faiss_size_t_double.cu
     src/neighbors/detail/selection_faiss_size_t_float.cu
     src/neighbors/detail/selection_faiss_uint32_t_float.cu
+    src/neighbors/detail/selection_faiss_int64_t_double.cu
+    src/neighbors/detail/selection_faiss_int64_t_half.cu
+    src/neighbors/detail/selection_faiss_uint32_t_double.cu
+    src/neighbors/detail/selection_faiss_uint32_t_half.cu
     src/neighbors/ivf_flat_build_float_int64_t.cu
     src/neighbors/ivf_flat_build_int8_t_int64_t.cu
     src/neighbors/ivf_flat_build_uint8_t_int64_t.cu
@@ -360,6 +365,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
+    src/raft_runtime/neighbors/ivf_flat_serialize.cu
     src/raft_runtime/neighbors/ivfpq_build.cu
     src/raft_runtime/neighbors/ivfpq_deserialize.cu
     src/raft_runtime/neighbors/ivfpq_search_float_int64_t.cu

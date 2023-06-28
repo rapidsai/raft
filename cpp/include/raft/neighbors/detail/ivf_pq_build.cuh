@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
 #include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
@@ -24,10 +26,10 @@
 
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/detail/qr.cuh>
@@ -116,7 +118,7 @@ void copy_warped(T* out,
  * @param[out] rotation_matrix device pointer to a row-major matrix of size [n_rows, n_cols].
  * @param rng random number generator state
  */
-inline void make_rotation_matrix(raft::device_resources const& handle,
+inline void make_rotation_matrix(raft::resources const& handle,
                                  bool force_random_rotation,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
@@ -125,7 +127,7 @@ inline void make_rotation_matrix(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::make_rotation_matrix(%u * %u)", n_rows, n_cols);
-  auto stream  = handle.get_stream();
+  auto stream  = resource::get_cuda_stream(handle);
   bool inplace = n_rows == n_cols;
   uint32_t n   = std::max(n_rows, n_cols);
   if (force_random_rotation || !inplace) {
@@ -160,7 +162,7 @@ inline void make_rotation_matrix(raft::device_resources const& handle,
  *
  */
 template <typename T, typename IdxT>
-void select_residuals(raft::device_resources const& handle,
+void select_residuals(raft::resources const& handle,
                       float* residuals,
                       IdxT n_rows,
                       uint32_t dim,
@@ -173,7 +175,7 @@ void select_residuals(raft::device_resources const& handle,
 
 )
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
   rmm::device_uvector<float> tmp(size_t(n_rows) * size_t(dim), stream, device_memory);
   // Note: the number of rows of the input dataset isn't actually n_rows, but matrix::gather doesn't
   // need to know it, any strictly positive number would work.
@@ -181,8 +183,12 @@ void select_residuals(raft::device_resources const& handle,
     dataset, utils::mapping<float>{});
   raft::matrix::gather(mapping_itr, (IdxT)dim, n_rows, row_ids, n_rows, tmp.data(), stream);
 
-  raft::matrix::linewiseOp(
-    tmp.data(), tmp.data(), IdxT(dim), n_rows, true, raft::sub_op{}, stream, center);
+  raft::matrix::linewise_op(handle,
+                            make_device_matrix_view<const T, IdxT>(tmp.data(), n_rows, dim),
+                            make_device_matrix_view<T, IdxT>(tmp.data(), n_rows, dim),
+                            true,
+                            raft::sub_op{},
+                            make_device_vector_view<const T, IdxT>(center, dim));
 
   float alpha = 1.0;
   float beta  = 0.0;
@@ -212,7 +218,7 @@ void select_residuals(raft::device_resources const& handle,
  */
 template <typename T, typename IdxT>
 void flat_compute_residuals(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   float* residuals,                                                      // [n_rows, rot_dim]
   IdxT n_rows,
   device_matrix_view<const float, uint32_t, row_major> rotation_matrix,  // [rot_dim, dim]
@@ -221,7 +227,7 @@ void flat_compute_residuals(
   std::variant<uint32_t, const uint32_t*> labels,                        // [n_rows]
   rmm::mr::device_memory_resource* device_memory)
 {
-  auto stream  = handle.get_stream();
+  auto stream  = resource::get_cuda_stream(handle);
   auto dim     = rotation_matrix.extent(1);
   auto rot_dim = rotation_matrix.extent(0);
   rmm::device_uvector<float> tmp(n_rows * dim, stream, device_memory);
@@ -309,11 +315,11 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
-void transpose_pq_centers(const device_resources& handle,
+void transpose_pq_centers(const resources& handle,
                           index<IdxT>& index,
                           const float* pq_centers_source)
 {
-  auto stream  = handle.get_stream();
+  auto stream  = resource::get_cuda_stream(handle);
   auto extents = index.pq_centers().extents();
   static_assert(extents.rank() == 3);
   auto extents_source =
@@ -334,7 +340,7 @@ void transpose_pq_centers(const device_resources& handle,
 }
 
 template <typename IdxT>
-void train_per_subset(raft::device_resources const& handle,
+void train_per_subset(raft::resources const& handle,
                       index<IdxT>& index,
                       size_t n_rows,
                       const float* trainset,   // [n_rows, dim]
@@ -343,7 +349,7 @@ void train_per_subset(raft::device_resources const& handle,
                       rmm::mr::device_memory_resource* managed_memory,
                       rmm::mr::device_memory_resource* device_memory)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<float> sub_trainset(n_rows * size_t(index.pq_len()), stream, device_memory);
@@ -386,6 +392,11 @@ void train_per_subset(raft::device_resources const& handle,
                  index.pq_len(),
                  stream);
 
+    // clone the handle and attached the device memory resource to it
+    // TODO(achirkin): check if we should remove the device memory in the arguments
+    const resources new_handle(handle);
+    resource::set_workspace_resource(new_handle, device_memory);
+
     // train PQ codebook for this subspace
     auto sub_trainset_view =
       raft::make_device_matrix_view<const float, IdxT>(sub_trainset.data(), n_rows, index.pq_len());
@@ -411,7 +422,7 @@ void train_per_subset(raft::device_resources const& handle,
 }
 
 template <typename IdxT>
-void train_per_cluster(raft::device_resources const& handle,
+void train_per_cluster(raft::resources const& handle,
                        index<IdxT>& index,
                        size_t n_rows,
                        const float* trainset,   // [n_rows, dim]
@@ -420,7 +431,7 @@ void train_per_cluster(raft::device_resources const& handle,
                        rmm::mr::device_memory_resource* managed_memory,
                        rmm::mr::device_memory_resource* device_memory)
 {
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   rmm::device_uvector<float> pq_centers_tmp(index.pq_centers().size(), stream, device_memory);
   rmm::device_uvector<uint32_t> cluster_sizes(index.n_lists(), stream, managed_memory);
@@ -446,7 +457,7 @@ void train_per_cluster(raft::device_resources const& handle,
   rmm::device_uvector<float> rot_vectors(
     size_t(max_cluster_size) * size_t(index.rot_dim()), stream, device_memory);
 
-  handle.sync_stream();  // make sure cluster offsets are up-to-date
+  resource::sync_stream(handle);  // make sure cluster offsets are up-to-date
   for (uint32_t l = 0; l < index.n_lists(); l++) {
     auto cluster_size = cluster_sizes.data()[l];
     if (cluster_size == 0) continue;
@@ -463,6 +474,11 @@ void train_per_cluster(raft::device_resources const& handle,
                      trainset,
                      indices + cluster_offsets[l],
                      device_memory);
+
+    // clone the handle and attached the device memory resource to it
+    // TODO(achirkin): check if we should remove the device memory in the arguments
+    const resources new_handle(handle);
+    resource::set_workspace_resource(new_handle, device_memory);
 
     // limit the cluster size to bound the training time.
     // [sic] we interpret the data as pq_len-dimensional
@@ -595,7 +611,7 @@ inline void unpack_list_data(
 
 /** Unpack the list data; see the public interface for the api and usage. */
 template <typename IdxT>
-void unpack_list_data(raft::device_resources const& res,
+void unpack_list_data(raft::resources const& res,
                       const index<IdxT>& index,
                       device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
                       uint32_t label,
@@ -605,7 +621,7 @@ void unpack_list_data(raft::device_resources const& res,
                    index.lists()[label]->data.view(),
                    offset_or_indices,
                    index.pq_bits(),
-                   res.get_stream());
+                   resource::get_cuda_stream(res));
 }
 
 /** A consumer for the `run_on_list` and `run_on_vector` that approximates the original input data.
@@ -683,7 +699,7 @@ __launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
 
 /** Decode the list data; see the public interface for the api and usage. */
 template <typename T, typename IdxT>
-void reconstruct_list_data(raft::device_resources const& res,
+void reconstruct_list_data(raft::resources const& res,
                            const index<IdxT>& index,
                            device_matrix_view<T, uint32_t, row_major> out_vectors,
                            uint32_t label,
@@ -701,7 +717,7 @@ void reconstruct_list_data(raft::device_resources const& res,
   }
 
   auto tmp = make_device_mdarray<float>(
-    res, res.get_workspace_resource(), make_extents<uint32_t>(n_rows, index.rot_dim()));
+    res, resource::get_workspace_resource(res), make_extents<uint32_t>(n_rows, index.rot_dim()));
 
   constexpr uint32_t kBlockSize = 256;
   dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
@@ -716,21 +732,22 @@ void reconstruct_list_data(raft::device_resources const& res,
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }(index.pq_bits());
-  kernel<<<blocks, threads, 0, res.get_stream()>>>(tmp.view(),
-                                                   list->data.view(),
-                                                   index.pq_centers(),
-                                                   index.centers_rot(),
-                                                   index.codebook_kind(),
-                                                   label,
-                                                   offset_or_indices);
+  kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(tmp.view(),
+                                                                 list->data.view(),
+                                                                 index.pq_centers(),
+                                                                 index.centers_rot(),
+                                                                 index.codebook_kind(),
+                                                                 label,
+                                                                 offset_or_indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   float* out_float_ptr = nullptr;
-  rmm::device_uvector<float> out_float_buf(0, res.get_stream(), res.get_workspace_resource());
+  rmm::device_uvector<float> out_float_buf(
+    0, resource::get_cuda_stream(res), resource::get_workspace_resource(res));
   if constexpr (std::is_same_v<T, float>) {
     out_float_ptr = out_vectors.data_handle();
   } else {
-    out_float_buf.resize(size_t{n_rows} * size_t{index.dim()}, res.get_stream());
+    out_float_buf.resize(size_t{n_rows} * size_t{index.dim()}, resource::get_cuda_stream(res));
     out_float_ptr = out_float_buf.data();
   }
   // Rotate the results back to the original space
@@ -750,7 +767,7 @@ void reconstruct_list_data(raft::device_resources const& res,
                &beta,
                out_float_ptr,
                index.dim(),
-               res.get_stream());
+               resource::get_cuda_stream(res));
   // Transform the data to the original type, if necessary
   if constexpr (!std::is_same_v<T, float>) {
     linalg::map(res,
@@ -831,7 +848,7 @@ inline void pack_list_data(
 }
 
 template <typename IdxT>
-void pack_list_data(raft::device_resources const& res,
+void pack_list_data(raft::resources const& res,
                     index<IdxT>* index,
                     device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
                     uint32_t label,
@@ -841,7 +858,7 @@ void pack_list_data(raft::device_resources const& res,
                  new_codes,
                  offset_or_indices,
                  index->pq_bits(),
-                 res.get_stream());
+                 resource::get_cuda_stream(res));
 }
 
 /**
@@ -997,7 +1014,7 @@ __launch_bounds__(BlockSize) __global__ void encode_list_data_kernel(
 }
 
 template <typename T, typename IdxT>
-void encode_list_data(raft::device_resources const& res,
+void encode_list_data(raft::resources const& res,
                       index<IdxT>* index,
                       device_matrix_view<const T, uint32_t, row_major> new_vectors,
                       uint32_t label,
@@ -1006,7 +1023,7 @@ void encode_list_data(raft::device_resources const& res,
   auto n_rows = new_vectors.extent(0);
   if (n_rows == 0) { return; }
 
-  auto mr = res.get_workspace_resource();
+  auto mr = resource::get_workspace_resource(res);
 
   auto new_vectors_residual =
     make_device_mdarray<float>(res, mr, make_extents<uint32_t>(n_rows, index->rot_dim()));
@@ -1034,12 +1051,12 @@ void encode_list_data(raft::device_resources const& res,
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }(index->pq_bits());
-  kernel<<<blocks, threads, 0, res.get_stream()>>>(index->lists()[label]->data.view(),
-                                                   new_vectors_residual.view(),
-                                                   index->pq_centers(),
-                                                   index->codebook_kind(),
-                                                   label,
-                                                   offset_or_indices);
+  kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(index->lists()[label]->data.view(),
+                                                                 new_vectors_residual.view(),
+                                                                 index->pq_centers(),
+                                                                 index->codebook_kind(),
+                                                                 label,
+                                                                 offset_or_indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -1071,7 +1088,7 @@ void encode_list_data(raft::device_resources const& res,
  *    a memory resource to use for device allocations
  */
 template <typename T, typename IdxT>
-void process_and_fill_codes(raft::device_resources const& handle,
+void process_and_fill_codes(raft::resources const& handle,
                             index<IdxT>& index,
                             const T* new_vectors,
                             std::variant<IdxT, const IdxT*> src_offset_or_indices,
@@ -1105,23 +1122,23 @@ void process_and_fill_codes(raft::device_resources const& handle,
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }(index.pq_bits());
-  kernel<<<blocks, threads, 0, handle.get_stream()>>>(new_vectors_residual.view(),
-                                                      src_offset_or_indices,
-                                                      new_labels,
-                                                      index.list_sizes(),
-                                                      index.inds_ptrs(),
-                                                      index.data_ptrs(),
-                                                      index.pq_centers(),
-                                                      index.codebook_kind());
+  kernel<<<blocks, threads, 0, resource::get_cuda_stream(handle)>>>(new_vectors_residual.view(),
+                                                                    src_offset_or_indices,
+                                                                    new_labels,
+                                                                    index.list_sizes(),
+                                                                    index.inds_ptrs(),
+                                                                    index.data_ptrs(),
+                                                                    index.pq_centers(),
+                                                                    index.codebook_kind());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 /** Update the state of the dependent index members. */
 template <typename IdxT>
-void recompute_internal_state(const raft::device_resources& res, index<IdxT>& index)
+void recompute_internal_state(const raft::resources& res, index<IdxT>& index)
 {
-  auto stream  = res.get_stream();
-  auto tmp_res = res.get_workspace_resource();
+  auto stream  = resource::get_cuda_stream(res);
+  auto tmp_res = resource::get_workspace_resource(res);
   rmm::device_uvector<uint32_t> sorted_sizes(index.n_lists(), stream, tmp_res);
 
   // Actualize the list pointers
@@ -1159,7 +1176,7 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
   // copy the results to CPU
   std::vector<uint32_t> sorted_sizes_host(index.n_lists());
   copy(sorted_sizes_host.data(), sorted_sizes.data(), index.n_lists(), stream);
-  res.sync_stream();
+  resource::sync_stream(res);
 
   // accumulate the sorted cluster sizes
   auto accum_sorted_sizes = index.accum_sorted_sizes();
@@ -1176,7 +1193,7 @@ void recompute_internal_state(const raft::device_resources& res, index<IdxT>& in
  * @return offset for writing the data
  */
 template <typename IdxT>
-auto extend_list_prepare(raft::device_resources const& res,
+auto extend_list_prepare(raft::resources const& res,
                          index<IdxT>* index,
                          device_vector_view<const IdxT, uint32_t, row_major> new_indices,
                          uint32_t label) -> uint32_t
@@ -1184,15 +1201,18 @@ auto extend_list_prepare(raft::device_resources const& res,
   uint32_t n_rows = new_indices.extent(0);
   uint32_t offset;
   // Allocate the lists to fit the new data
-  copy(&offset, index->list_sizes().data_handle() + label, 1, res.get_stream());
-  res.sync_stream();
+  copy(&offset, index->list_sizes().data_handle() + label, 1, resource::get_cuda_stream(res));
+  resource::sync_stream(res);
   uint32_t new_size = offset + n_rows;
-  copy(index->list_sizes().data_handle() + label, &new_size, 1, res.get_stream());
+  copy(index->list_sizes().data_handle() + label, &new_size, 1, resource::get_cuda_stream(res));
   auto spec = list_spec<uint32_t, IdxT>{
     index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
   auto& list = index->lists()[label];
   ivf::resize_list(res, list, spec, new_size, offset);
-  copy(list->indices.data_handle() + offset, new_indices.data_handle(), n_rows, res.get_stream());
+  copy(list->indices.data_handle() + offset,
+       new_indices.data_handle(),
+       n_rows,
+       resource::get_cuda_stream(res));
   return offset;
 }
 
@@ -1202,7 +1222,7 @@ auto extend_list_prepare(raft::device_resources const& res,
  * See the public interface for the api and usage.
  */
 template <typename IdxT>
-void extend_list_with_codes(raft::device_resources const& res,
+void extend_list_with_codes(raft::resources const& res,
                             index<IdxT>* index,
                             device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
                             device_vector_view<const IdxT, uint32_t, row_major> new_indices,
@@ -1221,7 +1241,7 @@ void extend_list_with_codes(raft::device_resources const& res,
  * See the public interface for the api and usage.
  */
 template <typename T, typename IdxT>
-void extend_list(raft::device_resources const& res,
+void extend_list(raft::resources const& res,
                  index<IdxT>* index,
                  device_matrix_view<const T, uint32_t, row_major> new_vectors,
                  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
@@ -1240,19 +1260,19 @@ void extend_list(raft::device_resources const& res,
  * See the public interface for the api and usage.
  */
 template <typename IdxT>
-void erase_list(raft::device_resources const& res, index<IdxT>* index, uint32_t label)
+void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
 {
   uint32_t zero = 0;
-  copy(index->list_sizes().data_handle() + label, &zero, 1, res.get_stream());
+  copy(index->list_sizes().data_handle() + label, &zero, 1, resource::get_cuda_stream(res));
   index->lists()[label].reset();
   recompute_internal_state(res, *index);
 }
 
 /** Copy the state of an index into a new index, but share the list data among the two. */
 template <typename IdxT>
-auto clone(const raft::device_resources& res, const index<IdxT>& source) -> index<IdxT>
+auto clone(const raft::resources& res, const index<IdxT>& source) -> index<IdxT>
 {
-  auto stream = res.get_stream();
+  auto stream = resource::get_cuda_stream(res);
 
   // Allocate the new index
   index<IdxT> target(res,
@@ -1299,7 +1319,7 @@ auto clone(const raft::device_resources& res, const index<IdxT>& source) -> inde
  * See raft::spatial::knn::ivf_pq::extend docs.
  */
 template <typename T, typename IdxT>
-void extend(raft::device_resources const& handle,
+void extend(raft::resources const& handle,
             index<IdxT>* index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -1307,7 +1327,7 @@ void extend(raft::device_resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), index->dim());
-  auto stream           = handle.get_stream();
+  auto stream           = resource::get_cuda_stream(handle);
   const auto n_clusters = index->n_lists();
 
   RAFT_EXPECTS(new_indices != nullptr || index->size() == 0,
@@ -1448,7 +1468,7 @@ void extend(raft::device_resources const& handle,
     std::vector<uint32_t> old_cluster_sizes(n_clusters);
     copy(new_cluster_sizes.data(), list_sizes, n_clusters, stream);
     copy(old_cluster_sizes.data(), orig_list_sizes.data(), n_clusters, stream);
-    handle.sync_stream();
+    resource::sync_stream(handle);
     for (uint32_t label = 0; label < n_clusters; label++) {
       ivf::resize_list(
         handle, index->lists()[label], spec, new_cluster_sizes[label], old_cluster_sizes[label]);
@@ -1484,7 +1504,7 @@ void extend(raft::device_resources const& handle,
  * See raft::spatial::knn::ivf_pq::extend docs.
  */
 template <typename T, typename IdxT>
-auto extend(raft::device_resources const& handle,
+auto extend(raft::resources const& handle,
             const index<IdxT>& orig_index,
             const T* new_vectors,
             const IdxT* new_indices,
@@ -1497,7 +1517,7 @@ auto extend(raft::device_resources const& handle,
 
 /** See raft::spatial::knn::ivf_pq::build docs */
 template <typename T, typename IdxT>
-auto build(raft::device_resources const& handle,
+auto build(raft::resources const& handle,
            const index_params& params,
            const T* dataset,
            IdxT n_rows,
@@ -1510,7 +1530,7 @@ auto build(raft::device_resources const& handle,
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
 
-  auto stream = handle.get_stream();
+  auto stream = resource::get_cuda_stream(handle);
 
   index<IdxT> index(handle, params, dim);
   utils::memzero(

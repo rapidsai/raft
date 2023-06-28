@@ -17,6 +17,7 @@
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
 #include <iostream>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/haversine_distance.cuh>
 #include <rmm/device_uvector.hpp>
@@ -30,7 +31,7 @@ template <typename value_idx, typename value_t>
 class HaversineKNNTest : public ::testing::Test {
  public:
   HaversineKNNTest()
-    : stream(handle.get_stream()),
+    : stream(resource::get_cuda_stream(handle)),
       d_train_inputs(0, stream),
       d_ref_I(0, stream),
       d_ref_D(0, stream),
@@ -94,13 +95,13 @@ class HaversineKNNTest : public ::testing::Test {
                                               k,
                                               stream);
 
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
   void SetUp() override { basicTest(); }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   rmm::device_uvector<value_t> d_train_inputs;

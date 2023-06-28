@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/norm.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -55,7 +56,7 @@ class NormTest : public ::testing::TestWithParam<NormInputs<T>> {
  public:
   NormTest()
     : params(::testing::TestWithParam<NormInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       data(params.rows * params.cols, stream)
   {
   }
@@ -70,11 +71,11 @@ class NormTest : public ::testing::TestWithParam<NormInputs<T>> {
     out_scalar_exp = naiveNorm(h_data.data(), cols, rows);
     auto input = raft::make_device_matrix_view<const T, int>(data.data(), params.rows, params.cols);
     out_scalar_act = l2_norm(handle, input);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   NormInputs<T> params;

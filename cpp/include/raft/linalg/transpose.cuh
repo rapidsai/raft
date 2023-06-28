@@ -74,7 +74,7 @@ void transpose(math_t* inout, int n, cudaStream_t stream)
  *
  * @param[in]  handle raft handle for managing expensive cuda resources.
  * @param[in]  in     Input matrix.
- * @param[out] out    Output matirx, storage is pre-allocated by caller.
+ * @param[out] out    Output matrix, storage is pre-allocated by caller.
  */
 template <typename T, typename IndexType, typename LayoutPolicy, typename AccessorPolicy>
 auto transpose(raft::resources const& handle,

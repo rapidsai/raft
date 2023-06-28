@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/matrix/detail/matrix.cuh>
-#include <raft/matrix/matrix.cuh>
 
 namespace raft::matrix {
 
@@ -36,10 +36,11 @@ namespace raft::matrix {
  * @param[inout] inout: input matrix. Result also stored in this parameter
  */
 template <typename math_t, typename idx_t>
-void sign_flip(raft::device_resources const& handle,
+void sign_flip(raft::resources const& handle,
                raft::device_matrix_view<math_t, idx_t, col_major> inout)
 {
-  detail::signFlip(inout.data_handle(), inout.extent(0), inout.extent(1), handle.get_stream());
+  detail::signFlip(
+    inout.data_handle(), inout.extent(0), inout.extent(1), resource::get_cuda_stream(handle));
 }
 
 /** @} */  // end group matrix_sign_flip

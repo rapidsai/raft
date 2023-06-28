@@ -128,6 +128,11 @@ _RAFT_HOST_DEVICE inline std::uint32_t get_max_value<std::uint32_t>()
 {
   return 0xffffffffu;
 };
+template <>
+_RAFT_HOST_DEVICE inline std::uint64_t get_max_value<std::uint64_t>()
+{
+  return 0xfffffffffffffffflu;
+};
 
 template <int A, int B, class = void>
 struct constexpr_max {
@@ -137,6 +142,11 @@ struct constexpr_max {
 template <int A, int B>
 struct constexpr_max<A, B, std::enable_if_t<(B > A), bool>> {
   static const int value = B;
+};
+
+template <class IdxT>
+struct gen_index_msb_1_mask {
+  static constexpr IdxT value = static_cast<IdxT>(1) << (utils::size_of<IdxT>() * 8 - 1);
 };
 }  // namespace utils
 

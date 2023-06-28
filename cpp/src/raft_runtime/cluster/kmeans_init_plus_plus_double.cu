@@ -15,16 +15,17 @@
  */
 
 #include <raft/cluster/kmeans.cuh>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 
 namespace raft::runtime::cluster::kmeans {
 
-void init_plus_plus(raft::device_resources const& handle,
+void init_plus_plus(raft::resources const& handle,
                     const raft::cluster::kmeans::KMeansParams& params,
                     raft::device_matrix_view<const double, int> X,
                     raft::device_matrix_view<double, int> centroids)
 {
-  rmm::device_uvector<char> workspace(0, handle.get_stream());
+  rmm::device_uvector<char> workspace(0, resource::get_cuda_stream(handle));
   raft::cluster::kmeans::init_plus_plus<double, int>(handle, params, X, centroids, workspace);
 }
 }  // namespace raft::runtime::cluster::kmeans

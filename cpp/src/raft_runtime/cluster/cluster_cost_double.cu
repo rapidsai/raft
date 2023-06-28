@@ -15,12 +15,12 @@
  */
 
 #include "cluster_cost.cuh"
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace raft::runtime::cluster::kmeans {
 
-void cluster_cost(raft::device_resources const& handle,
+void cluster_cost(raft::resources const& handle,
                   const double* X,
                   int n_samples,
                   int n_features,

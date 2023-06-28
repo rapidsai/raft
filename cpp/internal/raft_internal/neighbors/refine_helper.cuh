@@ -15,13 +15,14 @@
  */
 #pragma once
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng.cuh>
 
@@ -45,9 +46,9 @@ struct RefineInputs {
 template <typename DataT, typename DistanceT, typename IdxT>
 class RefineHelper {
  public:
-  RefineHelper(const raft::device_resources& handle, RefineInputs<IdxT> params)
+  RefineHelper(const raft::resources& handle, RefineInputs<IdxT> params)
     : handle_(handle),
-      stream_(handle.get_stream()),
+      stream_(resource::get_cuda_stream(handle)),
       p(params),
       dataset(handle),
       queries(handle),
@@ -89,7 +90,7 @@ class RefineHelper {
                                         p.k0,
                                         p.metric,
                                         stream_);
-      handle_.sync_stream(stream_);
+      resource::sync_stream(handle_, stream_);
     }
 
     if (p.host_data) {
@@ -104,7 +105,7 @@ class RefineHelper {
 
       refined_distances_host = raft::make_host_matrix<DistanceT, IdxT>(p.n_queries, p.k);
       refined_indices_host   = raft::make_host_matrix<IdxT, IdxT>(p.n_queries, p.k);
-      handle_.sync_stream(stream_);
+      resource::sync_stream(handle_, stream_);
     }
 
     // Generate ground thruth for testing.
@@ -126,13 +127,13 @@ class RefineHelper {
       raft::copy(true_refined_indices_host.data(), indices_dev.data(), indices_dev.size(), stream_);
       raft::copy(
         true_refined_distances_host.data(), distances_dev.data(), distances_dev.size(), stream_);
-      handle_.sync_stream(stream_);
+      resource::sync_stream(handle_, stream_);
     }
   }
 
  public:
   RefineInputs<IdxT> p;
-  const raft::device_resources& handle_;
+  const raft::resources& handle_;
   rmm::cuda_stream_view stream_;
 
   raft::device_matrix<DataT, IdxT, row_major> dataset;

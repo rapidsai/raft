@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -45,7 +46,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
  public:
   EigTest()
     : params(::testing::TestWithParam<EigInputs<T>>::GetParam()),
-      stream(handle.get_stream()),
+      stream(resource::get_cuda_stream(handle)),
       cov_matrix(params.len, stream),
       eig_vectors(params.len, stream),
       eig_vectors_jacobi(params.len, stream),
@@ -137,11 +138,11 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
                eig_vals_jacobi_large_view,
                tol,
                sweeps);
-    handle.sync_stream(stream);
+    resource::sync_stream(handle, stream);
   }
 
  protected:
-  raft::device_resources handle;
+  raft::resources handle;
   cudaStream_t stream;
 
   EigInputs<T> params;
@@ -272,6 +273,10 @@ INSTANTIATE_TEST_SUITE_P(EigTests, EigTestValJacobiD, ::testing::ValuesIn(inputs
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecJacobiD, ::testing::ValuesIn(inputsd2));
+
+INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecCompareF, ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_SUITE_P(EigTests, EigTestVecCompareD, ::testing::ValuesIn(inputsd2));
 
 }  // namespace linalg
 }  // namespace raft

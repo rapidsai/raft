@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
 #include <raft/spatial/knn/detail/fused_l2_knn.cuh>
@@ -53,11 +54,11 @@ namespace raft::neighbors::brute_force {
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  compute multiple knn graphs and aggregate row-wise
  *  (see detailed description above)
@@ -78,7 +79,7 @@ namespace raft::neighbors::brute_force {
  */
 template <typename value_t, typename idx_t>
 inline void knn_merge_parts(
-  raft::device_resources const& handle,
+  raft::resources const& handle,
   raft::device_matrix_view<const value_t, idx_t, row_major> in_keys,
   raft::device_matrix_view<const idx_t, idx_t, row_major> in_values,
   raft::device_matrix_view<value_t, idx_t, row_major> out_keys,
@@ -89,10 +90,14 @@ inline void knn_merge_parts(
   RAFT_EXPECTS(in_keys.extent(1) == in_values.extent(1) && in_keys.extent(0) == in_values.extent(0),
                "in_keys and in_values must have the same shape.");
   RAFT_EXPECTS(
-    out_keys.extent(0) == out_values.extent(0) == n_samples,
+    out_keys.extent(0) == out_values.extent(0) && out_keys.extent(0) == n_samples,
     "Number of rows in output keys and val matrices must equal number of rows in search matrix.");
-  RAFT_EXPECTS(out_keys.extent(1) == out_values.extent(1) == in_keys.extent(1),
-               "Number of columns in output indices and distances matrices must be equal to k");
+  RAFT_EXPECTS(
+    out_keys.extent(1) == out_values.extent(1) && out_keys.extent(1) == in_keys.extent(1),
+    "Number of columns in output indices and distances matrices must be equal to k");
+
+  idx_t* translations_ptr = nullptr;
+  if (translations.has_value()) { translations_ptr = translations.value().data_handle(); }
 
   auto n_parts = in_keys.extent(0) / n_samples;
   detail::knn_merge_parts(in_keys.data_handle(),
@@ -102,8 +107,8 @@ inline void knn_merge_parts(
                           n_samples,
                           n_parts,
                           in_keys.extent(1),
-                          handle.get_stream(),
-                          translations.value_or(nullptr));
+                          resource::get_cuda_stream(handle),
+                          translations_ptr);
 }
 
 /**
@@ -115,12 +120,12 @@ inline void knn_merge_parts(
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::knn(handle, index, search, indices, distances, metric);
@@ -147,7 +152,7 @@ template <typename idx_t,
           typename index_layout,
           typename search_layout,
           typename epilogue_op = raft::identity_op>
-void knn(raft::device_resources const& handle,
+void knn(raft::resources const& handle,
          std::vector<raft::device_matrix_view<const value_t, matrix_idx, index_layout>> index,
          raft::device_matrix_view<const value_t, matrix_idx, search_layout> search,
          raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
@@ -208,12 +213,12 @@ void knn(raft::device_resources const& handle,
  *
  * Usage example:
  * @code{.cpp}
- *  #include <raft/core/device_resources.hpp>
+ *  #include <raft/core/resources.hpp>
  *  #include <raft/neighbors/brute_force.cuh>
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::device_resources handle;
+ *  raft::raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
@@ -231,7 +236,7 @@ void knn(raft::device_resources const& handle,
  * @param[in] metric type of distance computation to perform (must be a variant of L2)
  */
 template <typename value_t, typename idx_t, typename idx_layout, typename query_layout>
-void fused_l2_knn(raft::device_resources const& handle,
+void fused_l2_knn(raft::resources const& handle,
                   raft::device_matrix_view<const value_t, idx_t, idx_layout> index,
                   raft::device_matrix_view<const value_t, idx_t, query_layout> query,
                   raft::device_matrix_view<idx_t, idx_t, row_major> out_inds,
@@ -271,7 +276,7 @@ void fused_l2_knn(raft::device_resources const& handle,
                                          k,
                                          rowMajorIndex,
                                          rowMajorQuery,
-                                         handle.get_stream(),
+                                         resource::get_cuda_stream(handle),
                                          metric);
 }
 

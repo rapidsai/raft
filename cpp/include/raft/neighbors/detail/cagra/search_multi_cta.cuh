@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 #include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/device_properties.hpp>
+#include <raft/core/resources.hpp>
 
 #include <vector>
 
@@ -47,7 +52,8 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
-  const unsigned warp_id = threadIdx.x / 32;
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+  const unsigned warp_id             = threadIdx.x / 32;
   if (warp_id > 0) { return; }
   const unsigned lane_id = threadIdx.x % 32;
   for (uint32_t i = lane_id; i < num_parents; i += 32) {
@@ -61,7 +67,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
     int new_parent = 0;
     if (j < num_itopk) {
       index = itopk_indices[j];
-      if ((index & 0x80000000) == 0) {  // check if most significant bit is set
+      if ((index & index_msb_1_mask) == 0) {  // check if most significant bit is set
         new_parent = 1;
       }
     }
@@ -70,7 +76,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < num_parents) {
         next_parent_indices[i] = index;
-        itopk_indices[j] |= 0x80000000;  // set most significant bit as used node
+        itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
     num_new_parents += __popc(ballot_mask);
@@ -79,9 +85,9 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
 
-template <unsigned MAX_ELEMENTS>
+template <unsigned MAX_ELEMENTS, class INDEX_T>
 __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_elements]
-                                            uint32_t* indices,        // [num_elements]
+                                            INDEX_T* indices,         // [num_elements]
                                             const uint32_t num_elements,
                                             const uint32_t num_itopk  // num_itopk <= num_elements
 )
@@ -91,7 +97,7 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
   const unsigned lane_id = threadIdx.x % 32;
   constexpr unsigned N   = (MAX_ELEMENTS + 31) / 32;
   float key[N];
-  uint32_t val[N];
+  INDEX_T val[N];
   for (unsigned i = 0; i < N; i++) {
     unsigned j = lane_id + (32 * i);
     if (j < num_elements) {
@@ -99,11 +105,11 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
       val[i] = indices[j];
     } else {
       key[i] = utils::get_max_value<float>();
-      val[i] = utils::get_max_value<uint32_t>();
+      val[i] = utils::get_max_value<INDEX_T>();
     }
   }
   /* Warp Sort */
-  bitonic::warp_sort<float, uint32_t, N>(key, val);
+  bitonic::warp_sort<float, INDEX_T, N>(key, val);
   /* Store itopk sorted results */
   for (unsigned i = 0; i < N; i++) {
     unsigned j = (N * lane_id) + i;
@@ -132,14 +138,15 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
   const size_t dataset_dim,
   const size_t dataset_size,
+  const size_t dataset_ld,
   const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
   const INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,              // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
   const uint32_t num_seeds,
-  uint32_t* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
   const uint32_t itopk_size,
   const uint32_t num_parents,
@@ -189,7 +196,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto parent_indices_buffer =
-    reinterpret_cast<uint32_t*>(result_distances_buffer + result_buffer_size_32);
+    reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
   auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + num_parents);
 
 #if 0
@@ -204,13 +211,13 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
-      query_buffer[j] = static_cast<float>(query_ptr[i]) * device::fragment_scale<DATA_T>();
+      query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
     } else {
       query_buffer[j] = 0.0;
     }
   }
   if (threadIdx.x == 0) { terminate_flag[0] = 0; }
-  uint32_t* local_visited_hashmap_ptr =
+  INDEX_T* const local_visited_hashmap_ptr =
     visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);
   __syncthreads();
   _CLK_REC(clk_init);
@@ -225,6 +232,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     dataset_ptr,
     dataset_dim,
     dataset_size,
+    dataset_ld,
     result_buffer_size,
     num_distilation,
     rand_xor_mask,
@@ -241,10 +249,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   while (1) {
     // topk with bitonic sort
     _CLK_START();
-    topk_by_bitonic_sort<MAX_ELEMENTS>(result_distances_buffer,
-                                       result_indices_buffer,
-                                       itopk_size + (num_parents * graph_degree),
-                                       itopk_size);
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (num_parents * graph_degree),
+                                                itopk_size);
     _CLK_REC(clk_topk);
 
     if (iter + 1 == max_iteration) {
@@ -272,6 +280,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
         query_buffer,
         dataset_ptr,
         dataset_dim,
+        dataset_ld,
         knn_graph,
         graph_degree,
         local_visited_hashmap_ptr,
@@ -287,7 +296,11 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
-    result_indices_ptr[j] = result_indices_buffer[i] & ~0x80000000;  // clear most significant bit
+
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+
+    result_indices_ptr[j] =
+      result_indices_buffer[i] & ~index_msb_1_mask;  // clear most significant bit
   }
 
   if (threadIdx.x == 0 && cta_id == 0 && num_executed_iterations != nullptr) {
@@ -316,38 +329,31 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
 #endif
 }
 
-#define SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS, LOAD_T) \
-  kernel = search_kernel<TEAM_SIZE,                                    \
-                         BLOCK_SIZE,                                   \
-                         BLOCK_COUNT,                                  \
-                         MAX_ELEMENTS,                                 \
-                         MAX_DATASET_DIM,                              \
-                         DATA_T,                                       \
-                         DISTANCE_T,                                   \
-                         INDEX_T,                                      \
-                         LOAD_T>;
-
-#define SET_MC_KERNEL_2(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS)                    \
-  if (load_bit_length == 128) {                                                   \
-    SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS, device::LOAD_128BIT_T) \
-  } else if (load_bit_length == 64) {                                             \
-    SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS, device::LOAD_64BIT_T)  \
-  }
+#define SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS) \
+  kernel = search_kernel<TEAM_SIZE,                            \
+                         BLOCK_SIZE,                           \
+                         BLOCK_COUNT,                          \
+                         MAX_ELEMENTS,                         \
+                         MAX_DATASET_DIM,                      \
+                         DATA_T,                               \
+                         DISTANCE_T,                           \
+                         INDEX_T,                              \
+                         device::LOAD_128BIT_T>;
 
 #define SET_MC_KERNEL_1(MAX_ELEMENTS)         \
   /* if ( block_size == 32 ) {                \
-      SET_MC_KERNEL_2( 32, 32, MAX_ELEMENTS ) \
+      SET_MC_KERNEL_3( 32, 32, MAX_ELEMENTS ) \
   } else */                                   \
   if (block_size == 64) {                     \
-    SET_MC_KERNEL_2(64, 16, MAX_ELEMENTS)     \
+    SET_MC_KERNEL_3(64, 16, MAX_ELEMENTS)     \
   } else if (block_size == 128) {             \
-    SET_MC_KERNEL_2(128, 8, MAX_ELEMENTS)     \
+    SET_MC_KERNEL_3(128, 8, MAX_ELEMENTS)     \
   } else if (block_size == 256) {             \
-    SET_MC_KERNEL_2(256, 4, MAX_ELEMENTS)     \
+    SET_MC_KERNEL_3(256, 4, MAX_ELEMENTS)     \
   } else if (block_size == 512) {             \
-    SET_MC_KERNEL_2(512, 2, MAX_ELEMENTS)     \
+    SET_MC_KERNEL_3(512, 2, MAX_ELEMENTS)     \
   } else {                                    \
-    SET_MC_KERNEL_2(1024, 1, MAX_ELEMENTS)    \
+    SET_MC_KERNEL_3(1024, 1, MAX_ELEMENTS)    \
   }
 
 #define SET_MC_KERNEL                                                       \
@@ -356,6 +362,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
                                   const DATA_T* const dataset_ptr,          \
                                   const size_t dataset_dim,                 \
                                   const size_t dataset_size,                \
+                                  const size_t dataset_ld,                  \
                                   const DATA_T* const queries_ptr,          \
                                   const INDEX_T* const knn_graph,           \
                                   const uint32_t graph_degree,              \
@@ -363,7 +370,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
                                   const uint64_t rand_xor_mask,             \
                                   const INDEX_T* seed_ptr,                  \
                                   const uint32_t num_seeds,                 \
-                                  uint32_t* const visited_hashmap_ptr,      \
+                                  INDEX_T* const visited_hashmap_ptr,       \
                                   const uint32_t hash_bitlen,               \
                                   const uint32_t itopk_size,                \
                                   const uint32_t num_parents,               \
@@ -421,7 +428,6 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_length;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
@@ -443,7 +449,6 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
@@ -451,26 +456,26 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
 
   uint32_t num_cta_per_query;
-  rmm::device_uvector<uint32_t> intermediate_indices;
+  rmm::device_uvector<INDEX_T> intermediate_indices;
   rmm::device_uvector<float> intermediate_distances;
   size_t topk_workspace_size;
   rmm::device_uvector<uint32_t> topk_workspace;
 
-  search(raft::device_resources const& res,
+  search(raft::resources const& res,
          search_params params,
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
     : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk),
-      intermediate_indices(0, res.get_stream()),
-      intermediate_distances(0, res.get_stream()),
-      topk_workspace(0, res.get_stream())
+      intermediate_indices(0, resource::get_cuda_stream(res)),
+      intermediate_distances(0, resource::get_cuda_stream(res)),
+      topk_workspace(0, resource::get_cuda_stream(res))
 
   {
     set_params(res);
   }
 
-  void set_params(raft::device_resources const& res)
+  void set_params(raft::resources const& res)
   {
     this->itopk_size   = 32;
     num_parents        = 1;
@@ -505,7 +510,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
       // Increase block size to improve GPU occupancy when total number of
       // CTAs (= num_cta_per_query * max_queries) is small.
-      cudaDeviceProp deviceProp = res.get_device_properties();
+      cudaDeviceProp deviceProp = resource::get_device_properties(res);
       RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
              (graph_degree * num_parents * team_size >= block_size * 2) &&
@@ -524,42 +529,24 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     thread_block_size = block_size;
 
     //
-    // Determine load bit length
-    //
-    const uint32_t total_bit_length = dim * sizeof(DATA_T) * 8;
-    if (load_bit_length == 0) {
-      load_bit_length = 128;
-      while (total_bit_length % load_bit_length) {
-        load_bit_length /= 2;
-      }
-    }
-    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)",
-                   load_bit_length,
-                   total_bit_length / load_bit_length);
-    RAFT_EXPECTS(total_bit_length % load_bit_length == 0,
-                 "load_bit_length must be a divisor of dim*sizeof(data_t)*8=%u",
-                 total_bit_length);
-    RAFT_EXPECTS(load_bit_length >= 64, "load_bit_lenght cannot be less than 64");
-
-    //
     // Allocate memory for intermediate buffer and workspace.
     //
     uint32_t num_intermediate_results = num_cta_per_query * itopk_size;
-    intermediate_indices.resize(num_intermediate_results, res.get_stream());
-    intermediate_distances.resize(num_intermediate_results, res.get_stream());
+    intermediate_indices.resize(num_intermediate_results, resource::get_cuda_stream(res));
+    intermediate_distances.resize(num_intermediate_results, resource::get_cuda_stream(res));
 
-    hashmap.resize(hashmap_size, res.get_stream());
+    hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
 
     topk_workspace_size = _cuann_find_topk_bufferSize(
       topk, max_queries, num_intermediate_results, utils::get_cuda_data_type<DATA_T>());
     RAFT_LOG_DEBUG("# topk_workspace_size: %lu", topk_workspace_size);
-    topk_workspace.resize(topk_workspace_size, res.get_stream());
+    topk_workspace.resize(topk_workspace_size, resource::get_cuda_stream(res));
   }
 
   ~search() {}
 
-  void operator()(raft::device_resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+  void operator()(raft::resources const& res,
+                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
                   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
@@ -569,7 +556,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t* const num_executed_iterations,  // [num_queries,]
                   uint32_t topk)
   {
-    cudaStream_t stream = res.get_stream();
+    cudaStream_t stream = resource::get_cuda_stream(res);
     uint32_t block_size = thread_block_size;
 
     SET_MC_KERNEL;
@@ -578,7 +565,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     // Initialize hash table
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
-      hashmap.data(), hash_size, utils::get_max_value<uint32_t>(), hash_size, num_queries, stream);
+      hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
 
     dim3 block_dims(block_size, 1, 1);
     dim3 grid_dims(num_cta_per_query, num_queries, 1);
@@ -592,6 +579,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                                                          dataset.data_handle(),
                                                          dataset.extent(1),
                                                          dataset.extent(0),
+                                                         dataset.stride(0),
                                                          queries_ptr,
                                                          graph.data_handle(),
                                                          graph.extent(1),
