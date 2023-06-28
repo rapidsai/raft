@@ -130,13 +130,13 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -181,13 +181,13 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -242,13 +242,13 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
@@ -294,13 +294,13 @@ outputs:
     requirements:
       build:
         - {{ compiler('c') }}
+        - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }} {{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - {{ compiler('cxx') }}
         - cmake {{ cmake_version }}
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
