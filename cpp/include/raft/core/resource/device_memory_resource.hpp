@@ -126,6 +126,25 @@ inline auto get_workspace_resource(resources const& res)
     resource_type::WORKSPACE_RESOURCE);
 };
 
+/** Get the total size of the workspace resource. */
+inline auto get_workspace_total_bytes(resources const& res) -> size_t
+{
+  return get_workspace_resource(res)->get_allocation_limit();
+};
+
+/** Get the already allocated size of the workspace resource. */
+inline auto get_workspace_used_bytes(resources const& res) -> size_t
+{
+  return get_workspace_resource(res)->get_allocated_bytes();
+};
+
+/** Get the available size of the workspace resource. */
+inline auto get_workspace_free_bytes(resources const& res) -> size_t
+{
+  const auto* p = get_workspace_resource(res);
+  return p->get_allocation_limit() - p->get_allocated_bytes();
+};
+
 /**
  * Set a temporary workspace resource on a resources instance.
  *
