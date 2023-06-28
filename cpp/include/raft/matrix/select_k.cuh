@@ -96,6 +96,7 @@ void select_k(raft::resources const& handle,
     RAFT_EXPECTS(len == in_idx->extent(1), "value and index input lengths must be equal");
   }
   RAFT_EXPECTS(int64_t(k) == out_idx.extent(1), "value and index output lengths must be equal");
+
   return detail::select_k<T, IdxT>(handle,
                                    in_val.data_handle(),
                                    in_idx.has_value() ? in_idx->data_handle() : nullptr,

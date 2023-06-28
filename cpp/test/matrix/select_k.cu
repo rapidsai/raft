@@ -130,11 +130,9 @@ struct io_computed {
 
     interruptible::synchronize(stream);
 
-    if (algo != select::Algo::kPublicApi) {
-      auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
-      apply_permutation(out_dists_, p);
-      apply_permutation(out_ids_, p);
-    }
+    auto p = topk_sort_permutation(out_dists_, out_ids_, spec.k, spec.select_min);
+    apply_permutation(out_dists_, p);
+    apply_permutation(out_ids_, p);
   }
 
   auto get_in_dists() -> std::vector<KeyT>& { return in_dists_; }
@@ -192,6 +190,7 @@ struct io_computed {
 };
 
 template <typename InOut>
+
 using Params = std::tuple<select::params, select::Algo, InOut>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>

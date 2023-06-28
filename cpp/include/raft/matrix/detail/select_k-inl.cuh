@@ -291,6 +291,7 @@ void select_k(raft::resources const& handle,
 
   auto stream = raft::resource::get_cuda_stream(handle);
   auto algo   = choose_select_k_algorithm(batch_size, len, k);
+
   switch (algo) {
     case Algo::kRadix11bits:
       detail::select::radix::select_k<T, IdxT, 11, 512>(in_val,
@@ -329,6 +330,7 @@ void select_k(raft::resources const& handle,
     case Algo::kFaissBlockSelect:
       return neighbors::detail::select_k(
         in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream);
+    default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
 }  // namespace raft::matrix::detail

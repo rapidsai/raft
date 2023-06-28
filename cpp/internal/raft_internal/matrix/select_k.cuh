@@ -99,10 +99,14 @@ void select_k_impl(const resources& handle,
       auto out_span     = make_mdspan<T, int64_t, row_major, false, true>(out, out_extent);
       auto out_idx_span = make_mdspan<IdxT, int64_t, row_major, false, true>(out_idx, out_extent);
       if (in_idx == nullptr) {
+        printf("RUnning sorted select_k\n");
+
         // NB: std::nullopt prevents automatic inference of the template parameters.
         return matrix::select_k<T, IdxT>(
           handle, in_span, std::nullopt, out_span, out_idx_span, select_min, true);
       } else {
+        printf("RUnning sorted select_k2\n");
+
         return matrix::select_k(handle,
                                 in_span,
                                 std::make_optional(in_idx_span),
