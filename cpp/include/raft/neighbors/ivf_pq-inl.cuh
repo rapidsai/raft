@@ -16,18 +16,18 @@
 
 #pragma once
 
-#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/detail/ivf_pq_search.cuh>
 #include <raft/neighbors/ivf_pq_serialize.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>  // TODO: remove when possible
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
+#include <memory>  // shared_ptr
 
 namespace raft::neighbors::ivf_pq {
 
@@ -459,8 +459,11 @@ void search(raft::resources const& handle,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
   if (mr != nullptr) {
-    // TODO: replace in with a method that would allow to clone raft::resources
-    const device_resources res_local(handle, mr);
+    // Shallow copy of the resource with the automatic lifespan:
+    //                               change the workspace resource temporarily
+    raft::resources res_local(handle);
+    resource::set_workspace_resource(
+      res_local, std::shared_ptr<rmm::mr::device_memory_resource>{mr, void_op{}});
     return detail::search(res_local, params, idx, queries, n_queries, k, neighbors, distances);
   } else {
     return detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances);
