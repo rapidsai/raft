@@ -329,7 +329,7 @@ outputs:
         - nlohmann_json {{ nlohmann_json_version }}
         # Temporarily ignore faiss benchmarks on CUDA 12
         {% if cuda_major == "11" %}
-         - faiss-proc=*=cuda
+        - faiss-proc=*=cuda
         - libfaiss {{ faiss_version }}
         {% endif %}
       run:
