@@ -61,16 +61,13 @@ outputs:
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% else %}
-        - libnvjitlink
+        - cuda-cudart-dev
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - librmm ={{ minor_version }}
       run:
         {% if cuda_major == "11" %}
         - cudatoolkit
-        {% else %}
-        - cuda-cudart
-        - libnvjitlink
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - librmm ={{ minor_version }}
@@ -111,7 +108,6 @@ outputs:
         - libcurand-dev
         - libcusolver-dev
         - libcusparse-dev
-        - libnvjitlink
         {% endif %}
     about:
       home: https://rapids.ai/
@@ -207,6 +203,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_host_version }}
         - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -219,8 +216,6 @@ outputs:
       run:
         {% if cuda_major == "11" %}
         - cudatoolkit
-        {% else %}
-        - cuda-cudart
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - {{ pin_subpackage('libraft', exact=True) }}

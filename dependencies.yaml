@@ -142,10 +142,10 @@ dependencies:
           - matrix:
               cuda: "12.0"
             packages:
-              - cuda-python>=12.0,<13.0a0
+              - &cuda_python12 cuda-python>=12.0,<13.0a0
           - matrix: # All CUDA 11 versions
             packages:
-              - cuda-python>=11.7.1,<12.0a0
+              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -294,10 +294,10 @@ dependencies:
           - matrix:
               cuda: "12.0"
             packages:
-              - cuda-python>=12.0,<13.0a0
+              - *cuda-python12
           - matrix: # All CUDA 11 versions
             packages:
-              - cuda-python>=11.7.1,<12.0a0
+              - *cuda-python11
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
