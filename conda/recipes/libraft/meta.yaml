@@ -92,6 +92,7 @@ outputs:
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
+        - cuda-version {{ cuda_spec }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
@@ -163,6 +164,7 @@ outputs:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-version {{ cuda_spec }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
