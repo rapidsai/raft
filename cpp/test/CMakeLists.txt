@@ -55,7 +55,7 @@ function(ConfigureTest)
   set_target_properties(
     ${TEST_NAME}
     PROPERTIES
-               PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${CUDF_BINARY_DIR}/gtests>"
+               RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${CUDF_BINARY_DIR}/gtests>"
                INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
