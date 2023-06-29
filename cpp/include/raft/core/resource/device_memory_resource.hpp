@@ -97,7 +97,7 @@ class workspace_resource_factory : public resource_factory {
     // be able to allocate more than 'limit' bytes of memory anyway. At the same time, the pool
     // itself may consume a little bit more memory than the 'limit' due to memory fragmentation.
     // Therefore, we look for a compromise, such that:
-    //   1) 'limit' is accurate - the user should be more likely to run into the limiting resource
+    //   1) 'limit' is accurate - the user should be more likely to run into the limiting
     //      resource adaptor bad_alloc error than into the pool bad_alloc error.
     //   2) The pool doesn't grab too much memory on top of the 'limit'.
     auto max_size = std::min<std::size_t>(limit + kOneGb / 2lu, limit * 3lu / 2lu);
