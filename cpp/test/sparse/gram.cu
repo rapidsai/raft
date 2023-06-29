@@ -274,8 +274,8 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
         (*kernel)(handle, x1_csr, x2_csr, out_span);
       }
     }
-    //Something in gram is executing not on the 'stream' and therefore
-    //a full device sync is required
+    // Something in gram is executing not on the 'stream' and therefore
+    // a full device sync is required
     RAFT_CUDA_TRY(cudaDeviceSynchronize());
     naiveGramMatrixKernel(params.n1,
                           params.n2,
