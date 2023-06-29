@@ -49,7 +49,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -86,10 +86,12 @@ outputs:
         {% endif %}
         - librmm
     requirements:
+      host:
+        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
         - librmm ={{ minor_version }}
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
@@ -102,7 +104,7 @@ outputs:
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
-        - cuda-cudart
+        - cuda-cudart-dev
         - cuda-profiler-api
         - libcublas-dev
         - libcurand-dev
@@ -129,7 +131,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -181,7 +183,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -241,7 +243,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
@@ -294,7 +296,7 @@ outputs:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
         {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} {{ cuda_version }}
+        - {{ compiler('cuda11') }} ={{ cuda_version }}
         {% else %}
         - {{ compiler('cuda') }}
         {% endif %}
