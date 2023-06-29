@@ -277,6 +277,7 @@ outputs:
         {% endif %}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
       run:
+        - cuda-version {{ cuda_spec }}
         - {{ pin_subpackage('libraft', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -336,6 +337,7 @@ outputs:
         {% endif %}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
+        - cuda-version {{ cuda_spec }}
         - glog {{ glog_version }}
         # Temporarily ignore faiss benchmarks on CUDA 12
         {% if cuda_major == "11" %}
