@@ -29,18 +29,18 @@
 #include <optional>
 
 namespace raft::resource {
-class limited_memory_resource : public resource {
+class limiting_memory_resource : public resource {
  public:
-  limited_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
-                          std::size_t allocation_limit,
-                          std::optional<std::size_t> alignment)
+  limiting_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
+                           std::size_t allocation_limit,
+                           std::optional<std::size_t> alignment)
     : upstream_(mr), mr_(make_adaptor(mr, allocation_limit, alignment))
   {
   }
 
   auto get_resource() -> void* override { return &mr_; }
 
-  ~limited_memory_resource() override = default;
+  ~limiting_memory_resource() override = default;
 
  private:
   std::shared_ptr<rmm::mr::device_memory_resource> upstream_;
@@ -79,7 +79,7 @@ class workspace_resource_factory : public resource_factory {
   auto get_resource_type() -> resource_type override { return resource_type::WORKSPACE_RESOURCE; }
   auto make_resource() -> resource* override
   {
-    return new limited_memory_resource(mr_, allocation_limit_, alignment_);
+    return new limiting_memory_resource(mr_, allocation_limit_, alignment_);
   }
 
  private:
