@@ -27,7 +27,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }} {{ cuda_version }}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
     {% else %}
     - {{ compiler('cuda') }}
     {% endif %}
@@ -72,7 +72,7 @@ requirements:
 
 tests:
   requirements:
-    - cuda-version ={{ cuda_version }
+    - cuda-version ={{ cuda_version }}
   imports:
     - raft_dask
 
