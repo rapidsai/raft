@@ -133,7 +133,7 @@ class workspace_resource_factory : public resource_factory {
     } else {
       // If the user sets the global (rmm) memory resource to anything but the trivial
       // cuda_memory_resource, we don't interfere that - they know better. In this case, the
-      // limiting resource adaptor is set on top the global (per-device) resource.
+      // limiting resource adaptor is set on top of the global (per-device) resource.
       RAFT_LOG_DEBUG("The workspace uses the global default memory resource (limit: %zu)", limit);
       return default_plain_resource();
     }
