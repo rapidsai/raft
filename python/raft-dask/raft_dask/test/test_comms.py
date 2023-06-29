@@ -18,6 +18,9 @@ from collections import OrderedDict
 import pytest
 
 from dask.distributed import get_worker, wait
+from dask.distributed import Client
+from dask_cuda import LocalCUDACluster
+
 
 #from .conftest import create_client
 
