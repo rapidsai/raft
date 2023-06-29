@@ -17,12 +17,10 @@ from collections import OrderedDict
 
 import pytest
 
-from dask.distributed import get_worker, wait
-from dask.distributed import Client
+from dask.distributed import Client, get_worker, wait
 from dask_cuda import LocalCUDACluster
 
-
-#from .conftest import create_client
+# from .conftest import create_client
 
 try:
     from raft_dask.common import (
@@ -45,6 +43,7 @@ try:
     pytestmark = pytest.mark.mg
 except ImportError:
     pytestmark = pytest.mark.skip
+
 
 def create_client(cluster):
     """
