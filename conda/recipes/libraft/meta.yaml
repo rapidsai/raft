@@ -161,10 +161,10 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -213,7 +213,7 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - cuda-version ={{ cuda_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
       run:
@@ -275,9 +275,9 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - cuda-version ={{ cuda_version }}
       run:
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - {{ pin_subpackage('libraft', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -327,19 +327,19 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        - cuda-version ={{ cuda_version }}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
-        # Temporarily ignore faiss benchmarks on CUDA 12
+        # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
         {% if cuda_major == "11" %}
         - faiss-proc=*=cuda
         - libfaiss {{ faiss_version }}
         {% endif %}
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
-        - cuda-version {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - glog {{ glog_version }}
-        # Temporarily ignore faiss benchmarks on CUDA 12
+        # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
         {% if cuda_major == "11" %}
         - faiss-proc=*=cuda
         - libfaiss {{ faiss_version }}
