@@ -82,30 +82,72 @@ class workspace_resource_factory : public resource_factory {
     return new limiting_memory_resource(mr_, allocation_limit_, alignment_);
   }
 
+  /** Construct a sensible default pool memory resource. */
+  static inline auto default_pool_resource(std::size_t limit)
+    -> std::shared_ptr<rmm::mr::device_memory_resource>
+  {
+    // Set the default granularity to 1 GiB
+    constexpr std::size_t kOneGb = 1024lu * 1024lu * 1024lu;
+    // The initial size of the pool. The choice of this value only affects the performance a little
+    // bit. Heuristics:
+    //   1) the pool shouldn't be too big from the beginning independently of the limit;
+    //   2) otherwise, set it to half the max size to avoid too many resize calls.
+    auto min_size = std::min<std::size_t>(kOneGb, limit / 2lu);
+    // The pool is going to be place behind the limiting resource adaptor. This means the user won't
+    // be able to allocate more than 'limit' bytes of memory anyway. At the same time, the pool
+    // itself may consume a little bit more memory than the 'limit' due to memory fragmentation.
+    // Therefore, we look for a compromise, such that:
+    //   1) 'limit' is accurate - the user should be more likely to run into the limiting resource
+    //      resource adaptor bad_alloc error than into the pool bad_alloc error.
+    //   2) The pool doesn't grab too much memory on top of the 'limit'.
+    auto max_size = std::min<std::size_t>(limit + kOneGb / 2lu, limit * 3lu / 2lu);
+    auto upstream = rmm::mr::get_current_device_resource();
+    return std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
+      upstream, min_size, max_size);
+  }
+
+  /** Get the global memory resource wrapped into an unmanaged shared_ptr (with no deleter). */
+  static inline auto default_plain_resource() -> std::shared_ptr<rmm::mr::device_memory_resource>
+  {
+    return std::shared_ptr<rmm::mr::device_memory_resource>{rmm::mr::get_current_device_resource(),
+                                                            void_op{}};
+  }
+
  private:
   std::size_t allocation_limit_;
   std::optional<std::size_t> alignment_;
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
 
-  // Create a pool memory resource by default
   static inline auto default_memory_resource(std::size_t limit)
     -> std::shared_ptr<rmm::mr::device_memory_resource>
   {
-    constexpr std::size_t kOneGb = 1024lu * 1024lu * 1024lu;
-    auto min_size                = std::min<std::size_t>(kOneGb, limit / 2);
-    auto max_size                = limit * 3lu / 2lu;
-    auto upstream                = rmm::mr::get_current_device_resource();
-    return std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
-      upstream, min_size, max_size);
+    if (rmm::mr::cuda_memory_resource{}.is_equal(*rmm::mr::get_current_device_resource())) {
+      // Use the memory pool if only we're sure the global memory resource is set to its default,
+      // which is the cuda_memory_resource.
+      // The reason for this is that some raft algorithms rely on the workspace allocator to be
+      // fast; e.g. some buffers are allocated and released in a loop in performance-critical paths
+      // (batching), such as ANN-search routines. We don't want many allocations to happen there
+      // unless the user insists on it.
+      RAFT_LOG_DEBUG("The workspace uses the pool memory resource by default (limit: %zu)", limit);
+      return default_pool_resource(limit);
+    } else {
+      // If the user sets the global (rmm) memory resource to anything but the trivial
+      // cuda_memory_resource, we don't interfere that - they know better. In this case, the
+      // limiting resource adaptor is set on top the global (per-device) resource.
+      RAFT_LOG_DEBUG("The workspace uses the global default memory resource (limit: %zu)", limit);
+      return default_plain_resource();
+    }
   }
 
-  // Allow a fraction of available memory by default.
   static inline auto default_allocation_limit() -> std::size_t
   {
     std::size_t free_size{};
     std::size_t total_size{};
     RAFT_CUDA_TRY(cudaMemGetInfo(&free_size, &total_size));
-    return free_size / 2;
+    // Note, the workspace does not claim all this memory from the start, so it's still usable by
+    // the main resource as well.
+    // This limit is merely an order for algorithm internals to plan the batching accordingly.
+    return total_size / 2;
   }
 };
 
@@ -162,6 +204,44 @@ inline void set_workspace_resource(resources const& res,
 {
   res.add_resource_factory(
     std::make_shared<workspace_resource_factory>(mr, allocation_limit, alignment));
+};
+
+/**
+ * Set the temporary workspace resource to a pool on top of the global memory resource
+ * (`rmm::mr::get_current_device_resource()`.
+ *
+ * @param res raft resources object for managing resources
+ * @param allocation_limit
+ *   the total amount of memory in bytes available to the temporary workspace resources;
+ *   if not provided, a last used or default limit is used.
+ *
+ */
+inline void set_workspace_to_pool_resource(
+  resources const& res, std::optional<std::size_t> allocation_limit = std::nullopt)
+{
+  if (!allocation_limit.has_value()) { allocation_limit = get_workspace_total_bytes(res); }
+  res.add_resource_factory(std::make_shared<workspace_resource_factory>(
+    workspace_resource_factory::default_pool_resource(*allocation_limit),
+    allocation_limit,
+    std::nullopt));
+};
+
+/**
+ * Set the temporary workspace resource the same as the global memory resource
+ * (`rmm::mr::get_current_device_resource()`.
+ *
+ * Note, the workspace resource is always limited; the limit here defines how much of the global
+ * memory resource can be consumed by the workspace allocations.
+ *
+ * @param res raft resources object for managing resources
+ * @param allocation_limit
+ *   the total amount of memory in bytes available to the temporary workspace resources.
+ */
+inline void set_workspace_to_global_resource(
+  resources const& res, std::optional<std::size_t> allocation_limit = std::nullopt)
+{
+  res.add_resource_factory(std::make_shared<workspace_resource_factory>(
+    workspace_resource_factory::default_plain_resource(), allocation_limit, std::nullopt));
 };
 
 }  // namespace raft::resource
