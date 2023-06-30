@@ -534,8 +534,10 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     // Allocate memory for intermediate buffer and workspace.
     //
     uint32_t num_intermediate_results = num_cta_per_query * itopk_size;
-    intermediate_indices.resize(num_intermediate_results * max_queries, resource::get_cuda_stream(res));
-    intermediate_distances.resize(num_intermediate_results * max_queries, resource::get_cuda_stream(res));
+    intermediate_indices.resize(num_intermediate_results * max_queries,
+                                resource::get_cuda_stream(res));
+    intermediate_distances.resize(num_intermediate_results * max_queries,
+                                  resource::get_cuda_stream(res));
 
     hashmap.resize(hashmap_size, resource::get_cuda_stream(res));
 
