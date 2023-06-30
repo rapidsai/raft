@@ -20,27 +20,27 @@ import pytest
 from dask.distributed import Client, get_worker, wait
 from dask_cuda import LocalCUDACluster
 
-from raft_dask.common import (
-    Comms,
-    local_handle,
-    perform_test_comm_split,
-    perform_test_comms_allgather,
-    perform_test_comms_allreduce,
-    perform_test_comms_bcast,
-    perform_test_comms_device_multicast_sendrecv,
-    perform_test_comms_device_send_or_recv,
-    perform_test_comms_device_sendrecv,
-    perform_test_comms_gather,
-    perform_test_comms_gatherv,
-    perform_test_comms_reduce,
-    perform_test_comms_reducescatter,
-    perform_test_comms_send_recv,
-)
+try:
+    from raft_dask.common import (
+        Comms,
+        local_handle,
+        perform_test_comm_split,
+        perform_test_comms_allgather,
+        perform_test_comms_allreduce,
+        perform_test_comms_bcast,
+        perform_test_comms_device_multicast_sendrecv,
+        perform_test_comms_device_send_or_recv,
+        perform_test_comms_device_sendrecv,
+        perform_test_comms_gather,
+        perform_test_comms_gatherv,
+        perform_test_comms_reduce,
+        perform_test_comms_reducescatter,
+        perform_test_comms_send_recv,
+    )
 
-# from .conftest import create_client
-
-pytestmark = pytest.mark.mg
-
+    pytestmark = pytest.mark.mg
+except ImportError:
+    pytestmark = pytest.mark.skip
 
 def create_client(cluster):
     """
