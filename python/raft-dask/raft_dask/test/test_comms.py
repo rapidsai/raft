@@ -42,6 +42,7 @@ try:
 except ImportError:
     pytestmark = pytest.mark.skip
 
+
 def create_client(cluster):
     """
     Create a Dask distributed client for a specified cluster.
