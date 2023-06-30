@@ -43,7 +43,7 @@ def client(cluster):
 
 @pytest.fixture()
 def ucx_client(ucx_cluster):
-    client = create_client(ucx_cluster)
+    client = create_client(cluster)
     yield client
     client.close()
 
