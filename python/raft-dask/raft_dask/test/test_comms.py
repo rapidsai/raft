@@ -19,29 +19,29 @@ import pytest
 
 from dask.distributed import get_worker, wait
 
+# try:
+from raft_dask.common import (
+    Comms,
+    local_handle,
+    perform_test_comm_split,
+    perform_test_comms_allgather,
+    perform_test_comms_allreduce,
+    perform_test_comms_bcast,
+    perform_test_comms_device_multicast_sendrecv,
+    perform_test_comms_device_send_or_recv,
+    perform_test_comms_device_sendrecv,
+    perform_test_comms_gather,
+    perform_test_comms_gatherv,
+    perform_test_comms_reduce,
+    perform_test_comms_reducescatter,
+    perform_test_comms_send_recv,
+)
+
 from .conftest import create_client
 
-try:
-    from raft_dask.common import (
-        Comms,
-        local_handle,
-        perform_test_comm_split,
-        perform_test_comms_allgather,
-        perform_test_comms_allreduce,
-        perform_test_comms_bcast,
-        perform_test_comms_device_multicast_sendrecv,
-        perform_test_comms_device_send_or_recv,
-        perform_test_comms_device_sendrecv,
-        perform_test_comms_gather,
-        perform_test_comms_gatherv,
-        perform_test_comms_reduce,
-        perform_test_comms_reducescatter,
-        perform_test_comms_send_recv,
-    )
-
-    pytestmark = pytest.mark.mg
-except ImportError:
-    pytestmark = pytest.mark.skip
+pytestmark = pytest.mark.mg
+# except ImportError:
+#     pytestmark = pytest.mark.skip
 
 
 def test_comms_init_no_p2p(cluster):

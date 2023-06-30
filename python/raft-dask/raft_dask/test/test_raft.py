@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ import sys
 
 import pytest
 
-try:
-    import raft_dask
-except ImportError:
-    print("Skipping RAFT tests")
-    pytestmart = pytest.mark.skip
+# try:
+import raft_dask
+
+# except ImportError:
+#     print("Skipping RAFT tests")
+#     pytestmart = pytest.mark.skip
 
 pytestmark = pytest.mark.skipif(
     "raft_dask" not in sys.argv, reason="marker to allow integration of RAFT"
