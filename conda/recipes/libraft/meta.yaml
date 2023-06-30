@@ -255,18 +255,9 @@ outputs:
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
-        - libcurand {{ cuda11_libcurand_host_version }}
-        - libcurand-dev {{ cuda11_libcurand_host_version }}
-        - libcusolver {{ cuda11_libcusolver_host_version }}
-        - libcusolver-dev {{ cuda11_libcusolver_host_version }}
-        - libcusparse {{ cuda11_libcusparse_host_version }}
-        - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
         - libcublas-dev
-        - libcurand-dev
-        - libcusolver-dev
-        - libcusparse-dev
         {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -309,18 +300,9 @@ outputs:
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
-        - libcurand {{ cuda11_libcurand_host_version }}
-        - libcurand-dev {{ cuda11_libcurand_host_version }}
-        - libcusolver {{ cuda11_libcusolver_host_version }}
-        - libcusolver-dev {{ cuda11_libcusolver_host_version }}
-        - libcusparse {{ cuda11_libcusparse_host_version }}
-        - libcusparse-dev {{ cuda11_libcusparse_host_version }}
         {% else %}
         - cuda-profiler-api
         - libcublas-dev
-        - libcurand-dev
-        - libcusolver-dev
-        - libcusparse-dev
         {% endif %}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
