@@ -58,9 +58,7 @@ outputs:
         - ninja
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
-        {% if cuda_major == "11" %}
-        - cudatoolkit
-        {% else %}
+        {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
         - cuda-version ={{ cuda_version }}
@@ -142,7 +140,6 @@ outputs:
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         {% if cuda_major == "11" %}
-        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_host_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -194,7 +191,6 @@ outputs:
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         {% if cuda_major == "11" %}
-        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -255,7 +251,6 @@ outputs:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         {% if cuda_major == "11" %}
-        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -275,6 +270,9 @@ outputs:
         - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
         - {{ pin_subpackage('libraft', exact=True) }}
     about:
       home: https://rapids.ai/
@@ -307,7 +305,6 @@ outputs:
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         {% if cuda_major == "11" %}
-        - cudatoolkit
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
         - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -335,6 +332,9 @@ outputs:
       run:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
         - glog {{ glog_version }}
         # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
         {% if cuda_major == "11" %}
