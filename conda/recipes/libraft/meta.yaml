@@ -64,10 +64,10 @@ outputs:
         - cuda-version ={{ cuda_version }}
         - librmm ={{ minor_version }}
       run:
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - librmm ={{ minor_version }}
     about:
       home: https://rapids.ai/
@@ -139,6 +139,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_host_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
@@ -156,7 +157,6 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libraft-headers', exact=True) }}
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -190,6 +190,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
+        - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
@@ -208,14 +209,13 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - cuda-version ={{ cuda_version }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
       run:
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}
-        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         - {{ pin_subpackage('libraft', exact=True) }}
         - gmock {{ gtest_version }}
         - gtest {{ gtest_version }}
@@ -250,6 +250,7 @@ outputs:
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
         - {{ pin_subpackage('libraft-headers', exact=True) }}
+        - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
@@ -267,7 +268,6 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -304,6 +304,7 @@ outputs:
         - sysroot_{{ target_platform }} {{ sysroot_version }}
       host:
         - {{ pin_subpackage('libraft', exact=True) }}
+        - cuda-version ={{ cuda_version }}
         {% if cuda_major == "11" %}
         - cuda-profiler-api {{ cuda11_cuda_profiler_api_run_version }}
         - libcublas {{ cuda11_libcublas_host_version }}
@@ -321,7 +322,6 @@ outputs:
         - libcusolver-dev
         - libcusparse-dev
         {% endif %}
-        - cuda-version ={{ cuda_version }}
         - glog {{ glog_version }}
         - nlohmann_json {{ nlohmann_json_version }}
         # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet

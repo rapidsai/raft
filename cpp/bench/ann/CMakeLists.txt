@@ -28,6 +28,7 @@ option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 find_package(Threads REQUIRED)
 
 # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
+# https://github.com/rapidsai/raft/issues/1627
 if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
   set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
