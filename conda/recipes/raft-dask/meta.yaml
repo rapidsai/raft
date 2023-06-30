@@ -28,6 +28,8 @@ requirements:
     - {{ compiler('cxx') }}
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
+    {% else %}
+    - {{ compiler('cuda') }}
     {% endif %}
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
