@@ -15,10 +15,6 @@
  */
 #include "raft_cagra_wrapper.h"
 
-#ifdef RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 namespace raft::bench::ann {
 template class RaftCagra<uint8_t, uint32_t>;
 template class RaftCagra<int8_t, uint32_t>;
