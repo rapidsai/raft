@@ -128,6 +128,7 @@ struct mdbuffer {
         switch (data_.index()) {
           case 0: result = std::get<0>(data_).get(); break;
           case 1: result = std::get<1>(data_).get(); break;
+          case 2: result = std::get<1>(data_).get(); break;
         }
         return result;
       }()}

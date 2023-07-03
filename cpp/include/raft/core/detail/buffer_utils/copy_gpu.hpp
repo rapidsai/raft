@@ -43,16 +43,17 @@ std::enable_if_t<
   void>
 copy(raft::resources const& handle, T* dst, T const* src, uint32_t size)
 {
-  if (src_type == device_type::cpu) {
-    raft::update_device(dst, src, size, raft::resource::get_cuda_stream(handle));
-  }
-  else if (dst_type == device_type::cpu) {
-    raft::update_host(dst, src, size, raft::resource::get_cuda_stream(handle));
-    cudaDeviceSynchronize();
-  }
-  else {
-    raft::copy_async(dst, src, size, raft::resource::get_cuda_stream(handle));
-  }
+  // if (src_type == device_type::cpu) {
+  //   raft::update_device(dst, src, size, raft::resource::get_cuda_stream(handle));
+  // }
+  // else if (dst_type == device_type::cpu) {
+  //   raft::update_host(dst, src, size, raft::resource::get_cuda_stream(handle));
+  //   cudaDeviceSynchronize();
+  // }
+  // else {
+    // raft::copy_async(dst, src, size, raft::resource::get_cuda_stream(handle));
+  // }
+  raft::copy(dst, src, size, raft::resource::get_cuda_stream(handle));
 }
 
 }  // namespace detail
