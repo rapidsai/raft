@@ -102,30 +102,6 @@ struct logic_error : public raft::exception {
  * @}
  */
 
-struct bad_cuda_call : logic_error {
-  bad_cuda_call() : bad_cuda_call("CUDA API call failed") {}
-  explicit bad_cuda_call(char const* msg) : logic_error(msg) {}
-};
-
-struct cuda_unsupported : logic_error {
-  cuda_unsupported() : cuda_unsupported("CUDA functionality invoked in non-CUDA build") {}
-  explicit cuda_unsupported(char const* msg) : logic_error(msg) {}
-};
-
-struct out_of_bounds : logic_error {
-  out_of_bounds() : out_of_bounds("Attempted out-of-bounds memory access") {}
-  explicit out_of_bounds(char const* msg) : logic_error(msg) {}
-};
-
-struct wrong_device_type : logic_error {
-  wrong_device_type() : wrong_device_type("Attempted to use host data on GPU or device data on CPU") {}
-  explicit wrong_device_type(char const* msg) : logic_error(msg) {}
-};
-
-struct mem_type_mismatch : logic_error {
-  mem_type_mismatch() : mem_type_mismatch("Memory type does not match expected type") {}
-  explicit mem_type_mismatch(char const* msg) : logic_error(msg) {}
-};
 }  // namespace raft
 
 // FIXME: Need to be replaced with RAFT_FAIL
