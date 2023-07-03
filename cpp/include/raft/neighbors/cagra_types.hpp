@@ -55,8 +55,8 @@ enum class search_algo {
 enum class hash_mode { HASH, SMALL, AUTO };
 
 struct search_params : ann::search_params {
-  /** Maximum number of queries to search at the same time (batch size). */
-  size_t max_queries = 1;
+  /** Maximum number of queries to search at the same time (batch size). Auto select when 0.*/
+  size_t max_queries = 0;
 
   /** Number of intermediate search results retained during the search.
    *

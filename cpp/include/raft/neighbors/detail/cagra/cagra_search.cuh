@@ -65,7 +65,9 @@ void search_main(raft::resources const& res,
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
   RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
-  uint32_t topk = neighbors.extent(1);
+  const uint32_t topk = neighbors.extent(1);
+
+  if (params.max_queries == 0) { params.max_queries = queries.extent(0); }
 
   std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT>> plan =
     factory<T, internal_IdxT, DistanceT>::create(
@@ -74,8 +76,8 @@ void search_main(raft::resources const& res,
   plan->check(neighbors.extent(1));
 
   RAFT_LOG_DEBUG("Cagra search");
-  uint32_t max_queries = plan->max_queries;
-  uint32_t query_dim   = queries.extent(1);
+  const uint32_t max_queries = plan->max_queries;
+  const uint32_t query_dim   = queries.extent(1);
 
   for (unsigned qid = 0; qid < queries.extent(0); qid += max_queries) {
     const uint32_t n_queries = std::min<std::size_t>(max_queries, queries.extent(0) - qid);

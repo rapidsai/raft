@@ -166,7 +166,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
-    if (ps.algo == search_algo::MULTI_CTA && ps.max_queries > 1) {
+    if (ps.algo == search_algo::MULTI_CTA && ps.max_queries != 1) {
       GTEST_SKIP() << "Skipping test due to issue #1575";
     }
     size_t queries_size = ps.n_queries * ps.k;
@@ -377,9 +377,9 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {100},
     {1000},
     {1, 8, 17},
-    {1, 16},       // k
+    {1, 16},          // k
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
-    {1, 10, 100},  // query size
+    {0, 1, 10, 100},  // query size
     {0},
     {256},
     {1},
