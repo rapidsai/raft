@@ -23,6 +23,28 @@
 
 namespace raft {
 
+/**
+ * Specialization for a sparsity-preserving coordinate structure view which uses device memory
+ */
+template <typename RowType, typename ColType, typename NZType>
+using device_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, true>;
+
+/**
+ * Specialization for a sparsity-owning coordinate structure which uses device memory
+ */
+template <typename RowType,
+          typename ColType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = device_uvector_policy>
+using device_coordinate_structure =
+  coordinate_structure<RowType, ColType, NZType, true, ContainerPolicy>;
+
+/**
+ * Specialization for a coo matrix view which uses device memory
+ */
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+using device_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, true>;
+
 template <typename ElementType,
           typename RowType,
           typename ColType,
@@ -31,12 +53,6 @@ template <typename ElementType,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using device_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, true, ContainerPolicy, sparsity_type>;
-
-/**
- * Specialization for a coo matrix view which uses device memory
- */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
-using device_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, true>;
 
 /**
  * Specialization for a sparsity-owning coo matrix which uses device memory
@@ -62,21 +78,15 @@ using device_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
                                                          ContainerPolicy,
                                                          SparsityType::PRESERVING>;
 
-/**
- * Specialization for a sparsity-owning coordinate structure which uses device memory
- */
-template <typename RowType,
-          typename ColType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_coordinate_structure =
-  coordinate_structure<RowType, ColType, NZType, true, ContainerPolicy>;
+template <typename T>
+struct is_device_coo_matrix_view : std::false_type {};
 
-/**
- * Specialization for a sparsity-preserving coordinate structure view which uses device memory
- */
-template <typename RowType, typename ColType, typename NZType>
-using device_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, true>;
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+struct is_device_coo_matrix_view<device_coo_matrix_view<ElementType, RowType, ColType, NZType>>
+  : std::true_type {};
+
+template <typename T>
+constexpr bool is_device_coo_matrix_view_v = is_device_coo_matrix_view<T>::value;
 
 template <typename T>
 struct is_device_coo_matrix : std::false_type {};

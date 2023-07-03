@@ -471,41 +471,18 @@ class GramMatrixBase {
     ASSERT(is_row_major_nopad || is_col_major_nopad,
            "Sparse linear Kernel distance does not support ld_out parameter");
 
-    auto x1_structure = x1.structure_view();
-    auto x2_structure = x2.structure_view();
-    raft::sparse::distance::distances_config_t<int, math_t> dist_config(handle);
-
-    // switch a,b based on data layout
+    // switch a,b based on is_row_major
     if (is_col_major_nopad) {
-      dist_config.a_nrows   = x2_structure.get_n_rows();
-      dist_config.a_ncols   = x2_structure.get_n_cols();
-      dist_config.a_nnz     = x2_structure.get_nnz();
-      dist_config.a_indptr  = const_cast<int*>(x2_structure.get_indptr().data());
-      dist_config.a_indices = const_cast<int*>(x2_structure.get_indices().data());
-      dist_config.a_data    = const_cast<math_t*>(x2.get_elements().data());
-      dist_config.b_nrows   = x1_structure.get_n_rows();
-      dist_config.b_ncols   = x1_structure.get_n_cols();
-      dist_config.b_nnz     = x1_structure.get_nnz();
-      dist_config.b_indptr  = const_cast<int*>(x1_structure.get_indptr().data());
-      dist_config.b_indices = const_cast<int*>(x1_structure.get_indices().data());
-      dist_config.b_data    = const_cast<math_t*>(x1.get_elements().data());
+      auto out_row_major = raft::make_device_matrix_view<math_t, int, raft::row_major>(
+        out.data_handle(), out.extent(1), out.extent(0));
+      raft::sparse::distance::pairwise_distance(
+        handle, x2, x1, out_row_major, raft::distance::DistanceType::InnerProduct, 0.0);
     } else {
-      dist_config.a_nrows   = x1_structure.get_n_rows();
-      dist_config.a_ncols   = x1_structure.get_n_cols();
-      dist_config.a_nnz     = x1_structure.get_nnz();
-      dist_config.a_indptr  = const_cast<int*>(x1_structure.get_indptr().data());
-      dist_config.a_indices = const_cast<int*>(x1_structure.get_indices().data());
-      dist_config.a_data    = const_cast<math_t*>(x1.get_elements().data());
-      dist_config.b_nrows   = x2_structure.get_n_rows();
-      dist_config.b_ncols   = x2_structure.get_n_cols();
-      dist_config.b_nnz     = x2_structure.get_nnz();
-      dist_config.b_indptr  = const_cast<int*>(x2_structure.get_indptr().data());
-      dist_config.b_indices = const_cast<int*>(x2_structure.get_indices().data());
-      dist_config.b_data    = const_cast<math_t*>(x2.get_elements().data());
+      auto out_row_major = raft::make_device_matrix_view<math_t, int, raft::row_major>(
+        out.data_handle(), out.extent(0), out.extent(1));
+      raft::sparse::distance::pairwise_distance(
+        handle, x1, x2, out_row_major, raft::distance::DistanceType::InnerProduct, 0.0);
     }
-
-    raft::sparse::distance::pairwiseDistance(
-      out.data_handle(), dist_config, raft::distance::DistanceType::InnerProduct, 0.0);
   }
 };
 
