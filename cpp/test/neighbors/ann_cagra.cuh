@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#define RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
-#define RAFT_COMPILED_CAGRA
+// #define RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
+// #define RAFT_COMPILED_CAGRA
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 #include <raft/core/resource/cuda_stream.hpp>

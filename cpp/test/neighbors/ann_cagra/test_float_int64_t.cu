@@ -16,7 +16,9 @@
 
 #include <gtest/gtest.h>
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
+#undef RAFT_COMPILED_CAGRA
+
 #include "../ann_cagra.cuh"
 
 namespace raft::neighbors::experimental::cagra {

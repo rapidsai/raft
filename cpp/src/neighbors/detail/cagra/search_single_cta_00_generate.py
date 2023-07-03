@@ -111,6 +111,7 @@ search_types = dict(
     float_uint32=("float", "uint32_t", "float"),  # data_t, idx_t, distance_t
     int8_uint32=("int8_t", "uint32_t", "float"),
     uint8_uint32=("uint8_t", "uint32_t", "float"),
+    float_uint64=("float", "uint64_t", "float"),
 )
 
 # knn
