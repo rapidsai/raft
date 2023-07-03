@@ -38,7 +38,7 @@ After the needed dependencies are satisfied, the easiest way to compile ANN benc
 
 You can limit the algorithms that are built by providing a semicolon-delimited list of executable names (each algorithm is suffixed with `_ANN_BENCH`):
 ```bash
-./build.sh bench-ann --limit-bench-ann=HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH
+./build.sh bench-ann -n --limit-bench-ann=HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH
 ```
 
 Available targets to use with `--limit-bench-ann` are:
@@ -47,9 +47,9 @@ Available targets to use with `--limit-bench-ann` are:
 - FAISS_BFKNN_ANN_BENCH
 - GGNN_ANN_BENCH
 - HNSWLIB_ANN_BENCH
+- RAFT_CAGRA_ANN_BENCH
 - RAFT_IVF_PQ_ANN_BENCH
 - RAFT_IVF_FLAT_ANN_BENCH
-- RAFT_BFKNN_ANN_BENCH
 
 By default, the `*_ANN_BENCH` executables program infer the dataset's datatype from the filename's extension. For example, an extension of `fbin` uses a `float` datatype, `f16bin` uses a `float16` datatype, extension of `i8bin` uses `int8_t` datatype, and `u8bin` uses `uint8_t` type. Currently, only `float`, `float16`, int8_t`, and `unit8_t` are supported.
 

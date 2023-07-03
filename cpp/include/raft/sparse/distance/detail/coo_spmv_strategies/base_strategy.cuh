@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../../common.h"
+#include "../common.hpp"
 #include "../coo_spmv_kernel.cuh"
 #include "../utils.cuh"
 #include "coo_mask_row_iterators.cuh"
