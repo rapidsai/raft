@@ -72,6 +72,7 @@ template <class DATA_T, class IdxT, int numElementsPerThread>
 __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
                           const IdxT dataset_size,
                           const uint32_t dataset_dim,
+                          const uint32_t dataset_ld,
                           IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
                           const uint32_t graph_size,
                           const uint32_t graph_degree)
@@ -90,9 +91,9 @@ __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, 
     float dist         = 0.0;
     for (int d = lane_id; d < dataset_dim; d += raft::WarpSize) {
       float diff = spatial::knn::detail::utils::mapping<float>{}(
-                     dataset[d + static_cast<uint64_t>(dataset_dim) * srcNode]) -
+                     dataset[d + static_cast<uint64_t>(dataset_ld) * srcNode]) -
                    spatial::knn::detail::utils::mapping<float>{}(
-                     dataset[d + static_cast<uint64_t>(dataset_dim) * dstNode]);
+                     dataset[d + static_cast<uint64_t>(dataset_ld) * dstNode]);
       dist += diff * diff;
     }
     dist += __shfl_xor_sync(0xffffffff, dist, 1);
@@ -238,6 +239,7 @@ void sort_knn_graph(raft::resources const& res,
                "dataset size is expected to have the same number of graph index size");
   const uint32_t dataset_size = dataset.extent(0);
   const uint32_t dataset_dim  = dataset.extent(1);
+  const uint32_t dataset_ld   = dataset.stride(0);
   const DataT* dataset_ptr    = dataset.data_handle();
 
   const IdxT graph_size             = dataset_size;
@@ -263,8 +265,13 @@ void sort_knn_graph(raft::resources const& res,
              graph_size * input_graph_degree,
              resource::get_cuda_stream(res));
 
-  void (*kernel_sort)(
-    const DataT* const, const IdxT, const uint32_t, IdxT* const, const uint32_t, const uint32_t);
+  void (*kernel_sort)(const DataT* const,
+                      const IdxT,
+                      const uint32_t,
+                      const uint32_t,
+                      IdxT* const,
+                      const uint32_t,
+                      const uint32_t);
   if (input_graph_degree <= 32) {
     constexpr int numElementsPerThread = 1;
     kernel_sort                        = kern_sort<DataT, IdxT, numElementsPerThread>;
@@ -299,6 +306,7 @@ void sort_knn_graph(raft::resources const& res,
     d_dataset.data_handle(),
     dataset_size,
     dataset_dim,
+    dataset_ld,
     d_input_graph.data_handle(),
     graph_size,
     input_graph_degree);
