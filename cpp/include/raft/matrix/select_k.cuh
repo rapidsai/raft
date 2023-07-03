@@ -58,7 +58,7 @@ namespace raft::matrix {
  * @tparam IdxT
  *   the index type (what is being selected together with the keys).
  *
- * @param[in] handle
+ * @param[in] handle container of reusable resources
  * @param[in] in_val
  *   inputs values [batch_size, len];
  *   these are compared and selected.
@@ -74,6 +74,8 @@ namespace raft::matrix {
  *   the payload selected together with `out_val`.
  * @param[in] select_min
  *   whether to select k smallest (true) or largest (false) keys.
+ * @param[in] sorted
+ *   whether to make sure selected pairs are sorted by value
  */
 template <typename T, typename IdxT>
 void select_k(raft::resources const& handle,
