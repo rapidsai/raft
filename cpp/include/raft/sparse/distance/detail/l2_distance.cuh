@@ -19,12 +19,12 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/spatial/knn/knn.cuh>
 
+#include "common.hpp"
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

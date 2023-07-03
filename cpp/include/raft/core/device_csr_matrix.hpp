@@ -25,6 +25,29 @@
 
 namespace raft {
 
+/**
+ * Specialization for a sparsity-preserving compressed structure view which uses device memory
+ */
+template <typename IndptrType, typename IndicesType, typename NZType>
+using device_compressed_structure_view =
+  compressed_structure_view<IndptrType, IndicesType, NZType, true>;
+
+/**
+ * Specialization for a sparsity-owning compressed structure which uses device memory
+ */
+template <typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = device_uvector_policy>
+using device_compressed_structure =
+  compressed_structure<IndptrType, IndicesType, NZType, true, ContainerPolicy>;
+
+/**
+ * Specialization for a csr matrix view which uses device memory
+ */
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
+
 template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
@@ -44,6 +67,32 @@ template <typename ElementType,
           template <typename T> typename ContainerPolicy = device_uvector_policy>
 using device_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, true, ContainerPolicy>;
+
+/**
+ * Specialization for a sparsity-preserving csr matrix which uses device memory
+ */
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = device_uvector_policy>
+using device_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
+                                                         IndptrType,
+                                                         IndicesType,
+                                                         NZType,
+                                                         true,
+                                                         ContainerPolicy,
+                                                         SparsityType::PRESERVING>;
+
+template <typename T>
+struct is_device_csr_matrix_view : std::false_type {};
+
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+struct is_device_csr_matrix_view<
+  device_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>> : std::true_type {};
+
+template <typename T>
+constexpr bool is_device_csr_matrix_view_v = is_device_csr_matrix_view<T>::value;
 
 template <typename T>
 struct is_device_csr_matrix : std::false_type {};
@@ -69,51 +118,6 @@ constexpr bool is_device_csr_sparsity_owning_v =
 template <typename T>
 constexpr bool is_device_csr_sparsity_preserving_v =
   is_device_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
-
-/**
- * Specialization for a csr matrix view which uses device memory
- */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
-
-/**
- * Specialization for a sparsity-preserving csr matrix which uses device memory
- */
-template <typename ElementType,
-          typename IndptrType,
-          typename IndicesType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
-                                                         IndptrType,
-                                                         IndicesType,
-                                                         NZType,
-                                                         true,
-                                                         ContainerPolicy,
-                                                         SparsityType::PRESERVING>;
-
-/**
- * Specialization for a csr matrix view which uses device memory
- */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using device_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, true>;
-
-/**
- * Specialization for a sparsity-owning compressed structure which uses device memory
- */
-template <typename IndptrType,
-          typename IndicesType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = device_uvector_policy>
-using device_compressed_structure =
-  compressed_structure<IndptrType, IndicesType, NZType, true, ContainerPolicy>;
-
-/**
- * Specialization for a sparsity-preserving compressed structure view which uses device memory
- */
-template <typename IndptrType, typename IndicesType, typename NZType>
-using device_compressed_structure_view =
-  compressed_structure_view<IndptrType, IndicesType, NZType, true>;
 
 /**
  * Create a sparsity-owning sparse matrix in the compressed-sparse row format. sparsity-owning
