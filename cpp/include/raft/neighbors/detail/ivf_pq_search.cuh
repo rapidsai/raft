@@ -151,7 +151,8 @@ void select_clusters(raft::resources const& handle,
 
   // Select neighbor clusters for each query.
   rmm::device_uvector<float> cluster_dists(n_queries * n_probes, stream, mr);
-  matrix::detail::select_k<float, uint32_t>(qc_distances.data(),
+  matrix::detail::select_k<float, uint32_t>(handle,
+                                            qc_distances.data(),
                                             nullptr,
                                             n_queries,
                                             n_lists,
@@ -159,7 +160,6 @@ void select_clusters(raft::resources const& handle,
                                             cluster_dists.data(),
                                             clusters_to_probe,
                                             true,
-                                            stream,
                                             mr);
 }
 
@@ -581,7 +581,8 @@ void ivfpq_search_worker(raft::resources const& handle,
 
   // Select topk vectors for each query
   rmm::device_uvector<ScoreT> topk_dists(n_queries * topK, stream, mr);
-  matrix::detail::select_k<ScoreT, uint32_t>(distances_buf.data(),
+  matrix::detail::select_k<ScoreT, uint32_t>(handle,
+                                             distances_buf.data(),
                                              neighbors_ptr,
                                              n_queries,
                                              topk_len,
@@ -589,7 +590,6 @@ void ivfpq_search_worker(raft::resources const& handle,
                                              topk_dists.data(),
                                              neighbors_uint32,
                                              true,
-                                             stream,
                                              mr);
 
   // Postprocessing
