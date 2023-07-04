@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
-#undef RAFT_COMPILED_CAGRA
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+#undef RAFT_COMPILED
 
 #include "../ann_cagra.cuh"
 

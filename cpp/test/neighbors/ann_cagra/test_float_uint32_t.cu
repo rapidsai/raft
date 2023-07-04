@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
-#define RAFT_COMPILED_CAGRA
 #include <gtest/gtest.h>
 
 #include "../ann_cagra.cuh"
