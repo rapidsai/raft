@@ -245,7 +245,7 @@ class SparseDistanceCOOSPMVTest
   // output data
   rmm::device_uvector<value_t> out_dists, out_dists_ref;
 
-  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
+  raft::sparse::distance::detail::distances_config_t<value_idx, value_t> dist_config;
 
   SparseDistanceCOOSPMVInputs<value_idx, value_t, strategy_t> params;
 };

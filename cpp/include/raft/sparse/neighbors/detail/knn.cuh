@@ -390,7 +390,7 @@ class sparse_knn_t {
     /**
      * Compute distances
      */
-    raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config(handle);
+    raft::sparse::distance::detail::distances_config_t<value_idx, value_t> dist_config(handle);
     dist_config.b_nrows = idx_batcher.batch_rows();
     dist_config.b_ncols = n_idx_cols;
     dist_config.b_nnz   = idx_batch_nnz;
