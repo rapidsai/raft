@@ -190,6 +190,7 @@ struct io_computed {
 };
 
 template <typename InOut>
+
 using Params = std::tuple<select::params, select::Algo, InOut>;
 
 template <typename KeyT, typename IdxT, template <typename, typename> typename ParamsReader>

@@ -21,6 +21,7 @@
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
@@ -78,7 +79,8 @@ __global__ void naive_distance_kernel(EvalT* dist,
  *       when either distance or brute_force_knn support 8-bit int inputs.
  */
 template <typename EvalT, typename DataT, typename IdxT>
-void naive_knn(EvalT* dist_topk,
+void naive_knn(raft::resources const& handle,
+               EvalT* dist_topk,
                IdxT* indices_topk,
                const DataT* x,
                const DataT* y,
@@ -86,12 +88,12 @@ void naive_knn(EvalT* dist_topk,
                size_t input_len,
                size_t dim,
                uint32_t k,
-               raft::distance::DistanceType type,
-               rmm::cuda_stream_view stream)
+               raft::distance::DistanceType type)
 {
   rmm::mr::device_memory_resource* mr = nullptr;
   auto pool_guard                     = raft::get_pool_memory_resource(mr, 1024 * 1024);
 
+  auto stream = raft::resource::get_cuda_stream(handle);
   dim3 block_dim(16, 32, 1);
   // maximum reasonable grid size in `y` direction
   auto grid_y =
@@ -109,7 +111,8 @@ void naive_knn(EvalT* dist_topk,
     naive_distance_kernel<EvalT, DataT, IdxT><<<grid_dim, block_dim, 0, stream>>>(
       dist.data(), x + offset * dim, y, batch_size, input_len, dim, type);
 
-    matrix::detail::select_k<EvalT, IdxT>(dist.data(),
+    matrix::detail::select_k<EvalT, IdxT>(handle,
+                                          dist.data(),
                                           nullptr,
                                           batch_size,
                                           input_len,
@@ -117,7 +120,6 @@ void naive_knn(EvalT* dist_topk,
                                           dist_topk + offset * k,
                                           indices_topk + offset * k,
                                           type != raft::distance::DistanceType::InnerProduct,
-                                          stream,
                                           mr);
   }
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
