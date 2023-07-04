@@ -63,7 +63,7 @@ namespace raft::neighbors::experimental::cagra::detail::single_cta_search {
                                                  const uint64_t rand_xor_mask,                 \
                                                  const INDEX_T* seed_ptr,                      \
                                                  const uint32_t num_seeds,                     \
-                                                 std::uint32_t* const visited_hashmap_ptr,     \
+                                                 INDEX_T* const visited_hashmap_ptr,           \
                                                  const std::uint32_t internal_topk,            \
                                                  const std::uint32_t num_parents,              \
                                                  const std::uint32_t min_iteration,            \

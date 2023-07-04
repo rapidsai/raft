@@ -19,7 +19,7 @@
 namespace raft::neighbors::experimental::cagra::detail {
 namespace single_cta_search {
 
-#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY_CAGRA
+#ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 template <unsigned TEAM_SIZE,
           unsigned BLOCK_SIZE,
