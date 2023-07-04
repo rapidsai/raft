@@ -307,6 +307,18 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
     src/neighbors/brute_force_knn_int_float_int.cu
     src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim1024_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim128_t8.cu
+    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim256_t16.cu
+    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim512_t32.cu
+    src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim1024_t32.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim128_t8.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
@@ -319,6 +331,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
     src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
+  
     src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
     src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
