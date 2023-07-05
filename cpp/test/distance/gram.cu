@@ -75,9 +75,14 @@ template <typename math_t>
 class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
  protected:
   GramMatrixTest()
-    : params(GetParam()), stream(0), x1(0, stream), x2(0, stream), gram(0, stream), gram_host(0)
+    : params(GetParam()),
+      handle(),
+      x1(0, resource::get_cuda_stream(handle)),
+      x2(0, resource::get_cuda_stream(handle)),
+      gram(0, resource::get_cuda_stream(handle)),
+      gram_host(0)
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    auto stream = resource::get_cuda_stream(handle);
 
     if (params.ld1 == 0) { params.ld1 = params.is_row_major ? params.n_cols : params.n1; }
     if (params.ld2 == 0) { params.ld2 = params.is_row_major ? params.n_cols : params.n2; }
@@ -97,11 +102,9 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     raft::random::Rng r(42137ULL);
     r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
-
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  ~GramMatrixTest() override { RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(stream)); }
+  ~GramMatrixTest() override { }
 
   void runTest()
   {
@@ -129,9 +132,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
 
     (*kernel)(handle, x1_span, x2_span, out_span);
 
-    // Something in gram is executing not on the 'stream' and therefore
-    // a full device sync is required
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
+    auto stream = resource::get_cuda_stream(handle);
     naiveGramMatrixKernel(params.n1,
                           params.n2,
                           params.n_cols,
@@ -145,19 +146,18 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
                           params.kernel,
                           stream,
                           handle);
-    resource::sync_stream(handle, stream);
 
     ASSERT_TRUE(raft::devArrMatchHost(
       gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f), stream));
   }
 
-  raft::resources handle;
-  cudaStream_t stream = 0;
   GramMatrixInputs params;
+  raft::resources handle;
 
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;
   rmm::device_uvector<math_t> gram;
+
   std::vector<math_t> gram_host;
 };
 
