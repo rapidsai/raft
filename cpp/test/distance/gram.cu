@@ -104,7 +104,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
   }
 
-  ~GramMatrixTest() override { }
+  ~GramMatrixTest() override {}
 
   void runTest()
   {
