@@ -18,7 +18,6 @@
 option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
@@ -44,8 +43,7 @@ if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
-if(RAFT_ANN_BENCH_USE_RAFT_BFKNN
-   OR RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
 )
@@ -143,33 +141,56 @@ if(RAFT_ANN_BENCH_USE_HNSWLIB)
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_RAFT)
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
   ConfigureAnnBench(
     NAME
-    RAFT
+    RAFT_IVF_PQ
     PATH
     bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft/raft_ivf_pq.cu>
+    LINKS
+    raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME
+    RAFT_IVF_FLAT
+    PATH
+    bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft/raft_ivf_flat.cu>
+    LINKS
+    raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
+  ConfigureAnnBench(
+    NAME
+    RAFT_CAGRA
+    PATH
+    bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
     LINKS
     raft::compiled
   )
-  add_compile_definitions(
-    RAFT $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:RAFT_ANN_BENCH_USE_RAFT_IVF_PQ>
-  )
-  add_compile_definitions(
-    RAFT $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT>
-  )
-  add_compile_definitions(
-    RAFT $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:RAFT_ANN_BENCH_USE_RAFT_CAGRA>
-  )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS)
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
   ConfigureAnnBench(
     NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
+  ConfigureAnnBench(
+    NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
+  ConfigureAnnBench(NAME FAISS_BFKNN PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)

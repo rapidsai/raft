@@ -98,6 +98,7 @@ RaftIvfPQ<T, IdxT>::RaftIvfPQ(Metric metric, int dim, const BuildParam& param, f
     refine_ratio_(refine_ratio),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
+  rmm::mr::set_current_device_resource(&mr_);
   index_params_.metric = parse_metric_type(metric);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }

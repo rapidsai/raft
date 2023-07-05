@@ -166,9 +166,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
-    if (ps.algo == search_algo::MULTI_CTA && ps.max_queries > 1) {
-      GTEST_SKIP() << "Skipping test due to issue #1575";
-    }
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -178,7 +175,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     {
       rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<DistanceT, DataT, IdxT>(distances_naive_dev.data(),
+      naive_knn<DistanceT, DataT, IdxT>(handle_,
+                                        distances_naive_dev.data(),
                                         indices_naive_dev.data(),
                                         search_queries.data(),
                                         database.data(),
@@ -186,8 +184,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         ps.n_rows,
                                         ps.dim,
                                         ps.k,
-                                        ps.metric,
-                                        stream_);
+                                        ps.metric);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
@@ -377,9 +374,9 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {100},
     {1000},
     {1, 8, 17},
-    {1, 16},       // k
+    {1, 16},          // k
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
-    {1, 10, 100},  // query size
+    {0, 1, 10, 100},  // query size
     {0},
     {256},
     {1},

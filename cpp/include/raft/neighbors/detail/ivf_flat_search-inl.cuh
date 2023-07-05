@@ -127,7 +127,8 @@ void search_impl(raft::resources const& handle,
                stream);
 
   RAFT_LOG_TRACE_VEC(distance_buffer_dev.data(), std::min<uint32_t>(20, index.n_lists()));
-  matrix::detail::select_k<AccT, uint32_t>(distance_buffer_dev.data(),
+  matrix::detail::select_k<AccT, uint32_t>(handle,
+                                           distance_buffer_dev.data(),
                                            nullptr,
                                            n_queries,
                                            index.n_lists(),
@@ -135,7 +136,6 @@ void search_impl(raft::resources const& handle,
                                            coarse_distances_dev.data(),
                                            coarse_indices_dev.data(),
                                            select_min,
-                                           stream,
                                            search_mr);
   RAFT_LOG_TRACE_VEC(coarse_indices_dev.data(), n_probes);
   RAFT_LOG_TRACE_VEC(coarse_distances_dev.data(), n_probes);
@@ -191,7 +191,8 @@ void search_impl(raft::resources const& handle,
 
   // Merge topk values from different blocks
   if (grid_dim_x > 1) {
-    matrix::detail::select_k<AccT, IdxT>(refined_distances_dev.data(),
+    matrix::detail::select_k<AccT, IdxT>(handle,
+                                         refined_distances_dev.data(),
                                          refined_indices_dev.data(),
                                          n_queries,
                                          k * grid_dim_x,
@@ -199,7 +200,6 @@ void search_impl(raft::resources const& handle,
                                          distances,
                                          neighbors,
                                          select_min,
-                                         stream,
                                          search_mr);
   }
 }
