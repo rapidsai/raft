@@ -19,9 +19,9 @@
 #include <limits.h>
 #include <raft/core/resource/cuda_stream.hpp>
 
+#include "common.hpp"
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/detail/utils.h>
-#include <raft/sparse/distance/common.h>
 #include <raft/sparse/distance/detail/ip_distance.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>

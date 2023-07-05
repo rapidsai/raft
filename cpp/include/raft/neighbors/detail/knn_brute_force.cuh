@@ -238,7 +238,8 @@ void tiled_brute_force_knn(const raft::resources& handle,
           distances + i * k, current_query_size, current_k),
         raft::make_device_matrix_view<IndexType, int64_t, row_major>(
           indices + i * k, current_query_size, current_k),
-        select_min);
+        select_min,
+        true);
 
       // if we're tiling over columns, we need to do a couple things to fix up
       // the output of select_k
@@ -280,7 +281,8 @@ void tiled_brute_force_knn(const raft::resources& handle,
           distances + i * k, current_query_size, k),
         raft::make_device_matrix_view<IndexType, int64_t, row_major>(
           indices + i * k, current_query_size, k),
-        select_min);
+        select_min,
+        true);
     }
   }
 }

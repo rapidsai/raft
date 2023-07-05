@@ -24,6 +24,29 @@
 
 namespace raft {
 
+/**
+ * Specialization for a sparsity-preserving compressed structure view which uses host memory
+ */
+template <typename IndptrType, typename IndicesType, typename NZType>
+using host_compressed_structure_view =
+  compressed_structure_view<IndptrType, IndicesType, NZType, false>;
+
+/**
+ * Specialization for a sparsity-owning compressed structure which uses host memory
+ */
+template <typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = host_vector_policy>
+using host_compressed_structure =
+  compressed_structure<IndptrType, IndicesType, NZType, false, ContainerPolicy>;
+
+/**
+ * Specialization for a csr matrix view which uses host memory
+ */
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, false>;
+
 template <typename ElementType,
           typename IndptrType,
           typename IndicesType,
@@ -43,6 +66,32 @@ template <typename ElementType,
           template <typename T> typename ContainerPolicy = host_vector_policy>
 using host_sparsity_owning_csr_matrix =
   csr_matrix<ElementType, IndptrType, IndicesType, NZType, false, ContainerPolicy>;
+
+/**
+ * Specialization for a sparsity-preserving csr matrix which uses host memory
+ */
+template <typename ElementType,
+          typename IndptrType,
+          typename IndicesType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = host_vector_policy>
+using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
+                                                       IndptrType,
+                                                       IndicesType,
+                                                       NZType,
+                                                       false,
+                                                       ContainerPolicy,
+                                                       SparsityType::PRESERVING>;
+
+template <typename T>
+struct is_host_csr_matrix_view : std::false_type {};
+
+template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
+struct is_host_csr_matrix_view<host_csr_matrix_view<ElementType, IndptrType, IndicesType, NZType>>
+  : std::true_type {};
+
+template <typename T>
+constexpr bool is_host_csr_matrix_view_v = is_host_csr_matrix_view<T>::value;
 
 template <typename T>
 struct is_host_csr_matrix : std::false_type {};
@@ -66,53 +115,9 @@ constexpr bool is_host_csr_sparsity_owning_v =
   is_host_csr_matrix<T>::value and T::get_sparsity_type() == OWNING;
 
 template <typename T>
-constexpr bool is_host_csr_sparsity_preserving_v =
-  is_host_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING;
-
-/**
- * Specialization for a csr matrix view which uses host memory
- */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, false>;
-
-/**
- * Specialization for a sparsity-preserving csr matrix which uses host memory
- */
-template <typename ElementType,
-          typename IndptrType,
-          typename IndicesType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
-using host_sparsity_preserving_csr_matrix = csr_matrix<ElementType,
-                                                       IndptrType,
-                                                       IndicesType,
-                                                       NZType,
-                                                       false,
-                                                       ContainerPolicy,
-                                                       SparsityType::PRESERVING>;
-
-/**
- * Specialization for a csr matrix view which uses host memory
- */
-template <typename ElementType, typename IndptrType, typename IndicesType, typename NZType>
-using host_csr_matrix_view = csr_matrix_view<ElementType, IndptrType, IndicesType, NZType, false>;
-
-/**
- * Specialization for a sparsity-owning compressed structure which uses host memory
- */
-template <typename IndptrType,
-          typename IndicesType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
-using host_compressed_structure =
-  compressed_structure<IndptrType, IndicesType, NZType, false, ContainerPolicy>;
-
-/**
- * Specialization for a sparsity-preserving compressed structure view which uses host memory
- */
-template <typename IndptrType, typename IndicesType, typename NZType>
-using host_compressed_structure_view =
-  compressed_structure_view<IndptrType, IndicesType, NZType, false>;
+constexpr bool is_host_csr_sparsity_preserving_v = std::disjunction_v<
+  is_host_csr_matrix_view<T>,
+  std::bool_constant<is_host_csr_matrix<T>::value and T::get_sparsity_type() == PRESERVING>>;
 
 /**
  * Create a sparsity-owning sparse matrix in the compressed-sparse row format. sparsity-owning
