@@ -158,8 +158,8 @@ const std::vector<params> kCagraInputs = generate_inputs();
 
 #define CAGRA_REGISTER(ValT, IdxT, inputs)           \
   namespace BENCHMARK_PRIVATE_NAME(knn) {            \
-  using KNN = CagraBench<ValT, IdxT>;                \
-  RAFT_BENCH_REGISTER(KNN, #ValT "/" #IdxT, inputs); \
+  using AnnCagra = CagraBench<ValT, IdxT>;                \
+  RAFT_BENCH_REGISTER(AnnCagra, #ValT "/" #IdxT, inputs); \
   }
 
 }  // namespace raft::bench::spatial
