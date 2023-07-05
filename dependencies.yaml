@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8"]
+      cuda: ["11.8", "12.0"]
       arch: [x86_64]
     includes:
       - build
@@ -135,8 +135,17 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cuda_python cuda-python>=11.7.1,<12.0
           - &rmm rmm==23.8.*
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - &cuda_python12 cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -166,9 +175,20 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-version=12.0
+              - cuda-cudart-dev
+              - cuda-profiler-api
+              - libcublas-dev
+              - libcurand-dev
+              - libcusolver-dev
+              - libcusparse-dev
+          - matrix:
               cuda: "11.8"
             packages:
-              - cudatoolkit=11.8
+              - cuda-version=11.8
+              - cudatoolkit
               - cuda-profiler-api=11.8.86
               - libcublas-dev=11.11.3.6
               - libcublas=11.11.3.6
@@ -181,7 +201,8 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cudatoolkit=11.5
+              - cuda-version=11.5
+              - cudatoolkit
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               - libcublas-dev>=11.7.3.1,<=11.7.4.6
               - libcublas>=11.7.3.1,<=11.7.4.6
@@ -194,7 +215,8 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cudatoolkit=11.4
+              - cuda-version=11.4
+              - cudatoolkit
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
               - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
@@ -207,7 +229,8 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cudatoolkit=11.2
+              - cuda-version=11.2
+              - cudatoolkit
               - cuda-profiler-api>=11.4.240,<=11.8.86 # use any `11.x` version since pkg is missing several CUDA/arch packages
               # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
               # so 11.2 uses 11.4 packages (the oldest available).
@@ -264,8 +287,17 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - &numpy numpy>=1.21
-          - *cuda_python
           - *rmm
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - *cuda_python12
+          - matrix: # All CUDA 11 versions
+            packages:
+              - *cuda_python11
   run_raft_dask:
     common:
       - output_types: [conda, pyproject]
