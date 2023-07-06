@@ -75,7 +75,6 @@ jobs:
       package-name: pylibraft
       package-dir: python/pylibraft
       skbuild-configure-options: "-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
-      uses-setup-env-vars: false
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
