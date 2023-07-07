@@ -72,7 +72,7 @@ class workspace_resource_factory : public resource_factory {
     std::optional<std::size_t> alignment                = std::nullopt)
     : allocation_limit_(allocation_limit.value_or(default_allocation_limit())),
       alignment_(alignment),
-      mr_(mr ? mr : default_memory_resource(allocation_limit_))
+      mr_(mr ? mr : default_plain_resource())
   {
   }
 
@@ -117,27 +117,6 @@ class workspace_resource_factory : public resource_factory {
   std::size_t allocation_limit_;
   std::optional<std::size_t> alignment_;
   std::shared_ptr<rmm::mr::device_memory_resource> mr_;
-
-  static inline auto default_memory_resource(std::size_t limit)
-    -> std::shared_ptr<rmm::mr::device_memory_resource>
-  {
-    if (rmm::mr::cuda_memory_resource{}.is_equal(*rmm::mr::get_current_device_resource())) {
-      // Use the memory pool if only we're sure the global memory resource is set to its default,
-      // which is the cuda_memory_resource.
-      // The reason for this is that some raft algorithms rely on the workspace allocator to be
-      // fast; e.g. some buffers are allocated and released in a loop in performance-critical paths
-      // (e.g. in batching). We don't want many allocations to happen there unless the user insists
-      // on it.
-      RAFT_LOG_DEBUG("The workspace uses the pool memory resource by default (limit: %zu)", limit);
-      return default_pool_resource(limit);
-    } else {
-      // If the user sets the global (rmm) memory resource to anything but the trivial
-      // cuda_memory_resource, we don't interfere that - they know better. In this case, the
-      // limiting resource adaptor is set on top of the global (per-device) resource.
-      RAFT_LOG_DEBUG("The workspace uses the global default memory resource (limit: %zu)", limit);
-      return default_plain_resource();
-    }
-  }
 
   static inline auto default_allocation_limit() -> std::size_t
   {

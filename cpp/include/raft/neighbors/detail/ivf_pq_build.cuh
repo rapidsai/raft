@@ -29,6 +29,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/add.cuh>
@@ -1317,6 +1318,8 @@ void extend(raft::resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::extend(%zu, %u)", size_t(n_rows), index->dim());
+
+  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::extend");
   auto stream           = resource::get_cuda_stream(handle);
   const auto n_clusters = index->n_lists();
 
@@ -1515,6 +1518,7 @@ auto build(raft::resources const& handle,
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::build(%zu, %u)", size_t(n_rows), dim);
+  resource::detail::warn_non_pool_workspace(handle, "raft::ivf_pq::build");
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "Unsupported data type");
 
