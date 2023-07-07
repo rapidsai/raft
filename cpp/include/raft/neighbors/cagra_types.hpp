@@ -26,6 +26,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
+#include <raft/util/pow2_utils.cuh>
 
 #include <memory>
 #include <optional>
@@ -54,8 +55,8 @@ enum class search_algo {
 enum class hash_mode { HASH, SMALL, AUTO };
 
 struct search_params : ann::search_params {
-  /** Maximum number of queries to search at the same time (batch size). */
-  size_t max_queries = 1;
+  /** Maximum number of queries to search at the same time (batch size). Auto select when 0.*/
+  size_t max_queries = 0;
 
   /** Number of intermediate search results retained during the search.
    *
@@ -82,8 +83,6 @@ struct search_params : ann::search_params {
   /** Lower limit of search iterations. */
   size_t min_iterations = 0;
 
-  /** Bit length for reading the dataset vectors. 0, 64 or 128. Auto selection when 0. */
-  size_t load_bit_length = 0;
   /** Thread block size. 0, 64, 128, 256, 512, 1024. Auto selection when 0. */
   size_t thread_block_size = 0;
   /** Hashmap type. Auto selection when AUTO. */
@@ -113,6 +112,7 @@ static_assert(std::is_aggregate_v<search_params>);
  */
 template <typename T, typename IdxT>
 struct index : ann::index {
+  using AlignDim = raft::Pow2<16 / sizeof(T)>;
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
 
@@ -124,12 +124,15 @@ struct index : ann::index {
   }
 
   // /** Total length of the index. */
-  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT { return dataset_.extent(0); }
+  [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
+  {
+    return dataset_view_.extent(0);
+  }
 
   /** Dimensionality of the data. */
   [[nodiscard]] constexpr inline auto dim() const noexcept -> uint32_t
   {
-    return dataset_.extent(1);
+    return dataset_view_.extent(1);
   }
   /** Graph degree */
   [[nodiscard]] constexpr inline auto graph_degree() const noexcept -> uint32_t
@@ -138,9 +141,10 @@ struct index : ann::index {
   }
 
   /** Dataset [size, dim] */
-  [[nodiscard]] inline auto dataset() const noexcept -> device_matrix_view<const T, IdxT, row_major>
+  [[nodiscard]] inline auto dataset() const noexcept
+    -> device_matrix_view<const T, IdxT, layout_stride>
   {
-    return dataset_.view();
+    return dataset_view_;
   }
 
   /** neighborhood graph [size, graph-degree] */
@@ -179,15 +183,36 @@ struct index : ann::index {
         mdspan<IdxT, matrix_extent<IdxT>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(make_device_matrix<T, IdxT>(res, dataset.extent(0), dataset.extent(1))),
+      dataset_(
+        make_device_matrix<T, IdxT>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)))),
       graph_(make_device_matrix<IdxT, IdxT>(res, knn_graph.extent(0), knn_graph.extent(1)))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
-    raft::copy(dataset_.data_handle(),
-               dataset.data_handle(),
-               dataset.size(),
-               resource::get_cuda_stream(res));
+    if (dataset_.extent(1) == dataset.extent(1)) {
+      raft::copy(dataset_.data_handle(),
+                 dataset.data_handle(),
+                 dataset.size(),
+                 resource::get_cuda_stream(res));
+    } else {
+      // copy with padding
+      RAFT_CUDA_TRY(cudaMemsetAsync(
+        dataset_.data_handle(), 0, dataset_.size() * sizeof(T), resource::get_cuda_stream(res)));
+      RAFT_CUDA_TRY(cudaMemcpy2DAsync(dataset_.data_handle(),
+                                      sizeof(T) * dataset_.extent(1),
+                                      dataset.data_handle(),
+                                      sizeof(T) * dataset.extent(1),
+                                      sizeof(T) * dataset.extent(1),
+                                      dataset.extent(0),
+                                      cudaMemcpyDefault,
+                                      resource::get_cuda_stream(res)));
+    }
+    dataset_view_ = make_device_strided_matrix_view<T, IdxT>(
+      dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
+    RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",
+                   static_cast<size_t>(dataset_view_.extent(0)),
+                   static_cast<size_t>(dataset_view_.extent(1)),
+                   static_cast<size_t>(dataset_view_.stride(0)));
     raft::copy(graph_.data_handle(),
                knn_graph.data_handle(),
                knn_graph.size(),
@@ -199,6 +224,7 @@ struct index : ann::index {
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, IdxT, row_major> dataset_;
   raft::device_matrix<IdxT, IdxT, row_major> graph_;
+  raft::device_matrix_view<T, IdxT, layout_stride> dataset_view_;
 };
 
 /** @} */
