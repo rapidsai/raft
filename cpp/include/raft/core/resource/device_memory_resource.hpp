@@ -126,8 +126,8 @@ class workspace_resource_factory : public resource_factory {
       // which is the cuda_memory_resource.
       // The reason for this is that some raft algorithms rely on the workspace allocator to be
       // fast; e.g. some buffers are allocated and released in a loop in performance-critical paths
-      // (batching), such as ANN-search routines. We don't want many allocations to happen there
-      // unless the user insists on it.
+      // (e.g. in batching). We don't want many allocations to happen there unless the user insists
+      // on it.
       RAFT_LOG_DEBUG("The workspace uses the pool memory resource by default (limit: %zu)", limit);
       return default_pool_resource(limit);
     } else {
