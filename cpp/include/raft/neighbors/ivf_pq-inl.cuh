@@ -444,8 +444,8 @@ void search_with_filtering(raft::resources const& handle,
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param[in] mr an optional memory resource to use across the searches (you can provide a large
- * enough memory pool here to avoid memory allocations within search).
+ * @param[in] mr (deprecated) an optional memory resource to use across the searches (you can
+ * provide a large enough memory pool here to avoid memory allocations within search).
  */
 template <typename T, typename IdxT>
 void search(raft::resources const& handle,
