@@ -12,6 +12,8 @@
 # the License.
 # =============================================================================
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake)
+  set(rapids-cmake-repo PointKernel/rapids-cmake)
+  set(rapids-cmake-branch bump-cuco-version)
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.08/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/RAFT_RAPIDS.cmake
   )
