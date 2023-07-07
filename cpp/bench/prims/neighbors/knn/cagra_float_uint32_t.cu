@@ -16,8 +16,8 @@
 
 #include "../cagra_bench.cuh"
 
-namespace raft::bench::spatial {
+namespace raft::bench::neighbors {
 
 CAGRA_REGISTER(float, uint32_t, kCagraInputs);
 
-}  // namespace raft::bench::spatial
+}  // namespace raft::bench::neighbors

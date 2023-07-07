@@ -23,7 +23,7 @@
 
 #include <optional>
 
-namespace raft::bench::spatial {
+namespace raft::bench::neighbors {
 
 struct params {
   /** Size of the dataset. */
@@ -156,10 +156,10 @@ inline const std::vector<params> generate_inputs()
 
 const std::vector<params> kCagraInputs = generate_inputs();
 
-#define CAGRA_REGISTER(ValT, IdxT, inputs)           \
-  namespace BENCHMARK_PRIVATE_NAME(knn) {            \
+#define CAGRA_REGISTER(ValT, IdxT, inputs)                \
+  namespace BENCHMARK_PRIVATE_NAME(knn) {                 \
   using AnnCagra = CagraBench<ValT, IdxT>;                \
   RAFT_BENCH_REGISTER(AnnCagra, #ValT "/" #IdxT, inputs); \
   }
 
-}  // namespace raft::bench::spatial
+}  // namespace raft::bench::neighbors
