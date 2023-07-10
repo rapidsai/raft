@@ -15,7 +15,9 @@
  */
 
 #include <variant>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/host_container_policy.hpp>
 #include <raft/core/logger-macros.hpp>
 
 namespace raft {
@@ -55,64 +57,80 @@ struct buffer_stream_view {
   }
 };
 #endif
+}  // namespace detail
+
+inline auto constexpr variant_index_from_memory_type(raft::memory_type mem_type) {
+  return static_cast<std::underlying_type_t<raft::memory_type>>(mem_type);
 }
 
-template <typename T>
-struct fail_container {
-  using pointer = T*;
-  using const_pointer = T const*;
-
-  using reference = T&;
-  using const_reference = T const&;
-
-  using iterator = pointer;
-  using const_iterator = const_pointer;
-
-  explicit fail_container(size_t n=size_t{}) {
-    if (n != size_t{}) {
-      throw non_cuda_build_error{
-        "Attempted to allocate device container in non-CUDA build"
-      };
-    }
-  }
-};
-
-template <typename ElementType>
-struct fail_container_policy {
-  using element_type = ElementType;
-  using container_type = fail_container<element_type>;
-  using pointer         = typename container_type::pointer;
-  using const_pointer   = typename container_type::const_pointer;
-};
-
-namespace detail {
-template<typename ElementType>
-using default_buffer_host_policy = host_vector_policy<ElementType>;
-
-#ifdef RAFT_DISABLE_CUDA
-#else
-template<typename ElementType>
-using default_buffer_device_policy = device_uvector_policy<ElementType>;
-#endif
-}
+template <typename Variant, raft::memory_type MemType>
+using alternate_from_mem_type = std::variant_alternative_t<variant_index_from_memory_type(MemType), Variant>;
 
 template <
   typename ElementType
 >
 struct default_buffer_container_policy {
   using element_type = ElementType;
+  using value_type      = std::remove_cv_t<element_type>;
   using container_policy_variant = std::variant<
+    host_vector_policy<element_type>,
     device_uvector_policy<element_type>,
-    host_vector_policy<element_type>
+    managed_uvector_policy<element_type>,
+    pinned_vector_policy<element_type>
   >;
+
+  template <raft::memory_type MemType>
+  using underlying_policy = alternate_from_mem_type<container_policy_variant, MemType>;
+};
+
+template <typename ContainerPolicy>
+struct universal_buffer_reference {
+  using value_type = typename ContainerPolicy::value_type;
+  using pointer = typename ContainerPolicy::value_type*;
+  using const_pointer = typename ContainerPolicy::value_type const*;
+
+  using reference_variant = std::variant<
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::host>::reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::device>::reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::managed>::reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::pinned>::reference
+  >;
+  using const_reference_variant = std::variant<
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::host>::const_reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::device>::const_reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::managed>::const_reference,
+    typename ContainerPolicy::template underlying_policy<raft::memory_type::pinned>::const_reference
+  >;
+
+  universal_buffer_reference(pointer ptr, raft::memory_type mem_type)
+    : ptr_{ptr}, mem_type_{mem_type}
+  {
+  }
+ private:
+  pointer ptr_;
+  raft::memory_type mem_type_;
+
 };
 
 template <
   typename ElementType,
   typename Extents,
   typename LayoutPolicy = layout_c_contiguous,
-  typename ContainerPolicy
-struct mdbuffer {
+  typename ContainerPolicy = default_buffer_container_policy<ElementType>
+> struct mdbuffer {
+  using extents_type = Extents;
+  using layout_type  = LayoutPolicy;
+  using mapping_type = typename layout_type::template mapping<extents_type>;
+  using element_type = ElementType;
+
+  using value_type      = std::remove_cv_t<element_type>;
+  using index_type      = typename extents_type::index_type;
+  using difference_type = std::ptrdiff_t;
+  using rank_type       = typename extents_type::rank_type;
+
+  using owning_container_variant = std::variant<
+    mdarray<ElementType
+  >;
 };
 
-}
+}  // namespace raft

@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 #pragma once
+#include <cstdint>
 
 namespace raft {
-enum class memory_type { host, device, managed, pinned };
+enum class memory_type : std::uint8_t {
+  host = std::uint8_t{0},
+  device = std::uint8_t{1},
+  managed = std::uint8_t{2},
+  pinned = std::uint8_t{3}
+};
 
 auto constexpr is_device_accessible(memory_type mem_type)
 {
