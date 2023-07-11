@@ -88,7 +88,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<T, DataT, IdxT>(distances_naive_dev.data(),
+      naive_knn<T, DataT, IdxT>(handle_,
+                                distances_naive_dev.data(),
                                 indices_naive_dev.data(),
                                 search_queries.data(),
                                 database.data(),
@@ -96,8 +97,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                 ps.num_db_vecs,
                                 ps.dim,
                                 ps.k,
-                                ps.metric,
-                                stream_);
+                                ps.metric);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
