@@ -56,6 +56,7 @@ function(ConfigureTest)
     target_compile_options(
       ${TEST_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
     )
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_DISABLE_CUDA")
   else()
     set_target_properties(
       ${TEST_NAME}
@@ -130,6 +131,7 @@ if(BUILD_TESTS)
       test/core/sparse_matrix.cpp
       test/core/span.cpp
       test/core/span.cu
+      test/core/stream_view.cpp
       test/core/temporary_device_buffer.cu
       test/test.cpp
       OPTIONAL
@@ -388,28 +390,31 @@ if(BUILD_TESTS)
       LIB
       EXPLICIT_INSTANTIATE_ONLY
     )
-  endif()
-
-  if(RAFT_DISABLE_CUDA)
-    ConfigureTest(
-      NAME
-      UTILS_TEST
-      PATH
-      test/core/stream_view.cpp
-    )
-  else()
     ConfigureTest(
       NAME
       UTILS_TEST
       PATH
       test/core/seive.cu
-      test/core/stream_view.cpp
       test/util/bitonic_sort.cu
       test/util/cudart_utils.cpp
       test/util/device_atomics.cu
       test/util/integer_utils.cpp
       test/util/pow2_utils.cu
       test/util/reduction.cu
+    )
+  else()
+    ConfigureTest(
+      NAME
+      CORE_TEST
+      PATH
+      test/core/logger.cpp
+      test/core/math_host.cpp
+      test/core/operators_host.cpp
+      test/core/memory_type.cpp
+      test/core/stream_view.cpp
+      OPTIONAL
+      LIB
+      EXPLICIT_INSTANTIATE_ONLY
     )
   endif()
 endif()

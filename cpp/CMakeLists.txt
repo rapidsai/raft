@@ -172,6 +172,9 @@ if(NOT DISABLE_CUDA)
 
   include(${rapids-cmake-dir}/cpm/cuco.cmake)
   rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
+else()
+  include(cmake/thirdparty/get_fmt.cmake)
+  include(cmake/thirdparty/get_spdlog.cmake)
 endif()
 
 if(BUILD_TESTS)
@@ -195,6 +198,8 @@ target_include_directories(
 if(NOT DISABLE_CUDA)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
   target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+else()
+  target_link_libraries(raft INTERFACE fmt::fmt-header-only spdlog::spdlog_header_only)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
@@ -240,7 +245,7 @@ endif()
 # ##################################################################################################
 # * NVTX support in raft -----------------------------------------------------
 
-if(RAFT_NVTX)
+if(RAFT_NVTX AND (NOT DISABLE_CUDA))
   # This enables NVTX within the project with no option to disable it downstream.
   target_link_libraries(raft INTERFACE CUDA::nvToolsExt)
   target_compile_definitions(raft INTERFACE NVTX_ENABLED)

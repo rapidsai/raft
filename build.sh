@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --disable-cuda --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -44,6 +44,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
+   --disable-cuda              - do not use CUDA symbols anywhere in build
    --show_depr_warn            - show cmake deprecation warnings
    --build-metrics             - filename for generating build metrics report for libraft
    --incl-cache-stats          - include cache statistics in build metrics report
@@ -72,6 +73,7 @@ BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
+DISABLE_CUDA=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
@@ -300,6 +302,10 @@ fi
 if hasArg -g; then
     BUILD_TYPE=Debug
 fi
+if hasArg --disable-cuda; then
+    DISABLE_CUDA=ON
+    TEST_TARGETS="CORE_TEST"
+fi
 
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
@@ -417,6 +423,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
+          -DDISABLE_CUDA=${DISABLE_CUDA} \
           -DRAFT_NVTX=${NVTX} \
           -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
