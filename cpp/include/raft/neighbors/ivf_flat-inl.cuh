@@ -465,28 +465,6 @@ void search(raft::resources const& handle,
 }
 
 /**
- * @brief Reconstruct vector database
- *
- *
- * @tparam T data element type
- * @tparam IdxT type of the indices
- *
- * @param[in] handle
- * @param[in] index ivf-flat constructed index
- * @param[in] vector_ids vector with the ids of vectors to look for
- * @param[out] vector_out matrix with the database of vectors
- */
-template <typename T, typename IdxT>
-void reconstruct_batch(raft::resources const& handle,
-                       const index<T, IdxT>& index,
-                       raft::device_vector_view<const IdxT, IdxT> vector_ids,
-                       raft::device_matrix_view<T, IdxT, row_major> vector_out)
-{
-  return raft::neighbors::ivf_flat::detail::reconstruct_batch(
-    handle, index, vector_ids, vector_out);
-}
-
-/**
  * @brief Reconstruct vectors of a given cluster
  *
  *

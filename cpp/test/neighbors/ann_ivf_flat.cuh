@@ -27,6 +27,7 @@
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/ivf_flat.cuh>
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -286,7 +287,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         raft::make_device_vector_view<const IdxT, IdxT>(vecs_ids.data(), ps.num_db_vecs);
       auto vectors_out =
         raft::make_device_matrix<DataT, IdxT, row_major>(handle_, ps.num_db_vecs, ps.dim);
-      ivf_flat::reconstruct_batch(handle_, index, vectors_ids, vectors_out.view());
+      ivf_flat::detail::reconstruct_batch(handle_, index, vectors_ids, vectors_out.view());
 
       resource::sync_stream(handle_);
 
