@@ -503,8 +503,8 @@ template <typename T, typename IdxT>
 void reconstruct_list_data(raft::resources const& handle,
                            const index<T, IdxT>& index,
                            device_matrix_view<T, IdxT, row_major> out_vectors,
-                           uint32_t label,
-                           uint32_t offset)
+                           IdxT label,
+                           IdxT offset)
 {
   return raft::neighbors::ivf_flat::detail::reconstruct_list_data(
     handle, index, out_vectors, label, offset);

@@ -103,8 +103,8 @@ template <typename T, typename IdxT>
 void reconstruct_list_data(raft::resources const& handle,
                            const index<T, IdxT>& index,
                            device_matrix_view<T, IdxT, row_major> out_vectors,
-                           uint32_t label,
-                           uint32_t offset) RAFT_EXPLICIT;
+                           IdxT label,
+                           IdxT offset) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ivf_flat
 
@@ -208,8 +208,8 @@ instantiate_raft_neighbors_ivf_flat_search(uint8_t, int64_t);
     raft::resources const& handle,                                                \
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,                       \
     raft::device_matrix_view<T, IdxT, row_major> out_vectors,                     \
-    uint32_t label,                                                               \
-    uint32_t offset);
+    IdxT label,                                                                   \
+    IdxT offset);
 
 instantiate_raft_neighbors_ivf_flat_reconstruct(float, int64_t);
 instantiate_raft_neighbors_ivf_flat_reconstruct(int8_t, int64_t);

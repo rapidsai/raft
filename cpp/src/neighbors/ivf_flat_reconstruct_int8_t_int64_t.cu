@@ -36,8 +36,8 @@
     raft::resources const& handle,                                         \
     const raft::neighbors::ivf_flat::index<T, IdxT>& idx,                  \
     raft::device_matrix_view<T, IdxT, row_major> out_vectors,              \
-    uint32_t label,                                                        \
-    uint32_t offset);
+    IdxT label,                                                            \
+    IdxT offset);
 
 instantiate_raft_neighbors_ivf_flat_reconstruct(int8_t, int64_t);
 

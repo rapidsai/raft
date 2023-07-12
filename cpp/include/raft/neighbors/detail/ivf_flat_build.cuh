@@ -520,26 +520,25 @@ void reconstruct_batch(raft::resources const& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename T>
-__global__ void reconstruct_list_data_kernel(
-  T* out_vectors,
-  T* in_list_data,
-  std::variant<uint32_t, const uint32_t*> offset_or_indices,
-  uint32_t len,
-  size_t veclen,
-  uint32_t dim)
+template <typename T, typename IdxT>
+__global__ void reconstruct_list_data_kernel(T* out_vectors,
+                                             T* in_list_data,
+                                             std::variant<IdxT, const IdxT*> offset_or_indices,
+                                             IdxT len,
+                                             size_t veclen,
+                                             IdxT dim)
 {
-  for (uint32_t ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
-    const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
-                              ? std::get<uint32_t>(offset_or_indices) + ix
-                              : std::get<const uint32_t*>(offset_or_indices)[ix];
+  for (IdxT ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
+    const IdxT src_ix = std::holds_alternative<IdxT>(offset_or_indices)
+                              ? std::get<IdxT>(offset_or_indices) + ix
+                              : std::get<const IdxT*>(offset_or_indices)[ix];
 
     using group_align         = Pow2<kIndexGroupSize>;
-    const uint32_t group_ix   = group_align::div(src_ix);
-    const uint32_t ingroup_ix = group_align::mod(src_ix) * veclen;
+    const IdxT group_ix   = group_align::div(src_ix);
+    const IdxT ingroup_ix = group_align::mod(src_ix) * veclen;
 
-    for (uint32_t l = 0; l < dim; l += veclen) {
-      for (uint32_t j = 0; j < veclen; j++) {
+    for (IdxT l = 0; l < dim; l += veclen) {
+      for (IdxT j = 0; j < veclen; j++) {
         out_vectors[ix * dim + l + j] = in_list_data[l * kIndexGroupSize + ingroup_ix + j];
       }
     }
@@ -551,21 +550,21 @@ template <typename T, typename IdxT>
 void reconstruct_list_data(raft::resources const& handle,
                            const index<T, IdxT>& index,
                            device_matrix_view<T, IdxT, row_major> out_vectors,
-                           uint32_t label,
-                           uint32_t offset)
+                           IdxT label,
+                           IdxT offset)
 {
   auto stream = raft::resource::get_cuda_stream(handle);
 
-  uint32_t len = out_vectors.extent(0);
+  IdxT len = out_vectors.extent(0);
   const dim3 block_dim(256);
-  const dim3 grid_dim(raft::ceildiv<size_t>(len, block_dim.x));
-  reconstruct_list_data_kernel<<<grid_dim, block_dim, 0, stream>>>(
-    out_vectors.data_handle(),
-    index.lists()[label]->data.data_handle(),
-    offset,
-    len,
+  const dim3 grid_dim(raft::div_rounding_up_safe<size_t>(len, block_dim.x));
+  reconstruct_list_data_kernel<T, IdxT><<<grid_dim, block_dim, 0, stream>>>(
+    (T*)out_vectors.data_handle(),
+    (T*)index.lists()[label]->data.data_handle(),
+    (IdxT)offset,
+    (IdxT)len,
     (size_t)index.veclen(),
-    index.dim());
+    (IdxT)index.dim());
 }
 
 }  // namespace raft::neighbors::ivf_flat::detail
