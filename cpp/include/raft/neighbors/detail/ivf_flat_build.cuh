@@ -530,10 +530,10 @@ __global__ void reconstruct_list_data_kernel(T* out_vectors,
 {
   for (IdxT ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
     const IdxT src_ix = std::holds_alternative<IdxT>(offset_or_indices)
-                              ? std::get<IdxT>(offset_or_indices) + ix
-                              : std::get<const IdxT*>(offset_or_indices)[ix];
+                          ? std::get<IdxT>(offset_or_indices) + ix
+                          : std::get<const IdxT*>(offset_or_indices)[ix];
 
-    using group_align         = Pow2<kIndexGroupSize>;
+    using group_align     = Pow2<kIndexGroupSize>;
     const IdxT group_ix   = group_align::div(src_ix);
     const IdxT ingroup_ix = group_align::mod(src_ix) * veclen;
 
@@ -558,13 +558,13 @@ void reconstruct_list_data(raft::resources const& handle,
   IdxT len = out_vectors.extent(0);
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::div_rounding_up_safe<size_t>(len, block_dim.x));
-  reconstruct_list_data_kernel<T, IdxT><<<grid_dim, block_dim, 0, stream>>>(
-    (T*)out_vectors.data_handle(),
-    (T*)index.lists()[label]->data.data_handle(),
-    (IdxT)offset,
-    (IdxT)len,
-    (size_t)index.veclen(),
-    (IdxT)index.dim());
+  reconstruct_list_data_kernel<T, IdxT>
+    <<<grid_dim, block_dim, 0, stream>>>((T*)out_vectors.data_handle(),
+                                         (T*)index.lists()[label]->data.data_handle(),
+                                         (IdxT)offset,
+                                         (IdxT)len,
+                                         (size_t)index.veclen(),
+                                         (IdxT)index.dim());
 }
 
 }  // namespace raft::neighbors::ivf_flat::detail

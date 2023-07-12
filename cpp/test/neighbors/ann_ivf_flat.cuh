@@ -26,8 +26,8 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
-#include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
+#include <raft/neighbors/ivf_flat.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
