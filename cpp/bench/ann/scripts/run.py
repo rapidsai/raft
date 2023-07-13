@@ -73,7 +73,7 @@ def main():
         help="the dataset to load training points from",
         default="glove-100-inner",
     )
-    parser.add_argument("--algorithms", help="run only comma seperated list of named algorithms", default=None)
+    parser.add_argument("--algorithms", help="run only comma separated list of named algorithms", default=None)
     parser.add_argument("--indices", help="run only comma separated list of named indices. parameter `algorithms` is ignored", default=None)
     parser.add_argument("--force", help="re-run algorithms even if their results already exist", action="store_true")
 
