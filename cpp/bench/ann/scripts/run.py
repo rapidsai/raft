@@ -19,6 +19,45 @@ import os
 import subprocess
 import yaml
 
+def validate_algorithm_and_executable(algos_conf, algo):
+    algos_conf_keys = set(algos_conf.keys())
+    if algo in algos_conf_keys and not algos_conf[algo]["disabled"]:
+        # executable is assumed to be in folder "<root>/cpp/build"
+        if not os.path.exists("../../build/%s" % algos_conf[algo]["executable"]):
+            raise FileNotFoundError("../../build/%s" % algos_conf[algo]["executable"])
+        return True
+    else:
+        return False
+
+
+def run_build_and_search(algos_conf, conf_filename, conf_file, executables_to_run, force):
+    # Need to write temporary configuration
+    temp_conf_filename = "temporary_%s" % conf_filename
+    temp_conf_filepath = os.path.join("conf", temp_conf_filename)
+    with open(temp_conf_filepath, "w") as f:
+        json.dump(conf_file, f)
+
+    print("Building indices for configuration %s" % conf_filename)
+    for executable in executables_to_run:
+        if force:
+            p = subprocess.Popen(["../../build/%s" % executable, "-b", "-f", temp_conf_filepath])
+            p.wait()
+        else:
+            p = subprocess.Popen(["../../build/%s" % executable, "-b", temp_conf_filepath])
+            p.wait()
+
+    print("Searching indices for configuration %s" % conf_filename)
+    for executable in executables_to_run:
+        if force:
+            p = subprocess.Popen(["../../build/%s" % executable, "-s", "-f", temp_conf_filepath])
+            p.wait()
+        else:
+            p = subprocess.Popen(["../../build/%s" % executable, "-s", temp_conf_filepath])
+            p.wait()
+
+    os.remove(temp_conf_filepath)
+
+
 def main():
     # Read list of allowed algorithms
     with open("algos.yaml", "r") as f:
@@ -41,11 +80,12 @@ def main():
     args = parser.parse_args()
 
     # Read configuration file associated to dataset
-    conf_filename = os.path.join("conf", "%s.json" % args.dataset)
-    if not os.path.exists(conf_filename):
+    conf_filename = "%s.json" % args.dataset
+    conf_filepath = os.path.join("conf", conf_filename)
+    if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
     
-    with open(conf_filename, "r") as f:
+    with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
 
     # Ensure base and query files exist for dataset
@@ -54,35 +94,45 @@ def main():
     if not os.path.exists(conf_file["dataset"]["query_file"]):
         raise FileNotFoundError(conf_file["dataset"]["query_file"])
 
+    temporary_conf = conf_file.copy()
+    found_pos = []
+    executables_to_run = set()
     # At least one named index should exist in config file
     if args.indices:
         indices = set(args.indices.split(","))
-        temporary_conf = conf_file.copy()
-        found_pos = []
-        for pos, index in enumerate(temporary_conf["index"]):
-            if index["name"] in indices:
+        # algo associated with index should still be present in algos.yaml and enabled
+        for pos, index in enumerate(conf_file["index"]):
+            curr_algo = index["algo"]
+            if index["name"] in indices and validate_algorithm_and_executable(algos_conf, curr_algo):
                 found_pos.append(pos)
+                executables_to_run.add(algos_conf[curr_algo]["executable"])
 
-        # filter available indices
-        if len(found_pos) == 0:
-            raise Exception("No named indices found in %s" % conf_filename)
-        temporary_conf["index"] = [temporary_conf["index"][p] for p in found_pos]
     # switch to named algorithms if indices parameter is not supplied
     elif args.algorithms:
         algorithms = set(args.algorithms.split(","))
         # pick out algorithms from conf file that exist
         # and are enabled in algos.yaml
-        temporary_conf = conf_file.copy()
-        algos_conf_keys = set(algos_conf.keys())
-        found_pos = []
         for pos, index in enumerate(conf_file["index"]):
             curr_algo = index["algo"]
-            if curr_algo in algorithms or (curr_algo in algos_conf_keys and algos_conf[curr_algo]["disabled"]):
+            if curr_algo in algorithms and validate_algorithm_and_executable(algos_conf, curr_algo):
                 found_pos.append(pos)
-        # filter available algorithms
-        if len(found_pos) == 0:
-            raise Exception("No named algorithms found in %s" % conf_filename)
-        temporary_conf["index"] = [temporary_conf["index"][p] for p in found_pos]
+                executables_to_run.add(algos_conf[curr_algo]["executable"])
+
+    # default, try to run all available algorithms
+    else:
+        for pos, index in enumerate(conf_file["index"]):
+            curr_algo = index["algo"]
+            if validate_algorithm_and_executable(algos_conf, curr_algo):
+                found_pos.append(pos)
+                executables_to_run.add(algos_conf[curr_algo]["executable"])
+
+    # filter available algorithms or indices
+    if len(found_pos) == 0:
+        raise Exception("No named indices/algorithms found in %s" % conf_filename)
+    temporary_conf["index"] = [temporary_conf["index"][p] for p in found_pos]
+
+    run_build_and_search(algos_conf, conf_filename, temporary_conf, executables_to_run, args.force)
+
 
 if __name__ == "__main__":
     main()

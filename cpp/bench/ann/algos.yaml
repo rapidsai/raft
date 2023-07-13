@@ -22,6 +22,6 @@ raft_cagra:
 ggnn:
   executable: GGNN_ANN_BENCH
   disabled: false
-HNSWLIB:
+hnswlib:
   executable: HNSWLIB_ANN_BENCH
   disabled: false
