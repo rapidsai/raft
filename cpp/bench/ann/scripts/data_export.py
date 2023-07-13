@@ -18,7 +18,8 @@ import os
 import subprocess
 
 
-def export_results(output_filepath, recompute, groundtruth_filepath, result_filepaths):
+def export_results(output_filepath, recompute, groundtruth_filepath,
+                   result_filepaths):
     # result_filepaths = " ".join(result_filepaths)
     # print(result_filepaths)
     if recompute:
@@ -41,7 +42,7 @@ def main():
                         help="Dataset whose groundtruth is used",
                         required=True)
     args, result_filepaths = parser.parse_known_args()
-    
+
     # assume "result/<groundtruth_dataset>" folder to be default
     # if nothing is provided
     if len(result_filepaths) == 0:
