@@ -19,18 +19,20 @@ import os
 import subprocess
 import yaml
 
+
 def validate_algorithm_and_executable(algos_conf, algo):
     algos_conf_keys = set(algos_conf.keys())
     if algo in algos_conf_keys and not algos_conf[algo]["disabled"]:
         # executable is assumed to be in folder "<root>/cpp/build"
-        if not os.path.exists("../../build/%s" % algos_conf[algo]["executable"]):
-            raise FileNotFoundError("../../build/%s" % algos_conf[algo]["executable"])
+        executable_filepath = "../../build/%s" % algos_conf[algo]["executable"]
+        if not os.path.exists(executable_filepath):
+            raise FileNotFoundError(executable_filepath)
         return True
     else:
         return False
 
 
-def run_build_and_search(algos_conf, conf_filename, conf_file, executables_to_run, force):
+def run_build_and_search(conf_filename, conf_file, executables_to_run, force):
     # Need to write temporary configuration
     temp_conf_filename = "temporary_%s" % conf_filename
     temp_conf_filepath = os.path.join("conf", temp_conf_filename)
@@ -40,19 +42,23 @@ def run_build_and_search(algos_conf, conf_filename, conf_file, executables_to_ru
     print("Building indices for configuration %s" % conf_filename)
     for executable in executables_to_run:
         if force:
-            p = subprocess.Popen(["../../build/%s" % executable, "-b", "-f", temp_conf_filepath])
+            p = subprocess.Popen(["../../build/%s" % executable, "-b", "-f",
+                                  temp_conf_filepath])
             p.wait()
         else:
-            p = subprocess.Popen(["../../build/%s" % executable, "-b", temp_conf_filepath])
+            p = subprocess.Popen(["../../build/%s" % executable, "-b",
+                                  temp_conf_filepath])
             p.wait()
 
     print("Searching indices for configuration %s" % conf_filename)
     for executable in executables_to_run:
         if force:
-            p = subprocess.Popen(["../../build/%s" % executable, "-s", "-f", temp_conf_filepath])
+            p = subprocess.Popen(["../../build/%s" % executable, "-s", "-f",
+                                  temp_conf_filepath])
             p.wait()
         else:
-            p = subprocess.Popen(["../../build/%s" % executable, "-s", temp_conf_filepath])
+            p = subprocess.Popen(["../../build/%s" % executable, "-s",
+                                  temp_conf_filepath])
             p.wait()
 
     os.remove(temp_conf_filepath)
@@ -66,16 +72,25 @@ def main():
         except yaml.YAMLError as exc:
             print(exc)
 
-
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "--dataset",
         help="the dataset to load training points from",
         default="glove-100-inner",
     )
-    parser.add_argument("--algorithms", help="run only comma separated list of named algorithms", default=None)
-    parser.add_argument("--indices", help="run only comma separated list of named indices. parameter `algorithms` is ignored", default=None)
-    parser.add_argument("--force", help="re-run algorithms even if their results already exist", action="store_true")
+    parser.add_argument("--algorithms",
+                        help="run only comma separated list of named \
+                              algorithms",
+                        default=None)
+    parser.add_argument("--indices",
+                        help="run only comma separated list of named indices. \
+                              parameter `algorithms` is ignored",
+                        default=None)
+    parser.add_argument("--force",
+                        help="re-run algorithms even if their results \
+                              already exist",
+                        action="store_true")
 
     args = parser.parse_args()
 
@@ -84,7 +99,7 @@ def main():
     conf_filepath = os.path.join("conf", conf_filename)
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
-    
+
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
 
@@ -100,10 +115,12 @@ def main():
     # At least one named index should exist in config file
     if args.indices:
         indices = set(args.indices.split(","))
-        # algo associated with index should still be present in algos.yaml and enabled
+        # algo associated with index should still be present in algos.yaml
+        # and enabled
         for pos, index in enumerate(conf_file["index"]):
             curr_algo = index["algo"]
-            if index["name"] in indices and validate_algorithm_and_executable(algos_conf, curr_algo):
+            if index["name"] in indices and \
+                    validate_algorithm_and_executable(algos_conf, curr_algo):
                 found_pos.append(pos)
                 executables_to_run.add(algos_conf[curr_algo]["executable"])
 
@@ -114,7 +131,8 @@ def main():
         # and are enabled in algos.yaml
         for pos, index in enumerate(conf_file["index"]):
             curr_algo = index["algo"]
-            if curr_algo in algorithms and validate_algorithm_and_executable(algos_conf, curr_algo):
+            if curr_algo in algorithms and \
+                    validate_algorithm_and_executable(algos_conf, curr_algo):
                 found_pos.append(pos)
                 executables_to_run.add(algos_conf[curr_algo]["executable"])
 
@@ -128,10 +146,12 @@ def main():
 
     # filter available algorithms or indices
     if len(found_pos) == 0:
-        raise Exception("No named indices/algorithms found in %s" % conf_filename)
+        raise Exception("No named indices/algorithms found in %s"
+                        % conf_filename)
     temporary_conf["index"] = [temporary_conf["index"][p] for p in found_pos]
 
-    run_build_and_search(algos_conf, conf_filename, temporary_conf, executables_to_run, args.force)
+    run_build_and_search(conf_filename, temporary_conf, executables_to_run,
+                         args.force)
 
 
 if __name__ == "__main__":
