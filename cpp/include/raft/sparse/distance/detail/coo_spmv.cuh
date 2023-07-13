@@ -26,7 +26,7 @@
 
 #include "../../csr.hpp"
 #include "../../detail/utils.h"
-#include "../common.h"
+#include "common.hpp"
 
 #include <limits.h>
 

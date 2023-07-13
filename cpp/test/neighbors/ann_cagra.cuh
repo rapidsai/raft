@@ -166,10 +166,6 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
  protected:
   void testCagra()
   {
-    if (ps.dim * sizeof(DataT) % 8 != 0) {
-      GTEST_SKIP()
-        << "CAGRA requires the input data rows to be aligned at least to 8 bytes for now.";
-    }
     size_t queries_size = ps.n_queries * ps.k;
     std::vector<IdxT> indices_Cagra(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
@@ -179,7 +175,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     {
       rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<DistanceT, DataT, IdxT>(distances_naive_dev.data(),
+      naive_knn<DistanceT, DataT, IdxT>(handle_,
+                                        distances_naive_dev.data(),
                                         indices_naive_dev.data(),
                                         search_queries.data(),
                                         database.data(),
@@ -187,8 +184,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                         ps.n_rows,
                                         ps.dim,
                                         ps.k,
-                                        ps.metric,
-                                        stream_);
+                                        ps.metric);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
@@ -234,12 +230,11 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
         cagra::search(
           handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
-
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
         resource::sync_stream(handle_);
       }
-      // for (int i = 0; i < ps.n_queries; i++) {
+      // for (int i = 0; i < min(ps.n_queries, 10); i++) {
       //   //  std::cout << "query " << i << std::end;
       //   print_vector("T", indices_naive.data() + i * ps.k, ps.k, std::cout);
       //   print_vector("C", indices_Cagra.data() + i * ps.k, ps.k, std::cout);
@@ -247,7 +242,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
       //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
       // }
       double min_recall = ps.min_recall;
-      ASSERT_TRUE(eval_neighbours(indices_naive,
+      EXPECT_TRUE(eval_neighbours(indices_naive,
                                   indices_Cagra,
                                   distances_naive,
                                   distances_Cagra,
@@ -255,7 +250,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   ps.k,
                                   0.001,
                                   min_recall));
-      ASSERT_TRUE(eval_distances(handle_,
+      EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
                                  search_queries.data(),
                                  indices_dev.data(),
@@ -374,33 +369,34 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
 inline std::vector<AnnCagraInputs> generate_inputs()
 {
   // Todo(tfeher): MULTI_CTA tests a bug, consider disabling that mode.
+  // TODO(tfeher): test MULTI_CTA kernel with num_Parents>1 to allow multiple CTA per queries
   std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
-    {8},
-    {1, 16, 33},   // k
-    {search_algo::SINGLE_CTA, search_algo::MULTI_KERNEL},
-    {1, 10, 100},  // query size
+    {1, 8, 17},
+    {1, 16},          // k
+    {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
+    {0, 1, 10, 100},  // query size
+    {0},
+    {256},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {0.995});
+
+  auto inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {1, 3, 5, 7, 8, 17, 64, 128, 137, 192, 256, 512, 619, 1024},  // dim
+    {16},                                                         // k
+    {search_algo::AUTO},
+    {10},
     {0},
     {64},
     {1},
     {raft::distance::DistanceType::L2Expanded},
     {false},
     {0.995});
-
-  auto inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {1000},
-                                                   {8, 64, 128, 192, 256, 512, 1024},  // dim
-                                                   {16},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0},
-                                                   {64},
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false},
-                                                   {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
   inputs2 =
     raft::util::itertools::product<AnnCagraInputs>({100},
