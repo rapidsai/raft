@@ -127,7 +127,7 @@ options:
   --force               re-run algorithms even if their results already exist (default: False)
 ```
 
-Both parameters `indices` and `algorithms` ensure that the algorithm specificied for an index 
+Both parameters `indices` and `algorithms` ensure that the algorithm specified for an index 
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 #### Step 3: Evaluating Results
