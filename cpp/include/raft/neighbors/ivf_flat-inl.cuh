@@ -480,9 +480,9 @@ void search(raft::resources const& handle,
 template <typename T, typename IdxT>
 void reconstruct_list_data(raft::resources const& handle,
                            const index<T, IdxT>& index,
-                           device_matrix_view<T, IdxT, row_major> out_vectors,
-                           IdxT label,
-                           IdxT offset)
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label,
+                           uint32_t offset)
 {
   return raft::neighbors::ivf_flat::detail::reconstruct_list_data(
     handle, index, out_vectors, label, offset);

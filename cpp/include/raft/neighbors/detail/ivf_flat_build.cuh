@@ -549,9 +549,9 @@ __global__ void reconstruct_list_data_kernel(T* out_vectors,
 template <typename T, typename IdxT>
 void reconstruct_list_data(raft::resources const& handle,
                            const index<T, IdxT>& index,
-                           device_matrix_view<T, IdxT, row_major> out_vectors,
-                           IdxT label,
-                           IdxT offset)
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label,
+                           uint32_t offset)
 {
   auto stream = raft::resource::get_cuda_stream(handle);
 

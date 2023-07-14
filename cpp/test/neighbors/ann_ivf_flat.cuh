@@ -310,12 +310,12 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         raft::make_device_matrix_view<const DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
       auto index = ivf_flat::build(handle_, index_params, vectors_data);
 
-      IdxT cluster = 0;
-      IdxT offset  = 0;
-      IdxT n_rows  = index.lists()[cluster]->size;
+      uint32_t cluster = 0;
+      uint32_t offset  = 0;
+      uint32_t n_rows  = index.lists()[cluster]->size;
       if (n_rows > 0 && n_rows <= 30) {
         auto vectors_out =
-          raft::make_device_matrix<DataT, IdxT, row_major>(handle_, n_rows, ps.dim);
+          raft::make_device_matrix<DataT, uint32_t, row_major>(handle_, n_rows, ps.dim);
         ivf_flat::reconstruct_list_data(handle_, index, vectors_out.view(), cluster, offset);
 
         std::vector<IdxT> h_indices(n_rows);
