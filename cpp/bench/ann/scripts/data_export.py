@@ -20,8 +20,7 @@ import subprocess
 
 def export_results(output_filepath, recompute, groundtruth_filepath,
                    result_filepaths):
-    # result_filepaths = " ".join(result_filepaths)
-    # print(result_filepaths)
+    print("Writing output file to: %s" % os.path.join(os.getcwd(), output_filepath))
     if recompute:
         p = subprocess.Popen(["scripts/eval.pl", "-f", "-o", output_filepath,
                               groundtruth_filepath] + result_filepaths)
@@ -34,7 +33,7 @@ def export_results(output_filepath, recompute, groundtruth_filepath,
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--output", help="Path to the output file",
+    parser.add_argument("--output", help="Path to the CSV output file",
                         required=True)
     parser.add_argument("--recompute", action="store_true",
                         help="Recompute metrics")

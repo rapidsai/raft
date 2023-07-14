@@ -27,7 +27,6 @@ def get_dataset_path(name):
 
 def download_dataset(url, path):
     if not os.path.exists(path):
-        # TODO: should be atomic
         print("downloading %s -> %s..." % (url, path))
         urlretrieve(url, path)
 
