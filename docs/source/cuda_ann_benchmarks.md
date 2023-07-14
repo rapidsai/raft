@@ -60,6 +60,96 @@ There are 4 general steps to running the benchmarks:
 3. Search Using Built Index
 4. Evaluate Result
 
+We provide two methods for running benchmarks, using:
+1. Python
+2. bash
+
+### Python
+#### End-to-end example
+```bash
+# All scripts are assumed to be run in directory raft/cpp/bench/ann
+
+# (1) prepare a dataset
+python scripts/get_dataset.py --name glove-100-angular --normalize
+
+# (2) build and search index
+python scripts/run.py --dataset glove-100-inner
+
+# (3) evaluate result
+python scripts/data_export.py --output out.csv --groundtruth glove-100-inner result/glove-100-inner/.*txt
+```
+
+##### Step 1: Prepare Dataset
+The script `scripts/get_dataset.py` will download and unpack the dataset in directory
+`data/<dataset_name>/`. As of now, only million-scale datasets are supported by this
+script. To work with [billion-scale datasets](#billion-scale), please follow linked section.
+For more information on [datasets and formats](#bash-prepare-dataset).
+
+The usage of this script is:
+```bash
+usage: get_dataset.py [-h] [--name NAME] [--normalize]
+
+options:
+  -h, --help   show this help message and exit
+  --name NAME  dataset to download (default: glove-100-angular)
+  --normalize  normalize cosine distance to inner product (default: False)
+```
+
+When option `normalize` is provided to the script, any dataset that has cosine distances
+will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
+will be written at location `data/glove-100-inner/`.
+
+#### Step 2: Build and Search Index
+The script `scripts/run.py` will build and search indices for a given dataset and its
+specified configuration, writing the output to `result/<dataset_name>/<algorithm_name>/`.
+To confirgure which algorithms are available, we use `algos.yaml`.
+To configure building/searching indices for a dataset, look at [index configuration](#json-index-config).
+An entry in `algos.yaml` looks like:
+```yaml
+raft_ivf_pq:
+  executable: RAFT_IVF_PQ_ANN_BENCH
+  disabled: false
+```
+`executable` : specifies the binary that will build/search the index. It is assumed to be
+available in `raft/cpp/build/`.
+`disabled` : denotes whether an algorithm should be excluded from benchmark runs.
+
+The usage of the script `scripts/run.py` is:
+```bash
+usage: run.py [-h] [--dataset DATASET] [--algorithms ALGORITHMS] [--indices INDICES] [--force]
+
+options:
+  -h, --help            show this help message and exit
+  --dataset DATASET     the dataset to load training points from (default: glove-100-inner)
+  --algorithms ALGORITHMS
+                        run only comma separated list of named algorithms (default: None)
+  --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
+  --force               re-run algorithms even if their results already exist (default: False)
+```
+
+Both parameters `indices` and `algorithms` ensure that the algorithm specificied for an index 
+is available in `algos.yaml` and not disabled, as well as having an associated executable.
+
+#### Step 3: Evaluating Results
+The script `scripts/data_export.py` will evaluate results for a dataset whose index has been built
+and search with at least one algorithm. For every result file that is supplied to the script, the output
+will be combined and written to a CSV file.
+
+The usage of this script is:
+```bash
+usage: data_export.py [-h] --output OUTPUT [--recompute] --groundtruth GROUNDTRUTH <result_filepaths>
+
+options:
+  -h, --help            show this help message and exit
+  --output OUTPUT       Path to the output file (default: None)
+  --recompute           Recompute metrics (default: False)
+  --groundtruth GROUNDTRUTH
+                        Dataset whose groundtruth is used (default: None)
+```
+
+`result_files` : whitespace separate list of result files/directories that can be capture via pattern match. For more [information and examples](#result-filepath-example)
+
+### bash
 #### End-to-end Example
 An end-to-end example (run from the RAFT source code root directory):
 ```bash
@@ -99,7 +189,7 @@ popd
 # optional step: plot QPS-Recall figure using data in result.csv with your favorite tool
 ```
 
-##### Step 1: Prepare Dataset
+##### Step 1: Prepare Dataset <a id='bash-prepare-dataset'></a>
 A dataset usually has 4 binary files containing database vectors, query vectors, ground truth neighbors and their corresponding distances. For example, Glove-100 dataset has files `base.fbin` (database vectors), `query.fbin` (query vectors), `groundtruth.neighbors.ibin` (ground truth neighbors), and `groundtruth.distances.fbin` (ground truth distances). The first two files are for index building and searching, while the other two are associated with a particular distance and are used for evaluation.
 
 The file suffixes `.fbin`, `.f16bin`, `.ibin`, `.u8bin`, and `.i8bin` denote that the data type of vectors stored in the file are `float32`, `float16`(a.k.a `half`), `int`, `uint8`, and `int8`, respectively.
@@ -128,7 +218,7 @@ Commonly used datasets can be downloaded from two websites:
 
     Most datasets provided by `ann-benchmarks` use `Angular` or `Euclidean` distance. `Angular` denotes cosine distance. However, computing cosine distance reduces to computing inner product by normalizing vectors beforehand. In practice, we can always do the normalization to decrease computation cost, so it's better to measure the performance of inner product rather than cosine distance. The `-n` option of `hdf5_to_fbin.py` can be used to normalize the dataset.
 
-2. Billion-scale datasets can be found at [`big-ann-benchmarks`](http://big-ann-benchmarks.com). The ground truth file contains both neighbors and distances, thus should be split. A script is provided for this:
+2. <a id='billion-scale'></a>Billion-scale datasets can be found at [`big-ann-benchmarks`](http://big-ann-benchmarks.com). The ground truth file contains both neighbors and distances, thus should be split. A script is provided for this:
     ```bash
     $ cpp/bench/ann/scripts/split_groundtruth.pl
     usage: script/split_groundtruth.pl input output_prefix
@@ -237,7 +327,7 @@ usage: [-f] [-o output.csv] groundtruth.neighbors.ibin result_paths...
   -f: force to recompute recall and update it in result file if needed
   -o: also write result to a csv file
 ```
-Note that there can be multiple arguments for paths of result files. Each argument can be either a file name or a path. If it's a directory, all files found under it recursively will be used as input files.
+<a id='result-filepath-example'></a>Note that there can be multiple arguments for paths of result files. Each argument can be either a file name or a path. If it's a directory, all files found under it recursively will be used as input files.
 An example:
 ```bash
 cpp/bench/ann/scripts/eval.pl groundtruth.neighbors.ibin \
@@ -274,7 +364,7 @@ public:
 };
 ```
 
-The benchmark program uses JSON configuration file. To add the new algorithm to the benchmark, need be able to specify `build_param`, whose value is a JSON object, and `search_params`, whose value is an array of JSON objects, for this algorithm in configuration file. Still take the configuration for `HnswLib` as an example:
+<a id='json-index-config'></a>The benchmark program uses JSON configuration file. To add the new algorithm to the benchmark, need be able to specify `build_param`, whose value is a JSON object, and `search_params`, whose value is an array of JSON objects, for this algorithm in configuration file. Still take the configuration for `HnswLib` as an example:
 ```json
 {
   "name" : "...",
