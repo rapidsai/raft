@@ -67,6 +67,7 @@ def download(name, normalize):
         move(name, path)
     except Exception:
         print("Cannot download %s" % url)
+        raise
 
 
 def main():
