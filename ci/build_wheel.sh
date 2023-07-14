@@ -35,22 +35,11 @@ export PIP_EXTRA_INDEX_URL=https://pypi.k8s.rapids.ai/simple
 # Hardcode the output dir
 python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
-# Repair the wheel
-cd dist
-python -m auditwheel repair -w . ${package_name}*
-
-# Need to pick the final wheel out from all the dependencies and the
-# pre-repaired wheel.
-cd ..
-mkdir final_dist
-mv dist/${package_name}*manylinux* final_dist
-
-# rapids-upload-wheels-to-s3 uses rapids-package-name which implicitly relies
-# on this variable being set
-export RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}"
+mkdir -p final_dist
+python -m auditwheel repair -w final_dist dist/*
 
 if [[ ! -d "/tmp/gha-tools" ]]; then
   git clone https://github.com/divyegala/gha-tools.git -b wheel-local-runs /tmp/gha-tools
 fi
 
-/tmp/gha-tools/tools/rapids-upload-wheels-to-s3 final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" /tmp/gha-tools/tools/rapids-upload-wheels-to-s3 final_dist
