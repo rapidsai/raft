@@ -22,15 +22,15 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/operators.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/neighbors/ivf_flat.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/cagra_serialize.cuh>
+#include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/pool_memory_resource.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -42,17 +42,17 @@
 namespace raft::bench::ann {
 
 template <typename T, typename IdxT>
-class RaftIvfFlatGpu : public ANN<T> {
+class RaftCagra : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
 
   struct SearchParam : public AnnSearchParam {
-    raft::neighbors::ivf_flat::search_params ivf_flat_params;
+    unsigned itopk_size;
   };
 
-  using BuildParam = raft::neighbors::ivf_flat::index_params;
+  using BuildParam = raft::neighbors::experimental::cagra::index_params;
 
-  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param);
+  RaftCagra(Metric metric, int dim, const BuildParam& param);
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -73,7 +73,7 @@ class RaftIvfFlatGpu : public ANN<T> {
     AlgoProperty property;
     property.dataset_memory_type      = MemoryType::Device;
     property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = false;
+    property.need_dataset_when_search = true;
     return property;
   }
   void save(const std::string& file) const override;
@@ -82,65 +82,85 @@ class RaftIvfFlatGpu : public ANN<T> {
  private:
   raft::device_resources handle_;
   BuildParam index_params_;
-  raft::neighbors::ivf_flat::search_params search_params_;
-  std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
+  raft::neighbors::experimental::cagra::search_params search_params_;
+  std::optional<raft::neighbors::experimental::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
 };
 
 template <typename T, typename IdxT>
-RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param)
+RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
   : ANN<T>(metric, dim),
     index_params_(param),
     dimension_(dim),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
-  index_params_.metric                         = parse_metric_type(metric);
-  index_params_.conservative_memory_allocation = true;
   rmm::mr::set_current_device_resource(&mr_);
+  index_params_.metric = parse_metric_type(metric);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
+void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  index_.emplace(
-    raft::neighbors::ivf_flat::build(handle_, index_params_, dataset, IdxT(nrow), dimension_));
+  auto dataset_view = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
+  index_.emplace(raft::neighbors::experimental::cagra::build(handle_, index_params_, dataset_view));
   return;
 }
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::set_search_param(const AnnSearchParam& param)
+void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
-  auto search_param = dynamic_cast<const SearchParam&>(param);
-  search_params_    = search_param.ivf_flat_params;
-  assert(search_params_.n_probes <= index_params_.n_lists);
-}
-
-template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::save(const std::string& file) const
-{
-  raft::neighbors::ivf_flat::serialize(handle_, file, *index_);
   return;
 }
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::load(const std::string& file)
+void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
-  index_ = raft::neighbors::ivf_flat::deserialize<T, IdxT>(handle_, file);
+  raft::neighbors::experimental::cagra::serialize(handle_, file, *index_);
   return;
 }
 
 template <typename T, typename IdxT>
-void RaftIvfFlatGpu<T, IdxT>::search(
+void RaftCagra<T, IdxT>::load(const std::string& file)
+{
+  index_ = raft::neighbors::experimental::cagra::deserialize<T, IdxT>(handle_, file);
+  return;
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
 {
-  rmm::mr::device_memory_resource* mr_ptr = &const_cast<RaftIvfFlatGpu*>(this)->mr_;
-  static_assert(sizeof(size_t) == sizeof(IdxT), "IdxT is incompatible with size_t");
-  raft::neighbors::ivf_flat::search(
-    handle_, search_params_, *index_, queries, batch_size, k, (IdxT*)neighbors, distances, mr_ptr);
-  resource::sync_stream(handle_);
+  IdxT* neighbors_IdxT;
+  rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
+  if constexpr (std::is_same<IdxT, size_t>::value) {
+    neighbors_IdxT = neighbors;
+  } else {
+    neighbors_storage.resize(batch_size * k, resource::get_cuda_stream(handle_));
+    neighbors_IdxT = neighbors_storage.data();
+  }
+
+  auto queries_view = raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, dimension_);
+  auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, k);
+  auto distances_view = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
+
+  raft::neighbors::experimental::cagra::search_params search_params;
+  search_params.max_queries = batch_size;
+  search_params.itopk_size  = search_params_.max_queries;
+  raft::neighbors::experimental::cagra::search(
+    handle_, search_params, *index_, queries_view, neighbors_view, distances_view);
+
+  if (!std::is_same<IdxT, size_t>::value) {
+    raft::linalg::unaryOp(neighbors,
+                          neighbors_IdxT,
+                          batch_size * k,
+                          raft::cast_op<size_t>(),
+                          resource::get_cuda_stream(handle_));
+  }
+
+  handle_.sync_stream();
   return;
 }
 }  // namespace raft::bench::ann

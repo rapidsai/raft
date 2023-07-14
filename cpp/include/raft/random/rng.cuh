@@ -30,6 +30,11 @@
 namespace raft::random {
 
 /**
+ * \defgroup univariate_random_sampling Univariate random sampling
+ * @{
+ */
+
+/**
  * @brief Generate uniformly distributed numbers in the given range
  *
  * @tparam OutputValueType Data type of output random number
@@ -51,6 +56,10 @@ void uniform(raft::resources const& handle,
   detail::uniform(
     rng_state, out.data_handle(), out.extent(0), start, end, resource::get_cuda_stream(handle));
 }
+
+/**
+ * @}
+ */
 
 /**
  * @brief Legacy overload of `uniform` taking raw pointers
@@ -76,6 +85,7 @@ void uniform(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate uniformly distributed integers in the given range
  *
  * @tparam OutputValueType Integral type; value type of the output vector
@@ -128,6 +138,7 @@ void uniformInt(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed numbers
  *   with a given mean and standard deviation
  *
@@ -175,6 +186,7 @@ void normal(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed integers
  *
  * @tparam OutputValueType Integral type; value type of the output vector
@@ -228,6 +240,7 @@ void normalInt(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate normal distributed table according to the given set of
  * means and scalar standard deviations.
  *
@@ -326,6 +339,7 @@ void normalTable(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Fill a vector with the given value
  *
  * @tparam OutputValueType Value type of the output vector
@@ -364,6 +378,7 @@ void fill(
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate bernoulli distributed boolean array
  *
  * @tparam OutputValueType Type of each element of the output vector;
@@ -407,6 +422,7 @@ void bernoulli(
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate bernoulli distributed array and applies scale
  *
  * @tparam OutputValueType Data type in which to compute the probabilities
@@ -453,6 +469,7 @@ void scaled_bernoulli(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate Gumbel distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -501,6 +518,7 @@ void gumbel(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate lognormal distributed numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -547,6 +565,7 @@ void lognormal(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate logistic distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -593,6 +612,7 @@ void logistic(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate exponentially distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -632,6 +652,7 @@ void exponential(
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate rayleigh distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -670,6 +691,7 @@ void rayleigh(
   detail::rayleigh(rng_state, ptr, len, sigma, resource::get_cuda_stream(handle));
 }
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate laplace distributed random numbers
  *
  * @tparam OutputValueType data type of output random number
@@ -716,6 +738,7 @@ void laplace(raft::resources const& handle,
 }
 
 /**
+ * @ingroup univariate_random_sampling
  * @brief Generate random integers, where the probability of i is weights[i]/sum(weights)
  *
  * Usage example:

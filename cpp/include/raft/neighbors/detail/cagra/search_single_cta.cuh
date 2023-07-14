@@ -540,6 +540,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
                      const std::size_t dataset_dim,
                      const std::size_t dataset_size,
+                     const std::size_t dataset_ld,     // stride of dataset
                      const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
                      const INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
                      const std::uint32_t graph_degree,
@@ -634,6 +635,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     dataset_ptr,
     dataset_dim,
     dataset_size,
+    dataset_ld,
     result_buffer_size,
     num_distilation,
     rand_xor_mask,
@@ -758,6 +760,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         query_buffer,
         dataset_ptr,
         dataset_dim,
+        dataset_ld,
         knn_graph,
         graph_degree,
         local_visited_hashmap_ptr,
@@ -808,60 +811,42 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 #endif
 }
 
-#define SET_KERNEL_3(                                                               \
-  BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT, LOAD_T) \
-  kernel = search_kernel<TEAM_SIZE,                                                 \
-                         BLOCK_SIZE,                                                \
-                         BLOCK_COUNT,                                               \
-                         MAX_ITOPK,                                                 \
-                         MAX_CANDIDATES,                                            \
-                         TOPK_BY_BITONIC_SORT,                                      \
-                         MAX_DATASET_DIM,                                           \
-                         DATA_T,                                                    \
-                         DISTANCE_T,                                                \
-                         INDEX_T,                                                   \
-                         LOAD_T>;
-
-#define SET_KERNEL_2(BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT) \
-  if (load_bit_length == 128) {                                                                \
-    SET_KERNEL_3(BLOCK_SIZE,                                                                   \
-                 BLOCK_COUNT,                                                                  \
-                 MAX_ITOPK,                                                                    \
-                 MAX_CANDIDATES,                                                               \
-                 TOPK_BY_BITONIC_SORT,                                                         \
-                 device::LOAD_128BIT_T)                                                        \
-  } else if (load_bit_length == 64) {                                                          \
-    SET_KERNEL_3(BLOCK_SIZE,                                                                   \
-                 BLOCK_COUNT,                                                                  \
-                 MAX_ITOPK,                                                                    \
-                 MAX_CANDIDATES,                                                               \
-                 TOPK_BY_BITONIC_SORT,                                                         \
-                 device::LOAD_64BIT_T)                                                         \
-  }
+#define SET_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT) \
+  kernel = search_kernel<TEAM_SIZE,                                                            \
+                         BLOCK_SIZE,                                                           \
+                         BLOCK_COUNT,                                                          \
+                         MAX_ITOPK,                                                            \
+                         MAX_CANDIDATES,                                                       \
+                         TOPK_BY_BITONIC_SORT,                                                 \
+                         MAX_DATASET_DIM,                                                      \
+                         DATA_T,                                                               \
+                         DISTANCE_T,                                                           \
+                         INDEX_T,                                                              \
+                         device::LOAD_128BIT_T>;
 
 #define SET_KERNEL_1B(MAX_ITOPK, MAX_CANDIDATES)              \
   /* if ( block_size == 32 ) {                                \
       SET_KERNEL_2( 32, 20, MAX_ITOPK, MAX_CANDIDATES, 1 )    \
   } else */                                                   \
   if (block_size == 64) {                                     \
-    SET_KERNEL_2(64, 16 /*20*/, MAX_ITOPK, MAX_CANDIDATES, 1) \
+    SET_KERNEL_3(64, 16 /*20*/, MAX_ITOPK, MAX_CANDIDATES, 1) \
   } else if (block_size == 128) {                             \
-    SET_KERNEL_2(128, 8, MAX_ITOPK, MAX_CANDIDATES, 1)        \
+    SET_KERNEL_3(128, 8, MAX_ITOPK, MAX_CANDIDATES, 1)        \
   } else if (block_size == 256) {                             \
-    SET_KERNEL_2(256, 4, MAX_ITOPK, MAX_CANDIDATES, 1)        \
+    SET_KERNEL_3(256, 4, MAX_ITOPK, MAX_CANDIDATES, 1)        \
   } else if (block_size == 512) {                             \
-    SET_KERNEL_2(512, 2, MAX_ITOPK, MAX_CANDIDATES, 1)        \
+    SET_KERNEL_3(512, 2, MAX_ITOPK, MAX_CANDIDATES, 1)        \
   } else {                                                    \
-    SET_KERNEL_2(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 1)       \
+    SET_KERNEL_3(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 1)       \
   }
 
 #define SET_KERNEL_1R(MAX_ITOPK, MAX_CANDIDATES)        \
   if (block_size == 256) {                              \
-    SET_KERNEL_2(256, 4, MAX_ITOPK, MAX_CANDIDATES, 0)  \
+    SET_KERNEL_3(256, 4, MAX_ITOPK, MAX_CANDIDATES, 0)  \
   } else if (block_size == 512) {                       \
-    SET_KERNEL_2(512, 2, MAX_ITOPK, MAX_CANDIDATES, 0)  \
+    SET_KERNEL_3(512, 2, MAX_ITOPK, MAX_CANDIDATES, 0)  \
   } else {                                              \
-    SET_KERNEL_2(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 0) \
+    SET_KERNEL_3(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 0) \
   }
 
 #define SET_KERNEL                                                                \
@@ -871,6 +856,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                   const DATA_T* const dataset_ptr,                \
                                   const std::size_t dataset_dim,                  \
                                   const std::size_t dataset_size,                 \
+                                  const std::size_t dataset_ld,                   \
                                   const DATA_T* const queries_ptr,                \
                                   const INDEX_T* const knn_graph,                 \
                                   const std::uint32_t graph_degree,               \
@@ -887,7 +873,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                   const std::uint32_t hash_bitlen,                \
                                   const std::uint32_t small_hash_bitlen,          \
                                   const std::uint32_t small_hash_reset_interval); \
-  search_kernel_t kernel;                                                         \
+  search_kernel_t kernel = nullptr;                                               \
   if (num_itopk_candidates <= 64) {                                               \
     constexpr unsigned max_candidates = 64;                                       \
     if (itopk_size <= 64) {                                                       \
@@ -943,7 +929,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_length;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
@@ -965,7 +950,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::load_bit_lenght;
 
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
@@ -1066,22 +1050,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                  max_block_size);
     thread_block_size = block_size;
 
-    // Determine load bit length
-    const uint32_t total_bit_length = dim * sizeof(DATA_T) * 8;
-    if (load_bit_length == 0) {
-      load_bit_length = 128;
-      while (total_bit_length % load_bit_length) {
-        load_bit_length /= 2;
-      }
-    }
-    RAFT_LOG_DEBUG("# load_bit_length: %u  (%u loads per vector)",
-                   load_bit_length,
-                   total_bit_length / load_bit_length);
-    RAFT_EXPECTS(total_bit_length % load_bit_length == 0,
-                 "load_bit_length must be a divisor of dim*sizeof(data_t)*8=%u",
-                 total_bit_length);
-    RAFT_EXPECTS(load_bit_length >= 64, "load_bit_lenght cannot be less than 64");
-
     if (num_itopk_candidates <= 256) {
       RAFT_LOG_DEBUG("# bitonic-sort based topk routine is used");
     } else {
@@ -1129,7 +1097,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   }
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, row_major> dataset,
+                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
                   raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
                   INDEX_T* const result_indices_ptr,             // [num_queries, topk]
                   DISTANCE_T* const result_distances_ptr,        // [num_queries, topk]
@@ -1154,6 +1122,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                                                            dataset.data_handle(),
                                                            dataset.extent(1),
                                                            dataset.extent(0),
+                                                           dataset.stride(0),
                                                            queries_ptr,
                                                            graph.data_handle(),
                                                            graph.extent(1),

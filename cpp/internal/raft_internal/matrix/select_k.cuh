@@ -101,10 +101,15 @@ void select_k_impl(const resources& handle,
       if (in_idx == nullptr) {
         // NB: std::nullopt prevents automatic inference of the template parameters.
         return matrix::select_k<T, IdxT>(
-          handle, in_span, std::nullopt, out_span, out_idx_span, select_min);
+          handle, in_span, std::nullopt, out_span, out_idx_span, select_min, true);
       } else {
-        return matrix::select_k(
-          handle, in_span, std::make_optional(in_idx_span), out_span, out_idx_span, select_min);
+        return matrix::select_k(handle,
+                                in_span,
+                                std::make_optional(in_idx_span),
+                                out_span,
+                                out_idx_span,
+                                select_min,
+                                true);
       }
     }
     case Algo::kRadix8bits:

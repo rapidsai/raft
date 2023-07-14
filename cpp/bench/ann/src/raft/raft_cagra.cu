@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "raft_cagra_wrapper.h"
 
-#pragma once
-
-#include <raft/core/span.hpp>
-
-namespace raft {
-
-/**
- * @defgroup device_span one-dimensional device span type
- * @{
- */
-
-/**
- * @brief A span class for host pointer.
- */
-template <typename T, size_t extent = std::experimental::dynamic_extent>
-using host_span = span<T, false, extent>;
-
-/**
- * @}
- */
-
-}  // end namespace raft
+namespace raft::bench::ann {
+template class RaftCagra<uint8_t, uint32_t>;
+template class RaftCagra<int8_t, uint32_t>;
+template class RaftCagra<float, uint32_t>;
+}  // namespace raft::bench::ann

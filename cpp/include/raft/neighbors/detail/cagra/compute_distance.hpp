@@ -56,6 +56,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
+  const std::size_t dataset_ld,
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
@@ -93,7 +94,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         for (uint32_t e = 0; e < nelem; e++) {
           const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
           if (k >= dataset_dim) break;
-          dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_dim * seed_index)))[0];
+          dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_ld * seed_index)))[0];
         }
 #pragma unroll
         for (uint32_t e = 0; e < nelem; e++) {
@@ -146,6 +147,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   // [dataset_dim, dataset_size]
                                                   const DATA_T* const dataset_ptr,
                                                   const std::size_t dataset_dim,
+                                                  const std::size_t dataset_ld,
                                                   // [knn_k, dataset_size]
                                                   const INDEX_T* const knn_graph,
                                                   const std::uint32_t knn_k,
@@ -215,7 +217,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
       for (unsigned e = 0; e < nelem; e++) {
         const unsigned k = (lane_id + (TEAM_SIZE * e)) * vlen;
         if (k >= dataset_dim) break;
-        dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_dim * child_id)))[0];
+        dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_ld * child_id)))[0];
       }
 #pragma unroll
       for (unsigned e = 0; e < nelem; e++) {

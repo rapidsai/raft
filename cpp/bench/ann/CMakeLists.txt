@@ -18,13 +18,21 @@
 option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_RAFT_BFKNN "Include raft's brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 
 find_package(Threads REQUIRED)
+
+# Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
+# https://github.com/rapidsai/raft/issues/1627
+if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
+  set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
+endif()
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
@@ -35,9 +43,9 @@ if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
-if(RAFT_ANN_BENCH_USE_RAFT_BFKNN
-   OR RAFT_ANN_BENCH_USE_RAFT_IVFPQ
-   OR RAFT_ANN_BENCH_USE_RAFT_IVFFLAT
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
+   OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
+   OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
 )
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
@@ -133,23 +141,56 @@ if(RAFT_ANN_BENCH_USE_HNSWLIB)
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_RAFT)
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ)
   ConfigureAnnBench(
     NAME
     RAFT_IVF_PQ
     PATH
     bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}>:bench/ann/src/raft/raft_ivf_pq.cu>
+    LINKS
+    raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME
+    RAFT_IVF_FLAT
+    PATH
+    bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}>:bench/ann/src/raft/raft_ivf_flat.cu>
     LINKS
     raft::compiled
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS)
+if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
+  ConfigureAnnBench(
+    NAME
+    RAFT_CAGRA
+    PATH
+    bench/ann/src/raft/raft_benchmark.cu
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
+    LINKS
+    raft::compiled
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
   ConfigureAnnBench(
     NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
+  ConfigureAnnBench(
+    NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
+  ConfigureAnnBench(NAME FAISS_BFKNN PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)

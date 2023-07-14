@@ -19,7 +19,6 @@ rapids-print-env
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
-VERSION_NUMBER="23.06"
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
@@ -29,21 +28,21 @@ rapids-mamba-retry install \
   pylibraft \
   raft-dask
 
+export RAPIDS_VERSION_NUMBER="23.08"
+export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
-rapids-logger "Build Doxygen docs"
+rapids-logger "Build CPP docs"
 pushd cpp/doxygen
 doxygen Doxyfile
 popd
 
-rapids-logger "Build Sphinx docs"
+rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml source _html
 sphinx-build -b text source _text
+mkdir -p "${RAPIDS_DOCS_DIR}/raft/"{html,txt}
+mv _html/* "${RAPIDS_DOCS_DIR}/raft/html"
+mv _text/* "${RAPIDS_DOCS_DIR}/raft/txt"
 popd
 
-
-if [[ ${RAPIDS_BUILD_TYPE} != "pull-request" ]]; then
-  rapids-logger "Upload Docs to S3"
-  aws s3 sync --no-progress --delete docs/_html "s3://rapidsai-docs/raft/${VERSION_NUMBER}/html"
-  aws s3 sync --no-progress --delete docs/_text "s3://rapidsai-docs/raft/${VERSION_NUMBER}/txt"
-fi
+rapids-upload-docs
