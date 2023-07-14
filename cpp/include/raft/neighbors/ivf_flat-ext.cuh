@@ -216,8 +216,8 @@ instantiate_raft_neighbors_ivf_flat_search(uint8_t, int64_t);
   extern template void raft::neighbors::ivf_flat::reconstruct_list_data<T, IdxT>( \
     raft::resources const& handle,                                                \
     const raft::neighbors::ivf_flat::index<T, IdxT>& index,                       \
-    raft::device_matrix_view<T, uint32_t, row_major> out_vectors,                     \
-    uint32_t label,                                                                   \
+    raft::device_matrix_view<T, uint32_t, row_major> out_vectors,                 \
+    uint32_t label,                                                               \
     uint32_t offset);
 
 instantiate_raft_neighbors_ivf_flat_reconstruct(float, int64_t);

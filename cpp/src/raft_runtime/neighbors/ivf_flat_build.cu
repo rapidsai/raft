@@ -55,9 +55,9 @@ namespace raft::runtime::neighbors::ivf_flat {
                                                                                        \
   void reconstruct_list_data(raft::resources const& handle,                            \
                              const raft::neighbors::ivf_flat::index<T, IdxT>& idx,     \
-                             device_matrix_view<T, uint32_t, row_major> out_vectors,       \
-                             uint32_t label,                                               \
-                             uint32_t offset)                                              \
+                             device_matrix_view<T, uint32_t, row_major> out_vectors,   \
+                             uint32_t label,                                           \
+                             uint32_t offset)                                          \
   {                                                                                    \
     raft::neighbors::ivf_flat::reconstruct_list_data<T, IdxT>(                         \
       handle, idx, out_vectors, label, offset);                                        \
