@@ -148,23 +148,24 @@ class std_comms : public comms_iface {
     ncclUniqueId id{};
     rmm::device_uvector<ncclUniqueId> d_nccl_ids(get_size(), stream_);
 
-    if (key == 0) {
-      RAFT_NCCL_TRY(ncclGetUniqueId(&id));
-    }
+    if (key == 0) { RAFT_NCCL_TRY(ncclGetUniqueId(&id)); }
 
     update_device(d_nccl_ids.data() + get_rank(), &id, 1, stream_);
 
-    allgather(d_nccl_ids.data() + get_rank(), d_nccl_ids.data(), sizeof(ncclUniqueId), datatype_t::UINT8, stream_);
+    allgather(d_nccl_ids.data() + get_rank(),
+              d_nccl_ids.data(),
+              sizeof(ncclUniqueId),
+              datatype_t::UINT8,
+              stream_);
 
-    auto offset = std::distance(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
-                                std::find_if(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
-                                             thrust::make_zip_iterator(h_colors.end(), h_keys.end()),
-                                             [color] (auto tuple) {
-                                               return thrust::get<0>(tuple) == color;
-                                             }));
+    auto offset =
+      std::distance(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
+                    std::find_if(thrust::make_zip_iterator(h_colors.begin(), h_keys.begin()),
+                                 thrust::make_zip_iterator(h_colors.end(), h_keys.end()),
+                                 [color](auto tuple) { return thrust::get<0>(tuple) == color; }));
 
     auto subcomm_size = std::count(h_colors.begin(), h_colors.end(), color);
-    
+
     update_host(&id, d_nccl_ids.data() + offset, 1, stream_);
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
