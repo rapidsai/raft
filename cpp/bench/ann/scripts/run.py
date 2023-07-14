@@ -67,10 +67,7 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run, force):
 def main():
     # Read list of allowed algorithms
     with open("algos.yaml", "r") as f:
-        try:
-            algos_conf = yaml.safe_load(f)
-        except yaml.YAMLError as exc:
-            print(exc)
+        algos_conf = yaml.safe_load(f)
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
