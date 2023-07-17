@@ -210,10 +210,10 @@ const std::vector<GatherInputs<int64_t>> inputs_i64 =
     {25, 2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
 const std::vector<GatherInputs<int>> inplace_inputs_i32 =
   raft::util::itertools::product<GatherInputs<int>>(
-    {2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 const std::vector<GatherInputs<int64_t>> inplace_inputs_i64 =
   raft::util::itertools::product<GatherInputs<int64_t>>(
-    {2000}, {6, 31, 129}, {11, 999}, {2, 3, 6}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {11, 999}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 
 GATHER_TEST((GatherTest<false, false, false, float, uint32_t, int>), GatherTestFU32I32, inputs_i32);
 GATHER_TEST((GatherTest<false, true, false, float, uint32_t, int>),
