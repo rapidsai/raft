@@ -329,62 +329,6 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
 #endif
 }
 
-#define SET_MC_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ELEMENTS) \
-  kernel = search_kernel<TEAM_SIZE,                            \
-                         BLOCK_SIZE,                           \
-                         BLOCK_COUNT,                          \
-                         MAX_ELEMENTS,                         \
-                         MAX_DATASET_DIM,                      \
-                         DATA_T,                               \
-                         DISTANCE_T,                           \
-                         INDEX_T,                              \
-                         device::LOAD_128BIT_T>;
-
-#define SET_MC_KERNEL_1(MAX_ELEMENTS)         \
-  /* if ( block_size == 32 ) {                \
-      SET_MC_KERNEL_3( 32, 32, MAX_ELEMENTS ) \
-  } else */                                   \
-  if (block_size == 64) {                     \
-    SET_MC_KERNEL_3(64, 16, MAX_ELEMENTS)     \
-  } else if (block_size == 128) {             \
-    SET_MC_KERNEL_3(128, 8, MAX_ELEMENTS)     \
-  } else if (block_size == 256) {             \
-    SET_MC_KERNEL_3(256, 4, MAX_ELEMENTS)     \
-  } else if (block_size == 512) {             \
-    SET_MC_KERNEL_3(512, 2, MAX_ELEMENTS)     \
-  } else {                                    \
-    SET_MC_KERNEL_3(1024, 1, MAX_ELEMENTS)    \
-  }
-
-#define SET_MC_KERNEL                                                       \
-  typedef void (*search_kernel_t)(INDEX_T* const result_indices_ptr,        \
-                                  DISTANCE_T* const result_distances_ptr,   \
-                                  const DATA_T* const dataset_ptr,          \
-                                  const size_t dataset_dim,                 \
-                                  const size_t dataset_size,                \
-                                  const size_t dataset_ld,                  \
-                                  const DATA_T* const queries_ptr,          \
-                                  const INDEX_T* const knn_graph,           \
-                                  const uint32_t graph_degree,              \
-                                  const unsigned num_distilation,           \
-                                  const uint64_t rand_xor_mask,             \
-                                  const INDEX_T* seed_ptr,                  \
-                                  const uint32_t num_seeds,                 \
-                                  INDEX_T* const visited_hashmap_ptr,       \
-                                  const uint32_t hash_bitlen,               \
-                                  const uint32_t itopk_size,                \
-                                  const uint32_t num_parents,               \
-                                  const uint32_t min_iteration,             \
-                                  const uint32_t max_iteration,             \
-                                  uint32_t* const num_executed_iterations); \
-  search_kernel_t kernel = nullptr;                                         \
-  if (result_buffer_size <= 64) {                                           \
-    SET_MC_KERNEL_1(64)                                                     \
-  } else if (result_buffer_size <= 128) {                                   \
-    SET_MC_KERNEL_1(128)                                                    \
-  } else if (result_buffer_size <= 256) {                                   \
-    SET_MC_KERNEL_1(256)                                                    \
-  }
 template <class T>
 __global__ void set_value_batch_kernel(T* const dev_ptr,
                                        const std::size_t ld,
@@ -411,6 +355,165 @@ void set_value_batch(T* const dev_ptr,
   const auto grid_size               = (count * batch_size + block_size - 1) / block_size;
   set_value_batch_kernel<T>
     <<<grid_size, block_size, 0, cuda_stream>>>(dev_ptr, ld, val, count, batch_size);
+}
+
+template <unsigned TEAM_SIZE,
+          unsigned MAX_DATASET_DIM,
+          typename DATA_T,
+          typename INDEX_T,
+          typename DISTANCE_T>
+struct search_kernel_config {
+  // Search kernel function type. Note that the actual values for the template value
+  // parameters do not matter, because they are not part of the function signature. The
+  // second to fourth value parameters will be selected by the choose_* functions below.
+  using kernel_t = decltype(&search_kernel<TEAM_SIZE,
+                                           64,
+                                           16,
+                                           128,
+                                           MAX_DATASET_DIM,
+                                           DATA_T,
+                                           DISTANCE_T,
+                                           INDEX_T,
+                                           device::LOAD_128BIT_T>);
+
+  static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
+  {
+    if (result_buffer_size <= 64) {
+      return choose_max_elements<64>(block_size);
+    } else if (result_buffer_size <= 128) {
+      return choose_max_elements<128>(block_size);
+    } else if (result_buffer_size <= 256) {
+      return choose_max_elements<256>(block_size);
+    }
+    THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
+  }
+
+  template <unsigned MAX_ELEMENTS>
+  // Todo: rename this to choose block_size
+  static auto choose_max_elements(unsigned block_size) -> kernel_t
+  {
+    if (block_size == 64) {
+      return search_kernel<TEAM_SIZE,
+                           64,
+                           16,
+                           MAX_ELEMENTS,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
+    } else if (block_size == 128) {
+      return search_kernel<TEAM_SIZE,
+                           128,
+                           8,
+                           MAX_ELEMENTS,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
+    } else if (block_size == 256) {
+      return search_kernel<TEAM_SIZE,
+                           256,
+                           4,
+                           MAX_ELEMENTS,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
+    } else if (block_size == 512) {
+      return search_kernel<TEAM_SIZE,
+                           512,
+                           2,
+                           MAX_ELEMENTS,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
+    } else {
+      return search_kernel<TEAM_SIZE,
+                           1024,
+                           1,
+                           MAX_ELEMENTS,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
+    }
+  }
+};
+
+template <unsigned TEAM_SIZE,
+          unsigned MAX_DATASET_DIM,
+          typename DATA_T,
+          typename INDEX_T,
+          typename DISTANCE_T>
+void select_and_run(  // raft::resources const& res,
+  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
+  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
+  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
+  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+  const uint32_t num_queries,
+  const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
+  uint32_t* const num_executed_iterations,  // [num_queries,]
+  uint32_t topk,
+  // multi_cta_search (params struct)
+  uint32_t block_size,  //
+  uint32_t result_buffer_size,
+  uint32_t smem_size,
+  int64_t hash_bitlen,
+  INDEX_T* hashmap_ptr,
+  uint32_t num_cta_per_query,
+  uint32_t num_random_samplings,
+  uint64_t rand_xor_mask,
+  uint32_t num_seeds,
+  size_t itopk_size,
+  size_t num_parents,
+  size_t min_iterations,
+  size_t max_iterations,
+  cudaStream_t stream)
+{
+  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
+    choose_buffer_size(result_buffer_size, block_size);
+
+  RAFT_CUDA_TRY(
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+  // Initialize hash table
+  const uint32_t hash_size = hashmap::get_size(hash_bitlen);
+  set_value_batch(
+    hashmap_ptr, hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
+
+  dim3 block_dims(block_size, 1, 1);
+  dim3 grid_dims(num_cta_per_query, num_queries, 1);
+  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
+                 block_size,
+                 num_cta_per_query,
+                 num_queries,
+                 smem_size);
+  kernel<<<grid_dims, block_dims, smem_size, stream>>>(topk_indices_ptr,
+                                                       topk_distances_ptr,
+                                                       dataset.data_handle(),
+                                                       dataset.extent(1),
+                                                       dataset.extent(0),
+                                                       dataset.stride(0),
+                                                       queries_ptr,
+                                                       graph.data_handle(),
+                                                       graph.extent(1),
+                                                       num_random_samplings,
+                                                       rand_xor_mask,
+                                                       dev_seed_ptr,
+                                                       num_seeds,
+                                                       hashmap_ptr,
+                                                       hash_bitlen,
+                                                       itopk_size,
+                                                       num_parents,
+                                                       min_iterations,
+                                                       max_iterations,
+                                                       num_executed_iterations);
 }
 
 }  // namespace multi_cta_search

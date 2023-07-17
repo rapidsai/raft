@@ -189,43 +189,31 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
-    uint32_t block_size = thread_block_size;
 
-    SET_MC_KERNEL;
-    RAFT_CUDA_TRY(
-      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-    // Initialize hash table
-    const uint32_t hash_size = hashmap::get_size(hash_bitlen);
-    set_value_batch(
-      hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
-
-    dim3 block_dims(block_size, 1, 1);
-    dim3 grid_dims(num_cta_per_query, num_queries, 1);
-    RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
-                   block_size,
-                   num_cta_per_query,
-                   num_queries,
-                   smem_size);
-    kernel<<<grid_dims, block_dims, smem_size, stream>>>(intermediate_indices.data(),
-                                                         intermediate_distances.data(),
-                                                         dataset.data_handle(),
-                                                         dataset.extent(1),
-                                                         dataset.extent(0),
-                                                         dataset.stride(0),
-                                                         queries_ptr,
-                                                         graph.data_handle(),
-                                                         graph.extent(1),
-                                                         num_random_samplings,
-                                                         rand_xor_mask,
-                                                         dev_seed_ptr,
-                                                         num_seeds,
-                                                         hashmap.data(),
-                                                         hash_bitlen,
-                                                         itopk_size,
-                                                         num_parents,
-                                                         min_iterations,
-                                                         max_iterations,
-                                                         num_executed_iterations);
+    select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(
+      dataset,
+      graph,
+      intermediate_indices.data(),
+      intermediate_distances.data(),
+      queries_ptr,
+      num_queries,
+      dev_seed_ptr,
+      num_executed_iterations,
+      topk,
+      thread_block_size,
+      result_buffer_size,
+      smem_size,
+      hash_bitlen,
+      hashmap.data(),
+      num_cta_per_query,
+      num_random_samplings,
+      rand_xor_mask,
+      num_seeds,
+      itopk_size,
+      num_parents,
+      min_iterations,
+      max_iterations,
+      stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     // Select the top-k results from the intermediate results

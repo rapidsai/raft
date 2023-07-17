@@ -237,38 +237,31 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   uint32_t topk)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
-    uint32_t block_size = thread_block_size;
-    SET_KERNEL;
-    RAFT_CUDA_TRY(
-      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-    dim3 thread_dims(block_size, 1, 1);
-    dim3 block_dims(1, num_queries, 1);
-    RAFT_LOG_DEBUG(
-      "Launching kernel with %u threads, %u block %lu smem", block_size, num_queries, smem_size);
-    kernel<<<block_dims, thread_dims, smem_size, stream>>>(result_indices_ptr,
-                                                           result_distances_ptr,
-                                                           topk,
-                                                           dataset.data_handle(),
-                                                           dataset.extent(1),
-                                                           dataset.extent(0),
-                                                           dataset.stride(0),
-                                                           queries_ptr,
-                                                           graph.data_handle(),
-                                                           graph.extent(1),
-                                                           num_random_samplings,
-                                                           rand_xor_mask,
-                                                           dev_seed_ptr,
-                                                           num_seeds,
-                                                           hashmap.data(),
-                                                           itopk_size,
-                                                           num_parents,
-                                                           min_iterations,
-                                                           max_iterations,
-                                                           num_executed_iterations,
-                                                           hash_bitlen,
-                                                           small_hash_bitlen,
-                                                           small_hash_reset_interval);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(
+      dataset,
+      graph,
+      result_indices_ptr,
+      result_distances_ptr,
+      queries_ptr,
+      num_queries,
+      dev_seed_ptr,
+      num_executed_iterations,
+      topk,
+      num_itopk_candidates,
+      static_cast<uint32_t>(thread_block_size),
+      smem_size,
+      hash_bitlen,
+      hashmap.data(),
+      small_hash_bitlen,
+      small_hash_reset_interval,
+      num_random_samplings,
+      rand_xor_mask,
+      num_seeds,
+      itopk_size,
+      num_parents,
+      min_iterations,
+      max_iterations,
+      stream);
   }
 };
 

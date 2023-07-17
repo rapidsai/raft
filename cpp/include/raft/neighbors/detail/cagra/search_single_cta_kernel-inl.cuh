@@ -458,8 +458,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T,
-          class LOAD_T>
+          class INDEX_T>
 __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
@@ -485,6 +484,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const std::uint32_t small_hash_bitlen,
                      const std::uint32_t small_hash_reset_interval)
 {
+  using LOAD_T        = device::LOAD_128BIT_T;
   const auto query_id = blockIdx.y;
 
 #ifdef _CLK_BREAKDOWN
@@ -737,110 +737,154 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 #endif
 }
 
-#define SET_KERNEL_3(BLOCK_SIZE, BLOCK_COUNT, MAX_ITOPK, MAX_CANDIDATES, TOPK_BY_BITONIC_SORT) \
-  kernel = search_kernel<TEAM_SIZE,                                                            \
-                         BLOCK_SIZE,                                                           \
-                         BLOCK_COUNT,                                                          \
-                         MAX_ITOPK,                                                            \
-                         MAX_CANDIDATES,                                                       \
-                         TOPK_BY_BITONIC_SORT,                                                 \
-                         MAX_DATASET_DIM,                                                      \
-                         DATA_T,                                                               \
-                         DISTANCE_T,                                                           \
-                         INDEX_T,                                                              \
-                         device::LOAD_128BIT_T>;
+template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typename DistT>
+struct search_kernel_config {
+  using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT>);
 
-#define SET_KERNEL_1B(MAX_ITOPK, MAX_CANDIDATES)              \
-  /* if ( block_size == 32 ) {                                \
-      SET_KERNEL_2( 32, 20, MAX_ITOPK, MAX_CANDIDATES, 1 )    \
-  } else */                                                   \
-  if (block_size == 64) {                                     \
-    SET_KERNEL_3(64, 16 /*20*/, MAX_ITOPK, MAX_CANDIDATES, 1) \
-  } else if (block_size == 128) {                             \
-    SET_KERNEL_3(128, 8, MAX_ITOPK, MAX_CANDIDATES, 1)        \
-  } else if (block_size == 256) {                             \
-    SET_KERNEL_3(256, 4, MAX_ITOPK, MAX_CANDIDATES, 1)        \
-  } else if (block_size == 512) {                             \
-    SET_KERNEL_3(512, 2, MAX_ITOPK, MAX_CANDIDATES, 1)        \
-  } else {                                                    \
-    SET_KERNEL_3(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 1)       \
+  template <unsigned MAX_ITOPK, unsigned CANDIDATES, unsigned USE_BITONIC_SORT>
+  static auto choose_block_size(unsigned block_size) -> kernel_t
+  {
+    constexpr unsigned BS = USE_BITONIC_SORT;
+    if constexpr (BS) {
+      if (block_size == 64) {
+        return search_kernel<TEAM_SIZE, 64, 16, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else if (block_size == 128) {
+        return search_kernel<TEAM_SIZE, 128, 8, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else if (block_size == 256) {
+        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else if (block_size == 512) {
+        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else {
+        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      }
+
+    } else {
+      if (block_size == 256) {
+        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else if (block_size == 512) {
+        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      } else {
+        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+      }
+    }
   }
 
-#define SET_KERNEL_1R(MAX_ITOPK, MAX_CANDIDATES)        \
-  if (block_size == 256) {                              \
-    SET_KERNEL_3(256, 4, MAX_ITOPK, MAX_CANDIDATES, 0)  \
-  } else if (block_size == 512) {                       \
-    SET_KERNEL_3(512, 2, MAX_ITOPK, MAX_CANDIDATES, 0)  \
-  } else {                                              \
-    SET_KERNEL_3(1024, 1, MAX_ITOPK, MAX_CANDIDATES, 0) \
+  static auto choose_itopk_and_mx_candidates(unsigned itopk_size,
+                                             unsigned num_itopk_candidates,
+                                             unsigned block_size) -> kernel_t
+  {
+    if (num_itopk_candidates <= 64) {
+      // use bitonic sort based topk
+      constexpr unsigned max_candidates = 64;
+      if (itopk_size <= 64) {
+        return choose_block_size<64, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 128) {
+        return choose_block_size<128, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 256) {
+        return choose_block_size<256, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 512) {
+        return choose_block_size<512, max_candidates, 1>(block_size);
+      }
+    } else if (num_itopk_candidates <= 128) {
+      constexpr unsigned max_candidates = 128;
+      if (itopk_size <= 64) {
+        return choose_block_size<64, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 128) {
+        return choose_block_size<128, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 256) {
+        return choose_block_size<256, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 512) {
+        return choose_block_size<512, max_candidates, 1>(block_size);
+      }
+    } else if (num_itopk_candidates <= 256) {
+      constexpr unsigned max_candidates = 256;
+      if (itopk_size <= 64) {
+        return choose_block_size<64, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 128) {
+        return choose_block_size<128, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 256) {
+        return choose_block_size<256, max_candidates, 1>(block_size);
+      } else if (itopk_size <= 512) {
+        return choose_block_size<512, max_candidates, 1>(block_size);
+      }
+    } else {
+      // Radix-based topk is used
+      constexpr unsigned max_candidates = 32;  // to avoid build failure
+      if (itopk_size <= 256) {
+        return choose_block_size<256, max_candidates, 0>(block_size);
+      } else if (itopk_size <= 512) {
+        return choose_block_size<512, max_candidates, 0>(block_size);
+      }
+    }
+    THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",
+          itopk_size,
+          num_itopk_candidates);
   }
+};
 
-#define SET_KERNEL                                                                \
-  typedef void (*search_kernel_t)(INDEX_T* const result_indices_ptr,              \
-                                  DISTANCE_T* const result_distances_ptr,         \
-                                  const std::uint32_t top_k,                      \
-                                  const DATA_T* const dataset_ptr,                \
-                                  const std::size_t dataset_dim,                  \
-                                  const std::size_t dataset_size,                 \
-                                  const std::size_t dataset_ld,                   \
-                                  const DATA_T* const queries_ptr,                \
-                                  const INDEX_T* const knn_graph,                 \
-                                  const std::uint32_t graph_degree,               \
-                                  const unsigned num_distilation,                 \
-                                  const uint64_t rand_xor_mask,                   \
-                                  const INDEX_T* seed_ptr,                        \
-                                  const uint32_t num_seeds,                       \
-                                  INDEX_T* const visited_hashmap_ptr,             \
-                                  const std::uint32_t itopk_size,                 \
-                                  const std::uint32_t num_parents,                \
-                                  const std::uint32_t min_iteration,              \
-                                  const std::uint32_t max_iteration,              \
-                                  std::uint32_t* const num_executed_iterations,   \
-                                  const std::uint32_t hash_bitlen,                \
-                                  const std::uint32_t small_hash_bitlen,          \
-                                  const std::uint32_t small_hash_reset_interval); \
-  search_kernel_t kernel = nullptr;                                               \
-  if (num_itopk_candidates <= 64) {                                               \
-    constexpr unsigned max_candidates = 64;                                       \
-    if (itopk_size <= 64) {                                                       \
-      SET_KERNEL_1B(64, max_candidates)                                           \
-    } else if (itopk_size <= 128) {                                               \
-      SET_KERNEL_1B(128, max_candidates)                                          \
-    } else if (itopk_size <= 256) {                                               \
-      SET_KERNEL_1B(256, max_candidates)                                          \
-    } else if (itopk_size <= 512) {                                               \
-      SET_KERNEL_1B(512, max_candidates)                                          \
-    }                                                                             \
-  } else if (num_itopk_candidates <= 128) {                                       \
-    constexpr unsigned max_candidates = 128;                                      \
-    if (itopk_size <= 64) {                                                       \
-      SET_KERNEL_1B(64, max_candidates)                                           \
-    } else if (itopk_size <= 128) {                                               \
-      SET_KERNEL_1B(128, max_candidates)                                          \
-    } else if (itopk_size <= 256) {                                               \
-      SET_KERNEL_1B(256, max_candidates)                                          \
-    } else if (itopk_size <= 512) {                                               \
-      SET_KERNEL_1B(512, max_candidates)                                          \
-    }                                                                             \
-  } else if (num_itopk_candidates <= 256) {                                       \
-    constexpr unsigned max_candidates = 256;                                      \
-    if (itopk_size <= 64) {                                                       \
-      SET_KERNEL_1B(64, max_candidates)                                           \
-    } else if (itopk_size <= 128) {                                               \
-      SET_KERNEL_1B(128, max_candidates)                                          \
-    } else if (itopk_size <= 256) {                                               \
-      SET_KERNEL_1B(256, max_candidates)                                          \
-    } else if (itopk_size <= 512) {                                               \
-      SET_KERNEL_1B(512, max_candidates)                                          \
-    }                                                                             \
-  } else {                                                                        \
-    /* Radix-based topk is used */                                                \
-    if (itopk_size <= 256) {                                                      \
-      SET_KERNEL_1R(256, /*to avoid build failure*/ 32)                           \
-    } else if (itopk_size <= 512) {                                               \
-      SET_KERNEL_1R(512, /*to avoid build failure*/ 32)                           \
-    }                                                                             \
-  }
-
+template <unsigned TEAM_SIZE,
+          unsigned MAX_DATASET_DIM,
+          typename DATA_T,
+          typename INDEX_T,
+          typename DISTANCE_T>
+void select_and_run(  // raft::resources const& res,
+  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
+  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
+  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
+  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+  const uint32_t num_queries,
+  const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
+  uint32_t* const num_executed_iterations,  // [num_queries,]
+  uint32_t topk,
+  uint32_t num_itopk_candidates,
+  uint32_t block_size,  //
+  uint32_t smem_size,
+  int64_t hash_bitlen,
+  INDEX_T* hashmap_ptr,
+  size_t small_hash_bitlen,
+  size_t small_hash_reset_interval,
+  uint32_t num_random_samplings,
+  uint64_t rand_xor_mask,
+  uint32_t num_seeds,
+  size_t itopk_size,
+  size_t num_parents,
+  size_t min_iterations,
+  size_t max_iterations,
+  cudaStream_t stream)
+{
+  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
+    choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
+  RAFT_CUDA_TRY(
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+  dim3 thread_dims(block_size, 1, 1);
+  dim3 block_dims(1, num_queries, 1);
+  RAFT_LOG_DEBUG(
+    "Launching kernel with %u threads, %u block %lu smem", block_size, num_queries, smem_size);
+  kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
+                                                         topk_distances_ptr,
+                                                         topk,
+                                                         dataset.data_handle(),
+                                                         dataset.extent(1),
+                                                         dataset.extent(0),
+                                                         dataset.stride(0),
+                                                         queries_ptr,
+                                                         graph.data_handle(),
+                                                         graph.extent(1),
+                                                         num_random_samplings,
+                                                         rand_xor_mask,
+                                                         dev_seed_ptr,
+                                                         num_seeds,
+                                                         hashmap_ptr,
+                                                         itopk_size,
+                                                         num_parents,
+                                                         min_iterations,
+                                                         max_iterations,
+                                                         num_executed_iterations,
+                                                         hash_bitlen,
+                                                         small_hash_bitlen,
+                                                         small_hash_reset_interval);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
 }  // namespace single_cta_search
 }  // namespace raft::neighbors::experimental::cagra::detail
