@@ -70,7 +70,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yml@local-script
     with:
       build_type: pull-request
-      package-dir: python/pylibraft
       build_script: "ci/build_wheel_pylibraft.sh"
   wheel-tests-pylibraft:
     needs: wheel-build-pylibraft
@@ -87,7 +86,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yml@local-script
     with:
       build_type: pull-request
-      package-dir: python/raft-dask
       build_script: "ci/build_wheel_raft_dask.sh"
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask

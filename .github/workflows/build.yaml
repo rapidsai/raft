@@ -72,7 +72,6 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-dir: python/pylibraft
       build_script: "ci/build_wheel_pylibraft.sh"
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
@@ -93,7 +92,6 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-dir: python/raft-dask
       build_script: "ci/build_wheel_raft_dask.sh"
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
