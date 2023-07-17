@@ -131,6 +131,27 @@ dependencies:
             packages:
               - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64==2.17
+      - output_types: conda
+        matrices:
+          - matrix: {cuda: "12.0"}
+            packages: [cuda-version=12.0, cuda-nvcc]
+          - matrix: {cuda: "11.8", arch: x86_64}
+            packages: [nvcc_linux-64=11.8]
+          - matrix: {cuda: "11.8", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.8]
+          - matrix: {cuda: "11.5", arch: x86_64}
+            packages: [nvcc_linux-64=11.5]
+          - matrix: {cuda: "11.5", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.5]
+          - matrix: {cuda: "11.4", arch: x86_64}
+            packages: [nvcc_linux-64=11.4]
+          - matrix: {cuda: "11.4", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.4]
+          - matrix: {cuda: "11.2", arch: x86_64}
+            packages: [nvcc_linux-64=11.2]
+          - matrix: {cuda: "11.2", arch: aarch64}
+            packages: [nvcc_linux-aarch64=11.2]
+
   build_pylibraft:
     common:
       - output_types: [conda, requirements, pyproject]
