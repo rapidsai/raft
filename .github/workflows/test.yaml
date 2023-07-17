@@ -16,7 +16,7 @@ on:
 jobs:
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-120
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -24,7 +24,7 @@ jobs:
       sha: ${{ inputs.sha }}
   conda-python-tests:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@cuda-120
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -32,17 +32,17 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-tests-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       package-name: pylibraft
-      test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
+      test-unittest: "python -m pytest -v ./python/pylibraft/pylibraft/test"
   wheel-tests-raft-dask:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -51,4 +51,4 @@ jobs:
       package-name: raft_dask
       test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
       test-before-arm64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
-      test-unittest: "python -m pytest ./python/raft-dask/raft_dask/test"
+      test-unittest: "python -m pytest -v ./python/raft-dask/raft_dask/test"
