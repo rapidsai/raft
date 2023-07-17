@@ -90,10 +90,14 @@ inline void knn_merge_parts(
   RAFT_EXPECTS(in_keys.extent(1) == in_values.extent(1) && in_keys.extent(0) == in_values.extent(0),
                "in_keys and in_values must have the same shape.");
   RAFT_EXPECTS(
-    out_keys.extent(0) == out_values.extent(0) == n_samples,
+    out_keys.extent(0) == out_values.extent(0) && out_keys.extent(0) == n_samples,
     "Number of rows in output keys and val matrices must equal number of rows in search matrix.");
-  RAFT_EXPECTS(out_keys.extent(1) == out_values.extent(1) == in_keys.extent(1),
-               "Number of columns in output indices and distances matrices must be equal to k");
+  RAFT_EXPECTS(
+    out_keys.extent(1) == out_values.extent(1) && out_keys.extent(1) == in_keys.extent(1),
+    "Number of columns in output indices and distances matrices must be equal to k");
+
+  idx_t* translations_ptr = nullptr;
+  if (translations.has_value()) { translations_ptr = translations.value().data_handle(); }
 
   auto n_parts = in_keys.extent(0) / n_samples;
   detail::knn_merge_parts(in_keys.data_handle(),
@@ -104,7 +108,7 @@ inline void knn_merge_parts(
                           n_parts,
                           in_keys.extent(1),
                           resource::get_cuda_stream(handle),
-                          translations.value_or(nullptr));
+                          translations_ptr);
 }
 
 /**

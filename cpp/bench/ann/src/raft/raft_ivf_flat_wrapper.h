@@ -96,7 +96,9 @@ RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric, int dim, const BuildParam
     dimension_(dim),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
-  index_params_.metric = parse_metric_type(metric);
+  index_params_.metric                         = parse_metric_type(metric);
+  index_params_.conservative_memory_allocation = true;
+  rmm::mr::set_current_device_resource(&mr_);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }
 

@@ -873,7 +873,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                   const std::uint32_t hash_bitlen,                \
                                   const std::uint32_t small_hash_bitlen,          \
                                   const std::uint32_t small_hash_reset_interval); \
-  search_kernel_t kernel;                                                         \
+  search_kernel_t kernel = nullptr;                                               \
   if (num_itopk_candidates <= 64) {                                               \
     constexpr unsigned max_candidates = 64;                                       \
     if (itopk_size <= 64) {                                                       \

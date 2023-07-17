@@ -30,8 +30,8 @@ template <typename value_idx = std::int64_t,
           int warp_q,
           int thread_q,
           int tpb>
-__global__ void knn_merge_parts_kernel(value_t* inK,
-                                       value_idx* inV,
+__global__ void knn_merge_parts_kernel(const value_t* inK,
+                                       const value_idx* inV,
                                        value_t* outK,
                                        value_idx* outV,
                                        size_t n_samples,
@@ -65,8 +65,8 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
 
   int col = i % k;
 
-  value_t* inKStart   = inK + (row_idx + col);
-  value_idx* inVStart = inV + (row_idx + col);
+  const value_t* inKStart   = inK + (row_idx + col);
+  const value_idx* inVStart = inV + (row_idx + col);
 
   int limit             = Pow2<WarpSize>::roundDown(total_k);
   value_idx translation = 0;
@@ -99,8 +99,8 @@ __global__ void knn_merge_parts_kernel(value_t* inK,
 }
 
 template <typename value_idx = std::int64_t, typename value_t = float, int warp_q, int thread_q>
-inline void knn_merge_parts_impl(value_t* inK,
-                                 value_idx* inV,
+inline void knn_merge_parts_impl(const value_t* inK,
+                                 const value_idx* inV,
                                  value_t* outK,
                                  value_idx* outV,
                                  size_t n_samples,
@@ -137,8 +137,8 @@ inline void knn_merge_parts_impl(value_t* inK,
  * @param translations mapping of index offsets for each partition
  */
 template <typename value_idx = std::int64_t, typename value_t = float>
-inline void knn_merge_parts(value_t* inK,
-                            value_idx* inV,
+inline void knn_merge_parts(const value_t* inK,
+                            const value_idx* inV,
                             value_t* outK,
                             value_idx* outV,
                             size_t n_samples,
