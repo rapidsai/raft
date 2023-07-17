@@ -3,8 +3,6 @@
 
 set -euo pipefail
 
-pyenv global ${RAPIDS_PY_VERSION}
-
 # Set up skbuild options. Enable sccache in skbuild config options
 export SKBUILD_CONFIGURE_OPTIONS="-DRAFT_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DFIND_RAFT_CPP=OFF"
 
