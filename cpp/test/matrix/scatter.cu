@@ -132,7 +132,7 @@ const std::vector<ScatterInputs<int>> inputs_i32 =
   raft::util::itertools::product<ScatterInputs<int>>({2000}, {6, 31, 129}, {2, 3, 6}, {1234ULL});
 const std::vector<ScatterInputs<int64_t>> inputs_i64 =
   raft::util::itertools::product<ScatterInputs<int64_t>>(
-    {2000}, {6, 31, 129}, {2, 3, 6}, {1234ULL});
+    {25, 2000}, {6, 31, 129}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 
 SCATTER_TEST((ScatterTest<float, int>), ScatterTestFI32, inputs_i32);
 SCATTER_TEST((ScatterTest<float, int64_t>), ScatterTestFI64, inputs_i64);
