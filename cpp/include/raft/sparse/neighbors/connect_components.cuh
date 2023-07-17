@@ -60,8 +60,7 @@ value_idx get_n_components(value_idx* colors, size_t n_rows, cudaStream_t stream
  * @param[in] n_rows number of rows in X
  * @param[in] n_cols number of cols in X
  * @param[in] reduction_op reduction operation for computing nearest neighbors. The reduction
- * operation must have `gather` and `scatter` functions defined. For single linkage clustering,
- * these functions are no-ops. For HDBSCAN, they sort and 'unsort' the core distances based on color
+ * operation must have `gather` and `scatter` functions defined
  * @param[in] row_batch_size the batch size for computing nearest neighbors. This parameter controls
  * the number of samples for which the nearest neighbors are computed at once. Therefore, it affects
  * the memory consumption mainly by reducing the size of the adjacency matrix for masked nearest
