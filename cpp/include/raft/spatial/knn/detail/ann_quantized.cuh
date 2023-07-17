@@ -22,10 +22,6 @@
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include "processing.cuh"
-#include "raft/core/host_mdarray.hpp"
-#include "raft/neighbors/ivf_flat_types.hpp"
-#include "raft/neighbors/ivf_flat_helpers.cuh"
-#include "raft/util/pow2_utils.cuh"
 #include <raft/core/operators.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -78,91 +74,6 @@ void approx_knn_build_index(raft::resources const& handle,
     auto new_params               = from_legacy_index_params(*ivf_ft_pams, metric, metricArg);
     index->ivf_flat<T, int64_t>() = std::make_unique<const ivf_flat::index<T, int64_t>>(
       ivf_flat::build(handle, new_params, index_array, int64_t(n), D));
-    
-    // raft::resource::sync_stream(handle);
-
-    // auto old_list = index->ivf_flat<T, int64_t>()->lists()[0];
-    // uint32_t n_rows   = old_list->size.load();
-    // uint32_t roundup = Pow2<raft::neighbors::ivf_flat::kIndexGroupSize>::roundUp(n_rows);
-
-    // RAFT_LOG_INFO("roundup %d, n_rows %d", roundup, n_rows);
-
-    // if (n_rows == 0) { return; }
-
-    // auto dim = index->ivf_flat<T, int64_t>()->dim();
-    // auto veclen = index -> ivf_flat<T, int64_t>()->veclen();
-    // RAFT_LOG_INFO("roundup %d, n_rows %d, veclen %d, dim %d", roundup, n_rows, veclen, dim);
-    // auto codes   = make_host_matrix<T>(roundup, dim);
-    // auto block = make_host_matrix<T>(roundup, dim);
-
-    // T* firstArray;
-    // cudaMemcpy(&firstArray, index->ivf_flat<T, int64_t>()->data_ptrs().data_handle(), sizeof(float*), cudaMemcpyDeviceToHost);  // Copy the pointer to the first array from device to host
-
-    // raft::print_device_vector("codes_gpu", firstArray, 1, std::cout);
-    // raft::update_host(codes.data_handle(), firstArray, (size_t)(roundup * dim), stream);
-    // raft::resource::sync_stream(handle);
-    // raft::neighbors::ivf_flat::helpers::pack_host_interleaved(
-    //     codes.data_handle(),
-    //     block.data_handle(),
-    //     n_rows,
-    //     dim,
-    //     veclen);
-    
-    // RAFT_LOG_INFO("veclen %d", veclen);
-    // raft::print_host_vector("codes", codes.data_handle(), roundup * dim, std::cout);
-    // raft::print_host_vector("block", block.data_handle(), roundup * dim, std::cout);
-    // // auto indices = make_device_vector<IdxT>(handle_, n_rows);
-    // copy(indices.data_handle(), old_list->indices.data_handle(), n_rows, stream_);
-
-    // ivf_flat::helpers::pack_list_data(handle_, *index, codes.view(), label, 0);
-    // ivf_pq::helpers::erase_list(handle_, index, label);
-    // ivf_pq::helpers::extend_list_with_codes<IdxT>(
-    //   handle_, index, codes.view(), indices.view(), label);
-
-    // auto& new_list = index->lists()[label];
-    // ASSERT_NE(old_list.get(), new_list.get())
-    //   << "The old list should have been shared and retained after ivf_pq index has erased the "
-    //      "corresponding cluster.";
-    // auto list_data_size = (n_rows / ivf_pq::kIndexGroupSize) * new_list->data.extent(1) *
-    //                       new_list->data.extent(2) * new_list->data.extent(3);
-
-    // ASSERT_TRUE(old_list->data.size() >= list_data_size);
-    // ASSERT_TRUE(new_list->data.size() >= list_data_size);
-    // ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
-    //                         new_list->data.data_handle(),
-    //                         list_data_size,
-    //                         Compare<uint8_t>{}));
-
-    // // Pack a few vectors back to the list.
-    // int row_offset = 9;
-    // int n_vec      = 3;
-    // ASSERT_TRUE(row_offset + n_vec < n_rows);
-    // size_t offset      = row_offset * index->pq_dim();
-    // auto codes_to_pack = make_device_matrix_view<const uint8_t, uint32_t>(
-    //   codes.data_handle() + offset, n_vec, index->pq_dim());
-    // ivf_pq::helpers::pack_list_data(handle_, index, codes_to_pack, label, row_offset);
-    // ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
-    //                         new_list->data.data_handle(),
-    //                         list_data_size,
-    //                         Compare<uint8_t>{}));
-
-    // Another test with the API that take list_data directly
-    // auto list_data  = index->lists()[label]->data.view();
-    // uint32_t n_take = 4;
-    // ASSERT_TRUE(row_offset + n_take < n_rows);
-    // auto codes2 = raft::make_device_matrix<uint8_t>(handle_, n_take, index->pq_dim());
-    // ivf_pq::helpers::codepacker::unpack(
-    //   handle_, list_data, index->pq_bits(), row_offset, codes2.view());
-
-    // // Write it back
-    // ivf_pq::helpers::codepacker::pack(
-    //   handle_, make_const_mdspan(codes2.view()), index->pq_bits(), row_offset, list_data);
-    // ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
-    //                         new_list->data.data_handle(),
-    //                         list_data_size,
-    //                         Compare<uint8_t>{}));
-  // }
-
   } else if (ivf_pq_pams) {
     neighbors::ivf_pq::index_params params;
     params.metric     = metric;
