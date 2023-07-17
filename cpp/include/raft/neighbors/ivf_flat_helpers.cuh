@@ -31,7 +31,6 @@ namespace raft::neighbors::ivf_flat::helpers {
 
 namespace codepacker {
 
-
 template <typename T>
 inline void pack_full_list(
   raft::resources const& res,
@@ -39,23 +38,19 @@ inline void pack_full_list(
   uint32_t veclen,
   device_mdspan<T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major> list_data)
 {
-  raft::neighbors::ivf_flat::detail::pack_list_data(res,
-  codes,
-  veclen,
-  list_data);
+  raft::neighbors::ivf_flat::detail::pack_list_data(res, codes, veclen, list_data);
 }
 
 template <typename T>
 inline void unpack_full_list(
   raft::resources const& res,
-  device_mdspan<const T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major> list_data,
+  device_mdspan<const T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major>
+    list_data,
   uint32_t veclen,
   device_matrix_view<T, uint32_t, row_major> codes)
 {
-  raft::neighbors::ivf_flat::detail::unpack_list_data(res,
-    list_data, veclen, codes);
+  raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, veclen, codes);
 }
-} // namespace codepacker
+}  // namespace codepacker
 /** @} */
 }  // namespace raft::neighbors::ivf_flat::helpers
-

@@ -425,9 +425,8 @@ __global__ void pack_interleaved_list_kernel(
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
-    codepacker::pack_1_interleaved(
-      codes + tid * dim, list_data, dim, veclen, tid);
-    }
+    codepacker::pack_1_interleaved(codes + tid * dim, list_data, dim, veclen, tid);
+  }
 }
 
 template <typename T>
@@ -436,9 +435,8 @@ __global__ void unpack_interleaved_list_kernel(
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
-    codepacker::unpack_1_interleaved(
-      codes + tid * dim, list_data, dim, veclen, tid);
-    }
+    codepacker::unpack_1_interleaved(codes + tid * dim, list_data, dim, veclen, tid);
+  }
 }
 
 template <typename T>
@@ -448,13 +446,14 @@ void pack_list_data(
   uint32_t veclen,
   device_mdspan<T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major> list_data)
 {
-  uint32_t n_rows = codes.extent(0);
-  uint32_t dim = codes.extent(1);
+  uint32_t n_rows                      = codes.extent(0);
+  uint32_t dim                         = codes.extent(1);
   static constexpr uint32_t kBlockSize = 256;
   dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
   dim3 threads(kBlockSize, 1, 1);
   auto stream = resource::get_cuda_stream(res);
-  pack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(list_data.data_handle(), codes.data_handle(), n_rows, dim, veclen);
+  pack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
+    list_data.data_handle(), codes.data_handle(), n_rows, dim, veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -465,13 +464,14 @@ void unpack_list_data(
   uint32_t veclen,
   device_matrix_view<const T, uint32_t, row_major> codes)
 {
-  uint32_t n_rows = codes.extent(0);
-  uint32_t dim = codes.extent(1);
+  uint32_t n_rows                      = codes.extent(0);
+  uint32_t dim                         = codes.extent(1);
   static constexpr uint32_t kBlockSize = 256;
   dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
   dim3 threads(kBlockSize, 1, 1);
   auto stream = resource::get_cuda_stream(res);
-  unpack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(codes.data_handle(), list_data.data_handle(), n_rows, dim, veclen);
+  unpack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
+    codes.data_handle(), list_data.data_handle(), n_rows, dim, veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

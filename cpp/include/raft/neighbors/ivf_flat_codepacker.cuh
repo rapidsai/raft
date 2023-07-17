@@ -86,4 +86,4 @@ __host__ __device__ void unpack_1_interleaved(
     }
   }
 }
-}
+}  // namespace raft::neighbors::ivf_flat::codepacker

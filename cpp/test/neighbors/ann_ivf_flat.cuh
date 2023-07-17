@@ -73,12 +73,20 @@ template <typename IdxT>
 }
 
 template <typename DataT, typename IdxT>
-void flat_codes_from_indices(raft::resources const& handle, IdxT* indices, DataT* data, uint32_t n_rows, uint32_t dim, DataT* flat_codes) {
-  raft::linalg::map_offset(handle, raft::make_device_vector_view(flat_codes, n_rows * dim), [dim = util::FastIntDiv(dim), indices, data]__device__ (auto idx) {
-              auto row = idx / dim;
-              auto col = idx % dim;
-              return data[indices[row] * dim + col];
-            });
+void flat_codes_from_indices(raft::resources const& handle,
+                             IdxT* indices,
+                             DataT* data,
+                             uint32_t n_rows,
+                             uint32_t dim,
+                             DataT* flat_codes)
+{
+  raft::linalg::map_offset(handle,
+                           raft::make_device_vector_view(flat_codes, n_rows * dim),
+                           [dim = util::FastIntDiv(dim), indices, data] __device__(auto idx) {
+                             auto row = idx / dim;
+                             auto col = idx % dim;
+                             return data[indices[row] * dim + col];
+                           });
 }
 
 template <typename T, typename DataT, typename IdxT>
@@ -280,77 +288,76 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     }
   }
 
-  void testPacker() {
+  void testPacker()
+  {
     ivf_flat::index_params index_params;
-        index_params.n_lists          = ps.n_list;
-        index_params.metric           = ps.metric;
-        index_params.adaptive_centers = false;
+    index_params.n_lists          = ps.n_list;
+    index_params.metric           = ps.metric;
+    index_params.adaptive_centers = false;
 
-        index_params.add_data_on_build        = true;
-        index_params.kmeans_trainset_fraction = 0.5;
-        index_params.metric_arg               = 0;
+    index_params.add_data_on_build        = true;
+    index_params.kmeans_trainset_fraction = 0.5;
+    index_params.metric_arg               = 0;
 
-        auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
-          (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+    auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+      (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
 
-        auto index = ivf_flat::build(handle_, index_params, database_view);
+    auto index = ivf_flat::build(handle_, index_params, database_view);
 
-        auto list_sizes = raft::make_host_vector<uint32_t>(index.n_lists());
-            update_host(list_sizes.data_handle(),
-            index.list_sizes().data_handle(),
-            index.n_lists(),
-            stream_);
-        auto data_ptrs = raft::make_host_vector<DataT*>(index.n_lists());
-            update_host(data_ptrs.data_handle(),
-            index.data_ptrs().data_handle(),
-            index.n_lists(),
-            stream_);
-          auto inds_ptrs = raft::make_host_vector<IdxT*>(index.n_lists());
-            update_host(inds_ptrs.data_handle(),
-            index.inds_ptrs().data_handle(),
-            index.n_lists(),
-            stream_);
-            resource::sync_stream(handle_);
+    auto list_sizes = raft::make_host_vector<uint32_t>(index.n_lists());
+    update_host(
+      list_sizes.data_handle(), index.list_sizes().data_handle(), index.n_lists(), stream_);
+    auto data_ptrs = raft::make_host_vector<DataT*>(index.n_lists());
+    update_host(data_ptrs.data_handle(), index.data_ptrs().data_handle(), index.n_lists(), stream_);
+    auto inds_ptrs = raft::make_host_vector<IdxT*>(index.n_lists());
+    update_host(inds_ptrs.data_handle(), index.inds_ptrs().data_handle(), index.n_lists(), stream_);
+    resource::sync_stream(handle_);
 
-            auto list_device_spec = list_spec<uint32_t, T, uint32_t>{ps.dim, true};
+    auto list_device_spec = list_spec<uint32_t, T, uint32_t>{ps.dim, true};
 
-        for(uint32_t label = 0; label < index.n_lists(); label++) {
-            
-            rmm::device_uvector<T> interleaved_data(Pow2<kIndexGroupSize>::roundUp(list_sizes[label] * ps.dim), stream_);
-            list_device_spec.make_list_extents(list_sizes[label]);
+    for (uint32_t label = 0; label < index.n_lists(); label++) {
+      rmm::device_uvector<T> interleaved_data(
+        Pow2<kIndexGroupSize>::roundUp(list_sizes[label] * ps.dim), stream_);
+      list_device_spec.make_list_extents(list_sizes[label]);
 
-            // fetch the flat codes
-            rmm::device_uvector<T> flat_codes(list_sizes[label] * ps.dim, stream_);
-            
-            flat_codes_from_indices(handle_, inds_ptrs + label, data_ptrs + label, list_sizes[label], ps.dim, flat_codes.data_handle());
+      // fetch the flat codes
+      rmm::device_uvector<T> flat_codes(list_sizes[label] * ps.dim, stream_);
 
-            helpers::codepacker::pack_full_list(
-  handle_,
-  flat_codes.view(),
-  index.veclen(),
-  make_device_vector_view<T>(interleaved_data.data(), Pow2<kIndexGroupSize>::roundUp(list_sizes[label]), ps.dim));
+      flat_codes_from_indices(handle_,
+                              inds_ptrs + label,
+                              data_ptrs + label,
+                              list_sizes[label],
+                              ps.dim,
+                              flat_codes.data_handle());
 
-            ASSERT_TRUE(raft::devArrMatch(interleaved_data.data(),
-                                        data_ptrs + label,
-                                        Pow2<kIndexGroupSize>::roundUp(list_sizes[label]) * ps.dim,
-                                        raft::Compare<float>(),
-                                        stream_));
-            
-  rmm::device_uvector<DataT> unpacked_flat_codes(list_sizes[label] * ps.dim, stream_);
-            
-            helpers::codepacker::unpack_full_list(
-  handle_,
-  raft::make_device_matrix_view(data_ptrs[label], Pow2<kIndexGroupSize>::roundUp(list_sizes[label]), ps.dim),
-  index.veclen(),
-  make_device_vector_view<T>(unpacked_flat_codes.data(), list_sizes[label], ps.dim));
+      helpers::codepacker::pack_full_list(
+        handle_,
+        flat_codes.view(),
+        index.veclen(),
+        make_device_vector_view<T>(
+          interleaved_data.data(), Pow2<kIndexGroupSize>::roundUp(list_sizes[label]), ps.dim));
 
-            ASSERT_TRUE(raft::devArrMatch(flat_codes.data(),
-                                        unpacked_flat_codes.data(),
-                                        list_sizes[label] * ps.dim,
-                                        raft::Compare<int>(),
-                                        stream_));
+      ASSERT_TRUE(raft::devArrMatch(interleaved_data.data(),
+                                    data_ptrs + label,
+                                    Pow2<kIndexGroupSize>::roundUp(list_sizes[label]) * ps.dim,
+                                    raft::Compare<float>(),
+                                    stream_));
 
-          }
+      rmm::device_uvector<DataT> unpacked_flat_codes(list_sizes[label] * ps.dim, stream_);
+
+      helpers::codepacker::unpack_full_list(
+        handle_,
+        raft::make_device_matrix_view(
+          data_ptrs[label], Pow2<kIndexGroupSize>::roundUp(list_sizes[label]), ps.dim),
+        index.veclen(),
+        make_device_vector_view<T>(unpacked_flat_codes.data(), list_sizes[label], ps.dim));
+
+      ASSERT_TRUE(raft::devArrMatch(flat_codes.data(),
+                                    unpacked_flat_codes.data(),
+                                    list_sizes[label] * ps.dim,
+                                    raft::Compare<int>(),
+                                    stream_));
+    }
   }
 
   void SetUp() override
