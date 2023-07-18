@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
+#include <optional>
+#include <utility>
 #include <variant>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_container_policy.hpp>
+#include <raft/core/host_device_accessor.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
+#include <raft/core/mdspan.hpp>
 #include <raft/core/stream_view.hpp>
-#include <raft/util/type_utils.hpp>
+#include <raft/util/variant_utils.hpp>
 #ifndef RAFT_DISABLE_CUDA
 #include <raft/util/cudart_utils.hpp>
 #include <thrust/device_ptr.h>
@@ -50,24 +54,6 @@ struct universal_buffer_reference {
   using value_type    = typename std::remove_cv_t<T>;
   using pointer = value_type*;
   using const_pointer = value_type const*;
-
-  template <
-    typename RefType,
-    std::enable_if_t<std::disjunction_v<
-      std::is_same_v<
-        typename alternate_from_mem_type<memory_type::host, ContainerPolicyVariant>::reference, RefType
-      >,
-      std::is_same_v<
-        typename alternate_from_mem_type<memory_type::device, ContainerPolicyVariant>::reference, RefType
-      >,
-      std::is_same_v<
-        typename alternate_from_mem_type<memory_type::managed, ContainerPolicyVariant>::reference, RefType
-      >,
-      std::is_same_v<
-        typename alternate_from_mem_type<memory_type::pinned, ContainerPolicyVariant>::reference, RefType
-      >
-    >>
-  >
 
   universal_buffer_reference(pointer ptr, memory_type mem_type, stream_view stream=stream_view_per_thread)
     : ptr_{ptr}, mem_type_{mem_type}, stream_{stream}
@@ -142,7 +128,7 @@ struct default_buffer_container_policy {
   using container_policy_variant = ContainerPolicyVariant;
 
   template <raft::memory_type MemType>
-  using container_policy = alternate_from_mem_type<MemType, container_policy_variant>;
+  using container_policy = host_device_accessor<alternate_from_mem_type<MemType, container_policy_variant>, MemType>;
 
  private:
   template <std::size_t index>
@@ -205,10 +191,10 @@ struct default_buffer_container_policy {
 
  private:
   template <typename ContainerType>
-  auto static constexpr has_stream(ContainerType c) -> decltype(c.stream(), bool) {
+  auto static constexpr has_stream() -> decltype(std::declval<ContainerType>().stream(), bool()) {
     return true;
   };
-  auto static has_stream(...) -> bool {
+  auto static constexpr has_stream(...) -> bool {
     return false;
   };
 
@@ -295,7 +281,7 @@ template <
 
   using container_policy_type = ContainerPolicy;
 
-  using container_type_variant = typename container_policy_type::container_type;
+  using container_type_variant = typename container_policy_type::container_type_variant;
 
   template <raft::memory_type MemType>
   using container_type = typename container_policy_type::template container_type<MemType>;
@@ -348,9 +334,24 @@ template <
   >;
 
   constexpr mdbuffer() = default;
-  // The following constructor is included purely for symmetry with
-  // mdarray.
-  constexpr explicit mdbuffer(raft::resources const& handle) : mdbuffer{} {}
+
+  template <typename AccessorPolicy, std::enable_if_t<std::is_convertible_v<mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>, storage_type_variant>>* = nullptr>
+  constexpr mdbuffer(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> other)
+    : data_{other}
+  {
+  }
+
+  template <typename OtherContainerPolicy, std::enable_if_t<std::is_convertible_v<typename mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>::view_type, storage_type_variant>>* = nullptr>
+  constexpr mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>& other)
+    : mdbuffer{other.view()}
+  {
+  }
+
+  template <typename OtherContainerPolicy, std::enable_if_t<std::is_convertible_v<mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>, storage_type_variant>>* = nullptr>
+  constexpr mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
+    : data_{std::move(other)}
+  {
+  }
 
   [[nodiscard]] auto constexpr mem_type() {
     return static_cast<memory_type>(data_.index() % std::variant_size_v<owning_type_variant>);
@@ -358,14 +359,47 @@ template <
   [[nodiscard]] auto constexpr is_owning() {
     return data_.index() >= std::variant_size_v<view_type_variant>;
   };
+  [[nodiscard]] auto constexpr data_handle() {
+    return fast_visit([](auto&& inner) {
+      if constexpr (std::is_convertible_v<decltype(inner.data_handle()), pointer>) {
+        return pointer{inner.data_handle()};
+      } else {
+        return pointer{inner.data_handle().get()};
+      }
+    }, data_);
+  };
+  [[nodiscard]] auto constexpr data_handle() const {
+    return fast_visit([](auto&& inner) {
+      if constexpr (std::is_convertible_v<decltype(inner.data_handle()), const_pointer>) {
+        return const_pointer{inner.data_handle()};
+      } else {
+        return const_pointer{inner.data_handle().get()};
+      }
+    }, data_);
+  }
 
+ private:
+  static auto constexpr get_view_from_data(view_type_variant const& data) {
+    return data;
+  }
+  static auto constexpr get_view_from_data(const_view_type_variant const& data) {
+    return data;
+  }
+  static auto constexpr get_view_from_data(owning_type_variant& data) {
+    return view_type_variant{data.view()};
+  }
+  static auto constexpr get_view_from_data(owning_type_variant const& data) {
+    return const_view_type_variant{data.view()};
+  }
+
+ public:
   [[nodiscard]] auto view() {
-    auto result = view_type_variant{};
-    switch(data_.index()) {
-      case variant_index_from_memory_type(memory_type::host):
-        result = std::get<variant_index_from_memory_type(memory_type::host)>(data_);
-
-    }
+    return fast_visit(
+      [](auto&& inner) {
+        return get_view_from_data(inner);
+      },
+      data_
+    );
   }
 
  private:

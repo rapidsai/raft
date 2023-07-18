@@ -124,6 +124,8 @@ if(BUILD_TESTS)
       test/core/interruptible.cu
       test/core/nvtx.cpp
       test/core/mdarray.cu
+      test/core/mdbuffer.cpp
+      test/core/mdbuffer.cu
       test/core/mdspan_utils.cu
       test/core/numpy_serializer.cu
       test/core/memory_type.cpp

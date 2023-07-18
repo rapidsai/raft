@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <type_traits>
 #include <variant>
 
 namespace raft {
@@ -32,22 +33,23 @@ using concatenated_variant_t = typename concatenated_variant<variant1, variant2>
 template <typename visitor_t, typename variant_t, std::size_t index=std::size_t{}>
 auto fast_visit (visitor_t&& visitor, variant_t&& variant) {
   using return_t = decltype(
-    std::forward<visitor_t>(visitor)(std::get<index>(std::forward<variant_t>(variant))));
+    std::forward<visitor_t>(visitor)(std::get<0>(variant))
+  );
   auto result = return_t{};
 
-  if (index == variant.index()) {
-    if (!std::holds_alternative<std::variant_alternative_t<index, variant_t>>(variant)) {
-      __builtin_unreachable();
-    }
-    result = std::forward<visitor_t>(visitor)(std::get<index>(std::forward<variant_t>(variant)));
-  } else if (index < std::variant_size_v<variant_t>) {
-    result = fast_visit<visitor_t, variant_t, index+1>(
-      std::forward<visitor_t>(visitor),
-      std::forward<variant_t>(variant)
-    );
+  if constexpr (index == std::variant_size_v<std::remove_cv_t<std::remove_reference_t<variant_t>>>) {
+        __builtin_unreachable();
   } else {
-      __builtin_unreachable();
+    if (index == variant.index()) {
+      result = std::forward<visitor_t>(visitor)(std::get<index>(std::forward<variant_t>(variant)));
+    } else {
+      result = fast_visit<visitor_t, variant_t, index+1>(
+        std::forward<visitor_t>(visitor),
+        std::forward<variant_t>(variant)
+      );
+    }
   }
   return result;
 }
+
 }  // namespace raft
