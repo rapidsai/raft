@@ -106,7 +106,13 @@ class workspace_resource_factory : public resource_factory {
       upstream, min_size, max_size);
   }
 
-  /** Get the global memory resource wrapped into an unmanaged shared_ptr (with no deleter). */
+  /**
+   * Get the global memory resource wrapped into an unmanaged shared_ptr (with no deleter).
+   *
+   * Note: the lifetime of the underlying `rmm::mr::get_current_device_resource()` is managed
+   * somewhere else, since it's passed by a raw pointer. Hence, this shared_ptr wrapper is not
+   * allowed to delete the pointer on destruction.
+   */
   static inline auto default_plain_resource() -> std::shared_ptr<rmm::mr::device_memory_resource>
   {
     return std::shared_ptr<rmm::mr::device_memory_resource>{rmm::mr::get_current_device_resource(),
