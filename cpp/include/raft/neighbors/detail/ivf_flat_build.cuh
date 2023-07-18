@@ -439,12 +439,12 @@ __global__ void unpack_interleaved_list_kernel(
   }
 }
 
-template <typename T>
+template <typename SizeT, typename T, typename IdxT>
 void pack_list_data(
   raft::resources const& res,
-  device_matrix_view<const T, uint32_t, row_major> codes,
+  device_matrix_view<const T, SizeT, row_major> codes,
   uint32_t veclen,
-  device_mdspan<T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major> list_data)
+  device_mdspan<T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major> list_data)
 {
   uint32_t n_rows                      = codes.extent(0);
   uint32_t dim                         = codes.extent(1);
@@ -457,12 +457,12 @@ void pack_list_data(
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename T>
+template <typename SizeT, typename T, typename IdxT>
 void unpack_list_data(
   raft::resources const& res,
-  device_mdspan<T, typename list_spec<uint32_t, T, uint32_t>::list_extents, row_major> list_data,
+  device_mdspan<const T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major> list_data,
   uint32_t veclen,
-  device_matrix_view<const T, uint32_t, row_major> codes)
+  device_matrix_view<T, SizeT, row_major> codes)
 {
   uint32_t n_rows                      = codes.extent(0);
   uint32_t dim                         = codes.extent(1);

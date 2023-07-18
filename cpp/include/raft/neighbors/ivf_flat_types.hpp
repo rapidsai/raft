@@ -94,9 +94,9 @@ struct list_spec {
 
   SizeT align_max;
   SizeT align_min;
-  uint32_t dim;
+  SizeT dim;
 
-  constexpr list_spec(uint32_t dim, bool conservative_memory_allocation)
+  constexpr list_spec(SizeT dim, bool conservative_memory_allocation)
     : dim(dim),
       align_min(kIndexGroupSize),
       align_max(conservative_memory_allocation ? kIndexGroupSize : 1024)
@@ -113,7 +113,7 @@ struct list_spec {
   /** Determine the extents of an array enough to hold a given amount of data. */
   constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
   {
-    return make_extents<SizeT>(n_rows, dim);
+    return make_extents<SizeT>(div_rounding_up_safe<SizeT>(n_rows, kIndexGroupSize), dim);
   }
 };
 
