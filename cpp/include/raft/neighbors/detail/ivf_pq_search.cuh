@@ -32,6 +32,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/detail/device_memory_resource.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/gemm.cuh>
@@ -678,6 +679,7 @@ struct ivfpq_search {
  * A heuristic for bounding the number of queries per batch, to improve GPU utilization.
  * (based on the number of SMs and the work size).
  *
+ * @param res is used to query the workspace size
  * @param k top-k
  * @param n_probes number of selected clusters per query
  * @param n_queries number of queries hoped to be processed at once.
@@ -686,7 +688,8 @@ struct ivfpq_search {
  *
  * @return maximum recommended batch size.
  */
-inline auto get_max_batch_size(uint32_t k,
+inline auto get_max_batch_size(raft::resources const& res,
+                               uint32_t k,
                                uint32_t n_probes,
                                uint32_t n_queries,
                                uint32_t max_samples) -> uint32_t
@@ -705,11 +708,11 @@ inline auto get_max_batch_size(uint32_t k,
   auto ws_size = [k, n_probes, max_samples](uint32_t bs) -> uint64_t {
     return uint64_t(is_local_topk_feasible(k, n_probes, bs) ? k * n_probes : max_samples) * bs;
   };
-  constexpr uint64_t kMaxWsSize = 1024 * 1024 * 1024;
-  if (ws_size(max_batch_size) > kMaxWsSize) {
+  auto max_ws_size = resource::get_workspace_total_bytes(res);
+  if (ws_size(max_batch_size) > max_ws_size) {
     uint32_t smaller_batch_size = bound_by_power_of_two(max_batch_size);
     // gradually reduce the batch size until we fit into the max size limit.
-    while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > kMaxWsSize) {
+    while (smaller_batch_size > 1 && ws_size(smaller_batch_size) > max_ws_size) {
       smaller_batch_size >>= 1;
     }
     return smaller_batch_size;
@@ -780,7 +783,7 @@ inline void search(raft::resources const& handle,
 
   // Maximum number of query vectors to search at the same time.
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
-  auto max_batch_size    = get_max_batch_size(k, n_probes, max_queries, max_samples);
+  auto max_batch_size    = get_max_batch_size(handle, k, n_probes, max_queries, max_samples);
 
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
