@@ -13,7 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#include "refine_device.cuh"
-#include "refine_host.hpp"
+#include "../cagra_bench.cuh"
+
+namespace raft::bench::neighbors {
+
+CAGRA_REGISTER(float, uint32_t, kCagraInputs);
+
+}  // namespace raft::bench::neighbors
