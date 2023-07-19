@@ -14,16 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "../cagra_bench.cuh"
 
-#include "../ann_cagra.cuh"
-#include "search_kernel_uint64_t.cuh"
+namespace raft::bench::neighbors {
 
-namespace raft::neighbors::experimental::cagra {
+CAGRA_REGISTER(float, uint32_t, kCagraInputs);
 
-typedef AnnCagraTest<float, float, std::int64_t> AnnCagraTestF_I64;
-TEST_P(AnnCagraTestF_I64, AnnCagra) { this->testCagra(); }
-
-INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_I64, ::testing::ValuesIn(inputs));
-
-}  // namespace raft::neighbors::experimental::cagra
+}  // namespace raft::bench::neighbors
