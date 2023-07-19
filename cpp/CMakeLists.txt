@@ -461,10 +461,6 @@ if(RAFT_COMPILE_LIBRARY)
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
-  # Optimization: extra compile flags for individual compilation units
-  file(GLOB REFINE_HOST_SRC_FILES "src/neighbors/detail/refine_host_*.cpp")
-  set_property(SOURCE ${REFINE_HOST_SRC_FILES} PROPERTY COMPILE_FLAGS "-ftree-vectorize")
-
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
