@@ -65,7 +65,7 @@ We provide two methods for running benchmarks, using:
 2. bash
 
 ### Python
-#### End-to-end example
+#### End-to-end example: Million-scale
 ```bash
 # All scripts are assumed to be run in directory raft/cpp/bench/ann
 
@@ -76,14 +76,34 @@ python scripts/get_dataset.py --name glove-100-angular --normalize
 python scripts/run.py --dataset glove-100-inner
 
 # (3) evaluate result
-python scripts/data_export.py --output out.csv --groundtruth glove-100-inner result/glove-100-inner/.*txt
+python scripts/data_export.py --output out.csv --groundtruth glove-100-inner result/glove-100-inner/
 ```
 
-##### Step 1: Prepare Dataset
+#### End-to-end example: Billion-scale
+The above example does not work at Billion-scale because [data preparation](#prep-dataset) is not yet
+supported by `scripts/get_dataset.py`. To download and prepare [billion-scale datasets](#billion-scale),
+please follow linked section. All other python scripts mentioned below work as intended once the
+billion-scale dataset has been downloaded.
+To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
+
+```bash
+mkdir -p data/deep-1B && cd data/deep-1B
+# download manually "Ground Truth" file of "Yandex DEEP"
+# suppose the file name is deep_new_groundtruth.public.10K.bin
+../../scripts/split_groundtruth.pl deep_new_groundtruth.public.10K.bin groundtruth
+# two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
+
+# (2) build and search index
+python scripts/run.py --dataset deep-1B
+
+# (3) evaluate result
+python scripts/data_export.py --output out.csv --groundtruth deep-1B result/deep1-B/
+```
+
+##### Step 1: Prepare Dataset<a id='prep-dataset'></a>
 The script `scripts/get_dataset.py` will download and unpack the dataset in directory
 `data/<dataset_name>/`. As of now, only million-scale datasets are supported by this
-script. To work with [billion-scale datasets](#billion-scale), please follow linked section.
-For more information on [datasets and formats](#bash-prepare-dataset).
+script. For more information on [datasets and formats](#bash-prepare-dataset).
 
 The usage of this script is:
 ```bash
