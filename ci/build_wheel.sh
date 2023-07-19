@@ -6,7 +6,8 @@ set -euo pipefail
 package_name=$1
 package_dir=$2
 
-source /tmp/gha-tools/tools/rapids-configure-sccache
+source rapids-configure-sccache
+source rapids-date-string
 
 # Use gha-tools rapids-pip-wheel-version to generate wheel version then
 # update the necessary files
