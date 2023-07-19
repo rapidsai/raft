@@ -31,25 +31,38 @@ namespace raft::neighbors::ivf_flat::helpers {
 
 namespace codepacker {
 
-template <typename SizeT, typename T, typename IdxT>
-inline void pack_full_list(
-  raft::resources const& res,
-  device_matrix_view<const T, SizeT, row_major> codes,
+template <typename T>
+void pack_full_list(
+  raft::resources const& handle,
+  T* codes,
+  uint32_t n_rows,
+  uint32_t dim,
   uint32_t veclen,
-  device_mdspan<T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major> list_data)
+  T* list_data)
 {
-  raft::neighbors::ivf_flat::detail::pack_list_data(res, codes, veclen, list_data);
+  raft::neighbors::ivf_flat::detail::pack_list_data(handle, codes, n_rows, dim, veclen, list_data);
 }
 
-template <typename SizeT, typename T, typename IdxT>
-inline void unpack_full_list(
+// template <typename T, typename IdxT>
+// void unpack_full_list(
+//   raft::resources const& res,
+//   device_mdspan<const T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major>
+//     list_data,
+//   uint32_t veclen,
+//   device_matrix_view<T, uint32_t, row_major> codes)
+// {
+//   raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, veclen, codes);
+// }
+template <typename T, typename IdxT>
+void unpack_full_list(
   raft::resources const& res,
-  device_mdspan<const T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major>
-    list_data,
+  T* list_data,
+  uint32_t n_rows,
+  uint32_t dim,
   uint32_t veclen,
-  device_matrix_view<T, SizeT, row_major> codes)
+  T* codes)
 {
-  raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, veclen, codes);
+  raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, n_rows, dim, veclen, codes);
 }
 }  // namespace codepacker
 /** @} */

@@ -423,7 +423,7 @@ template <typename T>
 __global__ void pack_interleaved_list_kernel(
   const T* codes, T* list_data, uint32_t n_rows, uint32_t dim, uint32_t veclen)
 {
-  auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+  uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
     codepacker::pack_1_interleaved(codes + tid * dim, list_data, dim, veclen, tid);
   }
@@ -433,45 +433,49 @@ template <typename T>
 __global__ void unpack_interleaved_list_kernel(
   const T* list_data, T* codes, uint32_t n_rows, uint32_t dim, uint32_t veclen)
 {
-  auto tid = blockIdx.x * blockDim.x + threadIdx.x;
+  uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
-    codepacker::unpack_1_interleaved(codes + tid * dim, list_data, dim, veclen, tid);
+    codepacker::unpack_1_interleaved(list_data, codes + tid * dim, dim, veclen, tid);
   }
 }
 
-template <typename SizeT, typename T, typename IdxT>
+template <typename T>
 void pack_list_data(
   raft::resources const& res,
-  device_matrix_view<const T, SizeT, row_major> codes,
+  T* codes,
+  uint32_t n_rows,
+  uint32_t dim,
   uint32_t veclen,
-  device_mdspan<T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major> list_data)
+  T* list_data)
 {
-  uint32_t n_rows                      = codes.extent(0);
-  uint32_t dim                         = codes.extent(1);
+  // uint32_t n_rows                      = codes.extent(0);
+  // uint32_t dim                         = codes.extent(1);
   static constexpr uint32_t kBlockSize = 256;
   dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
   dim3 threads(kBlockSize, 1, 1);
   auto stream = resource::get_cuda_stream(res);
   pack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
-    list_data.data_handle(), codes.data_handle(), n_rows, dim, veclen);
+    list_data, codes, n_rows, dim, veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename SizeT, typename T, typename IdxT>
+template <typename T>
 void unpack_list_data(
   raft::resources const& res,
-  device_mdspan<const T, typename list_spec<SizeT, T, IdxT>::list_extents, row_major> list_data,
+  T* list_data,
+  uint32_t n_rows,
+  uint32_t dim,
   uint32_t veclen,
-  device_matrix_view<T, SizeT, row_major> codes)
+  T* codes)
 {
-  uint32_t n_rows                      = codes.extent(0);
-  uint32_t dim                         = codes.extent(1);
+  // uint32_t n_rows                      = codes.extent(0);
+  // uint32_t dim                         = codes.extent(1);
   static constexpr uint32_t kBlockSize = 256;
   dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
   dim3 threads(kBlockSize, 1, 1);
   auto stream = resource::get_cuda_stream(res);
   unpack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
-    codes.data_handle(), list_data.data_handle(), n_rows, dim, veclen);
+    codes, list_data, n_rows, dim, veclen);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

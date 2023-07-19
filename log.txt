@@ -1,0 +1,2 @@
+========= COMPUTE-SANITIZER
+========= Target application doesn't exist or is not a valid executable
