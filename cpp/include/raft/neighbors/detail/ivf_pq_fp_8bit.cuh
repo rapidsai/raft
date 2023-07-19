@@ -116,7 +116,7 @@ struct fp_8bit {
       u &= ~1;  // zero the sign bit
     }
     half r;
-    constexpr uint16_t kBase16       = (0x7c00u | (0x0200u >> ValBits)) - (ExpMask << 10);
+    constexpr uint16_t kBase16       = (0x3c00u | (0x0200u >> ValBits)) - (ExpMask << 10);
     *reinterpret_cast<uint16_t*>(&r) = kBase16 + (u << (2u + ExpBits));
     if constexpr (Signed) {  // recover the sign bit
       if (v.bitstring & 1) { r = -r; }
