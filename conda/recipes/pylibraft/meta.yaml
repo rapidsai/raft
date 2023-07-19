@@ -61,6 +61,7 @@ requirements:
     - libraft {{ version }}
     - libraft-headers {{ version }}
     - python x.x
+    - rmm ={{ minor_version }}
 
 tests:
   requirements:
