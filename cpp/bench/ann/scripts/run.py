@@ -24,7 +24,7 @@ def validate_algorithm_and_executable(algos_conf, algo):
     algos_conf_keys = set(algos_conf.keys())
     if algo in algos_conf_keys and not algos_conf[algo]["disabled"]:
         # executable is assumed to be in folder "<root>/cpp/build"
-        executable_filepath = "../../build/%s" % algos_conf[algo]["executable"]
+        executable_filepath = f"../../build/{algos_conf[algo]['executable']}"
         if not os.path.exists(executable_filepath):
             raise FileNotFoundError(executable_filepath)
         return True
@@ -34,30 +34,30 @@ def validate_algorithm_and_executable(algos_conf, algo):
 
 def run_build_and_search(conf_filename, conf_file, executables_to_run, force):
     # Need to write temporary configuration
-    temp_conf_filename = "temporary_%s" % conf_filename
+    temp_conf_filename = f"temporary_{conf_filename}"
     temp_conf_filepath = os.path.join("conf", temp_conf_filename)
     with open(temp_conf_filepath, "w") as f:
         json.dump(conf_file, f)
 
-    print("Building indices for configuration %s" % conf_filename)
+    print(f"Building indices for configuration {conf_filename}")
     for executable in executables_to_run:
         if force:
-            p = subprocess.Popen(["../../build/%s" % executable, "-b", "-f",
+            p = subprocess.Popen([f"../../build/{executable}", "-b", "-f",
                                   temp_conf_filepath])
             p.wait()
         else:
-            p = subprocess.Popen(["../../build/%s" % executable, "-b",
+            p = subprocess.Popen([f"../../build/{executable}", "-b",
                                   temp_conf_filepath])
             p.wait()
 
-    print("Searching indices for configuration %s" % conf_filename)
+    print(f"Searching indices for configuration {conf_filename}")
     for executable in executables_to_run:
         if force:
-            p = subprocess.Popen(["../../build/%s" % executable, "-s", "-f",
+            p = subprocess.Popen([f"../../build/{executable}", "-s", "-f",
                                   temp_conf_filepath])
             p.wait()
         else:
-            p = subprocess.Popen(["../../build/%s" % executable, "-s",
+            p = subprocess.Popen([f"../../build/{executable}", "-s",
                                   temp_conf_filepath])
             p.wait()
 
@@ -92,7 +92,7 @@ def main():
     args = parser.parse_args()
 
     # Read configuration file associated to dataset
-    conf_filename = "%s.json" % args.dataset
+    conf_filename = f"{args.dataset}.json"
     conf_filepath = os.path.join("conf", conf_filename)
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
@@ -143,8 +143,8 @@ def main():
 
     # filter available algorithms or indices
     if len(found_pos) == 0:
-        raise Exception("No named indices/algorithms found in %s"
-                        % conf_filename)
+        raise Exception(f"No named indices/algorithms found in {conf_filename}"
+                        )
     temporary_conf["index"] = [temporary_conf["index"][p] for p in found_pos]
 
     run_build_and_search(conf_filename, temporary_conf, executables_to_run,

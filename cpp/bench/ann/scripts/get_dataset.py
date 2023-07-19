@@ -22,12 +22,12 @@ from urllib.request import urlretrieve
 def get_dataset_path(name):
     if not os.path.exists("data"):
         os.mkdir("data")
-    return os.path.join("data", "%s.hdf5" % name)
+    return os.path.join("data", f"{name}.hdf5")
 
 
 def download_dataset(url, path):
     if not os.path.exists(path):
-        print("downloading %s -> %s..." % (url, path))
+        print(f"downloading {url} -> {path}...")
         urlretrieve(url, path)
 
 
@@ -51,21 +51,21 @@ def move(name, path):
         os.mkdir(new_path)
     for bin_name in ["base.fbin", "query.fbin", "groundtruth.neighbors.ibin",
                      "groundtruth.distances.fbin"]:
-        os.rename("data/%s.%s" % (name, bin_name),
-                  "%s/%s" % (new_path, bin_name))
+        os.rename(f"data/{name}.{bin_name}",
+                  f"{new_path}/{bin_name}")
 
 
 def download(name, normalize):
     path = get_dataset_path(name)
     try:
-        url = "http://ann-benchmarks.com/%s.hdf5" % name
+        url = f"http://ann-benchmarks.com/{name}.hdf5"
         download_dataset(url, path)
 
         convert_hdf5_to_fbin(path, normalize)
 
         move(name, path)
     except Exception:
-        print("Cannot download %s" % url)
+        print(f"Cannot download {url}")
         raise
 
 

@@ -20,7 +20,7 @@ import subprocess
 
 def export_results(output_filepath, recompute, groundtruth_filepath,
                    result_filepaths):
-    print("Writing output file to: %s" % os.path.join(os.getcwd(), output_filepath))
+    print(f"Writing output file to: {os.path.join(os.getcwd(), output_filepath)}")
     if recompute:
         p = subprocess.Popen(["scripts/eval.pl", "-f", "-o", output_filepath,
                               groundtruth_filepath] + result_filepaths)
@@ -45,7 +45,7 @@ def main():
     # assume "result/<groundtruth_dataset>" folder to be default
     # if nothing is provided
     if len(result_filepaths) == 0:
-        result_filepaths = ["result/%s" % args.groundtruth]
+        result_filepaths = [f"result/{args.groundtruth}"]
 
     groundtruth_filepath = os.path.join("data", args.groundtruth,
                                         "groundtruth.neighbors.ibin")
