@@ -22,8 +22,8 @@ python -m pip install -v $(echo ./dist/raft_dask*.whl)[test]
 
 # Run smoke tests for aarch64 pull requests
 arch=$(uname -m)
-if [ "${arch}" == "aarch64" && ${RAPIDS_BUILD_TYPE} == "pull-request" ]; then
+if [[ "${arch}" == "aarch64" && ${RAPIDS_BUILD_TYPE} == "pull-request" ]]; then
     python ./ci/wheel_smoke_test_raft_dask.py
 else
-    python -m pytest ./python/raft-dask/raft_dask/tests
+    python -m pytest ./python/raft-dask/raft_dask/test
 fi

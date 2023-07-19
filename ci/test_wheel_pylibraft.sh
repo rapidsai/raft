@@ -15,7 +15,7 @@ python -m pip install -v $(echo ./dist/pylibraft*.whl)[test]
 
 # Run smoke tests for aarch64 pull requests
 arch=$(uname -m)
-if [ "${arch}" == "aarch64" && ${RAPIDS_BUILD_TYPE} == "pull-request" ]; then
+if [[ "${arch}" == "aarch64" && ${RAPIDS_BUILD_TYPE} == "pull-request" ]]; then
     python ./ci/wheel_smoke_test_pylibraft.py
 else
     python -m pytest ./python/pylibraft/pylibraft/test
