@@ -34,5 +34,6 @@ dependencies:
 - ninja
 - nlohmann_json>=3.11.2
 - scikit-build>=0.13.1
+- matplotlib
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-118_arch-x86_64

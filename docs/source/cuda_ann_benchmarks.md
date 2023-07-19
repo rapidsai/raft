@@ -77,6 +77,9 @@ python scripts/run.py --dataset glove-100-inner
 
 # (3) evaluate result
 python scripts/data_export.py --output out.csv --groundtruth glove-100-inner result/glove-100-inner/
+
+# (4) plot results
+python scripts/plot.py --result_filepath=out.csv
 ```
 
 #### End-to-end example: Billion-scale
@@ -98,6 +101,9 @@ python scripts/run.py --dataset deep-1B
 
 # (3) evaluate result
 python scripts/data_export.py --output out.csv --groundtruth deep-1B result/deep1-B/
+
+# (4) plot results
+python scripts/plot.py --result_filepath=out.csv
 ```
 
 ##### Step 1: Prepare Dataset<a id='prep-dataset'></a>
@@ -167,7 +173,28 @@ options:
                         Dataset whose groundtruth is used (default: None)
 ```
 
-`result_files` : whitespace separate list of result files/directories that can be capture via pattern match. For more [information and examples](#result-filepath-example)
+`result_filepaths` : whitespace separate list of result files/directories that can be capture via pattern match. For more [information and examples](#result-filepath-example)
+
+#### Step 4: Plot Results
+The script `scripts/plot.py` will plot all results evaluated to a CSV file for a given dataset.
+
+The usage of this script is:
+```bash
+usage: plot.py [-h] --result_filepath RESULT_FILEPATH [--output OUTPUT] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+
+options:
+  -h, --help            show this help message and exit
+  --result_filepath RESULT_FILEPATH
+                        Path to CSV Results (default: None)
+  --output OUTPUT       Path to the PNG output file (default: None)
+  --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
+  --y-scale {linear,log,symlog,logit}
+                        Scale to use when drawing the Y-axis (default: linear)
+  --raw                 Show raw results (not just Pareto frontier) in faded colours (default: False)
+```
+
+All algorithms present in the CSV file supplied to this script with parameter `result_filepath`
+will appear in the plot.
 
 ### bash
 #### End-to-end Example
