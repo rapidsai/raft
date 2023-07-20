@@ -37,7 +37,7 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/mst/mst.cuh>
 #include <raft/sparse/neighbors/knn_graph.cuh>
-#include <raft/sparse/selection/connect_components.cuh>
+#include <raft/sparse/selection/cross_component_nn.cuh>
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>

@@ -19,7 +19,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/sparse/coo.hpp>
-#include <raft/sparse/neighbors/detail/connect_components.cuh>
+#include <raft/sparse/neighbors/detail/cross_component_nn.cuh>
 
 namespace raft::sparse::neighbors {
 

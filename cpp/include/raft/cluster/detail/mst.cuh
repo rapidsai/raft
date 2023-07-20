@@ -20,7 +20,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/neighbors/connect_components.cuh>
+#include <raft/sparse/neighbors/cross_component_nn.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/sparse/solver/mst.cuh>
 #include <rmm/device_uvector.hpp>
