@@ -19,6 +19,7 @@
 #include "ann_utils.cuh"
 #include "raft/core/device_mdarray.hpp"
 #include "raft/core/host_mdarray.hpp"
+#include "raft/core/logger-macros.hpp"
 #include "raft/core/mdspan.hpp"
 #include "raft/core/mdspan_types.hpp"
 #include "raft/linalg/map.cuh"
@@ -332,6 +333,9 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
       //                         list_size,
       //                         static_cast<uint32_t>(ps.dim),
       //                         flat_codes.data_handle());
+
+      RAFT_LOG_INFO("static_cast %u", static_cast<uint32_t>(ps.num_db_vecs));
+      RAFT_LOG_INFO("static_cast %u", static_cast<uint32_t>(ps.dim));
       matrix::gather(handle_,
                      make_device_matrix_view<const DataT, uint32_t>((const DataT*)database.data(), static_cast<uint32_t>(ps.num_db_vecs), static_cast<uint32_t>(ps.dim)),
                      make_device_vector_view<const IdxT, uint32_t>((const IdxT*)list_inds_ptr, list_size),
@@ -346,6 +350,15 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         (uint32_t)ps.dim,
         index.veclen(),
         interleaved_data.data_handle());
+      
+      raft::print_device_vector("indices", list_inds_ptr, list_size, std::cout);
+      raft::print_device_vector("flat_codes", flat_codes.data_handle(), list_size * ps.dim, std::cout);
+      raft::print_device_vector("interleaved_data", interleaved_data.data_handle(), Pow2<kIndexGroupSize>::roundUp(list_size) * ps.dim, std::cout);
+      raft::print_device_vector("list_data", list_data_ptr, Pow2<kIndexGroupSize>::roundUp(list_size) * ps.dim, std::cout);
+      auto inds = make_host_vector<IdxT>(handle_, list_size);
+      raft::update_host(inds.data_handle(), list_inds_ptr, list_size, stream_);
+      resource::sync_stream(handle_);
+      raft::print_device_vector("first_flat_code", database.data() + inds.data_handle()[0] * ps.dim, ps.dim, std::cout);
 
       ASSERT_TRUE(raft::devArrMatch(interleaved_data.data_handle(),
                                     list_data_ptr,
