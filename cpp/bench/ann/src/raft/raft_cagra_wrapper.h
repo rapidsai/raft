@@ -104,7 +104,6 @@ RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_DEBUG);
   if (get_property().dataset_memory_type == MemoryType::Host) {
     auto dataset_view = raft::make_host_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
     index_.emplace(
