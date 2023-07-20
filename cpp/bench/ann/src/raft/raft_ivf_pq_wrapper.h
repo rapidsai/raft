@@ -73,7 +73,7 @@ class RaftIvfPQ : public ANN<T> {
     AlgoProperty property;
     property.dataset_memory_type      = MemoryType::Host;
     property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;  // actually it is only used during refinement
+    property.need_dataset_when_search = refine_ratio_ > 1.0;
     return property;
   }
   void save(const std::string& file) const override;
