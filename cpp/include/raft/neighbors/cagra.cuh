@@ -265,7 +265,7 @@ index<T, IdxT> build(raft::resources const& res,
   optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and optimized knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
+  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
 }
 
 /**
