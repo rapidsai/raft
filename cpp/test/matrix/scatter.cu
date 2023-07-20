@@ -129,7 +129,8 @@ class ScatterTest : public ::testing::TestWithParam<ScatterInputs<IdxT>> {
   INSTANTIATE_TEST_CASE_P(ScatterTests, test_name, ::testing::ValuesIn(test_inputs))
 
 const std::vector<ScatterInputs<int>> inputs_i32 =
-  raft::util::itertools::product<ScatterInputs<int>>({25, 2000}, {6, 31, 129}, {0, 1, 2, 3, 6, 100}, {1234ULL});
+  raft::util::itertools::product<ScatterInputs<int>>(
+    {25, 2000}, {6, 31, 129}, {0, 1, 2, 3, 6, 100}, {1234ULL});
 const std::vector<ScatterInputs<int64_t>> inputs_i64 =
   raft::util::itertools::product<ScatterInputs<int64_t>>(
     {25, 2000}, {6, 31, 129}, {0, 1, 2, 3, 6, 100}, {1234ULL});
