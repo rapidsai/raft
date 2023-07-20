@@ -157,7 +157,7 @@ void RaftCagra<T, IdxT>::search(
 
   raft::neighbors::experimental::cagra::search_params search_params;
   search_params.max_queries = batch_size;
-  search_params.itopk_size  = search_params_.max_queries;
+  search_params.itopk_size  = search_params_.itopk_size;
   raft::neighbors::experimental::cagra::search(
     handle_, search_params, *index_, queries_view, neighbors_view, distances_view);
 
