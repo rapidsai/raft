@@ -23,41 +23,41 @@ jobs:
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.08
   checks:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.08
     with:
       enable_check_generated_files: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.08
     with:
       build_type: pull-request
       node_type: cpu16
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.08
     with:
       build_type: pull-request
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.08
     with:
       build_type: pull-request
   conda-python-tests:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.08
     with:
       build_type: pull-request
   docs-build:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.08
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -67,7 +67,7 @@ jobs:
   wheel-build-pylibraft:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
     with:
       build_type: pull-request
       package-name: pylibraft
@@ -76,7 +76,7 @@ jobs:
   wheel-tests-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
     with:
       build_type: pull-request
       package-name: pylibraft
@@ -85,7 +85,7 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-tests-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
     with:
       build_type: pull-request
       package-name: raft_dask
@@ -95,7 +95,7 @@ jobs:
   wheel-tests-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
     with:
       build_type: pull-request
       package-name: raft_dask
