@@ -47,34 +47,35 @@ struct CagraBench : public fixture {
   explicit CagraBench(const params& ps)
     : fixture(true),
       params_(ps),
-      queries_(make_device_matrix<T, IdxT>(handle, ps.n_queries, ps.n_dims))
+      queries_(make_device_matrix<T, IdxT>(handle, ps.n_queries, ps.n_dims)),
+      dataset_(make_device_matrix<T, IdxT>(handle, ps.n_samples, ps.n_dims)),
+      knn_graph_(make_device_matrix<IdxT, IdxT>(handle, ps.n_samples, ps.degree))
   {
     // Generate random dataset and queriees
-    auto dataset = make_device_matrix<T, IdxT>(handle, ps.n_samples, ps.n_dims);
     raft::random::RngState state{42};
     constexpr T kRangeMax = std::is_integral_v<T> ? std::numeric_limits<T>::max() : T(1);
     constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
       raft::random::uniformInt(
-        state, dataset.data_handle(), dataset.size(), kRangeMin, kRangeMax, stream);
+        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
       raft::random::uniformInt(
         state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
     } else {
       raft::random::uniform(
-        state, dataset.data_handle(), dataset.size(), kRangeMin, kRangeMax, stream);
+        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
       raft::random::uniform(
         state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
     }
 
     // Generate random knn graph
-    auto knn_graph = make_device_matrix<IdxT, IdxT>(handle, ps.n_samples, ps.degree);
+
     raft::random::uniformInt<IdxT>(
-      state, knn_graph.data_handle(), knn_graph.size(), 0, ps.n_samples - 1, stream);
+      state, knn_graph_.data_handle(), knn_graph_.size(), 0, ps.n_samples - 1, stream);
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
     index_.emplace(raft::neighbors::experimental::cagra::index<T, IdxT>(
-      handle, metric, make_const_mdspan(dataset.view()), knn_graph.view()));
+      handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view())));
   }
 
   void run_benchmark(::benchmark::State& state) override
@@ -125,6 +126,8 @@ struct CagraBench : public fixture {
   const params params_;
   std::optional<const raft::neighbors::experimental::cagra::index<T, IdxT>> index_;
   raft::device_matrix<T, IdxT, row_major> queries_;
+  raft::device_matrix<T, IdxT, row_major> dataset_;
+  raft::device_matrix<IdxT, IdxT, row_major> knn_graph_;
 };
 
 inline const std::vector<params> generate_inputs()
