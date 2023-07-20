@@ -11,9 +11,9 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 ### Usage
 There are 4 general steps to running the benchmarks:
 1. Prepare Dataset
-2. Build Index
-3. Search Using Built Index
-4. Evaluate Result
+2. Build Index and Search Index
+3. Evaluate Results
+4. Plot Results
 
 ### Python-based Scripts
 We provide a collection of lightweight Python based scripts that are wrappers over
@@ -24,12 +24,13 @@ however plots are only provided through our Python scripts.
 ```bash
 # All scripts are present in directory raft/scripts/ann-benchmarks
 
+# (1) prepare dataset
 python scripts/ann-benchmarks/get_dataset.py --name glove-100-angular --normalize
 
 # (2) build and search index
 python scripts/ann-benchmarks/run.py --configuration conf/glove-100-inner.json
 
-# (3) evaluate result
+# (3) evaluate results
 python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/glove-100-inner/groundtruth.neighbors.ibin result/glove-100-inner/
 
 # (4) plot results
@@ -45,6 +46,7 @@ To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-be
 
 ```bash
 mkdir -p data/deep-1B && cd data/deep-1B
+# (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
 ../../scripts/split_groundtruth.pl deep_new_groundtruth.public.10K.bin groundtruth
@@ -53,7 +55,7 @@ mkdir -p data/deep-1B && cd data/deep-1B
 # (2) build and search index
 python scripts/run.py --configuration conf/deep-1B.json
 
-# (3) evaluate result
+# (3) evaluate results
 python scripts/data_export.py --output out.csv --groundtruth data/deep-1B/groundtruth.neighbors.ibin result/deep-1B/
 
 # (4) plot results
