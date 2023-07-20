@@ -14,20 +14,26 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cstdint>
+
+#ifndef CPU_ONLY
 #include <cuda_fp16.h>
+#include <raft/util/cudart_utils.hpp>
+#else
+typedef uint16_t half;
+#endif
+
 #include <errno.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
 #include <cassert>
-#include <cstdint>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <vector>
-
-#include <raft/util/cudart_utils.hpp>
 
 namespace raft::bench::ann {
 
@@ -46,13 +52,17 @@ class BinFile {
           const std::string& mode,
           uint32_t subset_first_row = 0,
           uint32_t subset_size      = 0);
-  ~BinFile() { fclose(fp_); }
+  ~BinFile()
+  {
+    if (fp_) { fclose(fp_); }
+  }
   BinFile(const BinFile&)            = delete;
   BinFile& operator=(const BinFile&) = delete;
 
-  void get_shape(size_t* nrows, int* ndims)
+  void get_shape(size_t* nrows, int* ndims) const
   {
     assert(read_mode_);
+    if (!fp_) { open_file_(); }
     *nrows = nrows_;
     *ndims = ndims_;
   }
@@ -60,6 +70,7 @@ class BinFile {
   void read(T* data) const
   {
     assert(read_mode_);
+    if (!fp_) { open_file_(); }
     size_t total = static_cast<size_t>(nrows_) * ndims_;
     if (fread(data, sizeof(T), total, fp_) != total) {
       throw std::runtime_error("fread() BinFile " + file_ + " failed");
@@ -69,6 +80,7 @@ class BinFile {
   void write(const T* data, uint32_t nrows, uint32_t ndims)
   {
     assert(!read_mode_);
+    if (!fp_) { open_file_(); }
     if (fwrite(&nrows, sizeof(uint32_t), 1, fp_) != 1) {
       throw std::runtime_error("fwrite() BinFile " + file_ + " failed");
     }
@@ -82,34 +94,41 @@ class BinFile {
     }
   }
 
-  void* map() const
+  T* map() const
   {
     assert(read_mode_);
-    int fid       = fileno(fp_);
-    auto mmap_ptr = mmap(NULL, file_size_, PROT_READ, MAP_PRIVATE, fid, 0);
-    if (mmap_ptr == MAP_FAILED) {
+    if (!fp_) { open_file_(); }
+    int fid     = fileno(fp_);
+    mapped_ptr_ = mmap(nullptr, file_size_, PROT_READ, MAP_PRIVATE, fid, 0);
+    if (mapped_ptr_ == MAP_FAILED) {
       throw std::runtime_error("mmap error: Value of errno " + std::to_string(errno) + ", " +
                                std::string(strerror(errno)));
     }
-    return mmap_ptr;
+    return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(mapped_ptr_) + 2 * sizeof(uint32_t) +
+                                subset_first_row_ * ndims_ * sizeof(T));
   }
 
-  void unmap(void* data) const
+  void unmap() const
   {
-    if (munmap(data, file_size_) == -1) {
+    if (munmap(mapped_ptr_, file_size_) == -1) {
       throw std::runtime_error("munmap error: " + std::string(strerror(errno)));
     }
   }
 
  private:
   void check_suffix_();
+  void open_file_() const;
 
   std::string file_;
-  FILE* fp_;
   bool read_mode_;
-  uint32_t nrows_;
-  uint32_t ndims_;
-  size_t file_size_;
+  uint32_t subset_first_row_;
+  uint32_t subset_size_;
+
+  mutable FILE* fp_;
+  mutable uint32_t nrows_;
+  mutable uint32_t ndims_;
+  mutable size_t file_size_;
+  mutable void* mapped_ptr_;
 };
 
 template <typename T>
@@ -117,23 +136,32 @@ BinFile<T>::BinFile(const std::string& file,
                     const std::string& mode,
                     uint32_t subset_first_row,
                     uint32_t subset_size)
-  : file_(file)
+  : file_(file),
+    read_mode_(mode == "r"),
+    subset_first_row_(subset_first_row),
+    subset_size_(subset_size),
+    fp_(nullptr)
 {
   check_suffix_();
 
-  if (mode == "r") {
-    read_mode_ = true;
-  } else if (mode == "w") {
-    read_mode_ = false;
-    if (subset_first_row != 0) {
-      throw std::runtime_error("subset_first_row should be zero for write mode");
+  if (!read_mode_) {
+    if (mode == "w") {
+      if (subset_first_row != 0) {
+        throw std::runtime_error("subset_first_row should be zero for write mode");
+      }
+      if (subset_size != 0) {
+        throw std::runtime_error("subset_size should be zero for write mode");
+      }
+    } else {
+      throw std::runtime_error("BinFile's mode must be either 'r' or 'w': " + file_);
     }
-    if (subset_size != 0) { throw std::runtime_error("subset_size should be zero for write mode"); }
-  } else {
-    throw std::runtime_error("BinFile's mode must be either 'r' or 'w': " + file_);
   }
+}
 
-  fp_ = fopen(file_.c_str(), mode.c_str());
+template <typename T>
+void BinFile<T>::open_file_() const
+{
+  fp_ = fopen(file_.c_str(), read_mode_ ? "r" : "w");
   if (!fp_) { throw std::runtime_error("open BinFile failed: " + file_); }
 
   if (read_mode_) {
@@ -156,24 +184,24 @@ BinFile<T>::BinFile(const std::string& file,
                                std::to_string(file_size_));
     }
 
-    if (subset_first_row >= nrows_) {
-      throw std::runtime_error(file_ + ": subset_first_row (" + std::to_string(subset_first_row) +
+    if (subset_first_row_ >= nrows_) {
+      throw std::runtime_error(file_ + ": subset_first_row (" + std::to_string(subset_first_row_) +
                                ") >= nrows (" + std::to_string(nrows_) + ")");
     }
-    if (subset_first_row + subset_size > nrows_) {
-      throw std::runtime_error(file_ + ": subset_first_row (" + std::to_string(subset_first_row) +
-                               ") + subset_size (" + std::to_string(subset_size) + ") > nrows (" +
+    if (subset_first_row_ + subset_size_ > nrows_) {
+      throw std::runtime_error(file_ + ": subset_first_row (" + std::to_string(subset_first_row_) +
+                               ") + subset_size (" + std::to_string(subset_size_) + ") > nrows (" +
                                std::to_string(nrows_) + ")");
     }
 
-    if (subset_first_row) {
+    if (subset_first_row_) {
       static_assert(sizeof(long) == 8, "fseek() don't support 64-bit offset");
-      if (fseek(fp_, sizeof(T) * subset_first_row * ndims_, SEEK_CUR) == -1) {
+      if (fseek(fp_, sizeof(T) * subset_first_row_ * ndims_, SEEK_CUR) == -1) {
         throw std::runtime_error(file_ + ": fseek failed");
       }
-      nrows_ -= subset_first_row;
+      nrows_ -= subset_first_row_;
     }
-    if (subset_size) { nrows_ = subset_size; }
+    if (subset_size_) { nrows_ = subset_size_; }
   }
 }
 
@@ -225,9 +253,9 @@ class Dataset {
 
   std::string name() const { return name_; }
   std::string distance() const { return distance_; }
-  int dim() const { return dim_; }
-  size_t base_set_size() const { return base_set_size_; }
-  size_t query_set_size() const { return query_set_size_; }
+  virtual int dim() const               = 0;
+  virtual size_t base_set_size() const  = 0;
+  virtual size_t query_set_size() const = 0;
 
   // load data lazily, so don't pay the overhead of reading unneeded set
   // e.g. don't load base set when searching
@@ -254,9 +282,6 @@ class Dataset {
 
   std::string name_;
   std::string distance_;
-  int dim_;
-  size_t base_set_size_;
-  size_t query_set_size_;
 
   mutable T* base_set_        = nullptr;
   mutable T* query_set_       = nullptr;
@@ -270,31 +295,37 @@ Dataset<T>::~Dataset()
 {
   delete[] base_set_;
   delete[] query_set_;
-  if (d_base_set_) { RAFT_CUDA_TRY_NO_THROW(cudaFree(d_base_set_)); }
-  if (d_query_set_) { RAFT_CUDA_TRY_NO_THROW(cudaFree(d_query_set_)); }
+#ifndef CPU_ONLY
+  if (d_base_set_) { cudaFree(d_base_set_); }
+  if (d_query_set_) { cudaFree(d_query_set_); }
+#endif
 }
 
 template <typename T>
 const T* Dataset<T>::base_set_on_gpu() const
 {
+#ifndef CPU_ONLY
   if (!d_base_set_) {
     base_set();
-    RAFT_CUDA_TRY(cudaMalloc((void**)&d_base_set_, base_set_size_ * dim_ * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc((void**)&d_base_set_, base_set_size() * dim() * sizeof(T)));
     RAFT_CUDA_TRY(cudaMemcpy(
-      d_base_set_, base_set_, base_set_size_ * dim_ * sizeof(T), cudaMemcpyHostToDevice));
+      d_base_set_, base_set_, base_set_size() * dim() * sizeof(T), cudaMemcpyHostToDevice));
   }
+#endif
   return d_base_set_;
 }
 
 template <typename T>
 const T* Dataset<T>::query_set_on_gpu() const
 {
+#ifndef CPU_ONLY
   if (!d_query_set_) {
     query_set();
-    RAFT_CUDA_TRY(cudaMalloc((void**)&d_query_set_, query_set_size_ * dim_ * sizeof(T)));
+    RAFT_CUDA_TRY(cudaMalloc((void**)&d_query_set_, query_set_size() * dim() * sizeof(T)));
     RAFT_CUDA_TRY(cudaMemcpy(
-      d_query_set_, query_set_, query_set_size_ * dim_ * sizeof(T), cudaMemcpyHostToDevice));
+      d_query_set_, query_set_, query_set_size() * dim() * sizeof(T), cudaMemcpyHostToDevice));
   }
+#endif
   return d_query_set_;
 }
 
@@ -316,24 +347,24 @@ class BinDataset : public Dataset<T> {
              const std::string& distance);
   ~BinDataset()
   {
-    if (this->mapped_base_set_) {
-      base_file_.unmap(reinterpret_cast<char*>(this->mapped_base_set_) - subset_offset_);
-    }
+    if (this->mapped_base_set_) { base_file_.unmap(); }
   }
+
+  int dim() const override;
+  size_t base_set_size() const override;
+  size_t query_set_size() const override;
 
  private:
   void load_base_set_() const override;
   void load_query_set_() const override;
   void map_base_set_() const override;
 
-  using Dataset<T>::dim_;
-  using Dataset<T>::base_set_size_;
-  using Dataset<T>::query_set_size_;
+  mutable int dim_               = 0;
+  mutable size_t base_set_size_  = 0;
+  mutable size_t query_set_size_ = 0;
 
   BinFile<T> base_file_;
   BinFile<T> query_file_;
-
-  size_t subset_offset_;
 };
 
 template <typename T>
@@ -345,37 +376,71 @@ BinDataset<T>::BinDataset(const std::string& name,
                           const std::string& distance)
   : Dataset<T>(name, distance),
     base_file_(base_file, "r", subset_first_row, subset_size),
-    query_file_(query_file, "r"),
-    subset_offset_(2 * sizeof(uint32_t) + subset_first_row * dim_ * sizeof(T))
+    query_file_(query_file, "r")
 {
-  base_file_.get_shape(&base_set_size_, &dim_);
-  int query_dim;
-  query_file_.get_shape(&query_set_size_, &query_dim);
-  if (query_dim != dim_) {
+}
+
+template <typename T>
+int BinDataset<T>::dim() const
+{
+  if (dim_ > 0) { return dim_; }
+  if (base_set_size() > 0) { return dim_; }
+  if (query_set_size() > 0) { return dim_; }
+  return dim_;
+}
+
+template <typename T>
+size_t BinDataset<T>::query_set_size() const
+{
+  if (query_set_size_ > 0) { return query_set_size_; }
+  int dim;
+  query_file_.get_shape(&query_set_size_, &dim);
+  if (query_set_size_ == 0) { throw std::runtime_error("Zero query set size"); }
+  if (dim == 0) { throw std::runtime_error("Zero query set dim"); }
+  if (dim_ == 0) {
+    dim_ = dim;
+  } else if (dim_ != dim) {
     throw std::runtime_error("base set dim (" + std::to_string(dim_) + ") != query set dim (" +
-                             std::to_string(query_dim));
+                             std::to_string(dim));
   }
+  return query_set_size_;
+}
+
+template <typename T>
+size_t BinDataset<T>::base_set_size() const
+{
+  if (base_set_size_ > 0) { return base_set_size_; }
+  int dim;
+  base_file_.get_shape(&base_set_size_, &dim);
+  if (base_set_size_ == 0) { throw std::runtime_error("Zero base set size"); }
+  if (dim == 0) { throw std::runtime_error("Zero base set dim"); }
+  if (dim_ == 0) {
+    dim_ = dim;
+  } else if (dim_ != dim) {
+    throw std::runtime_error("base set dim (" + std::to_string(dim) + ") != query set dim (" +
+                             std::to_string(dim_));
+  }
+  return base_set_size_;
 }
 
 template <typename T>
 void BinDataset<T>::load_base_set_() const
 {
-  this->base_set_ = new T[base_set_size_ * dim_];
+  this->base_set_ = new T[base_set_size() * dim()];
   base_file_.read(this->base_set_);
 }
 
 template <typename T>
 void BinDataset<T>::load_query_set_() const
 {
-  this->query_set_ = new T[query_set_size_ * dim_];
+  this->query_set_ = new T[query_set_size() * dim()];
   query_file_.read(this->query_set_);
 }
 
 template <typename T>
 void BinDataset<T>::map_base_set_() const
 {
-  char* original_map_ptr = static_cast<char*>(base_file_.map());
-  this->mapped_base_set_ = reinterpret_cast<T*>(original_map_ptr + subset_offset_);
+  this->mapped_base_set_ = base_file_.map();
 }
 
 }  // namespace  raft::bench::ann
