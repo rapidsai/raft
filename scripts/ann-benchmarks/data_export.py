@@ -20,12 +20,15 @@ import subprocess
 
 def export_results(output_filepath, recompute, groundtruth_filepath,
                    result_filepaths):
-    print(f"Writing output file to: {os.path.join(os.getcwd(), output_filepath)}")
+    print(f"Writing output file to: {output_filepath}")
+    ann_bench_scripts_path = os.path.join(os.getcwd(),
+                                          "cpp/bench/ann/scripts",
+                                          "eval.pl")
     if recompute:
-        p = subprocess.Popen(["scripts/eval.pl", "-f", "-o", output_filepath,
+        p = subprocess.Popen([ann_bench_scripts_path, "-f", "-o", output_filepath,
                               groundtruth_filepath] + result_filepaths)
     else:
-        p = subprocess.Popen(["scripts/eval.pl", "-o", output_filepath,
+        p = subprocess.Popen([ann_bench_scripts_path, "-o", output_filepath,
                               groundtruth_filepath] + result_filepaths)
     p.wait()
 
@@ -38,17 +41,15 @@ def main():
     parser.add_argument("--recompute", action="store_true",
                         help="Recompute metrics")
     parser.add_argument("--groundtruth",
-                        help="Dataset whose groundtruth is used",
+                        help="Path to groundtruth.neighbors.ibin file for a dataset",
                         required=True)
     args, result_filepaths = parser.parse_known_args()
 
-    # assume "result/<groundtruth_dataset>" folder to be default
     # if nothing is provided
     if len(result_filepaths) == 0:
-        result_filepaths = [f"result/{args.groundtruth}"]
+        raise ValueError("No filepaths to results were provided")
 
-    groundtruth_filepath = os.path.join("data", args.groundtruth,
-                                        "groundtruth.neighbors.ibin")
+    groundtruth_filepath = args.groundtruth
     export_results(args.output, args.recompute, groundtruth_filepath,
                    result_filepaths)
 

@@ -17,6 +17,7 @@
 # 1: https://github.com/erikbern/ann-benchmarks/blob/main/plot.py
 # 2: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/utils.py
 # 3: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/metrics.py
+# Licence: https://github.com/erikbern/ann-benchmarks/blob/main/LICENSE
 
 import matplotlib as mpl
 
@@ -207,8 +208,9 @@ def load_all_results(result_filepath):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--result_filepath", help="Path to CSV Results", required=True)
-    parser.add_argument("--output", help="Path to the PNG output file")
+    parser.add_argument("--result_csv", help="Path to CSV Results", required=True)
+    parser.add_argument("--output", help="Path to the PNG output file",
+                        default=f"{os.getcwd()}/out.png")
     parser.add_argument(
         "--x-scale",
         help="Scale to use when drawing the X-axis. \
@@ -226,11 +228,9 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.output:
-        args.output = f"results/{args.dataset}.png"
-        print(f"writing output to {args.output}")
+    print(f"writing output to {args.output}")
 
-    results = load_all_results(args.result_filepath)
+    results = load_all_results(args.result_csv)
     linestyles = create_linestyles(sorted(results.keys()))
 
     create_plot(results, args.raw, args.x_scale, args.y_scale, args.output, linestyles)

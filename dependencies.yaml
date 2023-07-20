@@ -169,7 +169,7 @@ dependencies:
           - h5py>=3.8.0
           - libfaiss>=1.7.1
           - faiss-proc=*=cuda
-          - mathplotlib
+          - matplotlib
 
   cudatoolkit:
     specific:

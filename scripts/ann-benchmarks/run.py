@@ -24,21 +24,23 @@ def validate_algorithm_and_executable(algos_conf, algo):
     algos_conf_keys = set(algos_conf.keys())
     if algo in algos_conf_keys and not algos_conf[algo]["disabled"]:
         # executable is assumed to be in folder "<root>/cpp/build"
-        executable_filepath = f"../../build/{algos_conf[algo]['executable']}"
-        if not os.path.exists(executable_filepath):
-            raise FileNotFoundError(executable_filepath)
+        ann_executable_path = os.path.join(os.getcwd(), "cpp/build",
+                                           algos_conf[algo]['executable'])
+        if not os.path.exists(ann_executable_path):
+            raise FileNotFoundError(ann_executable_path)
         return True
     else:
         return False
 
 
-def run_build_and_search(conf_filename, conf_file, executables_to_run, force):
+def run_build_and_search(conf_filename, conf_file, executables_to_run, force, ann_bench_path):
     print(f"Building indices for configuration {conf_filename}")
 
     for executable in executables_to_run.keys():
             # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
-        temp_conf_filepath = os.path.join("conf", temp_conf_filename)
+        temp_conf_filepath = os.path.join(ann_bench_path, "conf",
+                                          temp_conf_filename)
         with open(temp_conf_filepath, "w") as f:
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
@@ -46,40 +48,42 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run, force):
             temp_conf["index"] = executables_to_run[executable]["index"]
             json.dump(temp_conf, f)
 
+        ann_executable_path = os.path.join(os.getcwd(), "cpp/build", executable)
         if force:
-            p = subprocess.Popen([f"../../build/{executable}", "-b", "-f",
+            p = subprocess.Popen([ann_executable_path, "-b", "-f",
                                   temp_conf_filepath])
             p.wait()
         else:
-            p = subprocess.Popen([f"../../build/{executable}", "-b",
+            p = subprocess.Popen([ann_executable_path, "-b",
                                   temp_conf_filepath])
             p.wait()
 
         print(f"Searching indices for configuration {conf_filename}")
         for executable in executables_to_run:
             if force:
-                p = subprocess.Popen([f"../../build/{executable}", "-s", "-f",
-                                    temp_conf_filepath])
+                p = subprocess.Popen([ann_executable_path, "-s", "-f",
+                                      temp_conf_filepath])
                 p.wait()
             else:
-                p = subprocess.Popen([f"../../build/{executable}", "-s",
-                                    temp_conf_filepath])
+                p = subprocess.Popen([ann_executable_path, "-s",
+                                      temp_conf_filepath])
                 p.wait()
 
         os.remove(temp_conf_filepath)
 
 
 def main():
+    ann_bench_path = os.path.join(os.getcwd(), "cpp/bench/ann")
     # Read list of allowed algorithms
-    with open("algos.yaml", "r") as f:
+    with open(f"{ann_bench_path}/algos.yaml", "r") as f:
         algos_conf = yaml.safe_load(f)
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
-        "--dataset",
-        help="the dataset to load training points from",
-        default="glove-100-inner",
+        "--configuration",
+        help="path to configuration file for a dataset",
+        required=True
     )
     parser.add_argument("--algorithms",
                         help="run only comma separated list of named \
@@ -97,8 +101,8 @@ def main():
     args = parser.parse_args()
 
     # Read configuration file associated to dataset
-    conf_filename = f"{args.dataset}.json"
-    conf_filepath = os.path.join("conf", conf_filename)
+    conf_filepath = args.configuration
+    conf_filename = conf_filepath.split("/")[-1]
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
 
@@ -151,7 +155,7 @@ def main():
                 executables_to_run[executable]["index"].append(index)
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         args.force)
+                         args.force, ann_bench_path)
 
 
 if __name__ == "__main__":
