@@ -4,6 +4,15 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Installing the benchmarks
 
+You can easily install the benchmarks through conda with the following instructions:
+```bash
+mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
+conda activate raft_ann_benchmarks
+
+mamba install -c rapidsai libraft-ann-bench
+```
+The channel `rapidsai` can easily be subsituted `rapidsai-nightly` if nightly benchmarks are desired.
+
 Please see the [build instructions](ann_benchmarks_build.md) to build the benchmarks from source.
 
 ## Running the benchmarks

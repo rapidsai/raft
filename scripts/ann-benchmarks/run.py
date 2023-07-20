@@ -20,23 +20,29 @@ import subprocess
 import yaml
 
 
-def validate_algorithm_and_executable(algos_conf, algo):
+def validate_algorithm(algos_conf, algo):
     algos_conf_keys = set(algos_conf.keys())
-    if algo in algos_conf_keys and not algos_conf[algo]["disabled"]:
-        # executable is assumed to be in folder "<root>/cpp/build"
-        ann_executable_path = os.path.join(os.getcwd(), "cpp/build",
-                                           algos_conf[algo]['executable'])
-        if not os.path.exists(ann_executable_path):
-            raise FileNotFoundError(ann_executable_path)
-        return True
+    return algo in algos_conf_keys and not algos_conf[algo]["disabled"]
+
+
+def find_executable(algos_conf, algo):
+    executable = algos_conf[algo]["executable"]
+    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
+                              executable)
+    build_path = os.path.join(os.getcwd(), "cpp", "build", executable)
+    if os.path.exists(conda_path):
+        return (executable, conda_path)
+    elif os.path.exists(build_path):
+        return (executable, build_path)
     else:
-        return False
+        raise FileNotFoundError(executable)
 
 
 def run_build_and_search(conf_filename, conf_file, executables_to_run, force, ann_bench_path):
     print(f"Building indices for configuration {conf_filename}")
 
-    for executable in executables_to_run.keys():
+    for executable, ann_executable_path in executables_to_run.keys():
+        print(executable, ann_executable_path)
             # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
         temp_conf_filepath = os.path.join(ann_bench_path, "conf",
@@ -45,10 +51,10 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run, force, an
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
-            temp_conf["index"] = executables_to_run[executable]["index"]
+            temp_conf["index"] = executables_to_run[(executable, 
+                                                     ann_executable_path)]["index"]
             json.dump(temp_conf, f)
 
-        ann_executable_path = os.path.join(os.getcwd(), "cpp/build", executable)
         if force:
             p = subprocess.Popen([ann_executable_path, "-b", "-f",
                                   temp_conf_filepath])
@@ -121,38 +127,38 @@ def main():
         indices = set(args.indices.split(","))
         # algo associated with index should still be present in algos.yaml
         # and enabled
-        for pos, index in enumerate(conf_file["index"]):
+        for index in conf_file["index"]:
             curr_algo = index["algo"]
             if index["name"] in indices and \
-                    validate_algorithm_and_executable(algos_conf, curr_algo):
-                executable = algos_conf[curr_algo]["executable"]
-                if executable not in executables_to_run:
-                    executables_to_run[executable] = {"index": []}
-                executables_to_run[executable]["index"].append(index)
+                    validate_algorithm(algos_conf, curr_algo):
+                executable_path = find_executable(algos_conf, curr_algo)
+                if executable_path not in executables_to_run:
+                    executables_to_run[executable_path] = {"index": []}
+                executables_to_run[executable_path]["index"].append(index)
 
     # switch to named algorithms if indices parameter is not supplied
     elif args.algorithms:
         algorithms = set(args.algorithms.split(","))
         # pick out algorithms from conf file that exist
         # and are enabled in algos.yaml
-        for pos, index in enumerate(conf_file["index"]):
+        for index in conf_file["index"]:
             curr_algo = index["algo"]
             if curr_algo in algorithms and \
-                    validate_algorithm_and_executable(algos_conf, curr_algo):
-                executable = algos_conf[curr_algo]["executable"]
-                if executable not in executables_to_run:
-                    executables_to_run[executable] = {"index": []}
-                executables_to_run[executable]["index"].append(index)
+                    validate_algorithm(algos_conf, curr_algo):
+                executable_path = find_executable(algos_conf, curr_algo)
+                if executable_path not in executables_to_run:
+                    executables_to_run[executable_path] = {"index": []}
+                executables_to_run[executable_path]["index"].append(index)
 
     # default, try to run all available algorithms
     else:
-        for pos, index in enumerate(conf_file["index"]):
+        for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if validate_algorithm_and_executable(algos_conf, curr_algo):
-                executable = algos_conf[curr_algo]["executable"]
-                if executable not in executables_to_run:
-                    executables_to_run[executable] = {"index": []}
-                executables_to_run[executable]["index"].append(index)
+            if validate_algorithm(algos_conf, curr_algo):
+                executable_path = find_executable(algos_conf, curr_algo)
+                if executable_path not in executables_to_run:
+                    executables_to_run[executable_path] = {"index": []}
+                executables_to_run[executable_path]["index"].append(index)
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
                          args.force, ann_bench_path)
