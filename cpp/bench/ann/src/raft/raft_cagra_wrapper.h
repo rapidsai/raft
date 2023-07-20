@@ -71,7 +71,7 @@ class RaftCagra : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
+    property.dataset_memory_type      = MemoryType::Host;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = true;
     return property;
@@ -104,8 +104,17 @@ RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  auto dataset_view = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
-  index_.emplace(raft::neighbors::experimental::cagra::build(handle_, index_params_, dataset_view));
+  logger::get(RAFT_NAME).set_level(RAFT_LEVEL_DEBUG);
+  if (get_property().dataset_memory_type == MemoryType::Host) {
+    auto dataset_view = raft::make_host_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
+    index_.emplace(
+      raft::neighbors::experimental::cagra::build(handle_, index_params_, dataset_view));
+  } else {
+    auto dataset_view =
+      raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
+    index_.emplace(
+      raft::neighbors::experimental::cagra::build(handle_, index_params_, dataset_view));
+  }
   return;
 }
 
