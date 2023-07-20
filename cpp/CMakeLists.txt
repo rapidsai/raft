@@ -342,6 +342,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
     src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
     src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
+    src/neighbors/detail/refine_host_float_float.cpp
+    src/neighbors/detail/refine_host_int8_t_float.cpp
+    src/neighbors/detail/refine_host_uint8_t_float.cpp
     src/neighbors/detail/selection_faiss_int32_t_float.cu
     src/neighbors/detail/selection_faiss_int_double.cu
     src/neighbors/detail/selection_faiss_long_float.cu
