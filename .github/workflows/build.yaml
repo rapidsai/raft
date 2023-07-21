@@ -66,7 +66,7 @@ jobs:
       run_script: "ci/build_docs.sh"
   wheel-build-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@feat/local-test
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -76,7 +76,7 @@ jobs:
   wheel-publish-pylibraft:
     needs: wheel-build-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@feat/local-test
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -86,7 +86,7 @@ jobs:
   wheel-build-raft-dask:
     needs: wheel-publish-pylibraft
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@feat/local-test
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -96,7 +96,7 @@ jobs:
   wheel-publish-raft-dask:
     needs: wheel-build-raft-dask
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@feat/local-test
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
