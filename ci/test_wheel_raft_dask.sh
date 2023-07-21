@@ -15,7 +15,7 @@ python -m pip install --no-deps ./local-pylibraft-dep/pylibraft*.whl
 python -m pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install -v $(echo ./dist/raft_dask*.whl)[test]
+python -m pip install $(echo ./dist/raft_dask*.whl)[test]
 
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
