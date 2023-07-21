@@ -23,7 +23,6 @@
 // separate translation unit for this test.
 //
 // TODO: edge case testing
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
