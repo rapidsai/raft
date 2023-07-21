@@ -26,7 +26,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/neighbors/ivf_flat_codepacker.cuh>
+#include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
@@ -425,7 +425,7 @@ __global__ void pack_interleaved_list_kernel(
 {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
-    codepacker::pack_1_interleaved(codes + tid * dim, list_data, dim, veclen, tid);
+    codepacker::pack_1(codes + tid * dim, list_data, dim, veclen, tid);
   }
 }
 
@@ -435,7 +435,7 @@ __global__ void unpack_interleaved_list_kernel(
 {
   uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < n_rows) {
-    codepacker::unpack_1_interleaved(list_data, codes + tid * dim, dim, veclen, tid);
+    codepacker::unpack_1(list_data, codes + tid * dim, dim, veclen, tid);
   }
 }
 

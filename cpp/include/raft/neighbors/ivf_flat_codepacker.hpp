@@ -38,7 +38,7 @@ namespace raft::neighbors::ivf_flat::codepacker {
  * @param[in] offset how many records to skip before writing the data into the list
  */
 template <typename T>
-__host__ __device__ void pack_1_interleaved(
+_RAFT_HOST_DEVICE void pack_1(
   const T* flat_code, T* block, uint32_t dim, uint32_t veclen, uint32_t offset)
 {
   // The data is written in interleaved groups of `index::kGroupSize` vectors
@@ -70,7 +70,7 @@ __host__ __device__ void pack_1_interleaved(
  * @param[in] offset fetch the flat code by the given offset
  */
 template <typename T>
-__host__ __device__ void unpack_1_interleaved(
+_RAFT_HOST_DEVICE void unpack_1(
   const T* block, T* flat_code, uint32_t dim, uint32_t veclen, uint32_t offset)
 {
   // The data is written in interleaved groups of `index::kGroupSize` vectors
