@@ -11,7 +11,7 @@ conda activate raft_ann_benchmarks
 
 mamba install -c rapidsai libraft-ann-bench
 ```
-The channel `rapidsai` can easily be subsituted `rapidsai-nightly` if nightly benchmarks are desired.
+The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
 
 Please see the [build instructions](ann_benchmarks_build.md) to build the benchmarks from source.
 
