@@ -30,8 +30,8 @@ namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
 
 #define instantiate_kernel_selection(TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T) \
   template void select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(      \
-    raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,                   \
-    raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,                        \
+    raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,                   \
+    raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                        \
     INDEX_T* const topk_indices_ptr,                                                          \
     DISTANCE_T* const topk_distances_ptr,                                                     \
     const DATA_T* const queries_ptr,                                                          \
