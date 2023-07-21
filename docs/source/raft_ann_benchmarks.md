@@ -108,19 +108,24 @@ available in `raft/cpp/build/`.
 
 The usage of the script `scripts/run.py` is:
 ```bash
-usage: run.py [-h] --configuration CONFIGURATION [--algorithms ALGORITHMS] [--indices INDICES] [--force]
+usage: run.py [-h] --configuration CONFIGURATION [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [--force]
 
 options:
   -h, --help            show this help message and exit
   --configuration CONFIGURATION
                         path to configuration file for a dataset (default: None)
+  --build
+  --search
   --algorithms ALGORITHMS
                         run only comma separated list of named algorithms (default: None)
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
   --force               re-run algorithms even if their results already exist (default: False)
 ```
 
-Both parameters `indices` and `algorithms` ensure that the algorithm specified for an index 
+`build` and `search` : if both parameters are not supplied to the script then
+it is assumed both are `True`.
+
+`indices` and `algorithms` : these parameters ensure that the algorithm specified for an index 
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 #### Step 3: Evaluating Results

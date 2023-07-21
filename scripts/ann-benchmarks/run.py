@@ -38,12 +38,10 @@ def find_executable(algos_conf, algo):
         raise FileNotFoundError(executable)
 
 
-def run_build_and_search(conf_filename, conf_file, executables_to_run, force, ann_bench_path):
-    print(f"Building indices for configuration {conf_filename}")
-
+def run_build_and_search(conf_filename, conf_file, executables_to_run,
+                         force, ann_bench_path, build, search):
     for executable, ann_executable_path in executables_to_run.keys():
-        print(executable, ann_executable_path)
-            # Need to write temporary configuration
+        # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
         temp_conf_filepath = os.path.join(ann_bench_path, "conf",
                                           temp_conf_filename)
@@ -55,17 +53,17 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run, force, an
                                                      ann_executable_path)]["index"]
             json.dump(temp_conf, f)
 
-        if force:
-            p = subprocess.Popen([ann_executable_path, "-b", "-f",
-                                  temp_conf_filepath])
-            p.wait()
-        else:
-            p = subprocess.Popen([ann_executable_path, "-b",
-                                  temp_conf_filepath])
-            p.wait()
+        if build:
+            if force:
+                p = subprocess.Popen([ann_executable_path, "-b", "-f",
+                                    temp_conf_filepath])
+                p.wait()
+            else:
+                p = subprocess.Popen([ann_executable_path, "-b",
+                                    temp_conf_filepath])
+                p.wait()
 
-        print(f"Searching indices for configuration {conf_filename}")
-        for executable in executables_to_run:
+        if search:
             if force:
                 p = subprocess.Popen([ann_executable_path, "-s", "-f",
                                       temp_conf_filepath])
@@ -91,6 +89,14 @@ def main():
         help="path to configuration file for a dataset",
         required=True
     )
+    parser.add_argument(
+        "--build",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--search",
+        action="store_true"
+    )
     parser.add_argument("--algorithms",
                         help="run only comma separated list of named \
                               algorithms",
@@ -105,6 +111,17 @@ def main():
                         action="store_true")
 
     args = parser.parse_args()
+
+    # If both build and search are not provided,
+    # run both
+    if not args.build and not args.search:
+        build = True
+        search = True
+    else:
+        if args.build:
+            build = args.build
+        if args.search:
+            search = args.search
 
     # Read configuration file associated to dataset
     conf_filepath = args.configuration
@@ -161,7 +178,7 @@ def main():
                 executables_to_run[executable_path]["index"].append(index)
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         args.force, ann_bench_path)
+                         args.force, ann_bench_path, build, search)
 
 
 if __name__ == "__main__":
