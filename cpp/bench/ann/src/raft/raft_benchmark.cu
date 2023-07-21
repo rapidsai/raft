@@ -132,13 +132,18 @@ void parse_build_param(const nlohmann::json& conf,
     param.graph_degree              = conf.at("index_dim");
     param.intermediate_graph_degree = param.graph_degree * 2;
   }
+  if (conf.contains("intermediate_graph_degree")) {
+    param.intermediate_graph_degree = conf.at("intermediate_graph_degree");
+  }
 }
 
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
-  param.itopk_size = conf.at("itopk");
+  if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
+  if (conf.contains("search_width")) { param.p.num_parents = conf.at("search_width"); }
+  if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
 }
 #endif
 
