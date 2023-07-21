@@ -21,7 +21,7 @@
 #include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 
-#if _RAFT_HAS_CUDA
+#ifdef _RAFT_HAS_CUDA
 #include <cuda_bf16.h>
 #include <cuda_fp16.h>
 #endif
@@ -33,7 +33,7 @@ __global__ void math_eval_kernel(OutT* out, OpT op, Args... args)
 }
 
 template <typename OpT, typename... Args>
-auto math_eval(OpT op, Args&&... args)
+_RAFT_HOST_DEVICE auto math_eval(OpT op, Args&&... args)
 {
   typedef decltype(op(args...)) OutT;
   auto stream = rmm::cuda_stream_default;
