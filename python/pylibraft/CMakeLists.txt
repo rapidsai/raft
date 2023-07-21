@@ -12,11 +12,13 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 set(pylibraft_version 23.08.00)
 
 include(../../fetch_rapids.cmake)
+include(rapids-cuda)
+rapids_cuda_init_architectures(pylibraft)
 
 project(
   pylibraft
@@ -25,7 +27,7 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C CXX
+            C CXX CUDA
 )
 
 option(FIND_RAFT_CPP "Search for existing RAFT C++ installations before defaulting to local files"
@@ -51,15 +53,6 @@ endif()
 include(rapids-cython)
 
 if(NOT raft_FOUND)
-  # TODO: This will not be necessary once we upgrade to CMake 3.22, which will pull in the required
-  # languages for the C++ project even if this project does not require those languages.
-  include(rapids-cuda)
-  rapids_cuda_init_architectures(pylibraft)
-  enable_language(CUDA)
-  # Since pylibraft only enables CUDA optionally we need to manually include the file that
-  # rapids_cuda_init_architectures relies on `project` including.
-  include("${CMAKE_PROJECT_pylibraft_INCLUDE}")
-
   set(BUILD_TESTS OFF)
   set(BUILD_PRIMS_BENCH OFF)
   set(BUILD_ANN_BENCH OFF)
