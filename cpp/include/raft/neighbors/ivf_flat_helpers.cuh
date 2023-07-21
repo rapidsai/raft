@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 
@@ -31,38 +30,26 @@ namespace raft::neighbors::ivf_flat::helpers {
 
 namespace codepacker {
 
-template <typename T>
+template <typename T, typename IdxT>
 void pack_full_list(
-  raft::resources const& handle,
-  T* codes,
-  uint32_t n_rows,
-  uint32_t dim,
+  raft::resources const& res,
+  device_matrix_view<const T, uint32_t, row_major> codes,
   uint32_t veclen,
-  T* list_data)
+  device_mdspan<T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major>
+    list_data)
 {
-  raft::neighbors::ivf_flat::detail::pack_list_data(handle, codes, n_rows, dim, veclen, list_data);
+  raft::neighbors::ivf_flat::detail::pack_list_data<T, IdxT>(res, codes, veclen, list_data);
 }
 
-// template <typename T, typename IdxT>
-// void unpack_full_list(
-//   raft::resources const& res,
-//   device_mdspan<const T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major>
-//     list_data,
-//   uint32_t veclen,
-//   device_matrix_view<T, uint32_t, row_major> codes)
-// {
-//   raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, veclen, codes);
-// }
 template <typename T, typename IdxT>
 void unpack_full_list(
   raft::resources const& res,
-  T* list_data,
-  uint32_t n_rows,
-  uint32_t dim,
+  device_mdspan<const T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major>
+    list_data,
   uint32_t veclen,
-  T* codes)
+  device_matrix_view<T, uint32_t, row_major> codes)
 {
-  raft::neighbors::ivf_flat::detail::unpack_list_data(res, list_data, n_rows, dim, veclen, codes);
+  raft::neighbors::ivf_flat::detail::unpack_list_data<T, IdxT>(res, list_data, veclen, codes);
 }
 }  // namespace codepacker
 /** @} */

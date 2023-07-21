@@ -22,10 +22,6 @@
 #include "raft/core/logger-macros.hpp"
 #include "raft/core/mdspan.hpp"
 #include "raft/core/mdspan_types.hpp"
-#include "raft/linalg/map.cuh"
-#include "raft/neighbors/ivf_flat_types.hpp"
-#include "raft/util/cudart_utils.hpp"
-#include "raft/util/fast_int_div.cuh"
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 
@@ -37,7 +33,6 @@
 #include <raft/matrix/gather.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_flat_helpers.cuh>
-#include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -297,6 +292,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
     auto index = ivf_flat::build(handle_, index_params, database_view);
 
+    // index<DataT, IdxT> index_2 = ivf_flat::extend(handle_, half_of_data_view, no_opt, idx);
+
     raft::print_device_vector("list_sizes", index.list_sizes().data_handle(), ps.nlist, std::cout);
     RAFT_LOG_INFO("total db size %lld", ps.num_db_vecs);
 
@@ -309,30 +306,21 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     update_host(inds_ptrs.data_handle(), index.inds_ptrs().data_handle(), index.n_lists(), stream_);
     resource::sync_stream(handle_);
 
-    auto list_device_spec = list_spec<uint32_t, T, IdxT>{static_cast<uint32_t>(ps.dim), false};
+    auto list_device_spec = list_spec<uint32_t, DataT, IdxT>{static_cast<uint32_t>(ps.dim), false};
 
     for (uint32_t label = 0; label < index.n_lists(); label++) {
       uint32_t list_size = list_sizes.data_handle()[label];
-      T* list_data_ptr = data_ptrs.data_handle()[label];
+      DataT* list_data_ptr = data_ptrs.data_handle()[label];
       IdxT* list_inds_ptr = inds_ptrs.data_handle()[label];
       
       auto exts = list_device_spec.make_list_extents(Pow2<kIndexGroupSize>::roundUp(list_size));
-      auto interleaved_data = make_device_mdarray<T, uint32_t, row_major>(handle_, exts);
+      auto interleaved_data = make_device_mdarray<DataT, uint32_t, row_major>(handle_, exts);
 
       RAFT_LOG_INFO("interleaved_codes_extent(0) %u", interleaved_data.extent(0));
       RAFT_LOG_INFO("interleaved_codes_extent(1) %u", interleaved_data.extent(1));
 
       // fetch the flat codes
       auto flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, static_cast<uint32_t>(ps.dim));
-      //  auto flat_codes_view = raft::make_device_matrix_view<const T, uint32_t>(
-      // (const T*)flat_codes.data_handle(), list_size, ps.dim);
-
-      // flat_codes_from_list_indices<DataT, IdxT>(handle_,
-      //                         list_inds_ptr,
-      //                         list_data_ptr,
-      //                         list_size,
-      //                         static_cast<uint32_t>(ps.dim),
-      //                         flat_codes.data_handle());
 
       RAFT_LOG_INFO("static_cast %u", static_cast<uint32_t>(ps.num_db_vecs));
       RAFT_LOG_INFO("static_cast %u", static_cast<uint32_t>(ps.dim));
@@ -342,14 +330,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                      flat_codes.view());
 
       // auto interleaved_codes_view = device_mdspan<T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major>(interleaved_data.data_handle(), exts);
-      // auto interleaved_codes_view = raft::make_device_matrix_view(interleaved_data.data_handle(), list_size, (uint32_t)ps.dim);
-      detail::pack_list_data<T>(
+      helpers::codepacker::pack_full_list<DataT, IdxT>(
         handle_,
-        flat_codes.data_handle(),
-        list_size,
-        (uint32_t)ps.dim,
+        make_const_mdspan(flat_codes.view()),
         index.veclen(),
-        interleaved_data.data_handle());
+        interleaved_data.view());
+
+      resource::sync_stream(handle_);
       
       raft::print_device_vector("indices", list_inds_ptr, list_size, std::cout);
       raft::print_device_vector("flat_codes", flat_codes.data_handle(), list_size * ps.dim, std::cout);
@@ -366,15 +353,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                     raft::Compare<float>(),
                                     stream_));
 
-      auto unpacked_flat_codes = make_device_matrix<T, uint32_t>(handle_, static_cast<uint32_t>(list_size), ps.dim);
+      auto unpacked_flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, static_cast<uint32_t>(ps.dim));
 
-      detail::unpack_list_data<T>(
+      helpers::codepacker::unpack_full_list<DataT, IdxT>(
         handle_,
-        interleaved_data.data_handle(),
-        list_size,
-        (uint32_t)ps.dim,
+        interleaved_data.view(),
         index.veclen(),
-        unpacked_flat_codes.data_handle());
+        unpacked_flat_codes.view());
 
       ASSERT_TRUE(raft::devArrMatch(flat_codes.data_handle(),
                                     unpacked_flat_codes.data_handle(),
