@@ -64,7 +64,7 @@ namespace raft::neighbors::experimental::cagra {
  * optimized_graph.view());
  * @endcode
  *
- * @tparam T data element type
+ * @tparam DataT data element type
  * @tparam IdxT type of the indices in the source dataset
  *
  * @param[in] res raft resources
