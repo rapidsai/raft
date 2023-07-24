@@ -231,6 +231,7 @@ struct index : ann::index {
 
 }  // namespace raft::neighbors::cagra
 
+// TODO: Remove deprecated experimental namespace in 23.12 release
 namespace raft::neighbors::experimental::cagra {
 using raft::neighbors::cagra::hash_mode;
 using raft::neighbors::cagra::index;

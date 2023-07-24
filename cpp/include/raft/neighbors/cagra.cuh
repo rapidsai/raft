@@ -319,6 +319,7 @@ void search(raft::resources const& res,
 
 }  // namespace raft::neighbors::cagra
 
+// TODO: Remove deprecated experimental namespace in 23.12 release
 namespace raft::neighbors::experimental::cagra {
 using raft::neighbors::cagra::build;
 using raft::neighbors::cagra::build_knn_graph;
