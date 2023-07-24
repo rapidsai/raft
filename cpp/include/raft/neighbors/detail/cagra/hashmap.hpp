@@ -18,6 +18,7 @@
 #include "utils.hpp"
 #include <cstdint>
 #include <raft/core/detail/macros.hpp>
+#include <raft/util/device_atomics.cuh>
 
 // #pragma GCC diagnostic push
 // #pragma GCC diagnostic ignored

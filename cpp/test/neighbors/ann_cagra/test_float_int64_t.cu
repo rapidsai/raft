@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include "../ann_cagra.cuh"
+#include "search_kernel_uint64_t.cuh"
 
 namespace raft::neighbors::experimental::cagra {
 
