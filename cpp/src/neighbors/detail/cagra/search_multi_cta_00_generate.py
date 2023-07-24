@@ -40,7 +40,7 @@ header = """
 
 #include <raft/neighbors/detail/cagra/search_multi_cta_kernel-inl.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
+namespace raft::neighbors::cagra::detail::multi_cta_search {
 
 #define instantiate_kernel_selection(TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T) \\
   template void select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(      \\
@@ -73,7 +73,7 @@ namespace raft::neighbors::experimental::cagra::detail::multi_cta_search {
 trailer = """
 #undef instantiate_kernel_selection
 
-} // namespace raft::neighbors::experimental::cagra::detail::namespace multi_cta_search
+} // namespace raft::neighbors::cagra::detail::namespace multi_cta_search
 """
 
 mxdim_team = [(128, 8), (256, 16), (512, 32), (1024, 32)]

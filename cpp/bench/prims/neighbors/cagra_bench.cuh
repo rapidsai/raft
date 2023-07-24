@@ -73,13 +73,13 @@ struct CagraBench : public fixture {
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
-    index_.emplace(raft::neighbors::experimental::cagra::index<T, IdxT>(
+    index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
       handle, metric, make_const_mdspan(dataset.view()), knn_graph.view()));
   }
 
   void run_benchmark(::benchmark::State& state) override
   {
-    raft::neighbors::experimental::cagra::search_params search_params;
+    raft::neighbors::cagra::search_params search_params;
     search_params.max_queries       = 1024;
     search_params.itopk_size        = params_.itopk_size;
     search_params.team_size         = 0;
@@ -95,7 +95,7 @@ struct CagraBench : public fixture {
 
     auto queries_v = make_const_mdspan(queries_.view());
     loop_on_state(state, [&]() {
-      raft::neighbors::experimental::cagra::search(
+      raft::neighbors::cagra::search(
         this->handle, search_params, *this->index_, queries_v, ind_v, dist_v);
     });
 
@@ -123,7 +123,7 @@ struct CagraBench : public fixture {
 
  private:
   const params params_;
-  std::optional<const raft::neighbors::experimental::cagra::index<T, IdxT>> index_;
+  std::optional<const raft::neighbors::cagra::index<T, IdxT>> index_;
   raft::device_matrix<T, IdxT, row_major> queries_;
 };
 

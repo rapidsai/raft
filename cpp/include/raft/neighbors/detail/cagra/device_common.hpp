@@ -21,7 +21,7 @@
 #include <cuda_fp16.h>
 #include <raft/core/detail/macros.hpp>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace device {
 
 // warpSize for compile time calculation
@@ -49,4 +49,4 @@ _RAFT_DEVICE inline T swizzling(T x)
 }
 
 }  // namespace device
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

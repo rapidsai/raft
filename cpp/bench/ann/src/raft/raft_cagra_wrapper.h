@@ -50,7 +50,7 @@ class RaftCagra : public ANN<T> {
     unsigned itopk_size;
   };
 
-  using BuildParam = raft::neighbors::experimental::cagra::index_params;
+  using BuildParam = raft::neighbors::cagra::index_params;
 
   RaftCagra(Metric metric, int dim, const BuildParam& param);
 
@@ -82,8 +82,8 @@ class RaftCagra : public ANN<T> {
  private:
   raft::device_resources handle_;
   BuildParam index_params_;
-  raft::neighbors::experimental::cagra::search_params search_params_;
-  std::optional<raft::neighbors::experimental::cagra::index<T, IdxT>> index_;
+  raft::neighbors::cagra::search_params search_params_;
+  std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
@@ -105,7 +105,7 @@ template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
   auto dataset_view = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
-  index_.emplace(raft::neighbors::experimental::cagra::build(handle_, index_params_, dataset_view));
+  index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
   return;
 }
 
@@ -118,14 +118,14 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
-  raft::neighbors::experimental::cagra::serialize(handle_, file, *index_);
+  raft::neighbors::cagra::serialize(handle_, file, *index_);
   return;
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::load(const std::string& file)
 {
-  index_ = raft::neighbors::experimental::cagra::deserialize<T, IdxT>(handle_, file);
+  index_ = raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file);
   return;
 }
 
@@ -146,10 +146,10 @@ void RaftCagra<T, IdxT>::search(
   auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, k);
   auto distances_view = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
 
-  raft::neighbors::experimental::cagra::search_params search_params;
+  raft::neighbors::cagra::search_params search_params;
   search_params.max_queries = batch_size;
   search_params.itopk_size  = search_params_.max_queries;
-  raft::neighbors::experimental::cagra::search(
+  raft::neighbors::cagra::search(
     handle_, search_params, *index_, queries_view, neighbors_view, distances_view);
 
   if (!std::is_same<IdxT, size_t>::value) {
