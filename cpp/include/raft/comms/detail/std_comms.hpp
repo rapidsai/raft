@@ -140,7 +140,7 @@ class std_comms : public comms_iface {
     update_host(h_colors.data(), d_colors.data(), get_size(), stream_);
     update_host(h_keys.data(), d_keys.data(), get_size(), stream_);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    this->sync_stream(stream_);
 
     ncclComm_t nccl_comm;
 
@@ -168,7 +168,7 @@ class std_comms : public comms_iface {
 
     update_host(&id, d_nccl_ids.data() + offset, 1, stream_);
 
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_));
+    this->sync_stream(stream_);
 
     RAFT_NCCL_TRY(ncclCommInitRank(&nccl_comm, subcomm_size, id, key));
 
