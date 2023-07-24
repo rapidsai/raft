@@ -74,7 +74,6 @@ struct CagraBench : public fixture {
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
-
     index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
       handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view())));
   }
