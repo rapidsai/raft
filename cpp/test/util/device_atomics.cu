@@ -51,12 +51,12 @@ TEST(Raft, AtomicIncWarp)
   // Write all 1M thread indices to a unique location in `out_device`
   test_atomic_inc_warp_kernel<<<num_blocks, threads_per_block, 0, s>>>(counter.data(),
                                                                        out_device.data());
-
   // Copy data to host
-  RAFT_CUDA_TRY(cudaMemcpy(out_host.data(),
-                           (const void*)out_device.data(),
-                           num_elts * sizeof(int),
-                           cudaMemcpyDeviceToHost));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(out_host.data(),
+                                (const void*)out_device.data(),
+                                num_elts * sizeof(int),
+                                cudaMemcpyDeviceToHost,
+                                s));
 
   // Check that count is correct and that each thread index is contained in the
   // array exactly once.
