@@ -54,8 +54,7 @@ function(ConfigureTest)
   )
   set_target_properties(
     ${TEST_NAME}
-    PROPERTIES
-               RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${RAFT_BINARY_DIR}/gtests>"
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY "$<BUILD_INTERFACE:${RAFT_BINARY_DIR}/gtests>"
                INSTALL_RPATH "\$ORIGIN/../../../lib"
                CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
@@ -189,9 +188,7 @@ if(BUILD_TESTS)
     NAME EXT_HEADERS_TEST_COMPILED_EXPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
-  ConfigureTest(
-    NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB
-  )
+  ConfigureTest(NAME EXT_HEADERS_TEST_COMPILED_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES} LIB)
   ConfigureTest(NAME EXT_HEADERS_TEST_IMPLICIT PATH ${EXT_HEADER_TEST_SOURCES})
 
   ConfigureTest(NAME LABEL_TEST PATH test/label/label.cu test/label/merge_labels.cu)
@@ -256,25 +253,11 @@ if(BUILD_TESTS)
     EXPLICIT_INSTANTIATE_ONLY
   )
 
+  ConfigureTest(NAME MATRIX_SELECT_TEST PATH test/matrix/select_k.cu LIB EXPLICIT_INSTANTIATE_ONLY)
 
   ConfigureTest(
-    NAME
-    MATRIX_SELECT_TEST
-    PATH
-    test/matrix/select_k.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME MATRIX_SELECT_LARGE_TEST PATH test/matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
-
-  ConfigureTest(
-    NAME
-    MATRIX_SELECT_LARGE_TEST
-    PATH
-    test/matrix/select_large_k.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
-  )
-
 
   ConfigureTest(
     NAME
@@ -319,7 +302,7 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME SPARSE_DIST_TEST PATH test/sparse/dist_coo_spmv.cu test/sparse/distance.cu
-    test/sparse/gram.cu  LIB EXPLICIT_INSTANTIATE_ONLY
+    test/sparse/gram.cu LIB EXPLICIT_INSTANTIATE_ONLY
   )
 
   ConfigureTest(
@@ -366,7 +349,10 @@ if(BUILD_TESTS)
     src/neighbors/detail/cagra/search_single_cta_float_uint64_dim1024_t32.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
-    GPUS 1 PERCENT 100
+    GPUS
+    1
+    PERCENT
+    100
   )
 
   ConfigureTest(
@@ -383,16 +369,14 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
-    GPUS 1 PERCENT 100
+    GPUS
+    1
+    PERCENT
+    100
   )
 
   ConfigureTest(
-    NAME
-    NEIGHBORS_SELECTION_TEST
-    PATH
-    test/neighbors/selection.cu
-    LIB
-    EXPLICIT_INSTANTIATE_ONLY
+    NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
     GPUS 1 PERCENT 50
   )
 
