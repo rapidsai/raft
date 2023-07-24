@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 using namespace cub;
 
 //
@@ -927,4 +927,4 @@ inline void _cuann_find_topk(uint32_t topK,
 
   return;
 }
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
