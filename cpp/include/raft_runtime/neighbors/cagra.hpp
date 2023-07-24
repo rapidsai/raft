@@ -27,6 +27,7 @@
 
 namespace raft::runtime::neighbors::experimental::cagra {
 
+// Using device and host_matrix_view avoids needing to typedef mutltiple mdspans based on accessors
 #define RAFT_INST_CAGRA_FUNCS(T, IdxT)                                                       \
   auto build(raft::resources const& handle,                                                  \
              const raft::neighbors::experimental::cagra::index_params& params,               \
