@@ -20,19 +20,31 @@ build:
   number: {{ GIT_DESCRIBE_NUMBER }}
   string: cuda{{ cuda_major }}_py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
   ignore_run_exports_from:
-    - {{ compiler('cuda') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }}
+    {% endif %}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cuda-python >=11.7.1,<12.0
-    - cudatoolkit ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - cuda-python >=11.7.1,<12.0a0
+    - cudatoolkit
+    {% else %}
+    - cuda-python >=12.0,<13.0a0
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - cython >=0.29,<0.30
     - libraft {{ version }}
     - libraft-headers {{ version }}
@@ -42,15 +54,18 @@ requirements:
     - scikit-build >=0.13.1
     - setuptools
   run:
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - cuda-python >=11.7.1,<12.0
+    - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}
     - python x.x
+    - rmm ={{ minor_version }}
 
 tests:
   requirements:
-    - cudatoolkit ={{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
   imports:
     - pylibraft
 

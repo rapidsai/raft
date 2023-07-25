@@ -27,7 +27,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 
 /**
  * @defgroup cagra CUDA ANN Graph-based nearest neighbor search
@@ -91,7 +91,7 @@ void build_knn_graph(raft::resources const& res,
   auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, accessor>(
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
-  detail::build_knn_graph(
+  cagra::detail::build_knn_graph(
     res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
@@ -149,7 +149,7 @@ void sort_knn_graph(raft::resources const& res,
   auto dataset_internal = mdspan<const DataT, matrix_extent<internal_IdxT>, row_major, d_accessor>(
     dataset.data_handle(), dataset.extent(0), dataset.extent(1));
 
-  detail::graph::sort_knn_graph(res, dataset_internal, knn_graph_internal);
+  cagra::detail::graph::sort_knn_graph(res, dataset_internal, knn_graph_internal);
 }
 
 /**
@@ -188,7 +188,7 @@ void optimize(raft::resources const& res,
       knn_graph.extent(0),
       knn_graph.extent(1));
 
-  detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
+  cagra::detail::graph::optimize(res, knn_graph_internal, new_graph_internal);
 }
 
 /**
@@ -265,7 +265,7 @@ index<T, IdxT> build(raft::resources const& res,
   optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
 
   // Construct an index from dataset and optimized knn graph.
-  return index<T, IdxT>(res, params.metric, dataset, cagra_graph.view());
+  return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
 }
 
 /**
@@ -312,9 +312,18 @@ void search(raft::resources const& res,
   auto distances_internal = raft::make_device_matrix_view<float, internal_IdxT, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  detail::search_main<T, internal_IdxT, IdxT>(
+  cagra::detail::search_main<T, internal_IdxT, IdxT>(
     res, params, idx, queries_internal, neighbors_internal, distances_internal);
 }
 /** @} */  // end group cagra
 
+}  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::build;
+using raft::neighbors::cagra::build_knn_graph;
+using raft::neighbors::cagra::optimize;
+using raft::neighbors::cagra::search;
+using raft::neighbors::cagra::sort_knn_graph;
 }  // namespace raft::neighbors::experimental::cagra

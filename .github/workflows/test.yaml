@@ -32,23 +32,19 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-tests-pylibraft:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-test.yaml@branch-23.08
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      package-name: pylibraft
-      test-unittest: "python -m pytest ./python/pylibraft/pylibraft/test"
+      script: ci/test_wheel_pylibraft.sh
   wheel-tests-raft-dask:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-test.yaml@branch-23.08
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      package-name: raft_dask
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
-      test-before-arm64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
-      test-unittest: "python -m pytest ./python/raft-dask/raft_dask/test"
+      script: ci/test_wheel_raft_dask.sh

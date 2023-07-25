@@ -22,7 +22,7 @@
 
 #include <fstream>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 // Serialization version 1.
 constexpr int serialization_version = 2;
@@ -36,7 +36,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-constexpr size_t expected_size = 176;
+constexpr size_t expected_size = 200;
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), expected_size>;
 
 /**
@@ -116,7 +116,8 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   deserialize_mdspan(res, is, dataset.view());
   deserialize_mdspan(res, is, graph.view());
 
-  return index<T, IdxT>(res, metric, raft::make_const_mdspan(dataset.view()), graph.view());
+  return index<T, IdxT>(
+    res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
 }
 
 template <typename T, typename IdxT>
@@ -132,4 +133,4 @@ auto deserialize(raft::resources const& res, const std::string& filename) -> ind
 
   return index;
 }
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

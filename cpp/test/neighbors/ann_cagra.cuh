@@ -52,9 +52,9 @@ void RandomSuffle(raft::host_matrix_view<IdxT, IdxT> index)
     IdxT* const row_ptr = index.data_handle() + i * index.extent(1);
     for (unsigned j = 0; j < index.extent(1); j++) {
       // Swap two indices at random
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i0 = rand % index.extent(1);
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i1 = rand % index.extent(1);
 
       const auto tmp = row_ptr[i0];
@@ -266,11 +266,8 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void SetUp() override
   {
-    std::cout << "Resizing database: " << ps.n_rows * ps.dim << std::endl;
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
-    std::cout << "Done.\nResizing queries" << std::endl;
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-    std::cout << "Done.\nRuning rng" << std::endl;
     raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
       r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);

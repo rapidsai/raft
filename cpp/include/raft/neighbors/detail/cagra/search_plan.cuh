@@ -26,7 +26,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 struct search_plan_impl_base : public search_params {
   int64_t max_dim;
@@ -53,7 +53,6 @@ struct search_plan_impl_base : public search_params {
     max_dim = 128;
     while (max_dim < dim && max_dim <= 1024)
       max_dim *= 2;
-    if (team_size != 0) { RAFT_LOG_WARN("Overriding team size parameter."); }
     // To keep binary size in check we limit only one team size specialization for each max_dim.
     // TODO(tfeher): revise this decision.
     switch (max_dim) {
@@ -325,4 +324,4 @@ struct search_plan_impl : public search_plan_impl_base {
 // };
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
