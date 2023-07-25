@@ -40,7 +40,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_kernel_search {
 
 template <class T>
@@ -738,4 +738,4 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 };
 
 }  // namespace multi_kernel_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

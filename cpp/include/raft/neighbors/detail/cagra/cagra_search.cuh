@@ -30,7 +30,7 @@
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 /**
  * @brief Search ANN using the constructed index.
@@ -133,4 +133,4 @@ void search_main(raft::resources const& res,
 }
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

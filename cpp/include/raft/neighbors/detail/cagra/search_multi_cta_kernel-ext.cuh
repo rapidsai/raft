@@ -17,7 +17,7 @@
 
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -93,4 +93,4 @@ instantiate_kernel_selection(32, 512, uint8_t, uint32_t, float);
 
 #undef instantiate_kernel_selection
 }  // namespace multi_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
