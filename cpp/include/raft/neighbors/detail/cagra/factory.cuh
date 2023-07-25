@@ -21,7 +21,7 @@
 #include "search_plan.cuh"
 #include "search_single_cta.cuh"
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 template <typename T, typename IdxT = uint32_t, typename DistanceT = float>
 class factory {
@@ -86,4 +86,4 @@ class factory {
     }
   }
 };
-};  // namespace raft::neighbors::experimental::cagra::detail
+};  // namespace raft::neighbors::cagra::detail

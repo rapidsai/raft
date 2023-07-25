@@ -36,7 +36,7 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/refine.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
@@ -135,6 +135,9 @@ void build_knn_graph(raft::resources const& res,
     resource::get_cuda_stream(res),
     device_memory);
 
+  size_t next_report_offset = 0;
+  size_t d_report_offset    = dataset.extent(0) / 100;  // Report progress in 1% steps.
+
   for (const auto& batch : vec_batches) {
     auto queries_view = raft::make_device_matrix_view<const DataT, uint32_t>(
       batch.data(), batch.size(), batch.row_width());
@@ -212,21 +215,26 @@ void build_knn_graph(raft::resources const& res,
 
     size_t num_queries_done = batch.offset() + batch.size();
     const auto end_clock    = std::chrono::system_clock::now();
-    const auto time =
-      std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() * 1e-6;
-    const auto throughput = num_queries_done / time;
-    RAFT_LOG_DEBUG(
-      "# Search %12lu / %12lu (%3.2f %%), %e queries/sec, %.2f minutes ETA, self included = "
-      "%3.2f %%    \r",
-      num_queries_done,
-      dataset.extent(0),
-      num_queries_done / static_cast<double>(dataset.extent(0)) * 100,
-      throughput,
-      (num_queries - num_queries_done) / throughput / 60,
-      static_cast<double>(num_self_included) / num_queries_done * 100.);
+    if (batch.offset() > next_report_offset) {
+      next_report_offset += d_report_offset;
+      const auto time =
+        std::chrono::duration_cast<std::chrono::microseconds>(end_clock - start_clock).count() *
+        1e-6;
+      const auto throughput = num_queries_done / time;
+
+      RAFT_LOG_INFO(
+        "# Search %12lu / %12lu (%3.2f %%), %e queries/sec, %.2f minutes ETA, self included = "
+        "%3.2f %%    \r",
+        num_queries_done,
+        dataset.extent(0),
+        num_queries_done / static_cast<double>(dataset.extent(0)) * 100,
+        throughput,
+        (num_queries - num_queries_done) / throughput / 60,
+        static_cast<double>(num_self_included) / num_queries_done * 100.);
+    }
     first = false;
   }
   if (!first) RAFT_LOG_DEBUG("# Finished building kNN graph");
 }
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

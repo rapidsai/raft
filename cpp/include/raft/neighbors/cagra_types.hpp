@@ -35,7 +35,7 @@
 #include <type_traits>
 
 #include <raft/core/logger.hpp>
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 /**
  * @ingroup cagra
  * @{
@@ -347,4 +347,13 @@ struct index : ann::index {
 
 /** @} */
 
+}  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::hash_mode;
+using raft::neighbors::cagra::index;
+using raft::neighbors::cagra::index_params;
+using raft::neighbors::cagra::search_algo;
+using raft::neighbors::cagra::search_params;
 }  // namespace raft::neighbors::experimental::cagra
