@@ -168,7 +168,8 @@ All algorithms present in the CSV file supplied to this script with parameter `r
 will appear in the plot.
 
 ## Adding a new ANN algorithm
-Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
+### Implementation and Configuration
+Implementation of a new algorithm should be a C++ class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
 
 In addition, it should define two `struct`s for building and searching parameters. The searching parameter class should inherit `struct ANN<T>::AnnSearchParam`. Take `class HnswLib` as an example, its definition is:
 ```c++
@@ -237,3 +238,25 @@ How to interpret these JSON objects is totally left to the implementation and sh
          // ...
       }
     ```
+
+### Adding a CMake Target
+In `raft/cpp/bench/ann/CMakeLists.txt`, we provide a `CMake` function to configure a new Benchmark target with the following signature:
+```
+ConfigureAnnBench(
+  NAME <algo_name> 
+  PATH </path/to/algo/benchmark/source/file> 
+  INCLUDES <additional_include_directories> 
+  CXXFLAGS <additional_cxx_flags>
+  LINKS <additional_link_library_targets>
+)
+```
+
+To add a target for `HNSWLIB`, we would call the function as:
+```
+ConfigureAnnBench(
+  NAME HNSWLIB PATH bench/ann/src/hnswlib/hnswlib_benchmark.cpp INCLUDES
+  ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib CXXFLAGS "${HNSW_CXX_FLAGS}"
+)
+```
+
+This will create an executable called `HNSWLIB_ANN_BENCH`, which can then be used to run `HNSWLIB` benchmarks.
