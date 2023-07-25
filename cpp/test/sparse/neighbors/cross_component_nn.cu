@@ -21,8 +21,6 @@
 //
 // TODO: consider adding this to libraft.so or creating an instance in a
 // separate translation unit for this test.
-//
-// TODO: edge case testing
 
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
