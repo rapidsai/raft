@@ -18,7 +18,7 @@
 #include <cuda_fp16.h>
 #include <stdint.h>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 //
 size_t _cuann_find_topk_bufferSize(uint32_t topK,
@@ -55,4 +55,4 @@ CUDA_DEVICE_HOST_FUNC inline size_t _cuann_aligned(size_t size, size_t unit = 12
   if (size % unit) { size += unit - (size % unit); }
   return size;
 }
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

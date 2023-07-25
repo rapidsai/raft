@@ -11,7 +11,7 @@ Please note that the CAGRA implementation is currently experimental and the API 
 
 ``#include <raft/neighbors/cagra.cuh>``
 
-namespace *raft::neighbors::experimental::cagra*
+namespace *raft::neighbors::cagra*
 
 .. doxygengroup:: cagra
     :project: RAFT
