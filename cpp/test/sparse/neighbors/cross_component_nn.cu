@@ -22,7 +22,7 @@
 // TODO: consider adding this to libraft.so or creating an instance in a
 // separate translation unit for this test.
 //
-// TODO: edge case testing
+// TODO: edge case testing. Reference: https://github.com/rapidsai/raft/issues/1669
 
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
