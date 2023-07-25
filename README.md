@@ -1,6 +1,6 @@
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: GPU-Accelerated Vector Similarity Search</div>
 
-![Navigating the canyons of accelerated possibilities](img/raft_tech_stack.png)
+![RAFT contains algorithms and primitives for GPU-accelerated vector similarity search.](img/raft_tech_stack.png)
 
 ## Resources
 
@@ -437,5 +437,16 @@ If citing the sparse pairwise distances API, please consider using the following
   author={Nolet, Corey J and Gala, Divye and Raff, Edward and Eaton, Joe and Rees, Brad and Zedlewski, John and Oates, Tim},
   journal={arXiv preprint arXiv:2104.06357},
   year={2021}
+}
+```
+If citing the single-linkage agglomerative clustering APIs, please consider the following bibtex:
+```bibtex
+@misc{nolet2023cuslink,
+      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU}, 
+      author={Corey J. Nolet and Divye Gala and Alex Fender and Mahesh Doijade and Joe Eaton and Edward Raff and John Zedlewski and Brad Rees and Tim Oates},
+      year={2023},
+      eprint={2306.16354},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
 }
 ```
