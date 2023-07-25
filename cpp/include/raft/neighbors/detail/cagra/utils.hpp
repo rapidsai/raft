@@ -22,7 +22,7 @@
 #include <raft/core/detail/macros.hpp>
 #include <type_traits>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace utils {
 template <class DATA_T>
 inline cudaDataType_t get_cuda_data_type();
@@ -150,4 +150,4 @@ struct gen_index_msb_1_mask {
 };
 }  // namespace utils
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
