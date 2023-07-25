@@ -40,7 +40,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
 // #define _CLK_BREAKDOWN
@@ -517,4 +517,4 @@ void select_and_run(  // raft::resources const& res,
 }
 
 }  // namespace multi_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

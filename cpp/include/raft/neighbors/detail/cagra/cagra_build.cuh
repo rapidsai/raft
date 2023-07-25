@@ -36,7 +36,7 @@
 #include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/neighbors/refine.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 template <typename DataT, typename IdxT, typename accessor>
 void build_knn_graph(raft::resources const& res,
@@ -238,4 +238,4 @@ void build_knn_graph(raft::resources const& res,
   if (!first) RAFT_LOG_DEBUG("# Finished building kNN graph");
 }
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

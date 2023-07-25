@@ -52,9 +52,9 @@ void RandomSuffle(raft::host_matrix_view<IdxT, int64_t> index)
     IdxT* const row_ptr = index.data_handle() + i * index.extent(1);
     for (unsigned j = 0; j < index.extent(1); j++) {
       // Swap two indices at random
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i0 = rand % index.extent(1);
-      rand          = raft::neighbors::experimental::cagra::detail::device::xorshift64(rand);
+      rand          = raft::neighbors::cagra::detail::device::xorshift64(rand);
       const auto i1 = rand % index.extent(1);
 
       const auto tmp = row_ptr[i0];

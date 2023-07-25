@@ -17,7 +17,7 @@
 
 #include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 namespace multi_cta_search {
 #define instantiate_kernel_selection(TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T)   \
@@ -90,4 +90,4 @@ instantiate_single_cta_select_and_run(16, 256, float, uint64_t, float);
 instantiate_single_cta_select_and_run(32, 512, float, uint64_t, float);
 
 }  // namespace single_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

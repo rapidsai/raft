@@ -26,7 +26,7 @@
 
 #include <raft/neighbors/detail/cagra/search_single_cta_kernel-inl.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail::single_cta_search {
+namespace raft::neighbors::cagra::detail::single_cta_search {
 
 #define instantiate_single_cta_select_and_run(                                           \
   TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T)                               \
@@ -60,4 +60,4 @@ instantiate_single_cta_select_and_run(32, 512, float, uint32_t, float);
 
 #undef instantiate_single_cta_search_kernel
 
-}  // namespace raft::neighbors::experimental::cagra::detail::single_cta_search
+}  // namespace raft::neighbors::cagra::detail::single_cta_search

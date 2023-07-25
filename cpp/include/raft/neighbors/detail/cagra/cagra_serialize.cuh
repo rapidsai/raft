@@ -22,7 +22,7 @@
 
 #include <fstream>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 // Serialization version 1.
 constexpr int serialization_version = 2;
@@ -133,4 +133,4 @@ auto deserialize(raft::resources const& res, const std::string& filename) -> ind
 
   return index;
 }
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
