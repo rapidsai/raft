@@ -600,7 +600,7 @@ void search(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] index ivf-flat constructed index
- * @param[out] vector_out matrix with the vectors contained in the cluster
+ * @param[out] out_vectors matrix with the vectors contained in the cluster
  * @param[in] label cluster index
  * @param[in] offset offset
  */
