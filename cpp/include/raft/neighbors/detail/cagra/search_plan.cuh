@@ -26,7 +26,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 struct search_plan_impl_base : public search_params {
   int64_t max_dim;
@@ -324,4 +324,4 @@ struct search_plan_impl : public search_plan_impl_base {
 // };
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
