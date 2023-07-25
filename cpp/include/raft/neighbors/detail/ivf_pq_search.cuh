@@ -708,7 +708,7 @@ inline auto get_max_batch_size(raft::resources const& res,
   auto ws_size = [k, n_probes, max_samples](uint32_t bs) -> uint64_t {
     return uint64_t(is_local_topk_feasible(k, n_probes, bs) ? k * n_probes : max_samples) * bs;
   };
-  auto max_ws_size = resource::get_workspace_total_bytes(res);
+  auto max_ws_size = resource::get_workspace_free_bytes(res);
   if (ws_size(max_batch_size) > max_ws_size) {
     uint32_t smaller_batch_size = bound_by_power_of_two(max_batch_size);
     // gradually reduce the batch size until we fit into the max size limit.

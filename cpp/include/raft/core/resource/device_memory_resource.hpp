@@ -102,6 +102,12 @@ class workspace_resource_factory : public resource_factory {
     //   2) The pool doesn't grab too much memory on top of the 'limit'.
     auto max_size = std::min<std::size_t>(limit + kOneGb / 2lu, limit * 3lu / 2lu);
     auto upstream = rmm::mr::get_current_device_resource();
+    RAFT_LOG_DEBUG(
+      "Setting the workspace pool resource; memory limit = %zu, initial pool size = %zu, max pool "
+      "size = %zu.",
+      limit,
+      min_size,
+      max_size);
     return std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>>(
       upstream, min_size, max_size);
   }
