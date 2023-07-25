@@ -1,10 +1,10 @@
-# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
+# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: GPU-Accelerated Vector Similarity Search</div>
 
-![Navigating the canyons of accelerated possibilities](img/raft.png)
+![Navigating the canyons of accelerated possibilities](img/raft_tech_stack.png)
 
 ## Resources
 
-- [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
+- [RAFT Documentation](https://docs.rapids.ai/api/raft/stable/): Official Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
 - [Build and Install RAFT](./docs/source/build.md): Instructions for installing and building RAFT.
 - [RAPIDS Community](https://rapids.ai/community.html): Get help, contribute, and collaborate.
@@ -13,186 +13,287 @@
 
 ## Overview
 
-RAFT contains fundamental widely-used algorithms and primitives for data science and machine learning. The algorithms are CUDA-accelerated and form building blocks for rapidly composing analytics.
+In addition to being critical components for vector databases, vector similarity search unlocks several other applications that span information retrieval, data mining, and machine learning. RAFT contains algorithms and reusable building blocks for accelerating vector similarity search on the GPU. RAFT will continue to be optimized as new GPU architectures are released to make sure you are always getting the best performance from your hardware.
 
-By taking a primitives-based approach to algorithm development, RAFT
-- accelerates algorithm construction time
-- reduces the maintenance burden by maximizing reuse across projects, and
-- centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
+### Vector Similarity Search
 
-While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
-#####
-| Category | Examples |
-| --- | --- |
-| **Data Formats** | sparse & dense, conversions, data generation |
-| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
-| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling |
-| **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
-| **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
-| **Solvers** | combinatorial optimization, iterative solvers |
-| **Statistics** | sampling, moments and summary statistics, metrics |
-| **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
+RAFT contains state-of-the-art implementations of approximate nearest neighbors algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based CAGRA algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
 
+In addition to CAGRA, RAFT contains other state-of-the-art GPU-accelerated implementations of popular algorithms for vector similarity search, such as IVF-Flat and IVF-PQ algorithms originally popularized by the FAISS library. 
 
-RAFT is a C++ header-only template library with an optional shared library that 
+### Information Retrieval
+
+RAFT also contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
+1. Computing distances between vectors and computing kernel gramm matrices
+2. Performing ball radius queries for constructing epsilon neighborhoods
+3. Clustering points to partition a space for smaller faster searches
+4. Constructing neighborhood "connectivities" graphs from dense vectors
+
+As an example, computations such as the above list are critical for information retrieval, data mining, and machine learning applications such as clustering, manifold learning, and dimensionality reduction.
+
+## What is RAFT?
+
+At its core, RAFT is a C++ header-only template library with an optional shared library that 
 1) can speed up compile times for common template types, and 
 2) provides host-accessible "runtime" APIs, which don't require a CUDA compiler to use
 
-In addition being a C++ library, RAFT also provides 2 Python libraries:
-- `pylibraft` - lightweight Python wrappers around RAFT's host-accessible "runtime" APIs.
-- `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
+RAFT also provides a Python library called `pylibraft`, which contains lightweight wrappers around the C++ library.
 
 ![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
 
-## Getting started
-
-### RAPIDS Memory Manager (RMM)
-
-RAFT relies heavily on RMM which eases the burden of configuring different allocation strategies globally across the libraries that use it.
-
-### Multi-dimensional Arrays
-
-The APIs in RAFT accept the [mdspan](https://arxiv.org/abs/2010.06474) multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device (GPU) memory.
-
-The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:
-
-```c++
-#include <raft/core/device_mdarray.hpp>
-
-int n_rows = 10;
-int n_cols = 10;
-
-auto scalar = raft::make_device_scalar<float>(handle, 1.0);
-auto vector = raft::make_device_vector<float>(handle, n_cols);
-auto matrix = raft::make_device_matrix<float>(handle, n_rows, n_cols);
-```
-
-### C++ Example
-
-Most of the primitives in RAFT accept a `raft::device_resources` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.
-
-The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing
-pairwise Euclidean distances:
-```c++
-#include <raft/core/device_resources.hpp>
-#include <raft/core/device_mdarray.hpp>
-#include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
-
-raft::device_resources handle;
-
-int n_samples = 5000;
-int n_features = 50;
-
-auto input = raft::make_device_matrix<float, int>(handle, n_samples, n_features);
-auto labels = raft::make_device_vector<int, int>(handle, n_samples);
-auto output = raft::make_device_matrix<float, int>(handle, n_samples, n_samples);
-
-raft::random::make_blobs(handle, input.view(), labels.view());
-
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input.view(), input.view(), output.view(), metric);
-```
-
-It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:
-
-```c++
-#include <raft/core/device_resources.hpp>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/random/make_blobs.cuh>
-#include <raft/distance/distance.cuh>
-
-raft::device_resources handle;
-
-int n_samples = 5000;
-int n_features = 50;
-
-float *input;
-int *labels;
-float *output;
-
-...
-// Allocate input, labels, and output pointers
-...
-
-auto input_view = raft::make_device_matrix_view(input, n_samples, n_features);
-auto labels_view = raft::make_device_vector_view(labels, n_samples);
-auto output_view = raft::make_device_matrix_view(output, n_samples, n_samples);
-
-raft::random::make_blobs(handle, input_view, labels_view);
-
-auto metric = raft::distance::DistanceType::L2SqrtExpanded;
-raft::distance::pairwise_distance(handle, input_view, input_view, output_view, metric);
-```
+Please read the [Getting Started](./docs/source/quick_start.md) to quickly get up and running with RAFT. This guide contains code examples for RAFT's C++ and Python APIs.
 
 
-### Python Example
+[//]: # (## Getting started)
 
-The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray](https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm). The number of RAFT algorithms exposed in this package is continuing to grow from release to release.
+[//]: # ()
+[//]: # (### RAPIDS Memory Manager &#40;RMM&#41;)
 
-The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.
+[//]: # ()
+[//]: # (RAFT relies heavily on RMM which eases the burden of configuring different allocation strategies globally across the libraries that use it.)
 
-```python
-import cupy as cp
+[//]: # ()
+[//]: # (### Multi-dimensional Arrays)
 
-from pylibraft.distance import pairwise_distance
+[//]: # ()
+[//]: # (The APIs in RAFT accept the [mdspan]&#40;https://arxiv.org/abs/2010.06474&#41; multi-dimensional array view for representing data in higher dimensions similar to the `ndarray` in the Numpy Python library. RAFT also contains the corresponding owning `mdarray` structure, which simplifies the allocation and management of multi-dimensional data in both host and device &#40;GPU&#41; memory.)
 
-n_samples = 5000
-n_features = 50
+[//]: # ()
+[//]: # (The `mdarray` forms a convenience layer over RMM and can be constructed in RAFT using a number of different helper functions:)
 
-in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
-in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
+[//]: # ()
+[//]: # (```c++)
 
-output = pairwise_distance(in1, in2, metric="euclidean")
-```
+[//]: # (#include <raft/core/device_mdarray.hpp>)
 
-The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__](https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2) making it interoperable with other libraries like CuPy, Numba, PyTorch and RAPIDS cuDF that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.
+[//]: # ()
+[//]: # (int n_rows = 10;)
 
-Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:
-```python
-cupy_array = cp.asarray(output)
-```
+[//]: # (int n_cols = 10;)
 
-And converting to a PyTorch tensor:
-```python
-import torch
+[//]: # ()
+[//]: # (auto scalar = raft::make_device_scalar<float>&#40;handle, 1.0&#41;;)
 
-torch_tensor = torch.as_tensor(output, device='cuda')
-```
+[//]: # (auto vector = raft::make_device_vector<float>&#40;handle, n_cols&#41;;)
 
-Or converting to a RAPIDS cuDF dataframe:
-```python
-cudf_dataframe = cudf.DataFrame(output)
-```
+[//]: # (auto matrix = raft::make_device_matrix<float>&#40;handle, n_rows, n_cols&#41;;)
 
-When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:
-```python
-import pylibraft.config
-pylibraft.config.set_output_as("cupy")  # All compute APIs will return cupy arrays
-pylibraft.config.set_output_as("torch") # All compute APIs will return torch tensors
-```
+[//]: # (```)
 
-You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:
-```python
-pylibraft.config.set_output_as(lambda device_ndarray: return device_ndarray.copy_to_host())
-```
+[//]: # ()
+[//]: # (### C++ Example)
 
-`pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:
+[//]: # ()
+[//]: # (Most of the primitives in RAFT accept a `raft::device_resources` object for the management of resources which are expensive to create, such CUDA streams, stream pools, and handles to other CUDA libraries like `cublas` and `cusolver`.)
 
-```python
-import cupy as cp
+[//]: # ()
+[//]: # (The example below demonstrates creating a RAFT handle and using it with `device_matrix` and `device_vector` to allocate memory, generating random clusters, and computing)
 
-from pylibraft.distance import pairwise_distance
+[//]: # (pairwise Euclidean distances:)
 
-n_samples = 5000
-n_features = 50
+[//]: # (```c++)
 
-in1 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
-in2 = cp.random.random_sample((n_samples, n_features), dtype=cp.float32)
-output = cp.empty((n_samples, n_samples), dtype=cp.float32)
+[//]: # (#include <raft/core/device_resources.hpp>)
 
-pairwise_distance(in1, in2, out=output, metric="euclidean")
-```
+[//]: # (#include <raft/core/device_mdarray.hpp>)
+
+[//]: # (#include <raft/random/make_blobs.cuh>)
+
+[//]: # (#include <raft/distance/distance.cuh>)
+
+[//]: # ()
+[//]: # (raft::device_resources handle;)
+
+[//]: # ()
+[//]: # (int n_samples = 5000;)
+
+[//]: # (int n_features = 50;)
+
+[//]: # ()
+[//]: # (auto input = raft::make_device_matrix<float, int>&#40;handle, n_samples, n_features&#41;;)
+
+[//]: # (auto labels = raft::make_device_vector<int, int>&#40;handle, n_samples&#41;;)
+
+[//]: # (auto output = raft::make_device_matrix<float, int>&#40;handle, n_samples, n_samples&#41;;)
+
+[//]: # ()
+[//]: # (raft::random::make_blobs&#40;handle, input.view&#40;&#41;, labels.view&#40;&#41;&#41;;)
+
+[//]: # ()
+[//]: # (auto metric = raft::distance::DistanceType::L2SqrtExpanded;)
+
+[//]: # (raft::distance::pairwise_distance&#40;handle, input.view&#40;&#41;, input.view&#40;&#41;, output.view&#40;&#41;, metric&#41;;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (It's also possible to create `raft::device_mdspan` views to invoke the same API with raw pointers and shape information:)
+
+[//]: # ()
+[//]: # (```c++)
+
+[//]: # (#include <raft/core/device_resources.hpp>)
+
+[//]: # (#include <raft/core/device_mdspan.hpp>)
+
+[//]: # (#include <raft/random/make_blobs.cuh>)
+
+[//]: # (#include <raft/distance/distance.cuh>)
+
+[//]: # ()
+[//]: # (raft::device_resources handle;)
+
+[//]: # ()
+[//]: # (int n_samples = 5000;)
+
+[//]: # (int n_features = 50;)
+
+[//]: # ()
+[//]: # (float *input;)
+
+[//]: # (int *labels;)
+
+[//]: # (float *output;)
+
+[//]: # ()
+[//]: # (...)
+
+[//]: # (// Allocate input, labels, and output pointers)
+
+[//]: # (...)
+
+[//]: # ()
+[//]: # (auto input_view = raft::make_device_matrix_view&#40;input, n_samples, n_features&#41;;)
+
+[//]: # (auto labels_view = raft::make_device_vector_view&#40;labels, n_samples&#41;;)
+
+[//]: # (auto output_view = raft::make_device_matrix_view&#40;output, n_samples, n_samples&#41;;)
+
+[//]: # ()
+[//]: # (raft::random::make_blobs&#40;handle, input_view, labels_view&#41;;)
+
+[//]: # ()
+[//]: # (auto metric = raft::distance::DistanceType::L2SqrtExpanded;)
+
+[//]: # (raft::distance::pairwise_distance&#40;handle, input_view, input_view, output_view, metric&#41;;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # ()
+[//]: # (### Python Example)
+
+[//]: # ()
+[//]: # (The `pylibraft` package contains a Python API for RAFT algorithms and primitives. `pylibraft` integrates nicely into other libraries by being very lightweight with minimal dependencies and accepting any object that supports the `__cuda_array_interface__`, such as [CuPy's ndarray]&#40;https://docs.cupy.dev/en/stable/user_guide/interoperability.html#rmm&#41;. The number of RAFT algorithms exposed in this package is continuing to grow from release to release.)
+
+[//]: # ()
+[//]: # (The example below demonstrates computing the pairwise Euclidean distances between CuPy arrays. Note that CuPy is not a required dependency for `pylibraft`.)
+
+[//]: # ()
+[//]: # (```python)
+
+[//]: # (import cupy as cp)
+
+[//]: # ()
+[//]: # (from pylibraft.distance import pairwise_distance)
+
+[//]: # ()
+[//]: # (n_samples = 5000)
+
+[//]: # (n_features = 50)
+
+[//]: # ()
+[//]: # (in1 = cp.random.random_sample&#40;&#40;n_samples, n_features&#41;, dtype=cp.float32&#41;)
+
+[//]: # (in2 = cp.random.random_sample&#40;&#40;n_samples, n_features&#41;, dtype=cp.float32&#41;)
+
+[//]: # ()
+[//]: # (output = pairwise_distance&#40;in1, in2, metric="euclidean"&#41;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (The `output` array in the above example is of type `raft.common.device_ndarray`, which supports [__cuda_array_interface__]&#40;https://numba.pydata.org/numba-doc/dev/cuda/cuda_array_interface.html#cuda-array-interface-version-2&#41; making it interoperable with other libraries like CuPy, Numba, PyTorch and RAPIDS cuDF that also support it. CuPy supports DLPack, which also enables zero-copy conversion from `raft.common.device_ndarray` to JAX and Tensorflow.)
+
+[//]: # ()
+[//]: # (Below is an example of converting the output `pylibraft.device_ndarray` to a CuPy array:)
+
+[//]: # (```python)
+
+[//]: # (cupy_array = cp.asarray&#40;output&#41;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (And converting to a PyTorch tensor:)
+
+[//]: # (```python)
+
+[//]: # (import torch)
+
+[//]: # ()
+[//]: # (torch_tensor = torch.as_tensor&#40;output, device='cuda'&#41;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (Or converting to a RAPIDS cuDF dataframe:)
+
+[//]: # (```python)
+
+[//]: # (cudf_dataframe = cudf.DataFrame&#40;output&#41;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (When the corresponding library has been installed and available in your environment, this conversion can also be done automatically by all RAFT compute APIs by setting a global configuration option:)
+
+[//]: # (```python)
+
+[//]: # (import pylibraft.config)
+
+[//]: # (pylibraft.config.set_output_as&#40;"cupy"&#41;  # All compute APIs will return cupy arrays)
+
+[//]: # (pylibraft.config.set_output_as&#40;"torch"&#41; # All compute APIs will return torch tensors)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (You can also specify a `callable` that accepts a `pylibraft.common.device_ndarray` and performs a custom conversion. The following example converts all output to `numpy` arrays:)
+
+[//]: # (```python)
+
+[//]: # (pylibraft.config.set_output_as&#40;lambda device_ndarray: return device_ndarray.copy_to_host&#40;&#41;&#41;)
+
+[//]: # (```)
+
+[//]: # ()
+[//]: # (`pylibraft` also supports writing to a pre-allocated output array so any `__cuda_array_interface__` supported array can be written to in-place:)
+
+[//]: # ()
+[//]: # (```python)
+
+[//]: # (import cupy as cp)
+
+[//]: # ()
+[//]: # (from pylibraft.distance import pairwise_distance)
+
+[//]: # ()
+[//]: # (n_samples = 5000)
+
+[//]: # (n_features = 50)
+
+[//]: # ()
+[//]: # (in1 = cp.random.random_sample&#40;&#40;n_samples, n_features&#41;, dtype=cp.float32&#41;)
+
+[//]: # (in2 = cp.random.random_sample&#40;&#40;n_samples, n_features&#41;, dtype=cp.float32&#41;)
+
+[//]: # (output = cp.empty&#40;&#40;n_samples, n_samples&#41;, dtype=cp.float32&#41;)
+
+[//]: # ()
+[//]: # (pairwise_distance&#40;in1, in2, out=output, metric="euclidean"&#41;)
+
+[//]: # (```)
 
 
 ## Installing
@@ -255,6 +356,22 @@ mamba activate raft_dev_env
 ```
 
 The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.
+
+## Reusable Primitives
+
+While not exhaustive, the following general categories help summarize the accelerated building blocks that RAFT contains:
+####
+| Category | Examples |
+| --- | --- |
+| **Data Formats** | sparse & dense, conversions, data generation |
+| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling |
+| **Spatial** | pairwise distances, nearest neighbors, neighborhood graph construction |
+| **Basic Clustering** | spectral clustering, hierarchical clustering, k-means |
+| **Solvers** | combinatorial optimization, iterative solvers |
+| **Statistics** | sampling, moments and summary statistics, metrics |
+| **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure |
+
 
 ## Folder Structure and Contents
 
