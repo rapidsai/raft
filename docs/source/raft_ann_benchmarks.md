@@ -4,7 +4,7 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Installing the benchmarks
 
-You can easily install the benchmarks through conda with the following instructions:
+The easiest way to install these benchmarks is through conda. We suggest using mamba as it generally leads to a faster install time::
 ```bash
 mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
 conda activate raft_ann_benchmarks
@@ -18,18 +18,17 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 ## Running the benchmarks
 
 ### Usage
-There are 4 general steps to running the benchmarks:
+There are 4 general steps to running the benchmarks and vizualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
 3. Evaluate Results
 4. Plot Results
 
-### Python-based Scripts
-We provide a collection of lightweight Python based scripts that are wrappers over
+We provide a collection of lightweight Python scripts that are wrappers over
 lower level scripts and executables to run our benchmarks. Either Python scripts or
 [low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
 however plots are only provided through our Python scripts.
-#### End-to-end example: Million-scale
+### End-to-end example: Million-scale
 ```bash
 # All scripts are present in directory raft/scripts/ann-benchmarks
 
@@ -46,10 +45,10 @@ python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data
 python scripts/ann-benchmarks/plot.py --result_csv out.csv
 ```
 
-#### End-to-end example: Billion-scale
-The above example does not work at Billion-scale because [data preparation](#prep-dataset) is not yet
-supported by `scripts/get_dataset.py`. To download and prepare [billion-scale datasets](ann_benchmarks_low_level.html#billion-scale),
-please follow linked section. All other python scripts mentioned below work as intended once the
+### End-to-end example: Billion-scale
+`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.html#billion-scale) 
+because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
+All other python scripts mentioned below work as intended once the
 billion-scale dataset has been downloaded.
 To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
@@ -74,7 +73,7 @@ python scripts/plot.py --result_csv out.csv
 ##### Step 1: Prepare Dataset<a id='prep-dataset'></a>
 The script `scripts/ann-benchmarks/get_dataset.py` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
-script. For more information on [datasets and formats](ann_benchmarks_low_level.html#bash-prepare-dataset).
+script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
 
 The usage of this script is:
 ```bash
@@ -95,7 +94,7 @@ will be written at location `data/glove-100-inner/`.
 The script `scripts/ann-benchmarks/run.py` will build and search indices for a given dataset and its
 specified configuration.
 To confirgure which algorithms are available, we use `algos.yaml`.
-To configure building/searching indices for a dataset, look at [index configuration](ann_benchmarks_low_level.html#json-index-config).
+To configure building/searching indices for a dataset, look at [index configuration](#json-index-config).
 An entry in `algos.yaml` looks like:
 ```yaml
 raft_ivf_pq:
@@ -145,7 +144,7 @@ options:
                         Path to groundtruth.neighbors.ibin file for a dataset (default: None)
 ```
 
-`result_filepaths` : whitespace delimited list of result files/directories that can be capture via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
+`result_filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
 
 #### Step 4: Plot Results
 The script `scripts/ann-benchmarks/plot.py` will plot all results evaluated to a CSV file for a given dataset.
@@ -167,3 +166,74 @@ options:
 
 All algorithms present in the CSV file supplied to this script with parameter `result_csv`
 will appear in the plot.
+
+## Adding a new ANN algorithm
+Implementation of a new algorithm should be a class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
+
+In addition, it should define two `struct`s for building and searching parameters. The searching parameter class should inherit `struct ANN<T>::AnnSearchParam`. Take `class HnswLib` as an example, its definition is:
+```c++
+template<typename T>
+class HnswLib : public ANN<T> {
+public:
+  struct BuildParam {
+    int M;
+    int ef_construction;
+    int num_threads;
+  };
+
+  using typename ANN<T>::AnnSearchParam;
+  struct SearchParam : public AnnSearchParam {
+    int ef;
+    int num_threads;
+  };
+
+  // ...
+};
+```
+
+<a id='json-index-config'></a>The benchmark program uses JSON configuration file. To add the new algorithm to the benchmark, need be able to specify `build_param`, whose value is a JSON object, and `search_params`, whose value is an array of JSON objects, for this algorithm in configuration file. Still take the configuration for `HnswLib` as an example:
+```json
+{
+  "name" : "...",
+  "algo" : "hnswlib",
+  "build_param": {"M":12, "efConstruction":500, "numThreads":32},
+  "file" : "/path/to/file",
+  "search_params" : [
+    {"ef":10, "numThreads":1},
+    {"ef":20, "numThreads":1},
+    {"ef":40, "numThreads":1},
+  ],
+  "search_result_file" : "/path/to/file"
+},
+```
+
+How to interpret these JSON objects is totally left to the implementation and should be specified in `cpp/bench/ann/src/factory.cuh`:
+1. First, add two functions for parsing JSON object to `struct BuildParam` and `struct SearchParam`, respectively:
+    ```c++
+    template<typename T>
+    void parse_build_param(const nlohmann::json& conf,
+                           typename cuann::HnswLib<T>::BuildParam& param) {
+      param.ef_construction = conf.at("efConstruction");
+      param.M = conf.at("M");
+      if (conf.contains("numThreads")) {
+        param.num_threads = conf.at("numThreads");
+      }
+    }
+
+    template<typename T>
+    void parse_search_param(const nlohmann::json& conf,
+                            typename cuann::HnswLib<T>::SearchParam& param) {
+      param.ef = conf.at("ef");
+      if (conf.contains("numThreads")) {
+        param.num_threads = conf.at("numThreads");
+      }
+    }
+    ```
+
+2. Next, add corresponding `if` case to functions `create_algo()` and `create_search_param()` by calling parsing functions. The string literal in `if` condition statement must be the same as the value of `algo` in configuration file. For example,
+    ```c++
+      // JSON configuration file contains a line like:  "algo" : "hnswlib"
+      if (algo == "hnswlib") {
+         // ...
+      }
+    ```

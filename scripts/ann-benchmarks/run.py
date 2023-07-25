@@ -77,9 +77,9 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run,
 
 
 def main():
-    ann_bench_path = os.path.join(os.getcwd(), "cpp/bench/ann")
+    scripts_path = os.path.dirname(os.path.realpath(__file__))
     # Read list of allowed algorithms
-    with open(f"{ann_bench_path}/algos.yaml", "r") as f:
+    with open(f"{scripts_path}/algos.yaml", "r") as f:
         algos_conf = yaml.safe_load(f)
 
     parser = argparse.ArgumentParser(
