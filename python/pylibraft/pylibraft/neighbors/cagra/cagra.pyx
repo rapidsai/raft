@@ -57,7 +57,7 @@ from rmm._lib.memory_resource cimport (
     device_memory_resource,
 )
 
-cimport pylibraft.experimental.neighbors.cagra.cpp.c_cagra as c_cagra
+cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
 cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 from pylibraft.common.optional cimport make_optional, optional
@@ -84,9 +84,11 @@ from pylibraft.common.mdspan cimport (
     make_optional_view_int64,
 )
 from pylibraft.neighbors.common cimport _get_metric_string
+from pylibraft.neighbors.ivf_pq cimport ivf_pq
+
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
-    index_params as ivfpq_ip,
-    search_params as ivfpq_sp,
+    index_params as IVFPQ_IP,
+    search_params as IVFPQ_SP,
 )
 
 
@@ -237,8 +239,11 @@ cdef class IndexUint8(Index):
 
 @auto_sync_handle
 def build_knn_graph(dataset, knn_graph,
-                    build_params=None,
-                    search_params=None, refine_rate=0, handle=None):
+                    IndexParams index_params,
+                    ivf_pq.IndexParams build_params=None,
+                    ivf_pq.SearchParams search_params=None,
+                    refine_rate=0,
+                    handle=None):
     """
     Build a kNN graph, the first building block for a CAGRA index.
 
@@ -246,7 +251,7 @@ def build_knn_graph(dataset, knn_graph,
     a dense matrix that stores the neighbor indices for each point
     in the dataset. Each point has the same number of neighbors.
 
-    Use pylibraft.experimental.cagra.build for an alternative, single function
+    Use pylibraft.cagra.build for an alternative, single function
     method for building a CAGRA index.
 
     The following distance metrics are supported:
@@ -278,7 +283,7 @@ def build_knn_graph(dataset, knn_graph,
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -302,18 +307,17 @@ def build_knn_graph(dataset, knn_graph,
         )
     _check_input_array(knn_graph_ai, [np.dtype('uint32')])
 
-    cdef optional[float] refine_rate_opt = <optional[float]> refine_rate
-    cdef optional[ivfpq_ip] build_params_opt = \
-        <optional[ivfpq_ip]> build_params
-    cdef optional[ivfpq_sp] search_params_opt = \
-        <optional[ivfpq_sp]> search_params
+    cdef optional[float] refine_rate_opt = <float>refine_rate
+    cdef optional[IVFPQ_IP] build_params_opt = \
+        <IVFPQ_IP> build_params.params
+    cdef optional[IVFPQ_SP] search_params_opt = \
+        <IVFPQ_SP> search_params.params
 
     if dataset_ai.from_cai:
         if dataset_ai.dtype == np.float32:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    index_params.params,
                     get_dmv_float_uint32(dataset_ai,
                                          check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -325,9 +329,8 @@ def build_knn_graph(dataset, knn_graph,
 
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    index_params.params,
                     get_dmv_int8_uint32(dataset_ai,
                                         check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -339,9 +342,8 @@ def build_knn_graph(dataset, knn_graph,
 
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    index_params.params,
                     get_dmv_uint8_uint32(dataset_ai,
                                          check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -354,9 +356,8 @@ def build_knn_graph(dataset, knn_graph,
     else:
         if dataset_ai.dtype == np.float32:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    index_params.params,
                     get_hmv_float_uint32(dataset_ai,
                                          check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -368,9 +369,8 @@ def build_knn_graph(dataset, knn_graph,
 
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    index_params.params,
                     get_hmv_int8_uint32(dataset_ai,
                                         check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -382,9 +382,8 @@ def build_knn_graph(dataset, knn_graph,
 
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
-                c_cagra.build_knn_graph(
+                c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    index_params.params,
                     get_hmv_uint8_uint32(dataset_ai,
                                          check_shape=True),
                     get_hmv_uint32_uint32(knn_graph_ai,
@@ -401,9 +400,9 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     Sort a KNN graph index.
 
     If a KNN graph is not built using
-    pylibraft.experimental.cagra.build_knn_graph, then it is necessary to call
-    this function before calling pylibraft.experimental.cagra.optimize. If the
-    graph is built by pylibraft.experimental.cagra.build_knn_graph, it is
+    pylibraft.cagra.build_knn_graph, then it is necessary to call
+    this function before calling pylibraft.cagra.optimize. If the
+    graph is built by pylibraft.cagra.build_knn_graph, it is
     already sorted and you do not need to call this function.
 
     Parameters
@@ -422,7 +421,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -438,6 +437,9 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     _check_input_array(dataset_ai, [np.dtype('float32'), np.dtype('byte'),
                                     np.dtype('ubyte')])
 
+    if knn_graph is None:
+        knn_graph = device_ndarray.empty((n_queries, k), dtype='uint32')
+
     knn_graph_ai = wrap_array(knn_graph)
     knn_graph_dt = knn_graph_ai.dtype
     if knn_graph_ai.from_cai:
@@ -449,7 +451,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     if dataset_ai.from_cai:
         if dataset_ai.dtype == np.float32:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_device(
                     deref(handle_),
                     get_dmv_float_uint32(dataset_ai,
                                          check_shape=True),
@@ -458,7 +460,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
                 )
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_device(
                     deref(handle_),
                     get_dmv_int8_uint32(dataset_ai,
                                         check_shape=True),
@@ -467,7 +469,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
                 )
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_device(
                     deref(handle_),
                     get_dmv_uint8_uint32(dataset_ai,
                                          check_shape=True),
@@ -477,7 +479,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     else:
         if dataset_ai.dtype == np.float32:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_host(
                     deref(handle_),
                     get_hmv_float_uint32(dataset_ai,
                                          check_shape=True),
@@ -486,7 +488,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
                 )
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_host(
                     deref(handle_),
                     get_hmv_int8_uint32(dataset_ai,
                                         check_shape=True),
@@ -495,7 +497,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
                 )
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
-                c_cagra.sort_knn_graph(
+                c_cagra.sort_knn_graph_host(
                     deref(handle_),
                     get_hmv_uint8_uint32(dataset_ai,
                                          check_shape=True),
@@ -527,7 +529,7 @@ def optimize(knn_graph, new_graph, handle=None):
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -573,8 +575,8 @@ def build(IndexParams index_params, dataset, handle=None):
 
     To customize the parameters for knn-graph building and pruning, and to
     reus the intermediate results, you could build the index in two steps
-    using pylibraft.experimental.cagra.build_knn_graph and
-    pylibraft.experimental.cagra.optimize.
+    using pylibraft.cagra.build_knn_graph and
+    pylibraft.cagra.optimize.
 
      The following distance metrics are supported:
      - L2
@@ -596,7 +598,7 @@ def build(IndexParams index_params, dataset, handle=None):
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -621,7 +623,7 @@ def build(IndexParams index_params, dataset, handle=None):
             idx_float = IndexFloat(handle)
             idx_float.active_index_type = "float32"
             with cuda_interruptible():
-                c_cagra.build(deref(handle_),
+                c_cagra.build_device(deref(handle_),
                               index_params.params,
                               get_dmv_float_uint32(dataset_ai,
                                                    check_shape=True),
@@ -632,7 +634,7 @@ def build(IndexParams index_params, dataset, handle=None):
             idx_int8 = IndexInt8(handle)
             idx_int8.active_index_type = "byte"
             with cuda_interruptible():
-                c_cagra.build(deref(handle_),
+                c_cagra.build_device(deref(handle_),
                               index_params.params,
                               get_dmv_int8_uint32(dataset_ai,
                                                   check_shape=True),
@@ -643,7 +645,7 @@ def build(IndexParams index_params, dataset, handle=None):
             idx_uint8 = IndexUint8(handle)
             idx_uint8.active_index_type = "ubyte"
             with cuda_interruptible():
-                c_cagra.build(deref(handle_),
+                c_cagra.build_device(deref(handle_),
                               index_params.params,
                               get_dmv_uint8_uint32(dataset_ai,
                                                    check_shape=True),
@@ -655,7 +657,7 @@ def build(IndexParams index_params, dataset, handle=None):
                 idx_float = IndexFloat(handle)
                 idx_float.active_index_type = "float32"
                 with cuda_interruptible():
-                    c_cagra.build(deref(handle_),
+                    c_cagra.build_host(deref(handle_),
                                   index_params.params,
                                   get_hmv_float_uint32(dataset_ai,
                                                        check_shape=True),
@@ -666,7 +668,7 @@ def build(IndexParams index_params, dataset, handle=None):
                 idx_int8 = IndexInt8(handle)
                 idx_int8.active_index_type = "byte"
                 with cuda_interruptible():
-                    c_cagra.build(deref(handle_),
+                    c_cagra.build_host(deref(handle_),
                                   index_params.params,
                                   get_hmv_int8_uint32(dataset_ai,
                                                       check_shape=True),
@@ -677,7 +679,7 @@ def build(IndexParams index_params, dataset, handle=None):
                 idx_uint8 = IndexUint8(handle)
                 idx_uint8.active_index_type = "ubyte"
                 with cuda_interruptible():
-                    c_cagra.build(deref(handle_),
+                    c_cagra.build_host(deref(handle_),
                                   index_params.params,
                                   get_hmv_uint8_uint32(dataset_ai,
                                                        check_shape=True),
@@ -686,6 +688,16 @@ def build(IndexParams index_params, dataset, handle=None):
                 return idx_uint8
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
+
+
+# cdef _get_search_algo(c_ivf_pq.codebook_gen codebook):
+#     return {c_ivf_pq.codebook_gen.PER_SUBSPACE: "subspace",
+#             c_ivf_pq.codebook_gen.PER_CLUSTER: "cluster"}[codebook]
+
+
+# cdef _get_hashmap_mode(c_ivf_pq.codebook_gen codebook):
+#     return {c_ivf_pq.codebook_gen.PER_SUBSPACE: "subspace",
+#             c_ivf_pq.codebook_gen.PER_CLUSTER: "cluster"}[codebook]
 
 
 cdef class SearchParams:
@@ -700,7 +712,7 @@ cdef class SearchParams:
                  num_parents=1,
                  min_iterations=0,
                  thread_block_size=0,
-                 hashmap_mode=c_cagra.hash_mode.AUTO,
+                 hashmap_mode="auto",
                  hashmap_min_bitlen=0,
                  hashmap_max_fill_rate=0.5,
                  num_random_samplings=1,
@@ -749,12 +761,12 @@ cdef class SearchParams:
         self.params.max_queries = max_queries
         self.params.itopk_size = itopk_size
         self.params.max_iterations = max_iterations
-        self.params.algo = algo
+        self.params.algo = c_cagra.search_algo.AUTO
         self.params.team_size = team_size
         self.params.num_parents = num_parents
         self.params.min_iterations = min_iterations
         self.params.thread_block_size = thread_block_size
-        self.params.hashmap_mode = hashmap_mode
+        self.params.hashmap_mode = c_cagra.hash_mode.AUTO
         self.params.hashmap_min_bitlen = hashmap_min_bitlen
         self.params.hashmap_max_fill_rate = hashmap_max_fill_rate
         self.params.num_random_samplings = num_random_samplings
@@ -853,7 +865,7 @@ def search(SearchParams search_params,
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
@@ -945,7 +957,7 @@ def save(filename, Index index, handle=None):
     """
     Saves the index to file.
 
-    Saving / loading the index is experimental. The serialization format is
+    Saving / loading the index is. The serialization format is
     subject to change.
 
     Parameters
@@ -961,7 +973,7 @@ def save(filename, Index index, handle=None):
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     >>> n_samples = 50000
     >>> n_features = 50
@@ -1009,7 +1021,7 @@ def load(filename, handle=None):
     """
     Loads index from file.
 
-    Saving / loading the index is experimental. The serialization format is
+    Saving / loading the index is. The serialization format is
     subject to change, therefore loading an index saved with a previous
     version of raft is not guaranteed to work.
 
@@ -1028,7 +1040,7 @@ def load(filename, handle=None):
     >>> import cupy as cp
 
     >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.experimental.neighbors import cagra
+    >>> from pylibraft.neighbors import cagra
 
     """
     if handle is None:

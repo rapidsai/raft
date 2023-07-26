@@ -26,7 +26,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
-#include <raft/util/pow2_utils.cuh>
 
 #include <memory>
 #include <optional>
@@ -35,7 +34,7 @@
 #include <type_traits>
 
 #include <raft/core/logger.hpp>
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 /**
  * @ingroup cagra
  * @{
@@ -113,7 +112,6 @@ static_assert(std::is_aggregate_v<search_params>);
  */
 template <typename T, typename IdxT>
 struct index : ann::index {
-  using AlignDim = raft::Pow2<16 / sizeof(T)>;
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
 
@@ -254,7 +252,7 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, IdxT, row_major> dataset)
   {
-    if (dataset.extent(1) % AlignDim::Value != 0) {
+    if (dataset.extent(1) * sizeof(T) % 16 != 0) {
       RAFT_LOG_DEBUG("Creating a padded copy of CAGRA dataset in device memory");
       copy_padded(res, dataset);
     } else {
@@ -310,8 +308,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<IdxT>, row_major, data_accessor> dataset)
   {
-    dataset_ =
-      make_device_matrix<T, IdxT>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
+    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
+    dataset_          = make_device_matrix<T, uint32_t>(res, dataset.extent(0), padded_dim);
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),
@@ -347,4 +345,13 @@ struct index : ann::index {
 
 /** @} */
 
+}  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::hash_mode;
+using raft::neighbors::cagra::index;
+using raft::neighbors::cagra::index_params;
+using raft::neighbors::cagra::search_algo;
+using raft::neighbors::cagra::search_params;
 }  // namespace raft::neighbors::experimental::cagra

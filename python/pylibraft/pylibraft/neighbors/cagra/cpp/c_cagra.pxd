@@ -48,22 +48,22 @@ from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
 
 
 cdef extern from "raft/neighbors/cagra_types.hpp" \
-        namespace "raft::neighbors::experimental::cagra" nogil:
+        namespace "raft::neighbors::cagra" nogil:
 
     cpdef cppclass index_params(ann_index_params):
         size_t intermediate_graph_degree
         size_t graph_degree
 
     ctypedef enum search_algo:
-        SINGLE_CTA "raft::neighbors::experimental::cagra::search_algo::SINGLE_CTA",
-        MULTI_CTA "raft::neighbors::experimental::cagra::search_algo::MULTI_CTA",
-        MULTI_KERNEL "raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL",
-        AUTO "raft::neighbors::experimental::cagra::search_algo::AUTO"
+        SINGLE_CTA "raft::neighbors::cagra::search_algo::SINGLE_CTA",
+        MULTI_CTA "raft::neighbors::cagra::search_algo::MULTI_CTA",
+        MULTI_KERNEL "raft::neighbors::cagra::search_algo::MULTI_KERNEL",
+        AUTO "raft::neighbors::cagra::search_algo::AUTO"
 
     ctypedef enum hash_mode:
-        HASH "raft::neighbors::experimental::cagra::hash_mode::HASH",
-        SMALL "raft::neighbors::experimental::cagra::hash_mode::SMALL",
-        AUTO "raft::neighbors::experimental::cagra::hash_mode::AUTO"
+        HASH "raft::neighbors::cagra::hash_mode::HASH",
+        SMALL "raft::neighbors::cagra::hash_mode::SMALL",
+        AUTO "raft::neighbors::cagra::hash_mode::AUTO"
 
     cpdef cppclass search_params(ann_search_params):
         size_t max_queries
@@ -91,80 +91,74 @@ cdef extern from "raft/neighbors/cagra_types.hpp" \
         device_matrix_view[T, IdxT, row_major] graph()
 
 cdef extern from "raft_runtime/neighbors/cagra.hpp" \
-        namespace "raft::runtime::neighbors::experimental::cagra" nogil:
+        namespace "raft::runtime::neighbors::cagra" nogil:
 
-    cdef void build(const device_resources&,
+    cdef void build_device(const device_resources&,
                     const index_params& params,
                     device_matrix_view[float, uint32_t, row_major] dataset,
                     index[float, uint32_t]& index) except +
 
-    cdef void build(const device_resources& handle,
+    cdef void build_device(const device_resources& handle,
                     const index_params& params,
                     device_matrix_view[int8_t, uint32_t, row_major] dataset,
                     index[int8_t, uint32_t]& index) except +
 
-    cdef void build(const device_resources& handle,
+    cdef void build_device(const device_resources& handle,
                     const index_params& params,
                     device_matrix_view[uint8_t, uint32_t, row_major] dataset,
                     index[uint8_t, uint32_t]& index) except +
 
-    cdef void build(const device_resources&,
+    cdef void build_host(const device_resources&,
                     const index_params& params,
                     host_matrix_view[float, uint32_t, row_major] dataset,
                     index[float, uint32_t]& index) except +
 
-    cdef void build(const device_resources& handle,
+    cdef void build_host(const device_resources& handle,
                     const index_params& params,
                     host_matrix_view[int8_t, uint32_t, row_major] dataset,
                     index[int8_t, uint32_t]& index) except +
 
-    cdef void build(const device_resources& handle,
+    cdef void build_host(const device_resources& handle,
                     const index_params& params,
                     host_matrix_view[uint8_t, uint32_t, row_major] dataset,
                     index[uint8_t, uint32_t]& index) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_device(const device_resources&,
                     device_matrix_view[float, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
                     optional[ivfpq_ip] build_params,
                     optional[ivfpq_sp] search_params) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_device(const device_resources&,
                     device_matrix_view[int8_t, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
                     optional[ivfpq_ip] build_params,
                     optional[ivfpq_sp] search_params) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_device(const device_resources&,
                     device_matrix_view[uint8_t, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
                     optional[ivfpq_ip] build_params,
                     optional[ivfpq_sp] search_params) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_host(const device_resources&,
                     host_matrix_view[float, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
                     optional[ivfpq_ip] build_params,
                     optional[ivfpq_sp] search_params) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_host(const device_resources&,
                     host_matrix_view[int8_t, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
                     optional[ivfpq_ip] build_params,
                     optional[ivfpq_sp] search_params) except +
 
-    cdef void build_knn_graph(const device_resources&,
-                    const index_params& params,
+    cdef void build_knn_graph_host(const device_resources&,
                     host_matrix_view[uint8_t, uint32_t, row_major] dataset,
                     host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                     optional[float] refine_rate,
@@ -175,27 +169,27 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                        host_matrix_view[uint32_t, uint32_t, row_major] knn_graph,
                        host_matrix_view[uint32_t, uint32_t, row_major] new_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_device(const device_resources&,
                              device_matrix_view[float, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_device(const device_resources&,
                              device_matrix_view[int8_t, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_device(const device_resources&,
                              device_matrix_view[uint8_t, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_host(const device_resources&,
                              host_matrix_view[float, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_host(const device_resources&,
                              host_matrix_view[int8_t, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 
-    cdef void sort_knn_graph(const device_resources&,
+    cdef void sort_knn_graph_host(const device_resources&,
                              host_matrix_view[uint8_t, uint32_t, row_major] dataset,
                              host_matrix_view[uint32_t, uint32_t, row_major] knn_graph) except +
 

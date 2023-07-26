@@ -36,7 +36,7 @@
 
 #include "utils.hpp"
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace graph {
 
 // unnamed namespace to avoid multiple definition error
@@ -588,4 +588,4 @@ void optimize(raft::resources const& res,
 }
 
 }  // namespace graph
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

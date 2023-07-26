@@ -441,7 +441,7 @@ auto inputs_random_largesize = testing::Values(SelectTestSpec{100, 100000, 1, tr
                                                SelectTestSpec{1, 100000000, 256, false, false});
 
 auto inputs_random_largek = testing::Values(SelectTestSpec{100, 100000, 1000, true},
-                                            SelectTestSpec{100, 100000, 2000, true},
+                                            SelectTestSpec{100, 100000, 2000, false},
                                             SelectTestSpec{100, 100000, 100000, true, false},
                                             SelectTestSpec{100, 100000, 2048, false},
                                             SelectTestSpec{100, 100000, 1237, true});
@@ -482,6 +482,11 @@ INSTANTIATE_TEST_CASE_P(SelectionTest,
  *  SelectionTest/ReferencedRandomFloatSizeT.LargeK/0
  *  Indicices do not match! ref[91628] = 131.359 != res[36504] = 158.438
  *  Actual: false (actual=36504 != expected=91628 @38999;
+ *
+ *  SelectionTest/ReferencedRandomFloatSizeT.LargeK/1
+ *  ERROR: ref[57977] = 58.9079 != res[21973] = 54.9354
+ *  Actual: false (actual=21973 != expected=57977 @107999;
+ *
  */
 typedef SelectionTest<float, size_t, with_ref<knn::SelectKAlgo::RADIX_11_BITS>::params_random>
   ReferencedRandomFloatSizeT;

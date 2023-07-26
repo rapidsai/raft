@@ -75,7 +75,6 @@ from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
 
 
 cdef class IndexParams:
-    cdef c_ivf_flat.index_params params
 
     def __init__(self, *,
                  n_lists=1024,
@@ -817,7 +816,7 @@ def load(filename, handle=None):
     >>> handle = DeviceResources()
     >>> index = ivf_flat.load("my_index.bin", handle=handle)
 
-    >>> distances, neighbors = ivf_flat.search(ivf_pq.SearchParams(), index,
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
     """
     if handle is None:
