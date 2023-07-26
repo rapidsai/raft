@@ -164,10 +164,19 @@ class device_uvector_policy {
  public:
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, resource::get_cuda_stream(res), resource::get_workspace_resource(res));
+    if (mr_ == nullptr) {
+      // NB: not using the workspace resource by default!
+      //     The workspace resource is for short-lived temporary allocations.
+      return container_type(n, resource::get_cuda_stream(res));
+    } else {
+      return container_type(n, resource::get_cuda_stream(res), mr_);
+    }
   }
 
-  device_uvector_policy() = default;
+  constexpr device_uvector_policy() = default;
+  constexpr explicit device_uvector_policy(rmm::mr::device_memory_resource* mr) noexcept : mr_(mr)
+  {
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -181,6 +190,9 @@ class device_uvector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+
+ private:
+  rmm::mr::device_memory_resource* mr_{nullptr};
 };
 
 }  // namespace raft
