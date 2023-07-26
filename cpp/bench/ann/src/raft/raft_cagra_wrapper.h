@@ -79,6 +79,8 @@ class RaftCagra : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
+  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
+
  private:
   raft::device_resources handle_;
   BuildParam index_params_;
