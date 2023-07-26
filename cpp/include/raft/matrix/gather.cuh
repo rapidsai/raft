@@ -20,6 +20,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/matrix/detail/gather.cuh>
+#include <raft/matrix/detail/gather_inplace.cuh>
 #include <raft/util/itertools.hpp>
 
 namespace raft::matrix {
@@ -287,6 +288,46 @@ void gather_if(const raft::resources& handle,
                     pred_op,
                     transform_op,
                     resource::get_cuda_stream(handle));
+}
+
+/**
+ * @brief In-place gather elements in a row-major matrix according to a
+ * map. The map specifies the new order in which rows of the input matrix are
+ * rearranged, i.e. for each output row, read the index in the input matrix
+ * from the map, apply a transformation to this input index if specified, and copy the row.
+ * map[i]. For example, the matrix [[1, 2, 3], [4, 5, 6], [7, 8, 9]] with the
+ * map [2, 0, 1] will be transformed to [[7, 8, 9], [1, 2, 3], [4, 5, 6]].
+ * Batching is done on columns and an additional scratch space of
+ * shape n_rows * cols_batch_size is created. For each batch, chunks
+ * of columns from each row are copied into the appropriate location
+ * in the scratch space and copied back to the corresponding locations
+ * in the input matrix.
+ *
+ * @tparam matrix_t     Matrix element type
+ * @tparam map_t        Integer type of map elements
+ * @tparam map_xform_t  Unary lambda expression or operator type. MapTransformOp's result type must
+ *                      be convertible to idx_t.
+ * @tparam idx_t        Integer type used for indexing
+ *
+ * @param[in] handle raft handle
+ * @param[inout] inout input matrix (n_rows * n_cols)
+ * @param[in] map Pointer to the input sequence of gather locations
+ * @param[in] col_batch_size (optional) column batch size. Determines the shape of the scratch space
+ * (map_length, col_batch_size). When set to zero (default), no batching is done and an additional
+ * scratch space of shape (map_lengthm, n_cols) is created.
+ * @param[in]  transform_op  (optional) Transformation to apply to map values
+ */
+template <typename matrix_t,
+          typename map_t,
+          typename idx_t,
+          typename map_xform_t = raft::identity_op>
+void gather(raft::resources const& handle,
+            raft::device_matrix_view<matrix_t, idx_t, raft::layout_c_contiguous> inout,
+            raft::device_vector_view<const map_t, idx_t, raft::layout_c_contiguous> map,
+            idx_t col_batch_size     = 0,
+            map_xform_t transform_op = raft::identity_op())
+{
+  detail::gather(handle, inout, map, transform_op, col_batch_size);
 }
 
 /** @} */  // end of group matrix_gather
