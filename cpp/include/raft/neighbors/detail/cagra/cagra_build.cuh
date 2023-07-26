@@ -148,6 +148,7 @@ void build_knn_graph(raft::resources const& res,
       distances.data_handle(), batch.size(), distances.extent(1));
 
     ivf_pq::search(res, *search_params, index, queries_view, neighbors_view, distances_view);
+
     if constexpr (is_host_mdspan_v<decltype(dataset)>) {
       raft::copy(neighbors_host.data_handle(),
                  neighbors.data_handle(),

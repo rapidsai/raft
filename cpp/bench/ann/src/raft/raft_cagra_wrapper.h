@@ -19,10 +19,13 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <raft/core/detail/mdspan_numpy_serializer.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/serialize.hpp>
 #include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
@@ -79,10 +82,14 @@ class RaftCagra : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
+  void set_search_dataset(const T* dataset, size_t nrow) override;
+
  private:
+  std::shared_ptr<rmm::cuda_stream_pool> stream_pool;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::cagra::search_params search_params_;
+  raft::device_matrix<IdxT, int64_t, row_major> graph_;
   std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
@@ -92,9 +99,12 @@ class RaftCagra : public ANN<T> {
 template <typename T, typename IdxT>
 RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
   : ANN<T>(metric, dim),
+    stream_pool(std::make_shared<rmm::cuda_stream_pool>(2)),
+    handle_(rmm::cuda_stream_default, stream_pool),
     index_params_(param),
     dimension_(dim),
-    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull),
+    graph_(make_device_matrix<IdxT, int64_t, row_major>(handle_, 0, 0))
 {
   rmm::mr::set_current_device_resource(&mr_);
   index_params_.metric = parse_metric_type(metric);
@@ -127,15 +137,96 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
-  raft::neighbors::cagra::serialize(handle_, file, *index_);
+  // 1 orig serialization
+  // raft::neighbors::cagra::serialize(handle_, file, *index_);
+
+  // 2. Saving only knn graph
+  // std::ofstream of(file, std::ios::out | std::ios::binary);
+  // serialize_mdspan(handle_, of, index_->graph());
+  // of.close();
+
+  size_t degree = index_->graph_degree();
+  std::cout << "Saving knn graph" << std::endl;
+  for (int i = 0; i < std::min<int>(index_->size(), 10); i++) {
+    print_vector("k", index_->graph().data_handle() + i * degree, degree, std::cout);
+  }
+
+  // Orig CAGRA type of serialization
+  std::ofstream of(file, std::ios::out | std::ios::binary);
+  std::size_t size = index_->size();
+  // std::size_t degree = index_->graph_degree();
+
+  of.write(reinterpret_cast<char*>(&size), sizeof(size));
+  of.write(reinterpret_cast<char*>(&degree), sizeof(degree));
+
+  auto graph_h = make_host_matrix<IdxT, int64_t>(size, degree);
+  raft::copy(graph_h.data_handle(),
+             index_->graph().data_handle(),
+             index_->graph().size(),
+             resource::get_cuda_stream(handle_));
+  resource::sync_stream(handle_);
+
+  of.write(reinterpret_cast<char*>(graph_h.data_handle()), graph_h.size() * sizeof(IdxT));
+
+  of.close();
   return;
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::load(const std::string& file)
 {
-  index_ = raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file);
-  return;
+  // 1. Original index saving method
+  // index_ = raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file);
+
+  // // 2. read only knn_graph
+  // std::ifstream is(file, std::ios::in | std::ios::binary);
+  // raft::detail::numpy_serializer::header_t header =
+  // raft::detail::numpy_serializer::read_header(is); is.seekg(0);  /* rewind*/ graph_ =
+  // make_device_matrix<IdxT, int64_t>(handle_, header.shape[0], header.shape[1]);
+  // deserialize_mdspan(handle_, is, graph_.view());
+  // is.close();
+
+  // 3. Cagra's knn file format
+  std::ifstream ifs(file, std::ios::in | std::ios::binary);
+  if (!ifs) {
+    throw std::runtime_error("File not exist : " + file + " (`" + __func__ + "` in " + __FILE__ +
+                             ")");
+  }
+
+  std::size_t size, degree;
+
+  ifs.read(reinterpret_cast<char*>(&size), sizeof(size));
+  ifs.read(reinterpret_cast<char*>(&degree), sizeof(degree));
+
+  auto graph_h = make_host_matrix<IdxT, int64_t>(size, degree);
+  graph_       = make_device_matrix<IdxT, int64_t>(handle_, size, degree);
+
+  for (std::size_t i = 0; i < size; i++) {
+    ifs.read(reinterpret_cast<char*>(graph_h.data_handle() + i * degree), sizeof(IdxT) * degree);
+  }
+  ifs.close();
+  raft::copy(
+    graph_.data_handle(), graph_h.data_handle(), graph_.size(), resource::get_cuda_stream(handle_));
+  resource::sync_stream(handle_);
+
+  std::cout << "Loading knn graph" << std::endl;
+  for (int i = 0; i < std::min<int>(graph_.extent(0), 10); i++) {
+    print_vector("k", graph_.data_handle() + i * degree, degree, std::cout);
+  }
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
+{
+  std::cout << "Creating dataset view " << nrow << "x" << this->dim_ << std::endl;
+  auto dataset_v = raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
+  index_.emplace(
+    handle_, parse_metric_type(this->metric_), dataset_v, make_const_mdspan(graph_.view()));
+  size_t degree = index_->graph_degree();
+  std::cout << "Restored index" << std::endl;
+  for (int i = 0; i < std::min<int>(index_->size(), 10); i++) {
+    print_vector("k", index_->graph().data_handle() + i * degree, degree, std::cout);
+  }
 }
 
 template <typename T, typename IdxT>

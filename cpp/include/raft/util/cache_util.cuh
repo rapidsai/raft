@@ -328,7 +328,7 @@ __global__ void assign_cache_idx(const int* keys,
  * @param [out] is_cached whether the element is cached size[n]
  * @param [in] time iteration counter (used for time stamping)
  */
-__global__ inline void get_cache_idx(int* keys,
+__global__ static void get_cache_idx(int* keys,
                                      int n,
                                      int* cached_keys,
                                      int n_cache_sets,

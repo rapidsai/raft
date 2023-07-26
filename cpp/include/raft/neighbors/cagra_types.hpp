@@ -26,7 +26,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
-#include <raft/util/pow2_utils.cuh>
 
 #include <memory>
 #include <optional>
@@ -113,7 +112,6 @@ static_assert(std::is_aggregate_v<search_params>);
  */
 template <typename T, typename IdxT>
 struct index : ann::index {
-  using AlignDim = raft::Pow2<16 / sizeof(T)>;
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
 
@@ -252,7 +250,7 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    if (dataset.extent(1) % AlignDim::Value != 0) {
+    if (dataset.extent(1) * sizeof(T) % 16 != 0) {
       RAFT_LOG_DEBUG("Creating a padded copy of CAGRA dataset in device memory");
       copy_padded(res, dataset);
     } else {
@@ -308,8 +306,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
-    dataset_ =
-      make_device_matrix<T, int64_t>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
+    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
+    dataset_          = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),
