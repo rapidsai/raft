@@ -41,7 +41,7 @@ namespace multi_cta_search {
     uint64_t rand_xor_mask,                                                                     \
     uint32_t num_seeds,                                                                         \
     size_t itopk_size,                                                                          \
-    size_t num_parents,                                                                         \
+    size_t search_width,                                                                        \
     size_t min_iterations,                                                                      \
     size_t max_iterations,                                                                      \
     cudaStream_t stream);
@@ -79,7 +79,7 @@ namespace single_cta_search {
     uint64_t rand_xor_mask,                                                                     \
     uint32_t num_seeds,                                                                         \
     size_t itopk_size,                                                                          \
-    size_t num_parents,                                                                         \
+    size_t search_width,                                                                        \
     size_t min_iterations,                                                                      \
     size_t max_iterations,                                                                      \
     cudaStream_t stream);

@@ -46,7 +46,7 @@ void select_and_run(raft::device_matrix_view<const DATA_T, INDEX_T, layout_strid
                     uint64_t rand_xor_mask,
                     uint32_t num_seeds,
                     size_t itopk_size,
-                    size_t num_parents,
+                    size_t search_width,
                     size_t min_iterations,
                     size_t max_iterations,
                     cudaStream_t stream) RAFT_EXPLICIT;
@@ -73,7 +73,7 @@ void select_and_run(raft::device_matrix_view<const DATA_T, INDEX_T, layout_strid
     uint64_t rand_xor_mask,                                                                     \
     uint32_t num_seeds,                                                                         \
     size_t itopk_size,                                                                          \
-    size_t num_parents,                                                                         \
+    size_t search_width,                                                                        \
     size_t min_iterations,                                                                      \
     size_t max_iterations,                                                                      \
     cudaStream_t stream);
