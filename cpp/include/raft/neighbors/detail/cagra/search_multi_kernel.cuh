@@ -594,8 +594,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   ~search() {}
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
                   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
                   const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]

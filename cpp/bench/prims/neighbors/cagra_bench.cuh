@@ -47,9 +47,9 @@ struct CagraBench : public fixture {
   explicit CagraBench(const params& ps)
     : fixture(true),
       params_(ps),
-      queries_(make_device_matrix<T, IdxT>(handle, ps.n_queries, ps.n_dims)),
-      dataset_(make_device_matrix<T, IdxT>(handle, ps.n_samples, ps.n_dims)),
-      knn_graph_(make_device_matrix<IdxT, IdxT>(handle, ps.n_samples, ps.degree))
+      queries_(make_device_matrix<T, int64_t>(handle, ps.n_queries, ps.n_dims)),
+      dataset_(make_device_matrix<T, int64_t>(handle, ps.n_samples, ps.n_dims)),
+      knn_graph_(make_device_matrix<IdxT, int64_t>(handle, ps.n_samples, ps.degree))
   {
     // Generate random dataset and queriees
     raft::random::RngState state{42};
@@ -87,11 +87,11 @@ struct CagraBench : public fixture {
     search_params.thread_block_size = params_.block_size;
     search_params.search_width      = params_.search_width;
 
-    auto indices   = make_device_matrix<IdxT, IdxT>(handle, params_.n_queries, params_.k);
-    auto distances = make_device_matrix<float, IdxT>(handle, params_.n_queries, params_.k);
-    auto ind_v     = make_device_matrix_view<IdxT, IdxT, row_major>(
+    auto indices   = make_device_matrix<IdxT, int64_t>(handle, params_.n_queries, params_.k);
+    auto distances = make_device_matrix<float, int64_t>(handle, params_.n_queries, params_.k);
+    auto ind_v     = make_device_matrix_view<IdxT, int64_t, row_major>(
       indices.data_handle(), params_.n_queries, params_.k);
-    auto dist_v = make_device_matrix_view<float, IdxT, row_major>(
+    auto dist_v = make_device_matrix_view<float, int64_t, row_major>(
       distances.data_handle(), params_.n_queries, params_.k);
 
     auto queries_v = make_const_mdspan(queries_.view());
@@ -125,9 +125,9 @@ struct CagraBench : public fixture {
  private:
   const params params_;
   std::optional<const raft::neighbors::cagra::index<T, IdxT>> index_;
-  raft::device_matrix<T, IdxT, row_major> queries_;
-  raft::device_matrix<T, IdxT, row_major> dataset_;
-  raft::device_matrix<IdxT, IdxT, row_major> knn_graph_;
+  raft::device_matrix<T, int64_t, row_major> queries_;
+  raft::device_matrix<T, int64_t, row_major> dataset_;
+  raft::device_matrix<IdxT, int64_t, row_major> knn_graph_;
 };
 
 inline const std::vector<params> generate_inputs()
