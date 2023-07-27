@@ -142,7 +142,7 @@ void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
-  if (conf.contains("search_width")) { param.p.num_parents = conf.at("search_width"); }
+  if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
   if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
 }
 #endif
