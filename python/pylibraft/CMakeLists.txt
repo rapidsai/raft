@@ -82,7 +82,6 @@ rapids_cython_init()
 
 add_subdirectory(pylibraft/common)
 add_subdirectory(pylibraft/distance)
-add_subdirectory(pylibraft/experimental/neighbors/cagra)
 add_subdirectory(pylibraft/matrix)
 add_subdirectory(pylibraft/neighbors)
 add_subdirectory(pylibraft/random)

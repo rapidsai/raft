@@ -19,16 +19,15 @@
 
 namespace raft::runtime::neighbors::cagra {
 
-#define RAFT_INST_CAGRA_SEARCH(T, IdxT)                                          \
-  void search(raft::resources const& handle,                                     \
-              raft::neighbors::cagra::search_params const& params, \
-              const raft::neighbors::cagra::index<T, IdxT>& index, \
-              raft::device_matrix_view<const T, IdxT, row_major> queries,        \
-              raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,         \
-              raft::device_matrix_view<float, IdxT, row_major> distances)        \
-  {                                                                              \
-    raft::neighbors::cagra::search<T, IdxT>(                       \
-      handle, params, index, queries, neighbors, distances);                     \
+#define RAFT_INST_CAGRA_SEARCH(T, IdxT)                                                            \
+  void search(raft::resources const& handle,                                                       \
+              raft::neighbors::cagra::search_params const& params,                                 \
+              const raft::neighbors::cagra::index<T, IdxT>& index,                                 \
+              raft::device_matrix_view<const T, IdxT, row_major> queries,                          \
+              raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,                           \
+              raft::device_matrix_view<float, IdxT, row_major> distances)                          \
+  {                                                                                                \
+    raft::neighbors::cagra::search<T, IdxT>(handle, params, index, queries, neighbors, distances); \
   }
 
 RAFT_INST_CAGRA_SEARCH(float, uint32_t);

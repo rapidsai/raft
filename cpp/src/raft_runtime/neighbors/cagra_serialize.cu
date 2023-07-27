@@ -24,36 +24,36 @@
 
 namespace raft::runtime::neighbors::cagra {
 
-#define RAFT_INST_CAGRA_SERIALIZE(DTYPE)                                                           \
-  void serialize_file(raft::resources const& handle,                                               \
-                      const std::string& filename,                                                 \
+#define RAFT_INST_CAGRA_SERIALIZE(DTYPE)                                             \
+  void serialize_file(raft::resources const& handle,                                 \
+                      const std::string& filename,                                   \
                       const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)   \
-  {                                                                                                \
+  {                                                                                  \
     raft::neighbors::cagra::serialize(handle, filename, index);                      \
-  };                                                                                               \
-                                                                                                   \
-  void deserialize_file(raft::resources const& handle,                                             \
-                        const std::string& filename,                                               \
+  };                                                                                 \
+                                                                                     \
+  void deserialize_file(raft::resources const& handle,                               \
+                        const std::string& filename,                                 \
                         raft::neighbors::cagra::index<DTYPE, uint32_t>* index)       \
-  {                                                                                                \
-    if (!index) { RAFT_FAIL("Invalid index pointer"); }                                            \
+  {                                                                                  \
+    if (!index) { RAFT_FAIL("Invalid index pointer"); }                              \
     *index = raft::neighbors::cagra::deserialize<DTYPE, uint32_t>(handle, filename); \
-  };                                                                                               \
-  void serialize(raft::resources const& handle,                                                    \
-                 std::string& str,                                                                 \
+  };                                                                                 \
+  void serialize(raft::resources const& handle,                                      \
+                 std::string& str,                                                   \
                  const raft::neighbors::cagra::index<DTYPE, uint32_t>& index)        \
-  {                                                                                                \
-    std::stringstream os;                                                                          \
+  {                                                                                  \
+    std::stringstream os;                                                            \
     raft::neighbors::cagra::serialize(handle, os, index);                            \
-    str = os.str();                                                                                \
-  }                                                                                                \
-                                                                                                   \
-  void deserialize(raft::resources const& handle,                                                  \
-                   const std::string& str,                                                         \
+    str = os.str();                                                                  \
+  }                                                                                  \
+                                                                                     \
+  void deserialize(raft::resources const& handle,                                    \
+                   const std::string& str,                                           \
                    raft::neighbors::cagra::index<DTYPE, uint32_t>* index)            \
-  {                                                                                                \
-    std::istringstream is(str);                                                                    \
-    if (!index) { RAFT_FAIL("Invalid index pointer"); }                                            \
+  {                                                                                  \
+    std::istringstream is(str);                                                      \
+    if (!index) { RAFT_FAIL("Invalid index pointer"); }                              \
     *index = raft::neighbors::cagra::deserialize<DTYPE, uint32_t>(handle, is);       \
   }
 

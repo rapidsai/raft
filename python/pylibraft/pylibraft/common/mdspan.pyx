@@ -247,7 +247,7 @@ cdef device_matrix_view[int64_t, uint32_t, row_major] \
 
 cdef device_matrix_view[uint32_t, uint32_t, row_major] \
         get_dmv_uint32_uint32(cai, check_shape) except *:
-    if cai.dtype != np.float32:
+    if cai.dtype != np.uint32:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
@@ -258,7 +258,7 @@ cdef device_matrix_view[uint32_t, uint32_t, row_major] \
 
 cdef host_matrix_view[float, uint32_t, row_major] \
         get_hmv_float_uint32(cai, check_shape) except *:
-    if cai.dtype != np.float32:
+    if cai.dtype != np.uint32:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))

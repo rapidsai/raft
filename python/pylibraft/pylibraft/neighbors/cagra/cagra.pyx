@@ -85,7 +85,6 @@ from pylibraft.common.mdspan cimport (
 )
 from pylibraft.neighbors.common cimport _get_metric_string
 from pylibraft.neighbors.ivf_pq cimport ivf_pq
-
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
     index_params as IVFPQ_IP,
     search_params as IVFPQ_SP,
@@ -154,6 +153,19 @@ cdef class Index:
         self.trained = False
         self.active_index_type = None
 
+
+cdef class IndexFloat(Index):
+    cdef c_cagra.index[float, uint32_t] * index
+
+    def __cinit__(self, handle=None):
+        if handle is None:
+            handle = DeviceResources()
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        self.index = new c_cagra.index[float, uint32_t](
+            deref(handle_))
+
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
         attr_str = [attr + "=" + str(getattr(self, attr))
@@ -177,27 +189,6 @@ cdef class Index:
     def graph_degree(self):
         return self.index[0].graph_degree()
 
-    @property
-    def dataset(self):
-        return self.index[0].dataset()
-
-    @property
-    def graph(self):
-        return self.index[0].graph()
-
-
-cdef class IndexFloat(Index):
-    cdef c_cagra.index[float, uint32_t] * index
-
-    def __cinit__(self, handle=None):
-        if handle is None:
-            handle = DeviceResources()
-        cdef device_resources* handle_ = \
-            <device_resources*><size_t>handle.getHandle()
-
-        self.index = new c_cagra.index[float, uint32_t](
-            deref(handle_))
-
     def __dealloc__(self):
         if self.index is not NULL:
             del self.index
@@ -214,6 +205,29 @@ cdef class IndexInt8(Index):
 
         self.index = new c_cagra.index[int8_t, uint32_t](
             deref(handle_))
+
+    def __repr__(self):
+        m_str = "metric=" + _get_metric_string(self.index.metric())
+        attr_str = [attr + "=" + str(getattr(self, attr))
+                    for attr in ["metric", "dim", "graph_degree"]]
+        attr_str = m_str + attr_str
+        return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
+
+    @property
+    def metric(self):
+        return self.index[0].metric()
+
+    @property
+    def size(self):
+        return self.index[0].size()
+
+    @property
+    def dim(self):
+        return self.index[0].dim()
+
+    @property
+    def graph_degree(self):
+        return self.index[0].graph_degree()
 
     def __dealloc__(self):
         if self.index is not NULL:
@@ -232,14 +246,39 @@ cdef class IndexUint8(Index):
         self.index = new c_cagra.index[uint8_t, uint32_t](
             deref(handle_))
 
+    def __repr__(self):
+        m_str = "metric=" + _get_metric_string(self.index.metric())
+        attr_str = [attr + "=" + str(getattr(self, attr))
+                    for attr in ["metric", "dim", "graph_degree"]]
+        attr_str = m_str + attr_str
+        return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
+
+    @property
+    def metric(self):
+        return self.index[0].metric()
+
+    @property
+    def size(self):
+        return self.index[0].size()
+
+    @property
+    def dim(self):
+        return self.index[0].dim()
+
+    @property
+    def graph_degree(self):
+        return self.index[0].graph_degree()
+
     def __dealloc__(self):
         if self.index is not NULL:
             del self.index
 
 
 @auto_sync_handle
-def build_knn_graph(dataset, knn_graph,
+def build_knn_graph(dataset,
                     IndexParams index_params,
+                    knn_graph=None,
+                    graph_degree=128,
                     ivf_pq.IndexParams build_params=None,
                     ivf_pq.SearchParams search_params=None,
                     refine_rate=0,
@@ -275,7 +314,7 @@ def build_knn_graph(dataset, knn_graph,
 
     Returns
     -------
-    index: ivf_pq.Index
+    knn_graph: array interface compliant matrix shape (n_samples, dim)
 
     Examples
     --------
@@ -298,6 +337,11 @@ def build_knn_graph(dataset, knn_graph,
     dataset_dt = dataset_ai.dtype
     _check_input_array(dataset_ai, [np.dtype('float32'), np.dtype('byte'),
                                     np.dtype('ubyte')])
+
+    if knn_graph is None:
+        knn_graph = device_ndarray.empty((dataset_ai.shape()[0],
+                                          graph_degree),
+                                         dtype='uint32')
 
     knn_graph_ai = wrap_array(knn_graph)
     knn_graph_dt = knn_graph_ai.dtype
@@ -393,6 +437,8 @@ def build_knn_graph(dataset, knn_graph,
                     search_params_opt
                 )
 
+        return knn_graph
+
 
 @auto_sync_handle
 def sort_knn_graph(dataset, knn_graph, handle=None):
@@ -437,14 +483,11 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
     _check_input_array(dataset_ai, [np.dtype('float32'), np.dtype('byte'),
                                     np.dtype('ubyte')])
 
-    if knn_graph is None:
-        knn_graph = device_ndarray.empty((n_queries, k), dtype='uint32')
-
     knn_graph_ai = wrap_array(knn_graph)
     knn_graph_dt = knn_graph_ai.dtype
     if knn_graph_ai.from_cai:
         raise ValueError(
-            "Parameter `knn_graph` has to be a host (NumPy) matrix."
+            "Parameter `knn_graph` has to be a host matrix."
         )
     _check_input_array(knn_graph_ai, [np.dtype('uint32')])
 
@@ -507,7 +550,7 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
 
 
 @auto_sync_handle
-def optimize(knn_graph, new_graph, handle=None):
+def optimize(knn_graph, new_graph=None, handle=None):
     """
     Prune a KNN graph.
 
@@ -542,12 +585,10 @@ def optimize(knn_graph, new_graph, handle=None):
 
     knn_graph_ai = wrap_array(knn_graph)
     knn_graph_dt = knn_graph_ai.dtype
-    if knn_graph_ai.from_cai:
-        raise ValueError(
-            "Parameter `knn_graph` has to be a host (NumPy) matrix."
-        )
     _check_input_array(knn_graph_ai, [np.dtype('uint32')])
 
+    if new_graph is None:
+        new_graph = device_ndarray.empty(knn_graph_ai.shape(), dtype='uint32')
     new_graph_ai = wrap_array(new_graph)
     new_graph_dt = new_graph_ai.dtype
     if new_graph_ai.from_cai:
@@ -556,9 +597,18 @@ def optimize(knn_graph, new_graph, handle=None):
         )
     _check_input_array(new_graph_ai, [np.dtype('uint32')])
 
-    c_cagra.optimize(deref(handle_),
-                     get_hmv_uint32_uint32(knn_graph_ai, check_shape=True),
-                     get_hmv_uint32_uint32(new_graph_ai, check_shape=True))
+    if knn_graph_ai.from_cai:
+        c_cagra.optimize_device(
+            deref(handle_),
+            get_dmv_uint32_uint32(knn_graph_ai, check_shape=True),
+            get_hmv_uint32_uint32(new_graph_ai, check_shape=True))
+    else:
+        c_cagra.optimize_host(
+            deref(handle_),
+            get_hmv_uint32_uint32(knn_graph_ai, check_shape=True),
+            get_hmv_uint32_uint32(new_graph_ai, check_shape=True))
+
+    return new_graph
 
 
 @auto_sync_handle
@@ -623,33 +673,36 @@ def build(IndexParams index_params, dataset, handle=None):
             idx_float = IndexFloat(handle)
             idx_float.active_index_type = "float32"
             with cuda_interruptible():
-                c_cagra.build_device(deref(handle_),
-                              index_params.params,
-                              get_dmv_float_uint32(dataset_ai,
-                                                   check_shape=True),
-                              deref(idx_float.index))
+                c_cagra.build_device(
+                    deref(handle_),
+                    index_params.params,
+                    get_dmv_float_uint32(dataset_ai,
+                                         check_shape=True),
+                    deref(idx_float.index))
             idx_float.trained = True
             return idx_float
         elif dataset_dt == np.byte:
             idx_int8 = IndexInt8(handle)
             idx_int8.active_index_type = "byte"
             with cuda_interruptible():
-                c_cagra.build_device(deref(handle_),
-                              index_params.params,
-                              get_dmv_int8_uint32(dataset_ai,
-                                                  check_shape=True),
-                              deref(idx_int8.index))
+                c_cagra.build_device(
+                    deref(handle_),
+                    index_params.params,
+                    get_dmv_int8_uint32(dataset_ai,
+                                        check_shape=True),
+                    deref(idx_int8.index))
             idx_int8.trained = True
             return idx_int8
         elif dataset_dt == np.ubyte:
             idx_uint8 = IndexUint8(handle)
             idx_uint8.active_index_type = "ubyte"
             with cuda_interruptible():
-                c_cagra.build_device(deref(handle_),
-                              index_params.params,
-                              get_dmv_uint8_uint32(dataset_ai,
-                                                   check_shape=True),
-                              deref(idx_uint8.index))
+                c_cagra.build_device(
+                    deref(handle_),
+                    index_params.params,
+                    get_dmv_uint8_uint32(dataset_ai,
+                                         check_shape=True),
+                    deref(idx_uint8.index))
             idx_uint8.trained = True
             return idx_uint8
         else:
@@ -657,47 +710,40 @@ def build(IndexParams index_params, dataset, handle=None):
                 idx_float = IndexFloat(handle)
                 idx_float.active_index_type = "float32"
                 with cuda_interruptible():
-                    c_cagra.build_host(deref(handle_),
-                                  index_params.params,
-                                  get_hmv_float_uint32(dataset_ai,
-                                                       check_shape=True),
-                                  deref(idx_float.index))
+                    c_cagra.build_host(
+                        deref(handle_),
+                        index_params.params,
+                        get_hmv_float_uint32(dataset_ai,
+                                             check_shape=True),
+                        deref(idx_float.index))
                 idx_float.trained = True
                 return idx_float
             elif dataset_dt == np.byte:
                 idx_int8 = IndexInt8(handle)
                 idx_int8.active_index_type = "byte"
                 with cuda_interruptible():
-                    c_cagra.build_host(deref(handle_),
-                                  index_params.params,
-                                  get_hmv_int8_uint32(dataset_ai,
-                                                      check_shape=True),
-                                  deref(idx_int8.index))
+                    c_cagra.build_host(
+                        deref(handle_),
+                        index_params.params,
+                        get_hmv_int8_uint32(dataset_ai,
+                                            check_shape=True),
+                        deref(idx_int8.index))
                 idx_int8.trained = True
                 return idx_int8
             elif dataset_dt == np.ubyte:
                 idx_uint8 = IndexUint8(handle)
                 idx_uint8.active_index_type = "ubyte"
                 with cuda_interruptible():
-                    c_cagra.build_host(deref(handle_),
-                                  index_params.params,
-                                  get_hmv_uint8_uint32(dataset_ai,
-                                                       check_shape=True),
-                                  deref(idx_uint8.index))
+                    c_cagra.build_host(
+                        deref(handle_),
+                        index_params.params,
+                        get_hmv_uint8_uint32(dataset_ai,
+                                             check_shape=True),
+                        deref(idx_uint8.index))
                 idx_uint8.trained = True
                 return idx_uint8
     else:
         raise TypeError("dtype %s not supported" % dataset_dt)
-
-
-# cdef _get_search_algo(c_ivf_pq.codebook_gen codebook):
-#     return {c_ivf_pq.codebook_gen.PER_SUBSPACE: "subspace",
-#             c_ivf_pq.codebook_gen.PER_CLUSTER: "cluster"}[codebook]
-
-
-# cdef _get_hashmap_mode(c_ivf_pq.codebook_gen codebook):
-#     return {c_ivf_pq.codebook_gen.PER_SUBSPACE: "subspace",
-#             c_ivf_pq.codebook_gen.PER_CLUSTER: "cluster"}[codebook]
 
 
 cdef class SearchParams:
@@ -707,7 +753,7 @@ cdef class SearchParams:
                  max_queries=0,
                  itopk_size=64,
                  max_iterations=0,
-                 algo=c_cagra.search_algo.AUTO,
+                 algo="auto",
                  team_size=0,
                  num_parents=1,
                  min_iterations=0,
@@ -761,12 +807,30 @@ cdef class SearchParams:
         self.params.max_queries = max_queries
         self.params.itopk_size = itopk_size
         self.params.max_iterations = max_iterations
-        self.params.algo = c_cagra.search_algo.AUTO
+        if algo == "single_cta":
+            self.params.algo = c_cagra.search_algo.SINGLE_CTA
+        elif algo == "multi_cta":
+            self.params.algo = c_cagra.search_algo.MULTI_CTA
+        elif algo == "multi_kernel":
+            self.params.algo = c_cagra.search_algo.MULTI_KERNEL
+        elif algo == "auto":
+            self.params.algo = c_cagra.search_algo.AUTO
+        else:
+            raise ValueError("`algo` value not supported.")
+
         self.params.team_size = team_size
         self.params.num_parents = num_parents
         self.params.min_iterations = min_iterations
         self.params.thread_block_size = thread_block_size
-        self.params.hashmap_mode = c_cagra.hash_mode.AUTO
+        if hashmap_mode == "hash":
+            self.params.hashmap_mode = c_cagra.hash_mode.HASH
+        elif hashmap_mode == "small":
+            self.params.hashmap_mode = c_cagra.hash_mode.SMALL
+        elif hashmap_mode == "auto":
+            self.params.hashmap_mode = c_cagra.hash_mode.AUTO
+        else:
+            raise ValueError("`hashmap_mode` value not supported.")
+
         self.params.hashmap_min_bitlen = hashmap_min_bitlen
         self.params.hashmap_max_fill_rate = hashmap_max_fill_rate
         self.params.num_random_samplings = num_random_samplings
@@ -892,10 +956,10 @@ def search(SearchParams search_params,
                        exp_cols=index.dim)
 
     if neighbors is None:
-        neighbors = device_ndarray.empty((n_queries, k), dtype='int64')
+        neighbors = device_ndarray.empty((n_queries, k), dtype='uint32')
 
     neighbors_cai = cai_wrapper(neighbors)
-    _check_input_array(neighbors_cai, [np.dtype('int64')],
+    _check_input_array(neighbors_cai, [np.dtype('uint32')],
                        exp_rows=n_queries, exp_cols=k)
 
     if distances is None:
@@ -1053,10 +1117,11 @@ def load(filename, handle=None):
     cdef IndexInt8 idx_int8
     cdef IndexUint8 idx_uint8
 
+    # we extract the dtype from the arrai interfaces in the file
     with open(filename, 'rb') as f:
-        type_str = f.read(3).decode('utf-8')
+        type_str = f.read(700).decode("utf-8", errors='ignore')
 
-    dataset_dt = np.dtype(type_str)
+    dataset_dt = np.dtype(type_str[673:676])
 
     if dataset_dt == np.float32:
         idx_float = IndexFloat(handle)
@@ -1080,4 +1145,4 @@ def load(filename, handle=None):
         idx_uint8.active_index_type = 'ubyte'
         return idx_uint8
     else:
-        raise ValueError("Index dtype %s not supported" % dataset_dt)
+        raise ValueError("Dataset dtype %s not supported" % dataset_dt)

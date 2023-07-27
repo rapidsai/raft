@@ -17,6 +17,7 @@
 
 cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 
+
 cdef class IndexParams:
     cdef c_ivf_pq.index_params params
 

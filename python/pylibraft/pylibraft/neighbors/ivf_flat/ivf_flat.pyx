@@ -75,6 +75,7 @@ from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
 
 
 cdef class IndexParams:
+    cdef c_ivf_flat.index_params params
 
     def __init__(self, *,
                  n_lists=1024,
