@@ -108,7 +108,7 @@ static_assert(std::is_aggregate_v<search_params>);
  * The index stores the dataset and a kNN graph in device memory.
  *
  * @tparam T data element type
- * @tparam IdxT type of the indices in the source dataset
+ * @tparam IdxT type of the vector indices (represent dataset.extent(0))
  *
  */
 template <typename T, typename IdxT>
@@ -124,7 +124,7 @@ struct index : ann::index {
     return metric_;
   }
 
-  // /** Total length of the index. */
+  // /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
     return dataset_view_.extent(0);
@@ -143,16 +143,14 @@ struct index : ann::index {
 
   /** Dataset [size, dim] */
   [[nodiscard]] inline auto dataset() const noexcept
-    -> device_matrix_view<const T, IdxT, layout_stride>
+    -> device_matrix_view<const T, int64_t, layout_stride>
   {
     return dataset_view_;
   }
 
   /** neighborhood graph [size, graph-degree] */
-  inline auto graph() noexcept -> device_matrix_view<IdxT, IdxT, row_major> { return graph_view_; }
-
   [[nodiscard]] inline auto graph() const noexcept
-    -> device_matrix_view<const IdxT, IdxT, row_major>
+    -> device_matrix_view<const IdxT, int64_t, row_major>
   {
     return graph_view_;
   }
@@ -168,8 +166,8 @@ struct index : ann::index {
   index(raft::resources const& res)
     : ann::index(),
       metric_(raft::distance::DistanceType::L2Expanded),
-      dataset_(make_device_matrix<T, IdxT>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, IdxT>(res, 0, 0))
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
   }
 
@@ -189,7 +187,7 @@ struct index : ann::index {
    * - Cagra index is normally created by the cagra::build
    * @code{.cpp}
    *   using namespace raft::neighbors::experimental;
-   *   auto dataset = raft::make_host_matrix<float>(n_rows, n_cols);
+   *   auto dataset = raft::make_host_matrix<float, int64_t>(n_rows, n_cols);
    *   load_dataset(dataset.view());
    *   // use default index parameters
    *   cagra::index_params index_params;
@@ -198,8 +196,8 @@ struct index : ann::index {
    *   // use default search parameters
    *   cagra::search_params search_params;
    *   // search K nearest neighbours
-   *   auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
-   *   auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+   *   auto neighbors = raft::make_device_matrix<uint32_t, int64_t>(res, n_queries, k);
+   *   auto distances = raft::make_device_matrix<float, int64_t>(res, n_queries, k);
    *   cagra::search(res, search_params, index, queries, neighbors, distances);
    * @endcode
    *   In the above example, we have passed a host dataset to build. The returned index will own a
@@ -210,8 +208,8 @@ struct index : ann::index {
    * @code{.cpp}
    *   using namespace raft::neighbors::experimental;
    *
-   *   auto dataset = raft::make_device_matrix<float>(res, n_rows, n_cols);
-   *   auto knn_graph = raft::make_device_matrix<uint32_n>(res, n_rows, graph_degree);
+   *   auto dataset = raft::make_device_matrix<float, int64_t>(res, n_rows, n_cols);
+   *   auto knn_graph = raft::make_device_matrix<uint32_n, int64_t>(res, n_rows, graph_degree);
    *
    *   // custom loading and graph creation
    *   // load_dataset(dataset.view());
@@ -230,12 +228,12 @@ struct index : ann::index {
   template <typename data_accessor, typename graph_accessor>
   index(raft::resources const& res,
         raft::distance::DistanceType metric,
-        mdspan<const T, matrix_extent<IdxT>, row_major, data_accessor> dataset,
-        mdspan<const IdxT, matrix_extent<IdxT>, row_major, graph_accessor> knn_graph)
+        mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+        mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
     : ann::index(),
       metric_(metric),
-      dataset_(make_device_matrix<T, IdxT>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, IdxT>(res, 0, 0))
+      dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
@@ -252,13 +250,13 @@ struct index : ann::index {
    * index.
    */
   void update_dataset(raft::resources const& res,
-                      raft::device_matrix_view<const T, IdxT, row_major> dataset)
+                      raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
     if (dataset.extent(1) % AlignDim::Value != 0) {
       RAFT_LOG_DEBUG("Creating a padded copy of CAGRA dataset in device memory");
       copy_padded(res, dataset);
     } else {
-      dataset_view_ = make_device_strided_matrix_view<const T, IdxT>(
+      dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
         dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
     }
   }
@@ -269,7 +267,7 @@ struct index : ann::index {
    * We create a copy of the dataset on the device. The index manages the lifetime of this copy.
    */
   void update_dataset(raft::resources const& res,
-                      raft::host_matrix_view<const T, IdxT, row_major> dataset)
+                      raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
     RAFT_LOG_DEBUG("Copying CAGRA dataset from host to device");
     copy_padded(res, dataset);
@@ -282,7 +280,7 @@ struct index : ann::index {
    * the caller's responsibility to ensure that knn_graph stays alive as long as the index.
    */
   void update_graph(raft::resources const& res,
-                    raft::device_matrix_view<const IdxT, IdxT, row_major> knn_graph)
+                    raft::device_matrix_view<const IdxT, int64_t, row_major> knn_graph)
   {
     graph_view_ = knn_graph;
   }
@@ -293,10 +291,10 @@ struct index : ann::index {
    * We create a copy of the graph on the device. The index manages the lifetime of this copy.
    */
   void update_graph(raft::resources const& res,
-                    raft::host_matrix_view<const IdxT, IdxT, row_major> knn_graph)
+                    raft::host_matrix_view<const IdxT, int64_t, row_major> knn_graph)
   {
     RAFT_LOG_DEBUG("Copying CAGRA knn graph from host to device");
-    graph_ = make_device_matrix<IdxT, IdxT>(res, knn_graph.extent(0), knn_graph.extent(1));
+    graph_ = make_device_matrix<IdxT, int64_t>(res, knn_graph.extent(0), knn_graph.extent(1));
     raft::copy(graph_.data_handle(),
                knn_graph.data_handle(),
                knn_graph.size(),
@@ -308,10 +306,10 @@ struct index : ann::index {
   /** Create a device copy of the dataset, and pad it if necessary. */
   template <typename data_accessor>
   void copy_padded(raft::resources const& res,
-                   mdspan<const T, matrix_extent<IdxT>, row_major, data_accessor> dataset)
+                   mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
     dataset_ =
-      make_device_matrix<T, IdxT>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
+      make_device_matrix<T, int64_t>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),
@@ -330,7 +328,7 @@ struct index : ann::index {
                                       cudaMemcpyDefault,
                                       resource::get_cuda_stream(res)));
     }
-    dataset_view_ = make_device_strided_matrix_view<const T, IdxT>(
+    dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
       dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
     RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",
                    static_cast<size_t>(dataset_view_.extent(0)),
@@ -339,10 +337,10 @@ struct index : ann::index {
   }
 
   raft::distance::DistanceType metric_;
-  raft::device_matrix<T, IdxT, row_major> dataset_;
-  raft::device_matrix<IdxT, IdxT, row_major> graph_;
-  raft::device_matrix_view<const T, IdxT, layout_stride> dataset_view_;
-  raft::device_matrix_view<const IdxT, IdxT, row_major> graph_view_;
+  raft::device_matrix<T, int64_t, row_major> dataset_;
+  raft::device_matrix<IdxT, int64_t, row_major> graph_;
+  raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
+  raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
 };
 
 /** @} */
