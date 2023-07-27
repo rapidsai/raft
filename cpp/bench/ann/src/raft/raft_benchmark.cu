@@ -144,6 +144,20 @@ void parse_search_param(const nlohmann::json& conf,
   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
   if (conf.contains("search_width")) { param.p.num_parents = conf.at("search_width"); }
   if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
+  if (conf.contains("algo")) {
+    if (conf.at("algo") == "single_cta") {
+      param.p.algo = raft::neighbors::experimental::cagra::search_algo::SINGLE_CTA;
+    } else if (conf.at("algo") == "multi_cta") {
+      param.p.algo = raft::neighbors::experimental::cagra::search_algo::MULTI_CTA;
+    } else if (conf.at("algo") == "multi_kernel") {
+      param.p.algo = raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL;
+    } else if (conf.at("algo") == "auto") {
+      param.p.algo = raft::neighbors::experimental::cagra::search_algo::AUTO;
+    } else {
+      std::string tmp = conf.at("algo");
+      THROW("Invalid value for algo: %s", tmp.c_str());
+    }
+  }
 }
 #endif
 
