@@ -15,7 +15,7 @@ dependencies:
 - cuda-version=11.8
 - cudatoolkit
 - cxx-compiler
-- cython>=0.29,<0.30
+- cython>=3.0.0
 - faiss-proc=*=cuda
 - gcc_linux-64=11.*
 - glog>=0.6.0
