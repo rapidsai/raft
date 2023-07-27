@@ -330,7 +330,7 @@ void select_k(raft::resources const& handle,
           in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
     case Algo::kFaissBlockSelect:
       return neighbors::detail::select_k(
-        in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream, mr);
+        in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream);
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
