@@ -40,7 +40,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
 // #define _CLK_BREAKDOWN
@@ -452,8 +452,8 @@ template <unsigned TEAM_SIZE,
           typename INDEX_T,
           typename DISTANCE_T>
 void select_and_run(  // raft::resources const& res,
-  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
   const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
@@ -517,4 +517,4 @@ void select_and_run(  // raft::resources const& res,
 }
 
 }  // namespace multi_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

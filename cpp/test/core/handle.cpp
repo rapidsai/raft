@@ -25,6 +25,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cuda_stream_pool.hpp>
 #include <raft/core/resource/device_memory_resource.hpp>
+#include <rmm/device_buffer.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <unordered_map>
@@ -274,39 +275,61 @@ TEST(Raft, WorkspaceResource)
 {
   raft::handle_t handle;
 
-  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
-                resource::get_workspace_resource(handle)) == nullptr);
-  ASSERT_EQ(rmm::mr::get_current_device_resource(), resource::get_workspace_resource(handle));
+  // The returned resource is always a limiting adaptor
+  auto* orig_mr = resource::get_workspace_resource(handle)->get_upstream();
 
-  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
-  std::shared_ptr<rmm::cuda_stream_pool> pool = {nullptr};
-  raft::handle_t handle2(rmm::cuda_stream_per_thread, pool, pool_mr);
+  // Let's create a pooled resource
+  auto pool_mr = std::shared_ptr<rmm::mr::device_memory_resource>{
+    new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource())};
 
-  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
-                resource::get_workspace_resource(handle2)) != nullptr);
-  ASSERT_EQ(pool_mr, resource::get_workspace_resource(handle2));
+  // A tiny workspace of 1MB
+  size_t max_size = 1024 * 1024;
 
-  delete pool_mr;
+  // Replace the resource
+  resource::set_workspace_resource(handle, pool_mr, max_size);
+  auto new_mr = resource::get_workspace_resource(handle);
+
+  // By this point, the orig_mr likely points to a non-existent resource; don't dereference!
+  ASSERT_NE(orig_mr, new_mr);
+  ASSERT_EQ(pool_mr.get(), new_mr->get_upstream());
+  // We can safely reset pool_mr, because the shared_ptr to the pool memory stays in the resource
+  pool_mr.reset();
+
+  auto stream = resource::get_cuda_stream(handle);
+  rmm::device_buffer buf(max_size / 2, stream, new_mr);
+
+  // Note, the underlying pool allocator likely uses more space than reported here
+  ASSERT_EQ(max_size, resource::get_workspace_total_bytes(handle));
+  ASSERT_EQ(buf.size(), resource::get_workspace_used_bytes(handle));
+  ASSERT_EQ(max_size - buf.size(), resource::get_workspace_free_bytes(handle));
+
+  // this should throw, becaise we partially used the space.
+  ASSERT_THROW((rmm::device_buffer{max_size, stream, new_mr}), rmm::bad_alloc);
 }
 
 TEST(Raft, WorkspaceResourceCopy)
 {
-  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(10);
+  raft::handle_t res;
+  auto orig_mr   = resource::get_workspace_resource(res);
+  auto orig_size = resource::get_workspace_total_bytes(res);
 
-  handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  {
+    // create a new handle in the inner scope and update the workspace resource for it.
+    raft::resources tmp_res(res);
+    resource::set_workspace_resource(
+      tmp_res,
+      std::shared_ptr<rmm::mr::device_memory_resource>{
+        new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource())},
+      orig_size * 2);
 
-  auto pool_mr = new rmm::mr::pool_memory_resource(rmm::mr::get_current_device_resource());
+    ASSERT_EQ(orig_mr, resource::get_workspace_resource(res));
+    ASSERT_EQ(orig_size, resource::get_workspace_total_bytes(res));
 
-  handle_t copied_handle(handle, pool_mr);
-
-  assert_handles_equal(handle, copied_handle);
-
-  // Assert the workspace_resources are what we expect
-  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
-                resource::get_workspace_resource(handle)) == nullptr);
-
-  ASSERT_TRUE(dynamic_cast<const rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>*>(
-                resource::get_workspace_resource(copied_handle)) != nullptr);
+    ASSERT_NE(orig_mr, resource::get_workspace_resource(tmp_res));
+    ASSERT_NE(orig_size, resource::get_workspace_total_bytes(tmp_res));
+  }
+  ASSERT_EQ(orig_mr, resource::get_workspace_resource(res));
+  ASSERT_EQ(orig_size, resource::get_workspace_total_bytes(res));
 }
 
 TEST(Raft, HandleCopy)

@@ -26,7 +26,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/util/pow2_utils.cuh>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 struct search_plan_impl_base : public search_params {
   int64_t max_dim;
@@ -105,8 +105,8 @@ struct search_plan_impl : public search_plan_impl_base {
   virtual ~search_plan_impl() {}
 
   virtual void operator()(raft::resources const& res,
-                          raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                          raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                          raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                          raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                           INDEX_T* const result_indices_ptr,       // [num_queries, topk]
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
                           const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
@@ -324,4 +324,4 @@ struct search_plan_impl : public search_plan_impl_base {
 // };
 /** @} */  // end group cagra
 
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
