@@ -23,7 +23,6 @@
 #include "raft/core/mdspan.hpp"
 #include "raft/core/mdspan_types.hpp"
 #include "raft/linalg/map.cuh"
-#include "raft/neighbors/detail/ivf_pq_build.cuh"
 #include "raft/neighbors/ivf_flat_types.hpp"
 #include "raft/neighbors/ivf_list.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
@@ -154,8 +153,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                ps.num_db_vecs,
                                ps.dim);
         
-        RAFT_LOG_INFO("Index build successfully");
-
         resource::sync_stream(handle_);
         approx_knn_search(handle_,
                           distances_ivfflat_dev.data(),
@@ -165,8 +162,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                           search_queries.data(),
                           ps.num_queries);
         
-        RAFT_LOG_INFO("search successful");
-
         update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
         update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
         resource::sync_stream(handle_);
@@ -453,7 +448,7 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
 const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   // test various dims (aligned and not aligned to vector sizes)
-  {100, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true}};
+  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true}};
   // {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
   // {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
   // {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},

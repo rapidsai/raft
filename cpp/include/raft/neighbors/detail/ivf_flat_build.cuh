@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "raft/core/logger-macros.hpp"
 #include <raft/cluster/kmeans_balanced.cuh>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
@@ -33,7 +32,6 @@
 #include <raft/neighbors/ivf_list_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/stats/histogram.cuh>
-#include <raft/util/fast_int_div.cuh>
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -153,14 +151,8 @@ __global__ void build_index_kernel(const LabelT* labels,
   // NB: such `veclen` is selected, that `dim % veclen == 0`
   for (uint32_t l = 0; l < dim; l += veclen) {
     for (uint32_t j = 0; j < veclen; j++) {
-      if (list_id == 0) {
-        printf("l %u, j %u, dst_index %u, src_value %f\n", l, j, l * kIndexGroupSize + ingroup_id + j, (float)source_vecs[l + j]);
-      }
       list_data[l * kIndexGroupSize + ingroup_id + j] = source_vecs[l + j];
     }
-  }
-  if (list_id == 0) {
-    printf("list_id %u, inlist_id %u, group_offset %u, ingroup_id %u\n", list_id, inlist_id, group_offset, ingroup_id);
   }
 }
 
@@ -255,7 +247,6 @@ void extend(raft::resources const& handle,
   // Kernel to insert the new vectors
   const dim3 block_dim(256);
   const dim3 grid_dim(raft::ceildiv<IdxT>(n_rows, block_dim.x));
-
   build_index_kernel<<<grid_dim, block_dim, 0, stream>>>(new_labels.data_handle(),
                                                          new_vectors,
                                                          new_indices,
