@@ -436,8 +436,10 @@ void ivfpq_search_worker(raft::resources const& handle,
   auto stream = resource::get_cuda_stream(handle);
   auto mr     = resource::get_workspace_resource(handle);
 
-  bool manage_local_topk = is_local_topk_feasible(topK, n_probes, n_queries);
-  auto topk_len          = manage_local_topk ? n_probes * topK : max_samples;
+  bool manage_local_topk         = is_local_topk_feasible(topK, n_probes, n_queries);
+  auto topk_len                  = manage_local_topk ? n_probes * topK : max_samples;
+  std::size_t n_queries_probes   = std::size_t(n_queries) * std::size_t(n_probes);
+  std::size_t n_queries_topk_len = std::size_t(n_queries) * std::size_t(topk_len);
   if (manage_local_topk) {
     RAFT_LOG_DEBUG("Fused version of the search kernel is selected (manage_local_topk == true)");
   } else {
@@ -448,13 +450,13 @@ void ivfpq_search_worker(raft::resources const& handle,
   rmm::device_uvector<uint32_t> index_list_sorted_buf(0, stream, mr);
   uint32_t* index_list_sorted = nullptr;
   rmm::device_uvector<uint32_t> num_samples(n_queries, stream, mr);
-  rmm::device_uvector<uint32_t> chunk_index(n_queries * n_probes, stream, mr);
+  rmm::device_uvector<uint32_t> chunk_index(n_queries_probes, stream, mr);
   // [maxBatchSize, max_samples] or  [maxBatchSize, n_probes, topk]
-  rmm::device_uvector<ScoreT> distances_buf(n_queries * topk_len, stream, mr);
+  rmm::device_uvector<ScoreT> distances_buf(n_queries_topk_len, stream, mr);
   rmm::device_uvector<uint32_t> neighbors_buf(0, stream, mr);
   uint32_t* neighbors_ptr = nullptr;
   if (manage_local_topk) {
-    neighbors_buf.resize(n_queries * topk_len, stream);
+    neighbors_buf.resize(n_queries_topk_len, stream);
     neighbors_ptr = neighbors_buf.data();
   }
   rmm::device_uvector<uint32_t> neighbors_uint32_buf(0, stream, mr);
@@ -479,10 +481,10 @@ void ivfpq_search_worker(raft::resources const& handle,
     // The goal is to incrase the L2 cache hit rate to read the vectors
     // of a cluster by processing the cluster at the same time as much as
     // possible.
-    index_list_sorted_buf.resize(n_queries * n_probes, stream);
+    index_list_sorted_buf.resize(n_queries_probes, stream);
     auto index_list_buf =
-      make_device_mdarray<uint32_t>(handle, mr, make_extents<uint32_t>(n_queries * n_probes));
-    rmm::device_uvector<uint32_t> cluster_labels_out(n_queries * n_probes, stream, mr);
+      make_device_mdarray<uint32_t>(handle, mr, make_extents<uint32_t>(n_queries_probes));
+    rmm::device_uvector<uint32_t> cluster_labels_out(n_queries_probes, stream, mr);
     auto index_list   = index_list_buf.data_handle();
     index_list_sorted = index_list_sorted_buf.data();
 
@@ -497,7 +499,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    n_queries * n_probes,
+                                    n_queries_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -508,7 +510,7 @@ void ivfpq_search_worker(raft::resources const& handle,
                                     cluster_labels_out.data(),
                                     index_list,
                                     index_list_sorted,
-                                    n_queries * n_probes,
+                                    n_queries_probes,
                                     begin_bit,
                                     end_bit,
                                     stream);
@@ -558,7 +560,6 @@ void ivfpq_search_worker(raft::resources const& handle,
   }
   compute_similarity_run(search_instance,
                          stream,
-                         index.size(),
                          index.rot_dim(),
                          n_probes,
                          index.pq_dim(),
@@ -706,7 +707,11 @@ inline auto get_max_batch_size(raft::resources const& res,
   }
   // Check in the tmp distance buffer is not too big
   auto ws_size = [k, n_probes, max_samples](uint32_t bs) -> uint64_t {
-    return uint64_t(is_local_topk_feasible(k, n_probes, bs) ? k * n_probes : max_samples) * bs;
+    const uint64_t buffers_fused     = 12ull * k * n_probes;
+    const uint64_t buffers_non_fused = 4ull * max_samples;
+    const uint64_t other             = 32ull * n_probes;
+    return static_cast<uint64_t>(bs) *
+           (other + (is_local_topk_feasible(k, n_probes, bs) ? buffers_fused : buffers_non_fused));
   };
   auto max_ws_size = resource::get_workspace_free_bytes(res);
   if (ws_size(max_batch_size) > max_ws_size) {
