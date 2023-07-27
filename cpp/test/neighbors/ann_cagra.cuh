@@ -134,7 +134,7 @@ struct AnnCagraInputs {
   int max_queries;
   int team_size;
   int itopk_size;
-  int search_widthh;
+  int search_width;
   raft::distance::DistanceType metric;
   bool host_dataset;
   // std::optional<double>
