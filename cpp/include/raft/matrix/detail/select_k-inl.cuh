@@ -303,7 +303,8 @@ void select_k(raft::resources const& handle,
                                                         out_idx,
                                                         select_min,
                                                         true,  // fused_last_filter
-                                                        stream);
+                                                        stream,
+                                                        mr);
 
       if (sorted) {
         auto offsets = raft::make_device_vector<IdxT, IdxT>(handle, (IdxT)(batch_size + 1));
@@ -326,10 +327,10 @@ void select_k(raft::resources const& handle,
     case Algo::kWarpDistributedShm:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
-          in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream);
+          in_val, in_idx, batch_size, len, k, out_val, out_idx, select_min, stream, mr);
     case Algo::kFaissBlockSelect:
       return neighbors::detail::select_k(
-        in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream);
+        in_val, in_idx, batch_size, len, out_val, out_idx, select_min, k, stream, mr);
     default: RAFT_FAIL("K-selection Algorithm not supported.");
   }
 }
