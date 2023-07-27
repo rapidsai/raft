@@ -29,7 +29,7 @@ def find_executable(algos_conf, algo):
     executable = algos_conf[algo]["executable"]
     conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
                               executable)
-    build_path = os.path.join(os.getcwd(), "cpp", "build", executable)
+    build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
         return (executable, conda_path)
     elif os.path.exists(build_path):
@@ -39,12 +39,11 @@ def find_executable(algos_conf, algo):
 
 
 def run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         force, ann_bench_path, build, search):
+                         force, conf_filedir, build, search):
     for executable, ann_executable_path in executables_to_run.keys():
         # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
-        temp_conf_filepath = os.path.join(ann_bench_path, "conf",
-                                          temp_conf_filename)
+        temp_conf_filepath = os.path.join(conf_filedir, temp_conf_filename)
         with open(temp_conf_filepath, "w") as f:
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
@@ -126,6 +125,7 @@ def main():
     # Read configuration file associated to dataset
     conf_filepath = args.configuration
     conf_filename = conf_filepath.split("/")[-1]
+    conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
 
@@ -178,7 +178,7 @@ def main():
                 executables_to_run[executable_path]["index"].append(index)
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         args.force, ann_bench_path, build, search)
+                         args.force, conf_filedir, build, search)
 
 
 if __name__ == "__main__":
