@@ -25,6 +25,9 @@
 #include "raft/linalg/map.cuh"
 #include "raft/neighbors/ivf_flat_types.hpp"
 #include "raft/neighbors/ivf_list.hpp"
+#include "raft/util/cudart_utils.hpp"
+#include "raft/util/fast_int_div.cuh"
+#include "thrust/functional.h"
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 
@@ -87,22 +90,22 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
   {
   }
 
-  void construct_pad_mask(raft::device_matrix_view<bool> mask) {
-  uint32_t list_size = mask.extent(0);
-  uint32_t dim = mask.extent(1);
-  using interleaved_group = Pow2<kIndexGroupSize>;
-  raft::linalg::map_offset(handle_, make_device_vector_view(mask.data_handle(), list_size * dim), [list_size, dim = util::FastIntDiv(dim)]__device__(uint32_t i) {
-        uint32_t row = i / dim;
-        uint32_t max_group_offset = interleaved_group::roundDown(list_size);
-        if (row < max_group_offset) {
-          return true;
-        }
-        uint32_t ingroup_id = interleaved_group::mod(row);
-        return ingroup_id < (list_size - max_group_offset);
-      });
-}
+  // void construct_pad_mask(raft::resources const& handle, uint32_t list_size, uint32_t dim, raft::device_vector_view<bool> mask) {
+  //   using interleaved_group = Pow2<kIndexGroupSize>;
+  //   uint32_t padded_list_size = interleaved_group::roundUp(list_size);
+  //   linalg::map_offset(handle, mask, [=] __device__ (auto i) {
+  //       uint32_t row = i / dim;
+  //       uint32_t max_group_offset = interleaved_group::roundDown(list_size);
+  //       if (row < max_group_offset) {
+  //         return true;
+  //       }
+  //       uint32_t ingroup_id = interleaved_group::mod(row);
+  //       return ingroup_id < (padded_list_size - max_group_offset);
+  //       return true;
+  //     });
+// }
 
- protected:
+//  protected:
   void testIVFFlat()
   {
     size_t queries_size = ps.num_queries * ps.k;
@@ -293,9 +296,11 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
   void testPacker()
   {
     ivf_flat::index_params index_params;
+    ivf_flat::search_params search_params;
     index_params.n_lists          = ps.nlist;
     index_params.metric           = ps.metric;
     index_params.adaptive_centers = false;
+    search_params.n_probes = ps.nprobe;
 
     index_params.add_data_on_build        = false;
     index_params.kmeans_trainset_fraction = 1.0;
@@ -311,16 +316,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
     auto list_sizes = raft::make_host_vector<uint32_t>(idx.n_lists());
     update_host(
-      list_sizes.data_handle(), idx.list_sizes().data_handle(), idx.n_lists(), stream_);
-    // auto data_ptrs = raft::make_host_vector<DataT*>(idx.n_lists());
-    // update_host(data_ptrs.data_handle(), idx.data_ptrs().data_handle(), idx.n_lists(), stream_);
-    // auto inds_ptrs = raft::make_host_vector<IdxT*>(idx.n_lists());
-    // update_host(inds_ptrs.data_handle(), idx.inds_ptrs().data_handle(), idx.n_lists(), stream_);
+      list_sizes.data_handle(), extend_index.list_sizes().data_handle(), extend_index.n_lists(), stream_);
     resource::sync_stream(handle_);
+
     auto& lists = idx.lists();
 
     // conservative memory allocation for codepacking
-    auto list_device_spec = list_spec<uint32_t, DataT, IdxT>{static_cast<uint32_t>(ps.dim), false};
+    auto list_device_spec = list_spec<uint32_t, DataT, IdxT>{idx.dim(), false};
 
     for (uint32_t label = 0; label < idx.n_lists(); label++) {
       uint32_t list_size = list_sizes.data_handle()[label];
@@ -334,19 +336,21 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
     for (uint32_t label = 0; label < idx.n_lists(); label++) {
       uint32_t list_size = list_sizes.data_handle()[label];
-      uint32_t padded_list_size = interleaved_group::roundUp(list_size);
-      uint32_t n_elems = padded_list_size * static_cast<uint32_t>(ps.dim);
+
+      if (list_size > 0) {
+        uint32_t padded_list_size = interleaved_group::roundUp(list_size);
+      uint32_t n_elems = padded_list_size * idx.dim();
       auto list_data = lists[label]->data;
-      auto list_inds = lists[label]->indices;
+      auto list_inds = extend_index.lists()[label]->indices;
 
       // fetch the flat codes
-      auto flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, static_cast<uint32_t>(ps.dim));
+      auto flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, idx.dim());
 
       matrix::gather(handle_,
-                     make_device_matrix_view<const DataT, uint32_t>((const DataT*)database.data(), static_cast<uint32_t>(ps.num_db_vecs), static_cast<uint32_t>(ps.dim)),
+                     make_device_matrix_view<const DataT, uint32_t>((const DataT*)database.data(), static_cast<uint32_t>(ps.num_db_vecs), idx.dim()),
                      make_device_vector_view<const IdxT, uint32_t>((const IdxT*)list_inds.data_handle(), list_size),
                      flat_codes.view());
-
+      
       helpers::codepacker::pack_full_list<DataT, IdxT>(
         handle_,
         make_const_mdspan(flat_codes.view()),
@@ -354,51 +358,45 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
         list_data.view());
 
       {
-        auto mask = make_device_matrix<bool>(handle_,list_size, static_cast<uint32_t>(ps.dim));
+    //     auto mask = make_device_vector<bool>(handle_, n_elems);
 
-        construct_pad_mask(mask.view());
+    // linalg::map_offset(handle_, mask.view(), [dim = idx.dim(), list_size, padded_list_size, veclen = idx.veclen()] __device__ (auto i) {
+    //     uint32_t max_group_offset = interleaved_group::roundDown(list_size);
+    //     if (i < max_group_offset * dim) {
+    //       return true;
+    //     }
+    //     uint32_t surplus = (i - max_group_offset * dim);
+    //     uint32_t ingroup_id = interleaved_group::mod( surplus / veclen);
+    //     return ingroup_id < (list_size - max_group_offset);
+    //   });
 
-        auto packed_list_data = make_device_vector<DataT, uint32_t>(handle_, n_elems);
+    //   // ensure that the correct number of indices are masked out
+    //   ASSERT_TRUE(thrust::reduce(resource::get_thrust_policy(handle_), mask.data_handle(), mask.data_handle() + n_elems, 0) == list_size * ps.dim);
 
-        thrust::transform(
-          list_data.data_handle(), list_data.data_handle() + n_elems,
-          mask.data_handle(),
-          packed_list_data.data_handle(),
-          thrust::multiplies<DataT>()
-        );
-      auto extend_data = extend_index.lists()[label]->data;
-      auto extend_data_filtered = make_device_vector<DataT, uint32_t>(handle_, n_elems);
-      thrust::transform(
-        extend_data.data_handle(), extend_data.data_handle() + n_elems,
-        mask.data_handle(),
-        extend_data_filtered.data_handle(),
-        thrust::multiplies<float>()
-    );
+    //     auto packed_list_data = make_device_vector<DataT, uint32_t>(handle_, n_elems);
 
-      ASSERT_TRUE(raft::devArrMatch(packed_list_data.data_handle(),
-                                    extend_data_filtered.data_handle(),
+    //     linalg::map_offset(handle_, packed_list_data.view(), [mask = mask.data_handle(), list_data= list_data.data_handle()] __device__ (uint32_t i) {
+    //       if (mask[i]) return list_data[i];
+    //       return DataT{0};
+    //     });
+
+    //   auto extend_data = extend_index.lists()[label]->data;
+    //   auto extend_data_filtered = make_device_vector<DataT, uint32_t>(handle_, n_elems);
+    // linalg::map_offset(handle_, extend_data_filtered.view(), [mask = mask.data_handle(), extend_data = extend_data.data_handle()] __device__ (uint32_t i) {
+    //       if (mask[i]) return extend_data[i];
+    //       return DataT{0};
+    //     });
+
+      ASSERT_TRUE(raft::devArrMatch(list_data.data_handle(),
+                                    extend_index.lists()[label]->data.data_handle(),
                                     n_elems,
                                     raft::Compare<DataT>(),
                                     stream_));
       }
-      
-      // raft::print_device_vector("indices", list_inds_ptr, list_size, std::cout);
-      // raft::print_device_vector("flat_codes", flat_codes.data_handle(), list_size * ps.dim, std::cout);
-      // raft::print_device_vector("interleaved_data", interleaved_data.data_handle(), Pow2<kIndexGroupSize>::roundUp(list_size) * ps.dim, std::cout);
-      // auto database_data_host = raft::make_host_vector<DataT>(handle_, (uint32_t)ps.num_db_vecs).data_handle();
-      // auto list_data_host = raft::make_host_vector<DataT>(handle_, Pow2<kIndexGroupSize>::roundUp(list_size)).data_handle();
-      // raft::update_host(database_data_host, database.data(), ps.num_db_vecs, stream_);
-      // raft::update_host(list_data_host, list_data_ptr, Pow2<kIndexGroupSize>::roundUp(list_size), stream_);
-      // raft::resource::sync_stream(handle_);
+      raft::print_device_vector("list_data", list_data.data_handle(), n_elems, std::cout);
+      raft::print_device_vector("exte_data", extend_index.lists()[label]->data.data_handle(), n_elems, std::cout);
 
-      
-      // raft::print_device_vector("list_data", list_data_ptr, Pow2<kIndexGroupSize>::roundUp(list_size) * ps.dim, std::cout);
-      // auto inds = make_host_vector<IdxT>(handle_, list_size);
-      // raft::update_host(inds.data_handle(), list_inds_ptr, list_size, stream_);
-      // resource::sync_stream(handle_);
-      // raft::print_device_vector("first_flat_code", database.data() + inds.data_handle()[0] * ps.dim, ps.dim, std::cout);
-
-      auto unpacked_flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, static_cast<uint32_t>(ps.dim));
+      auto unpacked_flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, idx.dim());
 
       helpers::codepacker::unpack_full_list<DataT, IdxT>(
         handle_,
@@ -411,7 +409,49 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                     list_size * ps.dim,
                                     raft::Compare<DataT>(),
                                     stream_));
+      }
     }
+    // auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+    //       search_queries.data(), ps.num_queries, ps.dim);
+    //     auto indices_out_1 = raft::make_device_matrix<IdxT, IdxT>(handle_, ps.num_queries, ps.k);
+    //     auto dists_out = raft::make_device_matrix<T, IdxT>(handle_, ps.num_queries, ps.k);
+    //     auto indices_out_2 = raft::make_device_matrix<IdxT, IdxT>(handle_, ps.num_queries, ps.k);
+    
+    // raft::print_device_vector("idx_center_norms", idx.centers().data_handle(), idx.n_lists() * ps.dim, std::cout);
+    // raft::print_device_vector("extend_center_norms", extend_index.centers().data_handle(), idx.n_lists() * ps.dim, std::cout);
+
+        // Precompute the centers vector norms for L2Expanded distance
+    // idx.allocate_center_norms(handle_);
+    // if (idx.center_norms().has_value()) {
+    //   raft::linalg::rowNorm(idx.center_norms()->data_handle(),
+    //                         idx.centers().data_handle(),
+    //                         idx.dim(),
+    //                         idx.n_lists(),
+    //                         raft::linalg::L2Norm,
+    //                         true,
+    //                         stream_);
+    //   RAFT_LOG_TRACE_VEC(idx->center_norms()->data_handle(), std::min<uint32_t>(idx.dim(), 20));
+    // }
+
+    // raft::print_device_vector("idx_center_norms", idx.center_norms()->data_handle(), idx.n_lists(), std::cout);
+    // raft::print_device_vector("ext_center_norms", extend_index.center_norms()->data_handle(), idx.n_lists(), std::cout);
+    //     ivf_flat::search(handle_,
+    //                      search_params,
+    //                      idx,
+    //                      search_queries_view,
+    //                      indices_out_1.view(),
+    //                      dists_out.view());
+    //     ivf_flat::search(handle_,
+    //                      search_params,
+    //                      extend_index,
+    //                      search_queries_view,
+    //                      indices_out_2.view(),
+    //                      dists_out.view());
+    //     ASSERT_TRUE(raft::devArrMatch(indices_out_1.data_handle(),
+    //                                 indices_out_2.data_handle(),
+    //                                 ps.num_queries * ps.k,
+    //                                 raft::Compare<IdxT>(),
+    //                                 stream_));
     }
 
 
@@ -448,63 +488,63 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
 const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
   // test various dims (aligned and not aligned to vector sizes)
-  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true}};
-  // {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
-  // {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
-  // {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
-  // {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
-  // {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
+  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 2, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 3, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 4, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 5, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, false},
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2SqrtExpanded, true},
 
   // test dims that do not fit into kernel shared memory limits
-  // {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
-  // {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
-  // {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
-  // {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
-  // {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 2048, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 2049, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 2050, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 2051, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 2052, 16, 40, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 2053, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 10000, 2056, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
 
-  // // various random combinations
-  // {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded, false},
-  // {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::L2Expanded, false},
-  // {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
-  // {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
-  // {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
+  // various random combinations
+  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::L2Expanded, false},
+  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::L2Expanded, false},
+  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, true},
+  {10000, 131072, 8, 10, 20, 1024, raft::distance::DistanceType::L2Expanded, false},
 
-  // {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
-  // {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
-  // {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::InnerProduct, false},
-  // {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::InnerProduct, true},
-  // {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, true},
-  // {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
-  // {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 16, 10, 40, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 16, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 10000, 16, 10, 70, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {100, 10000, 16, 10, 20, 512, raft::distance::DistanceType::InnerProduct, true},
+  {20, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, true},
+  {1000, 100000, 16, 10, 20, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {10000, 131072, 8, 10, 50, 1024, raft::distance::DistanceType::InnerProduct, true},
 
-  // {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct, false},
+  {1000, 10000, 4096, 20, 50, 1024, raft::distance::DistanceType::InnerProduct, false},
 
-  // // test splitting the big query batches  (> max gridDim.y) into smaller batches
-  // {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, false},
-  // {1000000, 1024, 32, 10, 256, 256, raft::distance::DistanceType::InnerProduct, false},
-  // {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, true},
+  // test splitting the big query batches  (> max gridDim.y) into smaller batches
+  {100000, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, false},
+  {1000000, 1024, 32, 10, 256, 256, raft::distance::DistanceType::InnerProduct, false},
+  {98306, 1024, 32, 10, 64, 64, raft::distance::DistanceType::InnerProduct, true},
 
-  // // test radix_sort for getting the cluster selection
-  // {1000,
-  //  10000,
-  //  16,
-  //  10,
-  //  raft::matrix::detail::select::warpsort::kMaxCapacity * 2,
-  //  raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
-  //  raft::distance::DistanceType::L2Expanded,
-  //  false},
-  // {1000,
-  //  10000,
-  //  16,
-  //  10,
-  //  raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
-  //  raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
-  //  raft::distance::DistanceType::InnerProduct,
-  //  false}};
+  // test radix_sort for getting the cluster selection
+  {1000,
+   10000,
+   16,
+   10,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 2,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
+   raft::distance::DistanceType::L2Expanded,
+   false},
+  {1000,
+   10000,
+   16,
+   10,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
+   raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
+   raft::distance::DistanceType::InnerProduct,
+   false}};
 }  // namespace raft::neighbors::ivf_flat
