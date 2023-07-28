@@ -18,21 +18,15 @@ from .cagra import (
     IndexParams,
     SearchParams,
     build,
-    build_knn_graph,
     load,
-    optimize,
     save,
     search,
-    sort_knn_graph,
 )
 
 __all__ = [
     "Index",
     "IndexParams",
     "SearchParams",
-    "build_knn_graph",
-    "sort_knn_graph",
-    "optimize",
     "build",
     "load",
     "save",

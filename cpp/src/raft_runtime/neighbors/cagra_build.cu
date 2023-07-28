@@ -21,7 +21,6 @@
 
 namespace raft::runtime::neighbors::cagra {
 
-<<<<<<< HEAD
 #define RAFT_INST_CAGRA_BUILD(T, IdxT)                                             \
   auto build(raft::resources const& handle,                                        \
              const raft::neighbors::cagra::index_params& params,                   \
