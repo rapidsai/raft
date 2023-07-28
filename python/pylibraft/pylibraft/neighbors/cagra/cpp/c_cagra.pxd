@@ -71,7 +71,7 @@ cdef extern from "raft/neighbors/cagra_types.hpp" \
         size_t max_iterations
         search_algo algo
         size_t team_size
-        size_t num_parents
+        size_t search_width
         size_t min_iterations
         size_t thread_block_size
         hash_mode hashmap_mode

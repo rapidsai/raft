@@ -436,7 +436,7 @@ cdef class SearchParams:
                  max_iterations=0,
                  algo="auto",
                  team_size=0,
-                 num_parents=1,
+                 search_width=1,
                  min_iterations=0,
                  thread_block_size=0,
                  hashmap_mode="auto",
@@ -463,7 +463,7 @@ cdef class SearchParams:
         team_size: int, default = 0
             Number of threads used to calculate a single distance. 4, 8, 16,
             or 32.
-        num_parents: int, default = 1
+        search_width: int, default = 1
             Number of graph nodes to select as the starting point for the
             search in each iteration.
         min_iterations: int, default = 0
@@ -500,7 +500,7 @@ cdef class SearchParams:
             raise ValueError("`algo` value not supported.")
 
         self.params.team_size = team_size
-        self.params.num_parents = num_parents
+        self.params.search_width = search_width
         self.params.min_iterations = min_iterations
         self.params.thread_block_size = thread_block_size
         if hashmap_mode == "hash":
@@ -544,8 +544,8 @@ cdef class SearchParams:
         return self.params.team_size
 
     @property
-    def num_parents(self):
-        return self.params.num_parents
+    def search_width(self):
+        return self.params.search_width
 
     @property
     def min_iterations(self):
