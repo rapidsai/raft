@@ -52,12 +52,12 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
                                     INDEX_T* const internal_topk_indices,
                                     const std::size_t internal_topk_size,
                                     const std::size_t dataset_size,
-                                    const std::uint32_t num_parents)
+                                    const std::uint32_t search_width)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
   // if (threadIdx.x >= 32) return;
 
-  for (std::uint32_t i = threadIdx.x; i < num_parents; i += 32) {
+  for (std::uint32_t i = threadIdx.x; i < search_width; i += 32) {
     next_parent_indices[i] = utils::get_max_value<INDEX_T>();
   }
   std::uint32_t itopk_max = internal_topk_size;
@@ -77,14 +77,14 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
     const std::uint32_t ballot_mask = __ballot_sync(0xffffffff, new_parent);
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << threadIdx.x) - 1)) + num_new_parents;
-      if (i < num_parents) {
+      if (i < search_width) {
         next_parent_indices[i] = index;
         // set most significant bit as used node
         internal_topk_indices[jj] |= index_msb_1_mask;
       }
     }
     num_new_parents += __popc(ballot_mask);
-    if (num_new_parents >= num_parents) { break; }
+    if (num_new_parents >= search_width) { break; }
   }
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
@@ -476,7 +476,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      const uint32_t num_seeds,
                      INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
                      const std::uint32_t internal_topk,
-                     const std::uint32_t num_parents,
+                     const std::uint32_t search_width,
                      const std::uint32_t min_iteration,
                      const std::uint32_t max_iteration,
                      std::uint32_t* const num_executed_iterations,  // [num_queries]
@@ -509,10 +509,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   // Layout of result_buffer
   // +----------------------+------------------------------+---------+
   // | internal_top_k       | neighbors of internal_top_k  | padding |
-  // | <internal_topk_size> | <num_parents * graph_degree> | upto 32 |
+  // | <internal_topk_size> | <search_width * graph_degree> | upto 32 |
   // +----------------------+------------------------------+---------+
   // |<---             result_buffer_size              --->|
-  std::uint32_t result_buffer_size    = internal_topk + (num_parents * graph_degree);
+  std::uint32_t result_buffer_size    = internal_topk + (search_width * graph_degree);
   std::uint32_t result_buffer_size_32 = result_buffer_size;
   if (result_buffer_size % 32) { result_buffer_size_32 += 32 - (result_buffer_size % 32); }
   const auto small_hash_size = hashmap::get_size(small_hash_bitlen);
@@ -523,7 +523,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto visited_hash_buffer =
     reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
   auto parent_list_buffer = reinterpret_cast<INDEX_T*>(visited_hash_buffer + small_hash_size);
-  auto topk_ws            = reinterpret_cast<std::uint32_t*>(parent_list_buffer + num_parents);
+  auto topk_ws            = reinterpret_cast<std::uint32_t*>(parent_list_buffer + search_width);
   auto terminate_flag     = reinterpret_cast<std::uint32_t*>(topk_ws + 3);
   auto smem_working_ptr   = reinterpret_cast<std::uint32_t*>(terminate_flag + 1);
 
@@ -620,7 +620,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         internal_topk,
         result_distances_buffer + internal_topk,
         result_indices_buffer + internal_topk,
-        num_parents * graph_degree,
+        search_width * graph_degree,
         topk_ws,
         (iter == 0));
       _CLK_REC(clk_topk);
@@ -661,7 +661,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                                                          result_indices_buffer,
                                                          internal_topk,
                                                          dataset_size,
-                                                         num_parents);
+                                                         search_width);
       _CLK_REC(clk_pickup_parents);
     }
 
@@ -693,7 +693,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_list_buffer,
-        num_parents);
+        search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -848,7 +848,7 @@ void select_and_run(  // raft::resources const& res,
   uint64_t rand_xor_mask,
   uint32_t num_seeds,
   size_t itopk_size,
-  size_t num_parents,
+  size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
   cudaStream_t stream)
@@ -877,7 +877,7 @@ void select_and_run(  // raft::resources const& res,
                                                          num_seeds,
                                                          hashmap_ptr,
                                                          itopk_size,
-                                                         num_parents,
+                                                         search_width,
                                                          min_iterations,
                                                          max_iterations,
                                                          num_executed_iterations,

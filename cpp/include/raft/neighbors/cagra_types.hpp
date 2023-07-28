@@ -79,7 +79,7 @@ struct search_params : ann::search_params {
 
   /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
-  size_t num_parents = 1;
+  size_t search_width = 1;
   /** Lower limit of search iterations. */
   size_t min_iterations = 0;
 
