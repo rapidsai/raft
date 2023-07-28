@@ -393,8 +393,8 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                     raft::Compare<DataT>(),
                                     stream_));
       }
-      raft::print_device_vector("list_data", list_data.data_handle(), n_elems, std::cout);
-      raft::print_device_vector("exte_data", extend_index.lists()[label]->data.data_handle(), n_elems, std::cout);
+      // raft::print_device_vector("list_data", list_data.data_handle(), n_elems, std::cout);
+      // raft::print_device_vector("exte_data", extend_index.lists()[label]->data.data_handle(), n_elems, std::cout);
 
       auto unpacked_flat_codes = make_device_matrix<DataT, uint32_t>(handle_, list_size, idx.dim());
 
@@ -416,13 +416,13 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
     //     auto indices_out_1 = raft::make_device_matrix<IdxT, IdxT>(handle_, ps.num_queries, ps.k);
     //     auto dists_out = raft::make_device_matrix<T, IdxT>(handle_, ps.num_queries, ps.k);
     //     auto indices_out_2 = raft::make_device_matrix<IdxT, IdxT>(handle_, ps.num_queries, ps.k);
-    
+    // 
     // raft::print_device_vector("idx_center_norms", idx.centers().data_handle(), idx.n_lists() * ps.dim, std::cout);
     // raft::print_device_vector("extend_center_norms", extend_index.centers().data_handle(), idx.n_lists() * ps.dim, std::cout);
 
         // Precompute the centers vector norms for L2Expanded distance
     // idx.allocate_center_norms(handle_);
-    // if (idx.center_norms().has_value()) {
+    // // if (idx.center_norms().has_value()) {
     //   raft::linalg::rowNorm(idx.center_norms()->data_handle(),
     //                         idx.centers().data_handle(),
     //                         idx.dim(),
@@ -435,23 +435,23 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
 
     // raft::print_device_vector("idx_center_norms", idx.center_norms()->data_handle(), idx.n_lists(), std::cout);
     // raft::print_device_vector("ext_center_norms", extend_index.center_norms()->data_handle(), idx.n_lists(), std::cout);
-    //     ivf_flat::search(handle_,
-    //                      search_params,
-    //                      idx,
-    //                      search_queries_view,
-    //                      indices_out_1.view(),
-    //                      dists_out.view());
-    //     ivf_flat::search(handle_,
-    //                      search_params,
-    //                      extend_index,
-    //                      search_queries_view,
-    //                      indices_out_2.view(),
-    //                      dists_out.view());
-    //     ASSERT_TRUE(raft::devArrMatch(indices_out_1.data_handle(),
-    //                                 indices_out_2.data_handle(),
-    //                                 ps.num_queries * ps.k,
-    //                                 raft::Compare<IdxT>(),
-    //                                 stream_));
+        // ivf_flat::search(handle_,
+        //                  search_params,
+        //                  idx,
+        //                  search_queries_view,
+        //                  indices_out_1.view(),
+        //                  dists_out.view());
+        // ivf_flat::search(handle_,
+        //                  search_params,
+        //                  extend_index,
+        //                  search_queries_view,
+        //                  indices_out_2.view(),
+        //                  dists_out.view());
+        // ASSERT_TRUE(raft::devArrMatch(indices_out_1.data_handle(),
+        //                             indices_out_2.data_handle(),
+        //                             ps.num_queries * ps.k,
+        //                             raft::Compare<IdxT>(),
+        //                             stream_));
     }
 
 
