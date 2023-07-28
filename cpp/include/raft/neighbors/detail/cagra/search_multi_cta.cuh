@@ -55,7 +55,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::search_width;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
@@ -108,9 +108,9 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   void set_params(raft::resources const& res, const search_params& params)
   {
     this->itopk_size   = 32;
-    num_parents        = 1;
-    num_cta_per_query  = max(params.num_parents, params.itopk_size / 32);
-    result_buffer_size = itopk_size + num_parents * graph_degree;
+    search_width       = 1;
+    num_cta_per_query  = max(params.search_width, params.itopk_size / 32);
+    result_buffer_size = itopk_size + search_width * graph_degree;
     typedef raft::Pow2<32> AlignBytes;
     unsigned result_buffer_size_32 = AlignBytes::roundUp(result_buffer_size);
     // constexpr unsigned max_result_buffer_size = 256;
@@ -118,7 +118,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
     smem_size = sizeof(float) * max_dim +
                 (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
-                sizeof(uint32_t) * num_parents + sizeof(uint32_t);
+                sizeof(uint32_t) * search_width + sizeof(uint32_t);
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
 
     //
@@ -143,7 +143,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       cudaDeviceProp deviceProp = resource::get_device_properties(res);
       RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
-             (graph_degree * num_parents * team_size >= block_size * 2) &&
+             (graph_degree * search_width * team_size >= block_size * 2) &&
              (num_cta_per_query * max_queries <=
               (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
         block_size *= 2;
@@ -178,8 +178,8 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   ~search() {}
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
                   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
                   const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
@@ -210,7 +210,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       rand_xor_mask,
       num_seeds,
       itopk_size,
-      num_parents,
+      search_width,
       min_iterations,
       max_iterations,
       stream);

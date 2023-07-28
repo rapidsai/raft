@@ -42,8 +42,7 @@ template <typename OutT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void compute_similarity_kernel(uint32_t n_rows,
-                                          uint32_t dim,
+__global__ void compute_similarity_kernel(uint32_t dim,
                                           uint32_t n_probes,
                                           uint32_t pq_dim,
                                           uint32_t n_queries,
@@ -82,7 +81,6 @@ struct selected {
 template <typename OutT, typename LutT, typename IvfSampleFilterT>
 void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
                             rmm::cuda_stream_view stream,
-                            uint32_t n_rows,
                             uint32_t dim,
                             uint32_t n_probes,
                             uint32_t pq_dim,
@@ -156,7 +154,6 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
   raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, IvfSampleFilterT>(    \
     raft::neighbors::ivf_pq::detail::selected<OutT, LutT, IvfSampleFilterT> s,              \
     rmm::cuda_stream_view stream,                                                           \
-    uint32_t n_rows,                                                                        \
     uint32_t dim,                                                                           \
     uint32_t n_probes,                                                                      \
     uint32_t pq_dim,                                                                        \
