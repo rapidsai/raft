@@ -18,7 +18,7 @@
 
 #include "detail/cagra/cagra_serialize.cuh"
 
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 
 /**
  * \defgroup cagra_serialize CAGRA Serialize
@@ -110,7 +110,7 @@ void serialize(raft::resources const& handle,
  * @param[in] handle the raft handle
  * @param[in] is input stream
  *
- * @return raft::neighbors::cagra::index<T, IdxT>
+ * @return raft::neighbors::experimental::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
 index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
@@ -141,7 +141,7 @@ index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
  * @param[in] handle the raft handle
  * @param[in] filename the name of the file that stores the index
  *
- * @return raft::neighbors::cagra::index<T, IdxT>
+ * @return raft::neighbors::experimental::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
 index<T, IdxT> deserialize(raft::resources const& handle, const std::string& filename)
@@ -150,5 +150,12 @@ index<T, IdxT> deserialize(raft::resources const& handle, const std::string& fil
 }
 
 /**@}*/
+
+}  // namespace raft::neighbors::cagra
+
+// TODO: Remove deprecated experimental namespace in 23.12 release
+namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::deserialize;
+using raft::neighbors::cagra::serialize;
 
 }  // namespace raft::neighbors::experimental::cagra
