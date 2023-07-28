@@ -58,8 +58,6 @@ from rmm._lib.memory_resource cimport (
 )
 
 cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
-cimport pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat as c_ivf_flat
-cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 from pylibraft.common.optional cimport make_optional, optional
 
 from pylibraft.neighbors.common import _check_input_array, _get_metric
@@ -84,11 +82,6 @@ from pylibraft.common.mdspan cimport (
     make_optional_view_int64,
 )
 from pylibraft.neighbors.common cimport _get_metric_string
-from pylibraft.neighbors.ivf_pq cimport ivf_pq
-from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
-    index_params as IVFPQ_IP,
-    search_params as IVFPQ_SP,
-)
 
 
 cdef class IndexParams:
@@ -100,7 +93,7 @@ cdef class IndexParams:
                  graph_degree=64,
                  add_data_on_build=True):
         """"
-        Parameters to build index for IVF-PQ nearest neighbor search
+        Parameters to build index for CAGRA nearest neighbor search
 
         Parameters
         ----------
@@ -286,11 +279,6 @@ def build(IndexParams index_params, dataset, handle=None):
 
     It is required that dataset and the optimized graph fit the GPU memory.
 
-    To customize the parameters for knn-graph building and pruning, and to
-    reus the intermediate results, you could build the index in two steps
-    using pylibraft.cagra.build_knn_graph and
-    pylibraft.cagra.optimize.
-
      The following distance metrics are supported:
      - L2
 
@@ -328,7 +316,7 @@ def build(IndexParams index_params, dataset, handle=None):
 
     >>> index = cagra.build(build_params, dataset, handle=handle)
 
-    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    >>> distances, neighbors = cagra.search(cagra.SearchParams(),
     ...                                      index, queries,
     ...                                      k, handle=handle)
 
@@ -634,15 +622,8 @@ def search(SearchParams search_params,
     >>> # Using a pooling allocator reduces overhead of temporary array
     >>> # creation during search. This is useful if multiple searches
     >>> # are performad with same query size.
-    >>> import rmm
-    >>> mr = rmm.mr.PoolMemoryResource(
-    ...     rmm.mr.CudaMemoryResource(),
-    ...     initial_pool_size=2**29,
-    ...     maximum_pool_size=2**31
-    ... )
     >>> distances, neighbors = cagra.search(search_params, index, queries,
-    ...                                     k, memory_resource=mr,
-    ...                                     handle=handle)
+    ...                                     k, handle=handle)
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
