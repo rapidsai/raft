@@ -47,7 +47,6 @@
   raft::neighbors::ivf_pq::detail::compute_similarity_run<OutT, LutT, IvfSampleFilterT>(    \
     raft::neighbors::ivf_pq::detail::selected<OutT, LutT, IvfSampleFilterT> s,              \
     rmm::cuda_stream_view stream,                                                           \
-    uint32_t n_rows,                                                                        \
     uint32_t dim,                                                                           \
     uint32_t n_probes,                                                                      \
     uint32_t pq_dim,                                                                        \

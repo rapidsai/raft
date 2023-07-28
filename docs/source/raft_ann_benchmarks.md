@@ -27,9 +27,11 @@ There are 4 general steps to running the benchmarks and vizualizing the results:
 We provide a collection of lightweight Python scripts that are wrappers over
 lower level scripts and executables to run our benchmarks. Either Python scripts or
 [low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
-however plots are only provided through our Python scripts.
+however plots are only provided through our Python scripts. An environment variable `RAFT_HOME` is
+expected to be defined to run these scripts; this variable holds the directory where RAFT is cloned.
 ### End-to-end example: Million-scale
 ```bash
+export RAFT_HOME=$(pwd)
 # All scripts are present in directory raft/scripts/ann-benchmarks
 
 # (1) prepare dataset
@@ -53,21 +55,34 @@ billion-scale dataset has been downloaded.
 To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
 ```bash
-mkdir -p data/deep-1B && cd data/deep-1B
+export RAFT_HOME=$(pwd)
+# All scripts are present in directory raft/scripts/ann-benchmarks
+
+mkdir -p data/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-../../scripts/split_groundtruth.pl deep_new_groundtruth.public.10K.bin groundtruth
+python scripts/ann-benchmarks/split_groundtruth.py data/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python scripts/run.py --configuration conf/deep-1B.json
+python scripts/ann-benchmarks/run.py --configuration conf/deep-1B.json
 
 # (3) evaluate results
-python scripts/data_export.py --output out.csv --groundtruth data/deep-1B/groundtruth.neighbors.ibin result/deep-1B/
+python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/deep-1B/groundtruth.neighbors.ibin result/deep-1B/
 
 # (4) plot results
-python scripts/plot.py --result_csv out.csv
+python scripts/ann-benchmarks/plot.py --result_csv out.csv
+```
+
+The usage of `scripts/ann-benchmarks/split-groundtruth.py` is:
+```bash
+usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
+
+options:
+  -h, --help            show this help message and exit
+  --groundtruth GROUNDTRUTH
+                        Path to billion-scale dataset groundtruth file (default: None)
 ```
 
 ##### Step 1: Prepare Dataset<a id='prep-dataset'></a>

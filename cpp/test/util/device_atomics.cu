@@ -60,7 +60,7 @@ TEST(Raft, AtomicIncWarp)
 
   // Check that count is correct and that each thread index is contained in the
   // array exactly once.
-  ASSERT_EQ(num_elts, counter.value(s));
+  ASSERT_EQ(num_elts, counter.value(s));  // NB: accessing the counter synchronizes `s`
   std::sort(out_host.begin(), out_host.end());
   for (int i = 0; i < num_elts; ++i) {
     ASSERT_EQ(i, out_host[i]);
