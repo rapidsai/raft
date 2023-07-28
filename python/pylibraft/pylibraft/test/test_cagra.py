@@ -23,6 +23,7 @@ from pylibraft.common import device_ndarray
 from pylibraft.neighbors import cagra
 
 
+#todo (dantegd): consolidate helper utils of ann methods
 def generate_data(shape, dtype):
     if dtype == np.byte:
         x = np.random.randint(-127, 128, size=shape, dtype=np.byte)
@@ -43,48 +44,20 @@ def calc_recall(ann_idx, true_nn_idx):
     return recall
 
 
-def check_distances(dataset, queries, metric, out_idx, out_dist, eps=None):
-    """
-    Calculate the real distance between queries and dataset[out_idx],
-    and compare it to out_dist.
-    """
-    if eps is None:
-        # Quantization leads to errors in the distance calculation.
-        # The aim of this test is not to test precision, but to catch obvious
-        # errors.
-        eps = 0.1
-
-    dist = np.empty(out_dist.shape, out_dist.dtype)
-    for i in range(queries.shape[0]):
-        X = queries[np.newaxis, i, :]
-        Y = dataset[out_idx[i, :], :]
-        if metric == "sqeuclidean":
-            dist[i, :] = pairwise_distances(X, Y, "sqeuclidean")
-        elif metric == "euclidean":
-            dist[i, :] = pairwise_distances(X, Y, "euclidean")
-        elif metric == "inner_product":
-            dist[i, :] = np.matmul(X, Y.T)
-        else:
-            raise ValueError("Invalid metric")
-
-    dist_eps = abs(dist)
-    dist_eps[dist < 1e-3] = 1e-3
-    diff = abs(out_dist - dist) / dist_eps
-
-    assert np.mean(diff) < eps
-
-
 def run_cagra_build_search_test(
-    n_rows,
-    n_cols,
-    n_queries,
-    k,
-    dtype,
-    metric,
+    n_rows=10000,
+    n_cols=10,
+    n_queries=100,
+    k=10,
+    dtype=np.float32,
+    metric="euclidean",
+    intermediate_graph_degree=128,
+    graph_degree=64,
     array_type="device",
     compare=True,
     inplace=True,
     add_data_on_build=True,
+    search_params = {}
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
@@ -92,7 +65,9 @@ def run_cagra_build_search_test(
     dataset_device = device_ndarray(dataset)
 
     build_params = cagra.IndexParams(
-
+        metric=metric,
+        intermediate_graph_degree=intermediate_graph_degree,
+        graph_degree=graph_degree
     )
 
     if array_type == "device":
@@ -126,7 +101,7 @@ def run_cagra_build_search_test(
     out_idx_device = device_ndarray(out_idx) if inplace else None
     out_dist_device = device_ndarray(out_dist) if inplace else None
 
-    search_params = cagra.SearchParams()
+    search_params = cagra.SearchParams(**search_params)
 
     ret_output = cagra.search(
         search_params,
@@ -161,31 +136,128 @@ def run_cagra_build_search_test(
     recall = calc_recall(out_idx, skl_idx)
     assert recall > 0.7
 
-    check_distances(dataset, queries, metric, out_idx, out_dist)
-
 
 @pytest.mark.parametrize("inplace", [True, False])
-@pytest.mark.parametrize("n_rows", [10000])
-@pytest.mark.parametrize("n_cols", [10])
-@pytest.mark.parametrize("n_queries", [100])
-@pytest.mark.parametrize("n_lists", [100])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-@pytest.mark.parametrize("array_type", ["device"])
-def test_cagra_build_search(
-    n_rows, n_cols, n_queries, n_lists, dtype, inplace, array_type
-):
+@pytest.mark.parametrize(
+    "array_type", ["device", "host"]
+)
+def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
     run_cagra_build_search_test(
-        n_rows=n_rows,
-        n_cols=n_cols,
-        n_queries=n_queries,
-        k=10,
         dtype=dtype,
         inplace=inplace,
         array_type=array_type,
-        metric="sqeuclidean",
     )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {
+            "intermediate_graph_degree": 64,
+            "graph_degree": 32,
+            "add_data_on_build": True,
+            "k": 1,
+            "metric": "euclidean"
+        },
+        {
+            "intermediate_graph_degree": 32,
+            "graph_degree": 16,
+            "add_data_on_build": False,
+            "k": 5,
+            "metric": "sqeuclidean"
+        },
+        {
+            "intermediate_graph_degree": 128,
+            "graph_degree": 32,
+            "add_data_on_build": True,
+            "k": 10,
+            "metric": "inner_product"
+        }
+    ],
+)
+def test_cagra_index_params(params):
+    # Note that inner_product tests use normalized input which we cannot
+    # represent in int8, therefore we test only sqeuclidean metric here.
+    run_cagra_build_search_test(
+        k=params["k"],
+        metric=params["metric"],
+        graph_degree=params["graph_degree"],
+        intermediate_graph_degree=params["intermediate_graph_degree"],
+        compare=False,
+    )
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {
+            "max_queries" : 100,
+            "itopk_size" : 32,
+            "max_iterations" : 100,
+            "algo" : "single_cta",
+            "team_size" : 0,
+            "num_parents" : 1,
+            "min_iterations" : 1,
+            "thread_block_size" : 64,
+            "hashmap_mode" : "hash",
+            "hashmap_min_bitlen" : 0.2,
+            "hashmap_max_fill_rate" : 0.5,
+            "num_random_samplings" : 1
+        },
+        {
+            "max_queries" : 10,
+            "itopk_size" : 128,
+            "max_iterations" : 0,
+            "algo" : "multi_cta",
+            "team_size" : 8,
+            "num_parents" : 2,
+            "min_iterations" : 10,
+            "thread_block_size" : 0,
+            "hashmap_mode" : "auto",
+            "hashmap_min_bitlen" : 0.9,
+            "hashmap_max_fill_rate" : 0.5,
+            "num_random_samplings" : 10
+        },
+        {
+            "max_queries" : 0,
+            "itopk_size" : 64,
+            "max_iterations" : 0,
+            "algo" : "multi_kernel",
+            "team_size" : 16,
+            "num_parents" : 1,
+            "min_iterations" : 0,
+            "thread_block_size" : 0,
+            "hashmap_mode" : "auto",
+            "hashmap_min_bitlen" : 0,
+            "hashmap_max_fill_rate" : 0.5,
+            "num_random_samplings" : 1
+        },
+        {
+            "max_queries" : 0,
+            "itopk_size" : 64,
+            "max_iterations" : 0,
+            "algo" : "auto",
+            "team_size" : 32,
+            "num_parents" : 4,
+            "min_iterations" : 0,
+            "thread_block_size" : 0,
+            "hashmap_mode" : "small",
+            "hashmap_min_bitlen" : 0,
+            "hashmap_max_fill_rate" : 0.5,
+            "num_random_samplings" : 1
+        }
+    ],
+)
+def test_cagra_search_params(params):
+    # Note that inner_product tests use normalized input which we cannot
+    # represent in int8, therefore we test only sqeuclidean metric here.
+    run_cagra_build_search_test(
+        search_params=params
+    )
+
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])

@@ -23,9 +23,9 @@ namespace raft::runtime::neighbors::cagra {
   void search(raft::resources const& handle,                                                       \
               raft::neighbors::cagra::search_params const& params,                                 \
               const raft::neighbors::cagra::index<T, IdxT>& index,                                 \
-              raft::device_matrix_view<const T, IdxT, row_major> queries,                          \
-              raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,                           \
-              raft::device_matrix_view<float, IdxT, row_major> distances)                          \
+              raft::device_matrix_view<const T, int64_t, row_major> queries,                       \
+              raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,                        \
+              raft::device_matrix_view<float, int64_t, row_major> distances)                       \
   {                                                                                                \
     raft::neighbors::cagra::search<T, IdxT>(handle, params, index, queries, neighbors, distances); \
   }

@@ -201,111 +201,67 @@ cdef optional[device_matrix_view[int64_t, int64_t, row_major]] \
 # todo(dantegd): we can unify and simplify this functions a little bit
 # defining extra functions as-is is the quickest way to get what we need for
 # cagra.pyx
-cdef device_matrix_view[float, uint32_t, row_major] \
-        get_dmv_float_uint32(cai, check_shape) except *:
+cdef device_matrix_view[uint32_t, int64_t, row_major] \
+        get_dmv_uint32(cai, check_shape) except *:
+    if cai.dtype != np.uint32:
+        raise TypeError("dtype %s not supported" % cai.dtype)
+    if check_shape and len(cai.shape) != 2:
+        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
+    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
+    return make_device_matrix_view[uint32_t, int64_t, row_major](
+        <uint32_t*><uintptr_t>cai.data, shape[0], shape[1])
+
+
+cdef host_matrix_view[float, int64_t, row_major] \
+        get_hmv_float(cai, check_shape) except *:
     if cai.dtype != np.float32:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[float, uint32_t, row_major](
+    return make_host_matrix_view[float, int64_t, row_major](
         <float*><uintptr_t>cai.data, shape[0], shape[1])
 
 
-cdef device_matrix_view[uint8_t, uint32_t, row_major] \
-        get_dmv_uint8_uint32(cai, check_shape) except *:
+cdef host_matrix_view[uint8_t, int64_t, row_major] \
+        get_hmv_uint8(cai, check_shape) except *:
     if cai.dtype != np.uint8:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[uint8_t, uint32_t, row_major](
+    return make_host_matrix_view[uint8_t, int64_t, row_major](
         <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
-cdef device_matrix_view[int8_t, uint32_t, row_major] \
-        get_dmv_int8_uint32(cai, check_shape) except *:
+cdef host_matrix_view[int8_t, int64_t, row_major] \
+        get_hmv_int8(cai, check_shape) except *:
     if cai.dtype != np.int8:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[int8_t, uint32_t, row_major](
+    return make_host_matrix_view[int8_t, int64_t, row_major](
         <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
-cdef device_matrix_view[int64_t, uint32_t, row_major] \
-        get_dmv_int64_uint32(cai, check_shape) except *:
+cdef host_matrix_view[int64_t, int64_t, row_major] \
+        get_hmv_int64(cai, check_shape) except *:
     if cai.dtype != np.int64:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[int64_t, uint32_t, row_major](
+    return make_host_matrix_view[int64_t, int64_t, row_major](
         <int64_t*><uintptr_t>cai.data, shape[0], shape[1])
 
 
-cdef device_matrix_view[uint32_t, uint32_t, row_major] \
-        get_dmv_uint32_uint32(cai, check_shape) except *:
-    if cai.dtype != np.uint32:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_device_matrix_view[uint32_t, uint32_t, row_major](
-        <uint32_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef host_matrix_view[float, uint32_t, row_major] \
-        get_hmv_float_uint32(cai, check_shape) except *:
-    if cai.dtype != np.uint32:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_host_matrix_view[float, uint32_t, row_major](
-        <float*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef host_matrix_view[uint8_t, uint32_t, row_major] \
-        get_hmv_uint8_uint32(cai, check_shape) except *:
-    if cai.dtype != np.uint8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_host_matrix_view[uint8_t, uint32_t, row_major](
-        <uint8_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef host_matrix_view[int8_t, uint32_t, row_major] \
-        get_hmv_int8_uint32(cai, check_shape) except *:
-    if cai.dtype != np.int8:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_host_matrix_view[int8_t, uint32_t, row_major](
-        <int8_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef host_matrix_view[int64_t, uint32_t, row_major] \
-        get_hmv_int64_uint32(cai, check_shape) except *:
+cdef host_matrix_view[uint32_t, int64_t, row_major] \
+        get_hmv_uint32(cai, check_shape) except *:
     if cai.dtype != np.int64:
         raise TypeError("dtype %s not supported" % cai.dtype)
     if check_shape and len(cai.shape) != 2:
         raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
     shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_host_matrix_view[int64_t, uint32_t, row_major](
-        <int64_t*><uintptr_t>cai.data, shape[0], shape[1])
-
-
-cdef host_matrix_view[uint32_t, uint32_t, row_major] \
-        get_hmv_uint32_uint32(cai, check_shape) except *:
-    if cai.dtype != np.int64:
-        raise TypeError("dtype %s not supported" % cai.dtype)
-    if check_shape and len(cai.shape) != 2:
-        raise ValueError("Expected a 2D array, got %d D" % len(cai.shape))
-    shape = (cai.shape[0], cai.shape[1] if len(cai.shape) == 2 else 1)
-    return make_host_matrix_view[uint32_t, uint32_t, row_major](
+    return make_host_matrix_view[uint32_t, int64_t, row_major](
         <uint32_t*><uintptr_t>cai.data, shape[0], shape[1])

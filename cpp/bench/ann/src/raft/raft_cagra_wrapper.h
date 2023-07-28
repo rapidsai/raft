@@ -71,13 +71,15 @@ class RaftCagra : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Host;
+    property.dataset_memory_type      = MemoryType::HostMmap;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = true;
     return property;
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+
+  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
  private:
   raft::device_resources handle_;
@@ -104,12 +106,13 @@ RaftCagra<T, IdxT>::RaftCagra(Metric metric, int dim, const BuildParam& param)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  if (get_property().dataset_memory_type == MemoryType::Host) {
-    auto dataset_view = raft::make_host_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
+  if (get_property().dataset_memory_type != MemoryType::Device) {
+    auto dataset_view =
+      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
     index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
   } else {
     auto dataset_view =
-      raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dimension_);
+      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
     index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
   }
   return;
@@ -150,9 +153,10 @@ void RaftCagra<T, IdxT>::search(
     neighbors_IdxT = neighbors_storage.data();
   }
 
-  auto queries_view = raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, dimension_);
-  auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(neighbors_IdxT, batch_size, k);
-  auto distances_view = raft::make_device_matrix_view<float, IdxT>(distances, batch_size, k);
+  auto queries_view =
+    raft::make_device_matrix_view<const T, int64_t>(queries, batch_size, dimension_);
+  auto neighbors_view = raft::make_device_matrix_view<IdxT, int64_t>(neighbors_IdxT, batch_size, k);
+  auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, batch_size, k);
 
   raft::neighbors::cagra::search(
     handle_, search_params_, *index_, queries_view, neighbors_view, distances_view);

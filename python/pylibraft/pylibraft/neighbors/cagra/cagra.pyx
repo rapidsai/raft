@@ -71,16 +71,16 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.mdspan cimport (
-    get_dmv_float_uint32,
-    get_dmv_int8_uint32,
-    get_dmv_int64_uint32,
-    get_dmv_uint8_uint32,
-    get_dmv_uint32_uint32,
-    get_hmv_float_uint32,
-    get_hmv_int8_uint32,
-    get_hmv_int64_uint32,
-    get_hmv_uint8_uint32,
-    get_hmv_uint32_uint32,
+    get_dmv_float,
+    get_dmv_int8,
+    get_dmv_int64,
+    get_dmv_uint8,
+    get_dmv_uint32,
+    get_hmv_float,
+    get_hmv_int8,
+    get_hmv_int64,
+    get_hmv_uint8,
+    get_hmv_uint32,
     make_optional_view_int64,
 )
 from pylibraft.neighbors.common cimport _get_metric_string
@@ -362,10 +362,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    get_dmv_float_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_dmv_float(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -375,10 +373,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    get_dmv_int8_uint32(dataset_ai,
-                                        check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_dmv_int8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -388,10 +384,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_device(
                     deref(handle_),
-                    get_dmv_uint8_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_dmv_uint8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -402,10 +396,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    get_hmv_float_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_hmv_float(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -415,10 +407,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    get_hmv_int8_uint32(dataset_ai,
-                                        check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_hmv_int8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -428,10 +418,8 @@ def build_knn_graph(dataset,
             with cuda_interruptible():
                 c_cagra.build_knn_graph_host(
                     deref(handle_),
-                    get_hmv_uint8_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True),
+                    get_hmv_uint8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True),
                     refine_rate_opt,
                     build_params_opt,
                     search_params_opt
@@ -496,56 +484,44 @@ def sort_knn_graph(dataset, knn_graph, handle=None):
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_device(
                     deref(handle_),
-                    get_dmv_float_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_dmv_float(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_device(
                     deref(handle_),
-                    get_dmv_int8_uint32(dataset_ai,
-                                        check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_dmv_int8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_device(
                     deref(handle_),
-                    get_dmv_uint8_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_dmv_uint8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
     else:
         if dataset_ai.dtype == np.float32:
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_host(
                     deref(handle_),
-                    get_hmv_float_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_hmv_float(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
         elif dataset_ai.dtype == np.byte:
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_host(
                     deref(handle_),
-                    get_hmv_int8_uint32(dataset_ai,
-                                        check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_hmv_int8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
         elif dataset_ai.dtype == np.ubyte:
             with cuda_interruptible():
                 c_cagra.sort_knn_graph_host(
                     deref(handle_),
-                    get_hmv_uint8_uint32(dataset_ai,
-                                         check_shape=True),
-                    get_hmv_uint32_uint32(knn_graph_ai,
-                                          check_shape=True)
+                    get_hmv_uint8(dataset_ai, check_shape=True),
+                    get_hmv_uint32(knn_graph_ai, check_shape=True)
                 )
 
 
@@ -562,7 +538,7 @@ def optimize(knn_graph, new_graph=None, handle=None):
         RAFT resources
     knn_graph: array interface compliant matrix shape (n_samples, dim)
         a host matrix containing the knn_graph of shape [n_rows, graph_degree]
-    knn_graph: array interface compliant matrix shape (n_samples, dim)
+    new_graph: array interface compliant matrix shape (n_samples, dim)
         a host matrix view to store the output knn graph [n_rows, graph_degree]
     {handle_docstring}
 
@@ -600,13 +576,13 @@ def optimize(knn_graph, new_graph=None, handle=None):
     if knn_graph_ai.from_cai:
         c_cagra.optimize_device(
             deref(handle_),
-            get_dmv_uint32_uint32(knn_graph_ai, check_shape=True),
-            get_hmv_uint32_uint32(new_graph_ai, check_shape=True))
+            get_dmv_uint32(knn_graph_ai, check_shape=True),
+            get_hmv_uint32(new_graph_ai, check_shape=True))
     else:
         c_cagra.optimize_host(
             deref(handle_),
-            get_hmv_uint32_uint32(knn_graph_ai, check_shape=True),
-            get_hmv_uint32_uint32(new_graph_ai, check_shape=True))
+            get_hmv_uint32(knn_graph_ai, check_shape=True),
+            get_hmv_uint32(new_graph_ai, check_shape=True))
 
     return new_graph
 
@@ -676,8 +652,7 @@ def build(IndexParams index_params, dataset, handle=None):
                 c_cagra.build_device(
                     deref(handle_),
                     index_params.params,
-                    get_dmv_float_uint32(dataset_ai,
-                                         check_shape=True),
+                    get_dmv_float(dataset_ai, check_shape=True),
                     deref(idx_float.index))
             idx_float.trained = True
             return idx_float
@@ -688,8 +663,7 @@ def build(IndexParams index_params, dataset, handle=None):
                 c_cagra.build_device(
                     deref(handle_),
                     index_params.params,
-                    get_dmv_int8_uint32(dataset_ai,
-                                        check_shape=True),
+                    get_dmv_int8(dataset_ai, check_shape=True),
                     deref(idx_int8.index))
             idx_int8.trained = True
             return idx_int8
@@ -700,50 +674,48 @@ def build(IndexParams index_params, dataset, handle=None):
                 c_cagra.build_device(
                     deref(handle_),
                     index_params.params,
-                    get_dmv_uint8_uint32(dataset_ai,
-                                         check_shape=True),
+                    get_dmv_uint8(dataset_ai, check_shape=True),
                     deref(idx_uint8.index))
             idx_uint8.trained = True
             return idx_uint8
         else:
-            if dataset_dt == np.float32:
-                idx_float = IndexFloat(handle)
-                idx_float.active_index_type = "float32"
-                with cuda_interruptible():
-                    c_cagra.build_host(
-                        deref(handle_),
-                        index_params.params,
-                        get_hmv_float_uint32(dataset_ai,
-                                             check_shape=True),
-                        deref(idx_float.index))
-                idx_float.trained = True
-                return idx_float
-            elif dataset_dt == np.byte:
-                idx_int8 = IndexInt8(handle)
-                idx_int8.active_index_type = "byte"
-                with cuda_interruptible():
-                    c_cagra.build_host(
-                        deref(handle_),
-                        index_params.params,
-                        get_hmv_int8_uint32(dataset_ai,
-                                            check_shape=True),
-                        deref(idx_int8.index))
-                idx_int8.trained = True
-                return idx_int8
-            elif dataset_dt == np.ubyte:
-                idx_uint8 = IndexUint8(handle)
-                idx_uint8.active_index_type = "ubyte"
-                with cuda_interruptible():
-                    c_cagra.build_host(
-                        deref(handle_),
-                        index_params.params,
-                        get_hmv_uint8_uint32(dataset_ai,
-                                             check_shape=True),
-                        deref(idx_uint8.index))
-                idx_uint8.trained = True
-                return idx_uint8
+            raise TypeError("dtype %s not supported" % dataset_dt)
     else:
-        raise TypeError("dtype %s not supported" % dataset_dt)
+        if dataset_dt == np.float32:
+            idx_float = IndexFloat(handle)
+            idx_float.active_index_type = "float32"
+            with cuda_interruptible():
+                c_cagra.build_host(
+                    deref(handle_),
+                    index_params.params,
+                    get_hmv_float(dataset_ai, check_shape=True),
+                    deref(idx_float.index))
+            idx_float.trained = True
+            return idx_float
+        elif dataset_dt == np.byte:
+            idx_int8 = IndexInt8(handle)
+            idx_int8.active_index_type = "byte"
+            with cuda_interruptible():
+                c_cagra.build_host(
+                    deref(handle_),
+                    index_params.params,
+                    get_hmv_int8(dataset_ai, check_shape=True),
+                    deref(idx_int8.index))
+            idx_int8.trained = True
+            return idx_int8
+        elif dataset_dt == np.ubyte:
+            idx_uint8 = IndexUint8(handle)
+            idx_uint8.active_index_type = "ubyte"
+            with cuda_interruptible():
+                c_cagra.build_host(
+                    deref(handle_),
+                    index_params.params,
+                    get_hmv_uint8(dataset_ai, check_shape=True),
+                    deref(idx_uint8.index))
+            idx_uint8.trained = True
+            return idx_uint8
+        else:
+            raise TypeError("dtype %s not supported" % dataset_dt)
 
 
 cdef class SearchParams:
@@ -776,7 +748,7 @@ cdef class SearchParams:
             This is the main knob to adjust trade off between accuracy and
             search speed. Higher values improve the search accuracy.
         max_iterations: int, default = 0
-            pper limit of search iterations. Auto select when 0.*/
+            Upper limit of search iterations. Auto select when 0.*/
         algo: search_algo, default = c_cagra.search_algo.AUTO
             Which search implementation to use.
         team_size: int, default = 0
@@ -980,36 +952,27 @@ def search(SearchParams search_params,
             c_cagra.search(deref(handle_),
                            params,
                            deref(idx_float.index),
-                           get_dmv_float_uint32(queries_cai,
-                                                check_shape=True),
-                           get_dmv_uint32_uint32(neighbors_cai,
-                                                 check_shape=True),
-                           get_dmv_float_uint32(distances_cai,
-                                                check_shape=True))
+                           get_dmv_float(queries_cai, check_shape=True),
+                           get_dmv_uint32(neighbors_cai, check_shape=True),
+                           get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.byte:
         idx_int8 = index
         with cuda_interruptible():
             c_cagra.search(deref(handle_),
                            params,
                            deref(idx_int8.index),
-                           get_dmv_int8_uint32(queries_cai,
-                                               check_shape=True),
-                           get_dmv_uint32_uint32(neighbors_cai,
-                                                 check_shape=True),
-                           get_dmv_float_uint32(distances_cai,
-                                                check_shape=True))
+                           get_dmv_int8(queries_cai, check_shape=True),
+                           get_dmv_uint32(neighbors_cai, check_shape=True),
+                           get_dmv_float(distances_cai, check_shape=True))
     elif queries_dt == np.ubyte:
         idx_uint8 = index
         with cuda_interruptible():
             c_cagra.search(deref(handle_),
                            params,
                            deref(idx_uint8.index),
-                           get_dmv_uint8_uint32(queries_cai,
-                                                check_shape=True),
-                           get_dmv_uint32_uint32(neighbors_cai,
-                                                 check_shape=True),
-                           get_dmv_float_uint32(distances_cai,
-                                                check_shape=True))
+                           get_dmv_uint8(queries_cai, check_shape=True),
+                           get_dmv_uint32(neighbors_cai, check_shape=True),
+                           get_dmv_float(distances_cai, check_shape=True))
     else:
         raise ValueError("query dtype %s not supported" % queries_dt)
 
