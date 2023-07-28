@@ -21,72 +21,38 @@
 
 namespace raft::runtime::neighbors::cagra {
 
-#define RAFT_INST_CAGRA_BUILD(T, IdxT)                                                             \
-  auto build(raft::resources const& handle,                                                        \
-             const raft::neighbors::cagra::index_params& params,                                   \
-             raft::device_matrix_view<const T, int64_t, row_major> dataset)                        \
-    ->raft::neighbors::cagra::index<T, IdxT>                                                       \
-  {                                                                                                \
-    return raft::neighbors::cagra::build<T, IdxT>(handle, params, dataset);                        \
-  }                                                                                                \
-                                                                                                   \
-  auto build(raft::resources const& handle,                                                        \
-             const raft::neighbors::cagra::index_params& params,                                   \
-             raft::host_matrix_view<const T, int64_t, row_major> dataset)                          \
-    ->raft::neighbors::cagra::index<T, IdxT>                                                       \
-  {                                                                                                \
-    return raft::neighbors::cagra::build<T, IdxT>(handle, params, dataset);                        \
-  }                                                                                                \
-                                                                                                   \
-  void build_device(raft::resources const& handle,                                                 \
-                    const raft::neighbors::cagra::index_params& params,                            \
-                    raft::device_matrix_view<const T, int64_t, row_major> dataset,                 \
-                    raft::neighbors::cagra::index<T, IdxT>& idx)                                   \
-  {                                                                                                \
-    idx = build(handle, params, dataset);                                                          \
-  }                                                                                                \
-                                                                                                   \
-  void build_host(raft::resources const& handle,                                                   \
-                  const raft::neighbors::cagra::index_params& params,                              \
-                  raft::host_matrix_view<const T, int64_t, row_major> dataset,                     \
-                  raft::neighbors::cagra::index<T, IdxT>& idx)                                     \
-  {                                                                                                \
-    idx = build(handle, params, dataset);                                                          \
-  }                                                                                                \
-                                                                                                   \
-  void build_knn_graph_device(raft::resources const& handle,                                       \
-                              raft::device_matrix_view<const T, int64_t, row_major> dataset,       \
-                              raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,          \
-                              std::optional<float> refine_rate,                                    \
-                              std::optional<raft::neighbors::ivf_pq::index_params> build_params,   \
-                              std::optional<raft::neighbors::ivf_pq::search_params> search_params) \
-  {                                                                                                \
-    raft::neighbors::cagra::build_knn_graph<T, IdxT>(                                              \
-      handle, dataset, knn_graph, refine_rate, build_params, search_params);                       \
-  }                                                                                                \
-                                                                                                   \
-  void build_knn_graph_host(raft::resources const& handle,                                         \
-                            raft::host_matrix_view<const T, int64_t, row_major> dataset,           \
-                            raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,            \
-                            std::optional<float> refine_rate,                                      \
-                            std::optional<raft::neighbors::ivf_pq::index_params> build_params,     \
-                            std::optional<raft::neighbors::ivf_pq::search_params> search_params)   \
-  {                                                                                                \
-    raft::neighbors::cagra::build_knn_graph<T, IdxT>(                                              \
-      handle, dataset, knn_graph, refine_rate, build_params, search_params);                       \
-  }                                                                                                \
-                                                                                                   \
-  void sort_knn_graph_device(raft::resources const& handle,                                        \
-                             raft::device_matrix_view<const T, int64_t, row_major> dataset,        \
-                             raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph)           \
-  {                                                                                                \
-    raft::neighbors::cagra::sort_knn_graph<T, IdxT>(handle, dataset, knn_graph);                   \
-  }                                                                                                \
-  void sort_knn_graph_host(raft::resources const& handle,                                          \
-                           raft::host_matrix_view<const T, int64_t, row_major> dataset,            \
-                           raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph)             \
-  {                                                                                                \
-    raft::neighbors::cagra::sort_knn_graph<T, IdxT>(handle, dataset, knn_graph);                   \
+<<<<<<< HEAD
+#define RAFT_INST_CAGRA_BUILD(T, IdxT)                                             \
+  auto build(raft::resources const& handle,                                        \
+             const raft::neighbors::cagra::index_params& params,                   \
+             raft::device_matrix_view<const T, int64_t, row_major> dataset)        \
+    ->raft::neighbors::cagra::index<T, IdxT>                                       \
+  {                                                                                \
+    return raft::neighbors::cagra::build<T, IdxT>(handle, params, dataset);        \
+  }                                                                                \
+                                                                                   \
+  auto build(raft::resources const& handle,                                        \
+             const raft::neighbors::cagra::index_params& params,                   \
+             raft::host_matrix_view<const T, int64_t, row_major> dataset)          \
+    ->raft::neighbors::cagra::index<T, IdxT>                                       \
+  {                                                                                \
+    return raft::neighbors::cagra::build<T, IdxT>(handle, params, dataset);        \
+  }                                                                                \
+                                                                                   \
+  void build_device(raft::resources const& handle,                                 \
+                    const raft::neighbors::cagra::index_params& params,            \
+                    raft::device_matrix_view<const T, int64_t, row_major> dataset, \
+                    raft::neighbors::cagra::index<T, IdxT>& idx)                   \
+  {                                                                                \
+    idx = build(handle, params, dataset);                                          \
+  }                                                                                \
+                                                                                   \
+  void build_host(raft::resources const& handle,                                   \
+                  const raft::neighbors::cagra::index_params& params,              \
+                  raft::host_matrix_view<const T, int64_t, row_major> dataset,     \
+                  raft::neighbors::cagra::index<T, IdxT>& idx)                     \
+  {                                                                                \
+    idx = build(handle, params, dataset);                                          \
   }
 
 RAFT_INST_CAGRA_BUILD(float, uint32_t);

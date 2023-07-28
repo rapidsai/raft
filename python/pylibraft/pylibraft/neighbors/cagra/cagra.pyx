@@ -275,319 +275,6 @@ cdef class IndexUint8(Index):
 
 
 @auto_sync_handle
-def build_knn_graph(dataset,
-                    IndexParams index_params,
-                    knn_graph=None,
-                    graph_degree=128,
-                    ivf_pq.IndexParams build_params=None,
-                    ivf_pq.SearchParams search_params=None,
-                    refine_rate=0,
-                    handle=None):
-    """
-    Build a kNN graph, the first building block for a CAGRA index.
-
-    This function uses the IVF-PQ method to build a kNN graph. The output is
-    a dense matrix that stores the neighbor indices for each point
-    in the dataset. Each point has the same number of neighbors.
-
-    Use pylibraft.cagra.build for an alternative, single function
-    method for building a CAGRA index.
-
-    The following distance metrics are supported:
-    - L2Expanded
-
-    Parameters
-    ----------
-    handle:
-        RAFT resources
-    dataset: array interface compliant matrix shape (n_samples, dim)
-        a host or device matrix, Supported dtype [float, int8, uint8]/
-    knn_graph: array interface compliant matrix shape (n_samples, dim)
-        a host matrix view to store the output knn graph [n_rows, graph_degree]
-    refine_rate: float
-        refinement rate for ivf-pq search
-    build_params:
-         ivf_pq index building parameters for knn graph
-    search_params:
-        ivf_pq search parameters
-    {handle_docstring}
-
-    Returns
-    -------
-    knn_graph: array interface compliant matrix shape (n_samples, dim)
-
-    Examples
-    --------
-
-    >>> import cupy as cp
-
-    >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import cagra
-
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
-    >>> handle.sync()
-    """
-    if handle is None:
-        handle = DeviceResources()
-    cdef device_resources* handle_ = \
-        <device_resources*><size_t>handle.getHandle()
-
-    dataset_ai = wrap_array(dataset)
-    dataset_dt = dataset_ai.dtype
-    _check_input_array(dataset_ai, [np.dtype('float32'), np.dtype('byte'),
-                                    np.dtype('ubyte')])
-
-    if knn_graph is None:
-        knn_graph = device_ndarray.empty((dataset_ai.shape()[0],
-                                          graph_degree),
-                                         dtype='uint32')
-
-    knn_graph_ai = wrap_array(knn_graph)
-    knn_graph_dt = knn_graph_ai.dtype
-    if knn_graph_ai.from_cai:
-        raise ValueError(
-            "Parameter `knn_graph` has to be a host (NumPy) matrix."
-        )
-    _check_input_array(knn_graph_ai, [np.dtype('uint32')])
-
-    cdef optional[float] refine_rate_opt = <float>refine_rate
-    cdef optional[IVFPQ_IP] build_params_opt = \
-        <IVFPQ_IP> build_params.params
-    cdef optional[IVFPQ_SP] search_params_opt = \
-        <IVFPQ_SP> search_params.params
-
-    if dataset_ai.from_cai:
-        if dataset_ai.dtype == np.float32:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_float(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-        elif dataset_ai.dtype == np.byte:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_int8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-        elif dataset_ai.dtype == np.ubyte:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_uint8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-    else:
-        if dataset_ai.dtype == np.float32:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_float(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-        elif dataset_ai.dtype == np.byte:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_int8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-        elif dataset_ai.dtype == np.ubyte:
-            with cuda_interruptible():
-                c_cagra.build_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_uint8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True),
-                    refine_rate_opt,
-                    build_params_opt,
-                    search_params_opt
-                )
-
-        return knn_graph
-
-
-@auto_sync_handle
-def sort_knn_graph(dataset, knn_graph, handle=None):
-    """
-    Sort a KNN graph index.
-
-    If a KNN graph is not built using
-    pylibraft.cagra.build_knn_graph, then it is necessary to call
-    this function before calling pylibraft.cagra.optimize. If the
-    graph is built by pylibraft.cagra.build_knn_graph, it is
-    already sorted and you do not need to call this function.
-
-    Parameters
-    ----------
-    handle:
-        RAFT resources
-    dataset: array interface compliant matrix shape (n_samples, dim)
-        a host or device matrix, Supported dtype [float, int8, uint8]/
-    knn_graph: array interface compliant matrix shape (n_samples, dim)
-        a host matrix view to store the output knn graph [n_rows, graph_degree]
-    {handle_docstring}
-
-    Examples
-    --------
-
-    >>> import cupy as cp
-
-    >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import cagra
-
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
-    >>> handle.sync()
-    """
-    if handle is None:
-        handle = DeviceResources()
-    cdef device_resources* handle_ = \
-        <device_resources*><size_t>handle.getHandle()
-
-    dataset_ai = wrap_array(dataset)
-    dataset_dt = dataset_ai.dtype
-    _check_input_array(dataset_ai, [np.dtype('float32'), np.dtype('byte'),
-                                    np.dtype('ubyte')])
-
-    knn_graph_ai = wrap_array(knn_graph)
-    knn_graph_dt = knn_graph_ai.dtype
-    if knn_graph_ai.from_cai:
-        raise ValueError(
-            "Parameter `knn_graph` has to be a host matrix."
-        )
-    _check_input_array(knn_graph_ai, [np.dtype('uint32')])
-
-    if dataset_ai.from_cai:
-        if dataset_ai.dtype == np.float32:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_float(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-        elif dataset_ai.dtype == np.byte:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_int8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-        elif dataset_ai.dtype == np.ubyte:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_device(
-                    deref(handle_),
-                    get_dmv_uint8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-    else:
-        if dataset_ai.dtype == np.float32:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_float(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-        elif dataset_ai.dtype == np.byte:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_int8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-        elif dataset_ai.dtype == np.ubyte:
-            with cuda_interruptible():
-                c_cagra.sort_knn_graph_host(
-                    deref(handle_),
-                    get_hmv_uint8(dataset_ai, check_shape=True),
-                    get_hmv_uint32(knn_graph_ai, check_shape=True)
-                )
-
-
-@auto_sync_handle
-def optimize(knn_graph, new_graph=None, handle=None):
-    """
-    Prune a KNN graph.
-
-    Decreases the number of neighbors for each node.
-
-    Parameters
-    ----------
-    handle:
-        RAFT resources
-    knn_graph: array interface compliant matrix shape (n_samples, dim)
-        a host matrix containing the knn_graph of shape [n_rows, graph_degree]
-    new_graph: array interface compliant matrix shape (n_samples, dim)
-        a host matrix view to store the output knn graph [n_rows, graph_degree]
-    {handle_docstring}
-
-    Examples
-    --------
-
-    >>> import cupy as cp
-
-    >>> from pylibraft.common import DeviceResources
-    >>> from pylibraft.neighbors import cagra
-
-    >>> # pylibraft functions are often asynchronous so the
-    >>> # handle needs to be explicitly synchronized
-    >>> handle.sync()
-    """
-    if handle is None:
-        handle = DeviceResources()
-    cdef device_resources* handle_ = \
-        <device_resources*><size_t>handle.getHandle()
-
-    knn_graph_ai = wrap_array(knn_graph)
-    knn_graph_dt = knn_graph_ai.dtype
-    _check_input_array(knn_graph_ai, [np.dtype('uint32')])
-
-    if new_graph is None:
-        new_graph = device_ndarray.empty(knn_graph_ai.shape(), dtype='uint32')
-    new_graph_ai = wrap_array(new_graph)
-    new_graph_dt = new_graph_ai.dtype
-    if new_graph_ai.from_cai:
-        raise ValueError(
-            "Parameter `new_graph` has to be a host (NumPy) matrix."
-        )
-    _check_input_array(new_graph_ai, [np.dtype('uint32')])
-
-    if knn_graph_ai.from_cai:
-        c_cagra.optimize_device(
-            deref(handle_),
-            get_dmv_uint32(knn_graph_ai, check_shape=True),
-            get_hmv_uint32(new_graph_ai, check_shape=True))
-    else:
-        c_cagra.optimize_host(
-            deref(handle_),
-            get_hmv_uint32(knn_graph_ai, check_shape=True),
-            get_hmv_uint32(new_graph_ai, check_shape=True))
-
-    return new_graph
-
-
-@auto_sync_handle
 @auto_convert_output
 def build(IndexParams index_params, dataset, handle=None):
     """
@@ -626,9 +313,31 @@ def build(IndexParams index_params, dataset, handle=None):
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import cagra
 
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> k = 10
+
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> handle = DeviceResources()
+    >>> build_params = cagra.IndexParams(metric="squeclidean",
+    ...     handle=handle
+    ... )
+
+    >>> index = cagra.build(build_params, dataset, handle=handle)
+
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                      index, queries,
+    ...                                      k, handle=handle)
+
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
+
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
     """
     dataset_ai = wrap_array(dataset)
     dataset_dt = dataset_ai.dtype
@@ -902,6 +611,38 @@ def search(SearchParams search_params,
 
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import cagra
+
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
+
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> search_params = cagra.SearchParams(
+    ...     max_queries=100,
+    ...     itopk_size=64,
+    ... )
+
+    >>> # Using a pooling allocator reduces overhead of temporary array
+    >>> # creation during search. This is useful if multiple searches
+    >>> # are performad with same query size.
+    >>> import rmm
+    >>> mr = rmm.mr.PoolMemoryResource(
+    ...     rmm.mr.CudaMemoryResource(),
+    ...     initial_pool_size=2**29,
+    ...     maximum_pool_size=2**31
+    ... )
+    >>> distances, neighbors = cagra.search(search_params, index, queries,
+    ...                                     k, memory_resource=mr,
+    ...                                     handle=handle)
 
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized

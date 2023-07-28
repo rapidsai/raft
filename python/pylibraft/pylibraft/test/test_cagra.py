@@ -15,7 +15,6 @@
 
 import numpy as np
 import pytest
-from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 
@@ -23,7 +22,7 @@ from pylibraft.common import device_ndarray
 from pylibraft.neighbors import cagra
 
 
-#todo (dantegd): consolidate helper utils of ann methods
+# todo (dantegd): consolidate helper utils of ann methods
 def generate_data(shape, dtype):
     if dtype == np.byte:
         x = np.random.randint(-127, 128, size=shape, dtype=np.byte)
@@ -57,7 +56,7 @@ def run_cagra_build_search_test(
     compare=True,
     inplace=True,
     add_data_on_build=True,
-    search_params = {}
+    search_params={},
 ):
     dataset = generate_data((n_rows, n_cols), dtype)
     if metric == "inner_product":
@@ -67,7 +66,7 @@ def run_cagra_build_search_test(
     build_params = cagra.IndexParams(
         metric=metric,
         intermediate_graph_degree=intermediate_graph_degree,
-        graph_degree=graph_degree
+        graph_degree=graph_degree,
     )
 
     if array_type == "device":
@@ -139,9 +138,7 @@ def run_cagra_build_search_test(
 
 @pytest.mark.parametrize("inplace", [True, False])
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.uint8])
-@pytest.mark.parametrize(
-    "array_type", ["device", "host"]
-)
+@pytest.mark.parametrize("array_type", ["device", "host"])
 def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
@@ -160,22 +157,22 @@ def test_cagra_dataset_dtype_host_device(dtype, array_type, inplace):
             "graph_degree": 32,
             "add_data_on_build": True,
             "k": 1,
-            "metric": "euclidean"
+            "metric": "euclidean",
         },
         {
             "intermediate_graph_degree": 32,
             "graph_degree": 16,
             "add_data_on_build": False,
             "k": 5,
-            "metric": "sqeuclidean"
+            "metric": "sqeuclidean",
         },
         {
             "intermediate_graph_degree": 128,
             "graph_degree": 32,
             "add_data_on_build": True,
             "k": 10,
-            "metric": "inner_product"
-        }
+            "metric": "inner_product",
+        },
     ],
 )
 def test_cagra_index_params(params):
@@ -194,70 +191,67 @@ def test_cagra_index_params(params):
     "params",
     [
         {
-            "max_queries" : 100,
-            "itopk_size" : 32,
-            "max_iterations" : 100,
-            "algo" : "single_cta",
-            "team_size" : 0,
-            "num_parents" : 1,
-            "min_iterations" : 1,
-            "thread_block_size" : 64,
-            "hashmap_mode" : "hash",
-            "hashmap_min_bitlen" : 0.2,
-            "hashmap_max_fill_rate" : 0.5,
-            "num_random_samplings" : 1
+            "max_queries": 100,
+            "itopk_size": 32,
+            "max_iterations": 100,
+            "algo": "single_cta",
+            "team_size": 0,
+            "num_parents": 1,
+            "min_iterations": 1,
+            "thread_block_size": 64,
+            "hashmap_mode": "hash",
+            "hashmap_min_bitlen": 0.2,
+            "hashmap_max_fill_rate": 0.5,
+            "num_random_samplings": 1,
         },
         {
-            "max_queries" : 10,
-            "itopk_size" : 128,
-            "max_iterations" : 0,
-            "algo" : "multi_cta",
-            "team_size" : 8,
-            "num_parents" : 2,
-            "min_iterations" : 10,
-            "thread_block_size" : 0,
-            "hashmap_mode" : "auto",
-            "hashmap_min_bitlen" : 0.9,
-            "hashmap_max_fill_rate" : 0.5,
-            "num_random_samplings" : 10
+            "max_queries": 10,
+            "itopk_size": 128,
+            "max_iterations": 0,
+            "algo": "multi_cta",
+            "team_size": 8,
+            "num_parents": 2,
+            "min_iterations": 10,
+            "thread_block_size": 0,
+            "hashmap_mode": "auto",
+            "hashmap_min_bitlen": 0.9,
+            "hashmap_max_fill_rate": 0.5,
+            "num_random_samplings": 10,
         },
         {
-            "max_queries" : 0,
-            "itopk_size" : 64,
-            "max_iterations" : 0,
-            "algo" : "multi_kernel",
-            "team_size" : 16,
-            "num_parents" : 1,
-            "min_iterations" : 0,
-            "thread_block_size" : 0,
-            "hashmap_mode" : "auto",
-            "hashmap_min_bitlen" : 0,
-            "hashmap_max_fill_rate" : 0.5,
-            "num_random_samplings" : 1
+            "max_queries": 0,
+            "itopk_size": 64,
+            "max_iterations": 0,
+            "algo": "multi_kernel",
+            "team_size": 16,
+            "num_parents": 1,
+            "min_iterations": 0,
+            "thread_block_size": 0,
+            "hashmap_mode": "auto",
+            "hashmap_min_bitlen": 0,
+            "hashmap_max_fill_rate": 0.5,
+            "num_random_samplings": 1,
         },
         {
-            "max_queries" : 0,
-            "itopk_size" : 64,
-            "max_iterations" : 0,
-            "algo" : "auto",
-            "team_size" : 32,
-            "num_parents" : 4,
-            "min_iterations" : 0,
-            "thread_block_size" : 0,
-            "hashmap_mode" : "small",
-            "hashmap_min_bitlen" : 0,
-            "hashmap_max_fill_rate" : 0.5,
-            "num_random_samplings" : 1
-        }
+            "max_queries": 0,
+            "itopk_size": 64,
+            "max_iterations": 0,
+            "algo": "auto",
+            "team_size": 32,
+            "num_parents": 4,
+            "min_iterations": 0,
+            "thread_block_size": 0,
+            "hashmap_mode": "small",
+            "hashmap_min_bitlen": 0,
+            "hashmap_max_fill_rate": 0.5,
+            "num_random_samplings": 1,
+        },
     ],
 )
 def test_cagra_search_params(params):
     # Note that inner_product tests use normalized input which we cannot
     # represent in int8, therefore we test only sqeuclidean metric here.
-    run_cagra_build_search_test(
-        search_params=params
-    )
-
+    run_cagra_build_search_test(search_params=params)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])
