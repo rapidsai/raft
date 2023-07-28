@@ -38,7 +38,7 @@ struct params {
   int degree;
   int itopk_size;
   int block_size;
-  int num_parents;
+  int search_width;
   int max_iterations;
 };
 
@@ -85,7 +85,7 @@ struct CagraBench : public fixture {
     search_params.itopk_size        = params_.itopk_size;
     search_params.team_size         = 0;
     search_params.thread_block_size = params_.block_size;
-    search_params.num_parents       = params_.num_parents;
+    search_params.search_width      = params_.search_width;
 
     auto indices   = make_device_matrix<IdxT, int64_t>(handle, params_.n_queries, params_.k);
     auto distances = make_device_matrix<float, int64_t>(handle, params_.n_queries, params_.k);
@@ -106,7 +106,7 @@ struct CagraBench : public fixture {
     int iterations = params_.max_iterations;
     if (iterations == 0) {
       // see search_plan_impl::adjust_search_params()
-      double r   = params_.itopk_size / static_cast<float>(params_.num_parents);
+      double r   = params_.itopk_size / static_cast<float>(params_.search_width);
       iterations = 1 + std::min(r * 1.1, r + 10);
     }
     state.counters["dataset (GiB)"] = data_size / (1 << 30);
@@ -118,7 +118,7 @@ struct CagraBench : public fixture {
     state.counters["k"]             = params_.k;
     state.counters["itopk_size"]    = params_.itopk_size;
     state.counters["block_size"]    = params_.block_size;
-    state.counters["num_parents"]   = params_.num_parents;
+    state.counters["search_width"]  = params_.search_width;
     state.counters["iterations"]    = iterations;
   }
 
@@ -140,7 +140,7 @@ inline const std::vector<params> generate_inputs()
                                            {64},                   // knn graph degree
                                            {64},                   // itopk_size
                                            {0},                    // block_size
-                                           {1},                    // num_parents
+                                           {1},                    // search_width
                                            {0}                     // max_iterations
     );
   auto inputs2 = raft::util::itertools::product<params>({2000000ull, 10000000ull},  // n_samples
@@ -150,7 +150,7 @@ inline const std::vector<params> generate_inputs()
                                                         {64},  // knn graph degree
                                                         {64},  // itopk_size
                                                         {64, 128, 256, 512, 1024},  // block_size
-                                                        {1},                        // num_parents
+                                                        {1},                        // search_width
                                                         {0}  // max_iterations
   );
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());

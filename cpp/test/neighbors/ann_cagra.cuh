@@ -134,7 +134,7 @@ struct AnnCagraInputs {
   int max_queries;
   int team_size;
   int itopk_size;
-  int num_parents;
+  int search_width;
   raft::distance::DistanceType metric;
   bool host_dataset;
   // std::optional<double>
@@ -146,7 +146,7 @@ inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
   std::vector<std::string> algo = {"single-cta", "multi_cta", "multi_kernel", "auto"};
   os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
      << ", k=" << p.k << ", " << algo.at((int)p.algo) << ", max_queries=" << p.max_queries
-     << ", itopk_size=" << p.itopk_size << ", num_parents=" << p.num_parents
+     << ", itopk_size=" << p.itopk_size << ", search_width=" << p.search_width
      << ", metric=" << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}'
      << std::endl;
   return os;
@@ -366,7 +366,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
 inline std::vector<AnnCagraInputs> generate_inputs()
 {
-  // TODO(tfeher): test MULTI_CTA kernel with num_Parents>1 to allow multiple CTA per queries
+  // TODO(tfeher): test MULTI_CTA kernel with search_width > 1 to allow multiple CTA per queries
   std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
