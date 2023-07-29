@@ -273,11 +273,12 @@ def build(IndexParams index_params, dataset, handle=None):
     """
     Build the CAGRA index from the dataset for efficient search.
 
-    The build consist of two steps: build an intermediate knn-graph, and
-    optimize it to create the final graph. The index_params object controls
-    the node degree of these graphs.
+    The build performs two different steps- first an intermediate knn-graph is
+    constructed, then it's optimized it to create the final graph. The
+    index_params object controls the node degree of these graphs.
 
-    It is required that dataset and the optimized graph fit the GPU memory.
+    It is required that both the dataset and the optimized graph fit the
+    GPU memory.
 
      The following distance metrics are supported:
      - L2
@@ -285,7 +286,7 @@ def build(IndexParams index_params, dataset, handle=None):
     Parameters
     ----------
     index_params : IndexParams object
-    dataset : array interface compliant matrix shape (n_samples, dim)
+    dataset : CUDA array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     {handle_docstring}
 
@@ -443,9 +444,13 @@ cdef class SearchParams:
             This is the main knob to adjust trade off between accuracy and
             search speed. Higher values improve the search accuracy.
         max_iterations: int, default = 0
-            Upper limit of search iterations. Auto select when 0.*/
-        algo: search_algo, default = c_cagra.search_algo.AUTO
-            Which search implementation to use.
+            Upper limit of search iterations. Auto select when 0.
+        algo: string denoting the search algorithm to use, default = "auto"
+            Valid values for algo: ["auto", "single_cta", "multi_cta"], where
+            - auto will automatically select the best value based on query size
+            - single_cta is better when query contains larger number of
+            vectors (e.g >10)
+            - multi_cta is better when query contains only a few vectors
         team_size: int, default = 0
             Number of threads used to calculate a single distance. 4, 8, 16,
             or 32.
@@ -457,8 +462,13 @@ cdef class SearchParams:
         thread_block_size: int, default = 0
             Thread block size. 0, 64, 128, 256, 512, 1024.
             Auto selection when 0.
-        hashmap_mode: hash_mode, default = c_cagra.hash_mode.AUTO
-            Hashmap type. Auto selection when AUTO.
+        hashmap_mode: string denoting the type of hash map to use. It's
+            usually better to allow the algorithm to select this value.,
+            default = "auto"
+            Valid values for hashmap_mode: ["auto", "small", "hash"], where
+            - auto will automatically select the best value based on algo
+            - small will use the small shared memory hash table with resetting.
+            - hash will use a single hash table in global memory.
         hashmap_min_bitlen: int, default = 0
             Upper limit of hashmap fill rate. More than 0.1, less than 0.9.
         hashmap_max_fill_rate: float, default = 0.5
