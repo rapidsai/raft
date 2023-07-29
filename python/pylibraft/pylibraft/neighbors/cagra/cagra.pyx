@@ -310,14 +310,12 @@ def build(IndexParams index_params, dataset, handle=None):
     ...                                   dtype=cp.float32)
 
     >>> handle = DeviceResources()
-    >>> build_params = cagra.IndexParams(metric="squeclidean",
-    ...     handle=handle
-    ... )
+    >>> build_params = cagra.IndexParams(metric="sqeuclidean")
 
     >>> index = cagra.build(build_params, dataset, handle=handle)
 
     >>> distances, neighbors = cagra.search(cagra.SearchParams(),
-    ...                                      index, queries,
+    ...                                      index, dataset,
     ...                                      k, handle=handle)
 
     >>> # pylibraft functions are often asynchronous so the
@@ -616,7 +614,7 @@ def search(SearchParams search_params,
     >>> k = 10
     >>> search_params = cagra.SearchParams(
     ...     max_queries=100,
-    ...     itopk_size=64,
+    ...     itopk_size=64
     ... )
 
     >>> # Using a pooling allocator reduces overhead of temporary array
