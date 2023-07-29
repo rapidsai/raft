@@ -19,12 +19,14 @@
 #include "ann_utils.cuh"
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
+#include <raft/core/resources.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/detail/ivf_flat_build.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/ann.cuh>
@@ -261,6 +263,73 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                   ps.k,
                                   0.001,
                                   min_recall));
+    }
+
+    {
+      raft::spatial::knn::ivf_flat::index_params index_params;
+      index_params.n_lists                  = ps.nlist;
+      index_params.metric                   = ps.metric;
+      index_params.adaptive_centers         = ps.adaptive_centers;
+      index_params.add_data_on_build        = true;
+      index_params.kmeans_trainset_fraction = 0.5;
+
+      auto vectors_data =
+        raft::make_device_matrix_view<const DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+      auto index = ivf_flat::build(handle_, index_params, vectors_data);
+
+      rmm::device_uvector<IdxT> vecs_ids(ps.num_db_vecs, stream_);
+      thrust::sequence(resource::get_thrust_policy(handle_),
+                       thrust::device_pointer_cast(vecs_ids.data()),
+                       thrust::device_pointer_cast(vecs_ids.data() + ps.num_db_vecs));
+      resource::sync_stream(handle_);
+
+      auto vectors_ids =
+        raft::make_device_vector_view<const IdxT, IdxT>(vecs_ids.data(), ps.num_db_vecs);
+      auto vectors_out =
+        raft::make_device_matrix<DataT, IdxT, row_major>(handle_, ps.num_db_vecs, ps.dim);
+      ivf_flat::detail::reconstruct_batch(handle_, index, vectors_ids, vectors_out.view());
+
+      resource::sync_stream(handle_);
+
+      ASSERT_TRUE(raft::devArrMatch(vectors_data.data_handle(),
+                                    vectors_out.data_handle(),
+                                    ps.num_db_vecs * ps.dim,
+                                    raft::Compare<DataT>(),
+                                    stream_));
+    }
+
+    {
+      raft::spatial::knn::ivf_flat::index_params index_params;
+      index_params.n_lists                  = ps.nlist;
+      index_params.metric                   = ps.metric;
+      index_params.adaptive_centers         = ps.adaptive_centers;
+      index_params.add_data_on_build        = true;
+      index_params.kmeans_trainset_fraction = 0.5;
+
+      auto vectors_data =
+        raft::make_device_matrix_view<const DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+      auto index = ivf_flat::build(handle_, index_params, vectors_data);
+
+      uint32_t cluster = 0;
+      uint32_t offset  = 0;
+      uint32_t n_rows  = index.lists()[cluster]->size;
+      if (n_rows > 0 && n_rows <= 30) {
+        auto vectors_out =
+          raft::make_device_matrix<DataT, uint32_t, row_major>(handle_, n_rows, ps.dim);
+        ivf_flat::reconstruct_list_data(handle_, index, vectors_out.view(), cluster, offset);
+
+        std::vector<IdxT> h_indices(n_rows);
+        raft::update_host(
+          h_indices.data(), index.lists()[cluster]->indices.data_handle(), n_rows, stream_);
+        for (IdxT i = 0; i < n_rows; ++i) {
+          IdxT idx = h_indices[i];
+          ASSERT_TRUE(raft::devArrMatch(&(vectors_data.data_handle()[idx * ps.dim]),
+                                        &(vectors_out.data_handle()[i * ps.dim]),
+                                        ps.dim,
+                                        raft::Compare<DataT>(),
+                                        stream_));
+        }
+      }
     }
   }
 

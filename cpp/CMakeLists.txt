@@ -364,6 +364,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/ivf_flat_search_float_int64_t.cu
     src/neighbors/ivf_flat_search_int8_t_int64_t.cu
     src/neighbors/ivf_flat_search_uint8_t_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_float_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_int8_t_int64_t.cu
+    src/neighbors/ivf_flat_reconstruct_uint8_t_int64_t.cu
     src/neighbors/ivfpq_build_float_int64_t.cu
     src/neighbors/ivfpq_build_int8_t_int64_t.cu
     src/neighbors/ivfpq_build_uint8_t_int64_t.cu

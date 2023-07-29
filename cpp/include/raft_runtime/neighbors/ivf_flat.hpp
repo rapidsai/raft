@@ -46,6 +46,12 @@ namespace raft::runtime::neighbors::ivf_flat {
               std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices, \
               raft::neighbors::ivf_flat::index<T, IdxT>* idx);                       \
                                                                                      \
+  void reconstruct_list_data(raft::resources const& handle,                          \
+                             const raft::neighbors::ivf_flat::index<T, IdxT>& idx,   \
+                             device_matrix_view<T, uint32_t, row_major> out_vectors, \
+                             uint32_t label,                                         \
+                             uint32_t offset);                                       \
+                                                                                     \
   void serialize_file(raft::resources const& handle,                                 \
                       const std::string& filename,                                   \
                       const raft::neighbors::ivf_flat::index<T, IdxT>& index);       \

@@ -591,6 +591,30 @@ void search(raft::resources const& handle,
                         raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
+/**
+ * @brief Reconstruct vectors of a given cluster
+ *
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle
+ * @param[in] index ivf-flat constructed index
+ * @param[out] out_vectors matrix with the vectors contained in the cluster
+ * @param[in] label cluster index
+ * @param[in] offset offset
+ */
+template <typename T, typename IdxT>
+void reconstruct_list_data(raft::resources const& handle,
+                           const index<T, IdxT>& index,
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label,
+                           uint32_t offset)
+{
+  return raft::neighbors::ivf_flat::detail::reconstruct_list_data(
+    handle, index, out_vectors, label, offset);
+}
+
 /** @} */
 
 }  // namespace raft::neighbors::ivf_flat

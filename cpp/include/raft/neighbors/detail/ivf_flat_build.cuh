@@ -17,11 +17,13 @@
 #pragma once
 
 #include <raft/cluster/kmeans_balanced.cuh>
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
@@ -34,6 +36,8 @@
 #include <raft/util/pow2_utils.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
+
+#include <thrust/extrema.h>
 
 #include <cstdint>
 
@@ -416,4 +420,151 @@ inline void fill_refinement_index(raft::resources const& handle,
                                          refinement_index->veclen());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
+
+template <typename T, typename IdxT>
+__global__ void get_data_ptr_kernel(const uint32_t* list_sizes,
+                                    const T* const* list_data_ptrs,
+                                    const IdxT* const* list_indices_ptrs,
+                                    uint32_t dim,
+                                    uint32_t veclen,
+                                    uint32_t n_list,
+                                    IdxT max_indice,
+                                    T** ptrs_to_data)
+{
+  const IdxT list_id = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
+  if (list_id >= n_list) { return; }
+  const IdxT inlist_id     = IdxT(blockDim.y) * IdxT(blockIdx.y) + threadIdx.y;
+  const uint32_t list_size = list_sizes[list_id];
+  if (inlist_id >= list_size) { return; }
+
+  auto* list_indices = list_indices_ptrs[list_id];
+  IdxT id            = list_indices[inlist_id];
+  if (id > max_indice) { return; }
+
+  using interleaved_group = Pow2<kIndexGroupSize>;
+  auto group_offset       = interleaved_group::roundDown(inlist_id);
+  auto ingroup_id         = interleaved_group::mod(inlist_id) * veclen;
+
+  auto* list_data  = list_data_ptrs[list_id];
+  const T* ptr     = list_data + (group_offset * dim) + ingroup_id;
+  ptrs_to_data[id] = (T*)ptr;
+}
+
+template <typename T, typename IdxT>
+__global__ void reconstruct_batch_kernel(const IdxT* vector_ids,
+                                         const T** ptrs_to_data,
+                                         uint32_t dim,
+                                         uint32_t veclen,
+                                         IdxT n_rows,
+                                         T* reconstr)
+{
+  const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
+  if (i >= n_rows) { return; }
+
+  const IdxT vector_id = vector_ids[i];
+  const T* src         = ptrs_to_data[vector_id];
+  if (!src) { return; }
+
+  reconstr += i * dim;
+  for (uint32_t l = 0; l < dim; l += veclen) {
+    for (uint32_t j = 0; j < veclen; j++) {
+      reconstr[l + j] = src[l * kIndexGroupSize + j];
+    }
+  }
+}
+
+template <typename T, typename IdxT>
+void reconstruct_batch(raft::resources const& handle,
+                       const index<T, IdxT>& index,
+                       raft::device_vector_view<const IdxT, IdxT> vector_ids,
+                       raft::device_matrix_view<T, IdxT, row_major> vector_out)
+{
+  auto stream      = raft::resource::get_cuda_stream(handle);
+  auto exec_policy = raft::resource::get_thrust_policy(handle);
+
+  thrust::device_ptr<const IdxT> vector_ids_ptr =
+    thrust::device_pointer_cast(vector_ids.data_handle());
+  IdxT max_indice =
+    *thrust::max_element(exec_policy, vector_ids_ptr, vector_ids_ptr + vector_ids.extent(0));
+
+  rmm::device_uvector<T*> ptrs_to_data(max_indice + 1, stream);
+  utils::memzero(ptrs_to_data.data(), ptrs_to_data.size(), stream);
+
+  thrust::device_ptr<const uint32_t> list_sizes_ptr =
+    thrust::device_pointer_cast(index.list_sizes().data_handle());
+  uint32_t max_list_size = *thrust::max_element(
+    exec_policy, list_sizes_ptr, list_sizes_ptr + index.list_sizes().extent(0));
+
+  const dim3 block_dim1(16, 16);
+  const dim3 grid_dim1(raft::ceildiv<size_t>(index.n_lists(), block_dim1.x),
+                       raft::ceildiv<size_t>(max_list_size, block_dim1.y));
+  get_data_ptr_kernel<<<grid_dim1, block_dim1, 0, stream>>>(index.list_sizes().data_handle(),
+                                                            index.data_ptrs().data_handle(),
+                                                            index.inds_ptrs().data_handle(),
+                                                            index.dim(),
+                                                            index.veclen(),
+                                                            index.n_lists(),
+                                                            max_indice,
+                                                            ptrs_to_data.data());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  auto n_reconstruction = vector_ids.extent(0);
+  const dim3 block_dim2(256);
+  const dim3 grid_dim2(raft::ceildiv<size_t>(n_reconstruction, block_dim2.x));
+  reconstruct_batch_kernel<<<grid_dim2, block_dim2, 0, stream>>>(vector_ids.data_handle(),
+                                                                 (const T**)ptrs_to_data.data(),
+                                                                 index.dim(),
+                                                                 index.veclen(),
+                                                                 n_reconstruction,
+                                                                 vector_out.data_handle());
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename T, typename IdxT>
+__global__ void reconstruct_list_data_kernel(T* out_vectors,
+                                             T* in_list_data,
+                                             std::variant<IdxT, const IdxT*> offset_or_indices,
+                                             IdxT len,
+                                             size_t veclen,
+                                             IdxT dim)
+{
+  for (IdxT ix = threadIdx.x + blockDim.x * blockIdx.x; ix < len; ix += blockDim.x) {
+    const IdxT src_ix = std::holds_alternative<IdxT>(offset_or_indices)
+                          ? std::get<IdxT>(offset_or_indices) + ix
+                          : std::get<const IdxT*>(offset_or_indices)[ix];
+
+    using group_align     = Pow2<kIndexGroupSize>;
+    const IdxT group_ix   = group_align::div(src_ix);
+    const IdxT ingroup_ix = group_align::mod(src_ix) * veclen;
+
+    for (IdxT l = 0; l < dim; l += veclen) {
+      for (IdxT j = 0; j < veclen; j++) {
+        out_vectors[ix * dim + l + j] = in_list_data[l * kIndexGroupSize + ingroup_ix + j];
+      }
+    }
+  }
+}
+
+/** Decode the list data; see the public interface for the api and usage. */
+template <typename T, typename IdxT>
+void reconstruct_list_data(raft::resources const& handle,
+                           const index<T, IdxT>& index,
+                           device_matrix_view<T, uint32_t, row_major> out_vectors,
+                           uint32_t label,
+                           uint32_t offset)
+{
+  auto stream = raft::resource::get_cuda_stream(handle);
+
+  IdxT len = out_vectors.extent(0);
+  const dim3 block_dim(256);
+  const dim3 grid_dim(raft::div_rounding_up_safe<size_t>(len, block_dim.x));
+  reconstruct_list_data_kernel<T, IdxT>
+    <<<grid_dim, block_dim, 0, stream>>>((T*)out_vectors.data_handle(),
+                                         (T*)index.lists()[label]->data.data_handle(),
+                                         (IdxT)offset,
+                                         (IdxT)len,
+                                         (size_t)index.veclen(),
+                                         (IdxT)index.dim());
+}
+
 }  // namespace raft::neighbors::ivf_flat::detail
