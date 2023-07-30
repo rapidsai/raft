@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -98,6 +99,7 @@ class Cagra : public ANN<T> {
 
   void set_search_dataset(const T* dataset, size_t nrow) override
   {
+    std::cout << "Cagra set_search_dataset" << std::endl;
     dataset_ = dataset;
     if (nrow_ == 0) {
       nrow_ = nrow;
@@ -186,6 +188,7 @@ void Cagra<T>::build(const T*, size_t, cudaStream_t)
 template <typename T>
 void Cagra<T>::set_search_param(const AnnSearchParam& param)
 {
+  std::cout << "Cagra set_search_param" << std::endl;
   if (!dataset_ || nrow_ == 0) { throw std::runtime_error("Cagra: dataset is not loaded"); }
   if (!graph_ || degree_ == 0) { throw std::runtime_error("Cagra: index is not loaded"); }
 
@@ -200,16 +203,21 @@ void Cagra<T>::set_search_param(const AnnSearchParam& param)
   //       new_search_param.search_width != search_param_.search_width ||
   //       new_search_param.min_iterations != search_param_.min_iterations ||
   //       new_search_param.max_iterations != search_param_.max_iterations) {
-  if (plan_) { destroy_plan(plan_); }
 
-  if (new_search_param.batch_size != search_param_.batch_size ||
-      new_search_param.k != search_param_.k) {
-    RAFT_CUDA_TRY(cudaFree(tmp_neighbors_));
-    RAFT_CUDA_TRY(cudaMalloc(&tmp_neighbors_,
-                             sizeof(size_t) * new_search_param.batch_size * new_search_param.k));
+  if (plan_) {
+    std::cout << "Cagra destroying plan" << std::endl;
+
+    destroy_plan(plan_);
   }
-  search_param_ = new_search_param;
 
+  //   if (new_search_param.batch_size != search_param_.batch_size ||
+  //       new_search_param.k != search_param_.k) {
+  if (tmp_neighbors_) RAFT_CUDA_TRY(cudaFree(tmp_neighbors_));
+  RAFT_CUDA_TRY(
+    cudaMalloc(&tmp_neighbors_, sizeof(size_t) * new_search_param.batch_size * new_search_param.k));
+  //   }
+  search_param_ = new_search_param;
+  std::cout << "Cagra creating new plan" << std::endl;
   create_plan(&plan_,
               get_cagra_dtype<T>(),
               0,  // team_size
@@ -256,6 +264,7 @@ void Cagra<T>::search(const T* queries,
 
   // uint32_t neighbors_ptr =  std::is_same<INDEX_T, size_t>::value ? tmp_neighbors_
 
+  std::cout << "Cagra calling search" << std::endl;
   ::search(plan_,
            tmp_neighbors_,
            distances,
@@ -268,6 +277,7 @@ void Cagra<T>::search(const T* queries,
            nullptr,
            stream);
 
+  std::cout << "Cagra calling unaryop" << std::endl;
   raft::linalg::unaryOp(neighbors,
                         tmp_neighbors_,
                         batch_size * k,
@@ -300,6 +310,7 @@ void Cagra<T>::save(const std::string& file) const
 template <typename T>
 void Cagra<T>::load(const std::string& file)
 {
+  std::cout << "Cagra load graph" << std::endl;
   FILE* fp = fopen(file.c_str(), "r");
   if (!fp) { throw std::runtime_error("fail to open " + file); }
 
@@ -322,6 +333,7 @@ void Cagra<T>::load(const std::string& file)
   if (fread(h_graph, sizeof(*h_graph), total, fp) != total) {
     throw std::runtime_error("fread() " + file + " failed");
   }
+  std::cout << "Cagra alloc device graph" << std::endl;
   RAFT_CUDA_TRY(cudaMalloc(&graph_, sizeof(*graph_) * total));
   RAFT_CUDA_TRY(cudaMemcpy(graph_, h_graph, sizeof(*graph_) * total, cudaMemcpyHostToDevice));
   delete[] h_graph;

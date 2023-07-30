@@ -146,7 +146,7 @@ void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
 {
   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
-  if (conf.contains("search_width")) { param.p.num_parents = conf.at("search_width"); }
+  if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
   if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
   if (conf.contains("algo")) {
     if (conf.at("algo") == "single_cta") {
@@ -155,46 +155,6 @@ void parse_search_param(const nlohmann::json& conf,
       param.p.algo = raft::neighbors::experimental::cagra::search_algo::MULTI_CTA;
     } else if (conf.at("algo") == "multi_kernel") {
       param.p.algo = raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL;
-    } else if (conf.at("algo") == "auto") {
-      param.p.algo = raft::neighbors::experimental::cagra::search_algo::AUTO;
-    } else {
-      std::string tmp = conf.at("algo");
-      THROW("Invalid value for algo: %s", tmp.c_str());
-    }
-  }
-}
-template <typename T, typename IdxT>
-void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::Cagra<T>::BuildParam& param)
-{
-  // if (conf.contains("index_dim")) {
-  //   param.graph_degree              = conf.at("index_dim");
-  //   param.intermediate_graph_degree = param.graph_degree * 2;
-  // }
-  // if (conf.contains("intermediate_graph_degree")) {
-  //   param.intermediate_graph_degree = conf.at("intermediate_graph_degree");
-  // }
-}
-
-template <typename T, typename IdxT>
-void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::Cagra<T>::SearchParam& param)
-{
-  param.k          = conf.at("k");
-  param.batch_size = conf.at("batch_size");
-  if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
-  if (conf.contains("search_width")) { param.p.num_parents = conf.at("search_width"); }
-  if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
-  if (conf.contains("algo")) {
-    if (conf.at("algo") == "single_cta") {
-      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::SINGLE_CTA;
-      param.search_mode = "single-cta";
-    } else if (conf.at("algo") == "multi_cta") {
-      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_CTA;
-      param.search_mode = "multi-cta";
-    } else if (conf.at("algo") == "multi_kernel") {
-      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL;
-      param.search_mode = "multi-kernel";
     } else if (conf.at("algo") == "auto") {
       param.p.algo = raft::neighbors::experimental::cagra::search_algo::AUTO;
     } else {

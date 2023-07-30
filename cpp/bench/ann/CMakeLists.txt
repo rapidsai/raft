@@ -177,6 +177,8 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     raft::compiled
   )
   target_compile_options(RAFT_CAGRA_ANN_BENCH PUBLIC -I/workspace/rapids/knn/cagra/include)
+  target_link_options(RAFT_CAGRA_ANN_BENCH PUBLIC -L/workspace/rapids/knn/cagra/lib)
+
   target_link_libraries(RAFT_CAGRA_ANN_BENCH PUBLIC cagra)
 endif()
 

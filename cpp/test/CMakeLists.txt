@@ -240,6 +240,7 @@ if(BUILD_TESTS)
   #   test/matrix/columnSort.cu
   #   test/matrix/diagonal.cu
   #   test/matrix/gather.cu
+  #   test/matrix/scatter.cu
   #   test/matrix/eye.cu
   #   test/matrix/linewise_op.cu
   #   test/matrix/math.cu
@@ -309,7 +310,7 @@ if(BUILD_TESTS)
   #   NAME
   #   SPARSE_NEIGHBORS_TEST
   #   PATH
-  #   test/sparse/neighbors/connect_components.cu
+  #   test/sparse/neighbors/cross_component_nn.cu
   #   test/sparse/neighbors/brute_force.cu
   #   test/sparse/neighbors/knn_graph.cu
   #   LIB

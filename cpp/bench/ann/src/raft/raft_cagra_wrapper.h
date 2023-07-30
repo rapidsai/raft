@@ -75,6 +75,7 @@ class RaftCagra : public ANN<T> {
   {
     AlgoProperty property;
     property.dataset_memory_type      = MemoryType::HostMmap;
+    property.dataset_memory_type      = MemoryType::HostMmap;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = true;
     return property;
@@ -82,7 +83,7 @@ class RaftCagra : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
-  void set_search_dataset(const T* dataset, size_t nrow) override;
+  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
  private:
   std::shared_ptr<rmm::cuda_stream_pool> stream_pool;

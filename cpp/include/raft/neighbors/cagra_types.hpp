@@ -79,7 +79,7 @@ struct search_params : ann::search_params {
 
   /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
-  size_t num_parents = 1;
+  size_t search_width = 1;
   /** Lower limit of search iterations. */
   size_t min_iterations = 0;
 
@@ -306,8 +306,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
-    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
-    dataset_          = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
+    dataset_ =
+      make_device_matrix<T, int64_t>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),
