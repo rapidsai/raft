@@ -91,9 +91,9 @@ cusparseSpMatDescr_t create_descriptor(
   auto csr_structure = sparse_view.structure_view();
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(
     &descr,
-    csr_structure.get_n_rows(),
-    csr_structure.get_n_cols(),
-    csr_structure.get_nnz(),
+    static_cast<int64_t>(csr_structure.get_n_rows()),
+    static_cast<int64_t>(csr_structure.get_n_cols()),
+    static_cast<int64_t>(csr_structure.get_nnz()),
     const_cast<IndptrType*>(csr_structure.get_indptr().data()),
     const_cast<IndicesType*>(csr_structure.get_indices().data()),
     const_cast<std::remove_const_t<ValueType>*>(sparse_view.get_elements().data())));

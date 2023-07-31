@@ -1058,9 +1058,9 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
 
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<float*>(csrValA));
@@ -1107,9 +1107,9 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<double*>(csrValA));
@@ -1173,9 +1173,9 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<float*>(csrValA));
@@ -1220,9 +1220,9 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<double*>(csrValA));
