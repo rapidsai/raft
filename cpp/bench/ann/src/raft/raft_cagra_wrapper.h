@@ -61,6 +61,7 @@ class RaftCagra : public ANN<T> {
 
   void set_search_param(const AnnSearchParam& param) override;
 
+  void set_search_dataset(const T* dataset, size_t nrow) override;
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
   void search(const T* queries,
@@ -147,12 +148,12 @@ void RaftCagra<T, IdxT>::save(const std::string& file) const
   // of.close();
 
   size_t degree = index_->graph_degree();
-  std::cout << "Saving knn graph" << std::endl;
-  for (int i = 0; i < std::min<int>(index_->size(), 10); i++) {
-    print_vector("k", index_->graph().data_handle() + i * degree, degree, std::cout);
-  }
+  // std::cout << "Saving knn graph" << std::endl;
+  // for (int i = 0; i < std::min<int>(index_->size(), 10); i++) {
+  //   print_vector("k", index_->graph().data_handle() + i * degree, degree, std::cout);
+  // }
 
-  // Orig CAGRA type of serialization
+  // 3. Orig CAGRA type of serialization
   std::ofstream of(file, std::ios::out | std::ios::binary);
   std::size_t size = index_->size();
   // std::size_t degree = index_->graph_degree();
@@ -210,10 +211,10 @@ void RaftCagra<T, IdxT>::load(const std::string& file)
     graph_.data_handle(), graph_h.data_handle(), graph_.size(), resource::get_cuda_stream(handle_));
   resource::sync_stream(handle_);
 
-  std::cout << "Loading knn graph" << std::endl;
-  for (int i = 0; i < std::min<int>(graph_.extent(0), 10); i++) {
-    print_vector("k", graph_.data_handle() + i * degree, degree, std::cout);
-  }
+  // std::cout << "Loading knn graph" << std::endl;
+  // for (int i = 0; i < std::min<int>(graph_.extent(0), 10); i++) {
+  //   print_vector("k", graph_.data_handle() + i * degree, degree, std::cout);
+  // }
 }
 
 template <typename T, typename IdxT>
