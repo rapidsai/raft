@@ -154,13 +154,13 @@ inline void cusparsecoosortByRow(  // NOLINT
  * @defgroup cusparse Create CSR operations
  * @{
  */
-template <typename IndexT, typename ValueT>
+template <typename ValueT, typename IndptrType, typename IndicesType>
 cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                    int64_t rows,
                                    int64_t cols,
                                    int64_t nnz,
-                                   IndexT* csrRowOffsets,
-                                   IndexT* csrColInd,
+                                   IndptrType* csrRowOffsets,
+                                   IndicesType* csrColInd,
                                    ValueT* csrValues);
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
