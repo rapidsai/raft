@@ -89,23 +89,6 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
   {
   }
 
-  // void construct_pad_mask(raft::resources const& handle, uint32_t list_size, uint32_t dim,
-  // raft::device_vector_view<bool> mask) {
-  //   using interleaved_group = Pow2<kIndexGroupSize>;
-  //   uint32_t padded_list_size = interleaved_group::roundUp(list_size);
-  //   linalg::map_offset(handle, mask, [=] __device__ (auto i) {
-  //       uint32_t row = i / dim;
-  //       uint32_t max_group_offset = interleaved_group::roundDown(list_size);
-  //       if (row < max_group_offset) {
-  //         return true;
-  //       }
-  //       uint32_t ingroup_id = interleaved_group::mod(row);
-  //       return ingroup_id < (padded_list_size - max_group_offset);
-  //       return true;
-  //     });
-  // }
-
-  //  protected:
   void testIVFFlat()
   {
     size_t queries_size = ps.num_queries * ps.k;

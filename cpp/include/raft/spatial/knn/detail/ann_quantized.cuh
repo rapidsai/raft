@@ -18,7 +18,6 @@
 
 #include "../ann_common.h"
 #include "../ivf_flat.cuh"
-#include <cstring>
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include "processing.cuh"
