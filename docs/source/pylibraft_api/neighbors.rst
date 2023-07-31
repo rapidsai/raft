@@ -14,6 +14,20 @@ Brute Force
 .. autofunction:: pylibraft.neighbors.brute_force.knn
 
 
+CAGRA
+#####
+
+.. autoclass:: pylibraft.neighbors.cagra.IndexParams
+    :members:
+
+.. autofunction:: pylibraft.neighbors.cagra.build
+
+.. autoclass:: pylibraft.neighbors.cagra.SearchParams
+    :members:
+
+.. autofunction:: pylibraft.neighbors.cagra.search
+
+
 IVF-Flat
 ########
 

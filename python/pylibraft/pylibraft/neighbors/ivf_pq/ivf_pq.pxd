@@ -1,4 +1,5 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+#
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+# distutils: language = c++
 
-from pylibraft.neighbors import brute_force, cagra, ivf_flat, ivf_pq
+cimport pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq as c_ivf_pq
 
-from .refine import refine
 
-__all__ = ["common", "refine", "brute_force", "ivf_flat", "ivf_pq", "cagra"]
+cdef class IndexParams:
+    cdef c_ivf_pq.index_params params
+
+cdef class SearchParams:
+    cdef c_ivf_pq.search_params params
