@@ -497,4 +497,5 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
    false}};
+
 }  // namespace raft::neighbors::ivf_flat
