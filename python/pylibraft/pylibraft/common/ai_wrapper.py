@@ -34,6 +34,7 @@ class ai_wrapper:
         ai_arr : array interface array
         """
         self.ai_ = ai_arr.__array_interface__
+        self.from_cai = False
 
     @property
     def dtype(self):
