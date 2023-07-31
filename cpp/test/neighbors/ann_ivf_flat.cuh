@@ -348,12 +348,12 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
           linalg::map_offset(
             handle_,
             mask.view(),
-            [dim = idx.dim(), list_size, padded_list_size, veclen = idx.veclen()] __device__(
+            [dim = idx.dim(), list_size, padded_list_size, chunk_size = util::FastIntDiv(idx.veclen())] __device__(
               auto i) {
               uint32_t max_group_offset = interleaved_group::roundDown(list_size);
               if (i < max_group_offset * dim) { return true; }
               uint32_t surplus    = (i - max_group_offset * dim);
-              uint32_t ingroup_id = interleaved_group::mod(surplus / veclen);
+              uint32_t ingroup_id = interleaved_group::mod(surplus / chunk_size);
               return ingroup_id < (list_size - max_group_offset);
             });
 

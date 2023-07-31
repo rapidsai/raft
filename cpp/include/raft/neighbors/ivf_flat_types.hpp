@@ -113,7 +113,6 @@ struct list_spec {
   /** Determine the extents of an array enough to hold a given amount of data. */
   constexpr auto make_list_extents(SizeT n_rows) const -> list_extents
   {
-    // return make_extents<SizeT>(round_up_safe(n_rows, this->align_min), dim);
     return make_extents<SizeT>(n_rows, dim);
   }
 };
