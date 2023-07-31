@@ -42,7 +42,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace single_cta_search {
 
 template <unsigned TEAM_SIZE,
@@ -55,7 +55,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_parents;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::search_width;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
@@ -101,7 +101,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 
   inline void set_params(raft::resources const& res)
   {
-    num_itopk_candidates = num_parents * graph_degree;
+    num_itopk_candidates = search_width * graph_degree;
     result_buffer_size   = itopk_size + num_itopk_candidates;
 
     typedef raft::Pow2<32> AlignBytes;
@@ -122,7 +122,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     const std::uint32_t topk_ws_size = 3;
     const std::uint32_t base_smem_size =
       sizeof(float) * max_dim + (sizeof(INDEX_T) + sizeof(DISTANCE_T)) * result_buffer_size_32 +
-      sizeof(INDEX_T) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * num_parents +
+      sizeof(INDEX_T) * hashmap::get_size(small_hash_bitlen) + sizeof(INDEX_T) * search_width +
       sizeof(std::uint32_t) * topk_ws_size + sizeof(std::uint32_t);
     smem_size = base_smem_size;
     if (num_itopk_candidates > 256) {
@@ -165,7 +165,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       cudaDeviceProp deviceProp = resource::get_device_properties(res);
       RAFT_LOG_DEBUG("# multiProcessorCount: %d", deviceProp.multiProcessorCount);
       while ((block_size < max_block_size) &&
-             (graph_degree * num_parents * team_size >= block_size * 2) &&
+             (graph_degree * search_width * team_size >= block_size * 2) &&
              (max_queries <= (1024 / (block_size * 2)) * deviceProp.multiProcessorCount)) {
         block_size *= 2;
       }
@@ -226,8 +226,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   }
 
   void operator()(raft::resources const& res,
-                  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-                  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+                  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+                  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
                   INDEX_T* const result_indices_ptr,             // [num_queries, topk]
                   DISTANCE_T* const result_distances_ptr,        // [num_queries, topk]
                   const DATA_T* const queries_ptr,               // [num_queries, dataset_dim]
@@ -258,7 +258,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       rand_xor_mask,
       num_seeds,
       itopk_size,
-      num_parents,
+      search_width,
       min_iterations,
       max_iterations,
       stream);
@@ -266,4 +266,4 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
 };
 
 }  // namespace single_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

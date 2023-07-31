@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,8 @@ __global__ void iota_fill_block_kernel(value_idx* indices, value_idx ncols)
   int tid = threadIdx.x;
 
   for (int i = tid; i < ncols; i += blockDim.x) {
-    indices[row * ncols + i] = i;
+    uint64_t idx     = (uint64_t)row * (uint64_t)ncols;
+    indices[idx + i] = i;
   }
 }
 

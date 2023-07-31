@@ -40,14 +40,14 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>  // RAFT_CUDA_TRY_NOT_THROW is used TODO(tfeher): consider moving this to cuda_rt_essentials.hpp
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
 
 // #define _CLK_BREAKDOWN
 
 template <class INDEX_T>
-__device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num_parents]
-                                    const uint32_t num_parents,
+__device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [search_width]
+                                    const uint32_t search_width,
                                     INDEX_T* const itopk_indices,        // [num_itopk]
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
@@ -56,7 +56,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
   const unsigned warp_id             = threadIdx.x / 32;
   if (warp_id > 0) { return; }
   const unsigned lane_id = threadIdx.x % 32;
-  for (uint32_t i = lane_id; i < num_parents; i += 32) {
+  for (uint32_t i = lane_id; i < search_width; i += 32) {
     next_parent_indices[i] = utils::get_max_value<INDEX_T>();
   }
   uint32_t max_itopk = num_itopk;
@@ -74,13 +74,13 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [num
     const uint32_t ballot_mask = __ballot_sync(0xffffffff, new_parent);
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
-      if (i < num_parents) {
+      if (i < search_width) {
         next_parent_indices[i] = index;
         itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
     num_new_parents += __popc(ballot_mask);
-    if (num_new_parents >= num_parents) { break; }
+    if (num_new_parents >= search_width) { break; }
   }
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
@@ -149,7 +149,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
   const uint32_t itopk_size,
-  const uint32_t num_parents,
+  const uint32_t search_width,
   const uint32_t min_iteration,
   const uint32_t max_iteration,
   uint32_t* const num_executed_iterations /* stats */
@@ -183,10 +183,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   // Layout of result_buffer
   // +----------------+------------------------------+---------+
   // | internal_top_k | neighbors of parent nodes    | padding |
-  // | <itopk_size>   | <num_parents * graph_degree> | upto 32 |
+  // | <itopk_size>   | <search_width * graph_degree> | upto 32 |
   // +----------------+------------------------------+---------+
   // |<---          result_buffer_size           --->|
-  uint32_t result_buffer_size    = itopk_size + (num_parents * graph_degree);
+  uint32_t result_buffer_size    = itopk_size + (search_width * graph_degree);
   uint32_t result_buffer_size_32 = result_buffer_size;
   if (result_buffer_size % 32) { result_buffer_size_32 += 32 - (result_buffer_size % 32); }
   assert(result_buffer_size_32 <= MAX_ELEMENTS);
@@ -197,7 +197,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto parent_indices_buffer =
     reinterpret_cast<INDEX_T*>(result_distances_buffer + result_buffer_size_32);
-  auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + num_parents);
+  auto terminate_flag = reinterpret_cast<uint32_t*>(parent_indices_buffer + search_width);
 
 #if 0
     /* debug */
@@ -252,7 +252,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     _CLK_START();
     topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
                                                 result_indices_buffer,
-                                                itopk_size + (num_parents * graph_degree),
+                                                itopk_size + (search_width * graph_degree),
                                                 itopk_size);
     _CLK_REC(clk_topk);
 
@@ -264,7 +264,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     // pick up next parents
     _CLK_START();
     pickup_next_parents<INDEX_T>(
-      parent_indices_buffer, num_parents, result_indices_buffer, itopk_size, terminate_flag);
+      parent_indices_buffer, search_width, result_indices_buffer, itopk_size, terminate_flag);
     _CLK_REC(clk_pickup_parents);
 
     __syncthreads();
@@ -287,7 +287,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_indices_buffer,
-        num_parents);
+        search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
@@ -452,8 +452,8 @@ template <unsigned TEAM_SIZE,
           typename INDEX_T,
           typename DISTANCE_T>
 void select_and_run(  // raft::resources const& res,
-  raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,
-  raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,
+  raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
+  raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
   INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
   DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
   const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
@@ -472,7 +472,7 @@ void select_and_run(  // raft::resources const& res,
   uint64_t rand_xor_mask,
   uint32_t num_seeds,
   size_t itopk_size,
-  size_t num_parents,
+  size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
   cudaStream_t stream)
@@ -510,11 +510,11 @@ void select_and_run(  // raft::resources const& res,
                                                        hashmap_ptr,
                                                        hash_bitlen,
                                                        itopk_size,
-                                                       num_parents,
+                                                       search_width,
                                                        min_iterations,
                                                        max_iterations,
                                                        num_executed_iterations);
 }
 
 }  // namespace multi_cta_search
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

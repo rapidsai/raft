@@ -22,7 +22,7 @@
 
 #include <fstream>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 
 // Serialization version 1.
 constexpr int serialization_version = 2;
@@ -62,7 +62,7 @@ void serialize(raft::resources const& res, std::ostream& os, const index<T, IdxT
   serialize_scalar(res, os, index_.metric());
   auto dataset = index_.dataset();
   // Remove padding before saving the dataset
-  auto host_dataset = make_host_matrix<T, IdxT>(dataset.extent(0), dataset.extent(1));
+  auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
   RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
                                   sizeof(T) * host_dataset.extent(1),
                                   dataset.data_handle(),
@@ -111,8 +111,8 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   auto graph_degree = deserialize_scalar<std::uint32_t>(res, is);
   auto metric       = deserialize_scalar<raft::distance::DistanceType>(res, is);
 
-  auto dataset = raft::make_host_matrix<T, IdxT>(n_rows, dim);
-  auto graph   = raft::make_host_matrix<IdxT, IdxT>(n_rows, graph_degree);
+  auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
+  auto graph   = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
   deserialize_mdspan(res, is, dataset.view());
   deserialize_mdspan(res, is, graph.view());
 
@@ -133,4 +133,4 @@ auto deserialize(raft::resources const& res, const std::string& filename) -> ind
 
   return index;
 }
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail
