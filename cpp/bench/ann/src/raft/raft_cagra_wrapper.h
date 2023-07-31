@@ -76,7 +76,6 @@ class RaftCagra : public ANN<T> {
   {
     AlgoProperty property;
     property.dataset_memory_type      = MemoryType::HostMmap;
-    property.dataset_memory_type      = MemoryType::HostMmap;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = true;
     return property;

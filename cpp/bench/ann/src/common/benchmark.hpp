@@ -357,7 +357,6 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
 
     for (int i = 0, end_i = index.search_params.size(); i != end_i; ++i) {
       const auto p_param = create_search_param<T>(index.algo, index.search_params[i]);
-      // std::cout << "Cagra created search_param" << std::endl;
       algo->set_search_param(*p_param);
       log_info("search with param: %s", index.search_params[i].dump().c_str());
 
