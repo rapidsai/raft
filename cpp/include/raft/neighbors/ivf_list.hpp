@@ -67,12 +67,6 @@ list<SpecT, SizeT, SpecExtraArgs...>::list(raft::resources const& res,
                  indices.data_handle(),
                  indices.size(),
                  ivf::kInvalidRecord<index_type>);
-  
-  // Fill the data buffer with a pre-defined marker for easier debugging
-  // thrust::fill_n(resource::get_thrust_policy(res),
-  //                data.data_handle(),
-  //                data.size(),
-  //                ivf::kPadElem<value_type>);
 }
 
 /**

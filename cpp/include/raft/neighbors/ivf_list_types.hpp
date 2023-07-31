@@ -34,14 +34,6 @@ template <typename IdxT>
 constexpr static IdxT kInvalidRecord =
   (std::is_signed_v<IdxT> ? IdxT{0} : std::numeric_limits<IdxT>::max()) - 1;
 
-// /**
-//  * Default value filled in the `data` array.
-//  * One may encounter it trying to access a record within a list that is outside of the
-//  * `size` bound or whenever the list is allocated but not filled-in yet.
-//  */
-// template <typename T>
-// constexpr static T kPadElem = T{0};
-
 /** The data for a single IVF list. */
 template <template <typename, typename...> typename SpecT,
           typename SizeT,
