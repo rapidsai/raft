@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <execution>
 #include <optional>
 #include <utility>
 #include <variant>
+#include <raft/core/cuda_support.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_container_policy.hpp>
@@ -39,6 +42,101 @@ inline auto constexpr variant_index_from_memory_type(raft::memory_type mem_type)
 
 template <raft::memory_type MemType, typename Variant>
 using alternate_from_mem_type = std::variant_alternative_t<variant_index_from_memory_type(MemType), Variant>;
+
+namespace detail {
+
+template <
+  typename DstElementType,
+  typename DstExtents,
+  typename DstLayoutPolicy,
+  typename DstAccessorPolicy,
+  typename SrcElementType,
+  typename SrcExtents,
+  typename SrcLayoutPolicy,
+  typename SrcAccessorPolicy,
+  typename ExecutionPolicy,
+  std::enable_if_t<std::conjunction_v<
+    std::is_convertible_v<SrcElementType, DstElementType>,
+    SrcExtents::rank() == DstExtents::rank()
+  >>* = nullptr
+>
+void copy(
+    resources const& res,
+    mdspan<DstElementType, DstExtents, DstLayoutPolicy, DstAccessorPolicy> & dst,
+    mdspan<SrcElementType, SrcExtents, SrcLayoutPolicy, SrcAccessorPolicy> const& src,
+    ExecutionPolicy host_exec_policy = std::execution::unseq
+) {
+  // TODO(Check size match?)
+  if constexpr (
+    // Contiguous memory, no transpose required
+    std::conjunction_v<
+      std::is_same_v<DstLayoutPolicy, SrcLayoutPolicy>,
+      std::disjunction_v<
+        std::is_same_v<DstLayoutPolicy, layout_c_contiguous>,
+        std::is_same_v<DstLayoutPolicy, layout_f_contiguous>
+      >
+    >
+  ) {
+    if constexpr (
+      std::disjunction_v<
+        std::conjunction_v<
+          CUDA_ENABLED,
+          ! DstAccessorPolicy::mem_type::is_device_accessible,
+          ! SrcAccessorPolicy::mem_type::is_device_accessible
+        >,
+        std::conjunction_v<
+          ! CUDA_ENABLED,
+          DstAccessorPolicy::mem_type::is_host_accessible,
+          SrcAccessorPolicy::mem_type::is_host_accessible
+        >,
+      >
+    ) {
+      std::copy(
+        host_exec_policy,
+        src.data_handle(),
+        src.data_handle() + src.size(),
+        dst.data_handle()
+      );
+    } else {
+#ifndef RAFT_DISABLE_CUDA
+      if constexpr(std::is_same_v<DstElementType, std::remove_const_t<SrcElementType>)) {
+        raft::copy(
+          dst.data_handle(),
+          src.data_handle(),
+          src.size(),
+          get_stream_view(res)
+        );
+      } else {
+        // TODO(wphicks): Convert type on src device and then copy
+      }
+#else
+      throw non_cuda_build_error{
+        "Attempted copy to/from device in non-CUDA build"
+      };
+#endif
+    }
+  } else { // Non-contiguous memory or transpose required
+    if constexpr (
+      std::conjunction_v<
+        DstAccessorPolicy::mem_type::is_device_accessible,
+        SrcAccessorPolicy::mem_type::is_device_accessible
+      >
+    ) {
+      // TODO(wphicks): Conversion/transpose kernel
+    } else if constexpr (
+      std::conjunction_v<
+        DstAccessorPolicy::mem_type::is_host_accessible,
+        SrcAccessorPolicy::mem_type::is_host_accessible
+      >
+    ) {
+      // TODO(wphicks): CPU conversion
+    } else {
+      // TODO(wphicks): Copy to intermediate mdarray on dest device, then call
+      // recursively for transpose/conversion
+    }
+  }
+}
+}  // namespace detail
 
 
 template <typename T>
@@ -337,7 +435,7 @@ template <
 
   template <typename AccessorPolicy, std::enable_if_t<std::is_convertible_v<mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>, storage_type_variant>>* = nullptr>
   constexpr mdbuffer(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> other)
-    : data_{other}
+    : data_{std::move(other)}
   {
   }
 
@@ -350,6 +448,21 @@ template <
   template <typename OtherContainerPolicy, std::enable_if_t<std::is_convertible_v<mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>, storage_type_variant>>* = nullptr>
   constexpr mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
     : data_{std::move(other)}
+  {
+  }
+
+  template <typename OtherElementType     = ElementType,
+            typename OtherExtents         = Extents,
+            typename OtherLayoutPolicy    = LayoutPolicy,
+            typename OtherContainerPolicy = ContainerPolicy,
+            std::enable_if_t<std::conjunction_v<
+              std::is_convertible_v<ElementType, OtherElementType>,
+              Extents::rank() == OtherExtents::rank()
+            >>* = nullptr>
+  constexpr mdbuffer(
+    resources const& res,
+    mdbuffer<ElementType, Extents, LayoutPolicy, OtherContainerPolicy> const& other)
+    : data_{other.data_}
   {
   }
 
