@@ -167,8 +167,8 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
                                           int64_t cols,
                                           int64_t nnz,
-                                          int* csrRowOffsets,
-                                          int* csrColInd,
+                                          int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
                                           float* csrValues)
 {
   return cusparseCreateCsr(spMatDescr,
@@ -188,8 +188,8 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
                                           int64_t cols,
                                           int64_t nnz,
-                                          int* csrRowOffsets,
-                                          int* csrColInd,
+                                          int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
                                           double* csrValues)
 {
   return cusparseCreateCsr(spMatDescr,
