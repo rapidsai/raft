@@ -23,7 +23,7 @@
 namespace raft {
 
 /**
- * \defgroup base_sparse_types Sparse API vocabulary
+ * \defgroup sparse_types Sparse API vocabulary
  * @{
  */
 
