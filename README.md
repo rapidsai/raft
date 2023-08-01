@@ -59,7 +59,7 @@ RAFT also contains a catalog of reusable primitives for composing algorithms tha
 
 1. Computing distances between vectors and computing kernel gramm matrices
 2. Performing ball radius queries for constructing epsilon neighborhoods
-3. Clustering points to partition a space for smaller faster searches
+3. Clustering points to partition a space for smaller and faster searches
 4. Constructing neighborhood "connectivities" graphs from dense vectors
 
 As an example, computations such as the above list are critical for information retrieval, data mining, and machine learning applications such as clustering, manifold learning, and dimensionality reduction.
