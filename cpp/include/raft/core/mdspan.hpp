@@ -303,9 +303,7 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
   }
 }
 
-/**
- * @}
- */
+/* @} */
 
 /**
  * @brief Const accessor specialization for default_accessor

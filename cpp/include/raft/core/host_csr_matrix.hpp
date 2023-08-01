@@ -25,6 +25,11 @@
 namespace raft {
 
 /**
+ * \defgroup host_csr_matrix Host CSR Matrix
+ * @{
+ */
+
+/**
  * Specialization for a sparsity-preserving compressed structure view which uses host memory
  */
 template <typename IndptrType, typename IndicesType, typename NZType>
@@ -414,5 +419,7 @@ auto make_host_compressed_structure_view(raft::host_span<IndptrType> indptr,
 {
   return host_compressed_structure_view<IndptrType, IndicesType, NZType>(indptr, indices, n_cols);
 }
+
+/** @} */
 
 };  // namespace raft
