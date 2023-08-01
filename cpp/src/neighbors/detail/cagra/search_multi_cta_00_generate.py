@@ -44,8 +44,8 @@ namespace raft::neighbors::cagra::detail::multi_cta_search {
 
 #define instantiate_kernel_selection(TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T) \\
   template void select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(      \\
-      raft::device_matrix_view<const DATA_T, INDEX_T, layout_stride> dataset,                 \\
-      raft::device_matrix_view<const INDEX_T, INDEX_T, row_major> graph,                      \\
+      raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,                 \\
+      raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                      \\
       INDEX_T* const topk_indices_ptr,                                                        \\
       DISTANCE_T* const topk_distances_ptr,                                                   \\
       const DATA_T* const queries_ptr,                                                        \\
@@ -63,7 +63,7 @@ namespace raft::neighbors::cagra::detail::multi_cta_search {
       uint64_t rand_xor_mask,                                                                 \\
       uint32_t num_seeds,                                                                     \\
       size_t itopk_size,                                                                      \\
-      size_t num_parents,                                                                     \\
+      size_t search_width,                                                                     \\
       size_t min_iterations,                                                                  \\
       size_t max_iterations,                                                                  \\
       cudaStream_t stream);
@@ -81,12 +81,15 @@ mxdim_team = [(128, 8), (256, 16), (512, 32), (1024, 32)]
 # mxelem = [64, 128, 256]
 load_types = ["uint4"]
 search_types = dict(
-    float_uint32=("float", "uint32_t", "float"),  # data_t, idx_t, distance_t
+    float_uint32=(
+        "float",
+        "uint32_t",
+        "float",
+    ),  # data_t, vec_idx_t, distance_t
     int8_uint32=("int8_t", "uint32_t", "float"),
     uint8_uint32=("uint8_t", "uint32_t", "float"),
     float_uint64=("float", "uint64_t", "float"),
 )
-
 # knn
 for type_path, (data_t, idx_t, distance_t) in search_types.items():
     for (mxdim, team) in mxdim_team:
