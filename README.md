@@ -1,6 +1,6 @@
-# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools</div>
+# <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
-![Navigating the canyons of accelerated possibilities](img/raft.png)
+![RAFT tech stack](img/raft-tech-stack-vss.png)
 
 ## Resources
 
@@ -43,6 +43,29 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 - `raft-dask` - multi-node multi-GPU communicator infrastructure for building distributed algorithms on the GPU with Dask.
 
 ![RAFT is a C++ header-only template library with optional shared library and lightweight Python wrappers](img/arch.png)
+
+## Use cases
+
+### Vector Similarity Search
+
+RAFT contains state-of-the-art implementations of approximate nearest neighbors algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based CAGRA algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
+
+In addition to CAGRA, RAFT contains other state-of-the-art GPU-accelerated implementations of popular algorithms for vector similarity search, such as IVF-Flat and IVF-PQ algorithms originally popularized by the FAISS library.
+
+### Information Retrieval
+
+RAFT also contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
+
+1. Computing distances between vectors and computing kernel gramm matrices
+2. Performing ball radius queries for constructing epsilon neighborhoods
+3. Clustering points to partition a space for smaller faster searches
+4. Constructing neighborhood "connectivities" graphs from dense vectors
+
+As an example, computations such as the above list are critical for information retrieval, data mining, and machine learning applications such as clustering, manifold learning, and dimensionality reduction.
+
+## Is RAFT right for me?
+
+RAFT contains low level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
 
 ## Getting started
 
