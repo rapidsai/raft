@@ -30,7 +30,7 @@
 namespace raft {
 
 /**
- * @defgroup Absolute Absolute value
+ * @defgroup math_functions Mathematical Functions
  * @{
  */
 template <typename T>
@@ -55,12 +55,7 @@ constexpr RAFT_INLINE_FUNCTION auto abs(T x)
 {
   return x < T{0} ? -x : x;
 }
-/** @} */
 
-/**
- * @defgroup Trigonometry Trigonometry functions
- * @{
- */
 /** Inverse cosine */
 template <typename T>
 RAFT_INLINE_FUNCTION auto acos(T x)
@@ -199,12 +194,7 @@ RAFT_INLINE_FUNCTION auto tanh(T x)
   return std::tanh(x);
 #endif
 }
-/** @} */
 
-/**
- * @defgroup Exponential Exponential and logarithm
- * @{
- */
 /** Exponential function */
 template <typename T,
           std::enable_if_t<CUDA_CONDITION_ELSE_TRUE(((!std::is_same_v<T, __half> &&
@@ -286,12 +276,9 @@ log(T x)
 #endif
 }
 #endif
-/** @} */
 
 /**
- * @defgroup Maximum Maximum of two or more values.
- *
- * The CUDA Math API has overloads for all combinations of float/double. We provide similar
+ * @brief The CUDA Math API has overloads for all combinations of float/double. We provide similar
  * functionality while wrapping around std::max, which only supports arguments of the same type.
  * However, though the CUDA Math API supports combinations of unsigned and signed integers, this is
  * very error-prone so we do not support that and require the user to cast instead. (e.g the max of
@@ -408,10 +395,8 @@ max(T x)
 }
 #endif
 
-/** @} */
-
 /**
- * @defgroup Minimum Minimum of two or more values.
+ * @brief Minimum Minimum of two or more values.
  *
  * The CUDA Math API has overloads for all combinations of float/double. We provide similar
  * functionality while wrapping around std::min, which only supports arguments of the same type.
@@ -530,12 +515,7 @@ min(T x)
 #endif
 }
 #endif
-/** @} */
 
-/**
- * @defgroup Power Power and root functions
- * @{
- */
 /** Power */
 template <typename T1, typename T2>
 RAFT_INLINE_FUNCTION auto pow(T1 x, T2 y)
@@ -587,7 +567,6 @@ sqrt(T x)
 #endif
 }
 #endif
-/** @} */
 
 /** Sign */
 template <typename T>
@@ -595,5 +574,7 @@ RAFT_INLINE_FUNCTION auto sgn(T val) -> int
 {
   return (T(0) < val) - (val < T(0));
 }
+
+/** @} */
 
 }  // namespace raft
