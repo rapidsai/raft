@@ -34,7 +34,7 @@
 namespace raft {
 
 /**
- * @defgroup mdarray multi-dimensional memory-owning type
+ * @defgroup mdarray_apis multi-dimensional memory-owning type
  * @{
  */
 
