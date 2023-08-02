@@ -494,7 +494,7 @@ __device__ __host__ inline uint32_t get_state_size(uint32_t len_x)
 }
 
 //
-template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
+template <int blockDim_x_, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
 __device__ inline void topk_cta_11_core(uint32_t topk,
                                         uint32_t len_x,
                                         const uint32_t* _x,    // [size_batch, ld_x,]
@@ -506,6 +506,7 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
                                         bool sort,
                                         uint32_t* _smem)
 {
+  const uint32_t blockDim_x     = (blockDim_x_ == 0) ? blockDim.x : blockDim_x_;
   uint32_t* const smem_out_vals = _smem;
   uint32_t* const hist          = &(_smem[2 * maxTopk]);
   uint32_t* const best_index    = &(_smem[2 * maxTopk + 2048]);
@@ -541,29 +542,171 @@ __device__ inline void topk_cta_11_core(uint32_t topk,
   for (int j = 0; j < 3; j += 1) {
     uint32_t num_bins;
     uint32_t shift;
-    update_histogram<uint32_t, blockDim_x, stateBitLen, vecLen>(j,
-                                                                thread_id,
-                                                                num_threads,
-                                                                hint,
-                                                                threshold,
-                                                                num_bins,
-                                                                shift,
-                                                                x,
-                                                                nx,
-                                                                hist,
-                                                                state,
-                                                                smem_out_vals,
-                                                                output_count);
 
-    select_best_index_for_next_threshold<blockDim_x>(topk,
-                                                     threshold,
-                                                     hint,
-                                                     nx_below_threshold,
-                                                     num_bins,
-                                                     shift,
-                                                     hist,
-                                                     best_index + j,
-                                                     best_csum + j);
+    if constexpr (blockDim_x_ == 0) {
+      if (blockDim.x == 32) {
+        update_histogram<uint32_t, 32, stateBitLen, vecLen>(j,
+                                                            thread_id,
+                                                            num_threads,
+                                                            hint,
+                                                            threshold,
+                                                            num_bins,
+                                                            shift,
+                                                            x,
+                                                            nx,
+                                                            hist,
+                                                            state,
+                                                            smem_out_vals,
+                                                            output_count);
+        select_best_index_for_next_threshold<32>(topk,
+                                                 threshold,
+                                                 hint,
+                                                 nx_below_threshold,
+                                                 num_bins,
+                                                 shift,
+                                                 hist,
+                                                 best_index + j,
+                                                 best_csum + j);
+      } else if (blockDim.x == 64) {
+        update_histogram<uint32_t, 64, stateBitLen, vecLen>(j,
+                                                            thread_id,
+                                                            num_threads,
+                                                            hint,
+                                                            threshold,
+                                                            num_bins,
+                                                            shift,
+                                                            x,
+                                                            nx,
+                                                            hist,
+                                                            state,
+                                                            smem_out_vals,
+                                                            output_count);
+        select_best_index_for_next_threshold<64>(topk,
+                                                 threshold,
+                                                 hint,
+                                                 nx_below_threshold,
+                                                 num_bins,
+                                                 shift,
+                                                 hist,
+                                                 best_index + j,
+                                                 best_csum + j);
+      } else if (blockDim.x == 128) {
+        update_histogram<uint32_t, 128, stateBitLen, vecLen>(j,
+                                                             thread_id,
+                                                             num_threads,
+                                                             hint,
+                                                             threshold,
+                                                             num_bins,
+                                                             shift,
+                                                             x,
+                                                             nx,
+                                                             hist,
+                                                             state,
+                                                             smem_out_vals,
+                                                             output_count);
+        select_best_index_for_next_threshold<128>(topk,
+                                                  threshold,
+                                                  hint,
+                                                  nx_below_threshold,
+                                                  num_bins,
+                                                  shift,
+                                                  hist,
+                                                  best_index + j,
+                                                  best_csum + j);
+      } else if (blockDim.x == 256) {
+        update_histogram<uint32_t, 256, stateBitLen, vecLen>(j,
+                                                             thread_id,
+                                                             num_threads,
+                                                             hint,
+                                                             threshold,
+                                                             num_bins,
+                                                             shift,
+                                                             x,
+                                                             nx,
+                                                             hist,
+                                                             state,
+                                                             smem_out_vals,
+                                                             output_count);
+        select_best_index_for_next_threshold<256>(topk,
+                                                  threshold,
+                                                  hint,
+                                                  nx_below_threshold,
+                                                  num_bins,
+                                                  shift,
+                                                  hist,
+                                                  best_index + j,
+                                                  best_csum + j);
+      } else if (blockDim.x == 512) {
+        update_histogram<uint32_t, 512, stateBitLen, vecLen>(j,
+                                                             thread_id,
+                                                             num_threads,
+                                                             hint,
+                                                             threshold,
+                                                             num_bins,
+                                                             shift,
+                                                             x,
+                                                             nx,
+                                                             hist,
+                                                             state,
+                                                             smem_out_vals,
+                                                             output_count);
+        select_best_index_for_next_threshold<512>(topk,
+                                                  threshold,
+                                                  hint,
+                                                  nx_below_threshold,
+                                                  num_bins,
+                                                  shift,
+                                                  hist,
+                                                  best_index + j,
+                                                  best_csum + j);
+      } else if (blockDim.x == 1024) {
+        update_histogram<uint32_t, 1024, stateBitLen, vecLen>(j,
+                                                              thread_id,
+                                                              num_threads,
+                                                              hint,
+                                                              threshold,
+                                                              num_bins,
+                                                              shift,
+                                                              x,
+                                                              nx,
+                                                              hist,
+                                                              state,
+                                                              smem_out_vals,
+                                                              output_count);
+        select_best_index_for_next_threshold<1024>(topk,
+                                                   threshold,
+                                                   hint,
+                                                   nx_below_threshold,
+                                                   num_bins,
+                                                   shift,
+                                                   hist,
+                                                   best_index + j,
+                                                   best_csum + j);
+      }
+    } else {
+      update_histogram<uint32_t, blockDim_x, stateBitLen, vecLen>(j,
+                                                                  thread_id,
+                                                                  num_threads,
+                                                                  hint,
+                                                                  threshold,
+                                                                  num_bins,
+                                                                  shift,
+                                                                  x,
+                                                                  nx,
+                                                                  hist,
+                                                                  state,
+                                                                  smem_out_vals,
+                                                                  output_count);
+      select_best_index_for_next_threshold<blockDim_x_>(topk,
+                                                        threshold,
+                                                        hint,
+                                                        nx_below_threshold,
+                                                        num_bins,
+                                                        shift,
+                                                        hist,
+                                                        best_index + j,
+                                                        best_csum + j);
+    }
 
     threshold += (best_index[j] << shift);
     nx_below_threshold += best_csum[j];

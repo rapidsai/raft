@@ -124,15 +124,14 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
 // multiple CTAs per single query
 //
 template <unsigned TEAM_SIZE,
-          unsigned BLOCK_SIZE,
-          unsigned BLOCK_COUNT,
           unsigned MAX_ELEMENTS,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T,
           class LOAD_T>
-__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
+//__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT)
+__global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
@@ -155,7 +154,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   uint32_t* const num_executed_iterations /* stats */
 )
 {
-  assert(blockDim.x == BLOCK_SIZE);
+  // assert(blockDim.x == BLOCK_SIZE);
   assert(dataset_dim <= MAX_DATASET_DIM);
 
   const auto num_queries       = gridDim.y;
@@ -207,7 +206,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     }
 #endif
   const DATA_T* const query_ptr = queries_ptr + (dataset_dim * query_id);
-  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
+  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += blockDim.x) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
       query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
@@ -274,27 +273,26 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::
-      compute_distance_to_child_nodes<TEAM_SIZE, BLOCK_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-        result_indices_buffer + itopk_size,
-        result_distances_buffer + itopk_size,
-        query_buffer,
-        dataset_ptr,
-        dataset_dim,
-        dataset_ld,
-        knn_graph,
-        graph_degree,
-        local_visited_hashmap_ptr,
-        hash_bitlen,
-        parent_indices_buffer,
-        search_width);
+    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+      result_indices_buffer + itopk_size,
+      result_distances_buffer + itopk_size,
+      query_buffer,
+      dataset_ptr,
+      dataset_dim,
+      dataset_ld,
+      knn_graph,
+      graph_degree,
+      local_visited_hashmap_ptr,
+      hash_bitlen,
+      parent_indices_buffer,
+      search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
     iter++;
   }
 
-  for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
+  for (uint32_t i = threadIdx.x; i < itopk_size; i += blockDim.x) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
@@ -367,8 +365,6 @@ struct search_kernel_config {
   // parameters do not matter, because they are not part of the function signature. The
   // second to fourth value parameters will be selected by the choose_* functions below.
   using kernel_t = decltype(&search_kernel<TEAM_SIZE,
-                                           64,
-                                           16,
                                            128,
                                            MAX_DATASET_DIM,
                                            DATA_T,
@@ -392,57 +388,13 @@ struct search_kernel_config {
   // Todo: rename this to choose block_size
   static auto choose_max_elements(unsigned block_size) -> kernel_t
   {
-    if (block_size == 64) {
-      return search_kernel<TEAM_SIZE,
-                           64,
-                           16,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 128) {
-      return search_kernel<TEAM_SIZE,
-                           128,
-                           8,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 256) {
-      return search_kernel<TEAM_SIZE,
-                           256,
-                           4,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 512) {
-      return search_kernel<TEAM_SIZE,
-                           512,
-                           2,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else {
-      return search_kernel<TEAM_SIZE,
-                           1024,
-                           1,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    }
+    return search_kernel<TEAM_SIZE,
+                         MAX_ELEMENTS,
+                         MAX_DATASET_DIM,
+                         DATA_T,
+                         DISTANCE_T,
+                         INDEX_T,
+                         device::LOAD_128BIT_T>;
   }
 };
 

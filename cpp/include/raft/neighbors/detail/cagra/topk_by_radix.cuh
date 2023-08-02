@@ -26,14 +26,11 @@ struct topk_by_radix_sort_base {
   static constexpr std::uint32_t state_bit_lenght = 0;
   static constexpr std::uint32_t vecLen           = 2;  // TODO
 };
-template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT, class = void>
+template <unsigned MAX_INTERNAL_TOPK, class IdxT, class = void>
 struct topk_by_radix_sort : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {};
 
-template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT>
-struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
-                          BLOCK_SIZE,
-                          IdxT,
-                          std::enable_if_t<((MAX_INTERNAL_TOPK <= 64))>>
+template <unsigned MAX_INTERNAL_TOPK, class IdxT>
+struct topk_by_radix_sort<MAX_INTERNAL_TOPK, IdxT, std::enable_if_t<((MAX_INTERNAL_TOPK <= 64))>>
   : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {
   __device__ void operator()(uint32_t topk,
                              uint32_t batch_size,
@@ -48,7 +45,7 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
                              uint32_t* _smem)
   {
     std::uint8_t* const state = reinterpret_cast<std::uint8_t*>(work);
-    topk_cta_11_core<BLOCK_SIZE,
+    topk_cta_11_core<0,
                      topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght,
                      topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,
                      64,
@@ -58,10 +55,9 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
 };
 
 #define TOP_FUNC_PARTIAL_SPECIALIZATION(V)                                           \
-  template <unsigned MAX_INTERNAL_TOPK, unsigned BLOCK_SIZE, class IdxT>             \
+  template <unsigned MAX_INTERNAL_TOPK, class IdxT>                                  \
   struct topk_by_radix_sort<                                                         \
     MAX_INTERNAL_TOPK,                                                               \
-    BLOCK_SIZE,                                                                      \
     IdxT,                                                                            \
     std::enable_if_t<((MAX_INTERNAL_TOPK <= V) && (2 * MAX_INTERNAL_TOPK > V))>>     \
     : topk_by_radix_sort_base<MAX_INTERNAL_TOPK> {                                   \
@@ -77,9 +73,9 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK,
                                bool sort,                                            \
                                uint32_t* _smem)                                      \
     {                                                                                \
-      assert(BLOCK_SIZE >= V / 4);                                                   \
+      assert(blockDim.x >= V / 4);                                                   \
       std::uint8_t* state = (std::uint8_t*)work;                                     \
-      topk_cta_11_core<BLOCK_SIZE,                                                   \
+      topk_cta_11_core<0,                                                            \
                        topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght, \
                        topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,           \
                        V,                                                            \
