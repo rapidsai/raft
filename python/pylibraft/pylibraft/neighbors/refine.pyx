@@ -18,7 +18,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import cupy as cp
 import numpy as np
 
 from cython.operator cimport dereference as deref
