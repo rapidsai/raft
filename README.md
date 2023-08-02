@@ -86,7 +86,7 @@ RAFT contains a catalog of reusable primitives for composing algorithms that req
 
 ### Machine Learning
 
-RAFT's primitives are using in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different uses, including 
+RAFT's primitives are used in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different applications, including 
 - data generation 
 - model evaluation
 - classification and regression
@@ -98,7 +98,7 @@ RAFT is also used by the popular collaborative filtering library [implicit](http
 
 ## Is RAFT right for me?
 
-RAFT contains low level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
+RAFT contains low-level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
 
 ## Getting started
 
