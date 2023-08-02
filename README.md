@@ -41,16 +41,16 @@ By taking a primitives-based approach to algorithm development, RAFT
 
 While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
 #####
-| Category              | Examples                                                                                                                          |
+| Category              | Accelerated Functions in RAFT                                                                                                     |
 |-----------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| **Nearest Neighbors** | vector search, neighborhood graph construction, epsilon neighborhoods, pairwise distances                                         |
+| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
+| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
 | **Data Formats**      | sparse & dense, conversions, data generation                                                                                      |
 | **Dense Operations**  | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling             |
-| **Nearest Neighbors** | pairwise distances, vector search, epsilon neighborhoods, neighborhood graph construction                                         |
-| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
-| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
-| **Statistics**        | sampling, moments and summary statistics, metrics                                                                                 |
-| **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                            |
+| **Statistics**        | sampling, moments and summary statistics, metrics, model evaluation                                                               |
+| **Tools & Utilities** | common tools and utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                  |
 
 
 RAFT is a C++ header-only template library with an optional shared library that
