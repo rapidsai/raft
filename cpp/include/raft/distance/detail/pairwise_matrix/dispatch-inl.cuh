@@ -89,19 +89,15 @@ void pairwise_matrix_dispatch(OpT distance_op,
 
   if (!params.is_row_major) { params.flip_x_and_y(); }
 
-  // On CUDA 12:
-  // - always execute normal kernel
-  //
-  // On CUDA 11 and below:
+  // Dispatch rule:
   // - execute CUTLASS-based kernel on SM_80 and above
   // - execute normal kernel below SM_80
   namespace arch = raft::util::arch;
 
-  constexpr bool is_ctk_12              = __CUDACC_VER_MAJOR__ == 12;
   constexpr bool cutlass_op_unavailable = !ops::has_cutlass_op<OpT>();
 
-  if constexpr (is_ctk_12 || cutlass_op_unavailable) {
-    // Always execute legacy kernels on CUDA 12
+  if constexpr (cutlass_op_unavailable) {
+    // Always execute legacy kernels when no cutlass op is available
     auto any_range = arch::SM_range(arch::SM_min(), arch::SM_future());
     pairwise_matrix_sm60_dispatch(distance_op, params, any_range, stream);
   } else {

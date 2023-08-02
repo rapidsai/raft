@@ -222,7 +222,7 @@ void build_knn_graph(raft::resources const& res,
         1e-6;
       const auto throughput = num_queries_done / time;
 
-      RAFT_LOG_INFO(
+      RAFT_LOG_DEBUG(
         "# Search %12lu / %12lu (%3.2f %%), %e queries/sec, %.2f minutes ETA, self included = "
         "%3.2f %%    \r",
         num_queries_done,

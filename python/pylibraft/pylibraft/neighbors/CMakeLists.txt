@@ -23,5 +23,6 @@ rapids_cython_create_modules(
   LINKED_LIBRARIES "${linked_libraries}" ASSOCIATED_TARGETS raft MODULE_PREFIX neighbors_
 )
 
+add_subdirectory(cagra)
 add_subdirectory(ivf_flat)
 add_subdirectory(ivf_pq)

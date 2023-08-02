@@ -21,7 +21,7 @@
 namespace raft {
 
 /**
- * @defgroup device_span one-dimensional device span type
+ * @defgroup host_span one-dimensional device span type
  * @{
  */
 
