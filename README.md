@@ -2,7 +2,23 @@
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
-## Resources
+
+## Contents
+<hr>
+
+1. [Useful Resources](#useful-resources)
+2. [What is RAFT?](#what-is-raft)
+2. [Use cases](#use-cases)
+3. [Is RAFT right for me?](#is-raft-right-for-me)
+4. [Getting Started](#getting-started)
+5. [Installing RAFT](#installing)
+6. [Codebase structure and contents](#folder-structure-and-contents)
+7. [Contributing](#contributing)
+8. [References](#references)
+
+<hr>
+
+## Useful Resources
 
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
@@ -12,7 +28,9 @@
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
 
-## Overview
+
+
+## What is RAFT?
 
 RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
@@ -23,15 +41,15 @@ By taking a primitives-based approach to algorithm development, RAFT
 
 While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
 #####
-| Category | Examples                                                                                                                          |
-| --- |-----------------------------------------------------------------------------------------------------------------------------------|
-| **Data Formats** | sparse & dense, conversions, data generation                                                                                      |
-| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| Category              | Examples                                                                                                                          |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| **Data Formats**      | sparse & dense, conversions, data generation                                                                                      |
+| **Dense Operations**  | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling             |
-| **Spatial** | pairwise distances, nearest neighbors and vector search, neighborhood graph construction                                          |
-| **Basic Clustering** | spectral clustering, hierarchical clustering, k-means                                                                             |
-| **Solvers** | combinatorial optimization, iterative solvers                                                                                     |
-| **Statistics** | sampling, moments and summary statistics, metrics                                                                                 |
+| **Nearest Neighbors** | pairwise distances, vector search, epsilon neighborhoods, neighborhood graph construction                                         |
+| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
+| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
+| **Statistics**        | sampling, moments and summary statistics, metrics                                                                                 |
 | **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                            |
 
 
@@ -49,20 +67,34 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ### Vector Similarity Search
 
-RAFT contains state-of-the-art implementations of approximate nearest neighbors algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
+RAFT contains state-of-the-art implementations of approximate nearest neighbors (ANN) algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
 
 In addition to CAGRA, RAFT contains other state-of-the-art GPU-accelerated implementations of popular algorithms for vector similarity search, such as [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq) algorithms originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
 
+[Milvus](https://milvus.io/docs/v2.3.0-beta/release_notes.md#Features) and [FAISS](https://github.com/facebookresearch/faiss) are among the growing list of libraries that are using RAFT.
+
+Please see the example [Jupyter notebook](https://github.com/rapidsai/raft/blob/HEAD/notebooks/VectorSearch_QuestionRetrieval.ipynb) to get started RAFT for vector search in Python.
+
 ### Information Retrieval
 
-RAFT also contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
+RAFT contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
 
 1. Computing distances between vectors and computing kernel gramm matrices
 2. Performing ball radius queries for constructing epsilon neighborhoods
 3. Clustering points to partition a space for smaller and faster searches
 4. Constructing neighborhood "connectivities" graphs from dense vectors
 
-As an example, computations such as the above list are critical for information retrieval, data mining, and machine learning applications such as clustering, manifold learning, and dimensionality reduction.
+### Machine Learning
+
+RAFT's primitives are using in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different uses, including 
+- data generation 
+- model evaluation
+- classification and regression
+- clustering
+- manifold learning
+- dimensionality reduction.
+
+RAFT is also used by the popular collaborative filtering library [implicit](https://github.com/benfred/implicit) for recommender systems.
 
 ## Is RAFT right for me?
 
