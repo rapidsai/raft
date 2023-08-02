@@ -10,8 +10,8 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.08")
-set(RAFT_VERSION "23.08.00")
+set(RAPIDS_VERSION "23.10")
+set(RAFT_VERSION "23.10.00")
 
 cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
 include(../fetch_rapids.cmake)
@@ -390,6 +390,9 @@ if(RAFT_COMPILE_LIBRARY)
     src/raft_runtime/distance/pairwise_distance.cu
     src/raft_runtime/matrix/select_k_float_int64_t.cu
     src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
+    src/raft_runtime/neighbors/cagra_build.cu
+    src/raft_runtime/neighbors/cagra_search.cu
+    src/raft_runtime/neighbors/cagra_serialize.cu
     src/raft_runtime/neighbors/ivf_flat_build.cu
     src/raft_runtime/neighbors/ivf_flat_search.cu
     src/raft_runtime/neighbors/ivf_flat_serialize.cu
