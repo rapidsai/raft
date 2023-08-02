@@ -197,349 +197,653 @@
 
 
     {
-      "name" : "ivf_flat.nlist100K",
-      "algo" : "ivf_flat",
+      "name" : "raft_ivf_flat.nlist10K",
+      "algo" : "raft_ivf_flat",
+      "build_param": {
+        "nlist" : 10000,
+        "niter" : 25,
+        "ratio" : 5
+      },
+      "file" : "index/deep-100M/raft_ivf_flat/nlist10K",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_flat/nlist10K"
+    },
+    {
+      "name" : "raft_ivf_flat.nlist100K",
+      "algo" : "raft_ivf_flat",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
         "ratio" : 5
       },
-      "file" : "index/deep-100M/ivf_flat/nlist100K",
+      "file" : "index/deep-100M/raft_ivf_flat/nlist100K",
       "search_params" : [
-        {"max_batch":10000, "max_k":10, "nprobe":20},
-        {"max_batch":10000, "max_k":10, "nprobe":30},
-        {"max_batch":10000, "max_k":10, "nprobe":40},
-        {"max_batch":10000, "max_k":10, "nprobe":50},
-        {"max_batch":10000, "max_k":10, "nprobe":100},
-        {"max_batch":10000, "max_k":10, "nprobe":200},
-        {"max_batch":10000, "max_k":10, "nprobe":500},
-        {"max_batch":10000, "max_k":10, "nprobe":1000}
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
       ],
-      "search_result_file" : "result/deep-100M/ivf_flat/nlist100K"
+      "search_result_file" : "result/deep-100M/raft_ivf_flat/nlist100K"
     },
 
     {
-      "name" : "cagra.dim32",
+      "name" : "raft_ivf_pq.nlist10K",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 10000,
+        "niter" : 25,
+        "ratio" : 5
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist10K",
+      "search_params" : [
+        {"nprobe":3},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist10K"
+    },
+    {
+      "name" : "raft_ivf_pq.nlist10Kdim64",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 10000,
+        "niter" : 25,
+        "ratio" : 5,
+        "pq_dim": 64
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist10Kdim64",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist10Kdim64"
+    },
+    {
+      "name" : "raft_ivf_pq.nlist10Kdim32",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 10000,
+        "niter" : 25,
+        "ratio" : 5,
+        "pq_dim": 32
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist10Kdim32",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist10Kdim32"
+    },
+    {
+      "name" : "raft_ivf_pq.nlist100K",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 100000,
+        "niter" : 25,
+        "ratio" : 5
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist100K",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist100K"
+    },
+    {
+      "name" : "raft_ivf_pq.nlist100Kdim64",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 100000,
+        "niter" : 25,
+        "ratio" : 5,
+        "pq_dim": 64
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist100Kdim64",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist100Kdim64"
+    },
+    {
+      "name" : "raft_ivf_pq.nlist100Kdim32",
+      "algo" : "raft_ivf_pq",
+      "build_param": {
+        "nlist" : 100000,
+        "niter" : 25,
+        "ratio" : 5,
+        "pq_dim": 32
+      },
+      "file" : "index/deep-100M/raft_ivf_pq/nlist100Kdim32",
+      "search_params" : [
+        {"nprobe":5},
+        {"nprobe":10},
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ],
+      "search_result_file" : "result/deep-100M/raft_ivf_pq/nlist100Kdim32"
+    },
+
+    {
+      "name" : "raft_cagra.dim32",
       "algo" : "raft_cagra",
       "build_param": {
         "index_dim": 32,
         "intermediate_graph_degree": 48
       },
-            "file": "index/deep-100M/cagra/dim32",
-            "search_params": [
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 0,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 32,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 4,
-                    "max_iterations": 16,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 1,
-                    "max_iterations": 64,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 96,
-                    "search_width": 2,
-                    "max_iterations": 48,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 8,
-                    "max_iterations": 16,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 2,
-                    "max_iterations": 64,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 8,
-                    "max_iterations": 24,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 2,
-                    "max_iterations": 96,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 256,
-                    "search_width": 8,
-                    "max_iterations": 32,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 384,
-                    "search_width": 8,
-                    "max_iterations": 48,
-                    "algo": "single_cta"
-                },
-                {
-                    "itopk": 512,
-                    "search_width": 8,
-                    "max_iterations": 64,
-                    "algo": "single_cta"
-                }
-            ],
-            "search_result_file": "result/deep-100M/cagra/dim32"
-        },
-        {
-            "name": "cagra.dim32.multi_cta",
-            "algo": "raft_cagra",
-            "build_param": {
-                "index_dim": 32,
-                "intermediate_graph_degree": 48
-            },
-            "file": "index/deep-100M/cagra/dim32",
-            "search_params": [
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 0,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 32,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 4,
-                    "max_iterations": 16,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 1,
-                    "max_iterations": 64,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 96,
-                    "search_width": 2,
-                    "max_iterations": 48,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 8,
-                    "max_iterations": 16,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 2,
-                    "max_iterations": 64,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 8,
-                    "max_iterations": 24,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 2,
-                    "max_iterations": 96,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 256,
-                    "search_width": 8,
-                    "max_iterations": 32,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 384,
-                    "search_width": 8,
-                    "max_iterations": 48,
-                    "algo": "multi_cta"
-                },
-                {
-                    "itopk": 512,
-                    "search_width": 8,
-                    "max_iterations": 64,
-                    "algo": "multi_cta"
-                }
-            ],
-            "search_result_file": "result/deep-100M/cagra/dim32_multi_cta"
-        },
-        {
-            "name": "cagra.dim32.multi_kernel",
-            "algo": "raft_cagra",
-            "build_param": {
-                "index_dim": 32,
-                "intermediate_graph_degree": 48
-            },
-            "file": "index/deep-100M/cagra/dim32",
-            "search_params": [
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 0,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 32,
-                    "search_width": 1,
-                    "max_iterations": 32,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 4,
-                    "max_iterations": 16,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 64,
-                    "search_width": 1,
-                    "max_iterations": 64,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 96,
-                    "search_width": 2,
-                    "max_iterations": 48,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 8,
-                    "max_iterations": 16,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 128,
-                    "search_width": 2,
-                    "max_iterations": 64,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 8,
-                    "max_iterations": 24,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 192,
-                    "search_width": 2,
-                    "max_iterations": 96,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 256,
-                    "search_width": 8,
-                    "max_iterations": 32,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 384,
-                    "search_width": 8,
-                    "max_iterations": 48,
-                    "algo": "multi_kernel"
-                },
-                {
-                    "itopk": 512,
-                    "search_width": 8,
-                    "max_iterations": 64,
-                    "algo": "multi_kernel"
-                }
-            ],
-            "search_result_file": "result/deep-100M/cagra/dim32_multi_kernel"
-        },
-        {
-            "name": "cagra.dim64",
-            "algo": "raft_cagra",
-            "build_param": {
-                "index_dim": 64
-            },
-            "file": "index/deep-100M/cagra/dim64",
+      "file": "index/deep-100M/raft_cagra/dim32",
       "search_params" : [
         {
           "itopk": 32,
           "search_width": 1,
-          "max_iterations": 0
+          "max_iterations": 0,
+          "algo": "single_cta"
         },
         {
           "itopk": 32,
           "search_width": 1,
-          "max_iterations": 32
+          "max_iterations": 32,
+          "algo": "single_cta"
         },
         {
           "itopk": 64,
           "search_width": 4,
-          "max_iterations": 16
+          "max_iterations": 16,
+          "algo": "single_cta"
         },
         {
           "itopk": 64,
           "search_width": 1,
-          "max_iterations": 64
+          "max_iterations": 64,
+          "algo": "single_cta"
         },
         {
           "itopk": 96,
           "search_width": 2,
-          "max_iterations": 48
+          "max_iterations": 48,
+          "algo": "single_cta"
         },
         {
           "itopk": 128,
           "search_width": 8,
-          "max_iterations": 16
+          "max_iterations": 16,
+          "algo": "single_cta"
         },
         {
           "itopk": 128,
           "search_width": 2,
-          "max_iterations": 64
+          "max_iterations": 64,
+          "algo": "single_cta"
         },
         {
           "itopk": 192,
           "search_width": 8,
-          "max_iterations": 24
+          "max_iterations": 24,
+          "algo": "single_cta"
         },
         {
           "itopk": 192,
           "search_width": 2,
-          "max_iterations": 96
+          "max_iterations": 96,
+          "algo": "single_cta"
         },
         {
           "itopk": 256,
           "search_width": 8,
-          "max_iterations": 32
+          "max_iterations": 32,
+          "algo": "single_cta"
         },
         {
           "itopk": 384,
           "search_width": 8,
-          "max_iterations": 48
+          "max_iterations": 48,
+          "algo": "single_cta"
         },
         {
           "itopk": 512,
           "search_width": 8,
-          "max_iterations": 64
+          "max_iterations": 64,
+          "algo": "single_cta"
+        },
+
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 0,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 32,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 4,
+          "max_iterations": 16,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 1,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 96,
+          "search_width": 2,
+          "max_iterations": 48,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 8,
+          "max_iterations": 16,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 2,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 8,
+          "max_iterations": 24,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 2,
+          "max_iterations": 96,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 256,
+          "search_width": 8,
+          "max_iterations": 32,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 384,
+          "search_width": 8,
+          "max_iterations": 48,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 512,
+          "search_width": 8,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 0,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 32,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 64,
+          "search_width": 4,
+          "max_iterations": 16,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 64,
+          "search_width": 1,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 96,
+          "search_width": 2,
+          "max_iterations": 48,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 128,
+          "search_width": 8,
+          "max_iterations": 16,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 128,
+          "search_width": 2,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 192,
+          "search_width": 8,
+          "max_iterations": 24,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 192,
+          "search_width": 2,
+          "max_iterations": 96,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 256,
+          "search_width": 8,
+          "max_iterations": 32,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 384,
+          "search_width": 8,
+          "max_iterations": 48,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 512,
+          "search_width": 8,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
         }
       ],
-      "search_result_file" : "result/deep-100M/cagra/dim32"
+      "search_result_file": "result/deep-100M/raft_cagra/dim32"
+    },
+    {
+      "name" : "raft_cagra.dim64",
+      "algo" : "raft_cagra",
+      "build_param": {
+        "index_dim": 64
+      },
+      "file": "index/deep-100M/raft_cagra/dim64",
+      "search_params" : [
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 0,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 32,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 4,
+          "max_iterations": 16,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 1,
+          "max_iterations": 64,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 96,
+          "search_width": 2,
+          "max_iterations": 48,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 8,
+          "max_iterations": 16,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 2,
+          "max_iterations": 64,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 8,
+          "max_iterations": 24,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 2,
+          "max_iterations": 96,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 256,
+          "search_width": 8,
+          "max_iterations": 32,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 384,
+          "search_width": 8,
+          "max_iterations": 48,
+          "algo": "single_cta"
+        },
+        {
+          "itopk": 512,
+          "search_width": 8,
+          "max_iterations": 64,
+          "algo": "single_cta"
+        },
+
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 0,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 32,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 4,
+          "max_iterations": 16,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 64,
+          "search_width": 1,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 96,
+          "search_width": 2,
+          "max_iterations": 48,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 8,
+          "max_iterations": 16,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 128,
+          "search_width": 2,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 8,
+          "max_iterations": 24,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 192,
+          "search_width": 2,
+          "max_iterations": 96,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 256,
+          "search_width": 8,
+          "max_iterations": 32,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 384,
+          "search_width": 8,
+          "max_iterations": 48,
+          "algo": "multi_cta"
+        },
+        {
+          "itopk": 512,
+          "search_width": 8,
+          "max_iterations": 64,
+          "algo": "multi_cta"
+        },
+
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 0,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 32,
+          "search_width": 1,
+          "max_iterations": 32,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 64,
+          "search_width": 4,
+          "max_iterations": 16,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 64,
+          "search_width": 1,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 96,
+          "search_width": 2,
+          "max_iterations": 48,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 128,
+          "search_width": 8,
+          "max_iterations": 16,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 128,
+          "search_width": 2,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 192,
+          "search_width": 8,
+          "max_iterations": 24,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 192,
+          "search_width": 2,
+          "max_iterations": 96,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 256,
+          "search_width": 8,
+          "max_iterations": 32,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 384,
+          "search_width": 8,
+          "max_iterations": 48,
+          "algo": "multi_kernel"
+        },
+        {
+          "itopk": 512,
+          "search_width": 8,
+          "max_iterations": 64,
+          "algo": "multi_kernel"
+        }
+      ],
+      "search_result_file": "result/deep-100M/raft_cagra/dim64"
     }
   ]
 }

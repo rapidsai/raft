@@ -104,7 +104,7 @@ def main():
                         help="run only comma separated list of named indices. \
                               parameter `algorithms` is ignored",
                         default=None)
-    parser.add_argument("--force",
+    parser.add_argument("-f", "--force",
                         help="re-run algorithms even if their results \
                               already exist",
                         action="store_true")
@@ -117,10 +117,8 @@ def main():
         build = True
         search = True
     else:
-        if args.build:
-            build = args.build
-        if args.search:
-            search = args.search
+        build = args.build
+        search = args.search
 
     # Read configuration file associated to dataset
     conf_filepath = args.configuration
