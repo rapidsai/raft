@@ -426,18 +426,15 @@ struct resource_manager {
   }
 
   /**
-   * @brief Set the total number of CUDA streams to be used per device
+   * @brief Set the total number and size of CUDA stream pools to be used per device
    *
-   * If nullopt, the default stream per thread will be used
-   * (essentially allowing as many streams as there are host threads).
-   * Otherwise, all returned `device_resources` will draw their streams from this
-   * limited pool.
-   *
-   * Limiting the total number of streams can be desirable for a number of
-   * reasons, but it is most often used in consuming applications to
-   * prevent a large number of host threads from flooding the device with
-   * simultaneous requests that may exhaust device memory or other
-   * resources.
+   * Setting the number of stream pools to a non-zero value will provide a
+   * pool of stream pools that can be shared among host threads. This can be
+   * useful for the same reason it is useful to limit the total number of
+   * primary streams assigned to `device_resoures` for each host thread.
+   * Repeated calls to `get_device_resources` on a given host thread are
+   * guaranteed to return `device_resources` with the same underlying stream
+   * pool.
    *
    * If called after the first call to
    * `raft::resource_manager::get_device_resources`, no change will be made,
