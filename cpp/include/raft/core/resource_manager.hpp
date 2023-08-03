@@ -29,7 +29,7 @@ namespace raft {
  * the manager. Setters invoked after this will log a warning but have no
  * effect.
  *
- * After calling all desired setters, consumers can simply call 
+ * After calling all desired setters, consumers can simply call
  * `auto res = raft::resource_manager::get_resources();` to get a valid
  * device_resources object for the current device based on previously-set
  * parameters. Importantly, calling `get_resources()` again from the same
@@ -62,7 +62,7 @@ namespace raft {
  */
 struct resource_manager {
   resource_manager(resource_manager const&) = delete;
-  void operator=(resource_manager const&) = delete;
+  void operator=(resource_manager const&)   = delete;
 
  private:
   resource_manager() {}
@@ -70,7 +70,8 @@ struct resource_manager {
   // Get an id used to identify this thread for the purposes of assigning
   // (in round-robin fashion) the same resources to the thread on subsequent calls to
   // `get_device_resources`
-  static auto get_thread_id() {
+  static auto get_thread_id()
+  {
     static std::atomic<std::size_t> thread_counter{};
     thread_local std::size_t id = ++thread_counter;
     return id;
@@ -107,118 +108,99 @@ struct resource_manager {
     // Construct all underlying resources indicated by `params` for the
     // indicated device. This includes primary streams, stream pools, and
     // a memory pool if requested.
-    resource_components(int device_id, resource_params const& params) :
-      device_id_{device_id},
-      streams_{[&params, this]() {
-        auto scoped_device = device_setter{device_id_};
-        auto result = std::unique_ptr<rmm::cuda_stream_pool>{nullptr};
-        if(params.stream_count) {
-          result = std::make_unique<rmm::cuda_stream_pool>(
-            *params.stream_count
-          );
-        }
-        return result;
-      }()},
-      pools_{[&params, this]() {
-        auto scoped_device = device_setter{device_id_};
-        auto result = std::vector<std::shared_ptr<rmm::cuda_stream_pool>>{};
-        if(params.pool_size != 0) {
-          for (auto i = std::size_t{}; i < params.pool_count; ++i){
-            result.push_back(std::make_shared<rmm::cuda_stream_pool>(
-              params.pool_size
-            ));
+    resource_components(int device_id, resource_params const& params)
+      : device_id_{device_id},
+        streams_{[&params, this]() {
+          auto scoped_device = device_setter{device_id_};
+          auto result        = std::unique_ptr<rmm::cuda_stream_pool>{nullptr};
+          if (params.stream_count) {
+            result = std::make_unique<rmm::cuda_stream_pool>(*params.stream_count);
           }
-        } else if (params.pool_count != 0) {
-          RAFT_LOG_WARN("Stream pools of size 0 requested; no pools will be created");
-        }
-        return result;
-      }()},
-      pool_mr_{[&params, this]() {
-        auto scoped_device = device_setter{device_id_};
-        auto result = std::shared_ptr<
-          rmm::mr::pool_memory_resource<
-            rmm::mr::cuda_memory_resource
-          >
-        >{nullptr};
-        // If max_mem_pool_size is nullopt or non-zero, create a pool memory
-        // resource
-        if (params.max_mem_pool_size.value_or(1) != 0) {
-          auto* upstream = dynamic_cast<rmm::mr::cuda_memory_resource*>(
-            rmm::mr::get_current_device_resource()
-          );
-          if (upstream != nullptr) {
-            result = std::make_shared<rmm::mr::pool_memory_resource<
-              rmm::mr::cuda_memory_resource
-            >>(
-              upstream,
-              params.init_mem_pool_size,
-              params.max_mem_pool_size
-            );
-          } else {
-            RAFT_LOG_WARN(
-              "Pool allocation requested, but other memory resource has already been set and will not be overwritten"
-            );
+          return result;
+        }()},
+        pools_{[&params, this]() {
+          auto scoped_device = device_setter{device_id_};
+          auto result        = std::vector<std::shared_ptr<rmm::cuda_stream_pool>>{};
+          if (params.pool_size != 0) {
+            for (auto i = std::size_t{}; i < params.pool_count; ++i) {
+              result.push_back(std::make_shared<rmm::cuda_stream_pool>(params.pool_size));
+            }
+          } else if (params.pool_count != 0) {
+            RAFT_LOG_WARN("Stream pools of size 0 requested; no pools will be created");
           }
-        }
-        return result;
-      }()} {}
+          return result;
+        }()},
+        pool_mr_{[&params, this]() {
+          auto scoped_device = device_setter{device_id_};
+          auto result =
+            std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>{nullptr};
+          // If max_mem_pool_size is nullopt or non-zero, create a pool memory
+          // resource
+          if (params.max_mem_pool_size.value_or(1) != 0) {
+            auto* upstream =
+              dynamic_cast<rmm::mr::cuda_memory_resource*>(rmm::mr::get_current_device_resource());
+            if (upstream != nullptr) {
+              result =
+                std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
+                  upstream, params.init_mem_pool_size, params.max_mem_pool_size);
+            } else {
+              RAFT_LOG_WARN(
+                "Pool allocation requested, but other memory resource has already been set and "
+                "will not be overwritten");
+            }
+          }
+          return result;
+        }()}
+    {
+    }
 
     // Get the id of the device associated with the constructed resource
     // components
-    [[nodiscard]] auto get_device_id() const {
-      return device_id_;
-    }
+    [[nodiscard]] auto get_device_id() const { return device_id_; }
     // Get the total number of streams available for this application
-    [[nodiscard]] auto stream_count() const {
+    [[nodiscard]] auto stream_count() const
+    {
       auto result = std::size_t{};
-      if (streams_) {
-        result = streams_->get_pool_size();
-      }
+      if (streams_) { result = streams_->get_pool_size(); }
       return result;
     }
     // Get the stream assigned to this host thread. Note that the same stream
     // may be used by multiple threads, but any given thread will always use
     // the same stream
-    [[nodiscard]] auto get_stream() const {
+    [[nodiscard]] auto get_stream() const
+    {
       auto result = rmm::cuda_stream_per_thread;
-      if(stream_count() != 0) {
-        result = streams_->get_stream(
-          get_thread_id() % stream_count()
-        );
-      }
+      if (stream_count() != 0) { result = streams_->get_stream(get_thread_id() % stream_count()); }
       return result;
     }
     // Get the total number of stream pools available for this
     // application
-    [[nodiscard]] auto pool_count() const {
-      return pools_.size();
-    }
+    [[nodiscard]] auto pool_count() const { return pools_.size(); }
     // Get the stream pool assigned to this host thread. Note that the same stream pool
     // may be used by multiple threads, but any given thread will always use
     // the same stream pool
-    [[nodiscard]] auto get_pool() const {
+    [[nodiscard]] auto get_pool() const
+    {
       auto result = std::shared_ptr<rmm::cuda_stream_pool>{nullptr};
-      if (pool_count() != 0) {
-        result = pools_[get_thread_id() % pool_count()];
-      }
+      if (pool_count() != 0) { result = pools_[get_thread_id() % pool_count()]; }
       return result;
     }
     // Return a (possibly null) shared_ptr to the pool memory resource
     // created for this device by the manager
-    [[nodiscard]] auto get_pool_memory_resource() const {
-      return pool_mr_;
-    }
+    [[nodiscard]] auto get_pool_memory_resource() const { return pool_mr_; }
     // Return the RAFT workspace allocation limit that will be used by
     // `device_resources` returned from this manager
-    [[nodiscard]] auto get_workspace_allocation_limit() const {
+    [[nodiscard]] auto get_workspace_allocation_limit() const
+    {
       return workspace_allocation_limit_;
     }
-    void synchronize() const {
-      for (auto i=std::size_t{}; i < stream_count(); ++i) {
+    void synchronize() const
+    {
+      for (auto i = std::size_t{}; i < stream_count(); ++i) {
         interruptible::synchronize(streams_->get_stream(i));
       }
-      for (auto i=std::size_t{}; i < pool_count(); ++i) {
-        for (auto j=std::size_t{}; j < pools_[i]->get_pool_size(); ++j) {
+      for (auto i = std::size_t{}; i < pool_count(); ++i) {
+        for (auto j = std::size_t{}; j < pools_[i]->get_pool_size(); ++j) {
           interruptible::synchronize(pools_[i]->get_stream(j));
         }
       }
@@ -228,11 +210,7 @@ struct resource_manager {
     int device_id_;
     std::unique_ptr<rmm::cuda_stream_pool> streams_;
     std::vector<std::shared_ptr<rmm::cuda_stream_pool>> pools_;
-    std::shared_ptr<
-      rmm::mr::pool_memory_resource<
-        rmm::mr::cuda_memory_resource
-      >
-    > pool_mr_;
+    std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>> pool_mr_;
     std::optional<std::size_t> workspace_allocation_limit_{std::nullopt};
   };
 
@@ -247,16 +225,15 @@ struct resource_manager {
   std::vector<resource_components> per_device_components_;
 
   // Return a lock for accessing shared data
-  [[nodiscard]] auto get_lock() const {
-    return std::unique_lock{manager_mutex_};
-  }
+  [[nodiscard]] auto get_lock() const { return std::unique_lock{manager_mutex_}; }
 
   // Retrieve the underlying resources to be shared across the
   // application for the indicated device. This method acquires a lock the
   // first time it is called in each thread for a specific device to ensure that the
   // underlying resources have been correctly initialized exactly once across
   // all host threads.
-  auto const& get_device_components(int device_id) {
+  auto const& get_device_components(int device_id)
+  {
     // Each thread maintains an independent list of devices it has
     // accessed. If it has not marked a device as initialized, it
     // acquires a lock to initialize it exactly once. This means that each
@@ -264,14 +241,9 @@ struct resource_manager {
     // some thread has actually generated the corresponding device
     // components
     thread_local auto initialized_devices = std::vector<int>{};
-    auto iter = std::end(per_device_components_);
-    if (
-      std::find(
-        std::begin(initialized_devices),
-        std::end(initialized_devices),
-        device_id
-      ) == std::end(initialized_devices)
-    ) {
+    auto iter                             = std::end(per_device_components_);
+    if (std::find(std::begin(initialized_devices), std::end(initialized_devices), device_id) ==
+        std::end(initialized_devices)) {
       // Only lock if we have not previously accessed this device on this
       // thread
       auto lock = get_lock();
@@ -283,10 +255,7 @@ struct resource_manager {
       iter = std::find_if(
         std::begin(per_device_components_),
         std::end(per_device_components_),
-        [device_id](auto&& components) {
-          return components.get_device_id() == device_id;
-        }
-      );
+        [device_id](auto&& components) { return components.get_device_id() == device_id; });
       if (iter == per_device_components_.end()) {
         per_device_components_.emplace_back(device_id, params_);
         iter = std::prev(std::end(per_device_components_));
@@ -299,50 +268,55 @@ struct resource_manager {
       iter = std::find_if(
         std::begin(per_device_components_),
         std::end(per_device_components_),
-        [device_id](auto&& components) {
-          return components.get_device_id() == device_id;
-        }
-      );
+        [device_id](auto&& components) { return components.get_device_id() == device_id; });
     }
     return *iter;
   }
 
   // Thread-safe setter for the number of streams
-  void set_streams_per_device_(std::optional<std::size_t> num_streams) {
+  void set_streams_per_device_(std::optional<std::size_t> num_streams)
+  {
     auto lock = get_lock();
     if (params_finalized_) {
-      RAFT_LOG_WARN("Attempted to set resource_manager properties after resources have already been retrieved");
+      RAFT_LOG_WARN(
+        "Attempted to set resource_manager properties after resources have already been retrieved");
     } else {
       params_.stream_count = num_streams;
     }
   }
 
   // Thread-safe setter for the number and size of stream pools
-  void set_stream_pools_per_device_(std::size_t num_pools, std::size_t num_streams) {
+  void set_stream_pools_per_device_(std::size_t num_pools, std::size_t num_streams)
+  {
     auto lock = get_lock();
     if (params_finalized_) {
-      RAFT_LOG_WARN("Attempted to set resource_manager properties after resources have already been retrieved");
+      RAFT_LOG_WARN(
+        "Attempted to set resource_manager properties after resources have already been retrieved");
     } else {
       params_.pool_count = num_pools;
-      params_.pool_size = num_streams;
+      params_.pool_size  = num_streams;
     }
   }
 
   // Thread-safe setter for the RAFT workspace allocation limit
-  void set_workspace_allocation_limit_(std::size_t memory_limit) {
+  void set_workspace_allocation_limit_(std::size_t memory_limit)
+  {
     auto lock = get_lock();
     if (params_finalized_) {
-      RAFT_LOG_WARN("Attempted to set resource_manager properties after resources have already been retrieved");
+      RAFT_LOG_WARN(
+        "Attempted to set resource_manager properties after resources have already been retrieved");
     } else {
       params_.workspace_allocation_limit.emplace(memory_limit);
     }
   }
 
   // Thread-safe setter for the maximum memory pool size
-  void set_max_mem_pool_size_(std::optional<std::size_t> memory_limit) {
+  void set_max_mem_pool_size_(std::optional<std::size_t> memory_limit)
+  {
     auto lock = get_lock();
     if (params_finalized_) {
-      RAFT_LOG_WARN("Attempted to set resource_manager properties after resources have already been retrieved");
+      RAFT_LOG_WARN(
+        "Attempted to set resource_manager properties after resources have already been retrieved");
     } else {
       if (memory_limit) {
         params_.max_mem_pool_size.emplace(*memory_limit);
@@ -353,10 +327,12 @@ struct resource_manager {
   }
 
   // Thread-safe setter for the initial memory pool size
-  void set_init_mem_pool_size_(std::optional<std::size_t> init_memory) {
+  void set_init_mem_pool_size_(std::optional<std::size_t> init_memory)
+  {
     auto lock = get_lock();
     if (params_finalized_) {
-      RAFT_LOG_WARN("Attempted to set resource_manager properties after resources have already been retrieved");
+      RAFT_LOG_WARN(
+        "Attempted to set resource_manager properties after resources have already been retrieved");
     } else {
       if (init_memory) {
         params_.init_mem_pool_size.emplace(*init_memory);
@@ -367,7 +343,8 @@ struct resource_manager {
   }
 
   // Retrieve the instance of this singleton
-  static auto& get_manager() {
+  static auto& get_manager()
+  {
     static auto manager = resource_manager{};
     return manager;
   }
@@ -393,14 +370,15 @@ struct resource_manager {
    * @param workspace_mr If provided, a separate memory resource to be used
    * for allocating temporary workspaces in RAFT calls.
    */
-  static auto get_resources(int device_id=device_setter::get_current_device(), std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr = {nullptr}) {
+  static auto get_resources(int device_id = device_setter::get_current_device(),
+                            std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr = {
+                              nullptr})
+  {
     auto const& components = get_manager().get_device_components(device_id);
-    return device_resources{
-      components.get_stream(),
-      components.get_pool(),
-      workspace_mr ? workspace_mr : components.get_pool_memory_resource(),
-      components.get_workspace_allocation_limit()
-    };
+    return device_resources{components.get_stream(),
+                            components.get_pool(),
+                            workspace_mr ? workspace_mr : components.get_pool_memory_resource(),
+                            components.get_workspace_allocation_limit()};
   }
 
   /**
@@ -421,7 +399,8 @@ struct resource_manager {
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_streams_per_device(std::optional<std::size_t> num_streams) {
+  static void set_streams_per_device(std::optional<std::size_t> num_streams)
+  {
     get_manager().set_streams_per_device_(num_streams);
   }
 
@@ -440,7 +419,9 @@ struct resource_manager {
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_stream_pools_per_device(std::size_t num_pools, std::size_t num_streams=rmm::cuda_stream_pool::default_size) {
+  static void set_stream_pools_per_device(
+    std::size_t num_pools, std::size_t num_streams = rmm::cuda_stream_pool::default_size)
+  {
     get_manager().set_stream_pools_per_device_(num_pools, num_streams);
   }
   /**
@@ -455,7 +436,8 @@ struct resource_manager {
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_workspace_allocation_limit(std::size_t memory_limit) {
+  static void set_workspace_allocation_limit(std::size_t memory_limit)
+  {
     get_manager().set_workspace_allocation_limit_(memory_limit);
   }
 
@@ -470,13 +452,15 @@ struct resource_manager {
    * the current RMM device memory resource for the indicated device. If the
    * current RMM device memory resource has already been set to some
    * non-default resource, no pool resource will be created and a warning will be emitted. It is
-   * assumed that applications which have set a memory resource already wish to manage RMM themselves.
+   * assumed that applications which have set a memory resource already wish to manage RMM
+   * themselves.
    *
    * If called after the first call to
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_max_mem_pool_size(std::optional<std::size_t> max_mem) {
+  static void set_max_mem_pool_size(std::optional<std::size_t> max_mem)
+  {
     get_manager().set_max_mem_pool_size_(max_mem);
   }
 
@@ -490,7 +474,8 @@ struct resource_manager {
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_init_mem_pool_size(std::optional<std::size_t> init_mem) {
+  static void set_init_mem_pool_size(std::optional<std::size_t> init_mem)
+  {
     get_manager().set_init_mem_pool_size_(init_mem);
   }
   /**
@@ -508,7 +493,9 @@ struct resource_manager {
    * `raft::resource_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
-  static void set_mem_pool(std::optional<std::size_t> init_mem=std::nullopt, std::optional<std::size_t> max_mem=std::nullopt) {
+  static void set_mem_pool(std::optional<std::size_t> init_mem = std::nullopt,
+                           std::optional<std::size_t> max_mem  = std::nullopt)
+  {
     set_init_mem_pool_size(init_mem);
     set_max_mem_pool_size(max_mem);
   }
@@ -523,13 +510,12 @@ struct resource_manager {
    * created independent of the resource manager, work submitted using those
    * resources will not be synchronized.
    */
-  static void synchronize_work_from_this_thread(int device_id=device_setter::get_current_device()) {
+  static void synchronize_work_from_this_thread(int device_id = device_setter::get_current_device())
+  {
     auto scoped_device = device_setter{device_id};
-    auto res = get_resources();
+    auto res           = get_resources();
     res.sync_stream();
-    if (res.is_stream_pool_initialized()) {
-      res.sync_stream_pool();
-    }
+    if (res.is_stream_pool_initialized()) { res.sync_stream_pool(); }
   }
 
   /**
@@ -552,8 +538,9 @@ struct resource_manager {
    * *all* device work is required, `cudaDeviceSynchronize` should be
    * invoked directly.
    */
-  static void synchronize_work_from_all_threads(int device_id=device_setter::get_current_device()) {
-    auto scoped_device = device_setter{device_id};
+  static void synchronize_work_from_all_threads(int device_id = device_setter::get_current_device())
+  {
+    auto scoped_device     = device_setter{device_id};
     auto const& components = get_manager().get_device_components(device_id);
     if (components.stream_count() == 0) {
       RAFT_CUDA_TRY(cudaDeviceSynchronize());

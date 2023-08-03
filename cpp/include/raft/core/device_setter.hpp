@@ -15,8 +15,8 @@
  */
 
 #include <cuda_runtime_api.h>
-#include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/util/cuda_rt_essentials.hpp>
 namespace raft {
 
 /**
@@ -36,7 +36,8 @@ struct device_setter {
   /**
    * Return the id of the current device as an integer
    */
-  static auto get_current_device() {
+  static auto get_current_device()
+  {
     auto result = int{};
     RAFT_CUDA_TRY(cudaGetDevice(&result));
     return result;
@@ -44,21 +45,21 @@ struct device_setter {
   /**
    * Return the count of currently available CUDA devices
    */
-  static auto get_device_count() {
+  static auto get_device_count()
+  {
     auto result = int{};
     RAFT_CUDA_TRY(cudaGetDeviceCount(&result));
     return result;
   }
 
-  explicit device_setter(int new_device) : prev_device_{get_current_device()} {
+  explicit device_setter(int new_device) : prev_device_{get_current_device()}
+  {
     RAFT_CUDA_TRY(cudaSetDevice(new_device));
   }
-  ~device_setter() {
-    RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_));
-  }
+  ~device_setter() { RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_)); }
 
  private:
-    int prev_device_;
+  int prev_device_;
 };
 
-} // namespace raft
+}  // namespace raft
