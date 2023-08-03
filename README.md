@@ -49,9 +49,13 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ### Vector Similarity Search
 
-RAFT contains state-of-the-art implementations of approximate nearest neighbors algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
+RAFT contains state-of-the-art implementations of approximate nearest neighbors search (ANNS) algorithms on the GPU, such as:
 
-In addition to CAGRA, RAFT contains other state-of-the-art GPU-accelerated implementations of popular algorithms for vector similarity search, such as [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq) algorithms originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
+* [Brute force](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#brute-force). Performs a brute force nearest neighbors search without an index.
+* [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq). Use an inverted file index structure to map contents to their locations. IVF-PQ additionally uses product quantization to reduce the memory usage of vectors. These methods were originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
+* [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) (Cuda Anns GRAph-based). Uses a fast ANNS graph construction and search implementation optimized for the GPU. CAGRA outperforms state-of-the art CPU methods (i.e. HNSW) for large batch queries, single queries, and graph construction time. 
+
+Implementations of the RAFT ANNS algorithms for vector search include: [Milvus](https://milvus.io/), [Redis](https://redis.io/), and [Faiss](https://github.com/facebookresearch/faiss). 
 
 ### Information Retrieval
 
