@@ -94,3 +94,7 @@ sed_runner "/^PROJECT_NUMBER/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" cpp/doxygen/Doxy
 sed_runner "/^set(RAFT_VERSION/ s|\".*\"|\"${NEXT_SHORT_TAG}\"|g" docs/source/build.md
 sed_runner "/GIT_TAG.*branch-/ s|branch-.*|branch-${NEXT_SHORT_TAG}|g" docs/source/build.md
 sed_runner "/rapidsai\/raft/ s|branch-[0-9][0-9].[0-9][0-9]|branch-${NEXT_SHORT_TAG}|g" docs/source/developer_guide.md
+
+# .devcontainer files
+sed_runner "s/ARG RAPIDS=${CURRENT_SHORT_TAG}/ARG RAPIDS=${NEXT_SHORT_TAG}/g" .devcontainer/Dockerfile
+find .devcontainer/ -type f -name devcontainer.json -exec sed -i "s/${CURRENT_SHORT_TAG}/${NEXT_SHORT_TAG}/g" {} \;
