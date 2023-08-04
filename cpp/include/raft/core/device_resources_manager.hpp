@@ -31,22 +31,21 @@ namespace raft {
  *
  * Many calls to RAFT functions require a `raft::device_resources` object
  * to provide CUDA resources like streams and stream pools. The
- * `raft::resource_manager` singleton provides a straightforward method to create those objects in
- * a way that allows consumers of RAFT to limit total consumption of device
- * resources without actively managing streams or other CUDA-specific
- * objects.
+ * `raft::device_resources_manager` singleton provides a straightforward method to create those
+ * objects in a way that allows consumers of RAFT to limit total consumption of device resources
+ * without actively managing streams or other CUDA-specific objects.
  *
  * To control the resources a consuming application will use, the
  * resource manager provides setters for a variety of values. For
  * instance, to ensure that no more than `N` CUDA streams are used per
  * device, a consumer might call
- * `raft::resource_manager::set_streams_per_device(N)`. Note that all of these
+ * `raft::device_resources_manager::set_streams_per_device(N)`. Note that all of these
  * setters must be used prior to retrieving the first `device_resources` from
  * the manager. Setters invoked after this will log a warning but have no
  * effect.
  *
  * After calling all desired setters, consumers can simply call
- * `auto res = raft::resource_manager::get_resources();` to get a valid
+ * `auto res = raft::device_resources_manager::get_resources();` to get a valid
  * device_resources object for the current device based on previously-set
  * parameters. Importantly, calling `get_resources()` again from the same
  * thread is guaranteed to return a `device_resources` object with the same
@@ -56,32 +55,38 @@ namespace raft {
  * Typical usage might look something like the following:
  * @code
  * void initialize_application() {
- *   raft::resource_manager::set_streams_per_device(16);
+ *   raft::device_resources_manager::set_streams_per_device(16);
  * }
  *
  * void foo_called_from_multiple_threads() {
- *   auto res = raft::resource_manager::get_device_resources();
+ *   auto res = raft::device_resources_manager::get_device_resources();
  *   // Call RAFT function using res
- *   raft::resource_manager::synchronize_work_from_this_thread();
+ *   raft::device_resources_manager::synchronize_work_from_this_thread();
  * }
  * @endcode
  *
- * Note that all public methods of the `resource_manager` are thread-safe,
+ * Note that all public methods of the `device_resources_manager` are thread-safe,
  * but the manager is designed to minimize locking required for
  * retrieving `device_resources` objects. Each thread must acquire a lock
  * exactly once per device when calling `get_resources`. Subsequent calls
  * will still be thread-safe but will not require a lock.
  *
- * All public methods of the `resource_manager` are static. Please see
+ * All public methods of the `device_resources_manager` are static. Please see
  * documentation of those methods for additional usage information.
  *
  */
-struct resource_manager {
-  resource_manager(resource_manager const&) = delete;
-  void operator=(resource_manager const&)   = delete;
+struct device_resources_manager {
+  device_resources_manager(device_resources_manager const&) = delete;
+  void operator=(device_resources_manager const&)           = delete;
 
  private:
-  resource_manager() {}
+  device_resources_manager() {}
+  ~device_resources_manager()
+  {
+    // Ensure that we destroy any pool memory resources before CUDA context is
+    // lost
+    per_device_components_.clear();
+  }
 
   // Get an id used to identify this thread for the purposes of assigning
   // (in round-robin fashion) the same resources to the thread on subsequent calls to
@@ -295,7 +300,8 @@ struct resource_manager {
     auto lock = get_lock();
     if (params_finalized_) {
       RAFT_LOG_WARN(
-        "Attempted to set resource_manager properties after resources have already been retrieved");
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
     } else {
       params_.stream_count = num_streams;
     }
@@ -307,7 +313,8 @@ struct resource_manager {
     auto lock = get_lock();
     if (params_finalized_) {
       RAFT_LOG_WARN(
-        "Attempted to set resource_manager properties after resources have already been retrieved");
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
     } else {
       params_.pool_count = num_pools;
       params_.pool_size  = num_streams;
@@ -320,7 +327,8 @@ struct resource_manager {
     auto lock = get_lock();
     if (params_finalized_) {
       RAFT_LOG_WARN(
-        "Attempted to set resource_manager properties after resources have already been retrieved");
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
     } else {
       params_.workspace_allocation_limit.emplace(memory_limit);
     }
@@ -332,7 +340,8 @@ struct resource_manager {
     auto lock = get_lock();
     if (params_finalized_) {
       RAFT_LOG_WARN(
-        "Attempted to set resource_manager properties after resources have already been retrieved");
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
     } else {
       if (memory_limit) {
         params_.max_mem_pool_size.emplace(*memory_limit);
@@ -348,7 +357,8 @@ struct resource_manager {
     auto lock = get_lock();
     if (params_finalized_) {
       RAFT_LOG_WARN(
-        "Attempted to set resource_manager properties after resources have already been retrieved");
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
     } else {
       if (init_memory) {
         params_.init_mem_pool_size.emplace(*init_memory);
@@ -361,7 +371,7 @@ struct resource_manager {
   // Retrieve the instance of this singleton
   static auto& get_manager()
   {
-    static auto manager = resource_manager{};
+    static auto manager = device_resources_manager{};
     return manager;
   }
 
@@ -412,7 +422,7 @@ struct resource_manager {
    * resources.
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_streams_per_device(std::optional<std::size_t> num_streams)
@@ -432,7 +442,7 @@ struct resource_manager {
    * pool.
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_stream_pools_per_device(
@@ -449,7 +459,7 @@ struct resource_manager {
    * `raft::device_manager::set_max_mem_pool_size`
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_workspace_allocation_limit(std::size_t memory_limit)
@@ -472,7 +482,7 @@ struct resource_manager {
    * themselves.
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_max_mem_pool_size(std::optional<std::size_t> max_mem)
@@ -487,7 +497,7 @@ struct resource_manager {
    * device memory.
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_init_mem_pool_size(std::optional<std::size_t> init_mem)
@@ -506,7 +516,7 @@ struct resource_manager {
    * to all available memory).
    *
    * If called after the first call to
-   * `raft::resource_manager::get_device_resources`, no change will be made,
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
    * and a warning will be emitted.
    */
   static void set_mem_pool(std::optional<std::size_t> init_mem = std::nullopt,
@@ -522,7 +532,7 @@ struct resource_manager {
    *
    * Note that this method *only* guarantees synchronization of work
    * submitted using the `device_resources` provided by
-   * `raft::resource_manager::get_device_resources`. If `device_resources` are
+   * `raft::device_resources_manager::get_device_resources`. If `device_resources` are
    * created independent of the resource manager, work submitted using those
    * resources will not be synchronized.
    */
@@ -540,7 +550,7 @@ struct resource_manager {
    *
    * Note that this method *only* guarantees synchronization of work
    * submitted using the `device_resources` provided by
-   * `raft::resource_manager::get_device_resources`. If `device_resources` are
+   * `raft::device_resources_manager::get_device_resources`. If `device_resources` are
    * created independent of the resource manager, work submitted using those
    * resources will not be synchronized.
    *
