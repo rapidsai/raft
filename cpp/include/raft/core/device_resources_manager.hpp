@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <algorithm>
 #include <memory>
 #include <optional>
@@ -164,6 +165,7 @@ struct device_resources_manager {
               result =
                 std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
                   upstream, params.init_mem_pool_size, params.max_mem_pool_size);
+              rmm::mr::set_current_device_resource(result.get());
             } else {
               RAFT_LOG_WARN(
                 "Pool allocation requested, but other memory resource has already been set and "
@@ -237,7 +239,7 @@ struct device_resources_manager {
 
   // Mutex used to lock access to shared data until after the first
   // `get_device_resources` call in each thread
-  std::mutex manager_mutex_{};
+  mutable std::mutex manager_mutex_{};
   // Indicates whether or not `get_device_resources` has been called by any
   // host thread
   bool params_finalized_{};
@@ -246,7 +248,7 @@ struct device_resources_manager {
   std::vector<resource_components> per_device_components_;
 
   // Return a lock for accessing shared data
-  [[nodiscard]] auto get_lock() const { return std::unique_lock{manager_mutex_}; }
+  [[nodiscard]] auto get_lock() const { return std::unique_lock(manager_mutex_); }
 
   // Retrieve the underlying resources to be shared across the
   // application for the indicated device. This method acquires a lock the

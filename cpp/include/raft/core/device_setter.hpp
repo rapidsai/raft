@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <cuda_runtime_api.h>
 #include <raft/core/logger.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
