@@ -213,41 +213,33 @@ def refine(dataset, queries, candidates, k=None, indices=None, distances=None,
 
     Examples
     --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_pq, refine
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-        >>> handle = DeviceResources()
-        >>> index_params = ivf_pq.IndexParams(n_lists=1024,
-        ...                                   metric="sqeuclidean",
-        ...                                   pq_dim=10)
-        >>> index = ivf_pq.build(index_params, dataset, handle=handle)
-
-        >>> # Search using the built index
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> k = 40
-        >>> _, candidates = ivf_pq.search(ivf_pq.SearchParams(), index,
-        ...                               queries, k, handle=handle)
-
-        >>> k = 10
-        >>> distances, neighbors = refine(dataset, queries, candidates, k,
-        ...                               handle=handle)
-        >>> distances = cp.asarray(distances)
-        >>> neighbors = cp.asarray(neighbors)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_pq, refine
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> index_params = ivf_pq.IndexParams(n_lists=1024,
+    ...                                   metric="sqeuclidean",
+    ...                                   pq_dim=10)
+    >>> index = ivf_pq.build(index_params, dataset, handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 40
+    >>> _, candidates = ivf_pq.search(ivf_pq.SearchParams(), index,
+    ...                               queries, k, handle=handle)
+    >>> k = 10
+    >>> distances, neighbors = refine(dataset, queries, candidates, k,
+    ...                               handle=handle)
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
     """
 
     if handle is None:

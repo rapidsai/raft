@@ -332,39 +332,31 @@ def build(IndexParams index_params, dataset, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_flat
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-        >>> handle = DeviceResources()
-        >>> index_params = ivf_flat.IndexParams(
-        ...     n_lists=1024,
-        ...     metric="sqeuclidean")
-
-        >>> index = ivf_flat.build(index_params, dataset, handle=handle)
-
-        >>> # Search using the built index
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> k = 10
-        >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
-        ...                                        index, queries, k,
-        ...                                        handle=handle)
-
-        >>> distances = cp.asarray(distances)
-        >>> neighbors = cp.asarray(neighbors)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> index_params = ivf_flat.IndexParams(
+    ...     n_lists=1024,
+    ...     metric="sqeuclidean")
+    >>> index = ivf_flat.build(index_params, dataset, handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                        index, queries, k,
+    ...                                        handle=handle)
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
     """
     dataset_cai = cai_wrapper(dataset)
     dataset_dt = dataset_cai.dtype
@@ -440,42 +432,35 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     Examples
     --------
 
-    .. code-block:: python
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
+    >>> n_rows = 100
+    >>> more_data = cp.random.random_sample((n_rows, n_features),
+    ...                                     dtype=cp.float32)
+    >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
+    >>> index = ivf_flat.extend(index, more_data, indices)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                      index, queries,
+    ...                                      k, handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
 
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_flat
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-        >>> handle = DeviceResources()
-        >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
-        ...                        handle=handle)
-
-        >>> n_rows = 100
-        >>> more_data = cp.random.random_sample((n_rows, n_features),
-        ...                                     dtype=cp.float32)
-        >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
-        >>> index = ivf_flat.extend(index, more_data, indices)
-
-        >>> # Search using the built index
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> k = 10
-        >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
-        ...                                      index, queries,
-        ...                                      k, handle=handle)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
-
-        >>> distances = cp.asarray(distances)
-        >>> neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
     """
     if not index.trained:
         raise ValueError("Index need to be built before calling extend.")
@@ -598,39 +583,32 @@ def search(SearchParams search_params,
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_flat
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> # Build index
-        >>> handle = DeviceResources()
-        >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
-        ...                        handle=handle)
-
-        >>> # Search using the built index
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> k = 10
-        >>> search_params = ivf_flat.SearchParams(
-        ...     n_probes=20
-        ... )
-        >>> distances, neighbors = ivf_flat.search(search_params, index,
-        ...                                        queries, k, handle=handle)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
-
-        >>> neighbors = cp.asarray(neighbors)
-        >>> distances = cp.asarray(distances)
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> search_params = ivf_flat.SearchParams(
+    ...     n_probes=20
+    ... )
+    >>> distances, neighbors = ivf_flat.search(search_params, index,
+    ...                                        queries, k, handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    >>> neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
     """
 
     if not index.trained:
@@ -718,22 +696,18 @@ def save(filename, Index index, handle=None):
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_flat
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> # Build index
-        >>> handle = DeviceResources()
-        >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
-        ...                        handle=handle)
-        >>> ivf_flat.save("my_index.bin", index, handle=handle)
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
+    >>> ivf_flat.save("my_index.bin", index, handle=handle)
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
@@ -787,33 +761,27 @@ def load(filename, handle=None):
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import ivf_flat
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> # Build and save index
-        >>> handle = DeviceResources()
-        >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
-        ...                        handle=handle)
-        >>> ivf_flat.save("my_index.bin", index, handle=handle)
-        >>> del index
-
-        >>> n_queries = 100
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> handle = DeviceResources()
-        >>> index = ivf_flat.load("my_index.bin", handle=handle)
-
-        >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
-        ...                                        index, queries, k=10,
-        ...                                        handle=handle)
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import ivf_flat
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build and save index
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
+    >>> ivf_flat.save("my_index.bin", index, handle=handle)
+    >>> del index
+    >>> n_queries = 100
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> index = ivf_flat.load("my_index.bin", handle=handle)
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                        index, queries, k=10,
+    ...                                        handle=handle)
     """
     if handle is None:
         handle = DeviceResources()

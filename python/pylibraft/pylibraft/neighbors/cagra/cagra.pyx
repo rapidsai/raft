@@ -293,36 +293,26 @@ def build(IndexParams index_params, dataset, handle=None):
     Examples
     --------
 
-    .. code-block:: python
-
-        >>> import cupy as cp
-
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import cagra
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-        >>> k = 10
-
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> handle = DeviceResources()
-        >>> build_params = cagra.IndexParams(metric="sqeuclidean")
-
-        >>> index = cagra.build(build_params, dataset, handle=handle)
-
-        >>> distances, neighbors = cagra.search(cagra.SearchParams(),
-        ...                                      index, dataset,
-        ...                                      k, handle=handle)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
-
-        >>> distances = cp.asarray(distances)
-        >>> neighbors = cp.asarray(neighbors)
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import cagra
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> k = 10
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> handle = DeviceResources()
+    >>> build_params = cagra.IndexParams(metric="sqeuclidean")
+    >>> index = cagra.build(build_params, dataset, handle=handle)
+    >>> distances, neighbors = cagra.search(cagra.SearchParams(),
+    ...                                      index, dataset,
+    ...                                      k, handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    >>> distances = cp.asarray(distances)
+    >>> neighbors = cp.asarray(neighbors)
     """
     dataset_ai = wrap_array(dataset)
     dataset_dt = dataset_ai.dtype
@@ -603,44 +593,35 @@ def search(SearchParams search_params,
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import cagra
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> n_queries = 1000
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> # Build index
-        >>> handle = DeviceResources()
-        >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
-
-        >>> # Search using the built index
-        >>> queries = cp.random.random_sample((n_queries, n_features),
-        ...                                   dtype=cp.float32)
-        >>> k = 10
-        >>> search_params = cagra.SearchParams(
-        ...     max_queries=100,
-        ...     itopk_size=64
-        ... )
-
-        >>> # Using a pooling allocator reduces overhead of temporary array
-        >>> # creation during search. This is useful if multiple searches
-        >>> # are performad with same query size.
-        >>> distances, neighbors = cagra.search(search_params, index, queries,
-        ...                                     k, handle=handle)
-
-        >>> # pylibraft functions are often asynchronous so the
-        >>> # handle needs to be explicitly synchronized
-        >>> handle.sync()
-
-        >>> neighbors = cp.asarray(neighbors)
-        >>> distances = cp.asarray(distances)
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import cagra
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> n_queries = 1000
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
+    >>> # Search using the built index
+    >>> queries = cp.random.random_sample((n_queries, n_features),
+    ...                                   dtype=cp.float32)
+    >>> k = 10
+    >>> search_params = cagra.SearchParams(
+    ...     max_queries=100,
+    ...     itopk_size=64
+    ... )
+    >>> # Using a pooling allocator reduces overhead of temporary array
+    >>> # creation during search. This is useful if multiple searches
+    >>> # are performad with same query size.
+    >>> distances, neighbors = cagra.search(search_params, index, queries,
+    ...                                     k, handle=handle)
+    >>> # pylibraft functions are often asynchronous so the
+    >>> # handle needs to be explicitly synchronized
+    >>> handle.sync()
+    >>> neighbors = cp.asarray(neighbors)
+    >>> distances = cp.asarray(distances)
     """
 
     if not index.trained:
@@ -729,24 +710,19 @@ def save(filename, Index index, handle=None):
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from pylibraft.common import DeviceResources
-        >>> from pylibraft.neighbors import cagra
-
-        >>> n_samples = 50000
-        >>> n_features = 50
-        >>> dataset = cp.random.random_sample((n_samples, n_features),
-        ...                                   dtype=cp.float32)
-
-        >>> # Build index
-        >>> handle = DeviceResources()
-        >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
-
-        >>> # Serialize and deserialize the cagra index built
-        >>> cagra.save("my_index.bin", index, handle=handle)
-        >>> saved_index = cagra.load("my_index.bin")
+    >>> import cupy as cp
+    >>> from pylibraft.common import DeviceResources
+    >>> from pylibraft.neighbors import cagra
+    >>> n_samples = 50000
+    >>> n_features = 50
+    >>> dataset = cp.random.random_sample((n_samples, n_features),
+    ...                                   dtype=cp.float32)
+    >>> # Build index
+    >>> handle = DeviceResources()
+    >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
+    >>> # Serialize and deserialize the cagra index built
+    >>> cagra.save("my_index.bin", index, handle=handle)
+    >>> saved_index = cagra.load("my_index.bin")
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
