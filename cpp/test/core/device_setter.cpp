@@ -30,6 +30,7 @@ TEST(DeviceSetter, ScopedDevice)
   auto initial_device = 0;
   RAFT_CUDA_TRY(cudaGetDevice(&initial_device));
   auto current_device = initial_device;
+  ASSERT_EQ(current_device, device_setter::get_current_device());
   {
     auto scoped_device = device_setter{device_a};
     // Confirm that device is currently device_a
@@ -53,5 +54,14 @@ TEST(DeviceSetter, ScopedDevice)
   // scope
   RAFT_CUDA_TRY(cudaGetDevice(&current_device));
   ASSERT_EQ(current_device, initial_device);
+
+  {
+    auto scoped_device1 = device_setter{device_b};
+    auto scoped_device2 = device_setter{device_a};
+    RAFT_CUDA_TRY(cudaGetDevice(&current_device));
+    // Confirm that multiple setters behave as expected, with the last
+    // constructed taking precedence
+    ASSERT_EQ(current_device, device_a);
+  }
 }
 }  // namespace raft
