@@ -45,9 +45,9 @@ namespace raft {
  * effect.
  *
  * After calling all desired setters, consumers can simply call
- * `auto res = raft::device_resources_manager::get_resources();` to get a valid
+ * `auto res = raft::device_resources_manager::get_device_resources();` to get a valid
  * device_resources object for the current device based on previously-set
- * parameters. Importantly, calling `get_resources()` again from the same
+ * parameters. Importantly, calling `get_device_resources()` again from the same
  * thread is guaranteed to return a `device_resources` object with the same
  * underlying CUDA stream and (if a non-zero number of stream pools has been
  * requested) stream pool.
@@ -68,7 +68,7 @@ namespace raft {
  * Note that all public methods of the `device_resources_manager` are thread-safe,
  * but the manager is designed to minimize locking required for
  * retrieving `device_resources` objects. Each thread must acquire a lock
- * exactly once per device when calling `get_resources`. Subsequent calls
+ * exactly once per device when calling `get_device_resources`. Subsequent calls
  * will still be thread-safe but will not require a lock.
  *
  * All public methods of the `device_resources_manager` are static. Please see
@@ -381,10 +381,10 @@ struct device_resources_manager {
    *
    * This thread-safe method ensures that a `device_resources` object with
    * the same underlying stream and stream pool is returned every time it is
-   * called by the same host thread. This means that if `get_resources` is
+   * called by the same host thread. This means that if `get_device_resources` is
    * used to provide all `device_resources` in an application, then
-   * `raft::get_resources().sync_stream()` and (if a stream pool is used)
-   * raft::get_resources().sync_stream_pool() are guaranteed to synchronize all
+   * `raft::get_device_resources().sync_stream()` and (if a stream pool is used)
+   * raft::get_device_resources().sync_stream_pool() are guaranteed to synchronize all
    * work previously submitted to the device by this host thread.
    *
    * If the max memory pool size set with `set_max_mem_pool_size` is non-zero,
@@ -396,9 +396,9 @@ struct device_resources_manager {
    * @param workspace_mr If provided, a separate memory resource to be used
    * for allocating temporary workspaces in RAFT calls.
    */
-  static auto get_resources(int device_id = device_setter::get_current_device(),
-                            std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr = {
-                              nullptr})
+  static auto get_device_resources(int device_id = device_setter::get_current_device(),
+                                   std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr = {
+                                     nullptr})
   {
     auto const& components = get_manager().get_device_components(device_id);
     return device_resources{components.get_stream(),
@@ -474,7 +474,7 @@ struct device_resources_manager {
    * pool is allowed to grow to the size of available device memory.
    *
    * Note that the pool will not actually be created until the first call
-   * to `raft::device_manager::get_resources(device_id)`, after which it will become
+   * to `raft::device_manager::get_device_resources(device_id)`, after which it will become
    * the current RMM device memory resource for the indicated device. If the
    * current RMM device memory resource has already been set to some
    * non-default resource, no pool resource will be created and a warning will be emitted. It is
@@ -539,7 +539,7 @@ struct device_resources_manager {
   static void synchronize_work_from_this_thread(int device_id = device_setter::get_current_device())
   {
     auto scoped_device = device_setter{device_id};
-    auto res           = get_resources();
+    auto res           = get_device_resources();
     res.sync_stream();
     if (res.is_stream_pool_initialized()) { res.sync_stream_pool(); }
   }
