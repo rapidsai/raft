@@ -112,15 +112,15 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
  *
  */
 template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
-__global__ void build_index_kernel(const LabelT* labels,
-                                   const T* source_vecs,
-                                   const IdxT* source_ixs,
-                                   T** list_data_ptrs,
-                                   IdxT** list_index_ptrs,
-                                   uint32_t* list_sizes_ptr,
-                                   IdxT n_rows,
-                                   uint32_t dim,
-                                   uint32_t veclen)
+_RAFT_KERNEL void build_index_kernel(const LabelT* labels,
+                                     const T* source_vecs,
+                                     const IdxT* source_ixs,
+                                     T** list_data_ptrs,
+                                     IdxT** list_index_ptrs,
+                                     uint32_t* list_sizes_ptr,
+                                     IdxT n_rows,
+                                     uint32_t dim,
+                                     uint32_t veclen)
 {
   const IdxT i = IdxT(blockDim.x) * IdxT(blockIdx.x) + threadIdx.x;
   if (i >= n_rows) { return; }
@@ -419,7 +419,7 @@ inline void fill_refinement_index(raft::resources const& handle,
 }
 
 template <typename T>
-__global__ void pack_interleaved_list_kernel(
+_RAFT_KERNEL void pack_interleaved_list_kernel(
   const T* codes,
   T* list_data,
   uint32_t n_rows,
@@ -435,7 +435,7 @@ __global__ void pack_interleaved_list_kernel(
 }
 
 template <typename T>
-__global__ void unpack_interleaved_list_kernel(
+_RAFT_KERNEL void unpack_interleaved_list_kernel(
   const T* list_data,
   T* codes,
   uint32_t n_rows,

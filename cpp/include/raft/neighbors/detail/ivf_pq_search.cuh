@@ -171,7 +171,7 @@ void select_clusters(raft::resources const& handle,
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
 template <int BlockDim>
-__launch_bounds__(BlockDim) __global__
+__launch_bounds__(BlockDim) _RAFT_KERNEL
   void calc_chunk_indices_kernel(uint32_t n_probes,
                                  const uint32_t* cluster_sizes,      // [n_clusters]
                                  const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
@@ -274,7 +274,7 @@ __device__ inline auto find_chunk_ix(uint32_t& sample_ix,  // NOLINT
 }
 
 template <int BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__
+__launch_bounds__(BlockDim) _RAFT_KERNEL
   void postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
                                     const uint32_t* neighbors_in,       // [n_queries, topk]
                                     const IdxT* const* db_indices,      // [n_clusters][..]

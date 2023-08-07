@@ -123,7 +123,7 @@ dim3 get_bench_thread_block() {
 }
 
 template <class F, class... Args>
-__global__
+_RAFT_KERNEL
 void do_run_kernel(F f, Args... args) {
   f(args...);
 }

@@ -260,7 +260,7 @@ template <typename Type,
           int BlockSize,
           typename Lambda,
           typename... Vecs>
-__global__ void __launch_bounds__(BlockSize)
+_RAFT_KERNEL void __launch_bounds__(BlockSize)
   matrixLinewiseVecColsMainKernel(Type* out,
                                   const Type* in,
                                   const IdxType arrOffset,
@@ -304,7 +304,7 @@ __global__ void __launch_bounds__(BlockSize)
  * @param [in] vecs pointers to the argument vectors
  */
 template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
-__global__ void __launch_bounds__(MaxOffset, 2)
+_RAFT_KERNEL void __launch_bounds__(MaxOffset, 2)
   matrixLinewiseVecColsTailKernel(Type* out,
                                   const Type* in,
                                   const IdxType arrOffset,
@@ -370,7 +370,7 @@ template <typename Type,
           int BlockSize,
           typename Lambda,
           typename... Vecs>
-__global__ void __launch_bounds__(BlockSize)
+_RAFT_KERNEL void __launch_bounds__(BlockSize)
   matrixLinewiseVecRowsMainKernel(Type* out,
                                   const Type* in,
                                   const IdxType arrOffset,
@@ -413,7 +413,7 @@ template <typename Type,
           int BlockSize,
           typename Lambda,
           typename... Vecs>
-__global__ void __launch_bounds__(BlockSize)
+_RAFT_KERNEL void __launch_bounds__(BlockSize)
   matrixLinewiseVecRowsSpanKernel(Type* out,
                                   const Type* in,
                                   const IdxType rowLen,
@@ -457,7 +457,7 @@ __global__ void __launch_bounds__(BlockSize)
  * @param [in] vecs pointers to the argument vectors
  */
 template <typename Type, typename IdxType, std::size_t MaxOffset, typename Lambda, typename... Vecs>
-__global__ void __launch_bounds__(MaxOffset, 2)
+_RAFT_KERNEL void __launch_bounds__(MaxOffset, 2)
   matrixLinewiseVecRowsTailKernel(Type* out,
                                   const Type* in,
                                   const IdxType arrOffset,

@@ -87,7 +87,7 @@ DI T atomicMinBits(T* address, T val)
 }
 
 template <typename T, typename E>
-__global__ void decodeKernel(T* globalmin, T* globalmax, int ncols)
+_RAFT_KERNEL void decodeKernel(T* globalmin, T* globalmax, int ncols)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < ncols) {
@@ -98,7 +98,7 @@ __global__ void decodeKernel(T* globalmin, T* globalmax, int ncols)
 
 ///@todo: implement a proper "fill" kernel
 template <typename T, typename E>
-__global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
+_RAFT_KERNEL void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
@@ -107,18 +107,18 @@ __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_v
 }
 
 template <typename T, typename E>
-__global__ void minmaxKernel(const T* data,
-                             const unsigned int* rowids,
-                             const unsigned int* colids,
-                             int nrows,
-                             int ncols,
-                             int row_stride,
-                             T* g_min,
-                             T* g_max,
-                             T* sampledcols,
-                             T init_min_val,
-                             int batch_ncols,
-                             int num_batches)
+_RAFT_KERNEL void minmaxKernel(const T* data,
+                               const unsigned int* rowids,
+                               const unsigned int* colids,
+                               int nrows,
+                               int ncols,
+                               int row_stride,
+                               T* g_min,
+                               T* g_max,
+                               T* sampledcols,
+                               T init_min_val,
+                               int batch_ncols,
+                               int num_batches)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   extern __shared__ char shmem[];

@@ -155,9 +155,9 @@ void build_dendrogram_host(raft::resources const& handle,
 }
 
 template <typename value_idx>
-__global__ void write_levels_kernel(const value_idx* children,
-                                    value_idx* parents,
-                                    value_idx n_vertices)
+_RAFT_KERNEL void write_levels_kernel(const value_idx* children,
+                                      value_idx* parents,
+                                      value_idx n_vertices)
 {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid < n_vertices) {
@@ -179,12 +179,12 @@ __global__ void write_levels_kernel(const value_idx* children,
  * @param labels
  */
 template <typename value_idx>
-__global__ void inherit_labels(const value_idx* children,
-                               const value_idx* levels,
-                               std::size_t n_leaves,
-                               value_idx* labels,
-                               int cut_level,
-                               value_idx n_vertices)
+_RAFT_KERNEL void inherit_labels(const value_idx* children,
+                                 const value_idx* levels,
+                                 std::size_t n_leaves,
+                                 value_idx* labels,
+                                 int cut_level,
+                                 value_idx n_vertices)
 {
   value_idx tid = blockDim.x * blockIdx.x + threadIdx.x;
 

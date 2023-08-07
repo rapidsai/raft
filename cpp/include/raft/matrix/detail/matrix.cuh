@@ -169,7 +169,7 @@ void printHost(const m_t* in, idx_t n_rows, idx_t n_cols)
  * (1-based)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void slice(
+_RAFT_KERNEL void slice(
   const m_t* src_d, idx_t lda, m_t* dst_d, idx_t x1, idx_t y1, idx_t x2, idx_t y2)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -211,7 +211,7 @@ void sliceMatrix(const m_t* in,
  * @param k: min(n_rows, n_cols)
  */
 template <typename m_t, typename idx_t = int>
-__global__ void getUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
+_RAFT_KERNEL void getUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   idx_t m = n_rows, n = n_cols;
@@ -239,7 +239,7 @@ void copyUpperTriangular(const m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, c
  * @param k: dimensionality
  */
 template <typename m_t, typename idx_t = int>
-__global__ void copyVectorToMatrixDiagonal(const m_t* vec, m_t* matrix, idx_t lda, idx_t k)
+_RAFT_KERNEL void copyVectorToMatrixDiagonal(const m_t* vec, m_t* matrix, idx_t lda, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -254,7 +254,7 @@ __global__ void copyVectorToMatrixDiagonal(const m_t* vec, m_t* matrix, idx_t ld
  * @param k: dimensionality
  */
 template <typename m_t, typename idx_t = int>
-__global__ void copyVectorFromMatrixDiagonal(m_t* vec, const m_t* matrix, idx_t lda, idx_t k)
+_RAFT_KERNEL void copyVectorFromMatrixDiagonal(m_t* vec, const m_t* matrix, idx_t lda, idx_t k)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -290,7 +290,7 @@ void getDiagonalMatrix(
  * @param len: size of one side of the matrix
  */
 template <typename m_t, typename idx_t = int>
-__global__ void matrixDiagonalInverse(m_t* in, idx_t len)
+_RAFT_KERNEL void matrixDiagonalInverse(m_t* in, idx_t len)
 {
   idx_t idx = threadIdx.x + blockDim.x * blockIdx.x;
   if (idx < len) { in[idx + idx * len] = 1.0 / in[idx + idx * len]; }

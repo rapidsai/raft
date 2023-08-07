@@ -31,7 +31,7 @@ template <typename Policy,
           typename DataT,
           typename OutT,
           typename FinOpT>
-__global__ __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
+_RAFT_KERNEL __launch_bounds__(Policy::Nthreads, 2) void pairwise_matrix_kernel(
   OpT distance_op, pairwise_matrix_params<IdxT, DataT, OutT, FinOpT> params)
 {
   // Early exit to minimize the size of the kernel when it is not supposed to be compiled.

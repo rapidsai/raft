@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner, C
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void gmemHistKernel(
+_RAFT_KERNEL void gmemHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
@@ -109,7 +109,7 @@ void gmemHist(int* bins,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, bool UseMatchAny>
-__global__ void smemHistKernel(
+_RAFT_KERNEL void smemHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
@@ -204,7 +204,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId)
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS, int VecLen>
-__global__ void smemBitsHistKernel(
+_RAFT_KERNEL void smemBitsHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
@@ -287,13 +287,13 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col)
 
 ///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void smemHashHistKernel(int* bins,
-                                   const DataT* data,
-                                   IdxT nrows,
-                                   IdxT nbins,
-                                   BinnerOp binner,
-                                   int hashSize,
-                                   int threshold)
+_RAFT_KERNEL void smemHashHistKernel(int* bins,
+                                     const DataT* data,
+                                     IdxT nrows,
+                                     IdxT nbins,
+                                     BinnerOp binner,
+                                     int hashSize,
+                                     int threshold)
 {
   extern __shared__ int2 ht[];
   int* needFlush = (int*)&(ht[hashSize]);

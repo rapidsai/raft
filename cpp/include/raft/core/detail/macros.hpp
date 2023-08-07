@@ -52,6 +52,14 @@
 #define RAFT_DEVICE_INLINE_FUNCTION _RAFT_DEVICE _RAFT_FORCEINLINE
 #endif
 
+#if defined(_RAFT_HAS_CUDA)
+#define _RAFT_KERNEL static __global__
+#else
+#define _RAFT_KERNEL
+#endif
+
+#define _RAFT_FUNC
+
 // The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
 // the inline specification when RAFT_COMPILED is defined.
 //

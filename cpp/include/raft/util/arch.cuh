@@ -64,7 +64,7 @@ using SM_future = detail::SM_generic<99999>;
 
 // This is a type that uses the __CUDA_ARCH__ macro to obtain the compile-time
 // compute architecture. It can only be used where __CUDA_ARCH__ is defined,
-// i.e., inside a __global__ function template.
+// i.e., inside a _RAFT_KERNEL function template.
 struct SM_compute_arch {
   template <int dummy = 0>
   __device__ constexpr int value() const
@@ -82,7 +82,7 @@ struct SM_compute_arch {
     // template parameter as described in P2593:
     // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2593r0.html
     static_assert(dummy != 0,
-                  "SM_compute_arch.value() is only callable from a __global__ function template. "
+                  "SM_compute_arch.value() is only callable from a _RAFT_KERNEL function template. "
                   "A way to create a function template is by adding 'template <int dummy = 0>'.");
     return -1;
 #endif
