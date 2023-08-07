@@ -248,7 +248,7 @@ struct device_resources_manager {
   std::vector<resource_components> per_device_components_;
 
   // Return a lock for accessing shared data
-  [[nodiscard]] auto get_lock() const { return std::unique_lock(manager_mutex_); }
+  [[nodiscard]] auto get_lock() const { return std::unique_lock{manager_mutex_}; }
 
   // Retrieve the underlying resources to be shared across the
   // application for the indicated device. This method acquires a lock the
