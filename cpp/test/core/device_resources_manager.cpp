@@ -36,12 +36,6 @@ auto get_test_device_ids()
   return devices;
 }
 
-auto get_test_lock()
-{
-  static auto mtx = std::mutex{};
-  return std::unique_lock{mtx};
-}
-
 TEST(DeviceResourcesManager, ObeysSetters)
 {
   auto devices = get_test_device_ids();
