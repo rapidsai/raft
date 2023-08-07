@@ -48,7 +48,7 @@ python scripts/ann-benchmarks/plot.py --result_csv out.csv
 ```
 
 ### End-to-end example: Billion-scale
-`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.html#billion-scale) 
+`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python scripts mentioned below work as intended once the
 billion-scale dataset has been downloaded.
