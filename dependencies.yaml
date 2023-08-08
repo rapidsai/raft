@@ -110,7 +110,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cmake_ver cmake>=3.26.4
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - ninja
           - scikit-build>=0.13.1
       - output_types: [conda]
