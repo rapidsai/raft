@@ -43,10 +43,12 @@ TEST(DeviceResourcesManager, ObeysSetters)
   auto streams_per_device = 3;
   auto pools_per_device   = 3;
   auto streams_per_pool   = 7;
+  auto workspace_limit    = 2048;
+  auto workspace_init     = 1024;
   device_resources_manager::set_streams_per_device(streams_per_device);
   device_resources_manager::set_stream_pools_per_device(pools_per_device, streams_per_pool);
   device_resources_manager::set_mem_pool();
-  device_resources_manager::set_workspace_allocation_limit(2048);
+  device_resources_manager::set_workspace_allocation_limit(workspace_limit);
 
   auto unique_streams = std::array<std::set<cudaStream_t>, 2>{};
   auto unique_pools   = std::array<std::set<rmm::cuda_stream_pool const*>, 2>{};
@@ -57,13 +59,38 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
   // Provide lock for counting unique objects
   auto mtx = std::mutex{};
+  auto workspace_mrs =
+    std::array<std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>, 2>{
+      nullptr, nullptr};
+  auto alternate_workspace_mrs =
+    std::array<std::shared_ptr<rmm::mr::cuda_memory_resource>, 2>{nullptr, nullptr};
+  auto upstream_mrs = std::array<rmm::mr::cuda_memory_resource*, 2>{
+    dynamic_cast<rmm::mr::cuda_memory_resource*>(
+      rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[0]})),
+    dynamic_cast<rmm::mr::cuda_memory_resource*>(
+      rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[1]}))};
+  device_resources_manager::set_workspace_memory_resource(workspace_mrs[0], devices[0]);
+  device_resources_manager::set_workspace_memory_resource(workspace_mrs[1], devices[1]);
+
+  for (auto i = std::size_t{}; i < devices.size(); ++i) {
+    auto scoped_device = device_setter{devices[i]};
+    if (upstream_mrs[i] == nullptr) {
+      RAFT_LOG_WARN(
+        "RMM memory resource already set. Tests for device_resources_manger will be incomplete.");
+    } else {
+      workspace_mrs[i] =
+        std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(
+          upstream_mrs[i], workspace_init, workspace_limit);
+      alternate_workspace_mrs[i] = std::make_shared<rmm::mr::cuda_memory_resource>();
+    }
+  }
 
   omp_set_dynamic(0);
 #pragma omp parallel for num_threads(5)
   for (auto i = std::size_t{}; i < 101; ++i) {
     thread_local auto prev_streams = std::array<std::optional<cudaStream_t>, 2>{};
     auto device                    = devices[i % devices.size()];
-    auto res                       = device_resources_manager::get_device_resources(device);
+    auto const& res                = device_resources_manager::get_device_resources(device);
 
     auto primary_stream  = res.get_stream().value();
     prev_streams[device] = prev_streams[device].value_or(primary_stream);
@@ -73,7 +100,7 @@ TEST(DeviceResourcesManager, ObeysSetters)
     // Using RAII device setter here to avoid changing device in other tests
     // that depend on a specific device to be set
     auto scoped_device = device_setter{device};
-    auto res2          = device_resources_manager::get_device_resources();
+    auto const& res2   = device_resources_manager::get_device_resources();
     // Expect device_resources to default to current device
     EXPECT_EQ(primary_stream, res2.get_stream().value());
 
@@ -82,9 +109,16 @@ TEST(DeviceResourcesManager, ObeysSetters)
 
     auto* mr = dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
       rmm::mr::get_current_device_resource());
-    // Expect that the current memory resource is a pool memory resource as
-    // requested
-    EXPECT_NE(mr, nullptr);
+    auto* workspace_mr =
+      dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
+        res.get_workspace_resource());
+    if (upstream_mrs[i % devices.size()] != nullptr) {
+      // Expect that the current memory resource is a pool memory resource as requested
+      EXPECT_NE(mr, nullptr);
+      // Expect that the workspace memory resource is a pool memory
+      // resource as requested
+      EXPECT_NE(workspace_mr, nullptr);
+    }
 
     {
       auto lock = std::unique_lock{mtx};
@@ -96,6 +130,8 @@ TEST(DeviceResourcesManager, ObeysSetters)
     device_resources_manager::set_stream_pools_per_device(pools_per_device - 1);
     device_resources_manager::set_mem_pool();
     device_resources_manager::set_workspace_allocation_limit(1024);
+    device_resources_manager::set_workspace_memory_resource(
+      alternate_workspace_mrs[i % devices.size()], devices[i % devices.size()]);
   }
 
   EXPECT_EQ(streams_per_device, unique_streams[devices[0]].size());

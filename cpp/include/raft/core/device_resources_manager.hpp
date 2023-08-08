@@ -122,6 +122,12 @@ struct device_resources_manager {
     thrust::optional<std::size_t> max_mem_pool_size{std::size_t{}};
     // Limit on workspace memory for the returned device_resources object
     std::optional<std::size_t> workspace_allocation_limit{std::nullopt};
+    // Optional specification of separate workspace memory resources for each
+    // device. The integer in each pair indicates the device for this memory
+    // resource.
+    std::vector<std::pair<std::shared_ptr<rmm::mr::device_memory_resource>, int>> workspace_mrs{};
+
+    auto get_workspace_memory_resource(int device_id) {}
   } params_;
 
   // This struct stores the underlying resources to be shared among
@@ -173,6 +179,14 @@ struct device_resources_manager {
             }
           }
           return result;
+        }()},
+        workspace_mr_{[&params, this]() {
+          auto result = std::shared_ptr<rmm::mr::device_memory_resource>{nullptr};
+          auto iter   = std::find_if(std::begin(params.workspace_mrs),
+                                   std::end(params.workspace_mrs),
+                                   [this](auto&& pair) { return pair.second == device_id_; });
+          if (iter != std::end(params.workspace_mrs)) { result = iter->first; }
+          return result;
         }()}
     {
     }
@@ -217,12 +231,17 @@ struct device_resources_manager {
     {
       return workspace_allocation_limit_;
     }
+    // Return a (possibly null) shared_ptr to the memory resource that will
+    // be used for workspace allocations by `device_resources` returned from
+    // this manager
+    [[nodiscard]] auto get_workspace_memory_resource() { return workspace_mr_; }
 
    private:
     int device_id_;
     std::unique_ptr<rmm::cuda_stream_pool> streams_;
     std::vector<std::shared_ptr<rmm::cuda_stream_pool>> pools_;
     std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>> pool_mr_;
+    std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr_;
     std::optional<std::size_t> workspace_allocation_limit_{std::nullopt};
   };
 
@@ -235,6 +254,12 @@ struct device_resources_manager {
   // Container for underlying device resources to be re-used across host
   // threads for each device
   std::vector<resource_components> per_device_components_;
+  // Container for device_resources objects shared among threads. The index
+  // of the outer vector is the thread id of the thread requesting resources
+  // modulo the total number of resources managed by this object. The inner
+  // vector contains all resources associated with that id across devices
+  // in any order.
+  std::vector<std::vector<raft::device_resources>> resources_{};
 
   // Return a lock for accessing shared data
   [[nodiscard]] auto get_lock() const { return std::unique_lock{manager_mutex_}; }
@@ -244,7 +269,7 @@ struct device_resources_manager {
   // first time it is called in each thread for a specific device to ensure that the
   // underlying resources have been correctly initialized exactly once across
   // all host threads.
-  auto const& get_device_components(int device_id)
+  auto const& get_device_resources_(int device_id)
   {
     // Each thread maintains an independent list of devices it has
     // accessed. If it has not marked a device as initialized, it
@@ -253,7 +278,7 @@ struct device_resources_manager {
     // some thread has actually generated the corresponding device
     // components
     thread_local auto initialized_devices = std::vector<int>{};
-    auto iter                             = std::end(per_device_components_);
+    auto res_iter                         = decltype(std::end(resources_[0])){};
     if (std::find(std::begin(initialized_devices), std::end(initialized_devices), device_id) ==
         std::end(initialized_devices)) {
       // Only lock if we have not previously accessed this device on this
@@ -264,25 +289,54 @@ struct device_resources_manager {
       // resource parameters.
       params_finalized_ = true;
 
-      iter = std::find_if(
-        std::begin(per_device_components_),
-        std::end(per_device_components_),
-        [device_id](auto&& components) { return components.get_device_id() == device_id; });
-      if (iter == per_device_components_.end()) {
-        per_device_components_.emplace_back(device_id, params_);
-        iter = std::prev(std::end(per_device_components_));
+      if (resources_.empty()) {
+        // We will potentially need as many device_resources objects as there are combinations of
+        // streams and pools on a given device.
+        resources_.resize(std::max(params_.stream_count.value_or(1), std::size_t{1}) *
+                          std::max(params_.pool_count, std::size_t{1}));
+      }
+
+      auto res_idx = get_thread_id() % resources_.size();
+      // Check to see if we have constructed device_resources for the
+      // requested device at the index assigned to this thread
+      res_iter = std::find_if(std::begin(resources_[res_idx]),
+                              std::end(resources_[res_idx]),
+                              [device_id](auto&& res) { return res.get_device() == device_id; });
+
+      if (res_iter == std::end(resources_[res_idx])) {
+        // Even if we have not yet built device_resources for the current
+        // device, we may have already built the underlying components, since
+        // multiple device_resources may point to the same components.
+        auto component_iter = std::find_if(
+          std::begin(per_device_components_),
+          std::end(per_device_components_),
+          [device_id](auto&& components) { return components.get_device_id() == device_id; });
+        if (component_iter == std::end(per_device_components_)) {
+          // Build components for this device if we have not yet done so on
+          // another thread
+          per_device_components_.emplace_back(device_id, params_);
+          component_iter = std::prev(std::end(per_device_components_));
+        }
+        auto scoped_device = device_setter(device_id);
+        // Build the device_resources object for this thread out of shared
+        // components
+        resources_[res_idx].emplace_back(component_iter->get_stream(),
+                                         component_iter->get_pool(),
+                                         component_iter->get_workspace_memory_resource(),
+                                         component_iter->get_workspace_allocation_limit());
+        res_iter = std::prev(std::end(resources_[res_idx]));
       }
     } else {
+      auto res_idx = get_thread_id() % resources_.size();
       // If we have previously accessed this device on this thread, we do not
-      // need to lock. We know that this thread already initialized the device
-      // if no other thread had already done so, so we simply retrieve the
-      // components for this device.
-      iter = std::find_if(
-        std::begin(per_device_components_),
-        std::end(per_device_components_),
-        [device_id](auto&& components) { return components.get_device_id() == device_id; });
+      // need to lock. We know that this thread already initialized the
+      // resources it requires for this device if no other thread had already done so, so we simply
+      // retrieve the previously-generated resources.
+      res_iter = std::find_if(std::begin(resources_[res_idx]),
+                              std::end(resources_[res_idx]),
+                              [device_id](auto&& res) { return res.get_device() == device_id; });
     }
-    return *iter;
+    return *res_iter;
   }
 
   // Thread-safe setter for the number of streams
@@ -359,6 +413,27 @@ struct device_resources_manager {
     }
   }
 
+  // Thread-safe setter for workspace memory resources
+  void set_workspace_memory_resource_(std::shared_ptr<rmm::mr::device_memory_resource> mr,
+                                      int device_id)
+  {
+    auto lock = get_lock();
+    if (params_finalized_) {
+      RAFT_LOG_WARN(
+        "Attempted to set device_resources_manager properties after resources have already been "
+        "retrieved");
+    } else {
+      auto iter = std::find_if(std::begin(params_.workspace_mrs),
+                               std::end(params_.workspace_mrs),
+                               [device_id](auto&& pair) { return pair.second == device_id; });
+      if (iter != std::end(params_.workspace_mrs)) {
+        iter->first = mr;
+      } else {
+        params_.workspace_mrs.emplace_back(mr, device_id);
+      }
+    }
+  }
+
   // Retrieve the instance of this singleton
   static auto& get_manager()
   {
@@ -376,7 +451,8 @@ struct device_resources_manager {
    * used to provide all `device_resources` in an application, then
    * `raft::get_device_resources().sync_stream()` and (if a stream pool is used)
    * raft::get_device_resources().sync_stream_pool() are guaranteed to synchronize all
-   * work previously submitted to the device by this host thread.
+   * work previously submitted to the device by this host thread using
+   * device_resources retrieved from this manager.
    *
    * If the max memory pool size set with `set_max_mem_pool_size` is non-zero,
    * the first call of this method will also create a memory pool to be used
@@ -387,15 +463,9 @@ struct device_resources_manager {
    * @param workspace_mr If provided, a separate memory resource to be used
    * for allocating temporary workspaces in RAFT calls.
    */
-  static auto get_device_resources(int device_id = device_setter::get_current_device(),
-                                   std::shared_ptr<rmm::mr::device_memory_resource> workspace_mr = {
-                                     nullptr})
+  static auto get_device_resources(int device_id = device_setter::get_current_device())
   {
-    auto const& components = get_manager().get_device_components(device_id);
-    return device_resources{components.get_stream(),
-                            components.get_pool(),
-                            workspace_mr ? workspace_mr : components.get_pool_memory_resource(),
-                            components.get_workspace_allocation_limit()};
+    return get_manager().get_device_resources_(device_id);
   }
 
   /**
@@ -515,6 +585,25 @@ struct device_resources_manager {
   {
     set_init_mem_pool_size(init_mem);
     set_max_mem_pool_size(max_mem);
+  }
+
+  /**
+   * @brief Set the workspace memory resource to be used on a specific device
+   *
+   * RAFT device_resources objects can be built with a separate memory
+   * resource for allocating temporary workspaces. If a (non-nullptr) memory
+   * resource is provided by this setter, it will be used as the
+   * workspace memory resource for all `device_resources` returned for the
+   * indicated device.
+   *
+   * If called after the first call to
+   * `raft::device_resources_manager::get_device_resources`, no change will be made,
+   * and a warning will be emitted.
+   */
+  static void set_workspace_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
+                                            int device_id = device_setter::get_current_device())
+  {
+    get_manager().set_workspace_memory_resource_(mr, device_id);
   }
 };
 }  // namespace raft
