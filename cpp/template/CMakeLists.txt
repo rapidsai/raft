@@ -28,11 +28,13 @@ rapids_cuda_init_architectures(test_raft)
 
 project(test_raft LANGUAGES CXX CUDA)
 
+find_package(OpenMP)
+
 # ------------- configure raft -----------------#
 
 rapids_cpm_init()
 include(cmake/thirdparty/get_raft.cmake)
 
 # -------------- compile tasks ----------------- #
-add_executable(TEST_RAFT src/test_distance.cu)
-target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled)
+add_executable(TEST_RAFT src/test_vector_search.cu)
+target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled OpenMP_CXX)
