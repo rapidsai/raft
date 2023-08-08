@@ -294,3 +294,13 @@ def test_save_load(dtype):
 
     assert np.all(neighbors == neighbors2)
     assert np.allclose(dist, dist2, rtol=1e-6)
+
+
+@pytest.mark.parametrize("dtype", ["float32", "int8", "uint8"])
+def test_repr(dtype):
+    n_rows, n_cols = 10000, 16
+    dataset = generate_data((n_rows, n_cols), dtype)
+    index = cagra.build(cagra.IndexParams(), dataset)
+
+    assert dtype in repr(index)
+    assert dtype in str(index)

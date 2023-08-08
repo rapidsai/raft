@@ -160,11 +160,9 @@ cdef class IndexFloat(Index):
             deref(handle_))
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
-        attr_str = [attr + "=" + str(getattr(self, attr))
-                    for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
-        return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
+        metric = _get_metric_string(self.index.metric())
+        return f"Index(type=CAGRA, metric={metric}, dim={self.dim}, " \
+            f"graph_degree={self.graph_degree}, dtype=float32)"
 
     @property
     def metric(self):
@@ -200,11 +198,9 @@ cdef class IndexInt8(Index):
             deref(handle_))
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
-        attr_str = [attr + "=" + str(getattr(self, attr))
-                    for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
-        return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
+        metric = _get_metric_string(self.index.metric())
+        return f"Index(type=CAGRA, metric={metric}, dim={self.dim}, " \
+            f"graph_degree={self.graph_degree}, dtype=int8)"
 
     @property
     def metric(self):
@@ -240,11 +236,9 @@ cdef class IndexUint8(Index):
             deref(handle_))
 
     def __repr__(self):
-        m_str = "metric=" + _get_metric_string(self.index.metric())
-        attr_str = [attr + "=" + str(getattr(self, attr))
-                    for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
-        return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
+        metric = _get_metric_string(self.index.metric())
+        return f"Index(type=CAGRA, metric={metric}, dim={self.dim}, " \
+            f"graph_degree={self.graph_degree}, dtype=uint8)"
 
     @property
     def metric(self):
