@@ -159,7 +159,7 @@ cdef class IndexFloat(Index):
         m_str = "metric=" + _get_metric_string(self.index.metric())
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
+        attr_str = [m_str] + attr_str
         return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
 
     @property
@@ -199,7 +199,7 @@ cdef class IndexInt8(Index):
         m_str = "metric=" + _get_metric_string(self.index.metric())
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
+        attr_str = [m_str] + attr_str
         return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
 
     @property
@@ -239,7 +239,7 @@ cdef class IndexUint8(Index):
         m_str = "metric=" + _get_metric_string(self.index.metric())
         attr_str = [attr + "=" + str(getattr(self, attr))
                     for attr in ["metric", "dim", "graph_degree"]]
-        attr_str = m_str + attr_str
+        attr_str = [m_str] + attr_str
         return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
 
     @property
@@ -720,9 +720,8 @@ def save(filename, Index index, handle=None):
     >>> # Build index
     >>> handle = DeviceResources()
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
-    >>> # Serialize and deserialize the cagra index built
+    >>> # Serialize the cagra index built
     >>> cagra.save("my_index.bin", index, handle=handle)
-    >>> saved_index = cagra.load("my_index.bin")
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
