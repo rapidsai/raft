@@ -217,17 +217,6 @@ struct device_resources_manager {
     {
       return workspace_allocation_limit_;
     }
-    void synchronize() const
-    {
-      for (auto i = std::size_t{}; i < stream_count(); ++i) {
-        interruptible::synchronize(streams_->get_stream(i));
-      }
-      for (auto i = std::size_t{}; i < pool_count(); ++i) {
-        for (auto j = std::size_t{}; j < pools_[i]->get_pool_size(); ++j) {
-          interruptible::synchronize(pools_[i]->get_stream(j));
-        }
-      }
-    }
 
    private:
     int device_id_;
@@ -526,55 +515,6 @@ struct device_resources_manager {
   {
     set_init_mem_pool_size(init_mem);
     set_max_mem_pool_size(max_mem);
-  }
-
-  /**
-   * @brief Ensure that all device work previously submitted by this thread
-   * is complete before continuing host execution
-   *
-   * Note that this method *only* guarantees synchronization of work
-   * submitted using the `device_resources` provided by
-   * `raft::device_resources_manager::get_device_resources`. If `device_resources` are
-   * created independent of the resource manager, work submitted using those
-   * resources will not be synchronized.
-   */
-  static void synchronize_work_from_this_thread(int device_id = device_setter::get_current_device())
-  {
-    auto scoped_device = device_setter{device_id};
-    auto res           = get_device_resources();
-    res.sync_stream();
-    if (res.is_stream_pool_initialized()) { res.sync_stream_pool(); }
-  }
-
-  /**
-   * @brief Ensure that all device work previously submitted by any host thread
-   * is complete before continuing host execution
-   *
-   * Note that this method *only* guarantees synchronization of work
-   * submitted using the `device_resources` provided by
-   * `raft::device_resources_manager::get_device_resources`. If `device_resources` are
-   * created independent of the resource manager, work submitted using those
-   * resources will not be synchronized.
-   *
-   * While similar in spirit to a `cudaDeviceSynchronize` call, this method
-   * does not necessarily synchronize the entire device. Instead it synchronizes all streams for
-   * this device managed by the resource manager. If the resource manager
-   * was not configured to allocate streams from a limited pool, device
-   * synchronization must be used. The advantage of this is that if some other
-   * library is in use which manages its own streams, work submitted by that
-   * library will not necessarily be synchronized. If synchronization of
-   * *all* device work is required, `cudaDeviceSynchronize` should be
-   * invoked directly.
-   */
-  static void synchronize_work_from_all_threads(int device_id = device_setter::get_current_device())
-  {
-    auto scoped_device     = device_setter{device_id};
-    auto const& components = get_manager().get_device_components(device_id);
-    if (components.stream_count() == 0) {
-      RAFT_CUDA_TRY(cudaDeviceSynchronize());
-    } else {
-      components.synchronize();
-    }
   }
 };
 }  // namespace raft
