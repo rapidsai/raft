@@ -237,6 +237,13 @@ set_target_properties(
              INSTALL_RPATH "\$ORIGIN"
 )
 
+# Disable NVTX when the nvtx3 headers are missing
+set(_CMAKE_REQUIRED_INCLUDES_ORIG ${CMAKE_REQUIRED_INCLUDES})
+get_target_property(CMAKE_REQUIRED_INCLUDES ANN_BENCH INCLUDE_DIRECTORIES)
+CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
+set(CMAKE_REQUIRED_INCLUDES ${_CMAKE_REQUIRED_INCLUDES_ORIG})
+target_compile_definitions(ANN_BENCH PRIVATE $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>)
+
 target_link_options(ANN_BENCH PRIVATE -export-dynamic)
 
 install(

@@ -18,7 +18,9 @@
 #include "ann_types.hpp"
 
 #include "cuda_stub.hpp"
+#ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
 #include <nvtx3/nvToolsExt.h>
+#endif
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -164,6 +166,7 @@ inline auto cuda_info()
 }
 
 struct nvtx_case {
+#ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
  private:
   std::string case_name_;
   std::array<char, 32> iter_name_{0};
@@ -171,9 +174,11 @@ struct nvtx_case {
   int64_t iteration_ = 0;
   nvtxEventAttributes_t case_attrib_{0};
   nvtxEventAttributes_t iter_attrib_{0};
+#endif
 
  public:
   struct nvtx_lap {
+#ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
    private:
     nvtxDomainHandle_t domain_;
 
@@ -184,8 +189,10 @@ struct nvtx_case {
     }
     nvtx_lap() = delete;
     ~nvtx_lap() noexcept { nvtxDomainRangePop(domain_); }
+#endif
   };
 
+#ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
   explicit nvtx_case(std::string case_name)
     : case_name_(std::move(case_name)), domain_(nvtxDomainCreateA("ANN benchmark"))
   {
@@ -208,9 +215,13 @@ struct nvtx_case {
     nvtxDomainRangePop(domain_);
     nvtxDomainDestroy(domain_);
   }
+#else
+  explicit nvtx_case(std::string) {}
+#endif
 
   [[nodiscard]] auto lap() -> nvtx_case::nvtx_lap
   {
+#ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
     auto i     = iteration_++;
     uint32_t c = (i % 5);
     uint32_t r = 150 + c * 20;
@@ -220,6 +231,9 @@ struct nvtx_case {
     iter_attrib_.message.ascii = iter_name_.data();
     iter_attrib_.color         = (r << 16) + (g << 8) + b;
     return nvtx_lap{domain_, &iter_attrib_};
+#else
+    return nvtx_lap{};
+#endif
   }
 };
 
