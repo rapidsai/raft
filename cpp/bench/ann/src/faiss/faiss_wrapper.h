@@ -16,6 +16,10 @@
 #ifndef FAISS_WRAPPER_H_
 #define FAISS_WRAPPER_H_
 
+#include "../common/ann_types.hpp"
+
+#include <raft/util/cudart_utils.hpp>
+
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
@@ -34,10 +38,6 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "../common/benchmark_util.hpp"
-#include <raft/util/cudart_utils.hpp>
 
 namespace {
 
@@ -102,9 +102,8 @@ class FaissGpu : public ANN<T> {
   {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
-    property.dataset_memory_type      = MemoryType::Host;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = false;
+    property.dataset_memory_type = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 

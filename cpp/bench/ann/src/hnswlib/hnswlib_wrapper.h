@@ -191,9 +191,8 @@ class HnswLib : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Host;
-    property.query_memory_type        = MemoryType::Host;
-    property.need_dataset_when_search = false;
+    property.dataset_memory_type = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Host;
     return property;
   }
 
