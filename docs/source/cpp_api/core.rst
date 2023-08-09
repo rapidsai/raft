@@ -20,3 +20,4 @@ expose in public APIs.
    core_nvtx.rst
    core_interruptible.rst
    core_operators.rst
+   core_math.rst

@@ -22,6 +22,11 @@
 
 namespace raft {
 
+/**
+ * \defgroup csr_matrix CSR Matrix
+ * @{
+ */
+
 template <typename IndptrType, typename IndicesType, typename NZType, int is_device>
 class compressed_structure_t : public sparse_structure<IndptrType, IndicesType, NZType, is_device> {
  public:
@@ -301,4 +306,7 @@ class csr_matrix
     }
   }
 };
+
+/** @} */
+
 }  // namespace raft
