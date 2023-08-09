@@ -125,7 +125,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     // Determine the thread block size
     //
     constexpr unsigned min_block_size = 64;
-    constexpr unsigned max_block_size = 1024;
+    constexpr unsigned max_block_size = 512;
     uint32_t block_size               = thread_block_size;
     if (block_size == 0) {
       block_size = min_block_size;
