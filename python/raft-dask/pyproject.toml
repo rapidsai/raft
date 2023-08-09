@@ -34,7 +34,7 @@ authors = [
 license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
-    "dask-cuda==23.8.*",
+    "dask-cuda==23.10.*",
     "dask==2023.7.1",
     "distributed==2023.7.1",
     "joblib>=0.11",
