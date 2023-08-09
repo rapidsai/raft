@@ -318,7 +318,7 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
           $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
           $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
           $CMAKE_TARGET == *"MATRIX_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_TEST" || \
+          $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
           $CMAKE_TARGET == *"NEIGHBORS_ANN_CAGRA_TEST"* || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling compiled lib for gtests"
