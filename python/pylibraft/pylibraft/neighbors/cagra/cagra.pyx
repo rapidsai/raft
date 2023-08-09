@@ -720,8 +720,9 @@ def save(filename, Index index, handle=None):
     >>> # Build index
     >>> handle = DeviceResources()
     >>> index = cagra.build(cagra.IndexParams(), dataset, handle=handle)
-    >>> # Serialize the cagra index built
+    >>> # Serialize and deserialize the cagra index built
     >>> cagra.save("my_index.bin", index, handle=handle)
+    >>> index_loaded = cagra.load("my_index.bin", handle=handle)
     """
     if not index.trained:
         raise ValueError("Index need to be built before saving it.")
@@ -788,7 +789,8 @@ def load(filename, handle=None):
     with open(filename, 'rb') as f:
         type_str = f.read(700).decode("utf-8", errors='ignore')
 
-    dataset_dt = np.dtype(type_str[673:676])
+    # Read description of the 6th element to get the datatype
+    dataset_dt = np.dtype(type_str.split('descr')[6][5:7])
 
     if dataset_dt == np.float32:
         idx_float = IndexFloat(handle)
