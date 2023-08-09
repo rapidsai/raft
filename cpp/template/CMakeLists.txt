@@ -37,4 +37,4 @@ include(cmake/thirdparty/get_raft.cmake)
 
 # -------------- compile tasks ----------------- #
 add_executable(TEST_RAFT src/test_vector_search.cu)
-target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled OpenMP_CXX)
+target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled)
