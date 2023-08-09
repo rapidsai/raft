@@ -22,7 +22,7 @@
 #include "utils.hpp"
 #include <type_traits>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace device {
 
 // using LOAD_256BIT_T = ulonglong4;
@@ -56,6 +56,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
+  const std::size_t dataset_ld,
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
@@ -93,7 +94,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         for (uint32_t e = 0; e < nelem; e++) {
           const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen;
           if (k >= dataset_dim) break;
-          dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_dim * seed_index)))[0];
+          dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_ld * seed_index)))[0];
         }
 #pragma unroll
         for (uint32_t e = 0; e < nelem; e++) {
@@ -146,6 +147,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   // [dataset_dim, dataset_size]
                                                   const DATA_T* const dataset_ptr,
                                                   const std::size_t dataset_dim,
+                                                  const std::size_t dataset_ld,
                                                   // [knn_k, dataset_size]
                                                   const INDEX_T* const knn_graph,
                                                   const std::uint32_t knn_k,
@@ -153,13 +155,13 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   INDEX_T* const visited_hashmap_ptr,
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
-                                                  const std::uint32_t num_parents)
+                                                  const std::uint32_t search_width)
 {
   const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
 
   // Read child indices of parents from knn graph and check if the distance
   // computaiton is necessary.
-  for (uint32_t i = threadIdx.x; i < knn_k * num_parents; i += BLOCK_SIZE) {
+  for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += BLOCK_SIZE) {
     const INDEX_T parent_id = parent_indices[i / knn_k];
     INDEX_T child_id        = invalid_index;
     if (parent_id != invalid_index) {
@@ -201,10 +203,10 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
   __syncthreads();
 
   // Compute the distance to child nodes
-  std::uint32_t max_i = knn_k * num_parents;
+  std::uint32_t max_i = knn_k * search_width;
   if (max_i % (32 / TEAM_SIZE)) { max_i += (32 / TEAM_SIZE) - (max_i % (32 / TEAM_SIZE)); }
   for (std::uint32_t i = threadIdx.x / TEAM_SIZE; i < max_i; i += BLOCK_SIZE / TEAM_SIZE) {
-    const bool valid_i = (i < (knn_k * num_parents));
+    const bool valid_i = (i < (knn_k * search_width));
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
@@ -215,7 +217,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
       for (unsigned e = 0; e < nelem; e++) {
         const unsigned k = (lane_id + (TEAM_SIZE * e)) * vlen;
         if (k >= dataset_dim) break;
-        dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_dim * child_id)))[0];
+        dl_buff[e].load = ((LOAD_T*)(dataset_ptr + k + (dataset_ld * child_id)))[0];
       }
 #pragma unroll
       for (unsigned e = 0; e < nelem; e++) {
@@ -252,4 +254,4 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
 }
 
 }  // namespace device
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

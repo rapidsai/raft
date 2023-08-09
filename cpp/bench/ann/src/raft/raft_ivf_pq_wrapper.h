@@ -73,11 +73,13 @@ class RaftIvfPQ : public ANN<T> {
     AlgoProperty property;
     property.dataset_memory_type      = MemoryType::Host;
     property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;  // actually it is only used during refinement
+    property.need_dataset_when_search = refine_ratio_ > 1.0;
     return property;
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+
+  ~RaftIvfPQ() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
  private:
   raft::device_resources handle_;
@@ -98,6 +100,7 @@ RaftIvfPQ<T, IdxT>::RaftIvfPQ(Metric metric, int dim, const BuildParam& param, f
     refine_ratio_(refine_ratio),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
+  rmm::mr::set_current_device_resource(&mr_);
   index_params_.metric = parse_metric_type(metric);
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
 }

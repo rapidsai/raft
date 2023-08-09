@@ -19,8 +19,8 @@
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/matrix/detail/select_warpsort.cuh>  // matrix::detail::select::warpsort::warp_sort_distributed
 #include <raft/neighbors/detail/ivf_pq_dummy_block_sort.cuh>  // dummy_block_sort_t
-#include <raft/neighbors/detail/sample_filter.cuh>            // NoneSampleFilter
 #include <raft/neighbors/ivf_pq_types.hpp>                    // codebook_gen
+#include <raft/neighbors/sample_filter_types.hpp>             // none_ivf_sample_filter
 #include <raft/util/cuda_rt_essentials.hpp>                   // RAFT_CUDA_TRY
 #include <raft/util/device_atomics.cuh>                       // raft::atomicMin
 #include <raft/util/pow2_utils.cuh>                           // raft::Pow2
@@ -195,7 +195,6 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   Setting this to `false` allows to reduce the shared memory usage (and maximum data dim)
  *   at the cost of reducing global memory reading throughput.
  *
- * @param n_rows the number of records in the dataset
  * @param dim the dimensionality of the data (NB: after rotation transform, i.e. `index.rot_dim()`).
  * @param n_probes the number of clusters to search for each query
  * @param pq_dim
@@ -229,7 +228,7 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  *   query_kths keep the current state of the filtering - atomically updated distances to the
  *   k-th closest neighbors for each query [n_queries].
  * @param sample_filter
- *   A filter that selects samples for a given query. Use an instance of NoneSampleFilter to
+ *   A filter that selects samples for a given query. Use an instance of none_ivf_sample_filter to
  *   provide a green light for every sample.
  * @param lut_scores
  *   The device pointer for storing the lookup table globally [gridDim.x, pq_dim << PqBits].
@@ -246,13 +245,12 @@ __device__ auto ivfpq_compute_score(uint32_t pq_dim,
  */
 template <typename OutT,
           typename LutT,
-          typename SampleFilterT,
+          typename IvfSampleFilterT,
           uint32_t PqBits,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-__global__ void compute_similarity_kernel(uint32_t n_rows,
-                                          uint32_t dim,
+__global__ void compute_similarity_kernel(uint32_t dim,
                                           uint32_t n_probes,
                                           uint32_t pq_dim,
                                           uint32_t n_queries,
@@ -269,7 +267,7 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
                                           const float* queries,
                                           const uint32_t* index_list,
                                           float* query_kths,
-                                          SampleFilterT sample_filter,
+                                          IvfSampleFilterT sample_filter,
                                           LutT* lut_scores,
                                           OutT* _out_scores,
                                           uint32_t* _out_indices)
@@ -327,14 +325,15 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
     uint32_t* out_indices = nullptr;
     if constexpr (kManageLocalTopK) {
       // Store topk calculated distances to out_scores (and its indices to out_indices)
-      out_scores  = _out_scores + topk * (probe_ix + (n_probes * query_ix));
-      out_indices = _out_indices + topk * (probe_ix + (n_probes * query_ix));
+      const uint64_t out_offset = probe_ix + n_probes * query_ix;
+      out_scores                = _out_scores + out_offset * topk;
+      out_indices               = _out_indices + out_offset * topk;
     } else {
       // Store all calculated distances to out_scores
-      out_scores = _out_scores + max_samples * query_ix;
+      out_scores = _out_scores + uint64_t(max_samples) * query_ix;
     }
     uint32_t label              = cluster_labels[n_probes * query_ix + probe_ix];
-    const float* cluster_center = cluster_centers + (dim * label);
+    const float* cluster_center = cluster_centers + dim * label;
     const float* pq_center;
     if (codebook_kind == codebook_gen::PER_SUBSPACE) {
       pq_center = pq_centers;
@@ -493,27 +492,29 @@ __global__ void compute_similarity_kernel(uint32_t n_rows,
 }
 
 // The signature of the kernel defined by a minimal set of template parameters
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 using compute_similarity_kernel_t =
-  decltype(&compute_similarity_kernel<OutT, LutT, SampleFilterT, 8, 0, true, true>);
+  decltype(&compute_similarity_kernel<OutT, LutT, IvfSampleFilterT, 8, 0, true, true>);
 
 // The config struct lifts the runtime parameters to the template parameters
 template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename SampleFilterT = NoneSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 struct compute_similarity_kernel_config {
  public:
   static auto get(uint32_t pq_bits, uint32_t k_max)
-    -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+    -> compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT>
   {
     return kernel_choose_bits(pq_bits, k_max);
   }
 
  private:
   static auto kernel_choose_bits(uint32_t pq_bits, uint32_t k_max)
-    -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+    -> compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT>
   {
     switch (pq_bits) {
       case 4: return kernel_try_capacity<4, kMaxCapacity>(k_max);
@@ -527,7 +528,7 @@ struct compute_similarity_kernel_config {
 
   template <uint32_t PqBits, int Capacity>
   static auto kernel_try_capacity(uint32_t k_max)
-    -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+    -> compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT>
   {
     if constexpr (Capacity > 0) {
       if (k_max == 0 || k_max > Capacity) { return kernel_try_capacity<PqBits, 0>(k_max); }
@@ -537,7 +538,7 @@ struct compute_similarity_kernel_config {
     }
     return compute_similarity_kernel<OutT,
                                      LutT,
-                                     SampleFilterT,
+                                     IvfSampleFilterT,
                                      PqBits,
                                      Capacity,
                                      PrecompBaseDiff,
@@ -552,19 +553,19 @@ template <typename OutT,
           typename LutT,
           bool PrecompBaseDiff,
           bool EnableSMemLut,
-          typename SampleFilterT = NoneSampleFilter>
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 auto get_compute_similarity_kernel(uint32_t pq_bits, uint32_t k_max)
-  -> compute_similarity_kernel_t<OutT, LutT, SampleFilterT>
+  -> compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT>
 {
   return compute_similarity_kernel_config<OutT,
                                           LutT,
                                           PrecompBaseDiff,
                                           EnableSMemLut,
-                                          SampleFilterT>::get(pq_bits, k_max);
+                                          IvfSampleFilterT>::get(pq_bits, k_max);
 }
 
 /** Estimate the occupancy for the given kernel on the given device. */
-template <typename OutT, typename LutT, typename SampleFilterT>
+template <typename OutT, typename LutT, typename IvfSampleFilterT>
 struct occupancy_t {
   using shmem_unit = Pow2<128>;
 
@@ -575,7 +576,7 @@ struct occupancy_t {
   inline occupancy_t() = default;
   inline occupancy_t(size_t smem,
                      uint32_t n_threads,
-                     compute_similarity_kernel_t<OutT, LutT, SampleFilterT> kernel,
+                     compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT> kernel,
                      const cudaDeviceProp& dev_props)
   {
     RAFT_CUDA_TRY(
@@ -586,19 +587,20 @@ struct occupancy_t {
   }
 };
 
-template <typename OutT, typename LutT, typename SampleFilterT>
+template <typename OutT, typename LutT, typename IvfSampleFilterT>
 struct selected {
-  compute_similarity_kernel_t<OutT, LutT, SampleFilterT> kernel;
+  compute_similarity_kernel_t<OutT, LutT, IvfSampleFilterT> kernel;
   dim3 grid_dim;
   dim3 block_dim;
   size_t smem_size;
   size_t device_lut_size;
 };
 
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
-void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
+template <typename OutT,
+          typename LutT,
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
+void compute_similarity_run(selected<OutT, LutT, IvfSampleFilterT> s,
                             rmm::cuda_stream_view stream,
-                            uint32_t n_rows,
                             uint32_t dim,
                             uint32_t n_probes,
                             uint32_t pq_dim,
@@ -616,13 +618,12 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
                             const float* queries,
                             const uint32_t* index_list,
                             float* query_kths,
-                            SampleFilterT sample_filter,
+                            IvfSampleFilterT sample_filter,
                             LutT* lut_scores,
                             OutT* _out_scores,
                             uint32_t* _out_indices)
 {
-  s.kernel<<<s.grid_dim, s.block_dim, s.smem_size, stream>>>(n_rows,
-                                                             dim,
+  s.kernel<<<s.grid_dim, s.block_dim, s.smem_size, stream>>>(dim,
                                                              n_probes,
                                                              pq_dim,
                                                              n_queries,
@@ -660,7 +661,9 @@ void compute_similarity_run(selected<OutT, LutT, SampleFilterT> s,
  *    beyond this limit do not consider increasing the number of active blocks per SM
  *    would improve locality anymore.
  */
-template <typename OutT, typename LutT, typename SampleFilterT = NoneSampleFilter>
+template <typename OutT,
+          typename LutT,
+          typename IvfSampleFilterT = raft::neighbors::filtering::none_ivf_sample_filter>
 auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                bool manage_local_topk,
                                int locality_hint,
@@ -670,7 +673,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
                                uint32_t precomp_data_count,
                                uint32_t n_queries,
                                uint32_t n_probes,
-                               uint32_t topk) -> selected<OutT, LutT, SampleFilterT>
+                               uint32_t topk) -> selected<OutT, LutT, IvfSampleFilterT>
 {
   // Shared memory for storing the lookup table
   size_t lut_mem = sizeof(LutT) * (pq_dim << pq_bits);
@@ -742,9 +745,9 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
    the minimum number of blocks (just one, really). Then, we tweak the `n_threads` to further
    optimize occupancy and data locality for the L1 cache.
    */
-  auto conf_fast        = get_compute_similarity_kernel<OutT, LutT, true, true, SampleFilterT>;
-  auto conf_no_basediff = get_compute_similarity_kernel<OutT, LutT, false, true, SampleFilterT>;
-  auto conf_no_smem_lut = get_compute_similarity_kernel<OutT, LutT, true, false, SampleFilterT>;
+  auto conf_fast        = get_compute_similarity_kernel<OutT, LutT, true, true, IvfSampleFilterT>;
+  auto conf_no_basediff = get_compute_similarity_kernel<OutT, LutT, false, true, IvfSampleFilterT>;
+  auto conf_no_smem_lut = get_compute_similarity_kernel<OutT, LutT, true, false, IvfSampleFilterT>;
   auto topk_or_zero     = manage_local_topk ? topk : 0u;
   std::array candidates{std::make_tuple(conf_fast(pq_bits, topk_or_zero), lut_mem + bdf_mem, true),
                         std::make_tuple(conf_no_basediff(pq_bits, topk_or_zero), lut_mem, true),
@@ -753,8 +756,8 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
   // we may allow slightly lower than 100% occupancy;
   constexpr double kTargetOccupancy = 0.75;
   // This struct is used to select the better candidate
-  occupancy_t<OutT, LutT, SampleFilterT> selected_perf{};
-  selected<OutT, LutT, SampleFilterT> selected_config;
+  occupancy_t<OutT, LutT, IvfSampleFilterT> selected_perf{};
+  selected<OutT, LutT, IvfSampleFilterT> selected_config;
   for (auto [kernel, smem_size_const, lut_is_in_shmem] : candidates) {
     if (smem_size_const > dev_props.sharedMemPerBlockOptin) {
       // Even a single block cannot fit into an SM due to shmem requirements. Skip the candidate.
@@ -790,7 +793,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
       continue;
     }
 
-    occupancy_t<OutT, LutT, SampleFilterT> cur(smem_size, n_threads, kernel, dev_props);
+    occupancy_t<OutT, LutT, IvfSampleFilterT> cur(smem_size, n_threads, kernel, dev_props);
     if (cur.blocks_per_sm <= 0) {
       // For some reason, we still cannot make this kernel run. Skip the candidate.
       continue;
@@ -805,7 +808,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
       if (n_threads_tmp < n_threads) {
         while (n_threads_tmp >= n_threads_min) {
           auto smem_size_tmp = max(smem_size_const, ltk_mem(n_threads_tmp));
-          occupancy_t<OutT, LutT, SampleFilterT> tmp(
+          occupancy_t<OutT, LutT, IvfSampleFilterT> tmp(
             smem_size_tmp, n_threads_tmp, kernel, dev_props);
           bool select_it = false;
           if (lut_is_in_shmem && locality_hint >= tmp.blocks_per_sm) {

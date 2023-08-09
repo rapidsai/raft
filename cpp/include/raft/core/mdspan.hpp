@@ -270,6 +270,13 @@ auto reshape(mdspan_type mds, extents<IndexType, Extents...> new_shape)
                                                                         new_shape);
 }
 
+/* @} */
+
+/**
+ * @defgroup mdspan_unravel Unravel mdspan
+ * @{
+ */
+
 /**
  * \brief Turns linear index into coordinate.  Similar to numpy unravel_index.
  *
@@ -303,9 +310,7 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
   }
 }
 
-/**
- * @}
- */
+/** @} */
 
 /**
  * @brief Const accessor specialization for default_accessor
@@ -338,6 +343,11 @@ accessor_of_const(host_device_accessor<std::experimental::default_accessor<Eleme
 }
 
 /**
+ * @defgroup mdspan_make_const Convert an mdspan to a const type
+ * @{
+ */
+
+/**
  * @brief Create a copy of the given mdspan with const element type
  *
  * @tparam ElementType the const-qualified data type of the mdspan elements
@@ -354,5 +364,7 @@ auto make_const_mdspan(mdspan<ElementType, Extents, Layout, Accessor> mds)
   return mdspan<std::add_const_t<ElementType>, Extents, Layout, decltype(acc_c)>{
     mds.data_handle(), mds.mapping(), acc_c};
 }
+
+/** @} */
 
 }  // namespace raft

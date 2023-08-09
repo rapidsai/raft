@@ -22,6 +22,33 @@
 
 namespace raft {
 
+/**
+ * \defgroup host_coo_matrix Host COO Matrix
+ * @{
+ */
+
+/**
+ * Specialization for a sparsity-preserving coordinate structure view which uses host memory
+ */
+template <typename RowType, typename ColType, typename NZType>
+using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, false>;
+
+/**
+ * Specialization for a sparsity-owning coordinate structure which uses host memory
+ */
+template <typename RowType,
+          typename ColType,
+          typename NZType,
+          template <typename T> typename ContainerPolicy = host_vector_policy>
+using host_coordinate_structure =
+  coordinate_structure<RowType, ColType, NZType, false, ContainerPolicy>;
+
+/**
+ * Specialization for a coo matrix view which uses host memory
+ */
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+using host_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, false>;
+
 template <typename ElementType,
           typename RowType,
           typename ColType,
@@ -30,12 +57,6 @@ template <typename ElementType,
           SparsityType sparsity_type                     = SparsityType::OWNING>
 using host_coo_matrix =
   coo_matrix<ElementType, RowType, ColType, NZType, false, ContainerPolicy, sparsity_type>;
-
-/**
- * Specialization for a coo matrix view which uses host memory
- */
-template <typename ElementType, typename RowType, typename ColType, typename NZType>
-using host_coo_matrix_view = coo_matrix_view<ElementType, RowType, ColType, NZType, false>;
 
 /**
  * Specialization for a sparsity-owning coo matrix which uses host memory
@@ -61,21 +82,15 @@ using host_sparsity_preserving_coo_matrix = coo_matrix<ElementType,
                                                        ContainerPolicy,
                                                        SparsityType::PRESERVING>;
 
-/**
- * Specialization for a sparsity-owning coordinate structure which uses host memory
- */
-template <typename RowType,
-          typename ColType,
-          typename NZType,
-          template <typename T> typename ContainerPolicy = host_vector_policy>
-using host_coordinate_structure =
-  coordinate_structure<RowType, ColType, NZType, false, ContainerPolicy>;
+template <typename T>
+struct is_host_coo_matrix_view : std::false_type {};
 
-/**
- * Specialization for a sparsity-preserving coordinate structure view which uses host memory
- */
-template <typename RowType, typename ColType, typename NZType>
-using host_coordinate_structure_view = coordinate_structure_view<RowType, ColType, NZType, false>;
+template <typename ElementType, typename RowType, typename ColType, typename NZType>
+struct is_host_coo_matrix_view<host_coo_matrix_view<ElementType, RowType, ColType, NZType>>
+  : std::true_type {};
+
+template <typename T>
+constexpr bool is_host_coo_matrix_view_v = is_host_coo_matrix_view<T>::value;
 
 template <typename T>
 struct is_host_coo_matrix : std::false_type {};
@@ -375,5 +390,7 @@ auto make_host_coordinate_structure_view(raft::host_span<RowType> rows,
 {
   return host_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }
+
+/** @} */
 
 };  // namespace raft

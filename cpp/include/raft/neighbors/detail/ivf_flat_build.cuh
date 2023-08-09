@@ -26,6 +26,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/ivf_flat_codepacker.hpp>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/neighbors/ivf_list_types.hpp>
@@ -416,4 +417,77 @@ inline void fill_refinement_index(raft::resources const& handle,
                                          refinement_index->veclen());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
+
+template <typename T>
+__global__ void pack_interleaved_list_kernel(
+  const T* codes,
+  T* list_data,
+  uint32_t n_rows,
+  uint32_t dim,
+  uint32_t veclen,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  uint32_t tid          = blockIdx.x * blockDim.x + threadIdx.x;
+  const uint32_t dst_ix = std::holds_alternative<uint32_t>(offset_or_indices)
+                            ? std::get<uint32_t>(offset_or_indices) + tid
+                            : std::get<const uint32_t*>(offset_or_indices)[tid];
+  if (tid < n_rows) { codepacker::pack_1(codes + tid * dim, list_data, dim, veclen, dst_ix); }
+}
+
+template <typename T>
+__global__ void unpack_interleaved_list_kernel(
+  const T* list_data,
+  T* codes,
+  uint32_t n_rows,
+  uint32_t dim,
+  uint32_t veclen,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  uint32_t tid          = blockIdx.x * blockDim.x + threadIdx.x;
+  const uint32_t src_ix = std::holds_alternative<uint32_t>(offset_or_indices)
+                            ? std::get<uint32_t>(offset_or_indices) + tid
+                            : std::get<const uint32_t*>(offset_or_indices)[tid];
+  if (tid < n_rows) { codepacker::unpack_1(list_data, codes + tid * dim, dim, veclen, src_ix); }
+}
+
+template <typename T, typename IdxT>
+void pack_list_data(
+  raft::resources const& res,
+  device_matrix_view<const T, uint32_t, row_major> codes,
+  uint32_t veclen,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  device_mdspan<T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major> list_data)
+{
+  uint32_t n_rows = codes.extent(0);
+  uint32_t dim    = codes.extent(1);
+  if (n_rows == 0 || dim == 0) return;
+  static constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto stream = resource::get_cuda_stream(res);
+  pack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
+    codes.data_handle(), list_data.data_handle(), n_rows, dim, veclen, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename T, typename IdxT>
+void unpack_list_data(
+  raft::resources const& res,
+  device_mdspan<const T, typename list_spec<uint32_t, T, IdxT>::list_extents, row_major> list_data,
+  uint32_t veclen,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  device_matrix_view<T, uint32_t, row_major> codes)
+{
+  uint32_t n_rows = codes.extent(0);
+  uint32_t dim    = codes.extent(1);
+  if (n_rows == 0 || dim == 0) return;
+  static constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto stream = resource::get_cuda_stream(res);
+  unpack_interleaved_list_kernel<<<blocks, threads, 0, stream>>>(
+    list_data.data_handle(), codes.data_handle(), n_rows, dim, veclen, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
 }  // namespace raft::neighbors::ivf_flat::detail

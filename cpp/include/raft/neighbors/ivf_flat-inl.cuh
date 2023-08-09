@@ -357,6 +357,69 @@ void extend(raft::resources const& handle,
  *     rmm::mr::get_current_device_resource(), 1024 * 1024);
  *   // use default search parameters
  *   ivf_flat::search_params search_params;
+ *   filtering::none_ivf_sample_filter filter;
+ *   // Use the same allocator across multiple searches to reduce the number of
+ *   // cuda memory allocations
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr, filter);
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries2, N2, K, out_inds2, out_dists2, &mr, filter);
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries3, N3, K, out_inds3, out_dists3, &mr, filter);
+ *   ...
+ * @endcode
+ * The exact size of the temporary buffer depends on multiple factors and is an implementation
+ * detail. However, you can safely specify a small initial size for the memory pool, so that only a
+ * few allocations happen to grow it during the first invocations of the `search`.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] index ivf-flat constructed index
+ * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
+ * @param[in] n_queries the batch size
+ * @param[in] k the number of neighbors to find for each query.
+ * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
+ * @param[in] mr an optional memory resource to use across the searches (you can provide a large
+ * enough memory pool here to avoid memory allocations within search).
+ * @param[in] sample_filter a filter the greenlights samples for a given query
+ */
+template <typename T, typename IdxT, typename IvfSampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<T, IdxT>& index,
+                           const T* queries,
+                           uint32_t n_queries,
+                           uint32_t k,
+                           IdxT* neighbors,
+                           float* distances,
+                           rmm::mr::device_memory_resource* mr = nullptr,
+                           IvfSampleFilterT sample_filter      = IvfSampleFilterT())
+{
+  raft::neighbors::ivf_flat::detail::search(
+    handle, params, index, queries, n_queries, k, neighbors, distances, mr, sample_filter);
+}
+
+/**
+ * @brief Search ANN using the constructed index using the given filter.
+ *
+ * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
+ *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`:
+ * @code{.cpp}
+ *   ...
+ *   // Create a pooling memory resource with a pre-defined initial size.
+ *   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr(
+ *     rmm::mr::get_current_device_resource(), 1024 * 1024);
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
  *   // Use the same allocator across multiple searches to reduce the number of
  *   // cuda memory allocations
  *   ivf_flat::search(handle, search_params, index, queries1, N1, K, out_inds1, out_dists1, &mr);
@@ -394,14 +457,90 @@ void search(raft::resources const& handle,
             float* distances,
             rmm::mr::device_memory_resource* mr = nullptr)
 {
-  return raft::neighbors::ivf_flat::detail::search(
-    handle, params, index, queries, n_queries, k, neighbors, distances, mr);
+  raft::neighbors::ivf_flat::detail::search(handle,
+                                            params,
+                                            index,
+                                            queries,
+                                            n_queries,
+                                            k,
+                                            neighbors,
+                                            distances,
+                                            mr,
+                                            raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
 /**
  * @ingroup ivf_flat
  * @{
  */
+
+/**
+ * @brief Search ANN using the constructed index using the given filter.
+ *
+ * See the [ivf_flat::build](#ivf_flat::build) documentation for a usage example.
+ *
+ * Note, this function requires a temporary buffer to store intermediate results between cuda kernel
+ * calls, which may lead to undesirable allocations and slowdown. To alleviate the problem, you can
+ * pass a pool memory resource or a large enough pre-allocated memory resource to reduce or
+ * eliminate entirely allocations happening within `search`:
+ * @code{.cpp}
+ *   ...
+ *   // use default search parameters
+ *   ivf_flat::search_params search_params;
+ *   filtering::none_ivf_sample_filter filter;
+ *   // Use the same allocator across multiple searches to reduce the number of
+ *   // cuda memory allocations
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries1, out_inds1, out_dists1, filter);
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries2, out_inds2, out_dists2, filter);
+ *   ivf_flat::search_with_filtering(
+ *     handle, search_params, index, queries3, out_inds3, out_dists3, filter);
+ *   ...
+ * @endcode
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ *
+ * @param[in] handle
+ * @param[in] params configure the search
+ * @param[in] index ivf-flat constructed index
+ * @param[in] queries a device pointer to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
+ * @param[in] sample_filter a filter the greenlights samples for a given query
+ */
+template <typename T, typename IdxT, typename IvfSampleFilterT>
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<T, IdxT>& index,
+                           raft::device_matrix_view<const T, IdxT, row_major> queries,
+                           raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
+                           raft::device_matrix_view<float, IdxT, row_major> distances,
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT())
+{
+  RAFT_EXPECTS(
+    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
+    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
+
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must be equal");
+
+  RAFT_EXPECTS(queries.extent(1) == index.dim(),
+               "Number of query dimensions should equal number of dimensions in the index.");
+
+  search_with_filtering(handle,
+                        params,
+                        index,
+                        queries.data_handle(),
+                        static_cast<std::uint32_t>(queries.extent(0)),
+                        static_cast<std::uint32_t>(neighbors.extent(1)),
+                        neighbors.data_handle(),
+                        distances.data_handle(),
+                        resource::get_workspace_resource(handle),
+                        sample_filter);
+}
 
 /**
  * @brief Search ANN using the constructed index.
@@ -443,25 +582,13 @@ void search(raft::resources const& handle,
             raft::device_matrix_view<IdxT, IdxT, row_major> neighbors,
             raft::device_matrix_view<float, IdxT, row_major> distances)
 {
-  RAFT_EXPECTS(
-    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
-    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
-
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
-               "Number of columns in output neighbors and distances matrices must be equal");
-
-  RAFT_EXPECTS(queries.extent(1) == index.dim(),
-               "Number of query dimensions should equal number of dimensions in the index.");
-
-  return search(handle,
-                params,
-                index,
-                queries.data_handle(),
-                static_cast<std::uint32_t>(queries.extent(0)),
-                static_cast<std::uint32_t>(neighbors.extent(1)),
-                neighbors.data_handle(),
-                distances.data_handle(),
-                nullptr);
+  search_with_filtering(handle,
+                        params,
+                        index,
+                        queries,
+                        neighbors,
+                        distances,
+                        raft::neighbors::filtering::none_ivf_sample_filter());
 }
 
 /** @} */

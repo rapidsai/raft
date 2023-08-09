@@ -203,7 +203,7 @@ void sliceMatrix(m_t* in,
                  idx_t y2,
                  cudaStream_t stream)
 {
-  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, stream);
+  detail::sliceMatrix(in, n_rows, n_cols, out, x1, y1, x2, y2, false, stream);
 }
 
 /**
@@ -221,9 +221,9 @@ void copyUpperTriangular(m_t* src, m_t* dst, idx_t n_rows, idx_t n_cols, cudaStr
 }
 
 /**
- * @brief Initialize a diagonal matrix with a vector
+ * @brief Initialize a diagonal col-major matrix with a vector
  * @param vec: vector of length k = min(n_rows, n_cols)
- * @param matrix: matrix of size n_rows x n_cols
+ * @param matrix: matrix of size n_rows x n_cols (col-major)
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
  * @param stream: cuda stream
@@ -232,7 +232,7 @@ template <typename m_t, typename idx_t = int>
 void initializeDiagonalMatrix(
   m_t* vec, m_t* matrix, idx_t n_rows, idx_t n_cols, cudaStream_t stream)
 {
-  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, stream);
+  detail::initializeDiagonalMatrix(vec, matrix, n_rows, n_cols, false, stream);
 }
 
 /**

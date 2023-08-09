@@ -1,14 +1,31 @@
-RAPIDS RAFT: Reusable Accelerated Functions and Tools
-=====================================================
+RAPIDS RAFT: Reusable Accelerated Functions and Tools for Vector Search and More
+================================================================================
 
-RAFT contains fundamental widely-used algorithms and primitives for scientific computing, data science and machine learning. The algorithms are CUDA-accelerated and form building-blocks for rapidly composing analytics.
+.. image:: ../../img/raft-tech-stack-vss.png
+  :width: 800
+  :alt: RAFT Tech Stack
+
+Resources
+#########
+
+.. _raft_reference: https://docs.rapids.ai/api/raft/stable/
+
+- `Example Notebooks <https://github.com/rapidsai/raft/tree/HEAD/notebooks>`_: Example jupyer notebooks
+- `RAPIDS Community <https://rapids.ai/community.html>`_: Get help, contribute, and collaborate.
+- `GitHub repository <https://github.com/rapidsai/raft>`_: Download the RAFT source code.
+- `Issue tracker <https://github.com/rapidsai/raft/issues>`_: Report issues or request features.
+
+
+Overview
+########
+
+RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
 By taking a primitives-based approach to algorithm development, RAFT
 
 - accelerates algorithm construction time
 - reduces the maintenance burden by maximizing reuse across projects, and
 - centralizes core reusable computations, allowing future optimizations to benefit all algorithms that use them.
-
 
 While not exhaustive, the following general categories help summarize the accelerated building blocks that RAFT contains:
 
@@ -25,7 +42,7 @@ While not exhaustive, the following general categories help summarize the accele
    * - Sparse Operations
      - linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling
    * - Spatial
-     - pairwise distances, nearest neighbors, neighborhood graph construction
+     - pairwise distances, nearest neighbors and vector search, neighborhood graph construction
    * - Basic Clustering
      - spectral clustering, hierarchical clustering, k-means
    * - Solvers
@@ -36,18 +53,18 @@ While not exhaustive, the following general categories help summarize the accele
      - common utilities for developing CUDA applications, multi-node multi-gpu infrastructure
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
    quick_start.md
    build.md
-   developer_guide.md
    cpp_api.rst
    pylibraft_api.rst
-   cuda_ann_benchmarks.md
+   using_libraft.md
+   raft_ann_benchmarks.md
    raft_dask_api.rst
    using_comms.rst
-   using_libraft.md
+   developer_guide.md
    contributing.md
 
 

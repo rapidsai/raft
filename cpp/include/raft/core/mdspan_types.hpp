@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,18 +24,13 @@ using std::experimental::dynamic_extent;
 using std::experimental::extents;
 
 /**
- * @defgroup C-Contiguous layout for mdarray and mdspan. Implies row-major and contiguous memory.
+ * @defgroup mdspan_layout C- and F-contiguous mdspan layouts
  * @{
  */
 using std::experimental::layout_right;
 using layout_c_contiguous = layout_right;
 using row_major           = layout_right;
-/** @} */
 
-/**
- * @defgroup F-Contiguous layout for mdarray and mdspan. Implies column-major and contiguous memory.
- * @{
- */
 using std::experimental::layout_left;
 using layout_f_contiguous = layout_left;
 using col_major           = layout_left;
