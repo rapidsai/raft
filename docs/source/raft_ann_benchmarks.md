@@ -182,6 +182,10 @@ options:
 All algorithms present in the CSV file supplied to this script with parameter `result_csv`
 will appear in the plot.
 
+The figure below is the resulting plot of running our benchmarks as of August 2023 for a batch size of 10, on an NVIDIA H100 GPU and an Intel Xeon Platinum 8480CL CPU. It presents the throughput (in Queries-Per-Second) performance for every level of recall.
+
+![Throughput vs recall plot comparing popular ANN algorithms with RAFT's at batch size 10](../../img/raft-vector-search-batch-10.png)
+
 ## Adding a new ANN algorithm
 ### Implementation and Configuration
 Implementation of a new algorithm should be a C++ class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
