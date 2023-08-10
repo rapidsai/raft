@@ -48,7 +48,7 @@ python scripts/ann-benchmarks/plot.py --result_csv out.csv
 ```
 
 ### End-to-end example: Billion-scale
-`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.html#billion-scale) 
+`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python scripts mentioned below work as intended once the
 billion-scale dataset has been downloaded.
@@ -181,6 +181,10 @@ options:
 
 All algorithms present in the CSV file supplied to this script with parameter `result_csv`
 will appear in the plot.
+
+The figure below is the resulting plot of running our benchmarks as of August 2023 for a batch size of 10, on an NVIDIA H100 GPU and an Intel Xeon Platinum 8480CL CPU. It presents the throughput (in Queries-Per-Second) performance for every level of recall.
+
+![Throughput vs recall plot comparing popular ANN algorithms with RAFT's at batch size 10](../../img/raft-vector-search-batch-10.png)
 
 ## Adding a new ANN algorithm
 ### Implementation and Configuration
