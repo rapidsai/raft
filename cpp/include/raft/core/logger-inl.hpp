@@ -152,4 +152,16 @@ RAFT_INLINE_CONDITIONAL void logger::flush() { pimpl->spdlogger->flush(); }
 
 RAFT_INLINE_CONDITIONAL logger::~logger() {}
 
+struct log_level_setter {
+  explicit log_level_setter(int level)
+  {
+    prev_level_ = logger::get(RAFT_NAME).get_level();
+    logger::get(RAFT_NAME).set_level(level);
+  }
+  ~log_level_setter() { logger::get(RAFT_NAME).set_level(prev_level_); }
+
+ private:
+  int prev_level_;
+};
+
 };  // namespace raft
