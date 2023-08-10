@@ -77,23 +77,25 @@ cusparseDnMatDescr_t create_descriptor(
 /**
  * @brief create a cuSparse sparse descriptor
  * @tparam ValueType Data type of sparse_view (float/double)
+ * @tparam IndptrType Data type of csr_matrix_view index pointers
+ * @tparam IndicesType Data type of csr_matrix_view indices
  * @tparam NZType Type of sparse_view
  * @param[in] sparse_view input raft::device_csr_matrix_view of size M rows x K columns
  * @returns sparse matrix descriptor to be used by cuSparse API
  */
-template <typename ValueType, typename NZType>
+template <typename ValueType, typename IndptrType, typename IndicesType, typename NZType>
 cusparseSpMatDescr_t create_descriptor(
-  raft::device_csr_matrix_view<ValueType, int, int, NZType>& sparse_view)
+  raft::device_csr_matrix_view<ValueType, IndptrType, IndicesType, NZType>& sparse_view)
 {
   cusparseSpMatDescr_t descr;
   auto csr_structure = sparse_view.structure_view();
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(
     &descr,
-    csr_structure.get_n_rows(),
-    csr_structure.get_n_cols(),
-    csr_structure.get_nnz(),
-    const_cast<int*>(csr_structure.get_indptr().data()),
-    const_cast<int*>(csr_structure.get_indices().data()),
+    static_cast<int64_t>(csr_structure.get_n_rows()),
+    static_cast<int64_t>(csr_structure.get_n_cols()),
+    static_cast<int64_t>(csr_structure.get_nnz()),
+    const_cast<IndptrType*>(csr_structure.get_indptr().data()),
+    const_cast<IndicesType*>(csr_structure.get_indices().data()),
     const_cast<std::remove_const_t<ValueType>*>(sparse_view.get_elements().data())));
   return descr;
 }
