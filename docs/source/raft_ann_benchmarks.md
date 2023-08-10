@@ -38,7 +38,7 @@ export RAFT_HOME=$(pwd)
 # All scripts are present in directory raft/scripts/ann-benchmarks
 
 # (1) prepare dataset
-python scripts/ann-benchmarks/get_dataset.py --name glove-100-angular --normalize
+python scripts/ann-benchmarks/get_dataset.py --dataset glove-100-angular --normalize
 
 # (2) build and search index
 python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/glove-100-inner.json
@@ -95,18 +95,18 @@ script. For more information on [datasets and formats](ann_benchmarks_dataset.md
 
 The usage of this script is:
 ```bash
-usage: get_dataset.py [-h] [--name NAME] [--path PATH] [--normalize]
+usage: get_dataset.py [-h] [--name NAME] [--dataset-path DATASET_PATH] [--normalize]
 
 options:
-  -h, --help   show this help message and exit
-  --name NAME  dataset to download (default: glove-100-angular)
-  --path PATH  path to download dataset (default: {os.getcwd()}/data)
-  --normalize  normalize cosine distance to inner product (default: False)
-```
+  -h, --help            show this help message and exit
+  --dataset DATASET     dataset to download (default: glove-100-angular)
+  --dataset-path DATASET_PATH
+                        path to download dataset (default: ${RAFT_HOME}/bench/ann/data)
+  --normalize           normalize cosine distance to inner product (default: False)
 
 When option `normalize` is provided to the script, any dataset that has cosine distances
 will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
-will be written at location `data/glove-100-inner/`.
+will be written at location `${RAFT_HOME}/bench/ann/data/glove-100-inner/`.
 
 #### Step 2: Build and Search Index
 The script `scripts/ann-benchmarks/run.py` will build and search indices for a given dataset and its
@@ -128,10 +128,15 @@ The usage of the script `scripts/run.py` is:
 usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
 
 options:
+usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
+
+options:
   -h, --help            show this help message and exit
   --configuration CONFIGURATION
                         path to configuration file for a dataset (default: None)
   --dataset DATASET     dataset whose configuration file will be used (default: glove-100-inner)
+  --dataset-path DATASET_PATH
+                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
   --build
   --search
   --algorithms ALGORITHMS
@@ -139,9 +144,15 @@ options:
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
   -f, --force           re-run algorithms even if their results already exist (default: False)
 ```
-`configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset,
-and it is optional if the name of the dataset is provided with the `dataset` argument, in which case
+`configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.
+The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
+provided with the `dataset` argument, in which case
 a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset.json>`
+
+`dataset-path` : 
+1. data is read from `<dataset-path>/<dataset>`
+2. indices are built in `<dataset-path>/<dataset>/index`
+3. search results are stored in `<dataset-path>/<dataset>/result`
 
 `build` and `search` : if both parameters are not supplied to the script then
 it is assumed both are `True`.
@@ -156,17 +167,18 @@ will be combined and written to a CSV file.
 
 The usage of this script is:
 ```bash
-usage: data_export.py [-h] --output OUTPUT [--recompute] --groundtruth GROUNDTRUTH <result_filepaths>
+usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH] <result-filepaths>
 
 options:
   -h, --help            show this help message and exit
   --output OUTPUT       Path to the CSV output file (default: None)
   --recompute           Recompute metrics (default: False)
-  --groundtruth GROUNDTRUTH
-                        Path to groundtruth.neighbors.ibin file for a dataset (default: None)
+  --dataset DATASET     Name of the dataset to export results for (default: glove-100-inner)
+  --dataset-path DATASET_PATH
+                        path to dataset folder (default: /home/nfs/dgala/raft/bench/ann/data)
 ```
 
-`result_filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
+`result-filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
 
 #### Step 4: Plot Results
 The script `scripts/ann-benchmarks/plot.py` will plot all results evaluated to a CSV file for a given dataset.
@@ -177,7 +189,7 @@ usage: plot.py [-h] --result_csv RESULT_CSV [--output OUTPUT] [--x-scale X_SCALE
 
 options:
   -h, --help            show this help message and exit
-  --result_csv RESULT_CSV
+  --result-csv RESULT_CSV
                         Path to CSV Results (default: None)
   --output OUTPUT       Path to the PNG output file (default: /home/nfs/dgala/raft/out.png)
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
