@@ -9,7 +9,7 @@ The easiest way to install these benchmarks is through conda. We suggest using m
 mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
 conda activate raft_ann_benchmarks
 
-mamba install -c rapidsai libraft-ann-bench
+mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-ann-bench cudatoolkit=11.8*
 
 git clone https://github.com/rapidsai/raft.git && cd raft
 export RAFT_HOME=$(pwd)
