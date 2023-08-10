@@ -17,7 +17,7 @@ __host__ __device__ void buffer_fill() {
 }
 
 template<typename DType, typename ParamType, int TPB>
-__global__ void demo_rng_kernel(RngState r, DType* buffer, size_t len, ParamType params) {
+__global__ void pcg_device_kernel(RngState r, DType* buffer, size_t len, ParamType params) {
 
   int tid = int(blockIdx.x) * blockDim.x + threadIdx.x;
   int total_threads = int(blockDim.x) * gridDim.x;
@@ -131,6 +131,98 @@ constexpr LaplaceDistParams<double> laplace_params = {
   
 
 }
+
+enum RandomType {
+  RNG_Normal,
+  RNG_LogNormal,
+  RNG_Uniform,
+  RNG_Gumbel,
+  RNG_Logistic,
+  RNG_Exp,
+  RNG_Rayleigh,
+  RNG_Laplace
+};
+
+template <typename T>
+struct RngInputs {
+  size_t len;
+  // Meaning of 'start' and 'end' parameter for various distributions
+  //
+  //         Uniform   Normal/Log-Normal   Gumbel   Logistic   Laplace   Exponential   Rayleigh
+  // start    start          mean           mean     mean       mean       lambda       sigma
+  // end       end           sigma          beta     scale      scale      Unused       Unused
+  T start, end;
+  RandomType type;
+  uint64_t seed;
+};
+
+template <typename T>
+class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
+ public:
+  RRngPcgHostTest()
+    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+      stream(resource::get_cuda_stream(handle)),
+      d_buffer(0, stream)
+  {
+    d_buffer.resize(params.len, stream);
+    h_buffer.resize(params.len);
+  }
+
+ protected:
+  void SetUp() override
+  {
+    RngState r(params.seed, params.gtype);
+    switch (params.type) {
+      case RNG_Normal: printf("running for normal\n"); break;
+      case RNG_LogNormal:
+        printf("running for lognormal\n");
+        break;
+      case RNG_Uniform:
+        printf("running for uniform\n");
+        break;
+      case RNG_Gumbel: printf("Running for gumbel\n"); break;
+      case RNG_Logistic:
+        printf("running for logistic\n");
+        break;
+      case RNG_Exp: printf("running for exponential\n"); break;
+      case RNG_Rayleigh: printf("running for rayleigh\n"); break;
+      case RNG_Laplace:
+        printf("running for laplace\n");
+        break;
+    };
+    /*static const int threads = 128;
+    meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
+      stats.data(), data.data(), params.len);
+    update_host<T>(h_stats, stats.data(), 2, stream);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    h_stats[0] /= params.len;
+    h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));*/
+  }
+
+
+ protected:
+  raft::resources handle;
+  cudaStream_t stream;
+
+  RngInputs<T> params;
+  size_t len;
+  rmm::device_uvector<T> d_buffer;
+  std::vector<T> h_buffer;
+};
+
+const std::vector<RngInputs<float>> inputsf = {
+  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, 1234ULL},
+  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, 1234ULL},
+  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, 1234ULL},
+  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, 1234ULL},
+  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, 1234ULL},
+  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, 1234ULL}};
+
+using RngPcgHostTestF = RngPcgHostTest<double>;
+TEST_P(RngPcgHostTestF, Result) { ASSERT_TRUE(true);}
+INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTest, testing::ValuesIn(inputsf));
 
 } // namespace random
 } // namespace raft
