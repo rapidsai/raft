@@ -22,6 +22,7 @@
 #include <raft/core/device_setter.hpp>
 #include <raft/core/logger.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
+#include <rmm/mr/device/limiting_resource_adaptor.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <set>
@@ -53,24 +54,17 @@ TEST(DeviceResourcesManager, ObeysSetters)
   auto unique_streams = std::array<std::set<cudaStream_t>, 2>{};
   auto unique_pools   = std::array<std::set<rmm::cuda_stream_pool const*>, 2>{};
 
-  // Suppress the many warnings from testing use of setters after initial
-  // get_device_resources call
-  auto scoped_log_level = log_level_setter{RAFT_LEVEL_ERROR};
-
   // Provide lock for counting unique objects
   auto mtx = std::mutex{};
   auto workspace_mrs =
     std::array<std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>, 2>{
       nullptr, nullptr};
-  auto alternate_workspace_mrs =
-    std::array<std::shared_ptr<rmm::mr::cuda_memory_resource>, 2>{nullptr, nullptr};
-  auto upstream_mrs = std::array<rmm::mr::cuda_memory_resource*, 2>{
+  auto alternate_workspace_mrs = std::array<std::shared_ptr<rmm::mr::cuda_memory_resource>, 2>{};
+  auto upstream_mrs            = std::array<rmm::mr::cuda_memory_resource*, 2>{
     dynamic_cast<rmm::mr::cuda_memory_resource*>(
       rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[0]})),
     dynamic_cast<rmm::mr::cuda_memory_resource*>(
       rmm::mr::get_per_device_resource(rmm::cuda_device_id{devices[1]}))};
-  device_resources_manager::set_workspace_memory_resource(workspace_mrs[0], devices[0]);
-  device_resources_manager::set_workspace_memory_resource(workspace_mrs[1], devices[1]);
 
   for (auto i = std::size_t{}; i < devices.size(); ++i) {
     auto scoped_device = device_setter{devices[i]};
@@ -84,6 +78,13 @@ TEST(DeviceResourcesManager, ObeysSetters)
       alternate_workspace_mrs[i] = std::make_shared<rmm::mr::cuda_memory_resource>();
     }
   }
+
+  device_resources_manager::set_workspace_memory_resource(workspace_mrs[0], devices[0]);
+  device_resources_manager::set_workspace_memory_resource(workspace_mrs[1], devices[1]);
+
+  // Suppress the many warnings from testing use of setters after initial
+  // get_device_resources call
+  auto scoped_log_level = log_level_setter{RAFT_LEVEL_ERROR};
 
   omp_set_dynamic(0);
 #pragma omp parallel for num_threads(5)
@@ -111,11 +112,13 @@ TEST(DeviceResourcesManager, ObeysSetters)
       rmm::mr::get_current_device_resource());
     auto* workspace_mr =
       dynamic_cast<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>*>(
-        res.get_workspace_resource());
+        dynamic_cast<rmm::mr::limiting_resource_adaptor<rmm::mr::device_memory_resource>*>(
+          res.get_workspace_resource())
+          ->get_upstream());
     if (upstream_mrs[i % devices.size()] != nullptr) {
       // Expect that the current memory resource is a pool memory resource as requested
       EXPECT_NE(mr, nullptr);
-      // Expect that the workspace memory resource is a pool memory
+      // Expect that the upstream workspace memory resource is a pool memory
       // resource as requested
       EXPECT_NE(workspace_mr, nullptr);
     }

@@ -463,7 +463,7 @@ struct device_resources_manager {
    * @param workspace_mr If provided, a separate memory resource to be used
    * for allocating temporary workspaces in RAFT calls.
    */
-  static auto get_device_resources(int device_id = device_setter::get_current_device())
+  static auto const& get_device_resources(int device_id = device_setter::get_current_device())
   {
     return get_manager().get_device_resources_(device_id);
   }
