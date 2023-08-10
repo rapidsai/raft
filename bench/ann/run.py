@@ -86,7 +86,11 @@ def main():
     parser.add_argument(
         "--configuration",
         help="path to configuration file for a dataset",
-        required=True
+    )
+    parser.add_argument(
+        "--dataset",
+        help="dataset whose configuration file will be used",
+        default="glove-100-inner"
     )
     parser.add_argument(
         "--build",
@@ -121,7 +125,10 @@ def main():
         search = args.search
 
     # Read configuration file associated to dataset
-    conf_filepath = args.configuration
+    if args.configuration:
+        conf_filepath = args.configuration
+    else:
+        conf_filepath = os.path.join(scripts_path, "conf", f"{args.dataset}.json")
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     if not os.path.exists(conf_filepath):

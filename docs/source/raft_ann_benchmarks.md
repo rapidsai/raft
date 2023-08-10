@@ -10,6 +10,9 @@ mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda
 conda activate raft_ann_benchmarks
 
 mamba install -c rapidsai libraft-ann-bench
+
+git clone https://github.com/rapidsai/raft.git && cd raft
+export RAFT_HOME=$(pwd)
 ```
 The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
 
@@ -38,7 +41,7 @@ export RAFT_HOME=$(pwd)
 python scripts/ann-benchmarks/get_dataset.py --name glove-100-angular --normalize
 
 # (2) build and search index
-python scripts/ann-benchmarks/run.py --configuration conf/glove-100-inner.json
+python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/glove-100-inner.json
 
 # (3) evaluate results
 python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/glove-100-inner/groundtruth.neighbors.ibin result/glove-100-inner/
@@ -62,11 +65,11 @@ mkdir -p data/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python scripts/ann-benchmarks/split_groundtruth.py data/deep-1B/deep_new_groundtruth.public.10K.bin
+python scripts/ann-benchmarks/split_groundtruth.py --groundtruth data/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python scripts/ann-benchmarks/run.py --configuration conf/deep-1B.json
+python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/deep-1B.json
 
 # (3) evaluate results
 python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/deep-1B/groundtruth.neighbors.ibin result/deep-1B/
@@ -122,19 +125,23 @@ available in `raft/cpp/build/`.
 
 The usage of the script `scripts/run.py` is:
 ```bash
-usage: run.py [-h] --configuration CONFIGURATION [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [--force]
+usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
 
 options:
   -h, --help            show this help message and exit
   --configuration CONFIGURATION
                         path to configuration file for a dataset (default: None)
+  --dataset DATASET     dataset whose configuration file will be used (default: glove-100-inner)
   --build
   --search
   --algorithms ALGORITHMS
                         run only comma separated list of named algorithms (default: None)
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
-  --force               re-run algorithms even if their results already exist (default: False)
+  -f, --force           re-run algorithms even if their results already exist (default: False)
 ```
+`configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset,
+and it is optional if the name of the dataset is provided with the `dataset` argument, in which case
+a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset.json>`
 
 `build` and `search` : if both parameters are not supplied to the script then
 it is assumed both are `True`.
