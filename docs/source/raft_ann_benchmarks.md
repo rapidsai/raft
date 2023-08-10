@@ -44,10 +44,10 @@ python scripts/ann-benchmarks/get_dataset.py --dataset glove-100-angular --norma
 python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/glove-100-inner.json
 
 # (3) evaluate results
-python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/glove-100-inner/groundtruth.neighbors.ibin result/glove-100-inner/
+python scripts/ann-benchmarks/data_export.py --output out.csv --dataset glove-100-inner result/glove-100-inner/
 
 # (4) plot results
-python scripts/ann-benchmarks/plot.py --result_csv out.csv
+python scripts/ann-benchmarks/plot.py --result-csv out.csv
 ```
 
 ### End-to-end example: Billion-scale
@@ -72,10 +72,10 @@ python scripts/ann-benchmarks/split_groundtruth.py --groundtruth data/deep-1B/de
 python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/deep-1B.json
 
 # (3) evaluate results
-python scripts/ann-benchmarks/data_export.py --output out.csv --groundtruth data/deep-1B/groundtruth.neighbors.ibin result/deep-1B/
+python scripts/ann-benchmarks/data_export.py --output out.csv --dataset deep-1B result/deep-1B/
 
 # (4) plot results
-python scripts/ann-benchmarks/plot.py --result_csv out.csv
+python scripts/ann-benchmarks/plot.py --result-csv out.csv
 ```
 
 The usage of `scripts/ann-benchmarks/split-groundtruth.py` is:
