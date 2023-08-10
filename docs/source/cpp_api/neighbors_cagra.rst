@@ -19,3 +19,13 @@ namespace *raft::neighbors::cagra*
     :content-only:
 
 
+Serializer Methods
+------------------
+``#include <raft/neighbors/cagra_serialize.cuh>``
+
+namespace *raft::neighbors::cagra*
+
+.. doxygengroup:: cagra_serialize
+    :project: RAFT
+    :members:
+    :content-only:
