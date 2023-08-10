@@ -267,6 +267,7 @@ if(BUILD_TESTS)
     test/random/make_blobs.cu
     test/random/make_regression.cu
     test/random/multi_variable_gaussian.cu
+    test/random/rng_pcg_host_api.cu
     test/random/permute.cu
     test/random/rng.cu
     test/random/rng_discrete.cu
