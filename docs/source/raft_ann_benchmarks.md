@@ -175,7 +175,7 @@ options:
   --recompute           Recompute metrics (default: False)
   --dataset DATASET     Name of the dataset to export results for (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: /home/nfs/dgala/raft/bench/ann/data)
+                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
 ```
 
 `result-filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
@@ -191,7 +191,7 @@ options:
   -h, --help            show this help message and exit
   --result-csv RESULT_CSV
                         Path to CSV Results (default: None)
-  --output OUTPUT       Path to the PNG output file (default: /home/nfs/dgala/raft/out.png)
+  --output OUTPUT       Path to the PNG output file (default: ${RAFT_HOME}/out.png)
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
