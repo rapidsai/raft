@@ -170,6 +170,7 @@ dependencies:
           - libfaiss>=1.7.1
           - faiss-proc=*=cuda
           - matplotlib
+          - pyyaml
 
   cudatoolkit:
     specific:

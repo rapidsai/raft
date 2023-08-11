@@ -41,16 +41,24 @@ def main():
                         required=True)
     parser.add_argument("--recompute", action="store_true",
                         help="Recompute metrics")
-    parser.add_argument("--groundtruth",
-                        help="Path to groundtruth.neighbors.ibin file for a dataset",
-                        required=True)
+    parser.add_argument("--dataset",
+                        help="Name of the dataset to export results for",
+                        default="glove-100-inner")
+    parser.add_argument(
+        "--dataset-path",
+        help="path to dataset folder",
+        default=os.path.join(os.getenv("RAFT_HOME"), 
+                             "bench", "ann", "data")
+    )
+    
     args, result_filepaths = parser.parse_known_args()
 
     # if nothing is provided
     if len(result_filepaths) == 0:
         raise ValueError("No filepaths to results were provided")
 
-    groundtruth_filepath = args.groundtruth
+    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset, 
+                                        "groundtruth.neighbors.ibin")
     export_results(args.output, args.recompute, groundtruth_filepath,
                    result_filepaths)
 
