@@ -35,6 +35,7 @@ dependencies:
 - ninja
 - nlohmann_json>=3.11.2
 - nvcc_linux-64=11.8
+- pyyaml
 - scikit-build>=0.13.1
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-118_arch-x86_64

@@ -24,3 +24,14 @@ namespace *raft::neighbors::ivf_pq*
     :project: RAFT
     :members:
     :content-only:
+
+Candidate Refinement
+--------------------
+``#include <raft/neighbors/refine.cuh>``
+
+namespace *raft::neighbors*
+
+.. doxygengroup:: ann_refine
+    :project: RAFT
+    :members:
+    :content-only:

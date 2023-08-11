@@ -1,4 +1,4 @@
-faise_gpu_ivf_flat:
+faiss_gpu_ivf_flat:
   executable: FAISS_IVF_FLAT_ANN_BENCH
   disabled: false
 faiss_gpu_flat:
