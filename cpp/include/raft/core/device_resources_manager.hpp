@@ -62,7 +62,7 @@ namespace raft {
  * void foo_called_from_multiple_threads() {
  *   auto res = raft::device_resources_manager::get_device_resources();
  *   // Call RAFT function using res
- *   raft::device_resources_manager::synchronize_work_from_this_thread();
+ *   res.sync_stream() // Ensure work completes before returning
  * }
  * @endcode
  *
@@ -451,17 +451,14 @@ struct device_resources_manager {
    * used to provide all `device_resources` in an application, then
    * `raft::get_device_resources().sync_stream()` and (if a stream pool is used)
    * raft::get_device_resources().sync_stream_pool() are guaranteed to synchronize all
-   * work previously submitted to the device by this host thread using
-   * device_resources retrieved from this manager.
+   * work previously submitted to the device by this host thread.
    *
    * If the max memory pool size set with `set_max_mem_pool_size` is non-zero,
    * the first call of this method will also create a memory pool to be used
    * for all RMM-based allocations on device.
    *
-   * @param int device_id If provided, the device for which resources should
+   * @param device_id int If provided, the device for which resources should
    * be returned. Defaults to active CUDA device.
-   * @param workspace_mr If provided, a separate memory resource to be used
-   * for allocating temporary workspaces in RAFT calls.
    */
   static auto const& get_device_resources(int device_id = device_setter::get_current_device())
   {
