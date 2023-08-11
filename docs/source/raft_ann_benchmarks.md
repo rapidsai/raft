@@ -147,7 +147,7 @@ options:
 `configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.
 The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
 provided with the `dataset` argument, in which case
-a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset.json>`
+a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`
 
 `dataset-path` : 
 1. data is read from `<dataset-path>/<dataset>`
