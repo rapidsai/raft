@@ -208,7 +208,7 @@ def load_all_results(result_filepath):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--result_csv", help="Path to CSV Results", required=True)
+    parser.add_argument("--result-csv", help="Path to CSV Results", required=True)
     parser.add_argument("--output", help="Path to the PNG output file",
                         default=f"{os.getcwd()}/out.png")
     parser.add_argument(
