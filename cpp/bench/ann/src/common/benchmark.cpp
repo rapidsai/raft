@@ -51,7 +51,20 @@ auto load_lib(const std::string& algo) -> void*
 
   if (found != libs.end()) { return found->second.handle; }
   auto lib_name = "lib" + algo + "_ann_bench.so";
-  return libs.emplace(algo, lib_name).first->second.handle;
+  std::string lib_path = "";
+  if (std::getenv("CONDA_PREFIX") != nullptr) {
+    auto conda_path = std::string(std::getenv("CONDA_PREFIX")) + "/bin" + "/ann/";
+    if (std::filesystem::exists(conda_path + "ANN_BENCH")) {
+      lib_path = conda_path;
+    }
+  }
+  if (std::getenv("RAFT_HOME") != nullptr) {
+    auto build_path = std::string(std::getenv("RAFT_HOME")) + "/cpp" + "/build/";
+    if (std::filesystem::exists(build_path + "ANN_BENCH")) {
+      lib_path = build_path;
+    }
+  }
+  return libs.emplace(algo, lib_path + lib_name).first->second.handle;
 }
 
 auto get_fun_name(void* addr) -> std::string

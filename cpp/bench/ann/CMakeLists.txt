@@ -15,9 +15,10 @@
 # ##################################################################################################
 # * compiler function -----------------------------------------------------------------------------
 
-option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_IVF_SQ "Include faiss' brute-force knn algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
@@ -183,18 +184,26 @@ endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+    NAME FAISS_GPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+    NAME FAISS_GPU_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
-  ConfigureAnnBench(NAME FAISS_BFKNN PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME FAISS_GPU_IVF_SQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
+  ConfigureAnnBench(
+    NAME FAISS_GPU_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
