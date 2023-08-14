@@ -95,7 +95,6 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
     distances :  Optional array interface compliant matrix shape
                 (n_queries, k), dtype float. If supplied, neighbor
                 indices will be written here in-place. (default None)
-
     {handle_docstring}
 
     Returns
@@ -108,16 +107,12 @@ def knn(dataset, queries, k=None, indices=None, distances=None,
 
     Examples
     --------
-
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors.brute_force import knn
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> # Search using the built index
