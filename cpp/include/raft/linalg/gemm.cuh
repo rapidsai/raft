@@ -19,6 +19,7 @@
 #pragma once
 
 #include "detail/gemm.hpp"
+
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -27,8 +28,65 @@
 #include <raft/core/resources.hpp>
 #include <raft/util/input_validation.hpp>
 
-namespace raft {
-namespace linalg {
+namespace raft::linalg {
+
+/**
+ * @brief the wrapper of cublasLt matmul function
+ *  It computes the following equation: C = alpha .* opA(A) * opB(B) + beta .* C
+ *
+ * @tparam DevicePointerMode whether pointers alpha, beta point to device memory
+ * @tparam S the type of scale parameters alpha, beta
+ * @tparam A the element type of matrix A
+ * @tparam B the element type of matrix B
+ * @tparam C the element type of matrix C
+ *
+ * @param [in] res raft resources
+ * @param [in] trans_a cublas transpose op for A
+ * @param [in] trans_b cublas transpose op for B
+ * @param [in] m number of rows of C
+ * @param [in] n number of columns of C
+ * @param [in] k number of rows of opB(B) / number of columns of opA(A)
+ * @param [in] alpha host or device scalar
+ * @param [in] A such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] lda leading dimension of A
+ * @param [in] B such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] ldb leading dimension of B
+ * @param [in] beta host or device scalar
+ * @param [inout] C column-major matrix of size [m, n]
+ * @param [in] ldc leading dimension of C
+ */
+template <bool DevicePointerMode = false, typename S, typename A, typename B, typename C>
+void matmul(raft::resources const& res,
+            bool trans_a,
+            bool trans_b,
+            uint64_t m,
+            uint64_t n,
+            uint64_t k,
+            const S* alpha,
+            const A* a_ptr,
+            uint64_t lda,
+            const B* b_ptr,
+            uint64_t ldb,
+            const S* beta,
+            C* c_ptr,
+            uint64_t ldc)
+{
+  return detail::matmul<DevicePointerMode, S, A, B, C>(res,
+                                                       trans_a,
+                                                       trans_b,
+                                                       m,
+                                                       n,
+                                                       k,
+                                                       alpha,
+                                                       a_ptr,
+                                                       lda,
+                                                       b_ptr,
+                                                       ldb,
+                                                       beta,
+                                                       c_ptr,
+                                                       ldc,
+                                                       resource::get_cuda_stream(res));
+}
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -69,7 +127,7 @@ void gemm(raft::resources const& handle,
           const int ldc,
           cudaStream_t stream)
 {
-  detail::gemm<math_t, DevicePointerMode>(
+  return detail::legacy_gemm(
     handle, trans_a, trans_b, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, stream);
 }
 
@@ -106,7 +164,7 @@ void gemm(raft::resources const& handle,
           math_t beta,
           cudaStream_t stream)
 {
-  detail::gemm(
+  detail::legacy_gemm(
     handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha, beta, stream);
 }
 
@@ -139,7 +197,8 @@ void gemm(raft::resources const& handle,
           cublasOperation_t trans_b,
           cudaStream_t stream)
 {
-  detail::gemm(handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
+  detail::legacy_gemm(
+    handle, a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, stream);
 }
 
 /**
@@ -176,7 +235,7 @@ void gemm(raft::resources const& handle,
           T alpha = T(1.0),
           T beta  = T(0.0))
 {
-  detail::gemm(
+  return detail::legacy_gemm<T, false>(
     handle, z, x, y, _M, _N, _K, isZColMajor, isXColMajor, isYColMajor, stream, &alpha, &beta);
 }
 
@@ -256,24 +315,23 @@ void gemm(raft::resources const& handle,
     if (!beta) { beta = beta_host.view(); }
   }
 
-  detail::gemm<ValueType, device_mode>(handle,
-                                       z.data_handle(),
-                                       x.data_handle(),
-                                       y.data_handle(),
-                                       x.extent(0),
-                                       y.extent(1),
-                                       x.extent(1),
-                                       is_z_col_major,
-                                       is_x_col_major,
-                                       is_y_col_major,
-                                       resource::get_cuda_stream(handle),
-                                       alpha.value().data_handle(),
-                                       beta.value().data_handle());
+  return detail::legacy_gemm<ValueType, device_mode>(handle,
+                                                     z.data_handle(),
+                                                     x.data_handle(),
+                                                     y.data_handle(),
+                                                     x.extent(0),
+                                                     y.extent(1),
+                                                     x.extent(1),
+                                                     is_z_col_major,
+                                                     is_x_col_major,
+                                                     is_y_col_major,
+                                                     resource::get_cuda_stream(handle),
+                                                     alpha.value().data_handle(),
+                                                     beta.value().data_handle());
 }
 
 /** @} */  // end of gemm
 
-}  // end namespace linalg
-}  // end namespace raft
+}  // namespace raft::linalg
 
 #endif

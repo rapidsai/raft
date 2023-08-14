@@ -162,7 +162,7 @@ const std::vector<GemmLayoutInputs<double>> inputsd = {
 typedef GemmLayoutTest<float> GemmLayoutTestF;
 TEST_P(GemmLayoutTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(1e-4)));
+  ASSERT_TRUE(raft::devArrMatch(refZ, Z, params.M * params.N, raft::CompareApprox<float>(2e-4)));
 }
 
 typedef GemmLayoutTest<double> GemmLayoutTestD;

@@ -41,6 +41,7 @@ enum resource_type {
   DEVICE_ID,               // cuda device id
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
+  CUBLASLT_HANDLE,         // cublasLt handle
 
   LAST_KEY                 // reserved for the last key
 };
