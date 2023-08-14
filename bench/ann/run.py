@@ -17,7 +17,12 @@ import argparse
 import json
 import os
 import subprocess
+
 import yaml
+
+RAFT_HOME = os.getenv("RAFT_HOME")
+if RAFT_HOME is None:
+    RAFT_HOME = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
 
 
 def validate_algorithm(algos_conf, algo):
@@ -27,9 +32,10 @@ def validate_algorithm(algos_conf, algo):
 
 def find_executable(algos_conf, algo):
     executable = algos_conf[algo]["executable"]
-    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
-                              executable)
-    build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
+    conda_path = os.path.join(
+        os.getenv("CONDA_PREFIX"), "bin", "ann", executable
+    )
+    build_path = os.path.join(RAFT_HOME, "cpp", "build", executable)
     if os.path.exists(conda_path):
         return (executable, conda_path)
     elif os.path.exists(build_path):
@@ -38,8 +44,15 @@ def find_executable(algos_conf, algo):
         raise FileNotFoundError(executable)
 
 
-def run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         force, conf_filedir, build, search):
+def run_build_and_search(
+    conf_filename,
+    conf_file,
+    executables_to_run,
+    force,
+    conf_filedir,
+    build,
+    search,
+):
     for executable, ann_executable_path in executables_to_run.keys():
         # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
@@ -48,28 +61,33 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run,
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
-            temp_conf["index"] = executables_to_run[(executable, 
-                                                     ann_executable_path)]["index"]
+            temp_conf["index"] = executables_to_run[
+                (executable, ann_executable_path)
+            ]["index"]
             json.dump(temp_conf, f)
 
         if build:
             if force:
-                p = subprocess.Popen([ann_executable_path, "-b", "-f",
-                                    temp_conf_filepath])
+                p = subprocess.Popen(
+                    [ann_executable_path, "-b", "-f", temp_conf_filepath]
+                )
                 p.wait()
             else:
-                p = subprocess.Popen([ann_executable_path, "-b",
-                                    temp_conf_filepath])
+                p = subprocess.Popen(
+                    [ann_executable_path, "-b", temp_conf_filepath]
+                )
                 p.wait()
 
         if search:
             if force:
-                p = subprocess.Popen([ann_executable_path, "-s", "-f",
-                                      temp_conf_filepath])
+                p = subprocess.Popen(
+                    [ann_executable_path, "-s", "-f", temp_conf_filepath]
+                )
                 p.wait()
             else:
-                p = subprocess.Popen([ann_executable_path, "-s",
-                                      temp_conf_filepath])
+                p = subprocess.Popen(
+                    [ann_executable_path, "-s", temp_conf_filepath]
+                )
                 p.wait()
 
         os.remove(temp_conf_filepath)
@@ -82,7 +100,8 @@ def main():
         algos_conf = yaml.safe_load(f)
 
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         "--configuration",
         help="path to configuration file for a dataset",
@@ -90,34 +109,35 @@ def main():
     parser.add_argument(
         "--dataset",
         help="dataset whose configuration file will be used",
-        default="glove-100-inner"
+        default="glove-100-inner",
     )
+
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"), 
-                             "bench", "ann", "data")
+        default=os.path.join(RAFT_HOME, "bench", "ann", "data"),
     )
+    parser.add_argument("--build", action="store_true")
+    parser.add_argument("--search", action="store_true")
     parser.add_argument(
-        "--build",
-        action="store_true"
-    )
-    parser.add_argument(
-        "--search",
-        action="store_true"
-    )
-    parser.add_argument("--algorithms",
-                        help="run only comma separated list of named \
+        "--algorithms",
+        help="run only comma separated list of named \
                               algorithms",
-                        default=None)
-    parser.add_argument("--indices",
-                        help="run only comma separated list of named indices. \
+        default=None,
+    )
+    parser.add_argument(
+        "--indices",
+        help="run only comma separated list of named indices. \
                               parameter `algorithms` is ignored",
-                        default=None)
-    parser.add_argument("-f", "--force",
-                        help="re-run algorithms even if their results \
+        default=None,
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        help="re-run algorithms even if their results \
                               already exist",
-                        action="store_true")
+        action="store_true",
+    )
 
     args = parser.parse_args()
 
@@ -134,7 +154,9 @@ def main():
     if args.configuration:
         conf_filepath = args.configuration
     else:
-        conf_filepath = os.path.join(scripts_path, "conf", f"{args.dataset}.json")
+        conf_filepath = os.path.join(
+            scripts_path, "conf", f"{args.dataset}.json"
+        )
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     dataset_name = conf_filename.replace(".json", "")
@@ -147,7 +169,9 @@ def main():
 
     # Replace base, query to dataset-path
     conf_file["dataset"]["base_file"] = os.path.join(dataset_path, "base.fbin")
-    conf_file["dataset"]["query_file"] = os.path.join(dataset_path, "query.fbin")
+    conf_file["dataset"]["query_file"] = os.path.join(
+        dataset_path, "query.fbin"
+    )
     # Ensure base and query files exist for dataset
     if not os.path.exists(conf_file["dataset"]["base_file"]):
         raise FileNotFoundError(conf_file["dataset"]["base_file"])
@@ -162,8 +186,9 @@ def main():
         # and enabled
         for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if index["name"] in indices and \
-                    validate_algorithm(algos_conf, curr_algo):
+            if index["name"] in indices and validate_algorithm(
+                algos_conf, curr_algo
+            ):
                 executable_path = find_executable(algos_conf, curr_algo)
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
@@ -176,8 +201,9 @@ def main():
         # and are enabled in algos.yaml
         for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if curr_algo in algorithms and \
-                    validate_algorithm(algos_conf, curr_algo):
+            if curr_algo in algorithms and validate_algorithm(
+                algos_conf, curr_algo
+            ):
                 executable_path = find_executable(algos_conf, curr_algo)
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
@@ -195,14 +221,24 @@ def main():
 
     # Replace build, search to dataset path
     for executable_path in executables_to_run:
-        for pos, index in enumerate(executables_to_run[executable_path]["index"]):
+        for pos, index in enumerate(
+            executables_to_run[executable_path]["index"]
+        ):
             index["file"] = os.path.join(dataset_path, "index", index["name"])
-            index["search_result_file"] = \
-                os.path.join(dataset_path, "result", index["name"])
+            index["search_result_file"] = os.path.join(
+                dataset_path, "result", index["name"]
+            )
             executables_to_run[executable_path]["index"][pos] = index
 
-    run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         args.force, conf_filedir, build, search)
+    run_build_and_search(
+        conf_filename,
+        conf_file,
+        executables_to_run,
+        args.force,
+        conf_filedir,
+        build,
+        search,
+    )
 
 
 if __name__ == "__main__":

@@ -94,7 +94,7 @@ struct search_params : ann::search_params {
 
   /* Number of iterations of initial random seed node selection. 1 or more. */
   uint32_t num_random_samplings = 1;
-  // Bit mask used for initial random seed node selection. */
+  /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
 };
 

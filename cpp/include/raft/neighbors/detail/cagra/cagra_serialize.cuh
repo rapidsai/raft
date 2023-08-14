@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 
@@ -52,6 +53,8 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), expecte
 template <typename T, typename IdxT>
 void serialize(raft::resources const& res, std::ostream& os, const index<T, IdxT>& index_)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize");
+
   RAFT_LOG_DEBUG(
     "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
 
@@ -102,6 +105,7 @@ void serialize(raft::resources const& res,
 template <typename T, typename IdxT>
 auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::deserialize");
   auto ver = deserialize_scalar<int>(res, is);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
