@@ -28,8 +28,6 @@ rapids_cuda_init_architectures(test_raft)
 
 project(test_raft LANGUAGES CXX CUDA)
 
-find_package(OpenMP)
-
 # ------------- configure raft -----------------#
 
 rapids_cpm_init()
