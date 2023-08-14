@@ -28,6 +28,7 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 
