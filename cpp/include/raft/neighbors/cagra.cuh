@@ -75,12 +75,13 @@ namespace raft::neighbors::cagra {
  * @param[in] search_params (optional) ivf_pq search parameters
  */
 template <typename DataT, typename IdxT, typename accessor>
-void build_knn_graph(raft::resources const& res,
-                     mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
-                     raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
-                     std::optional<float> refine_rate                   = std::nullopt,
-                     std::optional<ivf_pq::index_params> build_params   = std::nullopt,
-                     std::optional<ivf_pq::search_params> search_params = std::nullopt)
+RAFT_HOST_TEMPLATE void build_knn_graph(
+  raft::resources const& res,
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+  raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
+  std::optional<float> refine_rate                   = std::nullopt,
+  std::optional<ivf_pq::index_params> build_params   = std::nullopt,
+  std::optional<ivf_pq::search_params> search_params = std::nullopt)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
@@ -132,9 +133,10 @@ template <typename DataT,
             host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void sort_knn_graph(raft::resources const& res,
-                    mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor> dataset,
-                    mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph)
+RAFT_HOST_TEMPLATE void sort_knn_graph(
+  raft::resources const& res,
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, d_accessor> dataset,
+  mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
@@ -169,9 +171,10 @@ void sort_knn_graph(raft::resources const& res,
 template <typename IdxT = uint32_t,
           typename g_accessor =
             host_device_accessor<std::experimental::default_accessor<IdxT>, memory_type::host>>
-void optimize(raft::resources const& res,
-              mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
-              raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
+RAFT_HOST_TEMPLATE void optimize(
+  raft::resources const& res,
+  mdspan<IdxT, matrix_extent<int64_t>, row_major, g_accessor> knn_graph,
+  raft::host_matrix_view<IdxT, int64_t, row_major> new_graph)
 {
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
 
@@ -235,9 +238,10 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<T, IdxT> build(raft::resources const& res,
-                     const index_params& params,
-                     mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+RAFT_HOST_TEMPLATE index<T, IdxT> build(
+  raft::resources const& res,
+  const index_params& params,
+  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -286,12 +290,12 @@ index<T, IdxT> build(raft::resources const& res,
  * k]
  */
 template <typename T, typename IdxT>
-void search(raft::resources const& res,
-            const search_params& params,
-            const index<T, IdxT>& idx,
-            raft::device_matrix_view<const T, int64_t, row_major> queries,
-            raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
-            raft::device_matrix_view<float, int64_t, row_major> distances)
+RAFT_HOST_TEMPLATE void search(raft::resources const& res,
+                               const search_params& params,
+                               const index<T, IdxT>& idx,
+                               raft::device_matrix_view<const T, int64_t, row_major> queries,
+                               raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
+                               raft::device_matrix_view<float, int64_t, row_major> distances)
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),

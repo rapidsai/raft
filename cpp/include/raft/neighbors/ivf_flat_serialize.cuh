@@ -50,7 +50,9 @@ namespace raft::neighbors::ivf_flat {
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index)
+RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
+                                  std::ostream& os,
+                                  const index<T, IdxT>& index)
 {
   detail::serialize(handle, os, index);
 }
@@ -80,9 +82,9 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T, I
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::resources const& handle,
-               const std::string& filename,
-               const index<T, IdxT>& index)
+RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
+                                  const std::string& filename,
+                                  const index<T, IdxT>& index)
 {
   detail::serialize(handle, filename, index);
 }
@@ -113,7 +115,7 @@ void serialize(raft::resources const& handle,
  * @return raft::neighbors::ivf_flat::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
+RAFT_HOST_TEMPLATE index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
 {
   return detail::deserialize<T, IdxT>(handle, is);
 }
@@ -144,7 +146,8 @@ index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
  * @return raft::neighbors::ivf_flat::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-index<T, IdxT> deserialize(raft::resources const& handle, const std::string& filename)
+RAFT_HOST_TEMPLATE index<T, IdxT> deserialize(raft::resources const& handle,
+                                              const std::string& filename)
 {
   return detail::deserialize<T, IdxT>(handle, filename);
 }
