@@ -53,7 +53,11 @@
 #endif
 
 #if defined(_RAFT_HAS_CUDA)
+#if !defined(__CUDACC_RDC__)
 #define _RAFT_KERNEL static __global__
+#else
+#define _RAFT_KERNEL __attribute__((visibility("hidden"))) __global__
+#endif
 #else
 #define _RAFT_KERNEL
 #endif

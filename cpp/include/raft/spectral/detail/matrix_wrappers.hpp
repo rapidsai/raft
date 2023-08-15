@@ -49,11 +49,11 @@ using size_type = int;  // for now; TODO: move it in appropriate header
 // Apply diagonal matrix to vector:
 //
 template <typename IndexType_, typename ValueType_>
-static _RAFT_KERNEL void diagmv(IndexType_ n,
-                                ValueType_ alpha,
-                                const ValueType_* __restrict__ D,
-                                const ValueType_* __restrict__ x,
-                                ValueType_* __restrict__ y)
+_RAFT_KERNEL void diagmv(IndexType_ n,
+                         ValueType_ alpha,
+                         const ValueType_* __restrict__ D,
+                         const ValueType_* __restrict__ x,
+                         ValueType_* __restrict__ y)
 {
   IndexType_ i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
