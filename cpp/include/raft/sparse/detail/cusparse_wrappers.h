@@ -154,21 +154,21 @@ inline void cusparsecoosortByRow(  // NOLINT
  * @defgroup cusparse Create CSR operations
  * @{
  */
-template <typename IndexT, typename ValueT>
+template <typename ValueT, typename IndptrType, typename IndicesType>
 cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                    int64_t rows,
                                    int64_t cols,
                                    int64_t nnz,
-                                   IndexT* csrRowOffsets,
-                                   IndexT* csrColInd,
+                                   IndptrType* csrRowOffsets,
+                                   IndicesType* csrColInd,
                                    ValueT* csrValues);
 template <>
 inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
                                           int64_t cols,
                                           int64_t nnz,
-                                          int* csrRowOffsets,
-                                          int* csrColInd,
+                                          int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
                                           float* csrValues)
 {
   return cusparseCreateCsr(spMatDescr,
@@ -188,8 +188,8 @@ inline cusparseStatus_t cusparsecreatecsr(cusparseSpMatDescr_t* spMatDescr,
                                           int64_t rows,
                                           int64_t cols,
                                           int64_t nnz,
-                                          int* csrRowOffsets,
-                                          int* csrColInd,
+                                          int32_t* csrRowOffsets,
+                                          int32_t* csrColInd,
                                           double* csrValues)
 {
   return cusparseCreateCsr(spMatDescr,
@@ -1058,9 +1058,9 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
 
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<float*>(csrValA));
@@ -1107,9 +1107,9 @@ inline cusparseStatus_t cusparsecsr2dense_buffersize(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<double*>(csrValA));
@@ -1173,9 +1173,9 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<float*>(csrValA));
@@ -1220,9 +1220,9 @@ inline cusparseStatus_t cusparsecsr2dense(cusparseHandle_t handle,
   cusparseOrder_t order = row_major ? CUSPARSE_ORDER_ROW : CUSPARSE_ORDER_COL;
   cusparseSpMatDescr_t matA;
   cusparsecreatecsr(&matA,
-                    m,
-                    n,
-                    nnz,
+                    static_cast<int64_t>(m),
+                    static_cast<int64_t>(n),
+                    static_cast<int64_t>(nnz),
                     const_cast<int*>(csrRowPtrA),
                     const_cast<int*>(csrColIndA),
                     const_cast<double*>(csrValA));
