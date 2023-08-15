@@ -229,12 +229,12 @@ static constexpr size_t kLRUSize = 100;
  * @param [in] n number of columns of C
  * @param [in] k number of rows of opB(B) / number of columns of opA(A)
  * @param [in] alpha host or device scalar
- * @param [in] A such a matrix that the shape of column-major opA(A) is [m, k]
+ * @param [in] a_ptr such a matrix that the shape of column-major opA(A) is [m, k]
  * @param [in] lda leading dimension of A
- * @param [in] B such a matrix that the shape of column-major opA(B) is [k, n]
+ * @param [in] b_ptr such a matrix that the shape of column-major opA(B) is [k, n]
  * @param [in] ldb leading dimension of B
  * @param [in] beta host or device scalar
- * @param [inout] C column-major matrix of size [m, n]
+ * @param [inout] c_ptr column-major matrix of size [m, n]
  * @param [in] ldc leading dimension of C
  * @param [in] stream
  */
