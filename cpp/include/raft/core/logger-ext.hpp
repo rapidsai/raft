@@ -129,4 +129,23 @@ class logger {
   static inline std::unordered_map<std::string, std::shared_ptr<raft::logger>> log_map;
 };  // class logger
 
+/**
+ * @brief An object used for scoped log level setting
+ *
+ * Instances of `raft::log_level_setter` will set RAFT logging to the level
+ * indicated on construction and will revert to the previous set level on
+ * destruction.
+ */
+struct log_level_setter {
+  explicit log_level_setter(int level)
+  {
+    prev_level_ = logger::get(RAFT_NAME).get_level();
+    logger::get(RAFT_NAME).set_level(level);
+  }
+  ~log_level_setter() { logger::get(RAFT_NAME).set_level(prev_level_); }
+
+ private:
+  int prev_level_;
+};  // class log_level_setter
+
 };  // namespace raft
