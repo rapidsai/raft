@@ -154,7 +154,7 @@ struct cublastlt_matmul_desc {
   inline operator cublasLtMatmulDesc_t() const noexcept { return res; }
 
   template <typename S, typename A, typename B, typename C, bool DevicePointerMode = false>
-  static inline auto for_matmult(bool transpose_a, bool transpose_b) -> cublastlt_matmul_desc
+  static inline auto for_matmul(bool transpose_a, bool transpose_b) -> cublastlt_matmul_desc
   {
     auto desc = cublastlt_matmul_desc{get_matmul_type<S, A, B, C>(), get_cuda_data_type<S>()};
     if constexpr (DevicePointerMode) {
@@ -187,7 +187,7 @@ struct matmul_desc {
   static inline auto create(raft::resources const& res, const matmul_key_t& args) -> matmul_desc
   {
     matmul_desc r{
-      cublastlt_matmul_desc::for_matmult<S, A, B, C, DevicePointerMode>(args.trans_a, args.trans_b),
+      cublastlt_matmul_desc::for_matmul<S, A, B, C, DevicePointerMode>(args.trans_a, args.trans_b),
       cublastlt_matrix_layout::for_matmul<A>(!(args.trans_a), args.m, args.k, args.lda),
       cublastlt_matrix_layout::for_matmul<B>(!(args.trans_b), args.k, args.n, args.ldb),
       cublastlt_matrix_layout::for_matmul<C>(true, args.m, args.n, args.ldc)};
