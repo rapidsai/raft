@@ -330,14 +330,14 @@ _RAFT_KERNEL void assign_cache_idx(const int* keys,
  */
 template <typename = void>
 _RAFT_KERNEL void get_cache_idx(int* keys,
-                              int n,
-                              int* cached_keys,
-                              int n_cache_sets,
-                              int associativity,
-                              int* cache_time,
-                              int* cache_idx,
-                              bool* is_cached,
-                              int time)
+                                int n,
+                                int* cached_keys,
+                                int n_cache_sets,
+                                int associativity,
+                                int* cache_time,
+                                int* cache_idx,
+                                bool* is_cached,
+                                int time)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
