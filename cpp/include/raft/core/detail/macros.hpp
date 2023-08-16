@@ -62,7 +62,11 @@
 #define _RAFT_KERNEL
 #endif
 
+#if !defined(RAFT_COMPILED)
 #define RAFT_HOST_TEMPLATE __attribute__((visibility("hidden")))
+#else
+#define RAFT_HOST_TEMPLATE
+#endif
 
 // The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes
 // the inline specification when RAFT_COMPILED is defined.
