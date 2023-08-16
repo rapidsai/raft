@@ -238,6 +238,7 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
     // i.e. the work is split along the input (both, in batches and chunks of a single row).
     // Later, the histograms are merged using atomicAdd.
     auto f = [select_min, start_bit, mask](T value, IdxT) {
+      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
     };
@@ -266,6 +267,7 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
               p_filter_cnt,
               p_out_cnt,
               early_stop](T value, IdxT i) {
+      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
@@ -885,6 +887,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
 
   if (pass == 0) {
     auto f = [histogram, select_min, start_bit, mask](T value, IdxT) {
+      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram + bucket, static_cast<IdxT>(1));
     };
@@ -896,7 +899,8 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
     const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
 
     for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
-      const T value            = in_buf[i];
+      const T value = in_buf[i];
+      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { continue; }
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
