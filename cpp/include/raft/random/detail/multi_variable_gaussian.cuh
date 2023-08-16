@@ -20,12 +20,12 @@
 #include <memory>
 #include <optional>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/cusolver_dn_handle.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/random_types.hpp>
@@ -193,7 +193,6 @@ class multi_variable_gaussian_impl {
   void give_gaussian(const int nPoints, T* P, T* X, const T* x = 0)
   {
     auto cusolverHandle = resource::get_cusolver_dn_handle(handle);
-    auto cublasHandle   = resource::get_cublas_handle(handle);
     auto cudaStream     = resource::get_cuda_stream(handle);
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
@@ -233,21 +232,8 @@ class multi_variable_gaussian_impl {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
 
       // P is lower triangular chol decomp mtrx
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasHandle,
-                                                       CUBLAS_OP_N,
-                                                       CUBLAS_OP_N,
-                                                       dim,
-                                                       nPoints,
-                                                       dim,
-                                                       &alfa,
-                                                       P,
-                                                       dim,
-                                                       X,
-                                                       dim,
-                                                       &beta,
-                                                       X,
-                                                       dim,
-                                                       cudaStream));
+      raft::linalg::gemm(
+        handle, false, false, dim, nPoints, dim, &alfa, P, dim, X, dim, &beta, X, dim, cudaStream);
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
@@ -263,21 +249,8 @@ class multi_variable_gaussian_impl {
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below
-      RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublasHandle,
-                                                       CUBLAS_OP_N,
-                                                       CUBLAS_OP_N,
-                                                       dim,
-                                                       nPoints,
-                                                       dim,
-                                                       &alfa,
-                                                       P,
-                                                       dim,
-                                                       X,
-                                                       dim,
-                                                       &beta,
-                                                       X,
-                                                       dim,
-                                                       cudaStream));
+      raft::linalg::gemm(
+        handle, false, false, dim, nPoints, dim, &alfa, P, dim, X, dim, &beta, X, dim, cudaStream);
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped

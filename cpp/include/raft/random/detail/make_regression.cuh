@@ -22,10 +22,9 @@
 
 #include <algorithm>
 
-#include <raft/core/resource/cublas_handle.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/add.cuh>
-#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/transpose.cuh>
@@ -62,8 +61,6 @@ static void _make_low_rank_matrix(raft::resources const& handle,
                                   raft::random::RngState& r,
                                   cudaStream_t stream)
 {
-  cublasHandle_t cublas_handle = resource::get_cublas_handle(handle);
-
   IdxT n = std::min(n_rows, n_cols);
 
   // Generate random (ortho normal) vectors with QR decomposition
@@ -92,36 +89,36 @@ static void _make_low_rank_matrix(raft::resources const& handle,
   rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);
   rmm::device_uvector<DataT> temp_out(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
-  raft::linalg::detail::cublasgemm(cublas_handle,
-                                   CUBLAS_OP_N,
-                                   CUBLAS_OP_N,
-                                   n_rows,
-                                   n,
-                                   n,
-                                   &alpha,
-                                   q0.data(),
-                                   n_rows,
-                                   singular_mat.data(),
-                                   n,
-                                   &beta,
-                                   temp_q0s.data(),
-                                   n_rows,
-                                   stream);
-  raft::linalg::detail::cublasgemm(cublas_handle,
-                                   CUBLAS_OP_N,
-                                   CUBLAS_OP_T,
-                                   n_rows,
-                                   n_cols,
-                                   n,
-                                   &alpha,
-                                   temp_q0s.data(),
-                                   n_rows,
-                                   q1.data(),
-                                   n_cols,
-                                   &beta,
-                                   temp_out.data(),
-                                   n_rows,
-                                   stream);
+  raft::linalg::gemm(handle,
+                     false,
+                     false,
+                     n_rows,
+                     n,
+                     n,
+                     &alpha,
+                     q0.data(),
+                     n_rows,
+                     singular_mat.data(),
+                     n,
+                     &beta,
+                     temp_q0s.data(),
+                     n_rows,
+                     stream);
+  raft::linalg::gemm(handle,
+                     false,
+                     true,
+                     n_rows,
+                     n_cols,
+                     n,
+                     &alpha,
+                     temp_q0s.data(),
+                     n_rows,
+                     q1.data(),
+                     n_cols,
+                     &beta,
+                     temp_out.data(),
+                     n_rows,
+                     stream);
 
   // Transpose from column-major to row-major
   raft::linalg::transpose(handle, temp_out.data(), out, n_rows, n_cols, stream);
@@ -165,9 +162,6 @@ void make_regression_caller(raft::resources const& handle,
 {
   n_informative = std::min(n_informative, n_cols);
 
-  cublasHandle_t cublas_handle = resource::get_cublas_handle(handle);
-
-  cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
   raft::random::RngState r(seed, type);
 
   if (effective_rank < 0) {
@@ -219,21 +213,21 @@ void make_regression_caller(raft::resources const& handle,
 
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemm(cublas_handle,
-                                                   CUBLAS_OP_T,
-                                                   CUBLAS_OP_T,
-                                                   n_rows,
-                                                   n_targets,
-                                                   n_informative,
-                                                   &alpha,
-                                                   out,
-                                                   n_cols,
-                                                   _coef,
-                                                   n_targets,
-                                                   &beta,
-                                                   _values_col,
-                                                   n_rows,
-                                                   stream));
+  raft::linalg::gemm(handle,
+                     true,
+                     true,
+                     n_rows,
+                     n_targets,
+                     n_informative,
+                     &alpha,
+                     out,
+                     n_cols,
+                     _coef,
+                     n_targets,
+                     &beta,
+                     _values_col,
+                     n_rows,
+                     stream);
 
   // Transpose the values from column-major to row-major if needed
   if (n_targets > 1) {
