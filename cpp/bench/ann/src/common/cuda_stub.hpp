@@ -15,7 +15,14 @@
  */
 #pragma once
 
+#ifdef ANN_BENCH_LINK_CUDART
 #include <cuda_runtime_api.h>
+#else
+#define CPU_ONLY
+typedef void* cudaStream_t;
+typedef void* cudaEvent_t;
+#endif
+
 #include <dlfcn.h>
 
 namespace raft::bench::ann {
@@ -24,7 +31,9 @@ struct cuda_lib_handle {
   void* handle{nullptr};
   explicit cuda_lib_handle()
   {
-    handle = dlopen("libcudart.so", RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND | RTLD_NODELETE);
+#ifdef ANN_BENCH_LINK_CUDART
+    handle = dlopen(ANN_BENCH_LINK_CUDART, RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND | RTLD_NODELETE);
+#endif
   }
   ~cuda_lib_handle() noexcept
   {
@@ -36,6 +45,7 @@ struct cuda_lib_handle {
 
 static inline cuda_lib_handle cudart{};
 
+#ifndef CPU_ONLY
 namespace stub {
 
 [[gnu::weak, gnu::noinline]] cudaError_t cudaMemcpy(void* dst,
@@ -144,5 +154,6 @@ RAFT_DECLARE_CUDART(cudaRuntimeGetVersion);
 RAFT_DECLARE_CUDART(cudaGetDeviceProperties);
 
 #undef RAFT_DECLARE_CUDART
+#endif
 
 };  // namespace raft::bench::ann

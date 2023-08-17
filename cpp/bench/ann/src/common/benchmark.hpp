@@ -15,9 +15,10 @@
  */
 #pragma once
 
+#include "cuda_stub.hpp"  // must go first
+
 #include "ann_types.hpp"
 #include "conf.hpp"
-#include "cuda_stub.hpp"
 #include "dataset.hpp"
 #include "util.hpp"
 
