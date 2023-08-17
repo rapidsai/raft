@@ -130,8 +130,7 @@ template <unsigned TEAM_SIZE,
           class DISTANCE_T,
           class INDEX_T,
           class LOAD_T>
-__launch_bounds__(512)
-__global__ void search_kernel(
+__launch_bounds__(512) __global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
