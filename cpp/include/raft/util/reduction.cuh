@@ -108,7 +108,6 @@ DI T blockReduce(T val, char* smem, ReduceLambda reduce_op = raft::add_op{})
  * @param val input value
  * @param idx index to be used as rank
  * @param reduce_op a binary reduction operation.
- * @return only the thread0 will contain valid reduced result
  */
 template <typename T, typename ReduceLambda, typename i_t = int>
 DI void warpRankedReduce(T& val, i_t& idx, ReduceLambda reduce_op = raft::min_op{})
