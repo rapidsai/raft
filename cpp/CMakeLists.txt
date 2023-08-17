@@ -444,6 +444,7 @@ if(RAFT_COMPILE_LIBRARY)
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
+               CUDA_SEPARABLE_COMPILATION ON
   )
 
   target_link_libraries(
@@ -465,8 +466,10 @@ if(RAFT_COMPILE_LIBRARY)
   # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
   target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
 
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries. Disable this for
+  # now. It causes issues in the device linking step.
+
+  # disable: target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif()
 
