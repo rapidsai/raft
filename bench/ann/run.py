@@ -27,9 +27,8 @@ def validate_algorithm(algos_conf, algo):
 
 def find_executable(algos_conf, algo):
     executable = algos_conf[algo]["executable"]
-    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
-                              executable)
-    build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
+    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann", "ANN_BENCH")
+    build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", "ANN_BENCH")
     if os.path.exists(conda_path):
         return (executable, conda_path)
     elif os.path.exists(build_path):
@@ -48,29 +47,31 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run,
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
-            temp_conf["index"] = executables_to_run[(executable, 
+            temp_conf["index"] = executables_to_run[(executable,
                                                      ann_executable_path)]["index"]
             json.dump(temp_conf, f)
 
         if build:
             if force:
-                p = subprocess.Popen([ann_executable_path, "-b", "-f",
+                p = subprocess.Popen([ann_executable_path, "--build", "--overwrite",
                                     temp_conf_filepath])
                 p.wait()
             else:
-                p = subprocess.Popen([ann_executable_path, "-b",
+                p = subprocess.Popen([ann_executable_path, "--build",
                                     temp_conf_filepath])
                 p.wait()
 
         if search:
-            if force:
-                p = subprocess.Popen([ann_executable_path, "-s", "-f",
-                                      temp_conf_filepath])
-                p.wait()
-            else:
-                p = subprocess.Popen([ann_executable_path, "-s",
-                                      temp_conf_filepath])
-                p.wait()
+            legacy_result_folder = "result/" + temp_conf["dataset"]["name"]
+            os.makedirs(legacy_result_folder, exist_ok=True)
+            p = subprocess.Popen([
+                ann_executable_path,
+                "--search",
+                "--benchmark_counters_tabular",
+                "--benchmark_out_format=json",
+                f"--benchmark_out={legacy_result_folder}/{executable}.json",
+                temp_conf_filepath])
+            p.wait()
 
         os.remove(temp_conf_filepath)
 
@@ -95,7 +96,7 @@ def main():
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"), 
+        default=os.path.join(os.getenv("RAFT_HOME"),
                              "bench", "ann", "data")
     )
     parser.add_argument(
@@ -138,7 +139,7 @@ def main():
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     dataset_name = conf_filename.replace(".json", "")
-    dataset_path = os.path.join(args.dataset_path, dataset_name)
+    dataset_path = os.path.realpath(os.path.join(args.dataset_path, dataset_name))
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
 
@@ -148,6 +149,7 @@ def main():
     # Replace base, query to dataset-path
     conf_file["dataset"]["base_file"] = os.path.join(dataset_path, "base.fbin")
     conf_file["dataset"]["query_file"] = os.path.join(dataset_path, "query.fbin")
+    conf_file["dataset"]["groundtruth_neighbors_file"] = os.path.join(dataset_path, "groundtruth.neighbors.ibin")
     # Ensure base and query files exist for dataset
     if not os.path.exists(conf_file["dataset"]["base_file"]):
         raise FileNotFoundError(conf_file["dataset"]["base_file"])
