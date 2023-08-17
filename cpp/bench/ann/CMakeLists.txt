@@ -23,7 +23,9 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchm
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_SINGLE_EXE "Make a single executable with benchmark as shared library modules" OFF)
+option(RAFT_ANN_BENCH_SINGLE_EXE
+       "Make a single executable with benchmark as shared library modules" OFF
+)
 
 find_package(Threads REQUIRED)
 
@@ -214,7 +216,7 @@ endif()
 
 # ##################################################################################################
 # * Dynamically-loading ANN_BENCH executable -------------------------------------------------------
-if (RAFT_ANN_BENCH_SINGLE_EXE)
+if(RAFT_ANN_BENCH_SINGLE_EXE)
   add_executable(ANN_BENCH bench/ann/src/common/benchmark.cpp)
 
   # Build and link static version of the GBench to keep ANN_BENCH self-contained.
@@ -234,14 +236,14 @@ if (RAFT_ANN_BENCH_SINGLE_EXE)
   set_target_properties(
     ANN_BENCH
     PROPERTIES # set target compile options
-              CXX_STANDARD 17
-              CXX_STANDARD_REQUIRED ON
-              CUDA_STANDARD 17
-              CUDA_STANDARD_REQUIRED ON
-              POSITION_INDEPENDENT_CODE ON
-              INTERFACE_POSITION_INDEPENDENT_CODE ON
-              BUILD_RPATH "\$ORIGIN"
-              INSTALL_RPATH "\$ORIGIN"
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
+               BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
   )
 
   # Disable NVTX when the nvtx3 headers are missing

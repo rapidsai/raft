@@ -27,7 +27,8 @@ def validate_algorithm(algos_conf, algo):
 
 def find_executable(algos_conf, algo):
     executable = algos_conf[algo]["executable"]
-    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann", executable)
+    conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
+                              executable)
     build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
         return (executable, conda_path)
