@@ -40,9 +40,15 @@ namespace raft::neighbors::cagra {
  * @{
  */
 
+enum class graph_build_algo {
+  IVF_PQ,
+  NN_DESCENT
+};
+
 struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
   size_t graph_degree              = 64;   // Degree of output graph.
+  graph_build_algo build_algo = graph_build_algo::IVF_PQ; // ANN algorithm to build knn graph
 };
 
 enum class search_algo {

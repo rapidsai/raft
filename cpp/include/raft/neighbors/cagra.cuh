@@ -25,6 +25,7 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/nn_descent.cuh>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::cagra {
@@ -256,13 +257,23 @@ index<T, IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  auto knn_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree);
-
-  build_knn_graph(res, dataset, knn_graph.view());
-
   auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
 
-  optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
+  if (params.build_algo == graph_build_algo::IVF_PQ) {
+    auto knn_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree);
+
+    build_knn_graph(res, dataset, knn_graph.view());
+
+    optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
+  }
+  else {
+    nn_descent::index_params nn_descent_params;
+    nn_descent_params.intermediate_graph_degree = intermediate_degree;
+    nn_descent_params.graph_degree = graph_degree;
+    auto nn_descent_index = nn_descent::build<T, IdxT>(res, nn_descent_params, dataset);
+
+    optimize<IdxT>(res, nn_descent_index.graph(), cagra_graph.view());
+  }
 
   // Construct an index from dataset and optimized knn graph.
   return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));
