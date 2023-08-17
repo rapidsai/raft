@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "cuda_stub.hpp" // must go first
+#include "cuda_stub.hpp"  // must go first
 
 #include "ann_types.hpp"
 
