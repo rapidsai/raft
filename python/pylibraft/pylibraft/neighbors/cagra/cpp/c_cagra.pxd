@@ -90,6 +90,11 @@ cdef extern from "raft/neighbors/cagra_types.hpp" \
         device_matrix_view[T, IdxT, row_major] dataset()
         device_matrix_view[T, IdxT, row_major] graph()
 
+        void update_dataset(const device_resources & handle,
+                            device_matrix_view[T, int64_t, row_major] dataset)
+        void update_dataset(const device_resources & handle,
+                            host_matrix_view[T, int64_t, row_major] dataset)
+
 cdef extern from "raft_runtime/neighbors/cagra.hpp" \
         namespace "raft::runtime::neighbors::cagra" nogil:
 
@@ -155,7 +160,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[float, uint32_t]& index) except +
+                        const index[float, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -163,7 +169,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[uint8_t, uint32_t]& index) except +
+                        const index[uint8_t, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -171,7 +178,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[int8_t, uint32_t]& index) except +
+                        const index[int8_t, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -179,7 +187,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[float, uint32_t]& index) except +
+                             const index[float, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
@@ -187,7 +196,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[uint8_t, uint32_t]& index) except +
+                             const index[uint8_t, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
@@ -195,7 +205,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[int8_t, uint32_t]& index) except +
+                             const index[int8_t, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
