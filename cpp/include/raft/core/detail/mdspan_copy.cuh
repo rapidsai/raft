@@ -121,11 +121,11 @@ mdspan_device_copy(DstType dst, SrcType src)
             get_mdspan_elem(dst, dst_indices) = tile(tile_quick, tile_slow)
           }
         }
-        increment_indices<DstType::layout_policy>(dst_indices, max_indices, gridDim.x);
+        increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.x);
       }
-      increment_indices<DstType::layout_policy>(dst_indices, max_indices, gridDim.y * TileDim);
+      increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.y * TileDim);
     }
-    valid_indices &= increment_indices<DstType::layout_policy>(
+    valid_indices &= increment_indices<SrcType::layout_policy>(
       src_indices, max_indices, blockDim.x * tile_elements);
     increment_indices<SrcType::layout_policy>(dst_indices, max_indices, blockDim.x * tile_elements);
     __syncthreads();
