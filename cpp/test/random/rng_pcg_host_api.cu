@@ -7,34 +7,49 @@
 namespace raft {
 namespace random {
 
-template<typename DType>
-__host__ __device__ void buffer_fill() {
-#ifdef __CUDA_ARCH__
-  printf("Caling from device function %d\n", threadIdx.x);
-#else
-  printf("Calling from the host\n");
-#endif
-}
+// CPT - Calls Per Thread, How many calls to custom_next is made by a single thread
+// IPC - Items Per Call, How many items are returned by a single call to custom_next (usually IPC = 1 or 2)
+template<typename DType, typename ParamType, int CPT, int IPC>
+__host__ __device__ void single_thread_fill(DType* buffer, DeviceState<PCGenerator> r, ParamType params, const size_t total_threads, const size_t len, const size_t tid) {
 
-template<typename DType, typename ParamType, int TPB>
-__global__ void pcg_device_kernel(RngState r, DType* buffer, size_t len, ParamType params) {
-
-  int tid = int(blockIdx.x) * blockDim.x + threadIdx.x;
-  int total_threads = int(blockDim.x) * gridDim.x;
-
-  // current way of initializing PCG
-  PCGenerator gen0(r.seed, r.base_subsequence + tid, tid);
-
-  for (int i = 0; i < TPB; i++) {
-    DType val;
-    custom_next(gen0, &val, params, i, total_threads);
-    if (tid*TPB + i < len) {
-      buffer[tid*TPB + i] = val;
+  PCGenerator gen(r, tid);
+ 
+  for (size_t i = 0; i < CPT; i++) {
+    DType val[IPC];
+    size_t index = (tid * CPT * IPC) + i * IPC;
+    custom_next(gen, val, params, index, total_threads);
+    for (int j = 0; j < IPC; j++) {
+      if (index + j < len) {
+        buffer[index + j] = val[j];
+      }
     }
   }
-  if (tid == 123) buffer_fill<double>();
+}
+
+template<typename DType, typename ParamType, int CPT, int IPC>
+__global__ void pcg_device_kernel(DType* buffer, DeviceState<PCGenerator> r, ParamType params, const size_t total_threads, const size_t len) {
+  int tid = int(blockIdx.x) * blockDim.x + threadIdx.x;
+
+  single_thread_fill<DType, ParamType, CPT, IPC>(buffer, r, params, total_threads, len, tid);
 
 }
+
+/*void trying_func(){
+  constexpr int IPC = 1;
+  constexpr size_t len = total_threads * CPT * IPC;
+  printf("len = %lu\n", len);
+  UniformDistParams<T> uniform_params = { .start = params.start, .end = params.end};
+
+  d_buffer.resize(len, stream);
+  h_buffer.resize(len);
+
+  pcg_device_kernel<T, UniformDistParams<T>, CPT, IPC><<<n_blocks, n_threads>>>(d_buffer.data(), d_state, uniform_params, total_threads, len);
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+  for(size_t tid = 0; tid < total_threads; tid++) {
+    single_thread_fill<T, UniformDistParams<T>, CPT, IPC>(h_buffer.data(), d_state, uniform_params, total_threads, len, tid);
+  }
+}*/
 
 TEST(RNG, demo)
 {
@@ -127,8 +142,6 @@ constexpr LaplaceDistParams<double> laplace_params = {
   }*/
   
   ASSERT_TRUE(devArrMatchHost(buffer.data(), d_buffer.data(), total_threads, raft::Compare<double>(), stream));
-  buffer_fill<double>();
-  
 
 }
 
@@ -145,7 +158,6 @@ enum RandomType {
 
 template <typename T>
 struct RngInputs {
-  size_t len;
   // Meaning of 'start' and 'end' parameter for various distributions
   //
   //         Uniform   Normal/Log-Normal   Gumbel   Logistic   Laplace   Exponential   Rayleigh
@@ -164,22 +176,54 @@ class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
       stream(resource::get_cuda_stream(handle)),
       d_buffer(0, stream)
   {
-    d_buffer.resize(params.len, stream);
-    h_buffer.resize(params.len);
+    d_buffer.resize(total_threads*2, stream);
+   h_buffer.resize(total_threads*2);
   }
 
  protected:
   void SetUp() override
   {
     RngState r(params.seed, GenPC);
+    DeviceState<PCGenerator> d_state(r);
     switch (params.type) {
-      case RNG_Normal: printf("running for normal\n"); break;
+      case RNG_Normal:
+      {
+        constexpr int IPC = 2;
+        constexpr size_t len = total_threads * CPT * IPC;
+        NormalDistParams<T> normal_params = { .mu = params.start, .sigma = params.end};
+
+        d_buffer.resize(len, stream);
+        h_buffer.resize(len);
+
+        pcg_device_kernel<T, NormalDistParams<T>, CPT, IPC><<<n_blocks, n_threads>>>(d_buffer.data(), d_state, normal_params, total_threads, len);
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+        for(size_t tid = 0; tid < total_threads; tid++) {
+          single_thread_fill<T, NormalDistParams<T>, CPT, IPC>(h_buffer.data(), d_state, normal_params, total_threads, len, tid);
+        }
+        break;
+      }
       case RNG_LogNormal:
         printf("running for lognormal\n");
         break;
       case RNG_Uniform:
-        printf("running for uniform\n");
+      {
+        constexpr int IPC = 1;
+        constexpr size_t len = total_threads * CPT * IPC;
+        printf("len = %lu\n", len);
+        UniformDistParams<T> uniform_params = { .start = params.start, .end = params.end};
+
+        d_buffer.resize(len, stream);
+        h_buffer.resize(len);
+
+        pcg_device_kernel<T, UniformDistParams<T>, CPT, IPC><<<n_blocks, n_threads>>>(d_buffer.data(), d_state, uniform_params, total_threads, len);
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+
+        for(size_t tid = 0; tid < total_threads; tid++) {
+          single_thread_fill<T, UniformDistParams<T>, CPT, IPC>(h_buffer.data(), d_state, uniform_params, total_threads, len, tid);
+        }
         break;
+      }
       case RNG_Gumbel: printf("Running for gumbel\n"); break;
       case RNG_Logistic:
         printf("running for logistic\n");
@@ -190,39 +234,77 @@ class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
         printf("running for laplace\n");
         break;
     };
-    /*static const int threads = 128;
-    meanKernel<T, threads><<<raft::ceildiv(params.len, threads), threads, 0, stream>>>(
-      stats.data(), data.data(), params.len);
-    update_host<T>(h_stats, stats.data(), 2, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    h_stats[0] /= params.len;
-    h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));*/
+    
   }
 
 
  protected:
+
+  static const int n_blocks = 128;
+  static const int n_threads = 64;
+  static const int CPT = 16;
+  static const size_t total_threads = size_t(n_blocks) * n_threads;
+
   raft::resources handle;
   cudaStream_t stream;
 
   RngInputs<T> params;
-  size_t len;
   rmm::device_uvector<T> d_buffer;
   std::vector<T> h_buffer;
 };
 
 const std::vector<RngInputs<double>> inputsf = {
-  {1024 * 1024, 3.0f, 1.3f, RNG_Normal, 1234ULL},
-  {1024 * 1024, 1.2f, 0.1f, RNG_LogNormal, 1234ULL},
-  {1024 * 1024, 1.2f, 5.5f, RNG_Uniform, 1234ULL},
-  {1024 * 1024, 0.1f, 1.3f, RNG_Gumbel, 1234ULL},
-  {1024 * 1024, 1.6f, 0.0f, RNG_Exp, 1234ULL},
-  {1024 * 1024, 1.6f, 0.0f, RNG_Rayleigh, 1234ULL},
-  {1024 * 1024, 2.6f, 1.3f, RNG_Laplace, 1234ULL}};
+  {3.0f, 1.3f, RNG_Normal, 1234ULL},
+  {1.2f, 0.1f, RNG_LogNormal, 1234ULL},
+  {1.2f, 5.5f, RNG_Uniform, 1234ULL},
+  {0.1f, 1.3f, RNG_Gumbel, 1234ULL},
+  {1.6f, 0.0f, RNG_Exp, 1234ULL},
+  {1.6f, 0.0f, RNG_Rayleigh, 1234ULL},
+  {2.6f, 1.3f, RNG_Laplace, 1234ULL}};
 
 using RngPcgHostTestD = RngPcgHostTest<double>;
-TEST_P(RngPcgHostTestD, Result) { ASSERT_TRUE(true);}
-INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTestD, ::testing::ValuesIn(inputsf));
+TEST_P(RngPcgHostTestD, Result) {
+  ASSERT_TRUE(devArrMatchHost(h_buffer.data(), d_buffer.data(), 8192, raft::CompareApprox<double>(1e-5), stream));
+}
+INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTestD, testing::ValuesIn(inputsf));
+
+
+template <typename T>
+class TypedTestExample : public testing::Test {
+  public:
+    void calculate_size() {
+      printf("calculate_size called %lu\n", sizeof(params));
+    }
+    using ParamType = typename T::first_type;
+    using DataType = typename T::second_type;
+    static ParamType params;
+    static DataType d;
+    static std::string distro_name;
+};
+
+//using TestTypes = testing::Types<char, int, unsigned long, std::pair<NormalDistParams<float>, float>>;
+using TestTypes = testing::Types<std::pair<NormalDistParams<float>, float>, std::pair<NormalDistParams<double>, double>>;
+
+TYPED_TEST_SUITE_P(TypedTestExample);
+
+TYPED_TEST_P(TypedTestExample, printSize) {
+  this->calculate_size(); 
+  printf("Test passed for %s\n", this->distro_name.c_str());
+}
+REGISTER_TYPED_TEST_SUITE_P(TypedTestExample,
+                            printSize);
+
+//template<> float TypedTestExample<char>::start = 1.0;
+//template<> float TypedTestExample<int>::start = 2.0;
+//template<> float TypedTestExample<unsigned long>::start = 2.0;
+template<> NormalDistParams<float> TypedTestExample<std::pair<NormalDistParams<float>, float>>::params = { .mu = 100, .sigma = double(0.1)};
+template<> float TypedTestExample<std::pair<NormalDistParams<float>, float>>::d = float(1.2);
+template<> std::string TypedTestExample<std::pair<NormalDistParams<float>, float>>::distro_name = std::string("Normal distribution"); 
+template<> NormalDistParams<double> TypedTestExample<std::pair<NormalDistParams<double>, double>>::params = { .mu = double(0.5), .sigma = double(0.1)};
+template<> double TypedTestExample<std::pair<NormalDistParams<double>, double>>::d = double(1.2);
+template<> std::string TypedTestExample<std::pair<NormalDistParams<double>, double>>::distro_name = std::string("Normal double distribution"); 
+INSTANTIATE_TYPED_TEST_SUITE_P(My, TypedTestExample, TestTypes);
+
 
 } // namespace random
 } // namespace raft
