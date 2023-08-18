@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 #pragma once
+#include "block_scan.h"
 #include "topk.h"
 #include <assert.h>
-#include <cub/cub.cuh>
 #include <float.h>
 #include <stdint.h>
 #include <stdio.h>
 
 namespace raft::neighbors::cagra::detail {
-using namespace cub;
-
 //
 __device__ inline uint32_t convert(uint32_t x)
 {
@@ -302,15 +300,15 @@ __device__ inline void select_best_index_for_next_threshold(
   // index under the condition that the sum of the number of elements found
   // so far ('nx_below_threshold') and the csum value does not exceed the
   // topk value.
-  typedef BlockScan<uint32_t, blockDim_x> BlockScanT;
-  __shared__ typename BlockScanT::TempStorage temp_storage;
+  typedef block_scan<uint32_t> BlockScanT;
+  __shared__ typename BlockScanT::TempStorage cagra_temp_storage;
 
   uint32_t my_index = 0xffffffff;
   uint32_t my_csum  = 0;
   if (num_bins <= blockDim_x) {
     uint32_t csum = 0;
     if (threadIdx.x < num_bins) { csum = hist[threadIdx.x]; }
-    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
     if (threadIdx.x < num_bins) {
       const uint32_t index = threadIdx.x;
       if ((nx_below_threshold + csum <= topk) && (threshold + (index << shift) <= max_threshold)) {
@@ -325,7 +323,7 @@ __device__ inline void select_best_index_for_next_threshold(
       for (int i = 0; i < n_data; i++) {
         csum[i] = hist[i + (n_data * threadIdx.x)];
       }
-      BlockScanT(temp_storage).InclusiveSum(csum, csum);
+      BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
       for (int i = n_data - 1; i >= 0; i--) {
         if (nx_below_threshold + csum[i] > topk) continue;
         const uint32_t index = i + (n_data * threadIdx.x);
@@ -340,7 +338,7 @@ __device__ inline void select_best_index_for_next_threshold(
       for (int i = 0; i < n_data; i++) {
         csum[i] = hist[i + (n_data * threadIdx.x)];
       }
-      BlockScanT(temp_storage).InclusiveSum(csum, csum);
+      BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
       for (int i = n_data - 1; i >= 0; i--) {
         if (nx_below_threshold + csum[i] > topk) continue;
         const uint32_t index = i + (n_data * threadIdx.x);
