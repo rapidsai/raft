@@ -59,7 +59,7 @@ To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-be
 
 ```bash
 export RAFT_HOME=$(pwd)
-# All  are present in directory raft/bench/ann
+# All scripts are present in directory raft/bench/ann
 
 mkdir -p data/deep-1B
 # (1) prepare dataset
