@@ -301,14 +301,14 @@ __device__ inline void select_best_index_for_next_threshold(
   // so far ('nx_below_threshold') and the csum value does not exceed the
   // topk value.
   typedef block_scan<uint32_t> BlockScanT;
-  __shared__ typename BlockScanT::TempStorage cagra_temp_storage;
+  __shared__ typename BlockScanT::TempStorage temp_storage;
 
   uint32_t my_index = 0xffffffff;
   uint32_t my_csum  = 0;
   if (num_bins <= blockDim_x) {
     uint32_t csum = 0;
     if (threadIdx.x < num_bins) { csum = hist[threadIdx.x]; }
-    BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
+    BlockScanT{temp_storage}.template scan<inclusive>(csum, csum);
     if (threadIdx.x < num_bins) {
       const uint32_t index = threadIdx.x;
       if ((nx_below_threshold + csum <= topk) && (threshold + (index << shift) <= max_threshold)) {
@@ -317,35 +317,39 @@ __device__ inline void select_best_index_for_next_threshold(
       }
     }
   } else {
-    if (num_bins == 2048) {
-      constexpr int n_data = 2048 / blockDim_x;
-      uint32_t csum[n_data];
-      for (int i = 0; i < n_data; i++) {
-        csum[i] = hist[i + (n_data * threadIdx.x)];
-      }
-      BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
-      for (int i = n_data - 1; i >= 0; i--) {
-        if (nx_below_threshold + csum[i] > topk) continue;
-        const uint32_t index = i + (n_data * threadIdx.x);
-        if (threshold + (index << shift) > max_threshold) continue;
-        my_index = index;
-        my_csum  = csum[i];
-        break;
-      }
-    } else if (num_bins == 1024) {
-      constexpr int n_data = 1024 / blockDim_x;
-      uint32_t csum[n_data];
-      for (int i = 0; i < n_data; i++) {
-        csum[i] = hist[i + (n_data * threadIdx.x)];
-      }
-      BlockScanT{cagra_temp_storage}.template scan<inclusive>(csum, csum);
-      for (int i = n_data - 1; i >= 0; i--) {
-        if (nx_below_threshold + csum[i] > topk) continue;
-        const uint32_t index = i + (n_data * threadIdx.x);
-        if (threshold + (index << shift) > max_threshold) continue;
-        my_index = index;
-        my_csum  = csum[i];
-        break;
+    constexpr int n_data = 4;
+    uint32_t csum[n_data];
+    uint32_t hist_offset = 0;
+
+    if (n_data * threadIdx.x < num_bins) {
+      for (unsigned hist_index_offset = 0; hist_index_offset < num_bins;
+           hist_index_offset += blockDim.x * n_data) {
+        for (int i = 0; i < n_data; i++) {
+          csum[i] = hist[i + (n_data * threadIdx.x) + hist_index_offset] + hist_offset;
+        }
+        BlockScanT{temp_storage}.template scan<inclusive>(csum, csum);
+        __syncthreads();
+        if (threadIdx.x == blockDim.x - 1) { temp_storage[0] = csum[n_data - 1]; }
+        __syncthreads();
+        hist_offset = temp_storage[0];
+
+        bool should_check = false;
+        if (hist_offset + blockDim.x * n_data >= num_bins) { should_check = true; }
+        if (nx_below_threshold + hist_offset + hist[hist_index_offset] > topk) {
+          should_check = true;
+        }
+
+        if (should_check) {
+          for (int i = n_data - 1; i >= 0; i--) {
+            if (nx_below_threshold + csum[i] > topk) continue;
+            const uint32_t index = i + (n_data * threadIdx.x) + hist_index_offset;
+            if (threshold + (index << shift) > max_threshold) continue;
+            my_index = index;
+            my_csum  = csum[i];
+            break;
+          }
+          break;
+        }
       }
     }
   }
