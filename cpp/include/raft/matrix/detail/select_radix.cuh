@@ -203,6 +203,9 @@ struct alignas(128) Counter {
   // value are written from back to front. We need to keep count of them separately because the
   // number of elements that <= the k-th value might exceed k.
   alignas(128) IdxT out_back_cnt;
+
+  // Number of infinities found in the zero pass.
+  alignas(128) IdxT bound_cnt;
 };
 
 /**
@@ -221,7 +224,8 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
                                        IdxT* histogram,
                                        bool select_min,
                                        int pass,
-                                       bool early_stop)
+                                       bool early_stop,
+                                       IdxT k)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ IdxT histogram_smem[num_buckets];
@@ -232,13 +236,24 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
 
   const int start_bit = calc_start_bit<T, BitsPerPass>(pass);
   const unsigned mask = calc_mask<T, BitsPerPass>(pass);
+  // The last possible value (k-th cannot be further).
+  const auto bound = select_min ? upper_bound<T>() : lower_bound<T>();
 
   if (pass == 0) {
+    IdxT* p_bound_cnt = &counter->bound_cnt;
     // Passed to vectorized_process, this function executes in all blocks in parallel,
     // i.e. the work is split along the input (both, in batches and chunks of a single row).
     // Later, the histograms are merged using atomicAdd.
-    auto f = [select_min, start_bit, mask](T value, IdxT) {
-      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
+    auto f = [in_idx_buf, out, out_idx, select_min, start_bit, mask, bound, p_bound_cnt, k](
+               T value, IdxT i) {
+      if (value == bound) {
+        if (i < k) {
+          IdxT pos     = k - 1 - atomicAdd(p_bound_cnt, IdxT{1});
+          out[pos]     = value;
+          out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
+        }
+        return;
+      }
       int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
       atomicAdd(histogram_smem + bucket, static_cast<IdxT>(1));
     };
@@ -266,8 +281,9 @@ _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
               kth_value_bits,
               p_filter_cnt,
               p_out_cnt,
+              bound,
               early_stop](T value, IdxT i) {
-      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
+      if (value == bound) { return; }
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
@@ -372,7 +388,7 @@ _RAFT_DEVICE void choose_bucket(Counter<T, IdxT>* counter,
     IdxT cur  = histogram[i];
 
     // one and only one thread will satisfy this condition, so counter is written by only one thread
-    if (prev < k && cur >= k) {
+    if (prev < k && (cur >= k || i + 1 == num_buckets)) {
       counter->k   = k - prev;    // how many values still are there to find
       counter->len = cur - prev;  // number of values in next pass
       typename cub::Traits<T>::UnsignedBits bucket = i;
@@ -415,7 +431,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
       if (back_pos < needed_num_of_kth) {
-        IdxT pos     = k - 1 - back_pos;
+        IdxT pos     = k - needed_num_of_kth + back_pos;
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
@@ -477,7 +493,7 @@ __global__ void last_filter_kernel(const T* in,
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
       if (back_pos < needed_num_of_kth) {
-        IdxT pos     = k - 1 - back_pos;
+        IdxT pos     = k - needed_num_of_kth + back_pos;
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
       }
@@ -562,12 +578,11 @@ __global__ void radix_kernel(const T* in,
     current_len  = counter->len;
     previous_len = counter->previous_len;
   }
-  if (current_len == 0) { return; }
 
   // When k=len, early_stop will be true at pass 0. It means filter_and_histogram() should handle
   // correctly the case that pass=0 and early_stop=true. However, this special case of k=len is
   // handled in other way in select_k() so such case is not possible here.
-  const bool early_stop = (current_len == current_k);
+  const bool early_stop = (current_len <= current_k);
   const IdxT buf_len    = calc_buf_len<T>(len);
 
   // "previous_len > buf_len" means previous pass skips writing buffer
@@ -604,7 +619,9 @@ __global__ void radix_kernel(const T* in,
                                              histogram,
                                              select_min,
                                              pass,
-                                             early_stop);
+                                             early_stop,
+                                             k);
+  if (current_len == 0) { return; }
   __threadfence();
 
   bool isLastBlock = false;
@@ -871,7 +888,8 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
                                                      Counter<T, IdxT>* counter,
                                                      IdxT* histogram,
                                                      bool select_min,
-                                                     int pass)
+                                                     int pass,
+                                                     IdxT k)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
@@ -884,13 +902,25 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   const int start_bit     = calc_start_bit<T, BitsPerPass>(pass);
   const unsigned mask     = calc_mask<T, BitsPerPass>(pass);
   const IdxT previous_len = counter->previous_len;
+  // The last possible value (k-th cannot be further).
+  const auto bound = select_min ? upper_bound<T>() : lower_bound<T>();
 
   if (pass == 0) {
-    auto f = [histogram, select_min, start_bit, mask](T value, IdxT) {
-      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { return; }
-      int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
-      atomicAdd(histogram + bucket, static_cast<IdxT>(1));
-    };
+    IdxT* p_bound_cnt = &counter->bound_cnt;
+    auto f =
+      [histogram, in_idx_buf, out, out_idx, select_min, start_bit, mask, bound, p_bound_cnt, k](
+        T value, IdxT i) {
+        if (value == bound) {
+          if (i < k) {
+            IdxT pos     = k - 1 - atomicAdd(p_bound_cnt, IdxT{1});
+            out[pos]     = value;
+            out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
+          }
+          return;
+        }
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
+        atomicAdd(histogram + bucket, static_cast<IdxT>(1));
+      };
     vectorized_process(threadIdx.x, blockDim.x, in_buf, previous_len, f);
   } else {
     // not use vectorized_process here because it increases #registers a lot
@@ -900,7 +930,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
 
     for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
       const T value = in_buf[i];
-      if (select_min ? (value >= upper_bound<T>()) : (value <= lower_bound<T>())) { continue; }
+      if (value == bound) { continue; }
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
@@ -947,6 +977,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     counter.kth_value_bits = 0;
     counter.out_cnt        = 0;
     counter.out_back_cnt   = 0;
+    counter.bound_cnt      = 0;
   }
   __syncthreads();
 
@@ -981,7 +1012,8 @@ __global__ void radix_topk_one_block_kernel(const T* in,
                                                              &counter,
                                                              histogram,
                                                              select_min,
-                                                             pass);
+                                                             pass,
+                                                             k);
     __syncthreads();
 
     scan<IdxT, BitsPerPass, BlockSize>(histogram);
@@ -991,7 +1023,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     if (threadIdx.x == 0) { counter.previous_len = current_len; }
     __syncthreads();
 
-    if (counter.len == counter.k || pass == num_passes - 1) {
+    if (counter.len <= counter.k || pass == num_passes - 1) {
       last_filter<T, IdxT, BitsPerPass>(pass == 0 ? in : out_buf,
                                         pass == 0 ? in_idx : out_idx_buf,
                                         out,
