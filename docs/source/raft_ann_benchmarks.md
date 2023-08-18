@@ -41,7 +41,7 @@ export RAFT_HOME=$(pwd)
 python bench/ann/get_dataset.py --dataset glove-100-angular --normalize
 
 # (2) build and search index
-python bench/ann/run.py --configuration bench/ann/conf/glove-100-inner.json
+python bench/ann/run.py --dataset glove-100-inner
 
 # (3) evaluate results
 python bench/ann/data_export.py --output out.csv --dataset glove-100-inner result/glove-100-inner/
@@ -69,7 +69,7 @@ python bench/ann/split_groundtruth.py --groundtruth data/deep-1B/deep_new_ground
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python bench/ann/run.py --configuration bench/ann/conf/deep-1B.json
+python bench/ann/run.py --dataset deep-1B
 
 # (3) evaluate results
 python bench/ann/data_export.py --output out.csv --dataset deep-1B result/deep-1B/
