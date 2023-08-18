@@ -1129,6 +1129,7 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream) {
 
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph, cudaStream_t stream) {
+    cudaStreamSynchronize(stream);
     nrow_ = nrow;
     graph_.h_graph = (InternalID_t<Index_t>*)output_graph;
 
@@ -1269,8 +1270,8 @@ template <typename T,
 index<IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset) {
-    RAFT_EXPECTS(dataset.size() >= std::numeric_limits<int>::max() - 1,
-        "The dataset_size for GNND should be less than %d",
+    RAFT_EXPECTS(dataset.size() < std::numeric_limits<int>::max() - 1,
+        "The dataset size for GNND should be less than %d",
                                  std::numeric_limits<int>::max() - 1);
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -1300,6 +1301,7 @@ index<IdxT> build(raft::resources const& res,
                             .metric_type = Metric_t::METRIC_L2};
 
   GNND<const T, int> nnd(build_config);
+  std::cout << "graph dim: " << idx.int_graph().extent(0) << ", " << idx.int_graph().extent(1) << std::endl;
   nnd.build(dataset.data_handle(), dataset.extent(0), idx.int_graph().data_handle(), resource::get_cuda_stream(res));
   nnd.dealloc();
 

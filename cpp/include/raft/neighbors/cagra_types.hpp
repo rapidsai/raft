@@ -355,6 +355,7 @@ struct index : ann::index {
 namespace raft::neighbors::experimental::cagra {
 using raft::neighbors::cagra::hash_mode;
 using raft::neighbors::cagra::index;
+using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::index_params;
 using raft::neighbors::cagra::search_algo;
 using raft::neighbors::cagra::search_params;
