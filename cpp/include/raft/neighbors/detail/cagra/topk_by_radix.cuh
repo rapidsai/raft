@@ -45,8 +45,7 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK, IdxT, std::enable_if_t<((MAX_INTERN
                              uint32_t* _smem)
   {
     std::uint8_t* const state = reinterpret_cast<std::uint8_t*>(work);
-    topk_cta_11_core<0,
-                     topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght,
+    topk_cta_11_core<topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght,
                      topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,
                      64,
                      32,
@@ -75,8 +74,7 @@ struct topk_by_radix_sort<MAX_INTERNAL_TOPK, IdxT, std::enable_if_t<((MAX_INTERN
     {                                                                                \
       assert(blockDim.x >= V / 4);                                                   \
       std::uint8_t* state = (std::uint8_t*)work;                                     \
-      topk_cta_11_core<0,                                                            \
-                       topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght, \
+      topk_cta_11_core<topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::state_bit_lenght, \
                        topk_by_radix_sort_base<MAX_INTERNAL_TOPK>::vecLen,           \
                        V,                                                            \
                        V / 4,                                                        \
