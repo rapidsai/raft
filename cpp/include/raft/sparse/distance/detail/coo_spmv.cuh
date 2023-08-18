@@ -56,10 +56,8 @@ inline void balanced_coo_pairwise_generalized_spmv(
   strategy_t strategy,
   int chunk_size = 500000)
 {
-  RAFT_CUDA_TRY(cudaMemsetAsync(out_dists,
-                                0,
-                                sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-                                resource::get_cuda_stream(config_.handle)));
+  uint64_t n = (uint64_t)sizeof(value_t) * (uint64_t)config_.a_nrows * (uint64_t)config_.b_nrows;
+  RAFT_CUDA_TRY(cudaMemsetAsync(out_dists, 0, n, resource::get_cuda_stream(config_.handle)));
 
   strategy.dispatch(out_dists, coo_rows_b, product_func, accum_func, write_func, chunk_size);
 };
@@ -112,10 +110,8 @@ inline void balanced_coo_pairwise_generalized_spmv(
   write_f write_func,
   int chunk_size = 500000)
 {
-  RAFT_CUDA_TRY(cudaMemsetAsync(out_dists,
-                                0,
-                                sizeof(value_t) * config_.a_nrows * config_.b_nrows,
-                                resource::get_cuda_stream(config_.handle)));
+  uint64_t n = (uint64_t)sizeof(value_t) * (uint64_t)config_.a_nrows * (uint64_t)config_.b_nrows;
+  RAFT_CUDA_TRY(cudaMemsetAsync(out_dists, 0, n, resource::get_cuda_stream(config_.handle)));
 
   int max_cols = max_cols_per_block<value_idx, value_t>();
 

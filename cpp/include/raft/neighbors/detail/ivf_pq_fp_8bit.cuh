@@ -71,7 +71,7 @@ struct fp_8bit {
     return *this;
   }
   HDI explicit operator float() const { return fp_8bit2float(*this); }
-  HDI explicit operator half() const { return half(fp_8bit2float(*this)); }
+  HDI explicit operator half() const { return fp_8bit2half(*this); }
 
  private:
   static constexpr float kMin = 1.0f / float(1u << ExpMask);
@@ -101,8 +101,23 @@ struct fp_8bit {
       u &= ~1;  // zero the sign bit
     }
     float r;
-    *reinterpret_cast<uint32_t*>(&r) =
-      ((u << (15u + ExpBits)) + (0x3f800000u | (0x00400000u >> ValBits)) - (ExpMask << 23));
+    constexpr uint32_t kBase32       = (0x3f800000u | (0x00400000u >> ValBits)) - (ExpMask << 23);
+    *reinterpret_cast<uint32_t*>(&r) = kBase32 + (u << (15u + ExpBits));
+    if constexpr (Signed) {  // recover the sign bit
+      if (v.bitstring & 1) { r = -r; }
+    }
+    return r;
+  }
+
+  static HDI auto fp_8bit2half(const fp_8bit<ExpBits, Signed>& v) -> half
+  {
+    uint16_t u = v.bitstring;
+    if constexpr (Signed) {
+      u &= ~1;  // zero the sign bit
+    }
+    half r;
+    constexpr uint16_t kBase16       = (0x3c00u | (0x0200u >> ValBits)) - (ExpMask << 10);
+    *reinterpret_cast<uint16_t*>(&r) = kBase16 + (u << (2u + ExpBits));
     if constexpr (Signed) {  // recover the sign bit
       if (v.bitstring & 1) { r = -r; }
     }

@@ -95,8 +95,68 @@ cdef _get_dtype_string(dtype):
 
 
 cdef class IndexParams:
-    cdef c_ivf_pq.index_params params
+    """
+    Parameters to build index for IVF-PQ nearest neighbor search
 
+    Parameters
+    ----------
+    n_list : int, default = 1024
+        The number of clusters used in the coarse quantizer.
+    metric : string denoting the metric type, default="sqeuclidean"
+        Valid values for metric: ["sqeuclidean", "inner_product",
+        "euclidean"], where
+            - sqeuclidean is the euclidean distance without the square root
+              operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
+            - euclidean is the euclidean distance
+            - inner product distance is defined as
+              distance(a, b) = \\sum_i a_i * b_i.
+    kmeans_n_iters : int, default = 20
+        The number of iterations searching for kmeans centers during index
+        building.
+    kmeans_trainset_fraction : int, default = 0.5
+        If kmeans_trainset_fraction is less than 1, then the dataset is
+        subsampled, and only n_samples * kmeans_trainset_fraction rows
+        are used for training.
+    pq_bits : int, default = 8
+        The bit length of the vector element after quantization.
+    pq_dim : int, default = 0
+        The dimensionality of a the vector after product quantization.
+        When zero, an optimal value is selected using a heuristic. Note
+        pq_dim * pq_bits must be a multiple of 8. Hint: a smaller 'pq_dim'
+        results in a smaller index size and better search performance, but
+        lower recall. If 'pq_bits' is 8, 'pq_dim' can be set to any number,
+        but multiple of 8 are desirable for good performance. If 'pq_bits'
+        is not 8, 'pq_dim' should be a multiple of 8. For good performance,
+        it is desirable that 'pq_dim' is a multiple of 32. Ideally,
+        'pq_dim' should be also a divisor of the dataset dim.
+    codebook_kind : string, default = "subspace"
+        Valid values ["subspace", "cluster"]
+    force_random_rotation : bool, default = False
+        Apply a random rotation matrix on the input data and queries even
+        if `dim % pq_dim == 0`. Note: if `dim` is not multiple of `pq_dim`,
+        a random rotation is always applied to the input data and queries
+        to transform the working space from `dim` to `rot_dim`, which may
+        be slightly larger than the original space and and is a multiple
+        of `pq_dim` (`rot_dim % pq_dim == 0`). However, this transform is
+        not necessary when `dim` is multiple of `pq_dim` (`dim == rot_dim`,
+        hence no need in adding "extra" data columns / features). By
+        default, if `dim == rot_dim`, the rotation transform is
+        initialized with the identity matrix. When
+        `force_random_rotation == True`, a random orthogonal transform
+        matrix is generated regardless of the values of `dim` and `pq_dim`.
+    add_data_on_build : bool, default = True
+        After training the coarse and fine quantizers, we will populate
+        the index with the dataset if add_data_on_build == True, otherwise
+        the index is left empty, and the extend method can be used
+        to add new vectors to the index.
+    conservative_memory_allocation : bool, default = True
+        By default, the algorithm allocates more space than necessary for
+        individual clusters (`list_data`). This allows to amortize the cost
+        of memory allocation and reduce the number of data copies during
+        repeated calls to `extend` (extending the database).
+        To disable this behavior and use as little GPU memory for the
+        database as possible, set this flat to `True`.
+    """
     def __init__(self, *,
                  n_lists=1024,
                  metric="sqeuclidean",
@@ -108,69 +168,6 @@ cdef class IndexParams:
                  force_random_rotation=False,
                  add_data_on_build=True,
                  conservative_memory_allocation=False):
-        """"
-        Parameters to build index for IVF-PQ nearest neighbor search
-
-        Parameters
-        ----------
-        n_list : int, default = 1024
-            The number of clusters used in the coarse quantizer.
-        metric : string denoting the metric type, default="sqeuclidean"
-            Valid values for metric: ["sqeuclidean", "inner_product",
-            "euclidean"], where
-            - sqeuclidean is the euclidean distance without the square root
-              operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
-            - euclidean is the euclidean distance
-            - inner product distance is defined as
-              distance(a, b) = \\sum_i a_i * b_i.
-        kmeans_n_iters : int, default = 20
-            The number of iterations searching for kmeans centers during index
-            building.
-        kmeans_trainset_fraction : int, default = 0.5
-            If kmeans_trainset_fraction is less than 1, then the dataset is
-            subsampled, and only n_samples * kmeans_trainset_fraction rows
-            are used for training.
-        pq_bits : int, default = 8
-            The bit length of the vector element after quantization.
-        pq_dim : int, default = 0
-            The dimensionality of a the vector after product quantization.
-            When zero, an optimal value is selected using a heuristic. Note
-            pq_dim * pq_bits must be a multiple of 8. Hint: a smaller 'pq_dim'
-            results in a smaller index size and better search performance, but
-            lower recall. If 'pq_bits' is 8, 'pq_dim' can be set to any number,
-            but multiple of 8 are desirable for good performance. If 'pq_bits'
-            is not 8, 'pq_dim' should be a multiple of 8. For good performance,
-            it is desirable that 'pq_dim' is a multiple of 32. Ideally,
-            'pq_dim' should be also a divisor of the dataset dim.
-        codebook_kind : string, default = "subspace"
-            Valid values ["subspace", "cluster"]
-        force_random_rotation : bool, default = False
-            Apply a random rotation matrix on the input data and queries even
-            if `dim % pq_dim == 0`. Note: if `dim` is not multiple of `pq_dim`,
-            a random rotation is always applied to the input data and queries
-            to transform the working space from `dim` to `rot_dim`, which may
-            be slightly larger than the original space and and is a multiple
-            of `pq_dim` (`rot_dim % pq_dim == 0`). However, this transform is
-            not necessary when `dim` is multiple of `pq_dim` (`dim == rot_dim`,
-            hence no need in adding "extra" data columns / features). By
-            default, if `dim == rot_dim`, the rotation transform is
-            initialized with the identity matrix. When
-            `force_random_rotation == True`, a random orthogonal transform
-            matrix is generated regardless of the values of `dim` and `pq_dim`.
-        add_data_on_build : bool, default = True
-            After training the coarse and fine quantizers, we will populate
-            the index with the dataset if add_data_on_build == True, otherwise
-            the index is left empty, and the extend method can be used
-            to add new vectors to the index.
-        conservative_memory_allocation : bool, default = True
-            By default, the algorithm allocates more space than necessary for
-            individual clusters (`list_data`). This allows to amortize the cost
-            of memory allocation and reduce the number of data copies during
-            repeated calls to `extend` (extending the database).
-            To disable this behavior and use as little GPU memory for the
-            database as possible, set this flat to `True`.
-
-        """
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -334,14 +331,11 @@ def build(IndexParams index_params, dataset, handle=None):
     --------
 
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
@@ -350,17 +344,14 @@ def build(IndexParams index_params, dataset, handle=None):
     ...     metric="sqeuclidean",
     ...     pq_dim=10)
     >>> index = ivf_pq.build(index_params, dataset, handle=handle)
-
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 10
     >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
     ...                                      queries, k, handle=handle)
-
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -434,25 +425,20 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     --------
 
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
-
     >>> n_rows = 100
     >>> more_data = cp.random.random_sample((n_rows, n_features),
     ...                                     dtype=cp.float32)
     >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
     >>> index = ivf_pq.extend(index, more_data, indices)
-
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
@@ -460,11 +446,9 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(),
     ...                                      index, queries,
     ...                                      k, handle=handle)
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
-
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
     """
@@ -521,30 +505,27 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
 
 cdef class SearchParams:
-    cdef c_ivf_pq.search_params params
+    """
+    IVF-PQ search parameters
 
+    Parameters
+    ----------
+    n_probes: int, default = 1024
+        The number of course clusters to select for the fine search.
+    lut_dtype: default = np.float32
+        Data type of look up table to be created dynamically at search
+        time. The use of low-precision types reduces the amount of shared
+        memory required at search time, so fast shared memory kernels can
+        be used even for datasets with large dimansionality. Note that
+        the recall is slightly degraded when low-precision type is
+        selected. Possible values [np.float32, np.float16, np.uint8]
+    internal_distance_dtype: default = np.float32
+        Storage data type for distance/similarity computation.
+        Possible values [np.float32, np.float16]
+    """
     def __init__(self, *, n_probes=20,
                  lut_dtype=np.float32,
                  internal_distance_dtype=np.float32):
-        """
-        IVF-PQ search parameters
-
-        Parameters
-        ----------
-        n_probes: int, default = 1024
-            The number of course clusters to select for the fine search.
-        lut_dtype: default = np.float32
-            Data type of look up table to be created dynamically at search
-            time. The use of low-precision types reduces the amount of shared
-            memory required at search time, so fast shared memory kernels can
-            be used even for datasets with large dimansionality. Note that
-            the recall is slightly degraded when low-precision type is
-            selected. Possible values [np.float32, np.float16, np.uint8]
-        internal_distance_dtype: default = np.float32
-            Storage data type for distance/similarity computation.
-            Possible values [np.float32, np.float16]
-        """
-
         self.params.n_probes = n_probes
         self.params.lut_dtype = _map_dtype_np_to_cuda(lut_dtype)
         self.params.internal_distance_dtype = \
@@ -613,20 +594,16 @@ def search(SearchParams search_params,
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build index
     >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
-
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
@@ -636,7 +613,6 @@ def search(SearchParams search_params,
     ...     lut_dtype=cp.float16,
     ...     internal_distance_dtype=cp.float32
     ... )
-
     >>> # Using a pooling allocator reduces overhead of temporary array
     >>> # creation during search. This is useful if multiple searches
     >>> # are performad with same query size.
@@ -649,11 +625,9 @@ def search(SearchParams search_params,
     >>> distances, neighbors = ivf_pq.search(search_params, index, queries,
     ...                                      k, memory_resource=mr,
     ...                                      handle=handle)
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
-
     >>> neighbors = cp.asarray(neighbors)
     >>> distances = cp.asarray(distances)
     """
@@ -730,7 +704,7 @@ def search(SearchParams search_params,
 @auto_sync_handle
 def save(filename, Index index, handle=None):
     """
-    Saves the index to file.
+    Saves the index to a file.
 
     Saving / loading the index is experimental. The serialization format is
     subject to change.
@@ -746,15 +720,12 @@ def save(filename, Index index, handle=None):
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build index
     >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
@@ -776,7 +747,7 @@ def save(filename, Index index, handle=None):
 @auto_sync_handle
 def load(filename, handle=None):
     """
-    Loads index from file.
+    Loads index from a file.
 
     Saving / loading the index is experimental. The serialization format is
     subject to change, therefore loading an index saved with a previous
@@ -795,27 +766,22 @@ def load(filename, handle=None):
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_pq
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build and save index
     >>> handle = DeviceResources()
     >>> index = ivf_pq.build(ivf_pq.IndexParams(), dataset, handle=handle)
     >>> ivf_pq.save("my_index.bin", index, handle=handle)
     >>> del index
-
     >>> n_queries = 100
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
     >>> index = ivf_pq.load("my_index.bin", handle=handle)
-
     >>> distances, neighbors = ivf_pq.search(ivf_pq.SearchParams(), index,
     ...                                      queries, k=10, handle=handle)
     """

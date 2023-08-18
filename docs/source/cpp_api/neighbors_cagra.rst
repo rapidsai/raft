@@ -11,7 +11,7 @@ Please note that the CAGRA implementation is currently experimental and the API 
 
 ``#include <raft/neighbors/cagra.cuh>``
 
-namespace *raft::neighbors::experimental::cagra*
+namespace *raft::neighbors::cagra*
 
 .. doxygengroup:: cagra
     :project: RAFT
@@ -19,3 +19,13 @@ namespace *raft::neighbors::experimental::cagra*
     :content-only:
 
 
+Serializer Methods
+------------------
+``#include <raft/neighbors/cagra_serialize.cuh>``
+
+namespace *raft::neighbors::cagra*
+
+.. doxygengroup:: cagra_serialize
+    :project: RAFT
+    :members:
+    :content-only:

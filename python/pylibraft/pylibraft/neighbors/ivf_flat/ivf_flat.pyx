@@ -75,6 +75,45 @@ from pylibraft.neighbors.ivf_flat.cpp.c_ivf_flat cimport (
 
 
 cdef class IndexParams:
+    """
+    Parameters to build index for IVF-FLAT nearest neighbor search
+
+    Parameters
+    ----------
+    n_list : int, default = 1024
+        The number of clusters used in the coarse quantizer.
+    metric : string denoting the metric type, default="sqeuclidean"
+        Valid values for metric: ["sqeuclidean", "inner_product",
+        "euclidean"], where
+            - sqeuclidean is the euclidean distance without the square root
+              operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
+            - euclidean is the euclidean distance
+            - inner product distance is defined as
+              distance(a, b) = \\sum_i a_i * b_i.
+    kmeans_n_iters : int, default = 20
+        The number of iterations searching for kmeans centers during index
+        building.
+    kmeans_trainset_fraction : int, default = 0.5
+        If kmeans_trainset_fraction is less than 1, then the dataset is
+        subsampled, and only n_samples * kmeans_trainset_fraction rows
+        are used for training.
+    add_data_on_build : bool, default = True
+        After training the coarse and fine quantizers, we will populate
+        the index with the dataset if add_data_on_build == True, otherwise
+        the index is left empty, and the extend method can be used
+        to add new vectors to the index.
+    adaptive_centers : bool, default = False
+        By default (adaptive_centers = False), the cluster centers are
+        trained in `ivf_flat::build`, and and never modified in
+        `ivf_flat::extend`. The alternative behavior (adaptive_centers
+        = true) is to update the cluster centers for new data when it is
+        added. In this case, `index.centers()` are always exactly the
+        centroids of the data in the corresponding clusters. The drawback
+        of this behavior is that the centroids depend on the order of
+        adding new data (through the classification of the added data);
+        that is, `index.centers()` "drift" together with the changing
+        distribution of the newly added data.
+    """
     cdef c_ivf_flat.index_params params
 
     def __init__(self, *,
@@ -84,45 +123,6 @@ cdef class IndexParams:
                  kmeans_trainset_fraction=0.5,
                  add_data_on_build=True,
                  bool adaptive_centers=False):
-        """"
-        Parameters to build index for IVF-FLAT nearest neighbor search
-
-        Parameters
-        ----------
-        n_list : int, default = 1024
-            The number of clusters used in the coarse quantizer.
-        metric : string denoting the metric type, default="sqeuclidean"
-            Valid values for metric: ["sqeuclidean", "inner_product",
-            "euclidean"], where
-            - sqeuclidean is the euclidean distance without the square root
-              operation, i.e.: distance(a,b) = \\sum_i (a_i - b_i)^2,
-            - euclidean is the euclidean distance
-            - inner product distance is defined as
-              distance(a, b) = \\sum_i a_i * b_i.
-        kmeans_n_iters : int, default = 20
-            The number of iterations searching for kmeans centers during index
-            building.
-        kmeans_trainset_fraction : int, default = 0.5
-            If kmeans_trainset_fraction is less than 1, then the dataset is
-            subsampled, and only n_samples * kmeans_trainset_fraction rows
-            are used for training.
-        add_data_on_build : bool, default = True
-            After training the coarse and fine quantizers, we will populate
-            the index with the dataset if add_data_on_build == True, otherwise
-            the index is left empty, and the extend method can be used
-            to add new vectors to the index.
-        adaptive_centers : bool, default = False
-            By default (adaptive_centers = False), the cluster centers are
-            trained in `ivf_flat::build`, and and never modified in
-            `ivf_flat::extend`. The alternative behavior (adaptive_centers
-            = true) is to update the cluster centers for new data when it is
-            added. In this case, `index.centers()` are always exactly the
-            centroids of the data in the corresponding clusters. The drawback
-            of this behavior is that the centroids depend on the order of
-            adding new data (through the classification of the added data);
-            that is, `index.centers()` "drift" together with the changing
-            distribution of the newly added data.
-        """
         self.params.n_lists = n_lists
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
@@ -333,33 +333,27 @@ def build(IndexParams index_params, dataset, handle=None):
     --------
 
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_flat
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
     >>> index_params = ivf_flat.IndexParams(
     ...     n_lists=1024,
     ...     metric="sqeuclidean")
-
     >>> index = ivf_flat.build(index_params, dataset, handle=handle)
-
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 10
-    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(), index,
-    ...                                      queries, k, handle=handle)
-
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                        index, queries, k,
+    ...                                        handle=handle)
     >>> distances = cp.asarray(distances)
     >>> neighbors = cp.asarray(neighbors)
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -439,25 +433,21 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     --------
 
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_flat
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
-
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
-    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
-
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
     >>> n_rows = 100
     >>> more_data = cp.random.random_sample((n_rows, n_features),
     ...                                     dtype=cp.float32)
     >>> indices = index.size + cp.arange(n_rows, dtype=cp.int64)
     >>> index = ivf_flat.extend(index, more_data, indices)
-
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
@@ -465,7 +455,6 @@ def extend(Index index, new_vectors, new_indices, handle=None):
     >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
     ...                                      index, queries,
     ...                                      k, handle=handle)
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -540,17 +529,17 @@ def extend(Index index, new_vectors, new_indices, handle=None):
 
 
 cdef class SearchParams:
+    """
+    IVF-FLAT search parameters
+
+    Parameters
+    ----------
+    n_probes: int, default = 1024
+        The number of course clusters to select for the fine search.
+    """
     cdef c_ivf_flat.search_params params
 
     def __init__(self, *, n_probes=20):
-        """
-        IVF-FLAT search parameters
-
-        Parameters
-        ----------
-        n_probes: int, default = 1024
-            The number of course clusters to select for the fine search.
-        """
         self.params.n_probes = n_probes
 
     def __repr__(self):
@@ -595,50 +584,29 @@ def search(SearchParams search_params,
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_flat
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> n_queries = 1000
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build index
     >>> handle = DeviceResources()
-    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
-
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
     >>> # Search using the built index
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> k = 10
     >>> search_params = ivf_flat.SearchParams(
-    ...     n_probes=20,
-    ...     lut_dtype=cp.float16,
-    ...     internal_distance_dtype=cp.float32
+    ...     n_probes=20
     ... )
-
-        # TODO update example to set default pool allocator
-        #      (instead of passing an mr)
-
-    >>> # Using a pooling allocator reduces overhead of temporary array
-    >>> # creation during search. This is useful if multiple searches
-    >>> # are performad with same query size.
-    >>> import rmm
-    >>> mr = rmm.mr.PoolMemoryResource(
-    ...     rmm.mr.CudaMemoryResource(),
-    ...     initial_pool_size=2**29,
-    ...     maximum_pool_size=2**31
-    ... )
-    >>> distances, neighbors = ivf_flat.search(search_params, index, queries,
-    ...                                      k, memory_resource=mr,
-    ...                                      handle=handle)
-
+    >>> distances, neighbors = ivf_flat.search(search_params, index,
+    ...                                        queries, k, handle=handle)
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
-
     >>> neighbors = cp.asarray(neighbors)
     >>> distances = cp.asarray(distances)
     """
@@ -713,7 +681,7 @@ def search(SearchParams search_params,
 @auto_sync_handle
 def save(filename, Index index, handle=None):
     """
-    Saves the index to file.
+    Saves the index to a file.
 
     Saving / loading the index is experimental. The serialization format is
     subject to change.
@@ -729,18 +697,16 @@ def save(filename, Index index, handle=None):
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_flat
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build index
     >>> handle = DeviceResources()
-    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
     >>> ivf_flat.save("my_index.bin", index, handle=handle)
     """
     if not index.trained:
@@ -777,7 +743,7 @@ def save(filename, Index index, handle=None):
 @auto_sync_handle
 def load(filename, handle=None):
     """
-    Loads index from file.
+    Loads index from a file.
 
     Saving / loading the index is experimental. The serialization format is
     subject to change, therefore loading an index saved with a previous
@@ -796,29 +762,26 @@ def load(filename, handle=None):
     Examples
     --------
     >>> import cupy as cp
-
     >>> from pylibraft.common import DeviceResources
     >>> from pylibraft.neighbors import ivf_flat
-
     >>> n_samples = 50000
     >>> n_features = 50
     >>> dataset = cp.random.random_sample((n_samples, n_features),
     ...                                   dtype=cp.float32)
-
     >>> # Build and save index
     >>> handle = DeviceResources()
-    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset, handle=handle)
+    >>> index = ivf_flat.build(ivf_flat.IndexParams(), dataset,
+    ...                        handle=handle)
     >>> ivf_flat.save("my_index.bin", index, handle=handle)
     >>> del index
-
     >>> n_queries = 100
     >>> queries = cp.random.random_sample((n_queries, n_features),
     ...                                   dtype=cp.float32)
     >>> handle = DeviceResources()
     >>> index = ivf_flat.load("my_index.bin", handle=handle)
-
-    >>> distances, neighbors = ivf_flat.search(ivf_pq.SearchParams(), index,
-    ...                                      queries, k=10, handle=handle)
+    >>> distances, neighbors = ivf_flat.search(ivf_flat.SearchParams(),
+    ...                                        index, queries, k=10,
+    ...                                        handle=handle)
     """
     if handle is None:
         handle = DeviceResources()

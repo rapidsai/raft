@@ -22,7 +22,7 @@
 #include "utils.hpp"
 #include <type_traits>
 
-namespace raft::neighbors::experimental::cagra::detail {
+namespace raft::neighbors::cagra::detail {
 namespace device {
 
 // using LOAD_256BIT_T = ulonglong4;
@@ -155,13 +155,13 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   INDEX_T* const visited_hashmap_ptr,
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
-                                                  const std::uint32_t num_parents)
+                                                  const std::uint32_t search_width)
 {
   const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
 
   // Read child indices of parents from knn graph and check if the distance
   // computaiton is necessary.
-  for (uint32_t i = threadIdx.x; i < knn_k * num_parents; i += BLOCK_SIZE) {
+  for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += BLOCK_SIZE) {
     const INDEX_T parent_id = parent_indices[i / knn_k];
     INDEX_T child_id        = invalid_index;
     if (parent_id != invalid_index) {
@@ -203,10 +203,10 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
   __syncthreads();
 
   // Compute the distance to child nodes
-  std::uint32_t max_i = knn_k * num_parents;
+  std::uint32_t max_i = knn_k * search_width;
   if (max_i % (32 / TEAM_SIZE)) { max_i += (32 / TEAM_SIZE) - (max_i % (32 / TEAM_SIZE)); }
   for (std::uint32_t i = threadIdx.x / TEAM_SIZE; i < max_i; i += BLOCK_SIZE / TEAM_SIZE) {
-    const bool valid_i = (i < (knn_k * num_parents));
+    const bool valid_i = (i < (knn_k * search_width));
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
 
@@ -254,4 +254,4 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
 }
 
 }  // namespace device
-}  // namespace raft::neighbors::experimental::cagra::detail
+}  // namespace raft::neighbors::cagra::detail

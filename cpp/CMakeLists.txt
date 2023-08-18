@@ -10,12 +10,12 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.08")
-set(RAFT_VERSION "23.08.00")
+set(RAPIDS_VERSION "23.10")
+set(RAFT_VERSION "23.10.00")
 
 option(DISABLE_CUDA "Disable CUDA" OFF)
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -36,7 +36,6 @@ else()
     LANGUAGES CXX
   )
 endif()
-
 
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
@@ -288,10 +287,7 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
 if(RAFT_COMPILE_LIBRARY)
   if(DISABLE_CUDA)
-    add_library(
-      raft_lib
-      src/core/logger.cpp
-    )
+    add_library(raft_lib src/core/logger.cpp)
     set_target_properties(
       raft_lib
       PROPERTIES OUTPUT_NAME raft
@@ -349,6 +345,30 @@ if(RAFT_COMPILE_LIBRARY)
       src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
       src/neighbors/brute_force_knn_int_float_int.cu
       src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
+      src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim1024_t32.cu
+      src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_multi_cta_int8_uint32_dim1024_t32.cu
+      src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_multi_cta_uint8_uint32_dim1024_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_float_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_single_cta_float_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_single_cta_float_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_float_uint32_dim1024_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_int8_uint32_dim1024_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim128_t8.cu
+      src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim256_t16.cu
+      src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim512_t32.cu
+      src/neighbors/detail/cagra/search_single_cta_uint8_uint32_dim1024_t32.cu
       src/neighbors/detail/ivf_flat_interleaved_scan_float_float_int64_t.cu
       src/neighbors/detail/ivf_flat_interleaved_scan_int8_t_int32_t_int64_t.cu
       src/neighbors/detail/ivf_flat_interleaved_scan_uint8_t_uint32_t_int64_t.cu
@@ -360,6 +380,9 @@ if(RAFT_COMPILE_LIBRARY)
       src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_false.cu
       src/neighbors/detail/ivf_pq_compute_similarity_half_fp8_true.cu
       src/neighbors/detail/ivf_pq_compute_similarity_half_half.cu
+      src/neighbors/detail/refine_host_float_float.cpp
+      src/neighbors/detail/refine_host_int8_t_float.cpp
+      src/neighbors/detail/refine_host_uint8_t_float.cpp
       src/neighbors/detail/selection_faiss_int32_t_float.cu
       src/neighbors/detail/selection_faiss_int_double.cu
       src/neighbors/detail/selection_faiss_long_float.cu
@@ -405,6 +428,9 @@ if(RAFT_COMPILE_LIBRARY)
       src/raft_runtime/distance/pairwise_distance.cu
       src/raft_runtime/matrix/select_k_float_int64_t.cu
       src/raft_runtime/neighbors/brute_force_knn_int64_t_float.cu
+      src/raft_runtime/neighbors/cagra_build.cu
+      src/raft_runtime/neighbors/cagra_search.cu
+      src/raft_runtime/neighbors/cagra_serialize.cu
       src/raft_runtime/neighbors/ivf_flat_build.cu
       src/raft_runtime/neighbors/ivf_flat_search.cu
       src/raft_runtime/neighbors/ivf_flat_serialize.cu
@@ -463,9 +489,7 @@ if(RAFT_COMPILE_LIBRARY)
            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
   if(DISABLE_CUDA)
-    target_compile_options(
-      raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-    )
+    target_compile_options(raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>")
   else()
     target_compile_options(
       raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
@@ -478,8 +502,7 @@ if(RAFT_COMPILE_LIBRARY)
   target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
 
   if(DISABLE_CUDA)
-    # Controls whether or not CUDA symbols are used in headers that may be used
-    # in CUDA-free builds
+    # Controls whether or not CUDA symbols are used in headers that may be used in CUDA-free builds
     target_compile_definitions(raft_lib PUBLIC "RAFT_DISABLE_CUDA")
   endif()
 
@@ -504,7 +527,10 @@ target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 add_library(raft_distributed INTERFACE)
 
 # No distributed support for CUDA-free builds yet
-if(TARGET raft_distributed AND (NOT TARGET raft::distributed) AND (NOT DISABLE_CUDA))
+if(TARGET raft_distributed
+   AND (NOT TARGET raft::distributed)
+   AND (NOT DISABLE_CUDA)
+)
   add_library(raft::distributed ALIAS raft_distributed)
 endif()
 
@@ -529,7 +555,6 @@ if(NOT RAFT_DISABLE_CUDA)
 else()
   target_link_libraries(raft_distributed INTERFACE ucx::ucp)
 endif()
-
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------
