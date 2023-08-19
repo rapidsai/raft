@@ -36,6 +36,7 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.mdspan cimport const_float, const_int8_t, const_uint8_t
 from pylibraft.common.optional cimport optional
 from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
@@ -90,10 +91,16 @@ cdef extern from "raft/neighbors/cagra_types.hpp" \
         device_matrix_view[T, IdxT, row_major] dataset()
         device_matrix_view[T, IdxT, row_major] graph()
 
-        void update_dataset(const device_resources & handle,
-                            device_matrix_view[T, int64_t, row_major] dataset)
-        void update_dataset(const device_resources & handle,
-                            host_matrix_view[T, int64_t, row_major] dataset)
+        # hack: can't use the T template param here because of issues handling
+        # const w/ cython. introduce a new template param to get around this
+        void update_dataset[ValueT](const device_resources & handle,
+                                    host_matrix_view[ValueT,
+                                                     int64_t,
+                                                     row_major] dataset)
+        void update_dataset[ValueT](const device_resources & handle,
+                                    device_matrix_view[ValueT,
+                                                       int64_t,
+                                                       row_major] dataset)
 
 cdef extern from "raft_runtime/neighbors/cagra.hpp" \
         namespace "raft::runtime::neighbors::cagra" nogil:

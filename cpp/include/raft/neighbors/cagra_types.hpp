@@ -258,13 +258,6 @@ struct index : ann::index {
         dataset.data_handle(), dataset.extent(0), dataset.extent(1), dataset.extent(1));
     }
   }
-  void update_dataset(raft::resources const& res,
-                      raft::device_matrix_view<T, int64_t, row_major> dataset)
-  {
-    update_dataset(res,
-                   make_device_matrix_view<const T, int64_t>(
-                     dataset.data_handle(), dataset.extent(0), dataset.extent(1)));
-  }
 
   /**
    * Replace the dataset with a new dataset.
@@ -276,14 +269,6 @@ struct index : ann::index {
   {
     RAFT_LOG_DEBUG("Copying CAGRA dataset from host to device");
     copy_padded(res, dataset);
-  }
-
-  void update_dataset(raft::resources const& res,
-                      raft::host_matrix_view<T, int64_t, row_major> dataset)
-  {
-    update_dataset(res,
-                   make_host_matrix_view<const T, int64_t>(
-                     dataset.data_handle(), dataset.extent(0), dataset.extent(1)));
   }
 
   /**

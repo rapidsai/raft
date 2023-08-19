@@ -69,6 +69,12 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.mdspan cimport (
+    get_const_dmv_float,
+    get_const_dmv_int8,
+    get_const_dmv_uint8,
+    get_const_hmv_float,
+    get_const_hmv_int8,
+    get_const_hmv_uint8,
     get_dmv_float,
     get_dmv_int8,
     get_dmv_int64,
@@ -180,12 +186,12 @@ cdef class IndexFloat(Index):
 
         if dataset_ai.from_cai:
             self.index[0].update_dataset(deref(handle_),
-                                         get_dmv_float(dataset_ai,
-                                                       check_shape=True))
+                                         get_const_dmv_float(dataset_ai,
+                                                             check_shape=True))
         else:
             self.index[0].update_dataset(deref(handle_),
-                                         get_hmv_float(dataset_ai,
-                                                       check_shape=True))
+                                         get_const_hmv_float(dataset_ai,
+                                                             check_shape=True))
 
     @property
     def metric(self):
@@ -238,12 +244,12 @@ cdef class IndexInt8(Index):
 
         if dataset_ai.from_cai:
             self.index[0].update_dataset(deref(handle_),
-                                         get_dmv_int8(dataset_ai,
-                                                      check_shape=True))
+                                         get_const_dmv_int8(dataset_ai,
+                                                            check_shape=True))
         else:
             self.index[0].update_dataset(deref(handle_),
-                                         get_hmv_int8(dataset_ai,
-                                                      check_shape=True))
+                                         get_const_hmv_int8(dataset_ai,
+                                                            check_shape=True))
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -303,12 +309,12 @@ cdef class IndexUint8(Index):
 
         if dataset_ai.from_cai:
             self.index[0].update_dataset(deref(handle_),
-                                         get_dmv_uint8(dataset_ai,
-                                                       check_shape=True))
+                                         get_const_dmv_uint8(dataset_ai,
+                                                             check_shape=True))
         else:
             self.index[0].update_dataset(deref(handle_),
-                                         get_hmv_uint8(dataset_ai,
-                                                       check_shape=True))
+                                         get_const_hmv_uint8(dataset_ai,
+                                                             check_shape=True))
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
