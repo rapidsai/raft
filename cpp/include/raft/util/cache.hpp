@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <list>
+#include <mutex>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -33,13 +34,17 @@ template <typename K,
           typename... Values>
 class lru {
  public:
-  explicit lru(size_t size) : size_(size)
+  /** Default cache size. */
+  static constexpr size_t kDefaultSize = 100;
+
+  explicit lru(size_t size = kDefaultSize) : size_(size)
   {
     RAFT_EXPECTS(size >= 1, "The cache must fit at least one record.");
   }
 
   void set(const K& key, const Values&... values)
   {
+    std::lock_guard<std::mutex> guard(lock_);
     auto pos = map_.find(key);
     if (pos == map_.end()) {
       if (map_.size() >= size_) {
@@ -55,6 +60,7 @@ class lru {
 
   auto get(const K& key, Values*... values) -> bool
   {
+    std::lock_guard<std::mutex> guard(lock_);
     auto pos = map_.find(key);
     if (pos == map_.end()) { return false; }
     auto& map_val = pos->second;
@@ -69,6 +75,7 @@ class lru {
   using queue_iterator = typename std::list<K>::iterator;
   std::list<K> queue_{};
   std::unordered_map<K, std::tuple<queue_iterator, Values...>, HashK, EqK> map_{};
+  std::mutex lock_{};
   size_t size_;
 
   template <size_t... Is>

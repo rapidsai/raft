@@ -19,6 +19,7 @@
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cublaslt_handle.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resource/user_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cache.hpp>
 #include <raft/util/cuda_data_type.hpp>
@@ -209,8 +210,14 @@ struct matmul_desc {
   }
 };
 
-/** Number of matmul invocations to cache. */
-static constexpr size_t kLRUSize = 100;
+/** Cache with the default constructor; tagged with input types to use separate caches. */
+template <typename S, typename A, typename B, typename C, bool DevicePointerMode>
+struct matmul_cache {
+  /** Number of matmul invocations to cache. */
+  static constexpr size_t kDefaultSize = 100;
+  cache::lru<matmul_key_t, matmul_key_hash, std::equal_to<>, std::shared_ptr<matmul_desc>> value{
+    kDefaultSize};
+};
 
 /**
  * @brief the wrapper of cublasLt matmul function
@@ -259,9 +266,8 @@ void matmul(raft::resources const& res,
     "linalg::matmul(m = %d, n = %d, k = %d)", m, n, k);
   std::shared_ptr<matmul_desc> mm_desc{nullptr};
   matmul_key_t mm_key{m, n, k, lda, ldb, ldc, trans_a, trans_b};
-  static thread_local cache::
-    lru<matmul_key_t, matmul_key_hash, std::equal_to<>, std::shared_ptr<matmul_desc>>
-      cache{kLRUSize};
+  auto& cache =
+    resource::get_user_resource<matmul_cache<S, A, B, C, DevicePointerMode>>(res)->value;
   if (!cache.get(mm_key, &mm_desc)) {
     mm_desc.reset(new matmul_desc{matmul_desc::create<S, A, B, C, DevicePointerMode>(res, mm_key)});
     cache.set(mm_key, mm_desc);
