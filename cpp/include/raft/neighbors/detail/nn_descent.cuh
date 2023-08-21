@@ -1062,8 +1062,7 @@ template <typename Data_t, typename Index_t>
 GNND<Data_t, Index_t>::GNND(const BuildConfig& build_config)
     : build_config_(build_config),
       graph_(build_config.max_dataset_size,
-             to_multiple_of_32(build_config.node_degree *
-                               (build_config.node_degree <= 32 ? 1.0 : 1.3)),
+             to_multiple_of_32(build_config.node_degree),
              to_multiple_of_32(build_config.internal_node_degree ? build_config.internal_node_degree
                                                                  : build_config.node_degree),
              NUM_SAMPLES),
@@ -1090,6 +1089,7 @@ void GNND<Data_t, Index_t>::alloc_workspace() {
                  reinterpret_cast<Index_t*>(graph_buffer_) + (size_t)nrow_ * DEGREE_ON_DEVICE,
                  std::numeric_limits<Index_t>::max());
     RAFT_CUDA_TRY(cudaMalloc(&d_locks_, sizeof(*d_locks_) * nrow_));
+    thrust::fill(thrust::device, d_locks_, d_locks_ + nrow_, 0);
     RAFT_CUDA_TRY(
         cudaMallocHost(&h_rev_graph_new_, sizeof(*h_rev_graph_new_) * nrow_ * NUM_SAMPLES));
     RAFT_CUDA_TRY(cudaMallocHost(&h_graph_old_, sizeof(*h_graph_old_) * nrow_ * NUM_SAMPLES));
@@ -1239,12 +1239,11 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
                 graph_shrink_buffer[i * build_config_.node_degree + j];
         }
     }
-
-    graph_.dealloc();
 }
 
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::dealloc() {
+    graph_.dealloc();
     RAFT_CUDA_TRY(cudaFree(d_data_));
     RAFT_CUDA_TRY(cudaFreeHost(graph_host_buffer_));
     RAFT_CUDA_TRY(cudaFreeHost(dists_host_buffer_));
@@ -1289,22 +1288,32 @@ index<IdxT> build(raft::resources const& res,
       intermediate_degree);
     graph_degree = intermediate_degree;
   }
-
-  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+  // The elements in each knn-list are partitioned into different buckets, and we need more buckets
+  // to mitigate bucket collisions. `intermediate_degree` is OK to larger than extended_graph_degree.
+  size_t extended_graph_degree = to_multiple_of_32(graph_degree * (graph_degree <= 32 ? 1.0 : 1.3));
+  index<IdxT> int_idx{res, dataset.extent(0), static_cast<int64_t>(extended_graph_degree)};
 
   BuildConfig build_config{.max_dataset_size = static_cast<size_t>(dataset.extent(0)),
                             .dataset_dim = static_cast<size_t>(dataset.extent(1)),
-                            .node_degree = graph_degree,
+                            .node_degree = extended_graph_degree,
                             .internal_node_degree = intermediate_degree,
                             .max_iterations = params.max_iterations,
                             .termination_threshold = params.termination_threshold,
                             .metric_type = Metric_t::METRIC_L2};
 
   GNND<const T, int> nnd(build_config);
-  std::cout << "graph dim: " << idx.int_graph().extent(0) << ", " << idx.int_graph().extent(1) << std::endl;
-  nnd.build(dataset.data_handle(), dataset.extent(0), idx.int_graph().data_handle(), resource::get_cuda_stream(res));
+  std::cout << "Intermediate graph dim: " << int_idx.int_graph().extent(0) << ", " << int_idx.int_graph().extent(1) << std::endl;
+  nnd.build(dataset.data_handle(), dataset.extent(0), int_idx.int_graph().data_handle(), resource::get_cuda_stream(res));
   nnd.dealloc();
-
+  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+#pragma omp parallel for
+  for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
+      for (size_t j = 0; j < graph_degree; j++) {
+          auto graph = idx.int_graph().data_handle();
+          auto int_graph = int_idx.int_graph().data_handle();
+          graph[i * graph_degree + j] = int_graph[i * extended_graph_degree + j];
+      }
+  }
   return idx;
 }
 
