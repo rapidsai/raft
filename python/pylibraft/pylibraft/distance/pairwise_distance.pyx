@@ -61,8 +61,8 @@ cdef extern from "raft_runtime/distance/pairwise_distance.hpp" \
 
 DISTANCE_TYPES = {
     "l2": DistanceType.L2SqrtUnexpanded,
-    "sqeuclidean": DistanceType.L2Unexpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
     "l1": DistanceType.L1,
     "cityblock": DistanceType.L1,
     "inner_product": DistanceType.InnerProduct,
