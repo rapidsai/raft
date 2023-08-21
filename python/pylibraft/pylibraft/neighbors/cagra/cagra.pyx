@@ -788,7 +788,11 @@ def save(filename, Index index, bool include_dataset=True, handle=None):
     index : Index
         Trained CAGRA index.
     include_dataset : bool
-        Whether or not to write out the dataset along with the index
+        Whether or not to write out the dataset along with the index. Including
+        the dataset in the serialized index will use extra disk space, and
+        might not be desired if you already have a copy of the dataset on
+        disk. If this option is set to false, you will have to call
+        `index.update_dataset(dataset)` after loading the index.
     {handle_docstring}
 
     Examples
