@@ -156,28 +156,31 @@ enum RandomType {
   RNG_Laplace
 };
 
-template <typename T>
+template <typename ParamType>
 struct RngInputs {
   // Meaning of 'start' and 'end' parameter for various distributions
   //
   //         Uniform   Normal/Log-Normal   Gumbel   Logistic   Laplace   Exponential   Rayleigh
   // start    start          mean           mean     mean       mean       lambda       sigma
   // end       end           sigma          beta     scale      scale      Unused       Unused
-  T start, end;
+  ParamType distro_param;
+  //T start, end;
   RandomType type;
   uint64_t seed;
 };
 
-template <typename T>
-class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
+template <typename ParamType, typename DataType, int CPT, int IPC>
+class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<ParamType>> {
  public:
   RngPcgHostTest()
-    : params(::testing::TestWithParam<RngInputs<T>>::GetParam()),
+    : params(::testing::TestWithParam<RngInputs<ParamType>>::GetParam()),
       stream(resource::get_cuda_stream(handle)),
       d_buffer(0, stream)
   {
-    d_buffer.resize(total_threads*2, stream);
-   h_buffer.resize(total_threads*2);
+    printf("Constructor called\n");
+    len = total_threads * CPT * IPC;
+    d_buffer.resize(len, stream);
+    h_buffer.resize(len);
   }
 
  protected:
@@ -185,7 +188,15 @@ class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
   {
     RngState r(params.seed, GenPC);
     DeviceState<PCGenerator> d_state(r);
-    switch (params.type) {
+    
+    pcg_device_kernel<DataType, ParamType, CPT, IPC><<<n_blocks, n_threads>>>(d_buffer.data(), d_state, params.distro_param, total_threads, len);
+
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    for(size_t tid = 0; tid < len; tid++) {
+      single_thread_fill<DataType, ParamType, CPT, IPC>(h_buffer.data(), d_state, params.distro_param, total_threads, len, tid);
+    }
+    ASSERT_TRUE(false);
+    /*switch (params.type) {
       case RNG_Normal:
       {
         constexpr int IPC = 2;
@@ -233,7 +244,7 @@ class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
       case RNG_Laplace:
         printf("running for laplace\n");
         break;
-    };
+    };*/
     
   }
 
@@ -242,32 +253,172 @@ class RngPcgHostTest : public ::testing::TestWithParam<RngInputs<T>> {
 
   static const int n_blocks = 128;
   static const int n_threads = 64;
-  static const int CPT = 16;
   static const size_t total_threads = size_t(n_blocks) * n_threads;
-
+  size_t len;
   raft::resources handle;
   cudaStream_t stream;
 
-  RngInputs<T> params;
-  rmm::device_uvector<T> d_buffer;
-  std::vector<T> h_buffer;
+  RngInputs<ParamType> params;
+  rmm::device_uvector<DataType> d_buffer;
+  std::vector<DataType> h_buffer;
 };
 
-const std::vector<RngInputs<double>> inputsf = {
+const std::vector<RngInputs<NormalDistParams<double>>> inputsf = {
+  {NormalDistParams<double>({0.5, 0.5}), RNG_Laplace, 1234ULL}};
+
+/*const std::vector<RngInputs<double>> inputsf = {
   {3.0f, 1.3f, RNG_Normal, 1234ULL},
   {1.2f, 0.1f, RNG_LogNormal, 1234ULL},
   {1.2f, 5.5f, RNG_Uniform, 1234ULL},
   {0.1f, 1.3f, RNG_Gumbel, 1234ULL},
   {1.6f, 0.0f, RNG_Exp, 1234ULL},
   {1.6f, 0.0f, RNG_Rayleigh, 1234ULL},
-  {2.6f, 1.3f, RNG_Laplace, 1234ULL}};
+  {2.6f, 1.3f, RNG_Laplace, 1234ULL}};*/
 
-using RngPcgHostTestD = RngPcgHostTest<double>;
-TEST_P(RngPcgHostTestD, Result) {
-  ASSERT_TRUE(devArrMatchHost(h_buffer.data(), d_buffer.data(), 8192, raft::CompareApprox<double>(1e-5), stream));
+
+/*TEST_F(RngPcgHostTest, Result) {
+  ASSERT_TRUE(devArrMatchHost(h_buffer.data(), d_buffer.data(), len, raft::CompareApprox<double>(1e-5), stream));
+}*/
+
+//constexpr NormalDistParams<double> normal_params = { .mu = double(0.5), .sigma = double(0.1)};
+using RngPcgHostTestD = RngPcgHostTest<NormalDistParams<double>, double, 16, 2>;
+RngInputs<NormalDistParams<double>> value = {{.mu=3.0, .sigma=1.3}, RNG_Laplace, 1234ULL};
+INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTestD, testing::Values(value));
+
+using RngPcgHostTestD1 = RngPcgHostTest<LogNormalDistParams<double>, double, 16, 2>;
+RngInputs<LogNormalDistParams<double>> value1 = {{.mu=1.2, .sigma=0.1}, RNG_Laplace, 1234ULL};
+INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTestD1, testing::Values(value1));
+
+template <typename ParamType, typename DataType, int CPT, int IPC>
+class HostApiTest {
+  public:
+    HostApiTest()
+      : stream(resource::get_cuda_stream(handle)),
+      d_buffer(0, stream) {
+
+      len = total_threads * CPT * IPC;
+      d_buffer.resize(len, stream);
+      h_buffer.resize(len);
+      printf("### len = %lu\n", len);
+    }
+    void FillBuffers(uint64_t seed) {
+      printf("seed = %lu\n", seed);
+      RngState r(seed, GenPC);
+      DeviceState<PCGenerator> d_state(r);
+      
+      pcg_device_kernel<DataType, ParamType, CPT, IPC><<<n_blocks, n_threads, 0, stream>>>(d_buffer.data(), d_state, dist_params, total_threads, len);
+
+      RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+      for(size_t tid = 0; tid < len; tid++) {
+        single_thread_fill<DataType, ParamType, CPT, IPC>(h_buffer.data(), d_state, dist_params, total_threads, len, tid);
+      }
+    }    
+    void SetParams(ParamType _dist_params) {
+      dist_params = _dist_params;
+    }
+
+    void test() {
+      ASSERT_TRUE(devArrMatchHost(h_buffer.data(), d_buffer.data(), len, raft::CompareApprox<double>(1e-5), stream));
+    }
+    ParamType dist_params;
+    raft::resources handle;
+    cudaStream_t stream;
+
+    static const int n_blocks = 128;
+    static const int n_threads = 64;
+    static const size_t total_threads = size_t(n_blocks) * n_threads;
+
+    size_t len;
+    rmm::device_uvector<DataType> d_buffer;
+    std::vector<DataType> h_buffer;
+};
+
+
+template <typename T>
+class TestWrapper : public testing::Test {
+  protected:
+    void SetUp() override {
+      test_obj.SetParams(p);  
+      test_obj.FillBuffers(seed);
+    }
+  public:
+    void print_foo() {
+      test_obj.test();
+    }
+  T test_obj;
+  using ParamType = decltype(T::dist_params);
+  static ParamType p;
+  static uint64_t seed;
+};
+
+TYPED_TEST_SUITE_P(TestWrapper);
+
+TYPED_TEST_P(TestWrapper, print) {
+  this->print_foo();
 }
-INSTANTIATE_TEST_SUITE_P(RngPcgHostTest, RngPcgHostTestD, testing::ValuesIn(inputsf));
 
+REGISTER_TYPED_TEST_SUITE_P(TestWrapper, print);
+
+using InvariantDistType = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
+template<> InvariantDistParams<int> TestWrapper<InvariantDistType>::p = {.const_val = 431601};
+template<> uint64_t TestWrapper<InvariantDistType>::seed = 23242423;
+
+using UniformDistType = HostApiTest<UniformDistParams<double>, double, 16, 1>;
+template<> UniformDistParams<double> TestWrapper<UniformDistType>::p = {.start = 0.0, .end = 1.0};
+template<> uint64_t TestWrapper<UniformDistType>::seed = 23242423;
+
+using UniformInt32DistType = HostApiTest<UniformIntDistParams<uint32_t, uint32_t>, uint32_t, 16, 1>;
+template<> UniformIntDistParams<uint32_t, uint32_t> TestWrapper<UniformInt32DistType>::p = {.start = 0, .end = 100000, .diff = 100000};
+template<> uint64_t TestWrapper<UniformInt32DistType>::seed = 23242423;
+
+using UniformInt64DistType = HostApiTest<UniformIntDistParams<uint64_t, uint64_t>, uint64_t, 16, 1>;
+template<> UniformIntDistParams<uint64_t, uint64_t> TestWrapper<UniformInt64DistType>::p = {.start = 0, .end = 100000, .diff = 100000};
+template<> uint64_t TestWrapper<UniformInt64DistType>::seed = 23242423;
+
+using NormalDistType = HostApiTest<NormalDistParams<double>, double, 16, 2>;
+template<> NormalDistParams<double> TestWrapper<NormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
+template<> uint64_t TestWrapper<NormalDistType>::seed = 892357182;
+
+using NormalIntDistType = HostApiTest<NormalIntDistParams<uint32_t>, uint32_t, 16, 2>;
+template<> NormalIntDistParams<uint32_t> TestWrapper<NormalIntDistType>::p = {.mu = 1, .sigma = 1};
+template<> uint64_t TestWrapper<NormalIntDistType>::seed = 892357182;
+
+using BernoulliDistType = HostApiTest<BernoulliDistParams<double>, double, 16, 1>;
+template<> BernoulliDistParams<double> TestWrapper<BernoulliDistType>::p = {.prob = 0.7};
+template<> uint64_t TestWrapper<BernoulliDistType>::seed = 892357182;
+
+using ScaledBernoulliDistType = HostApiTest<ScaledBernoulliDistParams<double>, double, 16, 1>;
+template<> ScaledBernoulliDistParams<double> TestWrapper<ScaledBernoulliDistType>::p = {.prob = 0.7, .scale = 0.5};
+template<> uint64_t TestWrapper<ScaledBernoulliDistType>::seed = 892357182;
+
+using GumbelDistType = HostApiTest<GumbelDistParams<double>, double, 16, 1>;
+template<> GumbelDistParams<double> TestWrapper<GumbelDistType>::p = {.mu = 0.7, .beta = 0.5};
+template<> uint64_t TestWrapper<GumbelDistType>::seed = 892357182;
+
+using LogNormalDistType = HostApiTest<LogNormalDistParams<double>, double, 16, 2>;
+template<> LogNormalDistParams<double> TestWrapper<LogNormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
+template<> uint64_t TestWrapper<LogNormalDistType>::seed = 892357182;
+
+using LogisticDistType = HostApiTest<LogisticDistParams<double>, double, 16, 1>;
+template<> LogisticDistParams<double> TestWrapper<LogisticDistType>::p = {.mu = 0.2, .scale = 0.3};
+template<> uint64_t TestWrapper<LogisticDistType>::seed = 892357182;
+
+using ExponentialDistType = HostApiTest<ExponentialDistParams<double>, double, 16, 1>;
+template<> ExponentialDistParams<double> TestWrapper<ExponentialDistType>::p = {.lambda = 1.6};
+template<> uint64_t TestWrapper<ExponentialDistType>::seed = 892357182;
+
+using RayleighDistType = HostApiTest<RayleighDistParams<double>, double, 16, 1>;
+template<> RayleighDistParams<double> TestWrapper<RayleighDistType>::p = {.sigma = 1.6};
+template<> uint64_t TestWrapper<RayleighDistType>::seed = 892357182;
+
+using LaplaceDistType = HostApiTest<LaplaceDistParams<double>, double, 16, 1>;
+template<> LaplaceDistParams<double> TestWrapper<LaplaceDistType>::p = {.mu = 0.2, .scale = 0.3};
+template<> uint64_t TestWrapper<LaplaceDistType>::seed = 892357182;
+
+using TestingTypes1 = testing::Types<InvariantDistType, UniformDistType, UniformInt32DistType, /*UniformInt64DistType, */NormalDistType,
+/*NormalIntDistType, */BernoulliDistType, ScaledBernoulliDistType, GumbelDistType, LogisticDistType, ExponentialDistType, RayleighDistType, LaplaceDistType>;
+
+INSTANTIATE_TYPED_TEST_SUITE_P(My1, TestWrapper, TestingTypes1);
 
 template <typename T>
 class TypedTestExample : public testing::Test {
