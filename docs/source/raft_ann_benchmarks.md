@@ -44,7 +44,7 @@ python bench/ann/get_dataset.py --dataset glove-100-angular --normalize
 python bench/ann/run.py --dataset glove-100-inner
 
 # (3) evaluate results
-python bench/ann/data_export.py --output out.csv --dataset glove-100-inner result/glove-100-inner/
+python bench/ann/data_export.py --output out.csv --dataset glove-100-inner
 
 # (4) plot results
 python bench/ann/plot.py --result-csv out.csv
@@ -72,7 +72,7 @@ python bench/ann/split_groundtruth.py --groundtruth data/deep-1B/deep_new_ground
 python bench/ann/run.py --dataset deep-1B
 
 # (3) evaluate results
-python bench/ann/data_export.py --output out.csv --dataset deep-1B result/deep-1B/
+python bench/ann/data_export.py --output out.csv --dataset deep-1B
 
 # (4) plot results
 python bench/ann/plot.py --result-csv out.csv
@@ -163,12 +163,12 @@ is available in `algos.yaml` and not disabled, as well as having an associated e
 
 #### Step 3: Evaluating Results
 The script `bench/ann/data_export.py` will evaluate results for a dataset whose index has been built
-and search with at least one algorithm. For every result file that is supplied to the script, the output
+and searched with at least one algorithm. For every result file that is available to the script, the output
 will be combined and written to a CSV file.
 
 The usage of this script is:
 ```bash
-usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH] <result-filepaths>
+usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH]
 
 options:
   -h, --help            show this help message and exit
@@ -178,8 +178,6 @@ options:
   --dataset-path DATASET_PATH
                         path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
 ```
-
-`result-filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
 
 #### Step 4: Plot Results
 The script `bench/ann/plot.py` will plot all results evaluated to a CSV file for a given dataset.

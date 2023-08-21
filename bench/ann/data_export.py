@@ -51,16 +51,13 @@ def main():
                              "bench", "ann", "data")
     )
     
-    args, result_filepaths = parser.parse_known_args()
-
-    # if nothing is provided
-    if len(result_filepaths) == 0:
-        raise ValueError("No filepaths to results were provided")
+    args = parser.parse_known_args()
+    result_filepath = os.path.join(args.dataset_path, "result")
 
     groundtruth_filepath = os.path.join(args.dataset_path, args.dataset, 
                                         "groundtruth.neighbors.ibin")
     export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepaths)
+                   result_filepath)
 
 
 if __name__ == "__main__":
