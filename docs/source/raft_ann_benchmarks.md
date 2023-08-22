@@ -50,6 +50,16 @@ python scripts/ann-benchmarks/data_export.py --output out.csv --dataset glove-10
 python scripts/ann-benchmarks/plot.py --result-csv out.csv
 ```
 
+Configuration files already exist for the following list of the million-scale datasets. These all work `out-of-the-box` with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
+- `deep-image-96-angular`
+- `fashion-mnist-784-euclidean`
+- `glove-50-angular`
+- `glove-100-angular`
+- `lastfm-65-angular`
+- `mnist-784-euclidean`
+- `nytimes-256-angular`
+- `sift-128-euclidean`
+
 ### End-to-end example: Billion-scale
 `scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
@@ -119,7 +129,7 @@ raft_ivf_pq:
   executable: RAFT_IVF_PQ_ANN_BENCH
   disabled: false
 ```
-`executable` : specifies the binary that will build/search the index. It is assumed to be
+`executable` : specifies the location of the binary that will build/search the index. It is assumed to be
 available in `raft/cpp/build/`.
 `disabled` : denotes whether an algorithm should be excluded from benchmark runs.
 
