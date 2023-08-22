@@ -177,7 +177,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
     }
     if (child_id != invalid_index) {
       if ((hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) ||
-          sample_filter(query_id, child_id)) {
+          !sample_filter(query_id, child_id)) {
         child_id = invalid_index;
       }
     }
