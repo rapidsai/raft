@@ -227,7 +227,8 @@ struct SelectK  // NOLINT
     // to non-deterministic nature of some implementations.
     auto& in_ids     = ref.get_in_ids();
     auto& in_dists   = ref.get_in_dists();
-    auto compare_ids = [&in_ids, &in_dists](const IdxT& i, const IdxT& j) {
+    const auto bound = spec.select_min ? raft::upper_bound<KeyT>() : raft::lower_bound<KeyT>();
+    auto compare_ids = [&in_ids, &in_dists, bound](const IdxT& i, const IdxT& j) {
       if (i == j) return true;
       auto ix_i = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), i) - in_ids.begin());
       auto ix_j = static_cast<int64_t>(std::find(in_ids.begin(), in_ids.end(), j) - in_ids.begin());
@@ -235,7 +236,8 @@ struct SelectK  // NOLINT
         return false;
       auto dist_i = in_dists[ix_i];
       auto dist_j = in_dists[ix_j];
-      if (dist_i == dist_j) return true;
+      // Some algorithms return invalid/zero indices for bound values.
+      if (dist_i == dist_j || dist_j == bound || dist_i == bound) return true;
       std::cout << "ERROR: ref[" << ix_i << "] = " << dist_i << " != "
                 << "res[" << ix_j << "] = " << dist_j << std::endl;
       return false;
@@ -335,6 +337,12 @@ INSTANTIATE_TEST_CASE_P(                // NOLINT
                                    select::Algo::kWarpFiltered,
                                    select::Algo::kWarpDistributed)));
 
+template <typename KeyT>
+struct replace_with_mask {
+  KeyT replacement;
+  constexpr auto inline operator()(KeyT x, uint8_t mask) -> KeyT { return mask ? replacement : x; }
+};
+
 template <select::Algo RefAlgo>
 struct with_ref {
   template <typename KeyT, typename IdxT>
@@ -354,6 +362,19 @@ struct with_ref {
         rmm::device_uvector<KeyT> dists_d(spec.len * spec.batch_size, s);
         raft::random::RngState r(42);
         normal(handle, r, dists_d.data(), dists_d.size(), KeyT(10.0), KeyT(100.0));
+
+        if (spec.frac_infinities > 0.0) {
+          rmm::device_uvector<uint8_t> mask_buf(dists_d.size(), s);
+          auto mask = make_device_vector_view<uint8_t, size_t>(mask_buf.data(), mask_buf.size());
+          raft::random::bernoulli(handle, r, mask, spec.frac_infinities);
+          KeyT bound = spec.select_min ? raft::upper_bound<KeyT>() : raft::lower_bound<KeyT>();
+          auto mask_in =
+            make_device_vector_view<const uint8_t, size_t>(mask_buf.data(), mask_buf.size());
+          auto dists_in  = make_device_vector_view<const KeyT>(dists_d.data(), dists_d.size());
+          auto dists_out = make_device_vector_view<KeyT>(dists_d.data(), dists_d.size());
+          raft::linalg::map(handle, dists_out, replace_with_mask<KeyT>{bound}, dists_in, mask_in);
+        }
+
         update_host(dists.data(), dists_d.data(), dists_d.size(), s);
         s.synchronize();
       }
