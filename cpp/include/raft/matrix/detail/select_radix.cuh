@@ -879,17 +879,17 @@ void radix_topk(const T* in,
 // The following a few functions are for the one-block version, which uses single thread block for
 // each row of a batch.
 template <typename T, typename IdxT, int BitsPerPass>
-_RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
-                                                     const IdxT* in_idx_buf,
-                                                     T* out_buf,
-                                                     IdxT* out_idx_buf,
-                                                     T* out,
-                                                     IdxT* out_idx,
-                                                     Counter<T, IdxT>* counter,
-                                                     IdxT* histogram,
-                                                     bool select_min,
-                                                     int pass,
-                                                     IdxT k)
+_RAFT_DEVICE __noinline__ void filter_and_histogram_for_one_block(const T* in_buf,
+                                                                  const IdxT* in_idx_buf,
+                                                                  T* out_buf,
+                                                                  IdxT* out_idx_buf,
+                                                                  T* out,
+                                                                  IdxT* out_idx,
+                                                                  Counter<T, IdxT>* counter,
+                                                                  IdxT* histogram,
+                                                                  bool select_min,
+                                                                  int pass,
+                                                                  IdxT k)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   for (int i = threadIdx.x; i < num_buckets; i += blockDim.x) {
