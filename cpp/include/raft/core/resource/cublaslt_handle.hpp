@@ -42,13 +42,13 @@ class cublaslt_resource_factory : public resource_factory {
 };
 
 /**
- * @defgroup resource_cublas cuBLAS handle resource functions
+ * @defgroup resource_cublaslt cuBLASLt handle resource functions
  * @{
  */
 
 /**
- * Load a cublasLt res_t from raft res if it exists, otherwise
- * add it and return it.
+ * Load a `cublasLtHandle_t` from raft res if it exists, otherwise add it and return it.
+ *
  * @param[in] res the raft resources object
  * @return cublasLt handle
  */

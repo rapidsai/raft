@@ -29,16 +29,16 @@ class user_resource : public resource {
   ~user_resource() noexcept override = default;
   auto get_resource() -> void* override { return this; }
 
-  template <typename Store>
-  auto load() -> Store*
+  template <typename ResourceT>
+  auto load() -> ResourceT*
   {
     std::lock_guard<std::mutex> _(lock_);
-    auto key = std::type_index{typeid(Store)};
+    auto key = std::type_index{typeid(ResourceT)};
     auto pos = map_.find(key);
-    if (pos != map_.end()) { return reinterpret_cast<Store*>(pos->second.get()); }
-    auto store_ptr = new Store{};
+    if (pos != map_.end()) { return reinterpret_cast<ResourceT*>(pos->second.get()); }
+    auto store_ptr = new ResourceT{};
     map_[key] =
-      std::shared_ptr<void>(store_ptr, [](void* ptr) { delete reinterpret_cast<Store*>(ptr); });
+      std::shared_ptr<void>(store_ptr, [](void* ptr) { delete reinterpret_cast<ResourceT*>(ptr); });
     return store_ptr;
   }
 
@@ -55,17 +55,29 @@ class user_resource_factory : public resource_factory {
 };
 
 /**
+ * @defgroup resource_user_defined user-defined resource functions
+ * @{
+ */
+
+/**
  * Get the user-defined default-constructible resource if it exists, create it otherwise.
+ *
+ * @tparam ResourceT the type of the resource; it must be complete and default-constructible.
+ *
  * @param[in] res the raft resources object
  * @return a pointer to the user-defined resource.
  */
-template <typename Store>
-auto get_user_resource(resources const& res) -> Store*
+template <typename ResourceT>
+auto get_user_resource(resources const& res) -> ResourceT*
 {
   if (!res.has_resource_factory(resource_type::USER_DEFINED)) {
     res.add_resource_factory(std::make_shared<user_resource_factory>());
   }
-  return res.get_resource<user_resource>(resource_type::USER_DEFINED)->load<Store>();
+  return res.get_resource<user_resource>(resource_type::USER_DEFINED)->load<ResourceT>();
 };
+
+/**
+ * @}
+ */
 
 }  // namespace raft::resource

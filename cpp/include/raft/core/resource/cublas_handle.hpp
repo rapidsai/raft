@@ -60,8 +60,8 @@ class cublas_resource_factory : public resource_factory {
  */
 
 /**
- * Load a cublasres_t from raft res if it exists, otherwise
- * add it and return it.
+ * Load a `cublasHandle_t` from raft res if it exists, otherwise add it and return it.
+ *
  * @param[in] res the raft resources object
  * @return cublas handle
  */
