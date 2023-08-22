@@ -6,13 +6,13 @@ This project provides a benchmark program for various ANN search implementations
 
 The easiest way to install these benchmarks is through conda. We suggest using mamba as it generally leads to a faster install time::
 ```bash
+git clone https://github.com/rapidsai/raft.git && cd raft
+export RAFT_HOME=$(pwd)
+
 mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
 conda activate raft_ann_benchmarks
 
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-ann-bench cudatoolkit=11.8*
-
-git clone https://github.com/rapidsai/raft.git && cd raft
-export RAFT_HOME=$(pwd)
 ```
 The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
 
@@ -35,19 +35,19 @@ expected to be defined to run these scripts; this variable holds the directory w
 ### End-to-end example: Million-scale
 ```bash
 export RAFT_HOME=$(pwd)
-# All scripts are present in directory raft/scripts/ann-benchmarks
+# All scripts are present in directory raft/bench/ann
 
 # (1) prepare dataset
-python scripts/ann-benchmarks/get_dataset.py --dataset glove-100-angular --normalize
+python bench/ann/get_dataset.py --dataset glove-100-angular --normalize
 
 # (2) build and search index
-python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/glove-100-inner.json
+python bench/ann/run.py --dataset glove-100-inner
 
 # (3) evaluate results
-python scripts/ann-benchmarks/data_export.py --output out.csv --dataset glove-100-inner result/glove-100-inner/
+python bench/ann/data_export.py --output out.csv --dataset glove-100-inner
 
 # (4) plot results
-python scripts/ann-benchmarks/plot.py --result-csv out.csv
+python bench/ann/plot.py --result-csv out.csv
 ```
 
 Configuration files already exist for the following list of the million-scale datasets. These all work `out-of-the-box` with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
@@ -61,34 +61,34 @@ Configuration files already exist for the following list of the million-scale da
 - `sift-128-euclidean`
 
 ### End-to-end example: Billion-scale
-`scripts/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
+`bench/ann/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
-All other python scripts mentioned below work as intended once the
+All other python  mentioned below work as intended once the
 billion-scale dataset has been downloaded.
 To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
 ```bash
 export RAFT_HOME=$(pwd)
-# All scripts are present in directory raft/scripts/ann-benchmarks
+# All scripts are present in directory raft/bench/ann
 
 mkdir -p data/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python scripts/ann-benchmarks/split_groundtruth.py --groundtruth data/deep-1B/deep_new_groundtruth.public.10K.bin
+python bench/ann/split_groundtruth.py --groundtruth data/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python scripts/ann-benchmarks/run.py --configuration bench/ann/conf/deep-1B.json
+python bench/ann/run.py --dataset deep-1B
 
 # (3) evaluate results
-python scripts/ann-benchmarks/data_export.py --output out.csv --dataset deep-1B result/deep-1B/
+python bench/ann/data_export.py --output out.csv --dataset deep-1B
 
 # (4) plot results
-python scripts/ann-benchmarks/plot.py --result-csv out.csv
+python bench/ann/plot.py --result-csv out.csv
 ```
 
-The usage of `scripts/ann-benchmarks/split-groundtruth.py` is:
+The usage of `bench/ann/split-groundtruth.py` is:
 ```bash
 usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
 
@@ -99,7 +99,7 @@ options:
 ```
 
 ##### Step 1: Prepare Dataset<a id='prep-dataset'></a>
-The script `scripts/ann-benchmarks/get_dataset.py` will download and unpack the dataset in directory
+The script `bench/ann/get_dataset.py` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
 script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
 
@@ -117,9 +117,10 @@ options:
 When option `normalize` is provided to the script, any dataset that has cosine distances
 will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
 will be written at location `${RAFT_HOME}/bench/ann/data/glove-100-inner/`.
+```
 
 #### Step 2: Build and Search Index
-The script `scripts/ann-benchmarks/run.py` will build and search indices for a given dataset and its
+The script `bench/ann/run.py` will build and search indices for a given dataset and its
 specified configuration.
 To confirgure which algorithms are available, we use `algos.yaml`.
 To configure building/searching indices for a dataset, look at [index configuration](#json-index-config).
@@ -133,7 +134,7 @@ raft_ivf_pq:
 available in `raft/cpp/build/`.
 `disabled` : denotes whether an algorithm should be excluded from benchmark runs.
 
-The usage of the script `scripts/run.py` is:
+The usage of the script `bench/ann/run.py` is:
 ```bash
 usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
 
@@ -171,13 +172,13 @@ it is assumed both are `True`.
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 #### Step 3: Evaluating Results
-The script `scripts/ann-benchmarks/data_export.py` will evaluate results for a dataset whose index has been built
-and search with at least one algorithm. For every result file that is supplied to the script, the output
+The script `bench/ann/data_export.py` will evaluate results for a dataset whose index has been built
+and searched with at least one algorithm. For every result file that is available to the script, the output
 will be combined and written to a CSV file.
 
 The usage of this script is:
 ```bash
-usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH] <result-filepaths>
+usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH]
 
 options:
   -h, --help            show this help message and exit
@@ -188,10 +189,8 @@ options:
                         path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
 ```
 
-`result-filepaths` : whitespace delimited list of result files/directories that can be captured via pattern match. For more [information and examples](ann_benchmarks_low_level.html#result-filepath-example)
-
 #### Step 4: Plot Results
-The script `scripts/ann-benchmarks/plot.py` will plot all results evaluated to a CSV file for a given dataset.
+The script `bench/ann/plot.py` will plot all results evaluated to a CSV file for a given dataset.
 
 The usage of this script is:
 ```bash
