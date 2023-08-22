@@ -36,6 +36,7 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.handle cimport device_resources
+from pylibraft.common.mdspan cimport const_float, const_int8_t, const_uint8_t
 from pylibraft.common.optional cimport optional
 from pylibraft.distance.distance_type cimport DistanceType
 from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
@@ -89,6 +90,17 @@ cdef extern from "raft/neighbors/cagra_types.hpp" \
         uint32_t graph_degree()
         device_matrix_view[T, IdxT, row_major] dataset()
         device_matrix_view[T, IdxT, row_major] graph()
+
+        # hack: can't use the T template param here because of issues handling
+        # const w/ cython. introduce a new template param to get around this
+        void update_dataset[ValueT](const device_resources & handle,
+                                    host_matrix_view[ValueT,
+                                                     int64_t,
+                                                     row_major] dataset)
+        void update_dataset[ValueT](const device_resources & handle,
+                                    device_matrix_view[ValueT,
+                                                       int64_t,
+                                                       row_major] dataset)
 
 cdef extern from "raft_runtime/neighbors/cagra.hpp" \
         namespace "raft::runtime::neighbors::cagra" nogil:
@@ -155,7 +167,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[float, uint32_t]& index) except +
+                        const index[float, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -163,7 +176,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[uint8_t, uint32_t]& index) except +
+                        const index[uint8_t, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -171,7 +185,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize(const device_resources& handle,
                         string& str,
-                        const index[int8_t, uint32_t]& index) except +
+                        const index[int8_t, uint32_t]& index,
+                        bool include_dataset) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -179,7 +194,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[float, uint32_t]& index) except +
+                             const index[float, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
@@ -187,7 +203,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[uint8_t, uint32_t]& index) except +
+                             const index[uint8_t, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
@@ -195,7 +212,8 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
 
     cdef void serialize_file(const device_resources& handle,
                              const string& filename,
-                             const index[int8_t, uint32_t]& index) except +
+                             const index[int8_t, uint32_t]& index,
+                             bool include_dataset) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
