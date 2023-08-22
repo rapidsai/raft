@@ -944,18 +944,13 @@ void GnndGraph<Index_t>::init_random_graph() {
 
 #pragma omp parallel for
     for (size_t i = 0; i < nrow; i++) {
-        for (size_t j = 0; j < NUM_SAMPLES; j++) {
-            size_t idx = i * NUM_SAMPLES + j;
+        for (size_t j = 0; j < node_degree; j++) {
+            size_t idx = i * node_degree + j;
             Index_t id = rand_seq[idx % nrow];
             if ((size_t)id == i) {
-                id = rand_seq[(idx + NUM_SAMPLES) % nrow];
+                id = rand_seq[(idx + node_degree) % nrow];
             }
             h_graph[i * node_degree + j].id_with_flag() = id;
-        }
-        for (size_t j = NUM_SAMPLES; j < node_degree; j++) {
-            h_graph[i * node_degree + j].id_with_flag() = std::numeric_limits<Index_t>::max();
-        }
-        for (size_t j = 0; j < node_degree; j++) {
             h_dists[i * node_degree + j] = std::numeric_limits<DistData_t>::max();
         }
     }
