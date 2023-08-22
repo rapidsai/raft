@@ -131,7 +131,8 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T,
-          class LOAD_T>
+          class LOAD_T,
+          class SAMPLE_FILTER_T>
 __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
@@ -152,7 +153,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const uint32_t search_width,
   const uint32_t min_iteration,
   const uint32_t max_iteration,
-  uint32_t* const num_executed_iterations /* stats */
+  uint32_t* const num_executed_iterations, /* stats */
+  SAMPLE_FILTER_T sample_filter
 )
 {
   assert(blockDim.x == BLOCK_SIZE);
@@ -241,6 +243,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     num_seeds,
     local_visited_hashmap_ptr,
     hash_bitlen,
+    query_id,
+    sample_filter,
     block_id,
     num_blocks);
   __syncthreads();
@@ -287,7 +291,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_indices_buffer,
-        search_width);
+        search_width,
+        query_id,
+        sample_filter);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
@@ -361,7 +367,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
@@ -374,7 +381,8 @@ struct search_kernel_config {
                                            DATA_T,
                                            DISTANCE_T,
                                            INDEX_T,
-                                           device::LOAD_128BIT_T>);
+                                           device::LOAD_128BIT_T,
+                                           SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
@@ -401,7 +409,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else if (block_size == 128) {
       return search_kernel<TEAM_SIZE,
                            128,
@@ -411,7 +420,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else if (block_size == 256) {
       return search_kernel<TEAM_SIZE,
                            256,
@@ -421,7 +431,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else if (block_size == 512) {
       return search_kernel<TEAM_SIZE,
                            512,
@@ -431,7 +442,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else {
       return search_kernel<TEAM_SIZE,
                            1024,
@@ -441,7 +453,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     }
   }
 };
@@ -450,7 +463,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
@@ -475,9 +489,10 @@ void select_and_run(  // raft::resources const& res,
   size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
+  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
     choose_buffer_size(result_buffer_size, block_size);
 
   RAFT_CUDA_TRY(
@@ -513,7 +528,8 @@ void select_and_run(  // raft::resources const& res,
                                                        search_width,
                                                        min_iterations,
                                                        max_iterations,
-                                                       num_executed_iterations);
+                                                       num_executed_iterations,
+                                                       sample_filter);
 }
 
 }  // namespace multi_cta_search

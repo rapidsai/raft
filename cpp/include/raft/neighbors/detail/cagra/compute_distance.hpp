@@ -48,7 +48,8 @@ template <unsigned TEAM_SIZE,
           class LOAD_T,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T>
+          class INDEX_T,
+          class SAMPLE_FILTER_T>
 _RAFT_DEVICE void compute_distance_to_random_nodes(
   INDEX_T* const result_indices_ptr,       // [num_pickup]
   DISTANCE_T* const result_distances_ptr,  // [num_pickup]
@@ -64,6 +65,8 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   const uint32_t num_seeds,
   INDEX_T* const visited_hash_ptr,
   const uint32_t hash_bitlen,
+  const uint32_t query_id,
+  SAMPLE_FILTER_T sample_filter,
   const uint32_t block_id   = 0,
   const uint32_t num_blocks = 1)
 {
@@ -121,7 +124,9 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
     }
 
     if (valid_i && (threadIdx.x % TEAM_SIZE == 0)) {
-      if (hashmap::insert(visited_hash_ptr, hash_bitlen, best_index_team_local)) {
+      // TODO test sample_filter before hashmap insertion
+      if (hashmap::insert(visited_hash_ptr, hash_bitlen, best_index_team_local) &&
+          sample_filter(query_id, best_index_team_local)) {
         result_distances_ptr[i] = best_norm2_team_local;
         result_indices_ptr[i]   = best_index_team_local;
       } else {
@@ -139,7 +144,8 @@ template <unsigned TEAM_SIZE,
           class LOAD_T,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T>
+          class INDEX_T,
+          class SAMPLE_FILTER_T>
 _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_indices_ptr,
                                                   DISTANCE_T* const result_child_distances_ptr,
                                                   // query
@@ -155,7 +161,9 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   INDEX_T* const visited_hashmap_ptr,
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
-                                                  const std::uint32_t search_width)
+                                                  const std::uint32_t search_width,
+                                                  const std::uint32_t query_id,
+                                                  SAMPLE_FILTER_T sample_filter)
 {
   const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
 
@@ -168,7 +176,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
       child_id = knn_graph[(i % knn_k) + ((uint64_t)knn_k * parent_id)];
     }
     if (child_id != invalid_index) {
-      if (hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) {
+      if ((hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) ||
+          sample_filter(query_id, child_id)) {
         child_id = invalid_index;
       }
     }

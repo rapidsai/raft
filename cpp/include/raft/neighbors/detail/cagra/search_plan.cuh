@@ -65,7 +65,7 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class INDEX_T, class DISTANCE_T>
+template <class DATA_T, class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
 struct search_plan_impl : public search_plan_impl_base {
   int64_t hash_bitlen;
 
@@ -113,7 +113,8 @@ struct search_plan_impl : public search_plan_impl_base {
                           const std::uint32_t num_queries,
                           const INDEX_T* dev_seed_ptr,             // [num_queries, num_seeds]
                           std::uint32_t* const num_executed_iterations,  // [num_queries]
-                          uint32_t topk){};
+                          uint32_t topk,
+                          SAMPLE_FILTER_T sample_filter){};
 
   void adjust_search_params()
   {

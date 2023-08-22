@@ -52,13 +52,18 @@ namespace raft::neighbors::cagra::detail {
  * k]
  */
 
-template <typename T, typename internal_IdxT, typename IdxT = uint32_t, typename DistanceT = float>
+template <typename T,
+          typename internal_IdxT,
+          typename CagraSampleFilterT,
+          typename IdxT      = uint32_t,
+          typename DistanceT = float>
 void search_main(raft::resources const& res,
                  search_params params,
                  const index<T, IdxT>& index,
                  raft::device_matrix_view<const T, int64_t, row_major> queries,
                  raft::device_matrix_view<internal_IdxT, int64_t, row_major> neighbors,
-                 raft::device_matrix_view<DistanceT, int64_t, row_major> distances)
+                 raft::device_matrix_view<DistanceT, int64_t, row_major> distances,
+                 CagraSampleFilterT sample_filter = CagraSampleFilterT())
 {
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
@@ -71,8 +76,8 @@ void search_main(raft::resources const& res,
 
   if (params.max_queries == 0) { params.max_queries = queries.extent(0); }
 
-  std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT>> plan =
-    factory<T, internal_IdxT, DistanceT>::create(
+  std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT, CagraSampleFilterT>> plan =
+    factory<T, internal_IdxT, DistanceT, CagraSampleFilterT>::create(
       res, params, index.dim(), index.graph_degree(), topk);
 
   plan->check(neighbors.extent(1));
@@ -113,7 +118,8 @@ void search_main(raft::resources const& res,
             n_queries,
             _seed_ptr,
             _num_executed_iterations,
-            topk);
+            topk,
+            sample_filter);
   }
 
   static_assert(std::is_same_v<DistanceT, float>,

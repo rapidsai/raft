@@ -458,7 +458,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T>
+          class INDEX_T,
+          class SAMPLE_FILTER_T>
 __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
@@ -482,7 +483,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
                      std::uint32_t* const num_executed_iterations,  // [num_queries]
                      const std::uint32_t hash_bitlen,
                      const std::uint32_t small_hash_bitlen,
-                     const std::uint32_t small_hash_reset_interval)
+                     const std::uint32_t small_hash_reset_interval,
+                     SAMPLE_FILTER_T sample_filter)
 {
   using LOAD_T        = device::LOAD_128BIT_T;
   const auto query_id = blockIdx.y;
@@ -569,7 +571,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     local_seed_ptr,
     num_seeds,
     local_visited_hashmap_ptr,
-    hash_bitlen);
+    hash_bitlen,
+    query_id,
+    sample_filter);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -693,7 +697,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_list_buffer,
-        search_width);
+        search_width,
+        query_id,
+        sample_filter);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -737,9 +743,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 #endif
 }
 
-template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typename DistT>
+template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typename DistT, typename SAMPLE_FILTER_T>
 struct search_kernel_config {
-  using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT>);
+  using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
 
   template <unsigned MAX_ITOPK, unsigned CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_block_size(unsigned block_size) -> kernel_t
@@ -747,24 +753,24 @@ struct search_kernel_config {
     constexpr unsigned BS = USE_BITONIC_SORT;
     if constexpr (BS) {
       if (block_size == 64) {
-        return search_kernel<TEAM_SIZE, 64, 16, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 64, 16, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else if (block_size == 128) {
-        return search_kernel<TEAM_SIZE, 128, 8, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 128, 8, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else if (block_size == 256) {
-        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else {
-        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       }
 
     } else {
       if (block_size == 256) {
-        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       } else {
-        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
       }
     }
   }
@@ -826,7 +832,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
@@ -851,9 +858,10 @@ void select_and_run(  // raft::resources const& res,
   size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
+  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
     choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
@@ -883,7 +891,8 @@ void select_and_run(  // raft::resources const& res,
                                                          num_executed_iterations,
                                                          hash_bitlen,
                                                          small_hash_bitlen,
-                                                         small_hash_reset_interval);
+                                                         small_hash_reset_interval,
+                                                         sample_filter);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace single_cta_search
