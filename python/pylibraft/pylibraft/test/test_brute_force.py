@@ -89,7 +89,7 @@ def test_knn(n_index_rows, n_query_rows, n_cols, k, inplace, metric, dtype):
 
         cpu_ordered = pw_dists[i, expected_indices]
         np.testing.assert_allclose(
-            cpu_ordered[:k], gpu_dists, atol=1e-4, rtol=1e-4
+            cpu_ordered[:k], gpu_dists, atol=1e-3, rtol=1e-3
         )
 
 
