@@ -10,10 +10,10 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.08")
-set(RAFT_VERSION "23.08.00")
+set(RAPIDS_VERSION "23.10")
+set(RAFT_VERSION "23.10.00")
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
@@ -127,7 +127,11 @@ endif()
 rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
 
 if(NOT DISABLE_OPENMP)
-  find_package(OpenMP)
+  rapids_find_package(
+    OpenMP REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+  )
   if(OPENMP_FOUND)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
   endif()

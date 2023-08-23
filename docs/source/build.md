@@ -34,7 +34,7 @@ pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ## Building and installing RAFT
 
 ### CUDA/GPU Requirements
-- cmake 3.23.1+
+- cmake 3.26.4+
 - GCC 9.3+ (9.5.0+ recommended)
 - CUDA Toolkit 11.2+
 - NVIDIA driver 450.80.02+
@@ -264,7 +264,7 @@ While not a highly suggested method for building against RAFT, when all of the n
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-23.08
+  GIT_TAG           branch-23.10
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -294,7 +294,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "23.08")
+set(RAFT_VERSION "23.10")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 

@@ -88,7 +88,7 @@ template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam& param)
 {
-  param.pq_param.n_probes = conf.at("numProbes");
+  param.pq_param.n_probes = conf.at("nprobe");
   if (conf.contains("internalDistanceDtype")) {
     std::string type = conf.at("internalDistanceDtype");
     if (type == "float") {

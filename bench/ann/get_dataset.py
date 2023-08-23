@@ -76,16 +76,17 @@ def download(name, normalize, ann_bench_data_path):
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--name", help="dataset to download",
+    parser.add_argument("--dataset", help="dataset to download",
                         default="glove-100-angular")
-    parser.add_argument("--path", help="path to download dataset",
-                        default=os.path.join(os.getcwd(), "data"))
+    parser.add_argument("--dataset-path", help="path to download dataset",
+                        default=os.path.join(os.getenv("RAFT_HOME"), 
+                                             "bench", "ann", "data"))
     parser.add_argument("--normalize",
                         help="normalize cosine distance to inner product",
                         action="store_true")
     args = parser.parse_args()
 
-    download(args.name, args.normalize, args.path)
+    download(args.dataset, args.normalize, args.dataset_path)
 
 
 if __name__ == "__main__":

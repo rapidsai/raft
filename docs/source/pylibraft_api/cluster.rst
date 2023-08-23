@@ -7,6 +7,9 @@ This page provides pylibraft class references for the publicly-exposed elements 
    :language: python
    :class: highlight
 
+KMeans
+######
+
 .. autoclass:: pylibraft.cluster.kmeans.KMeansParams
     :members:
 
@@ -14,8 +17,4 @@ This page provides pylibraft class references for the publicly-exposed elements 
 
 .. autofunction:: pylibraft.cluster.kmeans.cluster_cost
 
-.. autofunction:: pylibraft.cluster.compute_new_centroids
-
-
-
-
+.. autofunction:: pylibraft.cluster.kmeans.compute_new_centroids
