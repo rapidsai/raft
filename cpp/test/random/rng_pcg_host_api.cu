@@ -108,76 +108,76 @@ TYPED_TEST_P(TestWrapper, print) { this->print_foo(); }
 
 REGISTER_TYPED_TEST_SUITE_P(TestWrapper, print);
 
-using InvariantDistType = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
+using InvariantT = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
 template <>
-InvariantDistParams<int> TestWrapper<InvariantDistType>::p = {.const_val = 431601};
+InvariantDistParams<int> TestWrapper<InvariantT>::p = {.const_val = 431601};
 
-using UniformDistType = HostApiTest<UniformDistParams<double>, double, 16, 1>;
+using UniformT = HostApiTest<UniformDistParams<double>, double, 16, 1>;
 template <>
-UniformDistParams<double> TestWrapper<UniformDistType>::p = {.start = 0.0, .end = 1.0};
+UniformDistParams<double> TestWrapper<UniformT>::p = {.start = 0.0, .end = 1.0};
 
-using UniformInt32DistType = HostApiTest<UniformIntDistParams<uint32_t, uint32_t>, uint32_t, 16, 1>;
+using UniformInt32T = HostApiTest<UniformIntDistParams<uint32_t, uint32_t>, uint32_t, 16, 1>;
 template <>
-UniformIntDistParams<uint32_t, uint32_t> TestWrapper<UniformInt32DistType>::p = {
+UniformIntDistParams<uint32_t, uint32_t> TestWrapper<UniformInt32T>::p = {
   .start = 0, .end = 100000, .diff = 100000};
 
-using UniformInt64DistType = HostApiTest<UniformIntDistParams<uint64_t, uint64_t>, uint64_t, 16, 1>;
+using UniformInt64T = HostApiTest<UniformIntDistParams<uint64_t, uint64_t>, uint64_t, 16, 1>;
 template <>
-UniformIntDistParams<uint64_t, uint64_t> TestWrapper<UniformInt64DistType>::p = {
+UniformIntDistParams<uint64_t, uint64_t> TestWrapper<UniformInt64T>::p = {
   .start = 0, .end = 100000, .diff = 100000};
 
-using NormalDistType = HostApiTest<NormalDistParams<double>, double, 16, 2>;
+using NormalT = HostApiTest<NormalDistParams<double>, double, 16, 2>;
 template <>
-NormalDistParams<double> TestWrapper<NormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
+NormalDistParams<double> TestWrapper<NormalT>::p = {.mu = 0.5, .sigma = 0.5};
 
-using NormalIntDistType = HostApiTest<NormalIntDistParams<uint32_t>, uint32_t, 16, 2>;
+using NormalIntT = HostApiTest<NormalIntDistParams<uint32_t>, uint32_t, 16, 2>;
 template <>
-NormalIntDistParams<uint32_t> TestWrapper<NormalIntDistType>::p = {.mu = 1, .sigma = 1};
+NormalIntDistParams<uint32_t> TestWrapper<NormalIntT>::p = {.mu = 1, .sigma = 1};
 
-using BernoulliDistType = HostApiTest<BernoulliDistParams<double>, double, 16, 1>;
+using BernoulliT = HostApiTest<BernoulliDistParams<double>, double, 16, 1>;
 template <>
-BernoulliDistParams<double> TestWrapper<BernoulliDistType>::p = {.prob = 0.7};
+BernoulliDistParams<double> TestWrapper<BernoulliT>::p = {.prob = 0.7};
 
-using ScaledBernoulliDistType = HostApiTest<ScaledBernoulliDistParams<double>, double, 16, 1>;
+using ScaledBernoulliT = HostApiTest<ScaledBernoulliDistParams<double>, double, 16, 1>;
 template <>
-ScaledBernoulliDistParams<double> TestWrapper<ScaledBernoulliDistType>::p = {.prob  = 0.7,
+ScaledBernoulliDistParams<double> TestWrapper<ScaledBernoulliT>::p = {.prob  = 0.7,
                                                                              .scale = 0.5};
 
-using GumbelDistType = HostApiTest<GumbelDistParams<double>, double, 16, 1>;
+using GumbelT = HostApiTest<GumbelDistParams<double>, double, 16, 1>;
 template <>
-GumbelDistParams<double> TestWrapper<GumbelDistType>::p = {.mu = 0.7, .beta = 0.5};
+GumbelDistParams<double> TestWrapper<GumbelT>::p = {.mu = 0.7, .beta = 0.5};
 
-using LogNormalDistType = HostApiTest<LogNormalDistParams<double>, double, 16, 2>;
+using LogNormalT = HostApiTest<LogNormalDistParams<double>, double, 16, 2>;
 template <>
-LogNormalDistParams<double> TestWrapper<LogNormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
+LogNormalDistParams<double> TestWrapper<LogNormalT>::p = {.mu = 0.5, .sigma = 0.5};
 
-using LogisticDistType = HostApiTest<LogisticDistParams<double>, double, 16, 1>;
+using LogisticT = HostApiTest<LogisticDistParams<double>, double, 16, 1>;
 template <>
-LogisticDistParams<double> TestWrapper<LogisticDistType>::p = {.mu = 0.2, .scale = 0.3};
+LogisticDistParams<double> TestWrapper<LogisticT>::p = {.mu = 0.2, .scale = 0.3};
 
-using ExponentialDistType = HostApiTest<ExponentialDistParams<double>, double, 16, 1>;
+using ExponentialT = HostApiTest<ExponentialDistParams<double>, double, 16, 1>;
 template <>
-ExponentialDistParams<double> TestWrapper<ExponentialDistType>::p = {.lambda = 1.6};
+ExponentialDistParams<double> TestWrapper<ExponentialT>::p = {.lambda = 1.6};
 
-using RayleighDistType = HostApiTest<RayleighDistParams<double>, double, 16, 1>;
+using RayleighT = HostApiTest<RayleighDistParams<double>, double, 16, 1>;
 template <>
-RayleighDistParams<double> TestWrapper<RayleighDistType>::p = {.sigma = 1.6};
+RayleighDistParams<double> TestWrapper<RayleighT>::p = {.sigma = 1.6};
 
-using LaplaceDistType = HostApiTest<LaplaceDistParams<double>, double, 16, 1>;
+using LaplaceT = HostApiTest<LaplaceDistParams<double>, double, 16, 1>;
 template <>
-LaplaceDistParams<double> TestWrapper<LaplaceDistType>::p = {.mu = 0.2, .scale = 0.3};
+LaplaceDistParams<double> TestWrapper<LaplaceT>::p = {.mu = 0.2, .scale = 0.3};
 
-using TestingTypes1 = testing::Types<InvariantDistType,
-                                     UniformDistType,
-                                     UniformInt32DistType,
-                                     /*UniformInt64DistType, */ NormalDistType,
-                                     /*NormalIntDistType, */ BernoulliDistType,
-                                     ScaledBernoulliDistType,
-                                     GumbelDistType,
-                                     LogisticDistType,
-                                     ExponentialDistType,
-                                     RayleighDistType,
-                                     LaplaceDistType>;
+using TestingTypes1 = testing::Types<InvariantT,
+                                     UniformT,
+                                     UniformInt32T,
+                                     /*UniformInt64T, */ NormalT,
+                                     /*NormalIntT, */ BernoulliT,
+                                     ScaledBernoulliT,
+                                     GumbelT,
+                                     LogisticT,
+                                     ExponentialT,
+                                     RayleighT,
+                                     LaplaceT>;
 
 INSTANTIATE_TYPED_TEST_SUITE_P(My1, TestWrapper, TestingTypes1);
 
