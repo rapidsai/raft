@@ -142,7 +142,7 @@ struct SamplingParams {
 template <typename Type>
 HDI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1, Type sigma2, Type mu2)
 {
-  constexpr Type twoPi  = Type(2.0) * Type(3.141592654);
+  constexpr Type twoPi  = Type(2.0) * Type(3.141592653589793);
   constexpr Type minus2 = -Type(2.0);
   Type R                = raft::sqrt(minus2 * raft::log(val1));
   Type theta            = twoPi * val2;
