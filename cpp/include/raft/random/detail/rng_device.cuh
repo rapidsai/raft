@@ -647,7 +647,6 @@ struct PCGenerator {
   /** @} */
 
  private:
-
   HDI void _init_pcg(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
     pcg_state = uint64_t(0);
