@@ -413,13 +413,15 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
 {
   const auto kth_value_bits = counter->kth_value_bits;
   const int start_bit       = calc_start_bit<T, BitsPerPass>(pass);
+  const auto bound          = select_min ? upper_bound<T>() : lower_bound<T>();
 
   // changed in choose_bucket(); need to reload
   const IdxT needed_num_of_kth = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
   for (IdxT i = threadIdx.x; i < current_len; i += blockDim.x) {
-    const T value   = in_buf[i];
+    const T value = in_buf[i];
+    if (value == bound) { continue; }
     const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
@@ -475,6 +477,7 @@ __global__ void last_filter_kernel(const T* in,
   const IdxT needed_num_of_kth = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
+  const auto bound             = select_min ? upper_bound<T>() : lower_bound<T>();
 
   auto f = [k,
             select_min,
@@ -483,8 +486,10 @@ __global__ void last_filter_kernel(const T* in,
             p_out_cnt,
             p_out_back_cnt,
             in_idx_buf,
+            bound,
             out,
             out_idx](T value, IdxT i) {
+    if (value == bound) { return; }
     const auto bits = (twiddle_in(value, select_min) >> start_bit) << start_bit;
     if (bits < kth_value_bits) {
       IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
@@ -621,7 +626,6 @@ __global__ void radix_kernel(const T* in,
                                              pass,
                                              early_stop,
                                              k);
-  if (current_len == 0) { return; }
   __threadfence();
 
   bool isLastBlock = false;
