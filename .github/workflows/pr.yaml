@@ -29,6 +29,7 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.10
     with:
       enable_check_generated_files: false
+      enable_check_pr_job_dependencies: false
   conda-cpp-build:
     needs: checks
     secrets: inherit
@@ -92,3 +93,9 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_raft_dask.sh
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@fea/devcontainers
+    with:
+      build_command: |
+        build-raft -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON;
