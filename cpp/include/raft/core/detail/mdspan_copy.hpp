@@ -118,12 +118,10 @@ copy(resources const& res, DstType& dst, SrcType const& src)
     if constexpr (same_layout && both_contiguous) {
       // Use STL if possible; this should be well optimized
       std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
-    } else if constexpr (both_contiguous && both_float_or_double && simd_available) {
-      // Next, use SIMD intrinsics if possible, since generic one-by-one copy implementation is hard
-      // for the compiler to vectorize
-
-      // simd transpose, possibly with dtype conversion
     } else {
+      // TODO (wphicks): Use SIMD for both_contiguous &&
+      // both_float_or_double
+
       // Finally, copy elements one by one, trying at least to perform
       // cache-friendly reads
 
