@@ -101,7 +101,7 @@ class TestWrapper : public testing::Test {
   T test_obj;
   using ParamType = decltype(T::dist_params);
   static ParamType p;
-  static uint64_t seed;
+  const uint64_t seed = 42;
 };
 
 TYPED_TEST_SUITE_P(TestWrapper);
@@ -113,89 +113,61 @@ REGISTER_TYPED_TEST_SUITE_P(TestWrapper, print);
 using InvariantDistType = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
 template <>
 InvariantDistParams<int> TestWrapper<InvariantDistType>::p = {.const_val = 431601};
-template <>
-uint64_t TestWrapper<InvariantDistType>::seed = 23242423;
 
 using UniformDistType = HostApiTest<UniformDistParams<double>, double, 16, 1>;
 template <>
 UniformDistParams<double> TestWrapper<UniformDistType>::p = {.start = 0.0, .end = 1.0};
-template <>
-uint64_t TestWrapper<UniformDistType>::seed = 23242423;
 
 using UniformInt32DistType = HostApiTest<UniformIntDistParams<uint32_t, uint32_t>, uint32_t, 16, 1>;
 template <>
 UniformIntDistParams<uint32_t, uint32_t> TestWrapper<UniformInt32DistType>::p = {
   .start = 0, .end = 100000, .diff = 100000};
-template <>
-uint64_t TestWrapper<UniformInt32DistType>::seed = 23242423;
 
 using UniformInt64DistType = HostApiTest<UniformIntDistParams<uint64_t, uint64_t>, uint64_t, 16, 1>;
 template <>
 UniformIntDistParams<uint64_t, uint64_t> TestWrapper<UniformInt64DistType>::p = {
   .start = 0, .end = 100000, .diff = 100000};
-template <>
-uint64_t TestWrapper<UniformInt64DistType>::seed = 23242423;
 
 using NormalDistType = HostApiTest<NormalDistParams<double>, double, 16, 2>;
 template <>
 NormalDistParams<double> TestWrapper<NormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
-template <>
-uint64_t TestWrapper<NormalDistType>::seed = 892357182;
 
 using NormalIntDistType = HostApiTest<NormalIntDistParams<uint32_t>, uint32_t, 16, 2>;
 template <>
 NormalIntDistParams<uint32_t> TestWrapper<NormalIntDistType>::p = {.mu = 1, .sigma = 1};
-template <>
-uint64_t TestWrapper<NormalIntDistType>::seed = 892357182;
 
 using BernoulliDistType = HostApiTest<BernoulliDistParams<double>, double, 16, 1>;
 template <>
 BernoulliDistParams<double> TestWrapper<BernoulliDistType>::p = {.prob = 0.7};
-template <>
-uint64_t TestWrapper<BernoulliDistType>::seed = 892357182;
 
 using ScaledBernoulliDistType = HostApiTest<ScaledBernoulliDistParams<double>, double, 16, 1>;
 template <>
 ScaledBernoulliDistParams<double> TestWrapper<ScaledBernoulliDistType>::p = {.prob  = 0.7,
                                                                              .scale = 0.5};
-template <>
-uint64_t TestWrapper<ScaledBernoulliDistType>::seed = 892357182;
 
 using GumbelDistType = HostApiTest<GumbelDistParams<double>, double, 16, 1>;
 template <>
 GumbelDistParams<double> TestWrapper<GumbelDistType>::p = {.mu = 0.7, .beta = 0.5};
-template <>
-uint64_t TestWrapper<GumbelDistType>::seed = 892357182;
 
 using LogNormalDistType = HostApiTest<LogNormalDistParams<double>, double, 16, 2>;
 template <>
 LogNormalDistParams<double> TestWrapper<LogNormalDistType>::p = {.mu = 0.5, .sigma = 0.5};
-template <>
-uint64_t TestWrapper<LogNormalDistType>::seed = 892357182;
 
 using LogisticDistType = HostApiTest<LogisticDistParams<double>, double, 16, 1>;
 template <>
 LogisticDistParams<double> TestWrapper<LogisticDistType>::p = {.mu = 0.2, .scale = 0.3};
-template <>
-uint64_t TestWrapper<LogisticDistType>::seed = 892357182;
 
 using ExponentialDistType = HostApiTest<ExponentialDistParams<double>, double, 16, 1>;
 template <>
 ExponentialDistParams<double> TestWrapper<ExponentialDistType>::p = {.lambda = 1.6};
-template <>
-uint64_t TestWrapper<ExponentialDistType>::seed = 892357182;
 
 using RayleighDistType = HostApiTest<RayleighDistParams<double>, double, 16, 1>;
 template <>
 RayleighDistParams<double> TestWrapper<RayleighDistType>::p = {.sigma = 1.6};
-template <>
-uint64_t TestWrapper<RayleighDistType>::seed = 892357182;
 
 using LaplaceDistType = HostApiTest<LaplaceDistParams<double>, double, 16, 1>;
 template <>
 LaplaceDistParams<double> TestWrapper<LaplaceDistType>::p = {.mu = 0.2, .scale = 0.3};
-template <>
-uint64_t TestWrapper<LaplaceDistType>::seed = 892357182;
 
 using TestingTypes1 = testing::Types<InvariantDistType,
                                      UniformDistType,
