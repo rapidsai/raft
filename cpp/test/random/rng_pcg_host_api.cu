@@ -96,7 +96,7 @@ class TestW : public testing::Test {
   }
 
  public:
-  void print_foo() { test_obj.test(); }
+  void TestFillBuffer() { test_obj.test(); }
   T test_obj;
   using ParamType = decltype(T::dist_params);
   static ParamType p;
@@ -105,9 +105,9 @@ class TestW : public testing::Test {
 
 TYPED_TEST_SUITE_P(TestW);
 
-TYPED_TEST_P(TestW, print) { this->print_foo(); }
+TYPED_TEST_P(TestW, host_api_test) { this->TestFillBuffer(); }
 
-REGISTER_TYPED_TEST_SUITE_P(TestW, print);
+REGISTER_TYPED_TEST_SUITE_P(TestW, host_api_test);
 
 using InvariantT = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
 template <>
@@ -168,10 +168,11 @@ using LaplaceT = HostApiTest<LaplaceDistParams<double>, double, 16, 1>;
 template <>
 LaplaceDistParams<double> TestW<LaplaceT>::p = {.mu = 0.2, .scale = 0.3};
 
-using TestingTypes1 = testing::Types<InvariantT,
+using TypeList = testing::Types<InvariantT,
                                      UniformT,
                                      UniformInt32T,
-                                     /*UniformInt64T, */ NormalT,
+                                     UniformInt64T,
+                                     NormalT,
                                      /*NormalIntT, */ BernoulliT,
                                      ScaledBernoulliT,
                                      GumbelT,
@@ -180,7 +181,7 @@ using TestingTypes1 = testing::Types<InvariantT,
                                      RayleighT,
                                      LaplaceT>;
 
-INSTANTIATE_TYPED_TEST_SUITE_P(RngPcgHost, TestW, TestingTypes1);
+INSTANTIATE_TYPED_TEST_SUITE_P(Rng, TestW, TypeList);
 
 }  // namespace random
 }  // namespace raft

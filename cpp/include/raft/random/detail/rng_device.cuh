@@ -18,6 +18,7 @@
 
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/fast_int_div.cuh>
 
 #include <curand_kernel.h>
 
@@ -209,19 +210,18 @@ HDI void custom_next(GenType& gen,
                     LenType idx    = 0,
                     LenType stride = 0)
 {
+  using raft::util::wmul_64bit;
   uint64_t x = 0;
   gen.next(x);
   uint64_t s = params.diff;
   uint64_t m_lo, m_hi;
   // m = x * s;
-  asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
-  asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+  wmul_64bit(m_hi, m_lo, x, s);
   if (m_lo < s) {
     uint64_t t = (-s) % s;  // (2^64 - s) mod s
     while (m_lo < t) {
       gen.next(x);
-      asm("mul.hi.u64 %0, %1, %2;" : "=l"(m_hi) : "l"(x), "l"(s));
-      asm("mul.lo.u64 %0, %1, %2;" : "=l"(m_lo) : "l"(x), "l"(s));
+      wmul_64bit(m_hi, m_lo, x, s);
     }
   }
   *val = OutType(m_hi) + params.start;
