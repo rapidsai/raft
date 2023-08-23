@@ -111,7 +111,7 @@ REGISTER_TYPED_TEST_SUITE_P(TestW, host_api_test);
 
 using InvariantT = HostApiTest<InvariantDistParams<int>, int, 16, 1>;
 template <>
-InvariantDistParams<int> TestW<InvariantT>::p = {.const_val = 431601};
+InvariantDistParams<int> TestW<InvariantT>::p = {.const_val = 123456};
 
 using UniformT = HostApiTest<UniformDistParams<double>, double, 16, 1>;
 template <>
