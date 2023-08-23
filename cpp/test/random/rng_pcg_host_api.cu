@@ -50,11 +50,9 @@ class HostApiTest {
     len = total_threads * CPT * IPC;
     d_buffer.resize(len, stream);
     h_buffer.resize(len);
-    printf("### len = %lu\n", len);
   }
   void FillBuffers(uint64_t seed)
   {
-    printf("seed = %lu\n", seed);
     RngState r(seed, GenPC);
     DeviceState<PCGenerator> d_state(r);
 
