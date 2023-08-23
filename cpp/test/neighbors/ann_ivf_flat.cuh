@@ -497,7 +497,7 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
-   false}
+   false},
 
   // The following two test cases should show very similar recall.
   // num_queries, num_db_vecs, dim, k, nprobe, nlist, metric, adaptive_centers
