@@ -251,15 +251,12 @@ HDI void custom_next(GenType& gen,
                     LenType idx    = 0,
                     LenType stride = 0)
 {
-  IntType res1_int, res2_int;
-
+  double res1, res2;
   do {
-    gen.next(res1_int);
-  } while (res1_int == 0);
+    gen.next(res1);
+  } while (res1 == double(0.0));
 
-  gen.next(res2_int);
-  double res1  = static_cast<double>(res1_int);
-  double res2  = static_cast<double>(res2_int);
+  gen.next(res2);
   double mu    = static_cast<double>(params.mu);
   double sigma = static_cast<double>(params.sigma);
   box_muller_transform<double>(res1, res2, sigma, mu);

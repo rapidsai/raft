@@ -133,7 +133,7 @@ NormalDistParams<double> TestW<NormalT>::p = {.mu = 0.5, .sigma = 0.5};
 
 using NormalIntT = HostApiTest<NormalIntDistParams<uint32_t>, uint32_t, 16, 2>;
 template <>
-NormalIntDistParams<uint32_t> TestW<NormalIntT>::p = {.mu = 1, .sigma = 1};
+NormalIntDistParams<uint32_t> TestW<NormalIntT>::p = {.mu = 10000000, .sigma = 10000};
 
 using BernoulliT = HostApiTest<BernoulliDistParams<double>, double, 16, 1>;
 template <>
@@ -173,7 +173,8 @@ using TypeList = testing::Types<InvariantT,
                                      UniformInt32T,
                                      UniformInt64T,
                                      NormalT,
-                                     /*NormalIntT, */ BernoulliT,
+                                     NormalIntT,
+                                     BernoulliT,
                                      ScaledBernoulliT,
                                      GumbelT,
                                      LogisticT,
