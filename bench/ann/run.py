@@ -86,7 +86,17 @@ def main():
     parser.add_argument(
         "--configuration",
         help="path to configuration file for a dataset",
-        required=True
+    )
+    parser.add_argument(
+        "--dataset",
+        help="dataset whose configuration file will be used",
+        default="glove-100-inner"
+    )
+    parser.add_argument(
+        "--dataset-path",
+        help="path to dataset folder",
+        default=os.path.join(os.getenv("RAFT_HOME"), 
+                             "bench", "ann", "data")
     )
     parser.add_argument(
         "--build",
@@ -121,15 +131,29 @@ def main():
         search = args.search
 
     # Read configuration file associated to dataset
-    conf_filepath = args.configuration
+    if args.configuration:
+        conf_filepath = args.configuration
+    else:
+        conf_filepath = os.path.join(scripts_path, "conf", f"{args.dataset}.json")
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
+    dataset_name = conf_filename.replace(".json", "")
+    dataset_path = os.path.join(args.dataset_path, dataset_name)
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
 
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
 
+    # Replace base, query to dataset-path
+    replacement_base_filepath = \
+        os.path.normpath(conf_file["dataset"]["base_file"]).split(os.path.sep)[-1]
+    conf_file["dataset"]["base_file"] = \
+        os.path.join(dataset_path, replacement_base_filepath)
+    replacement_query_filepath = \
+        os.path.normpath(conf_file["dataset"]["query_file"]).split(os.path.sep)[-1]
+    conf_file["dataset"]["query_file"] = \
+        os.path.join(dataset_path, replacement_query_filepath)
     # Ensure base and query files exist for dataset
     if not os.path.exists(conf_file["dataset"]["base_file"]):
         raise FileNotFoundError(conf_file["dataset"]["base_file"])
@@ -174,6 +198,14 @@ def main():
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
+
+    # Replace build, search to dataset path
+    for executable_path in executables_to_run:
+        for pos, index in enumerate(executables_to_run[executable_path]["index"]):
+            index["file"] = os.path.join(dataset_path, "index", index["name"])
+            index["search_result_file"] = \
+                os.path.join(dataset_path, "result", index["name"])
+            executables_to_run[executable_path]["index"][pos] = index
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
                          args.force, conf_filedir, build, search)
