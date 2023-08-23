@@ -532,32 +532,29 @@ struct PhiloxGenerator {
 struct PCGenerator {
   static constexpr auto GEN_TYPE = GeneratorType::GenPC;
 
+  /**
+   * @brief ctor. Initializes the PCG
+   * @param rng_state is the generator state used for initializing the generator
+   * @param subsequence specifies the subsequence to be generated out of 2^64 possible subsequences
+   * In a parallel setting, like threads of a CUDA kernel, each thread is required to generate a
+   * unique set of random numbers. This can be achieved by initializing the generator with same
+   * rng_state for all the threads and distinct values for subsequence.
+   */
   HDI PCGenerator(const DeviceState<PCGenerator>& rng_state, const uint64_t subsequence)
   {
-    pcg_state = uint64_t(0);
-    inc       = ((rng_state.base_subsequence + subsequence) << 1u) | 1u;
-    uint32_t discard;
-    next(discard);
-    pcg_state += rng_state.seed;
-    next(discard);
-    skipahead(subsequence);
+    _init_pcg(rng_state.seed, rng_state.base_subsequence + subsequence, subsequence);
   }
 
   /**
-   * @brief ctor. Initializes the state for RNG. This code is derived from PCG basic code
-   * @param seed the seed (can be same across all threads). Same as PCG's initstate
-   * @param subsequence is same as PCG's initseq
-   * @param offset unused
+   * @brief ctor. This is lower level constructor for PCG
+   * This code is derived from PCG basic code
+   * @param seed A 64-bit seed for the generator
+   * @param subsequence The id of subsequence that should be generated [0, 2^64-1]
+   * @param offset Initial `offset` number of items are skipped from the subsequence
    */
   HDI PCGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset)
   {
-    pcg_state = uint64_t(0);
-    inc       = (subsequence << 1u) | 1u;
-    uint32_t discard;
-    next(discard);
-    pcg_state += seed;
-    next(discard);
-    skipahead(offset);
+    _init_pcg(seed, subsequence, offset);
   }
 
   // Based on "Random Number Generation with Arbitrary Strides" F. B. Brown
@@ -650,6 +647,17 @@ struct PCGenerator {
   /** @} */
 
  private:
+
+  HDI void _init_pcg(uint64_t seed, uint64_t subsequence, uint64_t offset)
+  {
+    pcg_state = uint64_t(0);
+    inc       = (subsequence << 1u) | 1u;
+    uint32_t discard;
+    next(discard);
+    pcg_state += seed;
+    next(discard);
+    skipahead(offset);
+  }
   uint64_t pcg_state;
   uint64_t inc;
 };
