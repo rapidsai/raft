@@ -117,7 +117,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     //
     constexpr unsigned min_block_size       = 64;  // 32 or 64
     constexpr unsigned min_block_size_radix = 256;
-    constexpr unsigned max_block_size       = 256;
+    constexpr unsigned max_block_size       = 1024;
     //
     const std::uint32_t topk_ws_size = 3;
     const std::uint32_t base_smem_size =

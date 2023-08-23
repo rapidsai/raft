@@ -461,7 +461,7 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-__launch_bounds__(256, 4) __global__
+__launch_bounds__(1024, 1) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
                      const std::uint32_t top_k,

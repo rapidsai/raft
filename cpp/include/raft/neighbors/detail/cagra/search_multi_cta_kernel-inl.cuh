@@ -130,7 +130,7 @@ template <unsigned TEAM_SIZE,
           class DISTANCE_T,
           class INDEX_T,
           class LOAD_T>
-__launch_bounds__(512, 2) __global__ void search_kernel(
+__launch_bounds__(1024, 1) __global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
@@ -153,7 +153,6 @@ __launch_bounds__(512, 2) __global__ void search_kernel(
   uint32_t* const num_executed_iterations /* stats */
 )
 {
-  // assert(blockDim.x == BLOCK_SIZE);
   assert(dataset_dim <= MAX_DATASET_DIM);
 
   const auto num_queries       = gridDim.y;
