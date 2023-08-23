@@ -29,7 +29,7 @@ def parse_filepaths(fs):
                 yield f.as_posix()
 
 def export_results(output_filepath, recompute, groundtruth_filepath,
-                   result_filepaths):
+                   result_filepath):
     print(f"Writing output file to: {output_filepath}")
 
     parsed_filepaths = parse_filepaths(result_filepaths)
@@ -73,7 +73,7 @@ def main():
     groundtruth_filepath = os.path.join(args.dataset_path, args.dataset,
                                         "groundtruth.neighbors.ibin")
     export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepaths)
+                   result_filepath)
 
 
 if __name__ == "__main__":
