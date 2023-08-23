@@ -160,20 +160,20 @@ HDI void box_muller_transform(Type& val1, Type& val2, Type sigma1, Type mu1)
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    InvariantDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     InvariantDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   *val = params.const_val;
 }
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     UniformDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -182,10 +182,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformIntDistParams<OutType, uint32_t> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     UniformIntDistParams<OutType, uint32_t> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   uint32_t x = 0;
   uint32_t s = params.diff;
@@ -205,10 +205,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    UniformIntDistParams<OutType, uint64_t> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     UniformIntDistParams<OutType, uint64_t> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   using raft::util::wmul_64bit;
   uint64_t x = 0;
@@ -246,10 +246,10 @@ HDI void custom_next(
 
 template <typename GenType, typename IntType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    IntType* val,
-                    NormalIntDistParams<IntType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     IntType* val,
+                     NormalIntDistParams<IntType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   double res1, res2;
   do {
@@ -266,10 +266,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    NormalTableDistParams<OutType, LenType> params,
-                    LenType idx,
-                    LenType stride)
+                     OutType* val,
+                     NormalTableDistParams<OutType, LenType> params,
+                     LenType idx,
+                     LenType stride)
 {
   OutType res1, res2;
 
@@ -300,10 +300,10 @@ HDI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    ScaledBernoulliDistParams<OutType> params,
-                    LenType idx,
-                    LenType stride)
+                     OutType* val,
+                     ScaledBernoulliDistParams<OutType> params,
+                     LenType idx,
+                     LenType stride)
 {
   OutType res = 0;
   gen.next(res);
@@ -325,10 +325,10 @@ HDI void custom_next(
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    LogNormalDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     LogNormalDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res1 = 0, res2 = 0;
   do {
@@ -343,10 +343,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    LogisticDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     LogisticDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
 
@@ -360,10 +360,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    ExponentialDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     ExponentialDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -373,10 +373,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    RayleighDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     RayleighDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res;
   gen.next(res);
@@ -388,10 +388,10 @@ HDI void custom_next(GenType& gen,
 
 template <typename GenType, typename OutType, typename LenType>
 HDI void custom_next(GenType& gen,
-                    OutType* val,
-                    LaplaceDistParams<OutType> params,
-                    LenType idx    = 0,
-                    LenType stride = 0)
+                     OutType* val,
+                     LaplaceDistParams<OutType> params,
+                     LenType idx    = 0,
+                     LenType stride = 0)
 {
   OutType res, out;
 

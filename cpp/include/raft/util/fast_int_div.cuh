@@ -121,7 +121,8 @@ HDI int operator%(int n, const FastIntDiv& divisor)
 }
 
 /** Wide multiplication of two unsigned 64-bit integers */
-HDI void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b) {
+HDI void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b)
+{
 #ifdef __CUDA_ARCH__
   asm("mul.hi.u64 %0, %1, %2;" : "=l"(res_hi) : "l"(a), "l"(b));
   asm("mul.lo.u64 %0, %1, %2;" : "=l"(res_lo) : "l"(a), "l"(b));
@@ -141,16 +142,15 @@ HDI void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b) 
   uint64_t carry = 0, trial = 0;
 
   res_lo = t0;
-  trial = res_lo + (t1 << 32);
+  trial  = res_lo + (t1 << 32);
   if (trial < res_lo) carry++;
   res_lo = trial;
-  trial = res_lo + (t2 << 32);
+  trial  = res_lo + (t2 << 32);
   if (trial < res_lo) carry++;
   res_lo = trial;
 
   // No need to worry about carry in this addition
   res_hi = (t1 >> 32) + (t2 >> 32) + t3 + carry;
 #endif
-
 }
 };  // namespace raft::util

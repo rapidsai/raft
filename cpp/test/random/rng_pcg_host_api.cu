@@ -141,8 +141,7 @@ BernoulliDistParams<double> TestW<BernoulliT>::p = {.prob = 0.7};
 
 using ScaledBernoulliT = HostApiTest<ScaledBernoulliDistParams<double>, double, 16, 1>;
 template <>
-ScaledBernoulliDistParams<double> TestW<ScaledBernoulliT>::p = {.prob  = 0.7,
-                                                                             .scale = 0.5};
+ScaledBernoulliDistParams<double> TestW<ScaledBernoulliT>::p = {.prob = 0.7, .scale = 0.5};
 
 using GumbelT = HostApiTest<GumbelDistParams<double>, double, 16, 1>;
 template <>
@@ -169,18 +168,18 @@ template <>
 LaplaceDistParams<double> TestW<LaplaceT>::p = {.mu = 0.2, .scale = 0.3};
 
 using TypeList = testing::Types<InvariantT,
-                                     UniformT,
-                                     UniformInt32T,
-                                     UniformInt64T,
-                                     NormalT,
-                                     NormalIntT,
-                                     BernoulliT,
-                                     ScaledBernoulliT,
-                                     GumbelT,
-                                     LogisticT,
-                                     ExponentialT,
-                                     RayleighT,
-                                     LaplaceT>;
+                                UniformT,
+                                UniformInt32T,
+                                UniformInt64T,
+                                NormalT,
+                                NormalIntT,
+                                BernoulliT,
+                                ScaledBernoulliT,
+                                GumbelT,
+                                LogisticT,
+                                ExponentialT,
+                                RayleighT,
+                                LaplaceT>;
 
 INSTANTIATE_TYPED_TEST_SUITE_P(Rng, TestW, TypeList);
 
