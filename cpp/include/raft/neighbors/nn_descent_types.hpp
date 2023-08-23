@@ -32,37 +32,38 @@ namespace raft::neighbors::nn_descent {
  */
 
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
-  size_t graph_degree              = 64;   // Degree of output graph.
-  size_t max_iterations = 50; // Number of nn-descent iterations.
-  float termination_threshold = 0.0001; // Termination threshold of nn-descent.
+  size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
+  size_t graph_degree              = 64;      // Degree of output graph.
+  size_t max_iterations            = 50;      // Number of nn-descent iterations.
+  float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
 };
 
 /**
  * @brief nn-descent Index
- * 
+ *
  * @tparam IdxT dtype to be used for constructing knn-graph
  */
 template <typename IdxT>
 struct index : ann::index {
-public:
+ public:
   /**
    * @brief Construct a new index object
-   * 
+   *
    * This constructor creates an nn-descent index which is a knn-graph in host memory.
    * The type of the knn-graph is a dense raft::host_matrix and dimensions are
    * (n_rows, n_cols).
-   * 
+   *
    * @param res raft::resources
    * @param n_rows number of rows in knn-graph
    * @param n_cols number of cols in knn-graph
    */
-  index(raft::resources const& res, int64_t n_rows, int64_t n_cols) :
-    ann::index(),
-    res_{res},
-    metric_{raft::distance::DistanceType::L2Expanded},
-    int_graph_{raft::make_host_matrix<int, int64_t, row_major>(n_rows, n_cols)},
-    graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)} { }
+  index(raft::resources const& res, int64_t n_rows, int64_t n_cols)
+    : ann::index(),
+      res_{res},
+      metric_{raft::distance::DistanceType::L2Expanded},
+      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)}
+  {
+  }
 
   /** Distance metric used for clustering. */
   [[nodiscard]] constexpr inline auto metric() const noexcept -> raft::distance::DistanceType
@@ -83,27 +84,10 @@ public:
   }
 
   /** neighborhood graph [size, graph-degree] */
-  [[nodiscard]] inline auto graph() noexcept
-    -> host_matrix_view<IdxT, int64_t, row_major>
+  [[nodiscard]] inline auto graph() noexcept -> host_matrix_view<IdxT, int64_t, row_major>
   {
-    if constexpr (std::is_same_v<IdxT, int> or std::is_same_v<IdxT, uint32_t>) {
-      return raft::make_host_matrix_view<IdxT, int64_t, row_major>(
-        reinterpret_cast<IdxT*>(int_graph_.data_handle()),
-        int_graph_.extent(0),
-        int_graph_.extent(1));
-    }
-    else {
-      graph_ = raft::make_host_matrix<IdxT, int64_t, row_major>(int_graph_.extent(0), int_graph_.extent(1));
-      std::copy(graph_.data_handle(), graph_.data_handle() + graph_.size(), int_graph_.data_handle());
-      return graph_.view();
-    }
+    return graph_.view();
   }
-
-  /** int type graph */
-  [[nodiscard]] inline auto int_graph() noexcept
-    -> host_matrix_view<int, int64_t, row_major> {
-      return int_graph_.view();
-    }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&)                    = delete;
@@ -112,13 +96,12 @@ public:
   auto operator=(index&&) -> index&      = default;
   ~index()                               = default;
 
-private:
+ private:
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
-  raft::host_matrix<int, int64_t, row_major> int_graph_; // nn-descent only supports int IdxT graphs
-  raft::host_matrix<IdxT, int64_t, row_major> graph_; // graph to return for non-int IdxT
+  raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
 };
 
 /** @} */
 
-}
+}  // namespace raft::neighbors::nn_descent

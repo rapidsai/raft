@@ -34,6 +34,7 @@
 #include <raft/neighbors/detail/refine.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/refine.cuh>
 
 namespace raft::neighbors::cagra::detail {
@@ -236,6 +237,32 @@ void build_knn_graph(raft::resources const& res,
   }
 
   if (!first) RAFT_LOG_DEBUG("# Finished building kNN graph");
+}
+
+template <typename DataT, typename IdxT, typename accessor>
+nn_descent::index<IdxT> build_knn_graph(
+  raft::resources const& res,
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+  std::optional<nn_descent::index_params> build_params = std::nullopt)
+{
+  if (!build_params) { build_params = std::make_optional<nn_descent::index_params>(); }
+
+  auto nn_descent_idx = nn_descent::build<DataT, IdxT>(res, *build_params, dataset);
+
+  using internal_IdxT = typename std::make_unsigned<IdxT>::type;
+  using g_accessor    = typename decltype(nn_descent_idx.graph())::accessor_type;
+  using g_accessor_internal =
+    host_device_accessor<std::experimental::default_accessor<internal_IdxT>, g_accessor::mem_type>;
+
+  auto knn_graph_internal =
+    mdspan<internal_IdxT, matrix_extent<int64_t>, row_major, g_accessor_internal>(
+      reinterpret_cast<internal_IdxT*>(nn_descent_idx.graph().data_handle()),
+      nn_descent_idx.graph().extent(0),
+      nn_descent_idx.graph().extent(1));
+
+  graph::sort_knn_graph(res, dataset, knn_graph_internal);
+
+  return nn_descent_idx;
 }
 
 }  // namespace raft::neighbors::cagra::detail

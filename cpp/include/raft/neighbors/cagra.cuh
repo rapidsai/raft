@@ -25,7 +25,6 @@
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <raft/neighbors/nn_descent.cuh>
 #include <rmm/cuda_stream_view.hpp>
 
 namespace raft::neighbors::cagra {
@@ -53,8 +52,8 @@ namespace raft::neighbors::cagra {
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   // use default index parameters
- *   cagra::index_params build_params;
- *   cagra::search_params search_params
+ *   ivf_pq::index_params build_params;
+ *   ivf_pq::search_params search_params
  *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
@@ -94,6 +93,18 @@ void build_knn_graph(raft::resources const& res,
 
   cagra::detail::build_knn_graph(
     res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
+}
+
+template <typename DataT,
+          typename IdxT = uint32_t,
+          typename accessor =
+            host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>>
+nn_descent::index<IdxT> build_knn_graph(
+  raft::resources const& res,
+  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+  std::optional<nn_descent::index_params> build_params = std::nullopt)
+{
+  return detail::build_knn_graph<DataT, IdxT>(res, dataset, build_params);
 }
 
 /**
@@ -265,12 +276,11 @@ index<T, IdxT> build(raft::resources const& res,
     build_knn_graph(res, dataset, knn_graph.view());
 
     optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
-  }
-  else {
-    nn_descent::index_params nn_descent_params;
-    nn_descent_params.intermediate_graph_degree = intermediate_degree;
-    nn_descent_params.graph_degree = graph_degree;
-    auto nn_descent_index = nn_descent::build<T, IdxT>(res, nn_descent_params, dataset);
+  } else {
+    auto nn_descent_params                       = std::make_optional<nn_descent::index_params>();
+    nn_descent_params->intermediate_graph_degree = intermediate_degree;
+    nn_descent_params->graph_degree              = intermediate_degree;
+    auto nn_descent_index = build_knn_graph<T, IdxT>(res, dataset, nn_descent_params);
 
     optimize<IdxT>(res, nn_descent_index.graph(), cagra_graph.view());
   }
