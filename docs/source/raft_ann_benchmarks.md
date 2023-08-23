@@ -130,7 +130,7 @@ raft_ivf_pq:
   executable: RAFT_IVF_PQ_ANN_BENCH
   disabled: false
 ```
-`executable` : specifies the location of the binary that will build/search the index. It is assumed to be
+`executable` : specifies the name of the binary that will build/search the index. It is assumed to be
 available in `raft/cpp/build/`.
 `disabled` : denotes whether an algorithm should be excluded from benchmark runs.
 
