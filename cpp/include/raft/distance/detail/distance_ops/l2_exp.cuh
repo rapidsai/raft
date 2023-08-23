@@ -33,7 +33,7 @@ struct l2_exp_cutlass_op {
     // outVal could be negative due to numerical instability, especially when
     // calculating self distance.
     // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (fabs(outVal) >= DataT(0.0001));
+    outVal = outVal * (outVal <= DataT(0.0001));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
@@ -88,7 +88,7 @@ struct l2_exp_distance_op {
         DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
         // val could be negative due to numerical instability, especially when
         // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
-        acc[i][j] = val * (fabs(val) >= DataT(0.0001));
+        acc[i][j] = val * (val <= DataT(0.0001));
       }
     }
     if (sqrt) {
