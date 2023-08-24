@@ -51,7 +51,11 @@ class RaftIvfPQ : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_pq::index_params;
 
-  RaftIvfPQ(Metric metric, int dim, const BuildParam& param, float refine_ratio);
+  RaftIvfPQ(Metric metric,
+            int dim,
+            const BuildParam& param,
+            float refine_ratio,
+            MemoryType dataset_memtype);
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -71,7 +75,7 @@ class RaftIvfPQ : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Host;
+    property.dataset_memory_type      = dataset_memtype_;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = refine_ratio_ > 1.0;
     return property;
@@ -89,15 +93,18 @@ class RaftIvfPQ : public ANN<T> {
   int device_;
   int dimension_;
   float refine_ratio_ = 1.0;
+  MemoryType dataset_memtype_;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_matrix_view<const T, IdxT> dataset_;
 };
 template <typename T, typename IdxT>
-RaftIvfPQ<T, IdxT>::RaftIvfPQ(Metric metric, int dim, const BuildParam& param, float refine_ratio)
+RaftIvfPQ<T, IdxT>::RaftIvfPQ(
+  Metric metric, int dim, const BuildParam& param, float refine_ratio, MemoryType dataset_memtype)
   : ANN<T>(metric, dim),
     index_params_(param),
     dimension_(dim),
     refine_ratio_(refine_ratio),
+    dataset_memtype_(dataset_memtype),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
   rmm::mr::set_current_device_resource(&mr_);
