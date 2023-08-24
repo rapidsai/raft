@@ -17,6 +17,7 @@
     {
       "name": "raft_ivf_pq.dimpq64-cluster5K-float-float",
       "algo": "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "niter": 25,
         "nlist": 5000,
@@ -149,6 +150,7 @@
     {
       "name" : "raft_ivf_flat.nlist100K",
       "algo" : "raft_ivf_flat",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
@@ -171,6 +173,7 @@
     {
       "name" : "raft_cagra.dim32",
       "algo" : "raft_cagra",
+      "dataset_memtype": "host",
       "build_param": {
         "index_dim" : 32
       },
@@ -187,6 +190,7 @@
     {
       "name" : "raft_cagra.dim64",
       "algo" : "raft_cagra",
+      "dataset_memtype": "host",
       "build_param": {
         "index_dim" : 64
       },

@@ -52,7 +52,7 @@ class RaftIvfFlatGpu : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_flat::index_params;
 
-  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param);
+  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype);
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -71,7 +71,7 @@ class RaftIvfFlatGpu : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
+    property.dataset_memory_type      = dataset_memtype_;
     property.query_memory_type        = MemoryType::Device;
     property.need_dataset_when_search = false;
     return property;
@@ -88,14 +88,19 @@ class RaftIvfFlatGpu : public ANN<T> {
   std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
   int device_;
   int dimension_;
+  MemoryType dataset_memtype_;
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
 };
 
 template <typename T, typename IdxT>
-RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param)
+RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric,
+                                        int dim,
+                                        const BuildParam& param,
+                                        MemoryType dataset_memtype)
   : ANN<T>(metric, dim),
     index_params_(param),
     dimension_(dim),
+    dataset_memtype_(dataset_memtype),
     mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
   index_params_.metric                         = parse_metric_type(metric);
