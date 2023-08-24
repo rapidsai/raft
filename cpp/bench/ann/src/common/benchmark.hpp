@@ -323,7 +323,8 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                                      dataset->dim(),
                                      index.refine_ratio,
                                      index.build_param,
-                                     index.dev_list);
+                                     index.dev_list,
+                                     index.index_conf);
     const auto algo_property = algo->get_property();
 
     log_info("loading index '%s' from file '%s'", index.name.c_str(), index.file.c_str());
