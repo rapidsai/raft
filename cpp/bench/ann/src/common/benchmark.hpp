@@ -100,7 +100,6 @@ inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
       auto kv = key + "=" + val.dump();
       if (label_empty) {
         label = kv;
-
       } else {
         label += "#" + kv;
       }
@@ -109,6 +108,17 @@ inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
   }
   if (!label_empty) { state.SetLabel(label); }
 }
+
+inline auto parse_algo_property(AlgoProperty prop, const nlohmann::json& conf) -> AlgoProperty
+{
+  if (conf.contains("dataset_memory_type")) {
+    prop.dataset_memory_type = parse_memory_type(conf.at("dataset_memory_type"));
+  }
+  if (conf.contains("query_memory_type")) {
+    prop.query_memory_type = parse_memory_type(conf.at("query_memory_type"));
+  }
+  return prop;
+};
 
 template <typename T>
 void bench_build(::benchmark::State& state,
@@ -127,17 +137,13 @@ void bench_build(::benchmark::State& state,
 
   std::unique_ptr<ANN<T>> algo;
   try {
-    algo = ann::create_algo<T>(index.algo,
-                               dataset->distance(),
-                               dataset->dim(),
-                               index.build_param,
-                               index.dev_list,
-                               index.index_conf);
+    algo = ann::create_algo<T>(
+      index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
 
-  const auto algo_property = algo->get_property();
+  const auto algo_property = parse_algo_property(algo->get_preference(), index.build_param);
 
   const T* base_set      = dataset->base_set(algo_property.dataset_memory_type);
   std::size_t index_size = dataset->base_set_size();
@@ -193,13 +199,9 @@ void bench_search(::benchmark::State& state,
   std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
   try {
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
-      auto ualgo = ann::create_algo<T>(index.algo,
-                                       dataset->distance(),
-                                       dataset->dim(),
-                                       index.build_param,
-                                       index.dev_list,
-                                       index.index_conf);
-      algo       = ualgo.get();
+      auto ualgo = ann::create_algo<T>(
+        index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+      algo = ualgo.get();
       algo->load(index_file);
       current_algo = std::move(ualgo);
     }
@@ -209,7 +211,7 @@ void bench_search(::benchmark::State& state,
   }
   algo->set_search_param(*search_param);
 
-  const auto algo_property = algo->get_property();
+  const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
   const T* query_set       = dataset->query_set(algo_property.query_memory_type);
   buf<float> distances{algo_property.query_memory_type, k * query_set_size};
   buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};

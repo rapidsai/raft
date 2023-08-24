@@ -254,7 +254,7 @@ The `index` section will contain a list of index objects, each of which will hav
 }
 ```
 
-The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide]() contains detailed instructions on choosing build and search parameters for each supported algorithm.
+The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
 | Library   | Algorithms                                   |
 |-----------|----------------------------------------------|

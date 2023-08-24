@@ -98,7 +98,7 @@ class FaissGpu : public ANN<T> {
               float* distances,
               cudaStream_t stream = 0) const final;
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
