@@ -185,6 +185,7 @@
     {
       "name": "raft_ivf_flat.nlist100K",
       "algo": "raft_ivf_flat",
+      "dataset_memtype":"host",
       "build_param": {"nlist": 100000, "niter": 25, "ratio": 5},
       "file": "deep-100M/raft_ivf_flat/nlist100K",
       "search_params": [
@@ -201,6 +202,7 @@
     {
       "name": "raft_cagra.dim32",
       "algo": "raft_cagra",
+      "dataset_memtype":"host",
       "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -221,6 +223,7 @@
     {
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
+      "dataset_memtype":"host",
       "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -240,6 +243,7 @@
     {
       "name": "raft_cagra.dim32.multi_kernel",
       "algo": "raft_cagra",
+      "dataset_memtype":"host",
       "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -260,6 +264,7 @@
     {
       "name": "raft_cagra.dim64",
       "algo": "raft_cagra",
+      "dataset_memtype":"host",
       "build_param": {"index_dim": 64},
       "file": "deep-100M/raft_cagra/dim64",
       "search_params": [

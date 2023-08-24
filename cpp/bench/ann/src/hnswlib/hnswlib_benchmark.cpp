@@ -76,7 +76,8 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
                                                       const std::string& distance,
                                                       int dim,
                                                       const nlohmann::json& conf,
-                                                      const std::vector<int>& dev_list)
+                                                      const std::vector<int>& dev_list,
+                                                      const nlohmann::json& index_conf)
 {
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
@@ -114,3 +115,9 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 REGISTER_ALGO_INSTANCE(float);
 REGISTER_ALGO_INSTANCE(std::int8_t);
 REGISTER_ALGO_INSTANCE(std::uint8_t);
+
+#ifdef ANN_BENCH_BUILD_MAIN
+#define CPU_ONLY
+#include "../common/benchmark.hpp"
+int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }
+#endif

@@ -25,6 +25,7 @@ log
 dask-worker-space/
 *.egg-info/
 *.bin
+bench/ann/data
 
 ## scikit-build
 _skbuild

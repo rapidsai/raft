@@ -17,7 +17,6 @@
 
 #include "ann_types.hpp"
 #include "conf.hpp"
-#include "cuda_stub.hpp"
 #include "dataset.hpp"
 #include "util.hpp"
 
@@ -33,6 +32,16 @@
 #include <string>
 #include <unistd.h>
 #include <vector>
+
+#ifdef ANN_BENCH_BUILD_MAIN
+#ifdef CPU_ONLY
+#define CUDART_FOUND false
+#else
+#define CUDART_FOUND true
+#endif
+#else
+#define CUDART_FOUND (cudart.found())
+#endif
 
 namespace raft::bench::ann {
 
@@ -91,6 +100,7 @@ inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
       auto kv = key + "=" + val.dump();
       if (label_empty) {
         label = kv;
+
       } else {
         label += "#" + kv;
       }
@@ -117,8 +127,12 @@ void bench_build(::benchmark::State& state,
 
   std::unique_ptr<ANN<T>> algo;
   try {
-    algo = ann::create_algo<T>(
-      index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+    algo = ann::create_algo<T>(index.algo,
+                               dataset->distance(),
+                               dataset->dim(),
+                               index.build_param,
+                               index.dev_list,
+                               index.index_conf);
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
@@ -132,8 +146,8 @@ void bench_build(::benchmark::State& state,
   {
     nvtx_case nvtx{state.name()};
     for (auto _ : state) {
-      auto ntx_lap = nvtx.lap();
-      auto gpu_lap = gpu_timer.lap();
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
       try {
         algo->build(base_set, index_size, gpu_timer.stream());
       } catch (const std::exception& e) {
@@ -179,9 +193,13 @@ void bench_search(::benchmark::State& state,
   std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
   try {
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
-      auto ualgo = ann::create_algo<T>(
-        index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
-      algo = ualgo.get();
+      auto ualgo = ann::create_algo<T>(index.algo,
+                                       dataset->distance(),
+                                       dataset->dim(),
+                                       index.build_param,
+                                       index.dev_list,
+                                       index.index_conf);
+      algo       = ualgo.get();
       algo->load(index_file);
       current_algo = std::move(ualgo);
     }
@@ -214,8 +232,8 @@ void bench_search(::benchmark::State& state,
     nvtx_case nvtx{state.name()};
     for (auto _ : state) {
       // measure the GPU time using the RAII helper
-      auto ntx_lap = nvtx.lap();
-      auto gpu_lap = gpu_timer.lap();
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
       // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
@@ -234,7 +252,7 @@ void bench_search(::benchmark::State& state,
   }
   state.SetItemsProcessed(queries_processed);
   state.counters.insert({{"k", k}, {"n_queries", n_queries}});
-  if (cudart.found()) {
+  if (CUDART_FOUND) {
     state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
                            {"GPU QPS", queries_processed / gpu_timer.total_time()}});
   }
@@ -337,7 +355,7 @@ void dispatch_benchmark(const Configuration& conf,
                         std::string index_prefix,
                         kv_series override_kv)
 {
-  if (cudart.found()) {
+  if (CUDART_FOUND) {
     for (auto [key, value] : cuda_info()) {
       ::benchmark::AddCustomContext(key, value);
     }
@@ -486,7 +504,7 @@ inline auto run_main(int argc, char** argv) -> int
     return -1;
   }
 
-  if (!cudart.found()) { log_warn("cudart library is not found, GPU-based indices won't work."); }
+  if (!CUDART_FOUND) { log_warn("cudart library is not found, GPU-based indices won't work."); }
 
   Configuration conf(conf_stream);
   std::string dtype = conf.get_dataset_conf().dtype;

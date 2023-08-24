@@ -17,7 +17,6 @@
 
 #include "ann_types.hpp"
 
-#include "cuda_stub.hpp"
 #ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
 #include <nvtx3/nvToolsExt.h>
 #endif
@@ -47,10 +46,12 @@ struct buf {
     : memory_type(memory_type), size(size), data(nullptr)
   {
     switch (memory_type) {
+#ifndef CPU_ONLY
       case MemoryType::Device: {
         cudaMalloc(reinterpret_cast<void**>(&data), size * sizeof(T));
         cudaMemset(data, 0, size * sizeof(T));
       } break;
+#endif
       default: {
         data = reinterpret_cast<T*>(malloc(size * sizeof(T)));
         std::memset(data, 0, size * sizeof(T));
@@ -61,9 +62,11 @@ struct buf {
   {
     if (data == nullptr) { return; }
     switch (memory_type) {
+#ifndef CPU_ONLY
       case MemoryType::Device: {
         cudaFree(data);
       } break;
+#endif
       default: {
         free(data);
       }
@@ -73,21 +76,23 @@ struct buf {
   [[nodiscard]] auto move(MemoryType target_memory_type) -> buf<T>
   {
     buf<T> r{target_memory_type, size};
+#ifndef CPU_ONLY
     if ((memory_type == MemoryType::Device && target_memory_type != MemoryType::Device) ||
         (memory_type != MemoryType::Device && target_memory_type == MemoryType::Device)) {
       cudaMemcpy(r.data, data, size * sizeof(T), cudaMemcpyDefault);
-    } else {
-      std::swap(data, r.data);
+      return r;
     }
+#endif
+    std::swap(data, r.data);
     return r;
   }
 };
 
 struct cuda_timer {
  private:
-  cudaStream_t stream_;
-  cudaEvent_t start_;
-  cudaEvent_t stop_;
+  cudaStream_t stream_{nullptr};
+  cudaEvent_t start_{nullptr};
+  cudaEvent_t stop_{nullptr};
   double total_time_{0};
 
  public:
@@ -102,33 +107,41 @@ struct cuda_timer {
     cuda_lap(cudaStream_t stream, cudaEvent_t start, cudaEvent_t stop, double& total_time)
       : start_(start), stop_(stop), stream_(stream), total_time_(total_time)
     {
+#ifndef CPU_ONLY
       cudaStreamSynchronize(stream_);
       cudaEventRecord(start_, stream_);
+#endif
     }
     cuda_lap() = delete;
 
     ~cuda_lap() noexcept
     {
+#ifndef CPU_ONLY
       cudaEventRecord(stop_, stream_);
       cudaEventSynchronize(stop_);
       float milliseconds = 0.0f;
       cudaEventElapsedTime(&milliseconds, start_, stop_);
       total_time_ += milliseconds / 1000.0;
+#endif
     }
   };
 
   cuda_timer()
   {
+#ifndef CPU_ONLY
     cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking);
     cudaEventCreate(&stop_);
     cudaEventCreate(&start_);
+#endif
   }
 
   ~cuda_timer() noexcept
   {
+#ifndef CPU_ONLY
     cudaEventDestroy(start_);
     cudaEventDestroy(stop_);
     cudaStreamDestroy(stream_);
+#endif
   }
 
   [[nodiscard]] auto stream() const -> cudaStream_t { return stream_; }
@@ -143,6 +156,8 @@ struct cuda_timer {
 
 inline auto cuda_info()
 {
+  std::vector<std::tuple<std::string, std::string>> props;
+#ifndef CPU_ONLY
   int dev, driver = 0, runtime = 0;
   cudaDriverGetVersion(&driver);
   cudaRuntimeGetVersion(&runtime);
@@ -150,7 +165,6 @@ inline auto cuda_info()
   cudaDeviceProp device_prop;
   cudaGetDevice(&dev);
   cudaGetDeviceProperties(&device_prop, dev);
-  std::vector<std::tuple<std::string, std::string>> props;
   props.emplace_back("gpu_name", std::string(device_prop.name));
   props.emplace_back("gpu_sm_count", std::to_string(device_prop.multiProcessorCount));
   props.emplace_back("gpu_sm_freq", std::to_string(device_prop.clockRate * 1e3));
@@ -162,6 +176,7 @@ inline auto cuda_info()
                      std::to_string(driver / 1000) + "." + std::to_string((driver % 100) / 10));
   props.emplace_back("gpu_runtime_version",
                      std::to_string(runtime / 1000) + "." + std::to_string((runtime % 100) / 10));
+#endif
   return props;
 }
 

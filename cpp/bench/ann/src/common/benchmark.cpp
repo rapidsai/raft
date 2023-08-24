@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "cuda_stub.hpp"  // must go first
+
 #include "ann_types.hpp"
 
 #define JSON_DIAGNOSTICS 1
@@ -50,19 +52,15 @@ auto load_lib(const std::string& algo) -> void*
   auto found = libs.find(algo);
 
   if (found != libs.end()) { return found->second.handle; }
-  auto lib_name = "lib" + algo + "_ann_bench.so";
+  auto lib_name        = "lib" + algo + "_ann_bench.so";
   std::string lib_path = "";
   if (std::getenv("CONDA_PREFIX") != nullptr) {
     auto conda_path = std::string(std::getenv("CONDA_PREFIX")) + "/bin" + "/ann/";
-    if (std::filesystem::exists(conda_path + "ANN_BENCH")) {
-      lib_path = conda_path;
-    }
+    if (std::filesystem::exists(conda_path + "ANN_BENCH")) { lib_path = conda_path; }
   }
   if (std::getenv("RAFT_HOME") != nullptr) {
     auto build_path = std::string(std::getenv("RAFT_HOME")) + "/cpp" + "/build/";
-    if (std::filesystem::exists(build_path + "ANN_BENCH")) {
-      lib_path = build_path;
-    }
+    if (std::filesystem::exists(build_path + "ANN_BENCH")) { lib_path = build_path; }
   }
   return libs.emplace(algo, lib_path + lib_name).first->second.handle;
 }
@@ -83,7 +81,8 @@ auto create_algo(const std::string& algo,
                  const std::string& distance,
                  int dim,
                  const nlohmann::json& conf,
-                 const std::vector<int>& dev_list) -> std::unique_ptr<raft::bench::ann::ANN<T>>
+                 const std::vector<int>& dev_list,
+                 const nlohman::json& index_conf) -> std::unique_ptr<raft::bench::ann::ANN<T>>
 {
   static auto fname = get_fun_name(reinterpret_cast<void*>(&create_algo<T>));
   auto handle       = load_lib(algo);
@@ -92,7 +91,7 @@ auto create_algo(const std::string& algo,
     throw std::runtime_error("Couldn't load the create_algo function (" + algo + ")");
   }
   auto fun = reinterpret_cast<decltype(&create_algo<T>)>(fun_addr);
-  return fun(algo, distance, dim, conf, dev_list);
+  return fun(algo, distance, dim, conf, dev_list, index_conf);
 }
 
 template <typename T>

@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2023, NVIDIA CORPORATION.
  *
@@ -22,7 +20,9 @@
 #include <string>
 #include <vector>
 
+#ifndef CPU_ONLY
 #include <cuda_runtime_api.h>  // cudaStream_t
+#endif
 
 namespace raft::bench::ann {
 
@@ -105,10 +105,14 @@ class ANN : public AnnBase {
 
 }  // namespace raft::bench::ann
 
-#define REGISTER_ALGO_INSTANCE(DataT)                                                            \
-  template auto raft::bench::ann::create_algo<DataT>(                                            \
-    const std::string&, const std::string&, int, const nlohmann::json&, const std::vector<int>&) \
-    ->std::unique_ptr<raft::bench::ann::ANN<DataT>>;                                             \
-  template auto raft::bench::ann::create_search_param<DataT>(const std::string&,                 \
-                                                             const nlohmann::json&)              \
+#define REGISTER_ALGO_INSTANCE(DataT)                                               \
+  template auto raft::bench::ann::create_algo<DataT>(const std::string&,            \
+                                                     const std::string&,            \
+                                                     int,                           \
+                                                     const nlohmann::json&,         \
+                                                     const std::vector<int>&,       \
+                                                     const nlohmann::json&)         \
+    ->std::unique_ptr<raft::bench::ann::ANN<DataT>>;                                \
+  template auto raft::bench::ann::create_search_param<DataT>(const std::string&,    \
+                                                             const nlohmann::json&) \
     ->std::unique_ptr<typename raft::bench::ann::ANN<DataT>::AnnSearchParam>;

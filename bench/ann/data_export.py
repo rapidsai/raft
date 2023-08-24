@@ -16,22 +16,35 @@
 import argparse
 import os
 import subprocess
+import json
 
+from pathlib import Path
+
+def parse_filepaths(fs):
+    for p in fs:
+        if p.endswith(".json") and os.path.exists(p):
+            yield p
+        else:
+            for f in Path(p).rglob('*.json'):
+                yield f.as_posix()
 
 def export_results(output_filepath, recompute, groundtruth_filepath,
-                   result_filepaths):
+                   result_filepath):
     print(f"Writing output file to: {output_filepath}")
-    ann_bench_scripts_dir = os.path.join(os.getenv("RAFT_HOME"),
-                                         "cpp/bench/ann/scripts")
-    ann_bench_scripts_path = os.path.join(ann_bench_scripts_dir,
-                                          "eval.pl")
-    if recompute:
-        p = subprocess.Popen([ann_bench_scripts_path, "-f", "-o", output_filepath,
-                              groundtruth_filepath] + result_filepaths)
-    else:
-        p = subprocess.Popen([ann_bench_scripts_path, "-o", output_filepath,
-                              groundtruth_filepath] + result_filepaths)
-    p.wait()
+
+    parsed_filepaths = parse_filepaths(result_filepaths)
+
+    with open(output_filepath, 'w') as out:
+        out.write("Algo,Recall,QPS\n")
+
+        for fp in parsed_filepaths:
+            with open(fp, 'r') as f:
+                data = json.load(f)
+                for benchmark_case in data["benchmarks"]:
+                    algo = benchmark_case["name"]
+                    recall = benchmark_case["Recall"]
+                    qps = benchmark_case["items_per_second"]
+                    out.write(f"{algo},{recall},{qps}\n")
 
 
 def main():
@@ -47,20 +60,20 @@ def main():
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"), 
+        default=os.path.join(os.getenv("RAFT_HOME"),
                              "bench", "ann", "data")
     )
-    
+
     args, result_filepaths = parser.parse_known_args()
 
     # if nothing is provided
     if len(result_filepaths) == 0:
         raise ValueError("No filepaths to results were provided")
 
-    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset, 
+    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset,
                                         "groundtruth.neighbors.ibin")
     export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepaths)
+                   result_filepath)
 
 
 if __name__ == "__main__":

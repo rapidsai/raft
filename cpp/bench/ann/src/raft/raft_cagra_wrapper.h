@@ -53,10 +53,11 @@ class RaftCagra : public ANN<T> {
 
   using BuildParam = raft::neighbors::cagra::index_params;
 
-  RaftCagra(Metric metric, int dim, const BuildParam& param)
+  RaftCagra(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
+      dataset_memtype_(dataset_memtype),
       mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
   {
     rmm::mr::set_current_device_resource(&mr_);
@@ -83,7 +84,7 @@ class RaftCagra : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type = MemoryType::HostMmap;
+    property.dataset_memory_type = dataset_memtype_;
     property.query_memory_type   = MemoryType::Device;
     return property;
   }
@@ -99,6 +100,7 @@ class RaftCagra : public ANN<T> {
   std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
+  MemoryType dataset_memtype_;
 };
 
 template <typename T, typename IdxT>
