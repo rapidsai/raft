@@ -32,25 +32,29 @@ lower level scripts and executables to run our benchmarks. Either Python scripts
 [low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
 however plots are only provided through our Python scripts. An environment variable `RAFT_HOME` is
 expected to be defined to run these scripts; this variable holds the directory where RAFT is cloned.
+
 ### End-to-end example: Million-scale
+
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset.
+
 ```bash
 export RAFT_HOME=$(pwd)
 # All scripts are present in directory raft/bench/ann
 
 # (1) prepare dataset
-python bench/ann/get_dataset.py --dataset glove-100-angular --normalize
+python bench/ann/get_dataset.py --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python bench/ann/run.py --dataset glove-100-inner
+python bench/ann/run.py --dataset deep-image-96-inner
 
 # (3) evaluate results
-python bench/ann/data_export.py --output out.csv --dataset glove-100-inner
+python bench/ann/data_export.py --output out.csv --dataset deep-image-96-inner
 
 # (4) plot results
 python bench/ann/plot.py --result-csv out.csv
 ```
 
-Configuration files already exist for the following list of the million-scale datasets. These all work `out-of-the-box` with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
+Configuration files already exist for the following list of the million-scale datasets. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
 - `deep-image-96-angular`
 - `fashion-mnist-784-euclidean`
 - `glove-50-angular`
@@ -67,15 +71,16 @@ All other python  mentioned below work as intended once the
 billion-scale dataset has been downloaded.
 To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
 ```bash
 export RAFT_HOME=$(pwd)
 # All scripts are present in directory raft/bench/ann
 
-mkdir -p data/deep-1B
+mkdir -p bench/ann/data/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python bench/ann/split_groundtruth.py --groundtruth data/deep-1B/deep_new_groundtruth.public.10K.bin
+python bench/ann/split_groundtruth.py --groundtruth bench/ann/data/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index

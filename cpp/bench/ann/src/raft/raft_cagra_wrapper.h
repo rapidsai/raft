@@ -100,8 +100,8 @@ RaftCagra<T, IdxT>::RaftCagra(Metric metric,
   : ANN<T>(metric, dim),
     index_params_(param),
     dimension_(dim),
-    dataset_memtype_(dataset_memtype)
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+    dataset_memtype_(dataset_memtype),
+    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
 {
   rmm::mr::set_current_device_resource(&mr_);
   index_params_.metric = parse_metric_type(metric);
