@@ -50,6 +50,19 @@ inline auto parse_metric(const std::string& metric_str) -> Metric
   }
 }
 
+inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
+{
+  if (memory_type == "host") {
+    return MemoryType::Host;
+  } else if (memory_type == "mmap") {
+    return MemoryType::HostMmap;
+  } else if (memory_type == "device") {
+    return MemoryType::Device;
+  } else {
+    throw std::runtime_error("invalid memory type: '" + memory_type + "'");
+  }
+}
+
 struct AlgoProperty {
   MemoryType dataset_memory_type;
   // neighbors/distances should have same memory type as queries
@@ -91,7 +104,7 @@ class ANN : public AnnBase {
   virtual void save(const std::string& file) const = 0;
   virtual void load(const std::string& file)       = 0;
 
-  virtual AlgoProperty get_property() const = 0;
+  virtual AlgoProperty get_preference() const = 0;
 
   // Some algorithms don't save the building dataset in their indices.
   // So they should be given the access to that dataset during searching.

@@ -80,7 +80,7 @@ class RaftIvfFlatGpu : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
     property.dataset_memory_type = MemoryType::Device;

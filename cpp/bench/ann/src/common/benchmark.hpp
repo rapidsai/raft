@@ -109,6 +109,17 @@ inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
   if (!label_empty) { state.SetLabel(label); }
 }
 
+inline auto parse_algo_property(AlgoProperty prop, const nlohmann::json& conf) -> AlgoProperty
+{
+  if (conf.contains("dataset_memory_type")) {
+    prop.dataset_memory_type = parse_memory_type(conf.at("dataset_memory_type"));
+  }
+  if (conf.contains("query_memory_type")) {
+    prop.query_memory_type = parse_memory_type(conf.at("query_memory_type"));
+  }
+  return prop;
+};
+
 template <typename T>
 void bench_build(::benchmark::State& state,
                  std::shared_ptr<const Dataset<T>> dataset,
@@ -132,7 +143,7 @@ void bench_build(::benchmark::State& state,
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
 
-  const auto algo_property = algo->get_property();
+  const auto algo_property = parse_algo_property(algo->get_preference(), index.build_param);
 
   const T* base_set      = dataset->base_set(algo_property.dataset_memory_type);
   std::size_t index_size = dataset->base_set_size();
@@ -200,7 +211,7 @@ void bench_search(::benchmark::State& state,
   }
   algo->set_search_param(*search_param);
 
-  const auto algo_property = algo->get_property();
+  const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
   const T* query_set       = dataset->query_set(algo_property.query_memory_type);
   buf<float> distances{algo_property.query_memory_type, k * query_set_size};
   buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};

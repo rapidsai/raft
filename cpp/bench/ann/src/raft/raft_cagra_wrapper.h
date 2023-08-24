@@ -29,6 +29,7 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -80,7 +81,7 @@ class RaftCagra : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
     property.dataset_memory_type = MemoryType::HostMmap;
@@ -104,16 +105,20 @@ class RaftCagra : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  if (get_property().dataset_memory_type != MemoryType::Device) {
-    auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-  } else {
-    auto dataset_view =
-      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+  switch (raft::spatial::knn::detail::utils::check_pointer_residency(dataset)) {
+    case raft::spatial::knn::detail::utils::pointer_residency::host_only: {
+      auto dataset_view =
+        raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+      return;
+    }
+    default: {
+      auto dataset_view =
+        raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+      return;
+    }
   }
-  return;
 }
 
 template <typename T, typename IdxT>
