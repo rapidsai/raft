@@ -69,6 +69,12 @@ from pylibraft.common.cpp.mdspan cimport (
     row_major,
 )
 from pylibraft.common.mdspan cimport (
+    get_const_dmv_float,
+    get_const_dmv_int8,
+    get_const_dmv_uint8,
+    get_const_hmv_float,
+    get_const_hmv_int8,
+    get_const_hmv_uint8,
     get_dmv_float,
     get_dmv_int8,
     get_dmv_int64,
@@ -162,6 +168,31 @@ cdef class IndexFloat(Index):
         attr_str = [m_str] + attr_str
         return "Index(type=CAGRA, " + (", ".join(attr_str)) + ")"
 
+    @auto_sync_handle
+    def update_dataset(self, dataset, handle=None):
+        """ Replace the dataset with a new dataset.
+
+        Parameters
+        ----------
+        dataset : array interface compliant matrix shape (n_samples, dim)
+        {handle_docstring}
+        """
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        dataset_ai = wrap_array(dataset)
+        dataset_dt = dataset_ai.dtype
+        _check_input_array(dataset_ai, [np.dtype("float32")])
+
+        if dataset_ai.from_cai:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_dmv_float(dataset_ai,
+                                                             check_shape=True))
+        else:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_hmv_float(dataset_ai,
+                                                             check_shape=True))
+
     @property
     def metric(self):
         return self.index[0].metric()
@@ -194,6 +225,31 @@ cdef class IndexInt8(Index):
 
         self.index = new c_cagra.index[int8_t, uint32_t](
             deref(handle_))
+
+    @auto_sync_handle
+    def update_dataset(self, dataset, handle=None):
+        """ Replace the dataset with a new dataset.
+
+        Parameters
+        ----------
+        dataset : array interface compliant matrix shape (n_samples, dim)
+        {handle_docstring}
+        """
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        dataset_ai = wrap_array(dataset)
+        dataset_dt = dataset_ai.dtype
+        _check_input_array(dataset_ai, [np.dtype("byte")])
+
+        if dataset_ai.from_cai:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_dmv_int8(dataset_ai,
+                                                            check_shape=True))
+        else:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_hmv_int8(dataset_ai,
+                                                            check_shape=True))
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -234,6 +290,31 @@ cdef class IndexUint8(Index):
 
         self.index = new c_cagra.index[uint8_t, uint32_t](
             deref(handle_))
+
+    @auto_sync_handle
+    def update_dataset(self, dataset, handle=None):
+        """ Replace the dataset with a new dataset.
+
+        Parameters
+        ----------
+        dataset : array interface compliant matrix shape (n_samples, dim)
+        {handle_docstring}
+        """
+        cdef device_resources* handle_ = \
+            <device_resources*><size_t>handle.getHandle()
+
+        dataset_ai = wrap_array(dataset)
+        dataset_dt = dataset_ai.dtype
+        _check_input_array(dataset_ai, [np.dtype("ubyte")])
+
+        if dataset_ai.from_cai:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_dmv_uint8(dataset_ai,
+                                                             check_shape=True))
+        else:
+            self.index[0].update_dataset(deref(handle_),
+                                         get_const_hmv_uint8(dataset_ai,
+                                                             check_shape=True))
 
     def __repr__(self):
         m_str = "metric=" + _get_metric_string(self.index.metric())
@@ -693,7 +774,7 @@ def search(SearchParams search_params,
 
 
 @auto_sync_handle
-def save(filename, Index index, handle=None):
+def save(filename, Index index, bool include_dataset=True, handle=None):
     """
     Saves the index to a file.
 
@@ -706,6 +787,12 @@ def save(filename, Index index, handle=None):
         Name of the file.
     index : Index
         Trained CAGRA index.
+    include_dataset : bool
+        Whether or not to write out the dataset along with the index. Including
+        the dataset in the serialized index will use extra disk space, and
+        might not be desired if you already have a copy of the dataset on
+        disk. If this option is set to false, you will have to call
+        `index.update_dataset(dataset)` after loading the index.
     {handle_docstring}
 
     Examples
@@ -741,15 +828,17 @@ def save(filename, Index index, handle=None):
     if index.active_index_type == "float32":
         idx_float = index
         c_cagra.serialize_file(
-            deref(handle_), c_filename, deref(idx_float.index))
+            deref(handle_), c_filename, deref(idx_float.index),
+            include_dataset)
     elif index.active_index_type == "byte":
         idx_int8 = index
         c_cagra.serialize_file(
-            deref(handle_), c_filename, deref(idx_int8.index))
+            deref(handle_), c_filename, deref(idx_int8.index), include_dataset)
     elif index.active_index_type == "ubyte":
         idx_uint8 = index
         c_cagra.serialize_file(
-            deref(handle_), c_filename, deref(idx_uint8.index))
+            deref(handle_), c_filename, deref(idx_uint8.index),
+            include_dataset)
     else:
         raise ValueError(
             "Index dtype %s not supported" % index.active_index_type)
@@ -785,12 +874,9 @@ def load(filename, handle=None):
     cdef IndexInt8 idx_int8
     cdef IndexUint8 idx_uint8
 
-    # we extract the dtype from the array interfaces in the file
-    with open(filename, 'rb') as f:
-        type_str = f.read(700).decode("utf-8", errors='ignore')
-
-    # Read description of the 6th element to get the datatype
-    dataset_dt = np.dtype(type_str.split('descr')[6][5:7])
+    with open(filename, "rb") as f:
+        type_str = f.read(3).decode("utf8")
+    dataset_dt = np.dtype(type_str)
 
     if dataset_dt == np.float32:
         idx_float = IndexFloat(handle)
