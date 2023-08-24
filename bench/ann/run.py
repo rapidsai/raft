@@ -75,19 +75,19 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
             p.wait()
 
         if search:
-            # legacy_result_folder = "result/" + conf_file["dataset"]["name"]
-            # os.makedirs(legacy_result_folder, exist_ok=True)
+            legacy_result_folder = os.path.join(dataset_path, conf_file['dataset']['name'], 'result')
+            os.makedirs(legacy_result_folder, exist_ok=True)
             cmd = [ann_executable_path,
                    "--search",
                    "--data_prefix="+dataset_path,
                    "--benchmark_counters_tabular",
-                   "--benchmark_out_format=json",
+                   "--benchmark_out_format=csv",
                    "--override_kv=k:%s" % k,
                    "--override_kv=n_queries:%s" % batch_size,
-                   "--benchmark_out_format=csv",
-                   f"--benchmark_out={os.path.join(dataset_path, 'result.csv')}"]
+                   f"--benchmark_out={os.path.join(dataset_path, conf_file['dataset']['name'], 'result', f'{executable}.csv')}"]
             if force:
                 cmd = cmd + ["--overwrite"]
+            cmd = cmd + [temp_conf_filepath]
             print(cmd)
             p = subprocess.Popen(cmd)
             p.wait()
@@ -171,11 +171,11 @@ def main():
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     dataset_name = conf_filename.replace(".json", "")
-    dataset_path = os.path.realpath(os.path.join(args.dataset_path, dataset_name))
+    dataset_path = args.dataset_path
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(dataset_path)
+    if not os.path.exists(os.path.join(args.dataset_path, dataset_name)):
+        raise FileNotFoundError(os.path.join(args.dataset_path, dataset_name))
 
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
@@ -218,6 +218,12 @@ def main():
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
+
+    # Replace index to dataset path
+    for executable_path in executables_to_run:
+        for pos, index in enumerate(executables_to_run[executable_path]["index"]):
+            index["file"] = os.path.join(dataset_path, dataset_name, "index", index["name"])
+            executables_to_run[executable_path]["index"][pos] = index
 
     print(executables_to_run)
 

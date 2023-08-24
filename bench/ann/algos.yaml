@@ -10,6 +10,9 @@ faiss_gpu_ivf_pq:
 faiss_gpu_ivf_sq:
   executable: FAISS_IVF_PQ_ANN_BENCH
   disabled: false
+faiss_gpu_bfknn:
+  executable: FAISS_BFKNN_ANN_BENCH
+  disabled: false
 raft_ivf_flat:
   executable: RAFT_IVF_FLAT_ANN_BENCH
   disabled: false
