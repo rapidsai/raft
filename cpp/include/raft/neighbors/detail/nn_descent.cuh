@@ -1206,13 +1206,13 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
                                   Index_t* output_graph,
                                   cudaStream_t stream)
 {
-  cudaStreamSynchronize(stream);
   nrow_          = nrow;
   graph_.h_graph = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));
   if (data_ptr_attr.type == cudaMemoryTypeUnregistered) {
+    std::cout << "HERE AS EXPECTED" << std::endl;
     typename std::remove_const<Data_t>::type* input_data;
     size_t batch_size = 100000;
     RAFT_CUDA_TRY(cudaMallocAsync(
@@ -1378,7 +1378,7 @@ index<IdxT> build(raft::resources const& res,
                   const index_params& params,
                   mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
-  RAFT_EXPECTS(dataset.size() < std::numeric_limits<int>::max() - 1,
+  RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
                std::numeric_limits<int>::max() - 1);
   size_t intermediate_degree = params.intermediate_graph_degree;
@@ -1415,9 +1415,9 @@ index<IdxT> build(raft::resources const& res,
                            .termination_threshold = params.termination_threshold,
                            .metric_type           = Metric_t::METRIC_L2};
 
-  GNND<const T, int> nnd(build_config);
   std::cout << "Intermediate graph dim: " << int_graph.extent(0) << ", " << int_graph.extent(1)
             << std::endl;
+  GNND<const T, int> nnd(build_config);
   nnd.build(dataset.data_handle(),
             dataset.extent(0),
             int_graph.data_handle(),
