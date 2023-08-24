@@ -76,7 +76,8 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
                                                       const std::string& distance,
                                                       int dim,
                                                       const nlohmann::json& conf,
-                                                      const std::vector<int>& dev_list)
+                                                      const std::vector<int>& dev_list,
+                                                      const nlohmann::json& index_conf)
 {
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;

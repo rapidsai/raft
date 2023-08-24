@@ -100,6 +100,7 @@ inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
       auto kv = key + "=" + val.dump();
       if (label_empty) {
         label = kv;
+
       } else {
         label += "#" + kv;
       }
@@ -126,8 +127,12 @@ void bench_build(::benchmark::State& state,
 
   std::unique_ptr<ANN<T>> algo;
   try {
-    algo = ann::create_algo<T>(
-      index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+    algo = ann::create_algo<T>(index.algo,
+                               dataset->distance(),
+                               dataset->dim(),
+                               index.build_param,
+                               index.dev_list,
+                               index.index_conf);
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
@@ -188,9 +193,13 @@ void bench_search(::benchmark::State& state,
   std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
   try {
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
-      auto ualgo = ann::create_algo<T>(
-        index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
-      algo = ualgo.get();
+      auto ualgo = ann::create_algo<T>(index.algo,
+                                       dataset->distance(),
+                                       dataset->dim(),
+                                       index.build_param,
+                                       index.dev_list,
+                                       index.index_conf);
+      algo       = ualgo.get();
       algo->load(index_file);
       current_algo = std::move(ualgo);
     }

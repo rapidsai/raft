@@ -53,10 +53,11 @@ class RaftIvfPQ : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_pq::index_params;
 
-  RaftIvfPQ(Metric metric, int dim, const BuildParam& param)
+  RaftIvfPQ(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
+      dataset_memtype_(dataset_memtype),
       mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
   {
     rmm::mr::set_current_device_resource(&mr_);
@@ -84,7 +85,7 @@ class RaftIvfPQ : public ANN<T> {
   AlgoProperty get_property() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type = MemoryType::Host;
+    property.dataset_memory_type = dataset_memtype_;
     property.query_memory_type   = MemoryType::Device;
     return property;
   }
@@ -102,6 +103,7 @@ class RaftIvfPQ : public ANN<T> {
   int dimension_;
   float refine_ratio_ = 1.0;
   raft::device_matrix_view<const T, IdxT> dataset_;
+  MemoryType dataset_memtype_;
 };
 
 template <typename T, typename IdxT>

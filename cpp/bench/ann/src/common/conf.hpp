@@ -36,6 +36,7 @@ class Configuration {
     nlohmann::json build_param;
     std::string file;
     std::vector<int> dev_list;
+    nlohmann::json index_conf;
 
     int batch_size;
     int k;
@@ -116,6 +117,7 @@ class Configuration {
       index.file        = conf.at("file");
       index.batch_size  = batch_size;
       index.k           = k;
+      index.index_conf  = conf;
 
       if (conf.contains("multigpu")) {
         for (auto it : conf.at("multigpu")) {
