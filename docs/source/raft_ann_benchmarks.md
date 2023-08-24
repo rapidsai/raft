@@ -219,7 +219,58 @@ The figure below is the resulting plot of running our benchmarks as of August 20
 
 ![Throughput vs recall plot comparing popular ANN algorithms with RAFT's at batch size 10](../../img/raft-vector-search-batch-10.png)
 
+## Creating and customizing dataset configurations
+
+A single configuration file will often define a set of algorithms, with associated index and search parameters, for a specific dataset. A configuration file uses json format with 4 major parts:
+1. Dataset information
+2. Algorithm information
+3. Index parameters
+4. Search parameters
+
+Below is a simple example configuration file for the 1M-scale `sift-128-euclidean` dataset:
+
+```json
+{
+  "dataset": {
+    "name": "sift-128-euclidean",
+    "base_file": "sift-128-euclidean/base.fbin",
+    "query_file": "sift-128-euclidean/query.fbin", 
+    "subset_size": 1000000,
+    "groundtruth_neighbors_file": "sift-128-euclidean/groundtruth.neighbors.ibin",
+    "distance": "euclidean"
+  },
+  "index": []
+}
+```
+
+The `index` section will contain a list of index objects, each of which will have the following form:
+```json
+{
+   "name": "algo_name.unique_index_name",
+   "algo": "algo_name",
+   "file": "sift-128-euclidean/algo_name/param1_val1-param2_val2",
+   "build_param": { "param1": "val1", "param2": "val2" },
+   "search_params": { "search_param1": "search_val1" }
+}
+```
+
+The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide]() contains detailed instructions on choosing build and search parameters for each supported algorithm.
+
+| Library   | Algorithms                                   |
+|-----------|----------------------------------------------|
+| FAISS | `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`     |
+| GGNN | `ggnn` |
+| HNSWlib | `hnswlib` |
+| RAFT    | `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
+
+
+
+
+By default, the index will be placed in `bench/ann/data/<dataset_name>/index/<name>`. Using `sift-128-euclidean` for the dataset with the `algo` example above, the indexes would be placed in `bench/ann/data/sift-128-euclidean/index/algo_name/param1_val1-param2_val2`.
+
+
 ## Adding a new ANN algorithm
+
 ### Implementation and Configuration
 Implementation of a new algorithm should be a C++ class that inherits `class ANN` (defined in `cpp/bench/ann/src/ann.h`) and implements all the pure virtual functions.
 
@@ -244,10 +295,10 @@ public:
 };
 ```
 
-<a id='json-index-config'></a>The benchmark program uses JSON configuration file. To add the new algorithm to the benchmark, need be able to specify `build_param`, whose value is a JSON object, and `search_params`, whose value is an array of JSON objects, for this algorithm in configuration file. Still take the configuration for `HnswLib` as an example:
+<a id='json-index-config'></a>The benchmark program uses JSON format in a configuration file to specify indexes to build, along with the build and search parameters. To add the new algorithm to the benchmark, need be able to specify `build_param`, whose value is a JSON object, and `search_params`, whose value is an array of JSON objects, for this algorithm in configuration file. The `build_param` and `search_param` arguments will vary depending on the algorithm.  Take the configuration for `HnswLib` as an example:
 ```json
 {
-  "name" : "...",
+  "name" : "hnswlib.M12.ef500.th32",
   "algo" : "hnswlib",
   "build_param": {"M":12, "efConstruction":500, "numThreads":32},
   "file" : "/path/to/file",
@@ -259,7 +310,6 @@ public:
   "search_result_file" : "/path/to/file"
 },
 ```
-
 How to interpret these JSON objects is totally left to the implementation and should be specified in `cpp/bench/ann/src/factory.cuh`:
 1. First, add two functions for parsing JSON object to `struct BuildParam` and `struct SearchParam`, respectively:
     ```c++
@@ -283,7 +333,7 @@ How to interpret these JSON objects is totally left to the implementation and sh
     }
     ```
 
-2. Next, add corresponding `if` case to functions `create_algo()` and `create_search_param()` by calling parsing functions. The string literal in `if` condition statement must be the same as the value of `algo` in configuration file. For example,
+2. Next, add corresponding `if` case to functions `create_algo()` (in `bench/ann/) and `create_search_param()` by calling parsing functions. The string literal in `if` condition statement must be the same as the value of `algo` in configuration file. For example,
     ```c++
       // JSON configuration file contains a line like:  "algo" : "hnswlib"
       if (algo == "hnswlib") {

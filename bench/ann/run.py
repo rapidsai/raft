@@ -20,6 +20,16 @@ import subprocess
 import yaml
 
 
+def positive_int(input_str: str) -> int:
+    try:
+        i = int(input_str)
+        if i < 1:
+            raise ValueError
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{input_str} is not a positive integer")
+
+    return i
+
 def validate_algorithm(algos_conf, algo):
     algos_conf_keys = set(algos_conf.keys())
     return algo in algos_conf_keys and not algos_conf[algo]["disabled"]
@@ -39,7 +49,7 @@ def find_executable(algos_conf, algo):
 
 
 def run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         force, conf_filedir, build, search):
+                         force, conf_filedir, build, search, k, batch_size):
     for executable, ann_executable_path in executables_to_run.keys():
         # Need to write temporary configuration
         temp_conf_filename = f"temporary_executable_{conf_filename}"
@@ -70,6 +80,8 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run,
                 "--search",
                 "--benchmark_counters_tabular",
                 "--benchmark_out_format=json",
+                "--override_kv=k:%s" % k,
+                "--override_kv=n_queries:%s" % batch_size,
                 f"--benchmark_out={legacy_result_folder}/{executable}.json",
                 temp_conf_filepath])
             p.wait()
@@ -85,6 +97,13 @@ def main():
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument(
+        "-k", "--count", default=10, type=positive_int, help="the number of nearest neighbors to search for"
+    )
+    parser.add_argument(
+        "-bs", "--batch-size", default=10000, type=positive_int, help="number of query vectors to use in each query trial"
+    )
     parser.add_argument(
         "--configuration",
         help="path to configuration file for a dataset",
@@ -131,6 +150,9 @@ def main():
     else:
         build = args.build
         search = args.search
+
+    k = args.count
+    batch_size = args.batch_size
 
     # Read configuration file associated to dataset
     if args.configuration:
@@ -205,7 +227,7 @@ def main():
             executables_to_run[executable_path]["index"][pos] = index
 
     run_build_and_search(conf_filename, conf_file, executables_to_run,
-                         args.force, conf_filedir, build, search)
+                         args.force, conf_filedir, build, search, k, batch_size)
 
 
 if __name__ == "__main__":
