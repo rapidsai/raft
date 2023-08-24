@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY // For Filters instanciation
+
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 #include <raft/core/resource/cuda_stream.hpp>
@@ -437,20 +439,14 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
           (const DataT*)database.data(), ps.n_rows, ps.dim);
 
         cagra::index<DataT, IdxT> index(handle_);
-        // Try using the previously built Cagra index if possible to avoid another index building
-        // step
-        try {
-          index = cagra::deserialize<DataT, IdxT>(handle_, "cagra_index");
-        } catch (std::exception) {
-          if (ps.host_dataset) {
-            auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
-            raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
-            auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
-              (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
-            index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
-          } else {
-            index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
-          }
+        if (ps.host_dataset) {
+          auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
+          raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
+          auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
+            (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
+        } else {
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
         }
 
         if (!ps.include_serialized_dataset) { index.update_dataset(handle_, database_view); }
@@ -468,7 +464,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                      search_queries_view,
                                      indices_out_view,
                                      dists_out_view,
-                                     raft::neighbors::filtering::test_cagra_sample_filter());
+                                     test_cagra_sample_filter());
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
         resource::sync_stream(handle_);

@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 
 #include "../ann_cagra.cuh"
-#include "search_kernel_uint64_t.cuh"
 
 namespace raft::neighbors::cagra {
 
