@@ -52,7 +52,7 @@ class RaftIvfFlatGpu : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_flat::index_params;
 
-  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype)
+  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
@@ -80,10 +80,10 @@ class RaftIvfFlatGpu : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type = dataset_memtype_;
+    property.dataset_memory_type = MemoryType::Device;
     property.query_memory_type   = MemoryType::Device;
     return property;
   }
@@ -99,7 +99,6 @@ class RaftIvfFlatGpu : public ANN<T> {
   std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
   int device_;
   int dimension_;
-  MemoryType dataset_memtype_;
 };
 
 template <typename T, typename IdxT>

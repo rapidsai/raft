@@ -25,6 +25,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 #include <raft_runtime/neighbors/refine.hpp>
@@ -53,11 +54,10 @@ class RaftIvfPQ : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_pq::index_params;
 
-  RaftIvfPQ(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype)
+  RaftIvfPQ(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
-      dataset_memtype_(dataset_memtype),
       mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
   {
     rmm::mr::set_current_device_resource(&mr_);
@@ -82,10 +82,10 @@ class RaftIvfPQ : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type = dataset_memtype_;
+    property.dataset_memory_type = MemoryType::Host;
     property.query_memory_type   = MemoryType::Device;
     return property;
   }
@@ -103,7 +103,6 @@ class RaftIvfPQ : public ANN<T> {
   int dimension_;
   float refine_ratio_ = 1.0;
   raft::device_matrix_view<const T, IdxT> dataset_;
-  MemoryType dataset_memtype_;
 };
 
 template <typename T, typename IdxT>
@@ -163,7 +162,8 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, candidates.view(), distances_tmp.view());
 
-    if (get_property().dataset_memory_type == MemoryType::Device) {
+    if (raft::spatial::knn::detail::utils::check_pointer_residency(dataset_.data_handle()) ==
+        raft::spatial::knn::detail::utils::pointer_residency::device_only) {
       auto queries_v =
         raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
       auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);

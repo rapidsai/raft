@@ -188,7 +188,7 @@ class HnswLib : public ANN<T> {
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
     property.dataset_memory_type = MemoryType::Host;
