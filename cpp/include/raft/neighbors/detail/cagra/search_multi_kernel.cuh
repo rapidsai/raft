@@ -146,9 +146,9 @@ __global__ void random_pickup_kernel(
 
   const auto store_gmem_index = global_team_index + (ldr * query_id);
   if (threadIdx.x % TEAM_SIZE == 0) {
-    if (hashmap::insert(
-          visited_hashmap_ptr + (ldb * query_id), hash_bitlen, best_index_team_local)
-        && sample_filter(query_id, best_index_team_local)) {
+    if (sample_filter(query_id, best_index_team_local) &&
+        hashmap::insert(
+          visited_hashmap_ptr + (ldb * query_id), hash_bitlen, best_index_team_local)) {
       result_distances_ptr[store_gmem_index] = best_norm2_team_local;
       result_indices_ptr[store_gmem_index]   = best_index_team_local;
     } else {
@@ -328,9 +328,8 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                   // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter
-)
+  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  SAMPLE_FILTER_T sample_filter)
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
   const auto tid            = threadIdx.x + blockDim.x * blockIdx.x;
@@ -348,8 +347,8 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::size_t child_id = neighbor_list_head_ptr[global_team_id % graph_degree];
 
   if (hashmap::insert<TEAM_SIZE, INDEX_T>(
-        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)
-      && sample_filter(blockIdx.y, child_id)) {
+        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id) &&
+      sample_filter(blockIdx.y, child_id)) {
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_target;
     device::load_vector_sync(frag_target, dataset_ptr + (dataset_ld * child_id), data_dim);
 
@@ -570,7 +569,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk),
+    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk),
       result_indices(0, resource::get_cuda_stream(res)),
       result_distances(0, resource::get_cuda_stream(res)),
       parent_node_list(0, resource::get_cuda_stream(res)),

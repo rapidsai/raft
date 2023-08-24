@@ -125,8 +125,8 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
 
     if (valid_i && (threadIdx.x % TEAM_SIZE == 0)) {
       // TODO test sample_filter before hashmap insertion
-      if (hashmap::insert(visited_hash_ptr, hash_bitlen, best_index_team_local) &&
-          sample_filter(query_id, best_index_team_local)) {
+      if (sample_filter(query_id, best_index_team_local) &&
+          hashmap::insert(visited_hash_ptr, hash_bitlen, best_index_team_local)) {
         result_distances_ptr[i] = best_norm2_team_local;
         result_indices_ptr[i]   = best_index_team_local;
       } else {
@@ -176,8 +176,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
       child_id = knn_graph[(i % knn_k) + ((uint64_t)knn_k * parent_id)];
     }
     if (child_id != invalid_index) {
-      if ((hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) ||
-          !sample_filter(query_id, child_id)) {
+      if (!sample_filter(query_id, child_id) ||
+          (hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0)) {
         child_id = invalid_index;
       }
     }
