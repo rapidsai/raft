@@ -182,6 +182,23 @@
         {"nprobe":1000}
       ]
     },
+
+    {
+      "name": "raft_ivf_flat.nlist50K",
+      "algo": "raft_ivf_flat",
+      "build_param": {"nlist": 50000, "niter": 25, "ratio": 5},
+      "file": "deep-100M/raft_ivf_flat/nlist50K",
+      "search_params": [
+        {"max_batch":10000, "max_k":10, "nprobe":20},
+        {"max_batch":10000, "max_k":10, "nprobe":30},
+        {"max_batch":10000, "max_k":10, "nprobe":40},
+        {"max_batch":10000, "max_k":10, "nprobe":50},
+        {"max_batch":10000, "max_k":10, "nprobe":100},
+        {"max_batch":10000, "max_k":10, "nprobe":200},
+        {"max_batch":10000, "max_k":10, "nprobe":500},
+        {"max_batch":10000, "max_k":10, "nprobe":1000}
+      ]
+    },
     {
       "name": "raft_ivf_flat.nlist100K",
       "algo": "raft_ivf_flat",

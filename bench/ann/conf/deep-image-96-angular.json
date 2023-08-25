@@ -293,24 +293,12 @@
       },
       "file": "index/deep-image-96-angular/faiss_ivf_pq/M64-nlist1024",
       "search_params": [
-        {
-          "nprobe": 10
-        },
-        {
-          "nprobe": 50
-        },
-        {
-          "nprobe": 100
-        },
-        {
-          "nprobe": 200
-        },
-        {
-          "nprobe": 500
-        },
-        {
-          "nprobe": 1000
-        }
+        {"nprobe": 10},
+        {"nprobe": 50},
+        {"nprobe": 100},
+        {"nprobe": 200},
+        {"nprobe": 500},
+        {"nprobe": 1000}
       ],
       "search_result_file": "result/deep-image-96-angular/faiss_ivf_pq/M64-nlist1024"
     },
@@ -325,24 +313,12 @@
       },
       "file": "index/deep-image-96-angular/faiss_ivf_pq/M64-nlist1024.noprecomp",
       "search_params": [
-        {
-          "nprobe": 10
-        },
-        {
-          "nprobe": 50
-        },
-        {
-          "nprobe": 100
-        },
-        {
-          "nprobe": 200
-        },
-        {
-          "nprobe": 500
-        },
-        {
-          "nprobe": 1000
-        }
+        {"nprobe": 10},
+        {"nprobe": 50},
+        {"nprobe": 100},
+        {"nprobe": 200},
+        {"nprobe": 500},
+        {"nprobe": 1000}
       ],
       "search_result_file": "result/deep-image-96-angular/faiss_ivf_pq/M64-nlist1024"
     },
@@ -727,50 +703,16 @@
       "name": "raft_ivf_pq.dimpq128-cluster1024",
       "algo": "raft_ivf_pq",
       "dataset_memtype": "device",
-      "build_param": {
-        "nlist": 1024,
-        "pq_dim": 128,
-        "ratio": 1,
-        "niter": 25
+      "build_param": {"nlist": 1024, "pq_dim": 128, "ratio": 1, "niter": 25
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "half"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "half", "smemLutDtype": "half"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024"
     },
@@ -786,60 +728,14 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-float",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 1,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 5,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
+        {"nprobe": 1, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 5, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "float"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-float"
     },
@@ -855,42 +751,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-half",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "half"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-half"
     },
@@ -906,42 +772,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
     },
@@ -957,42 +793,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
     },
@@ -1008,42 +814,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-half",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "half"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "half"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-half"
     },
@@ -1059,42 +835,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
     },
@@ -1110,42 +856,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "fp8"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
     },
@@ -1161,42 +877,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-half-float",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "half",
-          "smemLutDtype": "float"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "half", "smemLutDtype": "float"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-half-float"
     },
@@ -1212,42 +898,12 @@
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float",
       "search_params": [
-        {
-          "k": 10,
-          "numProbes": 10,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "k": 10,
-          "numProbes": 1024,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "float"}
       ],
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float"
     },
