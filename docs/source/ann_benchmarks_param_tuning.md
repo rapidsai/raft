@@ -15,7 +15,7 @@ IVF-flat is a simple algorithm which won't save any space, but it provides compe
 |-----------|------------------|----------|---------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `nlists`  | `build_param`    | Y        | Positive Integer >0 |         | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
 | `niter`   | `build_param`    | N        | Positive Integer >0 | 20      | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
-| `ratio`   | `build_param`     | Y        | Positive Float >0   | 0.5     | Fraction of the number of training points which should be used to train the clusters.                                                                                             |
+| `ratio`   | `build_param`     | N        | Positive Float >0   | 0.5     | Fraction of the number of training points which should be used to train the clusters.                                                                                             |
 | `nprobe`  | `search_params` | Y        |  Positive Integer >0 |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                       |
 
 
