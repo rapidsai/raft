@@ -743,9 +743,15 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 #endif
 }
 
-template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typename DistT, typename SAMPLE_FILTER_T>
+template <unsigned TEAM_SIZE,
+          unsigned MX_DIM,
+          typename T,
+          typename IdxT,
+          typename DistT,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
-  using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
+  using kernel_t =
+    decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
 
   template <unsigned MAX_ITOPK, unsigned CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_block_size(unsigned block_size) -> kernel_t
@@ -753,24 +759,104 @@ struct search_kernel_config {
     constexpr unsigned BS = USE_BITONIC_SORT;
     if constexpr (BS) {
       if (block_size == 64) {
-        return search_kernel<TEAM_SIZE, 64, 16, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             64,
+                             16,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else if (block_size == 128) {
-        return search_kernel<TEAM_SIZE, 128, 8, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             128,
+                             8,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else if (block_size == 256) {
-        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             256,
+                             4,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             512,
+                             2,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else {
-        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             1024,
+                             1,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       }
 
     } else {
       if (block_size == 256) {
-        return search_kernel<TEAM_SIZE, 256, 4, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             256,
+                             4,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE, 512, 2, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             512,
+                             2,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       } else {
-        return search_kernel<TEAM_SIZE, 1024, 1, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>;
+        return search_kernel<TEAM_SIZE,
+                             1024,
+                             1,
+                             MAX_ITOPK,
+                             CANDIDATES,
+                             BS,
+                             MX_DIM,
+                             T,
+                             DistT,
+                             IdxT,
+                             SAMPLE_FILTER_T>;
       }
     }
   }
@@ -861,8 +947,9 @@ void select_and_run(  // raft::resources const& res,
   SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
-    choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
+      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
   dim3 thread_dims(block_size, 1, 1);

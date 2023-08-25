@@ -97,7 +97,8 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(res, params, dim, graph_degree, topk),
+    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk),
       intermediate_indices(0, resource::get_cuda_stream(res)),
       intermediate_distances(0, resource::get_cuda_stream(res)),
       topk_workspace(0, resource::get_cuda_stream(res))

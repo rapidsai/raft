@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <raft/neighbors/sample_filter_types.hpp> // none_cagra_sample_filter
-#include <raft/util/raft_explicit.hpp>  // RAFT_EXPLICIT
+#include <raft/neighbors/sample_filter_types.hpp>  // none_cagra_sample_filter
+#include <raft/util/raft_explicit.hpp>             // RAFT_EXPLICIT
 
 namespace raft::neighbors::cagra::detail {
 namespace multi_cta_search {
