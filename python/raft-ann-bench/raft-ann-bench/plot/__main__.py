@@ -13,22 +13,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script is inspired by 
+# This script is inspired by
 # 1: https://github.com/erikbern/ann-benchmarks/blob/main/plot.py
-# 2: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/utils.py
-# 3: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/metrics.py
+# 2: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/utils.py  # noqa: E501
+# 3: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/plotting/metrics.py  # noqa: E501
 # Licence: https://github.com/erikbern/ann-benchmarks/blob/main/LICENSE
 
-import matplotlib as mpl
-
-mpl.use("Agg")  # noqa
 import argparse
 import itertools
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
 
+mpl.use("Agg")
 
 metrics = {
     "k-nn": {
@@ -39,7 +38,7 @@ metrics = {
     "qps": {
         "description": "Queries per second (1/s)",
         "worst": float("-inf"),
-    }
+    },
 }
 
 
@@ -51,17 +50,36 @@ def generate_n_colors(n):
         return sum((x - y) ** 2 for x, y in zip(a, b))
 
     while len(colors) < n:
-        new_color = max(itertools.product(vs, vs, vs), key=lambda a: min(euclidean(a, b) for b in colors))
+        new_color = max(
+            itertools.product(vs, vs, vs),
+            key=lambda a: min(euclidean(a, b) for b in colors),
+        )
         colors.append(new_color + (1.0,))
     return colors
 
 
 def create_linestyles(unique_algorithms):
-    colors = dict(zip(unique_algorithms, generate_n_colors(len(unique_algorithms))))
-    linestyles = dict((algo, ["--", "-.", "-", ":"][i % 4]) for i, algo in enumerate(unique_algorithms))
-    markerstyles = dict((algo, ["+", "<", "o", "*", "x"][i % 5]) for i, algo in enumerate(unique_algorithms))
-    faded = dict((algo, (r, g, b, 0.3)) for algo, (r, g, b, a) in colors.items())
-    return dict((algo, (colors[algo], faded[algo], linestyles[algo], markerstyles[algo])) for algo in unique_algorithms)
+    colors = dict(
+        zip(unique_algorithms, generate_n_colors(len(unique_algorithms)))
+    )
+    linestyles = dict(
+        (algo, ["--", "-.", "-", ":"][i % 4])
+        for i, algo in enumerate(unique_algorithms)
+    )
+    markerstyles = dict(
+        (algo, ["+", "<", "o", "*", "x"][i % 5])
+        for i, algo in enumerate(unique_algorithms)
+    )
+    faded = dict(
+        (algo, (r, g, b, 0.3)) for algo, (r, g, b, a) in colors.items()
+    )
+    return dict(
+        (
+            algo,
+            (colors[algo], faded[algo], linestyles[algo], markerstyles[algo]),
+        )
+        for algo in unique_algorithms
+    )
 
 
 def get_up_down(metric):
@@ -77,7 +95,10 @@ def get_left_right(metric):
 
 
 def get_plot_label(xm, ym):
-    template = "%(xlabel)s-%(ylabel)s tradeoff - %(updown)s and" " to the %(leftright)s is better"
+    template = (
+        "%(xlabel)s-%(ylabel)s tradeoff - %(updown)s and"
+        " to the %(leftright)s is better"
+    )
     return template % {
         "xlabel": xm["description"],
         "ylabel": ym["description"],
@@ -96,7 +117,9 @@ def create_pointset(data, xn, yn):
     # Generate Pareto frontier
     xs, ys, ls = [], [], []
     last_x = xm["worst"]
-    comparator = (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    comparator = (
+        (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    )
     for algo_name, xv, yv in data:
         if not xv or not yv:
             continue
@@ -133,12 +156,28 @@ def create_plot(all_data, raw, x_scale, y_scale, fn_out, linestyles):
         max_x = max([max_x] + [x for x in xs if x < 1])
         color, faded, linestyle, marker = linestyles[algo]
         (handle,) = plt.plot(
-            xs, ys, "-", label=algo, color=color, ms=7, mew=3, lw=3, marker=marker
+            xs,
+            ys,
+            "-",
+            label=algo,
+            color=color,
+            ms=7,
+            mew=3,
+            lw=3,
+            marker=marker,
         )
         handles.append(handle)
         if raw:
             (handle2,) = plt.plot(
-                axs, ays, "-", label=algo, color=faded, ms=5, mew=2, lw=2, marker=marker
+                axs,
+                ays,
+                "-",
+                label=algo,
+                color=faded,
+                ms=5,
+                mew=2,
+                lw=2,
+                marker=marker,
             )
         labels.append(algo)
 
@@ -172,7 +211,13 @@ def create_plot(all_data, raw, x_scale, y_scale, fn_out, linestyles):
     ax.set_title(get_plot_label(xm, ym))
     plt.gca().get_position()
     # plt.gca().set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    ax.legend(handles, labels, loc="center left", bbox_to_anchor=(1, 0.5), prop={"size": 9})
+    ax.legend(
+        handles,
+        labels,
+        loc="center left",
+        bbox_to_anchor=(1, 0.5),
+        prop={"size": 9},
+    )
     plt.grid(visible=True, which="major", color="0.65", linestyle="-")
     plt.setp(ax.get_xminorticklabels(), visible=True)
 
@@ -194,28 +239,35 @@ def create_plot(all_data, raw, x_scale, y_scale, fn_out, linestyles):
 
 def load_all_results(result_filepath):
     results = dict()
-    with open(result_filepath, 'r') as f:
+    with open(result_filepath, "r") as f:
         for line in f.readlines()[1:]:
-            split_lines = line.split(',')
-            algo_name = split_lines[0].split('.')[0]
+            split_lines = line.split(",")
+            algo_name = split_lines[0].split(".")[0]
             if algo_name not in results:
                 results[algo_name] = []
-            results[algo_name].append([algo_name, float(split_lines[1]), 
-                                  float(split_lines[2])])
+            results[algo_name].append(
+                [algo_name, float(split_lines[1]), float(split_lines[2])]
+            )
     return results
 
 
 def main():
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--result-csv", help="Path to CSV Results", required=True)
-    parser.add_argument("--output", help="Path to the PNG output file",
-                        default=f"{os.getcwd()}/out.png")
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--result-csv", help="Path to CSV Results", required=True
+    )
+    parser.add_argument(
+        "--output",
+        help="Path to the PNG output file",
+        default=f"{os.getcwd()}/out.png",
+    )
     parser.add_argument(
         "--x-scale",
         help="Scale to use when drawing the X-axis. \
-              Typically linear, logit or a2", 
-        default="linear"
+              Typically linear, logit or a2",
+        default="linear",
     )
     parser.add_argument(
         "--y-scale",
@@ -224,7 +276,9 @@ def main():
         default="linear",
     )
     parser.add_argument(
-        "--raw", help="Show raw results (not just Pareto frontier) in faded colours", action="store_true"
+        "--raw",
+        help="Show raw results (not just Pareto frontier) in faded colours",
+        action="store_true",
     )
     args = parser.parse_args()
 
@@ -233,7 +287,9 @@ def main():
     results = load_all_results(args.result_csv)
     linestyles = create_linestyles(sorted(results.keys()))
 
-    create_plot(results, args.raw, args.x_scale, args.y_scale, args.output, linestyles)
+    create_plot(
+        results, args.raw, args.x_scale, args.y_scale, args.output, linestyles
+    )
 
 
 if __name__ == "__main__":

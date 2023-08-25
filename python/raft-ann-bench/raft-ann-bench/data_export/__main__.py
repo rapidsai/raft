@@ -14,31 +14,32 @@
 # limitations under the License.
 
 import argparse
-import os
-import subprocess
 import json
-
+import os
 from pathlib import Path
+
 
 def parse_filepaths(fs):
     for p in fs:
         if p.endswith(".json") and os.path.exists(p):
             yield p
         else:
-            for f in Path(p).rglob('*.json'):
+            for f in Path(p).rglob("*.json"):
                 yield f.as_posix()
 
-def export_results(output_filepath, recompute, groundtruth_filepath,
-                   result_filepath):
+
+def export_results(
+    output_filepath, recompute, groundtruth_filepath, result_filepaths
+):
     print(f"Writing output file to: {output_filepath}")
 
     parsed_filepaths = parse_filepaths(result_filepaths)
 
-    with open(output_filepath, 'w') as out:
+    with open(output_filepath, "w") as out:
         out.write("Algo,Recall,QPS\n")
 
         for fp in parsed_filepaths:
-            with open(fp, 'r') as f:
+            with open(fp, "r") as f:
                 data = json.load(f)
                 for benchmark_case in data["benchmarks"]:
                     algo = benchmark_case["name"]
@@ -48,23 +49,29 @@ def export_results(output_filepath, recompute, groundtruth_filepath,
 
 
 def main():
+    call_path = os.getcwd()
     if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
         default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
     else:
         default_dataset_path = os.path.join(call_path, "datasets/")
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--output", help="Path to the CSV output file",
-                        required=True)
-    parser.add_argument("--recompute", action="store_true",
-                        help="Recompute metrics")
-    parser.add_argument("--dataset",
-                        help="Name of the dataset to export results for",
-                        default="glove-100-inner")
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--output", help="Path to the CSV output file", required=True
+    )
+    parser.add_argument(
+        "--recompute", action="store_true", help="Recompute metrics"
+    )
+    parser.add_argument(
+        "--dataset",
+        help="Name of the dataset to export results for",
+        default="glove-100-inner",
+    )
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=default_dataset_path
+        default=default_dataset_path,
     )
 
     args, result_filepaths = parser.parse_known_args()
@@ -73,10 +80,12 @@ def main():
     if len(result_filepaths) == 0:
         raise ValueError("No filepaths to results were provided")
 
-    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset,
-                                        "groundtruth.neighbors.ibin")
-    export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepath)
+    groundtruth_filepath = os.path.join(
+        args.dataset_path, args.dataset, "groundtruth.neighbors.ibin"
+    )
+    export_results(
+        args.output, args.recompute, groundtruth_filepath, result_filepaths
+    )
 
 
 if __name__ == "__main__":

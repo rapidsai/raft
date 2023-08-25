@@ -15,8 +15,9 @@
 
 
 import sys
-import numpy as np
+
 import h5py
+import numpy as np
 
 
 def normalize(x):
@@ -68,7 +69,8 @@ if __name__ == "__main__":
         query = normalize(query)
     elif hdf5.attrs["distance"] == "angular":
         print(
-            "warning: input has angular distance, specify -n to normalize base/query set!\n"
+            "warning: input has angular distance, ",
+            "specify -n to normalize base/query set!\n",
         )
 
     output_fname = fname_prefix + ".base.fbin"
