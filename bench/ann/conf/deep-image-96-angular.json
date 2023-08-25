@@ -992,7 +992,7 @@
       "algo" : "raft_cagra",
       "dataset_memtype": "device",
       "build_param": {
-        "index_dim" : 32
+        "graph_degree" : 32
       },
       "file" : "index/deep-image-96-angular/raft_cagra/dim32",
       "search_params" : [
@@ -1008,7 +1008,7 @@
       "algo" : "raft_cagra",
       "dataset_memtype": "device",
       "build_param": {
-        "index_dim" : 64
+        "graph_degree" : 64
       },
       "file" : "index/deep-image-96-angular/raft_cagra/dim64",
       "search_params" : [

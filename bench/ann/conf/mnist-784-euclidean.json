@@ -1322,7 +1322,7 @@
       "name" : "raft_cagra.dim32",
       "algo" : "raft_cagra",
       "build_param": {
-        "index_dim" : 32
+        "graph_degree" : 32
       },
       "file" : "index/mnist-784-euclidean/raft_cagra/dim32",
       "search_params" : [
@@ -1337,7 +1337,7 @@
       "name" : "raft_cagra.dim64",
       "algo" : "raft_cagra",
       "build_param": {
-        "index_dim" : 64
+        "graph_degree" : 64
       },
       "file" : "index/mnist-784-euclidean/raft_cagra/dim64",
       "search_params" : [
