@@ -22,7 +22,7 @@ include(rapids-find)
 
 option(CPU_ONLY "Build CPU only components. Apples to RAFT ANN benchmarks currently" OFF)
 
-if(CPU_ONLY)
+if(NOT CPU_ONLY)
   include(rapids-cuda)
   rapids_cuda_init_architectures(RAFT)
 endif()
