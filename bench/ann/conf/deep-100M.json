@@ -240,6 +240,7 @@
         {"itopk": 384, "search_width": 8, "max_iterations": 48, "algo": "multi_cta"},
         {"itopk": 512, "search_width": 8, "max_iterations": 64, "algo": "multi_cta"}
       ]
+    },
     {
       "name": "raft_cagra.dim32.multi_kernel",
       "algo": "raft_cagra",
