@@ -158,6 +158,8 @@ options:
   --algorithms ALGORITHMS
                         run only comma separated list of named algorithms (default: None)
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
+  -k, --count           number of nearest neighbors to return
+  --batch-size          number of query vectors to pass into search
   -f, --force           re-run algorithms even if their results already exist (default: False)
 ```
 `configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.

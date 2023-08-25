@@ -7,6 +7,10 @@ This guide outlines the various parameter settings that can be specified in [RAF
 
 ### IVF-Flat
 
+IVF-flat uses an inverted-file index, which partitions the vectors into a series of clusters, or lists, storing them in an interleaved format which is optimized for fast distance computation. The searching of an IVF-flat index reduces the total vectors in the index to those within some user-specified nearest clusters called probes.
+
+IVF-flat is a simple algorithm which won't save any space, but it provides competitive search times even at higher levels of recall.
+
 | Parameter | Type           | Data Type             | Description                                                                                                                                                                       |
 |-----------|----------------|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `nlists`  | `build_param`  | Positive Integer `>0` | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
