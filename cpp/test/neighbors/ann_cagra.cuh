@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY // For Filters instanciation
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Search with filter instantiation
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
