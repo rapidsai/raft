@@ -41,9 +41,9 @@ def find_executable(algos_conf, algo):
                               executable)
     build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
-        return (executable, conda_path)
+        return (executable, conda_path, algo)
     elif os.path.exists(build_path):
-        return (executable, build_path)
+        return (executable, build_path, algo)
     else:
         raise FileNotFoundError(executable)
 
@@ -51,7 +51,7 @@ def find_executable(algos_conf, algo):
 def run_build_and_search(conf_file, conf_filename, conf_filedir,
                          executables_to_run, dataset_path, force,
                          build, search, k, batch_size):
-    for executable, ann_executable_path in executables_to_run.keys():
+    for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
         temp_conf_filename = f"temporary_{conf_filename}"
         temp_conf_filepath = os.path.join(conf_filedir, temp_conf_filename)
@@ -60,13 +60,20 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
             temp_conf["index"] = executables_to_run[(executable, 
-                                                     ann_executable_path)]["index"]
+                                                     ann_executable_path,
+                                                     algo)]["index"]
             json.dump(temp_conf, f)
 
+        legacy_result_folder = os.path.join(dataset_path, conf_file['dataset']['name'], 'result')
+        os.makedirs(legacy_result_folder, exist_ok=True)
         if build:
+            build_folder = os.path.join(legacy_result_folder, "build")
+            os.makedirs(build_folder, exist_ok=True)
             cmd = [ann_executable_path,
                    "--build",
-                   "--data_prefix="+dataset_path]
+                   "--data_prefix="+dataset_path,
+                   "--benchmark_out_format=csv",
+                   f"--benchmark_out={os.path.join(build_folder, f'{algo}.csv')}"]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
@@ -75,16 +82,16 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
             p.wait()
 
         if search:
-            legacy_result_folder = os.path.join(dataset_path, conf_file['dataset']['name'], 'result')
-            os.makedirs(legacy_result_folder, exist_ok=True)
+            search_folder = os.path.join(legacy_result_folder, "search")
+            os.makedirs(search_folder, exist_ok=True)
             cmd = [ann_executable_path,
                    "--search",
                    "--data_prefix="+dataset_path,
                    "--benchmark_counters_tabular",
-                   "--benchmark_out_format=csv",
                    "--override_kv=k:%s" % k,
                    "--override_kv=n_queries:%s" % batch_size,
-                   f"--benchmark_out={os.path.join(dataset_path, conf_file['dataset']['name'], 'result', f'{executable}.csv')}"]
+                   "--benchmark_out_format=csv",
+                   f"--benchmark_out={os.path.join(search_folder, f'{algo}.csv')}"]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
