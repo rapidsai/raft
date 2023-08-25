@@ -318,6 +318,7 @@ The [build](docs/source/build.md) instructions contain more details on building 
 
 The folder structure mirrors other RAPIDS repos, with the following folders:
 
+- `bench/ann`: Python scripts for running ANN benchmarks
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
 - `cpp`: Source code for C++ libraries.

@@ -497,6 +497,11 @@ const std::vector<AnnIvfFlatInputs<int64_t>> inputs = {
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::matrix::detail::select::warpsort::kMaxCapacity * 4,
    raft::distance::DistanceType::InnerProduct,
-   false}};
+   false},
+
+  // The following two test cases should show very similar recall.
+  // num_queries, num_db_vecs, dim, k, nprobe, nlist, metric, adaptive_centers
+  {20000, 8712, 3, 10, 51, 66, raft::distance::DistanceType::L2Expanded, false},
+  {100000, 8712, 3, 10, 51, 66, raft::distance::DistanceType::L2Expanded, false}};
 
 }  // namespace raft::neighbors::ivf_flat
