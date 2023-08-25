@@ -20,11 +20,15 @@ This guide outlines the various parameter settings that can be specified in [RAF
 | `nprobe`  | `search_params` | Positive Integer `>0` | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index. |
 
 
+### CAGRA
+
+
 ## FAISS Indexes
 
 ### IVF-Flat
 
 ### IVF-PQ
+
 
 
 ## HNSWLib Index
