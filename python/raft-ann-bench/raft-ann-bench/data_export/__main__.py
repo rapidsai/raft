@@ -48,6 +48,10 @@ def export_results(output_filepath, recompute, groundtruth_filepath,
 
 
 def main():
+    if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
+        default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
+    else:
+        default_dataset_path = os.path.join(call_path, "datasets/")
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--output", help="Path to the CSV output file",
@@ -60,8 +64,7 @@ def main():
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"),
-                             "bench", "ann", "data")
+        default=default_dataset_path
     )
 
     args, result_filepaths = parser.parse_known_args()

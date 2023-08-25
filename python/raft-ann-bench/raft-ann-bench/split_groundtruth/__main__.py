@@ -19,10 +19,7 @@ import subprocess
 
 
 def split_groundtruth(groundtruth_filepath):
-    ann_bench_scripts_dir = os.path.join(os.getenv("RAFT_HOME"),
-                                         "cpp/bench/ann/scripts")
-    ann_bench_scripts_path = os.path.join(ann_bench_scripts_dir,
-                                          "split_groundtruth.pl")
+    ann_bench_scripts_path = "split_groundtruth.pl"
     pwd = os.getcwd()
     os.chdir("/".join(groundtruth_filepath.split("/")[:-1]))
     groundtruth_filename = groundtruth_filepath.split("/")[-1]

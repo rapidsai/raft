@@ -41,8 +41,10 @@ def find_executable(algos_conf, algo):
                               executable)
     build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
+        print("Using RAFT bench found in conda environment: ")
         return (executable, conda_path)
     elif os.path.exists(build_path):
+        print(f"Using RAFT bench from repository specified in {build_path}: ")
         return (executable, build_path)
     else:
         raise FileNotFoundError(executable)
@@ -91,9 +93,20 @@ def run_build_and_search(conf_filename, conf_file, executables_to_run,
 
 def main():
     scripts_path = os.path.dirname(os.path.realpath(__file__))
+    call_path = os.getcwd()
     # Read list of allowed algorithms
-    with open(f"{scripts_path}/algos.yaml", "r") as f:
+    try:
+        import pylibraft
+        algo_file = "algos.yaml"
+    except ImportError:
+        algo_file = "algos_cpu.yaml"
+    with open(f"{scripts_path}/{algo_file}", "r") as f:
         algos_conf = yaml.safe_load(f)
+
+    if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
+        default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
+    else:
+        default_dataset_path = os.path.join(call_path, "datasets/")
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -116,8 +129,7 @@ def main():
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"),
-                             "bench", "ann", "data")
+        default=default_dataset_path
     )
     parser.add_argument(
         "--build",
