@@ -84,6 +84,7 @@ class FaissGpu : public ANN<T> {
   };
 
   FaissGpu(Metric metric, int dim, int nlist);
+  virtual ~FaissGpu() noexcept { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_)); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
 
@@ -114,11 +115,19 @@ class FaissGpu : public ANN<T> {
   template <typename GpuIndex, typename CpuIndex>
   void load_(const std::string& file);
 
+  void stream_wait(cudaStream_t stream) const
+  {
+    RAFT_CUDA_TRY(cudaEventRecord(sync_, faiss_default_stream_));
+    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_));
+  }
+
   mutable faiss::gpu::StandardGpuResources gpu_resource_;
   std::unique_ptr<faiss::gpu::GpuIndex> index_;
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
+  cudaEvent_t sync_{nullptr};
+  cudaStream_t faiss_default_stream_{nullptr};
 };
 
 template <typename T>
@@ -127,6 +136,8 @@ FaissGpu<T>::FaissGpu(Metric metric, int dim, int nlist)
 {
   static_assert(std::is_same_v<T, float>, "faiss support only float type");
   RAFT_CUDA_TRY(cudaGetDevice(&device_));
+  RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
+  faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
 }
 
 template <typename T>
@@ -134,10 +145,10 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
   OmpSingleThreadScope omp_single_thread;
 
-  gpu_resource_.setDefaultStream(device_, stream);
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
+  stream_wait(stream);
 }
 
 template <typename T>
@@ -158,9 +169,9 @@ void FaissGpu<T>::search(const T* queries,
 {
   static_assert(sizeof(size_t) == sizeof(faiss::Index::idx_t),
                 "sizes of size_t and faiss::Index::idx_t are different");
-  gpu_resource_.setDefaultStream(device_, stream);
   index_->search(
     batch_size, queries, k, distances, reinterpret_cast<faiss::Index::idx_t*>(neighbors));
+  stream_wait(stream);
 }
 
 template <typename T>
