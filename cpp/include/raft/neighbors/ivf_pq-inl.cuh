@@ -134,7 +134,7 @@ void extend(raft::resources const& handle,
 }
 
 /**
- * @brief Search ANN using the constructed index using the given filter.
+ * @brief Search ANN using the constructed index with the given filter.
  *
  * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
  *
@@ -148,6 +148,8 @@ void extend(raft::resources const& handle,
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
+ * @tparam IvfSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -157,7 +159,7 @@ void extend(raft::resources const& handle,
  * [n_queries, k]
  * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
  * k]
- * @param[in] sample_filter a filter the greenlights samples for a given query.
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query.
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,
@@ -343,7 +345,7 @@ void extend(raft::resources const& handle,
 }
 
 /**
- * @brief Search ANN using the constructed index using the given filter.
+ * @brief Search ANN using the constructed index with the given filter.
  *
  * See the [ivf_pq::build](#ivf_pq::build) documentation for a usage example.
  *
@@ -372,6 +374,8 @@ void extend(raft::resources const& handle,
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
+ * @tparam IvfSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query_ix, uint32 cluster_ix, uint32_t sample_ix) -> bool`
  *
  * @param[in] handle
  * @param[in] params configure the search
@@ -382,7 +386,7 @@ void extend(raft::resources const& handle,
  * @param[out] neighbors a device pointer to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
- * @param[in] sample_filter a filter the greenlights samples for a given query
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
 void search_with_filtering(raft::resources const& handle,

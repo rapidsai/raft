@@ -42,7 +42,7 @@ struct none_cagra_sample_filter {
   inline _RAFT_HOST_DEVICE bool operator()(
     // query index
     const uint32_t query_ix,
-    // the index of the current sample inside the current inverted list
+    // the index of the current sample
     const uint32_t sample_ix) const
   {
     return true;

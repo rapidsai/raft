@@ -54,14 +54,14 @@ namespace raft::neighbors::cagra {
  *   // use default index parameters
  *   cagra::index_params build_params;
  *   cagra::search_params search_params
- *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
+ *   auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
- *   auto optimized_gaph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
+ *   auto optimized_gaph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
  *   cagra::optimize(res, dataset, knn_graph.view(), optimized_graph.view());
  *   // Construct an index from dataset and optimized knn_graph
  *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset,
- * optimized_graph.view());
+ *                                      optimized_graph.view());
  * @endcode
  *
  * @tparam DataT data element type
@@ -106,7 +106,7 @@ void build_knn_graph(raft::resources const& res,
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   cagra::index_params build_params;
- *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
+ *   auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // build KNN graph not using `cagra::build_knn_graph`
  *   // build(knn_graph, dataset, ...);
  *   // sort graph index
@@ -115,7 +115,7 @@ void build_knn_graph(raft::resources const& res,
  *   cagra::optimize(res, dataset, knn_graph.view(), optimized_graph.view());
  *   // Construct an index from dataset and optimized knn_graph
  *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset,
- * optimized_graph.view());
+ *                                      optimized_graph.view());
  * @endcode
  *
  * @tparam DataT type of the data in the source dataset
@@ -325,12 +325,14 @@ void search(raft::resources const& res,
 }
 
 /**
- * @brief Search ANN using the constructed index.
+ * @brief Search ANN using the constructed index with the given sample filter.
  *
  * See the [cagra::build](#cagra::build) documentation for a usage example.
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
+ * @tparam CagraSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query ix, uint32_t sample_ix) -> bool`
  *
  * @param[in] res raft resources
  * @param[in] params configure the search
@@ -340,6 +342,7 @@ void search(raft::resources const& res,
  * [n_queries, k]
  * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
  * k]
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query
  */
 template <typename T, typename IdxT, typename CagraSampleFilterT>
 void search_with_filtering(raft::resources const& res,
