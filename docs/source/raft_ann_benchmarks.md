@@ -180,14 +180,15 @@ CSV file in `<dataset-path/<dataset>/search/result/<algo.csv>.
 
 The usage of this script is:
 ```bash
-usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filename OUTPUT_FILENAME] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
 
 options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to download (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
-  --output-filename OUTPUT_FILENAME
+                        path to dataset folder (default: /home/nfs/dgala/raft/bench/ann/data)
+  --output-filepath OUTPUT_FILEPATH
+                        directory for PNG to be saved (default: os.getcwd())
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)

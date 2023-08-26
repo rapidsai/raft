@@ -230,8 +230,9 @@ def main():
     parser.add_argument("--dataset-path", help="path to dataset folder",
                         default=os.path.join(os.getenv("RAFT_HOME"), 
                                              "bench", "ann", "data"))
-    parser.add_argument("--output-filename",
-                        default="plot.png")
+    parser.add_argument("--output-filepath",
+                        help="directory for PNG to be saved",
+                        default=os.getcwd())
     parser.add_argument(
         "--x-scale",
         help="Scale to use when drawing the X-axis. \
@@ -249,7 +250,7 @@ def main():
     )
     args = parser.parse_args()
 
-    output_filepath = os.path.join(args.dataset_path, args.dataset, args.output_filename)
+    output_filepath = os.path.join(args.output_filepath, args.dataset + ".png")
     print(f"writing output to {output_filepath}")
 
     results = load_all_results(os.path.join(args.dataset_path, args.dataset))
