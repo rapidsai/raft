@@ -85,22 +85,68 @@ The memory-owning counterpart to the `mdspan` is the `mdarray` and the `mdarray`
 
 Many RAFT functions require `mdspan<const T>` to represent immutable input data and there's no implicit conversion between `mdspan<T>` and `mdspan<const T>` we use `raft::make_const_mdspan()` to alleviate the pain of constructing a new `mdspan` to invoke these functions.
 
-The following example demonstrates how to create `mdarray` matrices in device and host memory, and create mdspans out of them:
+The following example demonstrates how to create `mdarray` matrices in both device and host memory, copy one to the other, and create mdspans out of them:
 
 ```c++
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
 
+raft::device_resources res;
+
+int n_rows = 10;
+int n_cols = 10;
+
+auto device_matrix = raft::make_device_matrix<float>(res, n_rows, n_cols);
+auto host_matrix = raft::make_host_matrix<float>(res, n_rows, n_cols);
+
+// Set the diagonal to 1
+for(int i = 0; i < n_rows; i++) {
+    host_matrix(i, i) = 1;
+}
+
+raft::copy(device_matrix.data_handle(), host_matrix.data_handle(), host_matrix.size(), res.get_stream());
 ```
-
 
 ## Step 2: Generate some data
 
-Let's build upon the fundamental from the prior section andi fundamentals of RAFT API call patterns, let's 
+Let's build upon the fundamentals from the prior section and actually invoke some of RAFT's computational APIs on the device. A good starting point is data generation.
 
-## Step 3: Train an ANN index
+```c++
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/random/make_blobs.cuh>
 
-## Step 4: Add vectors to index
+raft::device_resources res;
 
-## Step 5: Query the index
+int n_rows = 10000;
+int n_cols = 10000;
 
-## Step 6: Additional features
+auto dataset = raft::make_device_matrix<float, int>(res, n_rows, n_cols);
+auto labels = raft::make_device_vector<float, int>(res, n_rows);
+
+raft::make_blobs(res, dataset.view(), labels.view());
+```
+
+That's it. We've now generated a random 10kx10k matrix with points that cleanly separate into Gaussian clusters, along with a vector of cluster labels for each of the data points. Notice the `cuh` extension in the header file include for `make_blobs`. This signifies to us that this file contains CUDA device functions like kernel code so the CUDA compiler, `nvcc` is needed in order to compile any code that uses it. Generally, any source files that include headers with a `cuh` extension use the `.cu` extension instead of `.cpp`. The rule here is that `cpp` source files contain code which can be compiled with a C++ compiler like `g++` while `cu` files require the CUDA compiler.
+
+Since the `make_blobs` code generates the random dataset on the GPU device, we didn't need to do any host to device copies in this one. `make_blobs` is also asynchronous, so if we don't need to copy and use the data in host memory right away, we can continue calling RAFT functions with the `device_resources` instance and the data transformations will all be scheduled on the same stream.
+
+
+
+## Step 3: Calculate exact nearest neighbors
+
+
+
+## Step 4: Train an ANN index
+
+Now comes the fun part of training
+
+
+
+## Step 5: Add vectors to index
+
+## Step 6: Query the index
+
+## Step 7: Additional features
 
