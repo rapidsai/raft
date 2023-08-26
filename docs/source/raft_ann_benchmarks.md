@@ -186,7 +186,7 @@ options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to download (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: /home/nfs/dgala/raft/bench/ann/data)
+                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
   --output-filepath OUTPUT_FILEPATH
                         directory for PNG to be saved (default: os.getcwd())
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
