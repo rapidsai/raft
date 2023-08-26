@@ -182,6 +182,23 @@
         {"nprobe":1000}
       ]
     },
+
+    {
+      "name": "raft_ivf_flat.nlist50K",
+      "algo": "raft_ivf_flat",
+      "build_param": {"nlist": 50000, "niter": 25, "ratio": 5},
+      "file": "deep-100M/raft_ivf_flat/nlist50K",
+      "search_params": [
+        {"max_batch":10000, "max_k":10, "nprobe":20},
+        {"max_batch":10000, "max_k":10, "nprobe":30},
+        {"max_batch":10000, "max_k":10, "nprobe":40},
+        {"max_batch":10000, "max_k":10, "nprobe":50},
+        {"max_batch":10000, "max_k":10, "nprobe":100},
+        {"max_batch":10000, "max_k":10, "nprobe":200},
+        {"max_batch":10000, "max_k":10, "nprobe":500},
+        {"max_batch":10000, "max_k":10, "nprobe":1000}
+      ]
+    },
     {
       "name": "raft_ivf_flat.nlist100K",
       "algo": "raft_ivf_flat",
@@ -203,7 +220,7 @@
       "name": "raft_cagra.dim32",
       "algo": "raft_cagra",
       "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "single_cta"},
@@ -224,7 +241,7 @@
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
       "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_cta"},
@@ -245,7 +262,7 @@
       "name": "raft_cagra.dim32.multi_kernel",
       "algo": "raft_cagra",
       "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_kernel"},
@@ -266,7 +283,7 @@
       "name": "raft_cagra.dim64",
       "algo": "raft_cagra",
       "dataset_memtype":"host",
-      "build_param": {"index_dim": 64},
+      "build_param": {"graph_degree": 64},
       "file": "deep-100M/raft_cagra/dim64",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0},

@@ -118,11 +118,10 @@ options:
   --dataset-path DATASET_PATH
                         path to download dataset (default: ${RAFT_HOME}/bench/ann/data)
   --normalize           normalize cosine distance to inner product (default: False)
-
+```
 When option `normalize` is provided to the script, any dataset that has cosine distances
 will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
 will be written at location `${RAFT_HOME}/bench/ann/data/glove-100-inner/`.
-```
 
 #### Step 2: Build and Search Index
 The script `bench/ann/run.py` will build and search indices for a given dataset and its

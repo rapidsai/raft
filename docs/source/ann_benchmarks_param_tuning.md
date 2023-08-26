@@ -36,6 +36,16 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 
 
 ### `raft_cagra`
+CAGRA uses a graph-based index, which creates an intermediate, approximate kNN graph using IVF-PQ and then further refining and optimizing to create a final kNN graph. This kNN graph is used by CAGRA as an index for search.
+
+| Parameter | Type           | Required | Data Type           | Default | Description                                                                                                                                                                       |
+|-----------|----------------|----------|---------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `graph_degree`  | `build_param`  | N        | Positive Integer >0 | 64 | Degree of the final kNN graph index. |
+| `intermediate_graph_degree`  | `build_param`  | N        | Positive Integer >0 | 128 | Degree of the intermediate kNN graph. |
+| `itopk`  | `search_wdith`  | N        | Positive Integer >0 | 64 | Number of intermediate search results retained during the search. Higher values improve search accuracy at the cost of speed. |
+| `search_width`  | `search_param`  | N        | Positive Integer >0 | 1 | Number of graph nodes to select as the starting point for the search in each iteration. |
+| `max_iterations`  | `search_param`  | N        | Integer >=0 | 0 | Upper limit of search iterations. Auto select when 0. |
+| `algo`  | `search_param`  | N        | string | "auto" | Algorithm to use for search. Possible values: {"auto", "single_cta", "multi_cta", "multi_kernel"} |
 
 
 ## FAISS Indexes
