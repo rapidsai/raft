@@ -160,8 +160,8 @@ options:
 The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
 provided with the `dataset` argument, in which case
 a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`.
-For every algorithm run by this script, it outputs an index build statistics CSV file in `<dataset-path/<dataset>/build/<algo.csv>
-and an index search statistics CSV file in `<dataset-path/<dataset>/search/<algo.csv>.
+For every algorithm run by this script, it outputs an index build statistics CSV file in `<dataset-path/<dataset>/result/build/<algo.csv>
+and an index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo.csv>.
 
 `dataset-path` : 
 1. data is read from `<dataset-path>/<dataset>`
@@ -176,7 +176,7 @@ is available in `algos.yaml` and not disabled, as well as having an associated e
 
 #### Step 3: Plot Results
 The script `bench/ann/plot.py` will plot results for all algorithms found in index search statistics
-CSV file in `<dataset-path/<dataset>/search/<algo.csv>.
+CSV file in `<dataset-path/<dataset>/search/result/<algo.csv>.
 
 The usage of this script is:
 ```bash
