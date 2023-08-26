@@ -124,6 +124,7 @@ def main():
     parser.add_argument(
         "--dataset",
         help="dataset whose configuration file will be used",
+        default="glove-100-inner"
     )
     parser.add_argument(
         "--dataset-path",
@@ -231,8 +232,6 @@ def main():
         for pos, index in enumerate(executables_to_run[executable_path]["index"]):
             index["file"] = os.path.join(dataset_path, dataset_name, "index", index["name"])
             executables_to_run[executable_path]["index"][pos] = index
-
-    print(executables_to_run)
 
     run_build_and_search(conf_file, conf_filename, conf_filedir, 
                          executables_to_run, dataset_path,
