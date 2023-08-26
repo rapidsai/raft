@@ -204,13 +204,21 @@ def load_all_results(dataset_path):
                     idx = pos
                     break
             
+            keys = lines[idx].split(',')
+            recall_idx = -1
+            qps_idx = -1
+            for pos, key in enumerate(keys):
+                if "Recall" in key:
+                    recall_idx = pos
+                if "QPS" in key:
+                    qps_idx = pos
             for line in lines[idx+1:]:
                 split_lines = line.split(',')
                 algo_name = split_lines[0].split('.')[0].strip("\"")
                 if algo_name not in results:
                     results[algo_name] = []
-                results[algo_name].append([algo_name, float(split_lines[12]), 
-                                    float(split_lines[10])])
+                results[algo_name].append([algo_name, float(split_lines[recall_idx]), 
+                                    float(split_lines[qps_idx])])
     return results
 
 
