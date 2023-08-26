@@ -212,8 +212,10 @@ def load_all_results(dataset_path):
                     recall_idx = pos
                 if "QPS" in key:
                     qps_idx = pos
+
             for line in lines[idx+1:]:
                 split_lines = line.split(',')
+
                 algo_name = split_lines[0].split('.')[0].strip("\"")
                 if algo_name not in results:
                     results[algo_name] = []
