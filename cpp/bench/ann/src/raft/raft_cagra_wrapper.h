@@ -58,6 +58,8 @@ class RaftCagra : public ANN<T> {
 
   void set_search_param(const AnnSearchParam& param) override;
 
+  void set_search_dataset(const T* dataset, size_t nrow) override;
+
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
   void search(const T* queries,
@@ -120,7 +122,6 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
       raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
     index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
   }
-  return;
 }
 
 template <typename T, typename IdxT>
@@ -128,21 +129,25 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
   auto search_param = dynamic_cast<const SearchParam&>(param);
   search_params_    = search_param.p;
-  return;
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
+{
+  index_->update_dataset(handle_,
+                         raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_));
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
-  raft::neighbors::cagra::serialize(handle_, file, *index_);
-  return;
+  raft::neighbors::cagra::serialize(handle_, file, *index_, false);
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::load(const std::string& file)
 {
   index_ = raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file);
-  return;
 }
 
 template <typename T, typename IdxT>
@@ -175,6 +180,5 @@ void RaftCagra<T, IdxT>::search(
   }
 
   handle_.sync_stream();
-  return;
 }
 }  // namespace raft::bench::ann
