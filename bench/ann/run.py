@@ -35,15 +35,15 @@ def validate_algorithm(algos_conf, algo):
     return algo in algos_conf_keys and not algos_conf[algo]["disabled"]
 
 
-def find_executable(algos_conf, algo):
+def find_executable(algos_conf, algo, k, batch_size):
     executable = algos_conf[algo]["executable"]
     conda_path = os.path.join(os.getenv("CONDA_PREFIX"), "bin", "ann",
                               executable)
     build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
-        return (executable, conda_path, algo)
+        return (executable, conda_path, f"{algo}-{k}-{batch_size}")
     elif os.path.exists(build_path):
-        return (executable, build_path, algo)
+        return (executable, build_path, f"{algo}-{k}-{batch_size}")
     else:
         raise FileNotFoundError(executable)
 
@@ -198,7 +198,7 @@ def main():
             curr_algo = index["algo"]
             if index["name"] in indices and \
                     validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo)
+                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
@@ -212,7 +212,7 @@ def main():
             curr_algo = index["algo"]
             if curr_algo in algorithms and \
                     validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo)
+                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
@@ -222,7 +222,7 @@ def main():
         for index in conf_file["index"]:
             curr_algo = index["algo"]
             if validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo)
+                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
