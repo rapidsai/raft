@@ -379,20 +379,8 @@ void optimize(raft::resources const& res,
                graph_size * input_graph_degree,
                resource::get_cuda_stream(res));
 
-    void (*kernel_prune)(const IdxT* const,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         uint8_t* const,
-                         uint32_t* const,
-                         uint64_t* const);
-
     constexpr int MAX_DEGREE = 1024;
-    if (input_graph_degree <= MAX_DEGREE) {
-      kernel_prune = kern_prune<MAX_DEGREE, IdxT>;
-    } else {
+    if (input_graph_degree > MAX_DEGREE) {
       RAFT_FAIL(
         "The degree of input knn graph is too large (%u). "
         "It must be equal to or smaller than %d.",
@@ -409,16 +397,17 @@ void optimize(raft::resources const& res,
       dev_stats.data_handle(), 0, sizeof(uint64_t) * 2, resource::get_cuda_stream(res)));
 
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
-      kernel_prune<<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
-        d_input_graph.data_handle(),
-        graph_size,
-        input_graph_degree,
-        output_graph_degree,
-        batch_size,
-        i_batch,
-        d_detour_count.data_handle(),
-        d_num_no_detour_edges.data_handle(),
-        dev_stats.data_handle());
+      kern_prune<MAX_DEGREE, IdxT>
+        <<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
+          d_input_graph.data_handle(),
+          graph_size,
+          input_graph_degree,
+          output_graph_degree,
+          batch_size,
+          i_batch,
+          d_detour_count.data_handle(),
+          d_num_no_detour_edges.data_handle(),
+          dev_stats.data_handle());
       resource::sync_stream(res);
       RAFT_LOG_DEBUG(
         "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
