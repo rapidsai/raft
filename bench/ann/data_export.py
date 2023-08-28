@@ -18,19 +18,35 @@ import os
 import subprocess
 
 
-def export_results(output_filepath, recompute, groundtruth_filepath,
-                   result_filepath):
+def export_results(
+    output_filepath, recompute, groundtruth_filepath, result_filepath
+):
     print(f"Writing output file to: {output_filepath}")
     ann_bench_scripts_dir = os.path.join(
         os.getenv("RAFT_HOME"), "cpp/bench/ann/scripts"
     )
     ann_bench_scripts_path = os.path.join(ann_bench_scripts_dir, "eval.pl")
     if recompute:
-        p = subprocess.Popen([ann_bench_scripts_path, "-f", "-o", output_filepath,
-                              groundtruth_filepath, result_filepath])
+        p = subprocess.Popen(
+            [
+                ann_bench_scripts_path,
+                "-f",
+                "-o",
+                output_filepath,
+                groundtruth_filepath,
+                result_filepath,
+            ]
+        )
     else:
-        p = subprocess.Popen([ann_bench_scripts_path, "-o", output_filepath,
-                              groundtruth_filepath, result_filepath])
+        p = subprocess.Popen(
+            [
+                ann_bench_scripts_path,
+                "-o",
+                output_filepath,
+                groundtruth_filepath,
+                result_filepath,
+            ]
+        )
     p.wait()
 
 
@@ -54,14 +70,16 @@ def main():
         help="path to dataset folder",
         default=os.path.join(os.getenv("RAFT_HOME"), "bench", "ann", "data"),
     )
-    
+
     args = parser.parse_args()
 
     result_filepath = os.path.join(args.dataset_path, args.dataset, "result")
-    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset, 
-                                        "groundtruth.neighbors.ibin")
-    export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepath)
+    groundtruth_filepath = os.path.join(
+        args.dataset_path, args.dataset, "groundtruth.neighbors.ibin"
+    )
+    export_results(
+        args.output, args.recompute, groundtruth_filepath, result_filepath
+    )
 
 
 if __name__ == "__main__":

@@ -168,14 +168,18 @@ def main():
         conf_file = json.load(f)
 
     # Replace base, query to dataset-path
-    replacement_base_filepath = \
-        os.path.normpath(conf_file["dataset"]["base_file"]).split(os.path.sep)[-1]
-    conf_file["dataset"]["base_file"] = \
-        os.path.join(dataset_path, replacement_base_filepath)
-    replacement_query_filepath = \
-        os.path.normpath(conf_file["dataset"]["query_file"]).split(os.path.sep)[-1]
-    conf_file["dataset"]["query_file"] = \
-        os.path.join(dataset_path, replacement_query_filepath)
+    replacement_base_filepath = os.path.normpath(
+        conf_file["dataset"]["base_file"]
+    ).split(os.path.sep)[-1]
+    conf_file["dataset"]["base_file"] = os.path.join(
+        dataset_path, replacement_base_filepath
+    )
+    replacement_query_filepath = os.path.normpath(
+        conf_file["dataset"]["query_file"]
+    ).split(os.path.sep)[-1]
+    conf_file["dataset"]["query_file"] = os.path.join(
+        dataset_path, replacement_query_filepath
+    )
     # Ensure base and query files exist for dataset
     if not os.path.exists(conf_file["dataset"]["base_file"]):
         raise FileNotFoundError(conf_file["dataset"]["base_file"])
