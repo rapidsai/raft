@@ -26,6 +26,7 @@ dask-worker-space/
 *.egg-info/
 *.bin
 bench/ann/data
+temporary_*.json
 
 ## scikit-build
 _skbuild

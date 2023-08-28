@@ -283,6 +283,7 @@ def load_lines(results_path, result_files, method, index_key):
 
             for line in lines[idx+1:]:
                 split_lines = line.split(',')
+
                 algo_name = split_lines[0].split('.')[0].strip("\"")
                 index_name = split_lines[0].split('/')[0].strip("\"")
 
