@@ -499,8 +499,7 @@ fi
 # Build and (optionally) install the raft-ann-bench Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
     SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
-        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench
 fi
 
 if hasArg docs; then
