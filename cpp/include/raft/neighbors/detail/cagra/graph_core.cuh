@@ -334,8 +334,6 @@ void optimize(raft::resources const& res,
   auto output_graph_ptr              = new_graph.data_handle();
   const IdxT graph_size              = new_graph.extent(0);
 
-  auto pruned_graph = raft::make_host_matrix<IdxT, int64_t>(graph_size, output_graph_degree);
-
   {
     //
     // Prune kNN graph
@@ -380,6 +378,7 @@ void optimize(raft::resources const& res,
                input_graph_ptr,
                graph_size * input_graph_degree,
                resource::get_cuda_stream(res));
+
     void (*kernel_prune)(const IdxT* const,
                          const uint32_t,
                          const uint32_t,
@@ -447,7 +446,7 @@ void optimize(raft::resources const& res,
         if (max_detour < num_detour) { max_detour = num_detour; /* stats */ }
         for (uint64_t k = 0; k < input_graph_degree; k++) {
           if (detour_count.data_handle()[k + (input_graph_degree * i)] != num_detour) { continue; }
-          pruned_graph.data_handle()[pk + (output_graph_degree * i)] =
+          output_graph_ptr[pk + (output_graph_degree * i)] =
             input_graph_ptr[k + (input_graph_degree * i)];
           pk += 1;
           if (pk >= output_graph_degree) break;
@@ -497,7 +496,7 @@ void optimize(raft::resources const& res,
     for (uint64_t k = 0; k < output_graph_degree; k++) {
 #pragma omp parallel for
       for (uint64_t i = 0; i < graph_size; i++) {
-        dest_nodes.data_handle()[i] = pruned_graph.data_handle()[k + (output_graph_degree * i)];
+        dest_nodes.data_handle()[i] = output_graph_ptr[k + (output_graph_degree * i)];
       }
       resource::sync_stream(res);
 
@@ -542,10 +541,6 @@ void optimize(raft::resources const& res,
     const uint64_t num_protected_edges = output_graph_degree / 2;
     RAFT_LOG_DEBUG("# num_protected_edges: %lu", num_protected_edges);
 
-    memcpy(output_graph_ptr,
-           pruned_graph.data_handle(),
-           sizeof(IdxT) * graph_size * output_graph_degree);
-
     constexpr int _omp_chunk = 1024;
 #pragma omp parallel for schedule(dynamic, _omp_chunk)
     for (uint64_t j = 0; j < graph_size; j++) {
@@ -578,7 +573,7 @@ void optimize(raft::resources const& res,
 #pragma omp parallel for reduction(+ : num_replaced_edges)
     for (uint64_t i = 0; i < graph_size; i++) {
       for (uint64_t k = 0; k < output_graph_degree; k++) {
-        const uint64_t j = pruned_graph.data_handle()[k + (output_graph_degree * i)];
+        const uint64_t j = output_graph_ptr[k + (output_graph_degree * i)];
         const uint64_t pos =
           pos_in_array<IdxT>(j, output_graph_ptr + (output_graph_degree * i), output_graph_degree);
         if (pos == output_graph_degree) { num_replaced_edges += 1; }
