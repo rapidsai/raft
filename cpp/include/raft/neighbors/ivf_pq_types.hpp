@@ -35,7 +35,7 @@
 namespace raft::neighbors::ivf_pq {
 
 /**
- * @ingroup ivf_pq
+ * @addtogroup ivf_pq
  * @{
  */
 
