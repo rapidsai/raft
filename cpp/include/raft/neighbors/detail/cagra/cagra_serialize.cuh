@@ -71,18 +71,29 @@ void serialize(raft::resources const& res,
   serialize_scalar(res, os, include_dataset);
   if (include_dataset) {
     auto dataset = index_.dataset();
-    // Remove padding before saving the dataset
-    auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
-    RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
-                                    sizeof(T) * host_dataset.extent(1),
-                                    dataset.data_handle(),
-                                    sizeof(T) * dataset.stride(0),
-                                    sizeof(T) * host_dataset.extent(1),
-                                    dataset.extent(0),
-                                    cudaMemcpyDefault,
-                                    resource::get_cuda_stream(res)));
-    resource::sync_stream(res);
-    serialize_mdspan(res, os, host_dataset.view());
+    if (dataset.stride(0) == dataset.extent(0)) {
+      // Rather than take another copy of the dataset here, just write it out directly.
+      // Since the dataset is a strided layout, we can't pass directly to the serialize_mdspan
+      // - but since the stride is the same as the extent, we can convert to a row-major
+      // mdspan
+      serialize_mdspan(
+        res,
+        os,
+        make_device_matrix_view(dataset.data_handle(), dataset.extent(0), dataset.extent(1)));
+    } else {
+      // Remove padding before saving the dataset
+      auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
+      RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
+                                      sizeof(T) * host_dataset.extent(1),
+                                      dataset.data_handle(),
+                                      sizeof(T) * dataset.stride(0),
+                                      sizeof(T) * host_dataset.extent(1),
+                                      dataset.extent(0),
+                                      cudaMemcpyDefault,
+                                      resource::get_cuda_stream(res)));
+      resource::sync_stream(res);
+      serialize_mdspan(res, os, host_dataset.view());
+    }
   }
 }
 
