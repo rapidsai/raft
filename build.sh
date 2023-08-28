@@ -346,9 +346,9 @@ if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
     if hasArg cpu-only; then
         COMPILE_LIBRARY=OFF
+        CPU_ONLY=ON
     else
         COMPILE_LIBRARY=ON
-        CPU_ONLY=ON
     fi
 fi
 
@@ -498,8 +498,7 @@ fi
 
 # Build and (optionally) install the raft-ann-bench Python package
 if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
-    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench
+    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench
 fi
 
 if hasArg docs; then
