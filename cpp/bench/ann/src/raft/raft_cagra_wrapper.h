@@ -29,6 +29,7 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -48,11 +49,23 @@ class RaftCagra : public ANN<T> {
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::experimental::cagra::search_params p;
+    auto needs_dataset() const -> bool override { return true; }
   };
 
   using BuildParam = raft::neighbors::cagra::index_params;
 
-  RaftCagra(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype);
+  RaftCagra(Metric metric, int dim, const BuildParam& param)
+    : ANN<T>(metric, dim),
+      index_params_(param),
+      dimension_(dim),
+      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+  {
+    rmm::mr::set_current_device_resource(&mr_);
+    index_params_.metric = parse_metric_type(metric);
+    RAFT_CUDA_TRY(cudaGetDevice(&device_));
+  }
+
+  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -70,57 +83,43 @@ class RaftCagra : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = dataset_memtype_;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::HostMmap;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
-  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
-
  private:
+  // `mr_` must go first to make sure it dies last
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::cagra::search_params search_params_;
   std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
-  MemoryType dataset_memtype_;
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
 };
-
-template <typename T, typename IdxT>
-RaftCagra<T, IdxT>::RaftCagra(Metric metric,
-                              int dim,
-                              const BuildParam& param,
-                              MemoryType dataset_memtype)
-  : ANN<T>(metric, dim),
-    index_params_(param),
-    dimension_(dim),
-    dataset_memtype_(dataset_memtype),
-    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
-{
-  rmm::mr::set_current_device_resource(&mr_);
-  index_params_.metric = parse_metric_type(metric);
-  RAFT_CUDA_TRY(cudaGetDevice(&device_));
-}
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  if (get_property().dataset_memory_type != MemoryType::Device) {
-    auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-  } else {
-    auto dataset_view =
-      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+  switch (raft::spatial::knn::detail::utils::check_pointer_residency(dataset)) {
+    case raft::spatial::knn::detail::utils::pointer_residency::host_only: {
+      auto dataset_view =
+        raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+      return;
+    }
+    default: {
+      auto dataset_view =
+        raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+      return;
+    }
   }
 }
 

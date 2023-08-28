@@ -39,6 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-lib               - compile shared libraries for all components
                                  can be useful for a pure header-only install
+   --cpu-only                  - build CPU only components without CUDA. Applies to bench-ann only currently.
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
@@ -71,6 +72,7 @@ BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
+CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
@@ -152,7 +154,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
-	    echo "Limiting tests to $TEST_TARGETS"
+        echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -342,7 +344,12 @@ fi
 if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     BUILD_ANN_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
-    COMPILE_LIBRARY=ON
+    if hasArg cpu-only; then
+        COMPILE_LIBRARY=OFF
+    else
+        COMPILE_LIBRARY=ON
+        CPU_ONLY=ON
+    fi
 fi
 
 if hasArg --no-nvtx; then
@@ -415,6 +422,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
+          -DCPU_ONLY=${CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
@@ -488,6 +496,11 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
+# Build and (optionally) install the raft-ann-bench Python package
+if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
+    SKBUILD_CONFIGURE_OPTIONS="${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench
+fi
 
 if hasArg docs; then
     set -x

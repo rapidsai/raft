@@ -21,7 +21,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "util.h"
+#include "util.hpp"
 
 namespace raft::bench::ann {
 using std::runtime_error;
