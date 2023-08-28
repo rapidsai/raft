@@ -132,8 +132,8 @@ template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::RaftCagra<T, IdxT>::BuildParam& param)
 {
-  if (conf.contains("index_dim")) {
-    param.graph_degree              = conf.at("index_dim");
+  if (conf.contains("graph_degree")) {
+    param.graph_degree              = conf.at("graph_degree");
     param.intermediate_graph_degree = param.graph_degree * 2;
   }
   if (conf.contains("intermediate_graph_degree")) {

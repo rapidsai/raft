@@ -192,25 +192,48 @@ def create_plot(all_data, raw, x_scale, y_scale, fn_out, linestyles):
     plt.close()
 
 
-def load_all_results(result_filepath):
+def load_all_results(dataset_path):
     results = dict()
-    with open(result_filepath, 'r') as f:
-        for line in f.readlines()[1:]:
-            split_lines = line.split(',')
-            algo_name = split_lines[0].split('.')[0]
-            if algo_name not in results:
-                results[algo_name] = []
-            results[algo_name].append([algo_name, float(split_lines[1]), 
-                                  float(split_lines[2])])
+    results_path = os.path.join(dataset_path, "result", "search")
+    for result_filepath in os.listdir(results_path):
+        with open(os.path.join(results_path, result_filepath), 'r') as f:
+            lines = f.readlines()
+            idx = 0
+            for pos, line in enumerate(lines):
+                if "QPS" in line:
+                    idx = pos
+                    break
+            
+            keys = lines[idx].split(',')
+            recall_idx = -1
+            qps_idx = -1
+            for pos, key in enumerate(keys):
+                if "Recall" in key:
+                    recall_idx = pos
+                if "QPS" in key:
+                    qps_idx = pos
+
+            for line in lines[idx+1:]:
+                split_lines = line.split(',')
+
+                algo_name = split_lines[0].split('.')[0].strip("\"")
+                if algo_name not in results:
+                    results[algo_name] = []
+                results[algo_name].append([algo_name, float(split_lines[recall_idx]), 
+                                    float(split_lines[qps_idx])])
     return results
 
 
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--result-csv", help="Path to CSV Results", required=True)
-    parser.add_argument("--output", help="Path to the PNG output file",
-                        default=f"{os.getcwd()}/out.png")
+    parser.add_argument("--dataset", help="dataset to download",
+                        default="glove-100-inner")
+    parser.add_argument("--dataset-path", help="path to dataset folder",
+                        default=os.path.join(os.getenv("RAFT_HOME"), 
+                                             "bench", "ann", "data"))
+    parser.add_argument("--output-filename",
+                        default="plot.png")
     parser.add_argument(
         "--x-scale",
         help="Scale to use when drawing the X-axis. \
@@ -228,12 +251,13 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"writing output to {args.output}")
+    output_filepath = os.path.join(args.dataset_path, args.dataset, args.output_filename)
+    print(f"writing output to {output_filepath}")
 
-    results = load_all_results(args.result_csv)
+    results = load_all_results(os.path.join(args.dataset_path, args.dataset))
     linestyles = create_linestyles(sorted(results.keys()))
 
-    create_plot(results, args.raw, args.x_scale, args.y_scale, args.output, linestyles)
+    create_plot(results, args.raw, args.x_scale, args.y_scale, output_filepath, linestyles)
 
 
 if __name__ == "__main__":

@@ -21,11 +21,10 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 ## Running the benchmarks
 
 ### Usage
-There are 4 general steps to running the benchmarks and vizualizing the results:
+There are 3 general steps to running the benchmarks and vizualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
-3. Evaluate Results
-4. Plot Results
+3. Plot Results
 
 We provide a collection of lightweight Python scripts that are wrappers over
 lower level scripts and executables to run our benchmarks. Either Python scripts or
@@ -47,11 +46,8 @@ python bench/ann/get_dataset.py --dataset deep-image-96-angular --normalize
 # (2) build and search index
 python bench/ann/run.py --dataset deep-image-96-inner
 
-# (3) evaluate results
-python bench/ann/data_export.py --output out.csv --dataset deep-image-96-inner
-
-# (4) plot results
-python bench/ann/plot.py --result-csv out.csv
+# (3) plot results
+python bench/ann/plot.py --dataset deep-image-96-inner
 ```
 
 Configuration files already exist for the following list of the million-scale datasets. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
@@ -86,11 +82,8 @@ python bench/ann/split_groundtruth.py --groundtruth bench/ann/data/deep-1B/deep_
 # (2) build and search index
 python bench/ann/run.py --dataset deep-1B
 
-# (3) evaluate results
-python bench/ann/data_export.py --output out.csv --dataset deep-1B
-
-# (4) plot results
-python bench/ann/plot.py --result-csv out.csv
+# (3) plot results
+python bench/ann/plot.py --dataset deep-1B
 ```
 
 The usage of `bench/ann/split-groundtruth.py` is:
@@ -118,11 +111,11 @@ options:
   --dataset-path DATASET_PATH
                         path to download dataset (default: ${RAFT_HOME}/bench/ann/data)
   --normalize           normalize cosine distance to inner product (default: False)
+```
 
 When option `normalize` is provided to the script, any dataset that has cosine distances
 will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
 will be written at location `${RAFT_HOME}/bench/ann/data/glove-100-inner/`.
-```
 
 #### Step 2: Build and Search Index
 The script `bench/ann/run.py` will build and search indices for a given dataset and its
@@ -141,13 +134,15 @@ available in `raft/cpp/build/`.
 
 The usage of the script `bench/ann/run.py` is:
 ```bash
-usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
-
-options:
-usage: run.py [-h] [--configuration CONFIGURATION] [--dataset DATASET] [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES] [-f]
+usage: run.py [-h] [-k COUNT] [-bs BATCH_SIZE] [--configuration CONFIGURATION] [--dataset DATASET] [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES]
+              [-f]
 
 options:
   -h, --help            show this help message and exit
+  -k COUNT, --count COUNT
+                        the number of nearest neighbors to search for (default: 10)
+  -bs BATCH_SIZE, --batch-size BATCH_SIZE
+                        number of query vectors to use in each query trial (default: 10000)
   --configuration CONFIGURATION
                         path to configuration file for a dataset (default: None)
   --dataset DATASET     dataset whose configuration file will be used (default: glove-100-inner)
@@ -158,14 +153,15 @@ options:
   --algorithms ALGORITHMS
                         run only comma separated list of named algorithms (default: None)
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
-  -k, --count           number of nearest neighbors to return
-  --batch-size          number of query vectors to pass into search
   -f, --force           re-run algorithms even if their results already exist (default: False)
 ```
+
 `configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.
 The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
 provided with the `dataset` argument, in which case
-a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`
+a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`.
+For every algorithm run by this script, it outputs an index build statistics CSV file in `<dataset-path/<dataset>/result/build/<algo.csv>
+and an index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo.csv>.
 
 `dataset-path` : 
 1. data is read from `<dataset-path>/<dataset>`
@@ -178,44 +174,25 @@ it is assumed both are `True`.
 `indices` and `algorithms` : these parameters ensure that the algorithm specified for an index 
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
-#### Step 3: Evaluating Results
-The script `bench/ann/data_export.py` will evaluate results for a dataset whose index has been built
-and searched with at least one algorithm. For every result file that is available to the script, the output
-will be combined and written to a CSV file.
+#### Step 3: Plot Results
+The script `bench/ann/plot.py` will plot results for all algorithms found in index search statistics
+CSV file in `<dataset-path/<dataset>/search/result/<algo.csv>.
 
 The usage of this script is:
 ```bash
-usage: data_export.py [-h] --output OUTPUT [--recompute] [--dataset DATASET] [--dataset-path DATASET_PATH]
+usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filename OUTPUT_FILENAME] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
 
 options:
   -h, --help            show this help message and exit
-  --output OUTPUT       Path to the CSV output file (default: None)
-  --recompute           Recompute metrics (default: False)
-  --dataset DATASET     Name of the dataset to export results for (default: glove-100-inner)
+  --dataset DATASET     dataset to download (default: glove-100-inner)
   --dataset-path DATASET_PATH
                         path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
-```
-
-#### Step 4: Plot Results
-The script `bench/ann/plot.py` will plot all results evaluated to a CSV file for a given dataset.
-
-The usage of this script is:
-```bash
-usage: plot.py [-h] --result_csv RESULT_CSV [--output OUTPUT] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
-
-options:
-  -h, --help            show this help message and exit
-  --result-csv RESULT_CSV
-                        Path to CSV Results (default: None)
-  --output OUTPUT       Path to the PNG output file (default: ${RAFT_HOME}/out.png)
+  --output-filename OUTPUT_FILENAME
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
   --raw                 Show raw results (not just Pareto frontier) in faded colours (default: False)
 ```
-
-All algorithms present in the CSV file supplied to this script with parameter `result_csv`
-will appear in the plot.
 
 The figure below is the resulting plot of running our benchmarks as of August 2023 for a batch size of 10, on an NVIDIA H100 GPU and an Intel Xeon Platinum 8480CL CPU. It presents the throughput (in Queries-Per-Second) performance for every level of recall.
 
