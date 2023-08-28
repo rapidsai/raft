@@ -746,7 +746,7 @@ _RAFT_HOST_DEVICE void set_buf_pointers(const T* in,
 {
   if (pass == 0) {
     in_buf      = in;
-    in_idx_buf  = nullptr;
+    in_idx_buf  = in_idx;
     out_buf     = nullptr;
     out_idx_buf = nullptr;
   } else if (pass == 1) {
