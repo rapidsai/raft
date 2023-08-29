@@ -32,7 +32,8 @@ def download_dataset(url, path):
 
 
 def convert_hdf5_to_fbin(path, normalize):
-    ann_bench_scripts_path = "hdf5_to_fbin.py"
+    scripts_path = os.path.dirname(os.path.realpath(__file__))
+    ann_bench_scripts_path = os.path.join(scripts_path, "hdf5_to_fbin.py")
     if normalize and "angular" in path:
         p = subprocess.Popen(
             ["python", ann_bench_scripts_path, "-n", "%s" % path]
