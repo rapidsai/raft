@@ -126,6 +126,7 @@ void bench_build(::benchmark::State& state,
                  Configuration::Index index,
                  bool force_overwrite)
 {
+  dump_parameters(state, index.build_param);
   if (file_exists(index.file)) {
     if (force_overwrite) {
       log_info("Overwriting file: %s", index.file.c_str());
@@ -163,7 +164,6 @@ void bench_build(::benchmark::State& state,
   }
   state.counters.insert(
     {{"GPU Time", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
-  dump_parameters(state, index.build_param);
 
   if (state.skipped()) { return; }
   make_sure_parent_dir_exists(index.file);
@@ -177,6 +177,7 @@ void bench_search(::benchmark::State& state,
                   std::size_t search_param_ix)
 {
   const auto& sp_json = index.search_params[search_param_ix];
+  dump_parameters(state, sp_json);
 
   // NB: `k` and `n_queries` are guaranteed to be populated in conf.cpp
   const std::uint32_t k = sp_json["k"];
@@ -258,7 +259,6 @@ void bench_search(::benchmark::State& state,
     state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
                            {"GPU QPS", queries_processed / gpu_timer.total_time()}});
   }
-  dump_parameters(state, sp_json);
   if (state.skipped()) { return; }
 
   // evaluate recall
