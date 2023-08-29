@@ -148,7 +148,6 @@ if(NOT DISABLE_OPENMP)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
   endif()
 endif()
-
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
