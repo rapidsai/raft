@@ -426,6 +426,7 @@ if(BUILD_TESTS)
     test/util/cudart_utils.cpp
     test/util/device_atomics.cu
     test/util/integer_utils.cpp
+    test/util/integer_utils.cu
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )
