@@ -35,7 +35,7 @@ conda/recipes/raft-ann-bench
 
 # Build ann-bench-cpu only in CUDA 12 jobs since it only depends on python
 # version
-if [[ ${CUDA_VERSION} == "12.0.1" ]]; then
+if [[ ${CUDA_VERSION} == "11.8.0" ]]; then
   rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
