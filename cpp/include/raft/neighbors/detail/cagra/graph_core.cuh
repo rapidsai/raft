@@ -338,9 +338,6 @@ void optimize(raft::resources const& res,
     //
     // Prune kNN graph
     //
-    auto d_input_graph =
-      raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree);
-
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, int64_t>(res, graph_size, input_graph_degree);
 
@@ -374,10 +371,24 @@ void optimize(raft::resources const& res,
     const double time_prune_start = cur_time();
     RAFT_LOG_DEBUG("# Pruning kNN Graph on GPUs\r");
 
-    raft::copy(d_input_graph.data_handle(),
-               input_graph_ptr,
-               graph_size * input_graph_degree,
-               resource::get_cuda_stream(res));
+    // only make a device copy of the the graph if it isn't already accessible on the
+    // device (which might already be because of uvm/hmm/ats etc)
+    std::optional<device_matrix<IdxT, int64_t>> d_input_graph;
+    IdxT* d_input_graph_ptr = NULL;
+    switch (spatial::knn::detail::utils::check_pointer_residency(input_graph_ptr)) {
+      case spatial::knn::detail::utils::pointer_residency::host_and_device:
+      case spatial::knn::detail::utils::pointer_residency::device_only:
+        d_input_graph_ptr = input_graph_ptr;
+        break;
+      default:
+        d_input_graph.emplace(
+          raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree));
+        raft::copy(d_input_graph->data_handle(),
+                   input_graph_ptr,
+                   graph_size * input_graph_degree,
+                   resource::get_cuda_stream(res));
+        d_input_graph_ptr = d_input_graph->data_handle();
+    }
 
     constexpr int MAX_DEGREE = 1024;
     if (input_graph_degree > MAX_DEGREE) {
@@ -399,7 +410,7 @@ void optimize(raft::resources const& res,
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
       kern_prune<MAX_DEGREE, IdxT>
         <<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
-          d_input_graph.data_handle(),
+          d_input_graph_ptr,
           graph_size,
           input_graph_degree,
           output_graph_degree,
@@ -416,7 +427,7 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    // if we're using a managed memory resource, we don't need to make a separate copy of
+    // if we're using a managed memory (or HMM/ATS), we don't need to make a separate copy of
     // detour_count on the host - and can save allocating the extra host memory
     uint8_t* host_detour_count_ptr = NULL;
     std::optional<host_matrix<uint8_t, int64_t>> detour_count;
