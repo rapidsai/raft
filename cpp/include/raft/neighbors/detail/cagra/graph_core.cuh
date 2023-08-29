@@ -341,9 +341,9 @@ void optimize(raft::resources const& res,
     auto d_input_graph =
       raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree);
 
-    auto detour_count = raft::make_host_matrix<uint8_t, int64_t>(graph_size, input_graph_degree);
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, int64_t>(res, graph_size, input_graph_degree);
+
     RAFT_CUDA_TRY(cudaMemsetAsync(d_detour_count.data_handle(),
                                   0xff,
                                   graph_size * input_graph_degree * sizeof(uint8_t),
@@ -416,10 +416,23 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    raft::copy(detour_count.data_handle(),
-               d_detour_count.data_handle(),
-               graph_size * input_graph_degree,
-               resource::get_cuda_stream(res));
+    // if we're using a managed memory resource, we don't need to make a separate copy of
+    // detour_count on the host - and can save allocating the extra host memory
+    uint8_t* host_detour_count_ptr = NULL;
+    std::optional<host_matrix<uint8_t, int64_t>> detour_count;
+    switch (spatial::knn::detail::utils::check_pointer_residency(d_detour_count.data_handle())) {
+      case spatial::knn::detail::utils::pointer_residency::host_and_device:
+        host_detour_count_ptr = d_detour_count.data_handle();
+        break;
+      default:
+        detour_count.emplace(
+          raft::make_host_matrix<uint8_t, int64_t>(graph_size, input_graph_degree));
+        raft::copy(detour_count->data_handle(),
+                   d_detour_count.data_handle(),
+                   graph_size * input_graph_degree,
+                   resource::get_cuda_stream(res));
+        host_detour_count_ptr = detour_count->data_handle();
+    }
 
     raft::copy(
       host_stats.data_handle(), dev_stats.data_handle(), 2, resource::get_cuda_stream(res));
@@ -434,7 +447,7 @@ void optimize(raft::resources const& res,
       for (uint32_t num_detour = 0; num_detour < output_graph_degree; num_detour++) {
         if (max_detour < num_detour) { max_detour = num_detour; /* stats */ }
         for (uint64_t k = 0; k < input_graph_degree; k++) {
-          if (detour_count.data_handle()[k + (input_graph_degree * i)] != num_detour) { continue; }
+          if (host_detour_count_ptr[k + (input_graph_degree * i)] != num_detour) { continue; }
           output_graph_ptr[pk + (output_graph_degree * i)] =
             input_graph_ptr[k + (input_graph_degree * i)];
           pk += 1;
