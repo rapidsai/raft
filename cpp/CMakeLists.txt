@@ -489,7 +489,7 @@ if(RAFT_COMPILE_STATIC_LIBRARY)
   add_library(raft_lib_static ${RAFT_COMPILED_SOURCE_FILES})
   set_target_properties(
     raft_lib_static
-    PROPERTIES OUTPUT_NAME raft_static
+    PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
                CXX_STANDARD 17
