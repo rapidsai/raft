@@ -134,7 +134,7 @@ cdef class nccl:
         self.rank = rank
 
         cdef ncclUniqueId *ident = <ncclUniqueId*>malloc(sizeof(ncclUniqueId))
-        nccl_unique_id_from_char(ident, commId, NCCL_UNIQUE_ID_BYTES)
+        nccl_unique_id_from_char(ident, commId)
 
         comm_ = <ncclComm_t*>self.comm
 
