@@ -203,18 +203,18 @@ def create_plot_build(build_results, search_results, linestyles, fn_out,
     xn = "k-nn"
     yn = "qps"
 
-    recall_85 = [-1] * len(linestyles)
     qps_85 = [-1] * len(linestyles)
     bt_85 = [0] * len(linestyles)
     i_85 = [-1] * len(linestyles)
-    recall_90 = [-1] * len(linestyles)
+
     qps_90 = [-1] * len(linestyles)
     bt_90 = [0] * len(linestyles)
     i_90 = [-1] * len(linestyles)
-    recall_95 = [-1] * len(linestyles)
+
     qps_95 = [-1] * len(linestyles)
     bt_95 = [0] * len(linestyles)
     i_95 = [-1] * len(linestyles)
+
     data = OrderedDict()
     colors = OrderedDict()
 
@@ -248,7 +248,7 @@ def create_plot_build(build_results, search_results, linestyles, fn_out,
     plt.figure(figsize=(12, 9))
     ax = df.plot.bar(rot=0, color=colors)
     fig = ax.get_figure()
-    print(f"writing search output to {fn_out}")
+    print(f"writing build output to {fn_out}")
     plt.title("Build Time for Highest QPS")
     plt.suptitle(f"{dataset} k={k} batch_size={batch_size}")
     plt.ylabel("Build Time (s)")
@@ -258,45 +258,33 @@ def create_plot_build(build_results, search_results, linestyles, fn_out,
 def load_lines(results_path, result_files, method, index_key):
     results = dict()
 
-    linebreaker = "name,iterations"
-
     for result_filename in result_files:
-        with open(os.path.join(results_path, result_filename), 'r') as f:
-            lines = f.readlines()
-            lines = lines[:-1] if lines[-1] == "\n" else lines
-            idx = 0
-            for pos, line in enumerate(lines):
-                if linebreaker in line:
-                    idx = pos
-                    break
-            
-            if method == "build":
-                if "hnswlib" in result_filename:
+        if result_filename.endswith('.csv'):
+            with open(os.path.join(results_path, result_filename), 'r') as f:
+                lines = f.readlines()
+                lines = lines[:-1] if lines[-1] == "\n" else lines
+                
+                if method == "build":
                     key_idx = [2]
-                else:
-                    key_idx = [10]
-            elif method == "search":
-                if "hnswlib" in result_filename:
-                    key_idx = [10, 6]
-                else:
-                    key_idx = [12, 10]
+                elif method == "search":
+                    key_idx = [2, 3]
 
-            for line in lines[idx+1:]:
-                split_lines = line.split(',')
+                for line in lines[1:]:
+                    split_lines = line.split(',')
 
-                algo_name = split_lines[0].split('.')[0].strip("\"")
-                index_name = split_lines[0].split('/')[0].strip("\"")
+                    algo_name = split_lines[0]
+                    index_name = split_lines[1]
 
-                if index_key == "algo":
-                    dict_key = algo_name
-                elif index_key == "index":
-                    dict_key = (algo_name, index_name)
-                if dict_key not in results:
-                    results[dict_key] = []
-                to_add = [algo_name, index_name]
-                for key_i in key_idx:
-                    to_add.append(float(split_lines[key_i]))
-                results[dict_key].append(to_add)
+                    if index_key == "algo":
+                        dict_key = algo_name
+                    elif index_key == "index":
+                        dict_key = (algo_name, index_name)
+                    if dict_key not in results:
+                        results[dict_key] = []
+                    to_add = [algo_name, index_name]
+                    for key_i in key_idx:
+                        to_add.append(float(split_lines[key_i]))
+                    results[dict_key].append(to_add)
 
     return results
 
@@ -375,8 +363,8 @@ def main():
         build = args.build
         search = args.search
 
-    search_output_filepath = os.path.join(args.output_filepath, f"search-{args.dataset}-{k}-{batch_size}.png")
-    build_output_filepath = os.path.join(args.output_filepath, f"build-{args.dataset}-{k}-{batch_size}.png")
+    search_output_filepath = os.path.join(args.output_filepath, f"search-{args.dataset}-k{k}-batch_size{batch_size}.png")
+    build_output_filepath = os.path.join(args.output_filepath, f"build-{args.dataset}-k{k}-batch_size{batch_size}.png")
 
     search_results = load_all_results(
                         os.path.join(args.dataset_path, args.dataset),

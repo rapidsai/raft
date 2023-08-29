@@ -41,9 +41,9 @@ def find_executable(algos_conf, algo, k, batch_size):
                               executable)
     build_path = os.path.join(os.getenv("RAFT_HOME"), "cpp", "build", executable)
     if os.path.exists(conda_path):
-        return (executable, conda_path, f"{algo}-{k}-{batch_size}")
+        return (executable, conda_path, f"{algo}-k{k}-batch_size{batch_size}")
     elif os.path.exists(build_path):
-        return (executable, build_path, f"{algo}-{k}-{batch_size}")
+        return (executable, build_path, f"{algo}-k{k}-batch_size{batch_size}")
     else:
         raise FileNotFoundError(executable)
 
@@ -72,8 +72,8 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
             cmd = [ann_executable_path,
                    "--build",
                    "--data_prefix="+dataset_path,
-                   "--benchmark_out_format=csv",
-                   f"--benchmark_out={os.path.join(build_folder, f'{algo}.csv')}"]
+                   "--benchmark_out_format=json",
+                   f"--benchmark_out={os.path.join(build_folder, f'{algo}.json')}"]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
@@ -90,8 +90,8 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
                    "--benchmark_counters_tabular",
                    "--override_kv=k:%s" % k,
                    "--override_kv=n_queries:%s" % batch_size,
-                   "--benchmark_out_format=csv",
-                   f"--benchmark_out={os.path.join(search_folder, f'{algo}.csv')}"]
+                   "--benchmark_out_format=json",
+                   f"--benchmark_out={os.path.join(search_folder, f'{algo}.json')}"]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]

@@ -160,13 +160,13 @@ options:
 The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
 provided with the `dataset` argument, in which case
 a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`.
-For every algorithm run by this script, it outputs an index build statistics CSV file in `<dataset-path/<dataset>/result/build/<algo.csv>
-and an index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo.csv>.
+For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.json>`
+and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.json>`.
 
 `dataset-path` : 
 1. data is read from `<dataset-path>/<dataset>`
 2. indices are built in `<dataset-path>/<dataset>/index`
-3. search results are stored in `<dataset-path>/<dataset>/result`
+3. build/search results are stored in `<dataset-path>/<dataset>/result`
 
 `build` and `search` : if both parameters are not supplied to the script then
 it is assumed both are `True`.
@@ -174,9 +174,25 @@ it is assumed both are `True`.
 `indices` and `algorithms` : these parameters ensure that the algorithm specified for an index 
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
-#### Step 3: Plot Results
+#### Step 3: Data Export
+The script `bench/ann/data_export.py` will convert the intermediate JSON outputs produced by `bench/ann/run.py` to more
+easily readable CSV files, which are needed to build charts made by `bench/ann/plot.py`.
+
+```bash
+usage: data_export.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH]
+
+options:
+  -h, --help            show this help message and exit
+  --dataset DATASET     dataset to download (default: glove-100-inner)
+  --dataset-path DATASET_PATH
+                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
+```
+Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.csv>`
+and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
+
+#### Step 4: Plot Results
 The script `bench/ann/plot.py` will plot results for all algorithms found in index search statistics
-CSV file in `<dataset-path/<dataset>/search/result/<algo.csv>.
+CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}>.csv`.
 
 The usage of this script is:
 ```bash
