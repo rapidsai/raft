@@ -18,7 +18,7 @@
 
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
-#include <raft/util/fast_int_div.cuh>
+#include <raft/util/integer_utils.cuh>
 
 #include <curand_kernel.h>
 

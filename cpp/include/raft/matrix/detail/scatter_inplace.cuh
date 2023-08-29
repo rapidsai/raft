@@ -20,7 +20,7 @@
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/linalg/map.cuh>
 #include <raft/util/cuda_dev_essentials.cuh>
-#include <raft/util/fast_int_div.cuh>
+#include <raft/util/integer_utils.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
 namespace raft {
