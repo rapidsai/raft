@@ -80,7 +80,7 @@ def unique_id():
     """
     ID_BYTES = NCCL_UNIQUE_ID_BYTES+1
     cdef char *uid = <char *> malloc(ID_BYTES * sizeof(char))
-    get_nccl_unique_id(uid, ID_BYTES)
+    get_nccl_unique_id(uid)
     uid[ID_BYTES-1] = '\0'
     c_str = uid[:ID_BYTES-1]
     c_str
