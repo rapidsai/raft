@@ -30,6 +30,7 @@ class Configuration {
     std::string name;
     std::string algo;
     nlohmann::json build_param;
+    nlohmann::json index_conf;
     std::string file;
     std::vector<int> dev_list;
 
