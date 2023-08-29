@@ -21,10 +21,11 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 ## Running the benchmarks
 
 ### Usage
-There are 3 general steps to running the benchmarks and vizualizing the results:
+There are 4 general steps to running the benchmarks and vizualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
-3. Plot Results
+3. Data Export
+4. Plot Results
 
 We provide a collection of lightweight Python scripts that are wrappers over
 lower level scripts and executables to run our benchmarks. Either Python scripts or
@@ -46,7 +47,10 @@ python bench/ann/get_dataset.py --dataset deep-image-96-angular --normalize
 # (2) build and search index
 python bench/ann/run.py --dataset deep-image-96-inner
 
-# (3) plot results
+# (3) export data
+python bench/ann/data_export.py --dataset deep-image-96-inner
+
+# (4) plot results
 python bench/ann/plot.py --dataset deep-image-96-inner
 ```
 
@@ -82,7 +86,10 @@ python bench/ann/split_groundtruth.py --groundtruth bench/ann/data/deep-1B/deep_
 # (2) build and search index
 python bench/ann/run.py --dataset deep-1B
 
-# (3) plot results
+# (3) export data
+python bench/ann/data_export.py --dataset deep-1B
+
+# (4) plot results
 python bench/ann/plot.py --dataset deep-1B
 ```
 
