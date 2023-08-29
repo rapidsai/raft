@@ -27,8 +27,8 @@ from libcpp cimport bool
 
 cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
     void get_nccl_unique_id(char *uid) except +
-    void nccl_nccl_unique_id_from_char(ncclUniqueId *id,
-                                       char *uniqueId) except +
+    void nccl_unique_id_from_char(ncclUniqueId *id,
+                                  char *uniqueId) except +
 
 cdef extern from "nccl.h":
 

@@ -143,7 +143,7 @@ void build_comms_nccl_ucx(
  * @}
  */
 
-inline void nccl_nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId)
+inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId)
 {
   memcpy(id->internal, uniqueId, NCCL_UNIQUE_ID_BYTES);
 }
