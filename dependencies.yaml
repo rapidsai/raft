@@ -172,6 +172,7 @@ dependencies:
           - faiss-proc=*=cuda
           - matplotlib
           - pyyaml
+          - pandas
 
   cudatoolkit:
     specific:
