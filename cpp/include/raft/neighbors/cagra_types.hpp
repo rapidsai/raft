@@ -288,6 +288,17 @@ struct index : ann::index {
   }
 
   /**
+   * Replace the graph with a new graph, taking ownership of the input device
+   * matrix. The index will manage the lifetime.
+   */
+  void update_graph(raft::resources const& res,
+                    raft::device_matrix<IdxT, int64_t, row_major>&& knn_graph)
+  {
+    graph_      = std::move(knn_graph);
+    graph_view_ = graph_.view();
+  }
+
+  /**
    * Replace the graph with a new graph.
    *
    * We create a copy of the graph on the device. The index manages the lifetime of this copy.

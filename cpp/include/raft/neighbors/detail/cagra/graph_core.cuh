@@ -371,24 +371,10 @@ void optimize(raft::resources const& res,
     const double time_prune_start = cur_time();
     RAFT_LOG_DEBUG("# Pruning kNN Graph on GPUs\r");
 
-    // only make a device copy of the the graph if it isn't already accessible on the
-    // device (which might already be because of uvm/hmm/ats etc)
-    std::optional<device_matrix<IdxT, int64_t>> d_input_graph;
-    IdxT* d_input_graph_ptr = NULL;
-    switch (spatial::knn::detail::utils::check_pointer_residency(input_graph_ptr)) {
-      case spatial::knn::detail::utils::pointer_residency::host_and_device:
-      case spatial::knn::detail::utils::pointer_residency::device_only:
-        d_input_graph_ptr = input_graph_ptr;
-        break;
-      default:
-        d_input_graph.emplace(
-          raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree));
-        raft::copy(d_input_graph->data_handle(),
-                   input_graph_ptr,
-                   graph_size * input_graph_degree,
-                   resource::get_cuda_stream(res));
-        d_input_graph_ptr = d_input_graph->data_handle();
-    }
+    // Copy input_graph_ptr over to device if necessary
+    device_matrix_view_from_host d_input_graph(
+      res,
+      raft::make_host_matrix_view<IdxT, int64_t>(input_graph_ptr, graph_size, input_graph_degree));
 
     constexpr int MAX_DEGREE = 1024;
     if (input_graph_degree > MAX_DEGREE) {
@@ -410,7 +396,7 @@ void optimize(raft::resources const& res,
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
       kern_prune<MAX_DEGREE, IdxT>
         <<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
-          d_input_graph_ptr,
+          d_input_graph.view().data_handle(),
           graph_size,
           input_graph_degree,
           output_graph_degree,
@@ -427,23 +413,8 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    // if we're using a managed memory (or HMM/ATS), we don't need to make a separate copy of
-    // detour_count on the host - and can save allocating the extra host memory
-    uint8_t* host_detour_count_ptr = NULL;
-    std::optional<host_matrix<uint8_t, int64_t>> detour_count;
-    switch (spatial::knn::detail::utils::check_pointer_residency(d_detour_count.data_handle())) {
-      case spatial::knn::detail::utils::pointer_residency::host_and_device:
-        host_detour_count_ptr = d_detour_count.data_handle();
-        break;
-      default:
-        detour_count.emplace(
-          raft::make_host_matrix<uint8_t, int64_t>(graph_size, input_graph_degree));
-        raft::copy(detour_count->data_handle(),
-                   d_detour_count.data_handle(),
-                   graph_size * input_graph_degree,
-                   resource::get_cuda_stream(res));
-        host_detour_count_ptr = detour_count->data_handle();
-    }
+    host_matrix_view_from_device<uint8_t, int64_t> detour_count(res, d_detour_count.view());
+    uint8_t* host_detour_count_ptr = detour_count.view().data_handle();
 
     raft::copy(
       host_stats.data_handle(), dev_stats.data_handle(), 2, resource::get_cuda_stream(res));
