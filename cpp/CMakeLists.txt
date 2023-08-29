@@ -430,18 +430,45 @@ endif()
 
 set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
+if(RAFT_COMPILE_LIBRARY OR RAFT_COMPILE_STATIC_LIBRARY)
+  add_library(raft_objs OBJECT ${RAFT_COMPILED_SOURCE_FILES})
+  set_target_properties(
+    raft_objs
+    PROPERTIES CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+  )
+
+  target_link_libraries(
+    raft_objs
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                         # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
+
+  target_compile_options(
+    raft_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
+  # "PUBLIC")
+  target_compile_definitions(raft_objs PUBLIC "RAFT_COMPILED")
+
+  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
+  target_compile_definitions(raft_objs PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+endif()
+
 if(RAFT_COMPILE_LIBRARY)
-  add_library(raft_lib ${RAFT_COMPILED_SOURCE_FILES})
+  add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
   set_target_properties(
     raft_lib
     PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
-               CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
-               CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
@@ -452,18 +479,6 @@ if(RAFT_COMPILE_LIBRARY)
                                          # will just be cublas
            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
-  target_compile_options(
-    raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                     "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-  )
-
-  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
-  # "PUBLIC")
-  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
-
-  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
-  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
@@ -478,7 +493,7 @@ target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS
 # ##################################################################################################
 # * raft_compiled_static----------------------------------------------------------------------------
 
-add_libraft(raft_compiled_static INTERFACE)
+add_library(raft_compiled_static INTERFACE)
 
 if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
   add_library(raft::compiled_static ALIAS raft_compiled_static)
@@ -486,17 +501,12 @@ endif()
 set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
 
 if(RAFT_COMPILE_STATIC_LIBRARY)
-  add_library(raft_lib_static ${RAFT_COMPILED_SOURCE_FILES})
+  add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
   set_target_properties(
     raft_lib_static
     PROPERTIES OUTPUT_NAME raft
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
-               CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
-               CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
@@ -507,18 +517,6 @@ if(RAFT_COMPILE_STATIC_LIBRARY)
            # will just be cublas
            $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
   )
-  target_compile_options(
-    raft_lib_static PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-  )
-
-  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
-  # "PUBLIC")
-  target_compile_definitions(raft_lib_static PUBLIC "RAFT_COMPILED")
-
-  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
-  target_compile_definitions(raft_lib_static PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(raft_lib_static PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 

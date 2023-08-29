@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -416,7 +416,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
-          -DRAFT_COMPILE_STATIC_LIBRARY=${COMPILE_STATIC_LIBRARY}
+          -DRAFT_COMPILE_STATIC_LIBRARY=${COMPILE_STATIC_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
           -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
