@@ -91,7 +91,7 @@ class Configuration {
       dataset_conf_.dtype = conf.at("dtype");
     } else {
       auto filename = dataset_conf_.base_file;
-      if (!filename.compare(filename.size() - 4, 24, "fbin")) {
+      if (!filename.compare(filename.size() - 4, 4, "fbin")) {
         dataset_conf_.dtype = "float";
       } else if (!filename.compare(filename.size() - 5, 5, "u8bin")) {
         dataset_conf_.dtype = "uint8";
