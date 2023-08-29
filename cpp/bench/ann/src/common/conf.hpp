@@ -36,7 +36,6 @@ class Configuration {
     nlohmann::json build_param;
     std::string file;
     std::vector<int> dev_list;
-    nlohmann::json index_conf;
 
     int batch_size;
     int k;

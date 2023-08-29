@@ -90,6 +90,7 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
                    "--benchmark_counters_tabular",
                    "--override_kv=k:%s" % k,
                    "--override_kv=n_queries:%s" % batch_size,
+                   "--benchmark_min_warmup_time=0.01",
                    "--benchmark_out_format=csv",
                    f"--benchmark_out={os.path.join(search_folder, f'{algo}.csv')}"]
             if force:
