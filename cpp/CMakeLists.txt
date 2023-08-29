@@ -69,6 +69,7 @@ endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
+option(RAFT_COMPILE_STATIC_LIBRARY "Enable building raft static library instantiations" OFF)
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -251,22 +252,9 @@ target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENAB
 endif()
 
 # ##################################################################################################
-# * raft_compiled ------------------------------------------------------------ TODO: Currently, this
-#   package also contains the 'random' namespace (for rmat logic) We couldn't get this to work
-#   properly due to strange CI failures as noticed in the PR#778. In the long term, we should rename
-#   this package to `raft_compiled` in order to have a single pre-compiled raft package for those
-#   who need it.
-add_library(raft_compiled INTERFACE)
+# * raft_compiled ------------------------------------------------------------
 
-if(TARGET raft_compiled AND (NOT TARGET raft::compiled))
-  add_library(raft::compiled ALIAS raft_compiled)
-endif()
-
-set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
-
-if(RAFT_COMPILE_LIBRARY)
-  add_library(
-    raft_lib
+set(RAFT_COMPILED_SOURCE_FILES
     src/core/logger.cpp
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
@@ -432,7 +420,18 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
     src/util/memory_pool.cpp
-  )
+)
+
+add_library(raft_compiled INTERFACE)
+
+if(TARGET raft_compiled AND (NOT TARGET raft::compiled))
+  add_library(raft::compiled ALIAS raft_compiled)
+endif()
+
+set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
+
+if(RAFT_COMPILE_LIBRARY)
+  add_library(raft_lib ${RAFT_COMPILED_SOURCE_FILES})
   set_target_properties(
     raft_lib
     PROPERTIES OUTPUT_NAME raft
@@ -475,6 +474,63 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
 endif()
 
 target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
+
+# ##################################################################################################
+# * raft_compiled_static----------------------------------------------------------------------------
+
+add_libraft(raft_compiled_static INTERFACE)
+
+if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
+  add_library(raft::compiled_static ALIAS raft_compiled_static)
+endif()
+set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
+
+if(RAFT_COMPILE_STATIC_LIBRARY)
+  add_library(raft_lib_static ${RAFT_COMPILED_SOURCE_FILES})
+  set_target_properties(
+    raft_lib_static
+    PROPERTIES OUTPUT_NAME raft_static
+               BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
+               CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED ON
+               CUDA_STANDARD 17
+               CUDA_STANDARD_REQUIRED ON
+               POSITION_INDEPENDENT_CODE ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
+  )
+
+  target_link_libraries(
+    raft_lib_static
+    PUBLIC raft::raft
+           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+           # will just be cublas
+           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+  )
+  target_compile_options(
+    raft_lib_static PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                            "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
+  # "PUBLIC")
+  target_compile_definitions(raft_lib_static PUBLIC "RAFT_COMPILED")
+
+  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
+  target_compile_definitions(raft_lib_static PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(raft_lib_static PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
+endif()
+
+if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
+  add_library(raft::raft_lib_static ALIAS raft_lib_static)
+endif()
+
+target_link_libraries(
+  raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
+)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
