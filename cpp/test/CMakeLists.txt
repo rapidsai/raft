@@ -131,6 +131,7 @@ if(BUILD_TESTS)
       test/core/interruptible.cu
       test/core/nvtx.cpp
       test/core/mdarray.cu
+      test/core/mdspan_copy.cpp
       test/core/mdspan_utils.cu
       test/core/numpy_serializer.cu
       test/core/memory_type.cpp
@@ -440,8 +441,14 @@ if(BUILD_TESTS)
     )
   else()
     ConfigureTest(
-      NAME CORE_TEST PATH test/core/logger.cpp test/core/math_host.cpp test/core/operators_host.cpp
-      test/core/memory_type.cpp test/core/stream_view.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
+      NAME CORE_TEST PATH
+      test/core/logger.cpp
+      test/core/math_host.cpp
+      test/core/operators_host.cpp
+      test/core/memory_type.cpp
+      test/core/mdspan_copy.cpp
+      test/core/stream_view.cpp
+      OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
     )
   endif()
 endif()
