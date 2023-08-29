@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,9 @@ from libcpp cimport bool
 
 
 cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
-    void get_unique_id(char *uid, int size) except +
-    void nccl_unique_id_from_char(ncclUniqueId *id,
-                                  char *uniqueId,
-                                  int size) except +
+    void get_nccl_unique_id(char *uid) except +
+    void nccl_nccl_unique_id_from_char(ncclUniqueId *id,
+                                       char *uniqueId) except +
 
 cdef extern from "nccl.h":
 
@@ -79,9 +78,12 @@ def unique_id():
     -------
     128-byte unique id : str
     """
-    cdef char *uid = <char *> malloc(NCCL_UNIQUE_ID_BYTES * sizeof(char))
-    get_unique_id(uid, NCCL_UNIQUE_ID_BYTES)
-    c_str = uid[:NCCL_UNIQUE_ID_BYTES-1]
+    ID_BYTES = NCCL_UNIQUE_ID_BYTES+1
+    cdef char *uid = <char *> malloc(ID_BYTES * sizeof(char))
+    get_nccl_unique_id(uid, ID_BYTES)
+    uid[ID_BYTES-1] = '\0'
+    c_str = uid[:ID_BYTES-1]
+    c_str
     free(uid)
     return c_str
 
