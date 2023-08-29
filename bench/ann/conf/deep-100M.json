@@ -219,7 +219,6 @@
     {
       "name": "raft_ivf_flat.nlist100K",
       "algo": "raft_ivf_flat",
-      "dataset_memtype":"host",
       "build_param": {"nlist": 100000, "niter": 25, "ratio": 5},
       "file": "deep-100M/raft_ivf_flat/nlist100K",
       "search_params": [
@@ -236,7 +235,6 @@
     {
       "name": "raft_ivf_flat.nlist200K",
       "algo": "raft_ivf_flat",
-      "dataset_memtype":"host",
       "build_param": {"nlist": 200000, "niter": 25, "ratio": 5},
       "file": "deep-100M/raft_ivf_flat/nlist200K",
       "search_params": [
@@ -254,7 +252,6 @@
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {"nlist": 1024, "pq_dim": 128, "ratio": 1, "niter": 25
       },
       "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024",
@@ -271,7 +268,6 @@
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-float",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 128,
@@ -294,7 +290,6 @@
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-half",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 128,
@@ -315,7 +310,6 @@
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-fp8",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 128,
@@ -336,7 +330,6 @@
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-fp8",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 64,
@@ -357,7 +350,6 @@
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-half",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 64,
@@ -378,7 +370,6 @@
     {
       "name": "raft_ivf_pq.dimpq32-cluster1024-float-fp8",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 32,
@@ -399,7 +390,6 @@
     {
       "name": "raft_ivf_pq.dimpq16-cluster1024-float-fp8",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 16,
@@ -420,7 +410,6 @@
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-half-float",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 128,
@@ -441,7 +430,6 @@
     {
       "name": "raft_ivf_pq.dimpq512-cluster1024-float-float",
       "algo": "raft_ivf_pq",
-      "dataset_memtype": "device",
       "build_param": {
         "nlist": 1024,
         "pq_dim": 512,
@@ -462,7 +450,6 @@
     {
       "name": "raft_cagra.dim32",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -483,7 +470,6 @@
     {
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -504,7 +490,6 @@
     {
       "name": "raft_cagra.dim32.multi_kernel",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
@@ -525,7 +510,6 @@
     {
       "name": "raft_cagra.dim64",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
       "build_param": {"graph_degree": 64},
       "file": "deep-100M/raft_cagra/dim64",
       "search_params": [

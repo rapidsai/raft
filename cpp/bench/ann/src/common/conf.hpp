@@ -36,7 +36,6 @@ class Configuration {
     nlohmann::json build_param;
     std::string file;
     std::vector<int> dev_list;
-    nlohmann::json index_conf;
 
     int batch_size;
     int k;
@@ -92,7 +91,7 @@ class Configuration {
       dataset_conf_.dtype = conf.at("dtype");
     } else {
       auto filename = dataset_conf_.base_file;
-      if (!filename.compare(filename.size() - 4, 4, "fbin")) {
+      if (!filename.compare(filename.size() - 4, 24, "fbin")) {
         dataset_conf_.dtype = "float";
       } else if (!filename.compare(filename.size() - 5, 5, "u8bin")) {
         dataset_conf_.dtype = "uint8";
@@ -117,7 +116,6 @@ class Configuration {
       index.file        = conf.at("file");
       index.batch_size  = batch_size;
       index.k           = k;
-      index.index_conf  = conf;
 
       if (conf.contains("multigpu")) {
         for (auto it : conf.at("multigpu")) {
