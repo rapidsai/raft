@@ -199,6 +199,7 @@
     {
       "name" : "raft_ivf_flat.nlist10K",
       "algo" : "raft_ivf_flat",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 10000,
         "niter" : 25,
@@ -222,6 +223,7 @@
     {
       "name" : "raft_ivf_flat.nlist100K",
       "algo" : "raft_ivf_flat",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
@@ -246,6 +248,7 @@
     {
       "name" : "raft_ivf_pq.nlist10K",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 10000,
         "niter" : 25,
@@ -269,6 +272,7 @@
     {
       "name" : "raft_ivf_pq.nlist10Kdim64",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 10000,
         "niter" : 25,
@@ -293,6 +297,7 @@
     {
       "name" : "raft_ivf_pq.nlist10Kdim32",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 10000,
         "niter" : 25,
@@ -317,6 +322,7 @@
     {
       "name" : "raft_ivf_pq.nlist100K",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
@@ -340,6 +346,7 @@
     {
       "name" : "raft_ivf_pq.nlist100Kdim64",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
@@ -364,6 +371,7 @@
     {
       "name" : "raft_ivf_pq.nlist100Kdim32",
       "algo" : "raft_ivf_pq",
+      "dataset_memtype": "host",
       "build_param": {
         "nlist" : 100000,
         "niter" : 25,
@@ -389,6 +397,7 @@
     {
       "name" : "raft_cagra.dim32",
       "algo" : "raft_cagra",
+      "dataset_memtype": "host",
       "build_param": {
         "index_dim": 32,
         "intermediate_graph_degree": 48
@@ -619,6 +628,7 @@
     {
       "name" : "raft_cagra.dim64",
       "algo" : "raft_cagra",
+      "dataset_memtype": "host",
       "build_param": {
         "index_dim": 64
       },
