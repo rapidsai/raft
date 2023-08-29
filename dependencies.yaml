@@ -171,6 +171,7 @@ dependencies:
           - benchmark>=1.8.2
           - faiss-proc=*=cuda
           - matplotlib
+          - pandas
           - pyyaml
 
   cudatoolkit:

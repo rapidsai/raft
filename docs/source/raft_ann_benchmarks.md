@@ -180,7 +180,8 @@ CSV file in `<dataset-path/<dataset>/search/result/<algo.csv>.
 
 The usage of this script is:
 ```bash
-usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [-k COUNT] [-bs BATCH_SIZE] [--build] [--search]
+               [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
 
 options:
   -h, --help            show this help message and exit
@@ -189,6 +190,14 @@ options:
                         path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
   --output-filepath OUTPUT_FILEPATH
                         directory for PNG to be saved (default: os.getcwd())
+  --algorithms ALGORITHMS
+                        plot only comma separated list of named algorithms (default: None)
+  -k COUNT, --count COUNT
+                        the number of nearest neighbors to search for (default: 10)
+  -bs BATCH_SIZE, --batch-size BATCH_SIZE
+                        number of query vectors to use in each query trial (default: 10000)
+  --build
+  --search
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
