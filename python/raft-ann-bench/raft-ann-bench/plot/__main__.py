@@ -20,16 +20,14 @@
 # Licence: https://github.com/erikbern/ann-benchmarks/blob/main/LICENSE
 
 import argparse
-from collections import OrderedDict
 import itertools
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import os
+from collections import OrderedDict
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 mpl.use("Agg")
 
@@ -45,13 +43,16 @@ metrics = {
     },
 }
 
+
 def positive_int(input_str: str) -> int:
     try:
         i = int(input_str)
         if i < 1:
             raise ValueError
     except ValueError:
-        raise argparse.ArgumentTypeError(f"{input_str} is not a positive integer")
+        raise argparse.ArgumentTypeError(
+            f"{input_str} is not a positive integer"
+        )
 
     return i
 
@@ -118,7 +119,9 @@ def create_pointset(data, xn, yn):
     # Generate Pareto frontier
     xs, ys, ls, idxs = [], [], [], []
     last_x = xm["worst"]
-    comparator = (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    comparator = (
+        (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    )
     for algo_name, index_name, xv, yv in data:
         if not xv or not yv:
             continue
@@ -135,8 +138,9 @@ def create_pointset(data, xn, yn):
     return xs, ys, ls, idxs, axs, ays, als, aidxs
 
 
-def create_plot_search(all_data, raw, x_scale, y_scale, fn_out, linestyles,
-                dataset, k, batch_size):
+def create_plot_search(
+    all_data, raw, x_scale, y_scale, fn_out, linestyles, dataset, k, batch_size
+):
     xn = "k-nn"
     yn = "qps"
     xm, ym = (metrics[xn], metrics[yn])
@@ -147,13 +151,17 @@ def create_plot_search(all_data, raw, x_scale, y_scale, fn_out, linestyles,
 
     # Sorting by mean y-value helps aligning plots with labels
     def mean_y(algo):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(all_data[algo], xn, yn)
+        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
+            all_data[algo], xn, yn
+        )
         return -np.log(np.array(ys)).mean()
 
     # Find range for logit x-scale
     min_x, max_x = 1, 0
     for algo in sorted(all_data.keys(), key=mean_y):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(all_data[algo], xn, yn)
+        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
+            all_data[algo], xn, yn
+        )
         min_x = min([min_x] + [x for x in xs if x > 0])
         max_x = max([max_x] + [x for x in xs if x < 1])
         color, faded, linestyle, marker = linestyles[algo]
@@ -240,20 +248,21 @@ def create_plot_search(all_data, raw, x_scale, y_scale, fn_out, linestyles,
     plt.close()
 
 
-def create_plot_build(build_results, search_results, linestyles, fn_out,
-                      dataset, k, batch_size):
+def create_plot_build(
+    build_results, search_results, linestyles, fn_out, dataset, k, batch_size
+):
     xn = "k-nn"
     yn = "qps"
 
-    recall_85 = [-1] * len(linestyles)
+    # recall_85 = [-1] * len(linestyles)
     qps_85 = [-1] * len(linestyles)
     bt_85 = [0] * len(linestyles)
     i_85 = [-1] * len(linestyles)
-    recall_90 = [-1] * len(linestyles)
+    # recall_90 = [-1] * len(linestyles)
     qps_90 = [-1] * len(linestyles)
     bt_90 = [0] * len(linestyles)
     i_90 = [-1] * len(linestyles)
-    recall_95 = [-1] * len(linestyles)
+    # recall_95 = [-1] * len(linestyles)
     qps_95 = [-1] * len(linestyles)
     bt_95 = [0] * len(linestyles)
     i_95 = [-1] * len(linestyles)
@@ -262,11 +271,15 @@ def create_plot_build(build_results, search_results, linestyles, fn_out,
 
     # Sorting by mean y-value helps aligning plots with labels
     def mean_y(algo):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(search_results[algo], xn, yn)
+        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
+            search_results[algo], xn, yn
+        )
         return -np.log(np.array(ys)).mean()
 
     for pos, algo in enumerate(sorted(search_results.keys(), key=mean_y)):
-        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(search_results[algo], xn, yn)
+        xs, ys, ls, idxs, axs, ays, als, aidxs = create_pointset(
+            search_results[algo], xn, yn
+        )
         # x is recall, y is qps, ls is algo_name, idxs is index_name
         for i in range(len(xs)):
             if xs[i] >= 0.85 and xs[i] < 0.9 and ys[i] > qps_85[pos]:
@@ -284,7 +297,7 @@ def create_plot_build(build_results, search_results, linestyles, fn_out,
         data[algo] = [bt_85[pos], bt_90[pos], bt_95[pos]]
         colors[algo] = linestyles[algo][0]
 
-    index = ['@85% Recall', '@90% Recall', '@95% Recall']
+    index = ["@85% Recall", "@90% Recall", "@95% Recall"]
 
     df = pd.DataFrame(data, index=index)
     plt.figure(figsize=(12, 9))
@@ -303,54 +316,63 @@ def load_lines(results_path, result_files, method, index_key):
     linebreaker = "name,iterations"
 
     for result_filename in result_files:
-        with open(os.path.join(results_path, result_filename), 'r') as f:
-            lines = f.readlines()
-            lines = lines[:-1] if lines[-1] == "\n" else lines
-            idx = 0
-            for pos, line in enumerate(lines):
-                if linebreaker in line:
-                    idx = pos
-                    break
+        if result_filename.endswith(".csv"):
+            with open(os.path.join(results_path, result_filename), "r") as f:
+                lines = f.readlines()
+                lines = lines[:-1] if lines[-1] == "\n" else lines
+                idx = 0
+                for pos, line in enumerate(lines):
+                    if linebreaker in line:
+                        idx = pos
+                        break
 
-            if method == "build":
-                if "hnswlib" in result_filename:
-                    key_idx = [2]
-                else:
-                    key_idx = [10]
-            elif method == "search":
-                if "hnswlib" in result_filename:
-                    key_idx = [10, 6]
-                else:
-                    key_idx = [12, 10]
+                if method == "build":
+                    if "hnswlib" in result_filename:
+                        key_idx = [2]
+                    else:
+                        key_idx = [10]
+                elif method == "search":
+                    if "hnswlib" in result_filename:
+                        key_idx = [10, 6]
+                    else:
+                        key_idx = [12, 10]
 
-            for line in lines[idx+1:]:
-                split_lines = line.split(',')
+                for line in lines[idx + 1 :]:
+                    split_lines = line.split(",")
 
-                algo_name = split_lines[0].split('.')[0].strip("\"")
-                index_name = split_lines[0].split('/')[0].strip("\"")
+                    algo_name = split_lines[0].split(".")[0].strip('"')
+                    index_name = split_lines[0].split("/")[0].strip('"')
 
-                if index_key == "algo":
-                    dict_key = algo_name
-                elif index_key == "index":
-                    dict_key = (algo_name, index_name)
-                if dict_key not in results:
-                    results[dict_key] = []
-                to_add = [algo_name, index_name]
-                for key_i in key_idx:
-                    to_add.append(float(split_lines[key_i]))
-                results[dict_key].append(to_add)
+                    if index_key == "algo":
+                        dict_key = algo_name
+                    elif index_key == "index":
+                        dict_key = (algo_name, index_name)
+                    if dict_key not in results:
+                        results[dict_key] = []
+                    to_add = [algo_name, index_name]
+                    for key_i in key_idx:
+                        to_add.append(float(split_lines[key_i]))
+                    results[dict_key].append(to_add)
 
     return results
 
 
-def load_all_results(dataset_path, algorithms, k, batch_size, method, index_key):
+def load_all_results(
+    dataset_path, algorithms, k, batch_size, method, index_key
+):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
-    result_files = [result_filename for result_filename in result_files \
-                    if f"{k}-{batch_size}" in result_filename]
+    result_files = [
+        result_filename
+        for result_filename in result_files
+        if f"{k}-{batch_size}" in result_filename
+    ]
     if len(algorithms) > 0:
-        result_files = [result_filename for result_filename in result_files if \
-                        result_filename.split('-')[0] in algorithms]
+        result_files = [
+            result_filename
+            for result_filename in result_files
+            if result_filename.split("-")[0] in algorithms
+        ]
 
     results = load_lines(results_path, result_files, method, index_key)
 
@@ -359,33 +381,43 @@ def load_all_results(dataset_path, algorithms, k, batch_size, method, index_key)
 
 def main():
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--dataset", help="dataset to download",
-                        default="glove-100-inner")
-    parser.add_argument("--dataset-path", help="path to dataset folder",
-                        default=os.path.join(os.getenv("RAFT_HOME"),
-                                             "bench", "ann", "data"))
-    parser.add_argument("--output-filepath",
-                        help="directory for PNG to be saved",
-                        default=os.getcwd())
-    parser.add_argument("--algorithms",
-                        help="plot only comma separated list of named \
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--dataset", help="dataset to download", default="glove-100-inner"
+    )
+    parser.add_argument(
+        "--dataset-path",
+        help="path to dataset folder",
+        default=os.path.join(os.getenv("RAFT_HOME"), "bench", "ann", "data"),
+    )
+    parser.add_argument(
+        "--output-filepath",
+        help="directory for PNG to be saved",
+        default=os.getcwd(),
+    )
+    parser.add_argument(
+        "--algorithms",
+        help="plot only comma separated list of named \
                               algorithms",
-                        default=None)
-    parser.add_argument(
-        "-k", "--count", default=10, type=positive_int, help="the number of nearest neighbors to search for"
+        default=None,
     )
     parser.add_argument(
-        "-bs", "--batch-size", default=10000, type=positive_int, help="number of query vectors to use in each query trial"
+        "-k",
+        "--count",
+        default=10,
+        type=positive_int,
+        help="the number of nearest neighbors to search for",
     )
     parser.add_argument(
-        "--build",
-        action="store_true"
+        "-bs",
+        "--batch-size",
+        default=10000,
+        type=positive_int,
+        help="number of query vectors to use in each query trial",
     )
-    parser.add_argument(
-        "--search",
-        action="store_true"
-    )
+    parser.add_argument("--build", action="store_true")
+    parser.add_argument("--search", action="store_true")
     parser.add_argument(
         "--x-scale",
         help="Scale to use when drawing the X-axis. \
@@ -407,7 +439,7 @@ def main():
     args = parser.parse_args()
 
     if args.algorithms:
-        algorithms = args.algorithms.split(',')
+        algorithms = args.algorithms.split(",")
     else:
         algorithms = []
     k = args.count
@@ -419,22 +451,52 @@ def main():
         build = args.build
         search = args.search
 
-    search_output_filepath = os.path.join(args.output_filepath, f"search-{args.dataset}-{k}-{batch_size}.png")
-    build_output_filepath = os.path.join(args.output_filepath, f"build-{args.dataset}-{k}-{batch_size}.png")
+    search_output_filepath = os.path.join(
+        args.output_filepath, f"search-{args.dataset}-{k}-{batch_size}.png"
+    )
+    build_output_filepath = os.path.join(
+        args.output_filepath, f"build-{args.dataset}-{k}-{batch_size}.png"
+    )
 
     search_results = load_all_results(
-                        os.path.join(args.dataset_path, args.dataset),
-                        algorithms, k, batch_size, "search", "algo")
+        os.path.join(args.dataset_path, args.dataset),
+        algorithms,
+        k,
+        batch_size,
+        "search",
+        "algo",
+    )
     linestyles = create_linestyles(sorted(search_results.keys()))
     if search:
-        create_plot_search(search_results, args.raw, args.x_scale, args.y_scale,
-                           search_output_filepath, linestyles, args.dataset, k, batch_size)
+        create_plot_search(
+            search_results,
+            args.raw,
+            args.x_scale,
+            args.y_scale,
+            search_output_filepath,
+            linestyles,
+            args.dataset,
+            k,
+            batch_size,
+        )
     if build:
         build_results = load_all_results(
             os.path.join(args.dataset_path, args.dataset),
-            algorithms, k, batch_size, "build", "index")
-        create_plot_build(build_results, search_results, linestyles, build_output_filepath,
-                          args.dataset, k, batch_size)
+            algorithms,
+            k,
+            batch_size,
+            "build",
+            "index",
+        )
+        create_plot_build(
+            build_results,
+            search_results,
+            linestyles,
+            build_output_filepath,
+            args.dataset,
+            k,
+            batch_size,
+        )
 
 
 if __name__ == "__main__":

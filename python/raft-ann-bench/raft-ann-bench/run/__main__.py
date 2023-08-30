@@ -95,8 +95,9 @@ def run_build_and_search(
                 ann_executable_path,
                 "--build",
                 "--data_prefix=" + dataset_path,
-                "--benchmark_out_format=csv",
-                f"--benchmark_out={os.path.join(build_folder, f'{algo}.csv')}",
+                "--benchmark_out_format=json",
+                "--benchmark_out="
+                + f"{os.path.join(build_folder, f'{algo}.json')}",
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -116,9 +117,9 @@ def run_build_and_search(
                 "--override_kv=k:%s" % k,
                 "--override_kv=n_queries:%s" % batch_size,
                 "--benchmark_min_warmup_time=0.01",
-                "--benchmark_out_format=csv",
+                "--benchmark_out_format=json",
                 "--benchmark_out="
-                + f"{os.path.join(search_folder, f'{algo}.csv')}",
+                + f"{os.path.join(search_folder, f'{algo}.json')}",
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
