@@ -51,15 +51,26 @@ def find_executable(algos_conf, algo, k, batch_size):
         print("-- Using RAFT bench found in conda environment: ")
         return (executable, conda_path, f"{algo}-{k}-{batch_size}")
     elif os.path.exists(build_path):
-        print(f"-- Using RAFT bench from repository specified in {build_path}: ")
+        print(
+            f"-- Using RAFT bench from repository specified in {build_path}: "
+        )
         return (executable, build_path, f"{algo}-{k}-{batch_size}")
     else:
         raise FileNotFoundError(executable)
 
 
-def run_build_and_search(conf_file, conf_filename, conf_filedir,
-                         executables_to_run, dataset_path, force,
-                         build, search, k, batch_size):
+def run_build_and_search(
+    conf_file,
+    conf_filename,
+    conf_filedir,
+    executables_to_run,
+    dataset_path,
+    force,
+    build,
+    search,
+    k,
+    batch_size,
+):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
         temp_conf_filename = f"temporary_{conf_filename}"
@@ -68,21 +79,25 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
-            temp_conf["index"] = executables_to_run[(executable,
-                                                     ann_executable_path,
-                                                     algo)]["index"]
+            temp_conf["index"] = executables_to_run[
+                (executable, ann_executable_path, algo)
+            ]["index"]
             json.dump(temp_conf, f)
 
-        legacy_result_folder = os.path.join(dataset_path, conf_file['dataset']['name'], 'result')
+        legacy_result_folder = os.path.join(
+            dataset_path, conf_file["dataset"]["name"], "result"
+        )
         os.makedirs(legacy_result_folder, exist_ok=True)
         if build:
             build_folder = os.path.join(legacy_result_folder, "build")
             os.makedirs(build_folder, exist_ok=True)
-            cmd = [ann_executable_path,
-                   "--build",
-                   "--data_prefix="+dataset_path,
-                   "--benchmark_out_format=csv",
-                   f"--benchmark_out={os.path.join(build_folder, f'{algo}.csv')}"]
+            cmd = [
+                ann_executable_path,
+                "--build",
+                "--data_prefix=" + dataset_path,
+                "--benchmark_out_format=csv",
+                f"--benchmark_out={os.path.join(build_folder, f'{algo}.csv')}",
+            ]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
@@ -93,14 +108,18 @@ def run_build_and_search(conf_file, conf_filename, conf_filedir,
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
             os.makedirs(search_folder, exist_ok=True)
-            cmd = [ann_executable_path,
-                   "--search",
-                   "--data_prefix="+dataset_path,
-                   "--benchmark_counters_tabular",
-                   "--override_kv=k:%s" % k,
-                   "--override_kv=n_queries:%s" % batch_size,
-                   "--benchmark_out_format=csv",
-                   f"--benchmark_out={os.path.join(search_folder, f'{algo}.csv')}"]
+            cmd = [
+                ann_executable_path,
+                "--search",
+                "--data_prefix=" + dataset_path,
+                "--benchmark_counters_tabular",
+                "--override_kv=k:%s" % k,
+                "--override_kv=n_queries:%s" % batch_size,
+                "--benchmark_min_warmup_time=0.01",
+                "--benchmark_out_format=csv",
+                "--benchmark_out="
+                + f"{os.path.join(search_folder, f'{algo}.csv')}",
+            ]
             if force:
                 cmd = cmd + ["--overwrite"]
             cmd = cmd + [temp_conf_filepath]
@@ -201,11 +220,14 @@ def main():
     if args.configuration:
         conf_filepath = args.configuration
     elif args.dataset:
-        conf_filepath = \
-            os.path.join(scripts_path, "conf", f"{args.dataset}.json")
+        conf_filepath = os.path.join(
+            scripts_path, "conf", f"{args.dataset}.json"
+        )
     else:
-        raise ValueError("One of parameters `configuration` or \
-                         `dataset` need to be provided")
+        raise ValueError(
+            "One of parameters `configuration` or \
+                         `dataset` need to be provided"
+        )
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
     dataset_name = conf_filename.replace(".json", "")
@@ -226,9 +248,12 @@ def main():
         # and enabled
         for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if index["name"] in indices and \
-                    validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
+            if index["name"] in indices and validate_algorithm(
+                algos_conf, curr_algo
+            ):
+                executable_path = find_executable(
+                    algos_conf, curr_algo, k, batch_size
+                )
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
@@ -240,9 +265,12 @@ def main():
         # and are enabled in algos.yaml
         for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if curr_algo in algorithms and \
-                    validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
+            if curr_algo in algorithms and validate_algorithm(
+                algos_conf, curr_algo
+            ):
+                executable_path = find_executable(
+                    algos_conf, curr_algo, k, batch_size
+                )
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
@@ -252,21 +280,35 @@ def main():
         for index in conf_file["index"]:
             curr_algo = index["algo"]
             if validate_algorithm(algos_conf, curr_algo):
-                executable_path = find_executable(algos_conf, curr_algo, k, batch_size)
+                executable_path = find_executable(
+                    algos_conf, curr_algo, k, batch_size
+                )
                 if executable_path not in executables_to_run:
                     executables_to_run[executable_path] = {"index": []}
                 executables_to_run[executable_path]["index"].append(index)
 
     # Replace index to dataset path
     for executable_path in executables_to_run:
-        for pos, index in enumerate(executables_to_run[executable_path]["index"]):
-            index["file"] = os.path.join(dataset_path, dataset_name, "index", index["name"])
+        for pos, index in enumerate(
+            executables_to_run[executable_path]["index"]
+        ):
+            index["file"] = os.path.join(
+                dataset_path, dataset_name, "index", index["name"]
+            )
             executables_to_run[executable_path]["index"][pos] = index
 
-    run_build_and_search(conf_file, conf_filename, conf_filedir,
-                         executables_to_run, dataset_path,
-                         args.force, build, search,
-                         k, batch_size)
+    run_build_and_search(
+        conf_file,
+        conf_filename,
+        conf_filedir,
+        executables_to_run,
+        dataset_path,
+        args.force,
+        build,
+        search,
+        k,
+        batch_size,
+    )
 
 
 if __name__ == "__main__":

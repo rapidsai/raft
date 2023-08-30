@@ -184,14 +184,13 @@ dependencies:
           - libfaiss>=1.7.1
           - benchmark>=1.8.2
           - faiss-proc=*=cuda
-          - matplotlib
-          - pyyaml
   nn_bench_python:
     common:
       - output_types: [conda]
         packages:
           - matplotlib
           - pyyaml
+          - pandas
 
   cudatoolkit:
     specific:
