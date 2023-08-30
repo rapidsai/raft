@@ -189,6 +189,7 @@ dependencies:
       - output_types: [conda]
         packages:
           - matplotlib
+          - pandas
           - pyyaml
           - pandas
 

@@ -252,7 +252,6 @@ endif()
 
 # ##################################################################################################
 # * Dynamically-loading ANN_BENCH executable -------------------------------------------------------
-
 if(RAFT_ANN_BENCH_SINGLE_EXE)
   add_executable(ANN_BENCH bench/ann/src/common/benchmark.cpp)
 

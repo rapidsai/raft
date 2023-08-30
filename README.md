@@ -386,10 +386,21 @@ If citing the sparse pairwise distances API, please consider using the following
 If citing the single-linkage agglomerative clustering APIs, please consider the following bibtex:
 ```bibtex
 @misc{nolet2023cuslink,
-      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU}, 
+      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU},
       author={Corey J. Nolet and Divye Gala and Alex Fender and Mahesh Doijade and Joe Eaton and Edward Raff and John Zedlewski and Brad Rees and Tim Oates},
       year={2023},
       eprint={2306.16354},
       archivePrefix={arXiv},
       primaryClass={cs.LG}
+}
+
+If citing CAGRA, please consider the following bibtex:
+```bibtex
+@misc{ootomo2023cagra,
+      title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
+      author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
+      year={2023},
+      eprint={2308.15136},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS}
 }
