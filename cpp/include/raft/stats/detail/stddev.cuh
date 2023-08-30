@@ -27,7 +27,7 @@ namespace detail {
 
 ///@todo: ColPerBlk has been tested only for 32!
 template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
-_RAFT_KERNEL void stddevKernelRowMajor(Type* std, const Type* data, IdxType D, IdxType N)
+RAFT_KERNEL_ void stddevKernelRowMajor(Type* std, const Type* data, IdxType D, IdxType N)
 {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
   IdxType thisColId           = threadIdx.x % ColsPerBlk;
@@ -49,7 +49,7 @@ _RAFT_KERNEL void stddevKernelRowMajor(Type* std, const Type* data, IdxType D, I
 }
 
 template <typename Type, typename IdxType, int TPB>
-_RAFT_KERNEL void stddevKernelColMajor(
+RAFT_KERNEL_ void stddevKernelColMajor(
   Type* std, const Type* data, const Type* mu, IdxType D, IdxType N)
 {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
@@ -67,7 +67,7 @@ _RAFT_KERNEL void stddevKernelColMajor(
 }
 
 template <typename Type, typename IdxType, int TPB>
-_RAFT_KERNEL void varsKernelColMajor(
+RAFT_KERNEL_ void varsKernelColMajor(
   Type* var, const Type* data, const Type* mu, IdxType D, IdxType N)
 {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;

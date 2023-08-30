@@ -195,7 +195,7 @@ template <typename DataT,
           int NumThreadQ,
           bool usePrevTopKs = false,
           bool isRowMajor   = true>
-_RAFT_KERNEL __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x,
+RAFT_KERNEL_ __launch_bounds__(Policy::Nthreads, 2) void fusedL2kNN(const DataT* x,
                                                                     const DataT* y,
                                                                     const DataT* _xn,
                                                                     const DataT* _yn,

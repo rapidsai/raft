@@ -52,7 +52,7 @@ template <typename InType,
           typename ReduceLambda,
           int TPB,
           typename... Args>
-_RAFT_KERNEL void mapThenReduceKernel(OutType* out,
+RAFT_KERNEL_ void mapThenReduceKernel(OutType* out,
                                       IdxType len,
                                       OutType neutral,
                                       MapOp map,

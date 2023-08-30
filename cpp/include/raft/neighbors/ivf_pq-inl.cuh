@@ -54,9 +54,9 @@ namespace raft::neighbors::ivf_pq {
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-RAFT_HOST_TEMPLATE index<IdxT> build(raft::resources const& handle,
-                                     const index_params& params,
-                                     raft::device_matrix_view<const T, IdxT, row_major> dataset)
+index<IdxT> build(raft::resources const& handle,
+                  const index_params& params,
+                  raft::device_matrix_view<const T, IdxT, row_major> dataset)
 {
   IdxT n_rows = dataset.extent(0);
   IdxT dim    = dataset.extent(1);
@@ -77,11 +77,10 @@ RAFT_HOST_TEMPLATE index<IdxT> build(raft::resources const& handle,
  * @param[inout] idx
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE index<IdxT> extend(
-  raft::resources const& handle,
-  raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-  std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
-  const index<IdxT>& idx)
+index<IdxT> extend(raft::resources const& handle,
+                   raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+                   std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
+                   const index<IdxT>& idx)
 {
   ASSERT(new_vectors.extent(1) == idx.dim(),
          "new_vectors should have the same dimension as the index");
@@ -113,11 +112,10 @@ RAFT_HOST_TEMPLATE index<IdxT> extend(
  * @param[inout] idx
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void extend(
-  raft::resources const& handle,
-  raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
-  std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
-  index<IdxT>* idx)
+void extend(raft::resources const& handle,
+            raft::device_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::device_vector_view<const IdxT, IdxT>> new_indices,
+            index<IdxT>* idx)
 {
   ASSERT(new_vectors.extent(1) == idx->dim(),
          "new_vectors should have the same dimension as the index");
@@ -162,14 +160,13 @@ RAFT_HOST_TEMPLATE void extend(
  * @param[in] sample_filter a filter the greenlights samples for a given query.
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
-RAFT_HOST_TEMPLATE void search_with_filtering(
-  raft::resources const& handle,
-  const search_params& params,
-  const index<IdxT>& idx,
-  raft::device_matrix_view<const T, uint32_t, row_major> queries,
-  raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
-  raft::device_matrix_view<float, uint32_t, row_major> distances,
-  IvfSampleFilterT sample_filter = IvfSampleFilterT{})
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           raft::device_matrix_view<const T, uint32_t, row_major> queries,
+                           raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+                           raft::device_matrix_view<float, uint32_t, row_major> distances,
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT{})
 {
   RAFT_EXPECTS(
     queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
@@ -219,12 +216,12 @@ RAFT_HOST_TEMPLATE void search_with_filtering(
  * k]
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void search(raft::resources const& handle,
-                               const search_params& params,
-                               const index<IdxT>& idx,
-                               raft::device_matrix_view<const T, uint32_t, row_major> queries,
-                               raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
-                               raft::device_matrix_view<float, uint32_t, row_major> distances)
+void search(raft::resources const& handle,
+            const search_params& params,
+            const index<IdxT>& idx,
+            raft::device_matrix_view<const T, uint32_t, row_major> queries,
+            raft::device_matrix_view<IdxT, uint32_t, row_major> neighbors,
+            raft::device_matrix_view<float, uint32_t, row_major> distances)
 {
   search_with_filtering(handle,
                         params,
@@ -270,11 +267,11 @@ RAFT_HOST_TEMPLATE void search(raft::resources const& handle,
  * @return the constructed ivf-pq index
  */
 template <typename T, typename IdxT = uint32_t>
-RAFT_HOST_TEMPLATE auto build(raft::resources const& handle,
-                              const index_params& params,
-                              const T* dataset,
-                              IdxT n_rows,
-                              uint32_t dim) -> index<IdxT>
+auto build(raft::resources const& handle,
+           const index_params& params,
+           const T* dataset,
+           IdxT n_rows,
+           uint32_t dim) -> index<IdxT>
 {
   return detail::build(handle, params, dataset, n_rows, dim);
 }
@@ -312,11 +309,11 @@ RAFT_HOST_TEMPLATE auto build(raft::resources const& handle,
  * @return the constructed extended ivf-pq index
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE auto extend(raft::resources const& handle,
-                               const index<IdxT>& idx,
-                               const T* new_vectors,
-                               const IdxT* new_indices,
-                               IdxT n_rows) -> index<IdxT>
+auto extend(raft::resources const& handle,
+            const index<IdxT>& idx,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows) -> index<IdxT>
 {
   return detail::extend(handle, idx, new_vectors, new_indices, n_rows);
 }
@@ -336,11 +333,11 @@ RAFT_HOST_TEMPLATE auto extend(raft::resources const& handle,
  * @param[in] n_rows the number of samples
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void extend(raft::resources const& handle,
-                               index<IdxT>* idx,
-                               const T* new_vectors,
-                               const IdxT* new_indices,
-                               IdxT n_rows)
+void extend(raft::resources const& handle,
+            index<IdxT>* idx,
+            const T* new_vectors,
+            const IdxT* new_indices,
+            IdxT n_rows)
 {
   detail::extend(handle, idx, new_vectors, new_indices, n_rows);
 }
@@ -388,15 +385,15 @@ RAFT_HOST_TEMPLATE void extend(raft::resources const& handle,
  * @param[in] sample_filter a filter the greenlights samples for a given query
  */
 template <typename T, typename IdxT, typename IvfSampleFilterT>
-RAFT_HOST_TEMPLATE void search_with_filtering(raft::resources const& handle,
-                                              const search_params& params,
-                                              const index<IdxT>& idx,
-                                              const T* queries,
-                                              uint32_t n_queries,
-                                              uint32_t k,
-                                              IdxT* neighbors,
-                                              float* distances,
-                                              IvfSampleFilterT sample_filter = IvfSampleFilterT{})
+void search_with_filtering(raft::resources const& handle,
+                           const search_params& params,
+                           const index<IdxT>& idx,
+                           const T* queries,
+                           uint32_t n_queries,
+                           uint32_t k,
+                           IdxT* neighbors,
+                           float* distances,
+                           IvfSampleFilterT sample_filter = IvfSampleFilterT{})
 {
   detail::search(handle, params, idx, queries, n_queries, k, neighbors, distances, sample_filter);
 }
@@ -474,14 +471,14 @@ search_with_filtering(raft::resources const& handle,
  * @param[out] distances a device pointer to the distances to the selected neighbors [n_queries, k]
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void search(raft::resources const& handle,
-                               const search_params& params,
-                               const index<IdxT>& idx,
-                               const T* queries,
-                               uint32_t n_queries,
-                               uint32_t k,
-                               IdxT* neighbors,
-                               float* distances)
+void search(raft::resources const& handle,
+            const search_params& params,
+            const index<IdxT>& idx,
+            const T* queries,
+            uint32_t n_queries,
+            uint32_t k,
+            IdxT* neighbors,
+            float* distances)
 {
   return search_with_filtering(handle,
                                params,

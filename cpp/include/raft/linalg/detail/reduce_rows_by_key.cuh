@@ -33,7 +33,7 @@ namespace detail {
 //
 
 template <typename IteratorT1, typename IteratorT2>
-void _RAFT_KERNEL convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
+void RAFT_KERNEL_ convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
 {
   for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n; idx += gridDim.x * blockDim.x) {
     dst[idx] = src[idx];
@@ -95,7 +95,7 @@ struct quadSum {
 template <typename DataIteratorT, typename WeightT, typename SumsT, typename IdxT>
 __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4)
 
-  _RAFT_KERNEL void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A,
+  RAFT_KERNEL_ void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A,
                                                        IdxT lda,
                                                        const char* d_keys,
                                                        const WeightT* d_weights,
@@ -193,7 +193,7 @@ template <typename DataIteratorT,
           typename WeightT,
           typename SumsT,
           typename IdxT>
-_RAFT_KERNEL void sum_rows_by_key_large_nkeys_kernel_colmajor(const DataIteratorT d_A,
+RAFT_KERNEL_ void sum_rows_by_key_large_nkeys_kernel_colmajor(const DataIteratorT d_A,
                                                               IdxT lda,
                                                               KeysIteratorT d_keys,
                                                               const WeightT* d_weights,
@@ -269,7 +269,7 @@ template <typename DataIteratorT,
           typename WeightT,
           typename SumsT,
           typename IdxT>
-_RAFT_KERNEL void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
+RAFT_KERNEL_ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
                                                               IdxT lda,
                                                               const WeightT* d_weights,
                                                               KeysIteratorT d_keys,

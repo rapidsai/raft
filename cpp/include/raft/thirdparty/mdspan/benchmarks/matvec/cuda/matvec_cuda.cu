@@ -97,7 +97,7 @@ inline void cuda_internal_safe_call(cudaError e, const char* name,
 
 
 template <class F, class... Args>
-_RAFT_KERNEL
+RAFT_KERNEL_
 void do_run_kernel(F f, Args... args) {
   f(args...);
 }

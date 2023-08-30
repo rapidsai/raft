@@ -39,7 +39,7 @@ namespace op {
 namespace detail {
 
 template <typename T, int TPB_X = 256, typename Lambda = auto(T, T, T)->void>
-_RAFT_KERNEL void csr_row_op_kernel(const T* row_ind, T n_rows, T nnz, Lambda op)
+RAFT_KERNEL_ void csr_row_op_kernel(const T* row_ind, T n_rows, T nnz, Lambda op)
 {
   T row = blockIdx.x * TPB_X + threadIdx.x;
   if (row < n_rows) {

@@ -155,7 +155,7 @@ void build_dendrogram_host(raft::resources const& handle,
 }
 
 template <typename value_idx>
-_RAFT_KERNEL void write_levels_kernel(const value_idx* children,
+RAFT_KERNEL_ void write_levels_kernel(const value_idx* children,
                                       value_idx* parents,
                                       value_idx n_vertices)
 {
@@ -179,7 +179,7 @@ _RAFT_KERNEL void write_levels_kernel(const value_idx* children,
  * @param labels
  */
 template <typename value_idx>
-_RAFT_KERNEL void inherit_labels(const value_idx* children,
+RAFT_KERNEL_ void inherit_labels(const value_idx* children,
                                  const value_idx* levels,
                                  std::size_t n_leaves,
                                  value_idx* labels,

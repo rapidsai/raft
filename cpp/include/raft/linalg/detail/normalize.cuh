@@ -35,7 +35,7 @@ template <typename Policy,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-_RAFT_KERNEL void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL_ void __launch_bounds__(Policy::ThreadsPerBlock)
   coalesced_normalize_thin_kernel(Type* out,
                                   const Type* in,
                                   IdxType D,
@@ -92,7 +92,7 @@ template <int TPB,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-_RAFT_KERNEL void __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* out,
+RAFT_KERNEL_ void __launch_bounds__(TPB) coalesced_normalize_medium_kernel(Type* out,
                                                                            const Type* in,
                                                                            IdxType D,
                                                                            IdxType N,

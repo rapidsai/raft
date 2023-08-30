@@ -109,7 +109,7 @@ float accuracy_score(const math_t* predictions,
 }
 
 template <typename T>
-_RAFT_KERNEL void reg_metrics_kernel(
+RAFT_KERNEL_ void reg_metrics_kernel(
   const T* predictions, const T* ref_predictions, int n, double* abs_diffs, double* tmp_sums)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;

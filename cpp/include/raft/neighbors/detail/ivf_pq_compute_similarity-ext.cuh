@@ -42,7 +42,7 @@ template <typename OutT,
           int Capacity,
           bool PrecompBaseDiff,
           bool EnableSMemLut>
-_RAFT_KERNEL void compute_similarity_kernel(uint32_t dim,
+RAFT_KERNEL_ void compute_similarity_kernel(uint32_t dim,
                                             uint32_t n_probes,
                                             uint32_t pq_dim,
                                             uint32_t n_queries,

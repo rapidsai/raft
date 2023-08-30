@@ -40,7 +40,7 @@ typedef enum {
 } ContingencyMatrixImplType;
 
 template <typename T, typename OutT = int>
-_RAFT_KERNEL void devConstructContingencyMatrix(const T* groundTruth,
+RAFT_KERNEL_ void devConstructContingencyMatrix(const T* groundTruth,
                                                 const T* predicted,
                                                 int nSamples,
                                                 OutT* outMat,
@@ -75,7 +75,7 @@ void computeCMatWAtomics(const T* groundTruth,
 }
 
 template <typename T, typename OutT = int>
-_RAFT_KERNEL void devConstructContingencyMatrixSmem(const T* groundTruth,
+RAFT_KERNEL_ void devConstructContingencyMatrixSmem(const T* groundTruth,
                                                     const T* predicted,
                                                     int nSamples,
                                                     OutT* outMat,

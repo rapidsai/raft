@@ -757,7 +757,7 @@ int _get_vecLen(uint32_t maxSamples, int maxVecLen = MAX_VEC_LENGTH)
 }  // unnamed namespace
 
 template <int blockDim_x, int stateBitLen, int vecLen, int maxTopk, int numSortThreads, class ValT>
-__launch_bounds__(1024, 1) _RAFT_KERNEL
+__launch_bounds__(1024, 1) RAFT_KERNEL_
   void kern_topk_cta_11(uint32_t topk,
                         uint32_t size_batch,
                         uint32_t len_x,

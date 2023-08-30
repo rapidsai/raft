@@ -38,7 +38,7 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
 }
 
 template <class InT, typename IdxType, typename OutT = InT>
-_RAFT_KERNEL void add_dev_scalar_kernel(OutT* outDev,
+RAFT_KERNEL_ void add_dev_scalar_kernel(OutT* outDev,
                                         const InT* inDev,
                                         const InT* singleScalarDev,
                                         IdxType len)

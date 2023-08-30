@@ -87,7 +87,7 @@ DI T atomicMinBits(T* address, T val)
 }
 
 template <typename T, typename E>
-_RAFT_KERNEL void decodeKernel(T* globalmin, T* globalmax, int ncols)
+RAFT_KERNEL_ void decodeKernel(T* globalmin, T* globalmax, int ncols)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < ncols) {
@@ -98,7 +98,7 @@ _RAFT_KERNEL void decodeKernel(T* globalmin, T* globalmax, int ncols)
 
 ///@todo: implement a proper "fill" kernel
 template <typename T, typename E>
-_RAFT_KERNEL void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
+RAFT_KERNEL_ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init_val)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
@@ -107,7 +107,7 @@ _RAFT_KERNEL void minmaxInitKernel(int ncols, T* globalmin, T* globalmax, T init
 }
 
 template <typename T, typename E>
-_RAFT_KERNEL void minmaxKernel(const T* data,
+RAFT_KERNEL_ void minmaxKernel(const T* data,
                                const unsigned int* rowids,
                                const unsigned int* colids,
                                int nrows,

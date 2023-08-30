@@ -38,7 +38,7 @@ void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream
 }
 
 template <class math_t, typename IdxType>
-_RAFT_KERNEL void subtract_dev_scalar_kernel(math_t* outDev,
+RAFT_KERNEL_ void subtract_dev_scalar_kernel(math_t* outDev,
                                              const math_t* inDev,
                                              const math_t* singleScalarDev,
                                              IdxType len)

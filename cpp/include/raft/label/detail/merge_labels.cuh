@@ -32,7 +32,7 @@ namespace detail {
  *  For an additional cost we can build the graph with edges
  *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
 template <typename value_idx, int TPB_X = 256>
-_RAFT_KERNEL void __launch_bounds__(TPB_X)
+RAFT_KERNEL_ void __launch_bounds__(TPB_X)
   propagate_label_kernel(const value_idx* __restrict__ labels_a,
                          const value_idx* __restrict__ labels_b,
                          value_idx* __restrict__ R,
@@ -65,7 +65,7 @@ _RAFT_KERNEL void __launch_bounds__(TPB_X)
 }
 
 template <typename value_idx, int TPB_X = 256>
-_RAFT_KERNEL void __launch_bounds__(TPB_X)
+RAFT_KERNEL_ void __launch_bounds__(TPB_X)
   reassign_label_kernel(value_idx* __restrict__ labels_a,
                         const value_idx* __restrict__ labels_b,
                         const value_idx* __restrict__ R,

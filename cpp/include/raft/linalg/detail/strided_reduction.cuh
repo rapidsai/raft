@@ -30,7 +30,7 @@ namespace detail {
 // of the matrix, i.e. reduce along columns for row major or reduce along rows
 // for column major layout
 template <typename Type, typename MainLambda>
-_RAFT_KERNEL void stridedSummationKernel(
+RAFT_KERNEL_ void stridedSummationKernel(
   Type* dots, const Type* data, int D, int N, Type init, MainLambda main_op)
 {
   // Thread reduction
@@ -68,7 +68,7 @@ template <typename InType,
           typename IdxType,
           typename MainLambda,
           typename ReduceLambda>
-_RAFT_KERNEL void stridedReductionKernel(OutType* dots,
+RAFT_KERNEL_ void stridedReductionKernel(OutType* dots,
                                          const InType* data,
                                          int D,
                                          int N,

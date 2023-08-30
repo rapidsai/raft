@@ -40,7 +40,7 @@ namespace detail {
  * Only if the there are > 1 samples in the label, row is initialized to max
  */
 template <typename value_t, typename value_idx, typename label_idx>
-_RAFT_KERNEL void fill_b_kernel(value_t* b,
+RAFT_KERNEL_ void fill_b_kernel(value_t* b,
                                 const label_idx* y,
                                 value_idx n_rows,
                                 label_idx n_labels,
@@ -78,7 +78,7 @@ _RAFT_KERNEL void fill_b_kernel(value_t* b,
  * current chunked pairwise distance matrix.
  */
 template <typename value_t, typename value_idx, typename label_idx>
-_RAFT_KERNEL void compute_chunked_a_b_kernel(value_t* a,
+RAFT_KERNEL_ void compute_chunked_a_b_kernel(value_t* a,
                                              value_t* b,
                                              value_idx row_offset,
                                              value_idx col_offset,

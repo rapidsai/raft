@@ -35,7 +35,7 @@ namespace distance {
 namespace detail {
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-_RAFT_KERNEL void compute_binary_row_norm_kernel(value_t* out,
+RAFT_KERNEL_ void compute_binary_row_norm_kernel(value_t* out,
                                                  const value_idx* __restrict__ coo_rows,
                                                  const value_t* __restrict__ data,
                                                  value_idx nnz)
@@ -51,7 +51,7 @@ _RAFT_KERNEL void compute_binary_row_norm_kernel(value_t* out,
 }
 
 template <typename value_idx, typename value_t, typename expansion_f>
-_RAFT_KERNEL void compute_binary_warp_kernel(value_t* __restrict__ C,
+RAFT_KERNEL_ void compute_binary_warp_kernel(value_t* __restrict__ C,
                                              const value_t* __restrict__ Q_norms,
                                              const value_t* __restrict__ R_norms,
                                              value_idx n_rows,

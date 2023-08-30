@@ -47,7 +47,7 @@ template <typename Policy,
           typename MapTransformOp,
           typename OutputIteratorT,
           typename IndexT>
-_RAFT_KERNEL void gather_kernel(const InputIteratorT in,
+RAFT_KERNEL_ void gather_kernel(const InputIteratorT in,
                                 IndexT D,
                                 IndexT len,
                                 const MapIteratorT map,

@@ -29,7 +29,7 @@ namespace detail {
 ///@todo: specialize this to support shared-mem based atomics
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-_RAFT_KERNEL void reduce_cols_by_key_direct_kernel(
+RAFT_KERNEL_ void reduce_cols_by_key_direct_kernel(
   const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
@@ -44,7 +44,7 @@ _RAFT_KERNEL void reduce_cols_by_key_direct_kernel(
 }
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-_RAFT_KERNEL void reduce_cols_by_key_cached_kernel(
+RAFT_KERNEL_ void reduce_cols_by_key_cached_kernel(
   const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
 {
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;

@@ -30,7 +30,7 @@ template <typename value_idx = std::int64_t,
           int warp_q,
           int thread_q,
           int tpb>
-_RAFT_KERNEL void knn_merge_parts_kernel(const value_t* inK,
+RAFT_KERNEL_ void knn_merge_parts_kernel(const value_t* inK,
                                          const value_idx* inV,
                                          value_t* outK,
                                          value_idx* outV,

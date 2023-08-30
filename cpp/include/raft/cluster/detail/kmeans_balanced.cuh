@@ -434,7 +434,7 @@ template <uint32_t BlockDimY,
           typename LabelT,
           typename CounterT,
           typename MappingOpT>
-_RAFT_KERNEL void __launch_bounds__((WarpSize * BlockDimY))
+RAFT_KERNEL_ void __launch_bounds__((WarpSize * BlockDimY))
   adjust_centers_kernel(MathT* centers,  // [n_clusters, dim]
                         IdxT n_clusters,
                         IdxT dim,

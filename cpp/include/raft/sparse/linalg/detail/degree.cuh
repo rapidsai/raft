@@ -40,7 +40,7 @@ namespace detail {
  * @param results array to place results
  */
 template <int TPB_X = 64, typename T = int>
-_RAFT_KERNEL void coo_degree_kernel(const T* rows, int nnz, T* results)
+RAFT_KERNEL_ void coo_degree_kernel(const T* rows, int nnz, T* results)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz) { atomicAdd(results + rows[row], (T)1); }
@@ -65,14 +65,14 @@ void coo_degree(const T* rows, int nnz, T* results, cudaStream_t stream)
 }
 
 template <int TPB_X = 64, typename T>
-_RAFT_KERNEL void coo_degree_nz_kernel(const int* rows, const T* vals, int nnz, int* results)
+RAFT_KERNEL_ void coo_degree_nz_kernel(const int* rows, const T* vals, int nnz, int* results)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < nnz && vals[row] != 0.0) { raft::myAtomicAdd(results + rows[row], 1); }
 }
 
 template <int TPB_X = 64, typename T>
-_RAFT_KERNEL void coo_degree_scalar_kernel(
+RAFT_KERNEL_ void coo_degree_scalar_kernel(
   const int* rows, const T* vals, int nnz, T scalar, int* results)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;

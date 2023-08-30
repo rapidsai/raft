@@ -40,7 +40,7 @@ template <typename DataT,
           typename KVPReduceOpT,
           typename CoreLambda,
           typename FinalLambda>
-_RAFT_KERNEL __launch_bounds__(P::Nthreads, 2) void masked_l2_nn_kernel(OutT* min,
+RAFT_KERNEL_ __launch_bounds__(P::Nthreads, 2) void masked_l2_nn_kernel(OutT* min,
                                                                         const DataT* x,
                                                                         const DataT* y,
                                                                         const DataT* xn,

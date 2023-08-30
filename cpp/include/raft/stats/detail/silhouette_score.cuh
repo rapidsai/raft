@@ -55,7 +55,7 @@ namespace detail {
  * @param MAX_VAL: DataT specific upper limit
  */
 template <typename DataT, typename LabelT>
-_RAFT_KERNEL void populateAKernel(DataT* sampleToClusterSumOfDistances,
+RAFT_KERNEL_ void populateAKernel(DataT* sampleToClusterSumOfDistances,
                                   DataT* binCountArray,
                                   DataT* d_aArray,
                                   const LabelT* labels,

@@ -50,9 +50,7 @@ namespace raft::neighbors::cagra {
  *
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
-                                  std::ostream& os,
-                                  const index<T, IdxT>& index)
+void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index)
 {
   detail::serialize(handle, os, index);
 }
@@ -82,9 +80,9 @@ RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
  *
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
-                                  const std::string& filename,
-                                  const index<T, IdxT>& index)
+void serialize(raft::resources const& handle,
+               const std::string& filename,
+               const index<T, IdxT>& index)
 {
   detail::serialize(handle, filename, index);
 }
@@ -115,7 +113,7 @@ RAFT_HOST_TEMPLATE void serialize(raft::resources const& handle,
  * @return raft::neighbors::experimental::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
+index<T, IdxT> deserialize(raft::resources const& handle, std::istream& is)
 {
   return detail::deserialize<T, IdxT>(handle, is);
 }
@@ -146,8 +144,7 @@ RAFT_HOST_TEMPLATE index<T, IdxT> deserialize(raft::resources const& handle, std
  * @return raft::neighbors::experimental::cagra::index<T, IdxT>
  */
 template <typename T, typename IdxT>
-RAFT_HOST_TEMPLATE index<T, IdxT> deserialize(raft::resources const& handle,
-                                              const std::string& filename)
+index<T, IdxT> deserialize(raft::resources const& handle, const std::string& filename)
 {
   return detail::deserialize<T, IdxT>(handle, filename);
 }

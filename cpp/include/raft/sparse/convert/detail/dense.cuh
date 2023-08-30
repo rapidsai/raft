@@ -39,7 +39,7 @@ namespace convert {
 namespace detail {
 
 template <typename value_t>
-_RAFT_KERNEL void csr_to_dense_warp_per_row_kernel(
+RAFT_KERNEL_ void csr_to_dense_warp_per_row_kernel(
   int n_cols, const value_t* csrVal, const int* csrRowPtr, const int* csrColInd, value_t* a)
 {
   int row = blockIdx.x;

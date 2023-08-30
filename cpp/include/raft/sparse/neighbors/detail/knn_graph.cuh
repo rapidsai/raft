@@ -45,7 +45,7 @@ namespace raft::sparse::neighbors::detail {
  * @param m
  */
 template <typename value_idx>
-_RAFT_KERNEL void fill_indices(value_idx* indices, size_t m, size_t nnz)
+RAFT_KERNEL_ void fill_indices(value_idx* indices, size_t m, size_t nnz)
 {
   value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;
@@ -62,7 +62,7 @@ value_idx build_k(value_idx n_samples, int c)
 }
 
 template <typename in_t, typename out_t>
-_RAFT_KERNEL void conv_indices_kernel(in_t* inds, out_t* out, size_t nnz)
+RAFT_KERNEL_ void conv_indices_kernel(in_t* inds, out_t* out, size_t nnz)
 {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid >= nnz) return;

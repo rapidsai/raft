@@ -38,7 +38,7 @@ namespace convert {
 namespace detail {
 
 template <typename value_idx = int, int TPB_X = 32>
-_RAFT_KERNEL void csr_to_coo_kernel(const value_idx* row_ind,
+RAFT_KERNEL_ void csr_to_coo_kernel(const value_idx* row_ind,
                                     value_idx m,
                                     value_idx* coo_rows,
                                     value_idx nnz)

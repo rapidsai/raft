@@ -42,7 +42,7 @@ namespace cache {
  * @param [out] out vectors collected from the cache, size [n_vec * n]
  */
 template <typename math_t, typename idx_t, typename int_t>
-_RAFT_KERNEL void get_vecs(
+RAFT_KERNEL_ void get_vecs(
   const math_t* cache, int_t n_vec, const idx_t* cache_idx, int_t n, math_t* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -83,7 +83,7 @@ _RAFT_KERNEL void get_vecs(
  * @param [in] n_cache_vecs
  */
 template <typename math_t>
-_RAFT_KERNEL void store_vecs(const math_t* tile,
+RAFT_KERNEL_ void store_vecs(const math_t* tile,
                              int n_tile,
                              int n_vec,
                              const int* tile_idx,
@@ -256,7 +256,7 @@ DI void rank_set_entries(const int* cache_time, int n_cache_sets, int* rank)
  *   not be cached, size [n]
  */
 template <int nthreads, int associativity>
-_RAFT_KERNEL void assign_cache_idx(const int* keys,
+RAFT_KERNEL_ void assign_cache_idx(const int* keys,
                                    int n,
                                    const int* cache_set,
                                    int* cached_keys,
@@ -329,7 +329,7 @@ _RAFT_KERNEL void assign_cache_idx(const int* keys,
  * @param [in] time iteration counter (used for time stamping)
  */
 template <typename = void>
-_RAFT_KERNEL void get_cache_idx(int* keys,
+RAFT_KERNEL_ void get_cache_idx(int* keys,
                                 int n,
                                 int* cached_keys,
                                 int n_cache_sets,

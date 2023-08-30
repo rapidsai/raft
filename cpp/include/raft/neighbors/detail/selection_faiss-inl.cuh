@@ -25,7 +25,7 @@
 namespace raft::neighbors::detail {
 
 template <typename payload_t, typename key_t, bool select_min, int warp_q, int thread_q, int tpb>
-_RAFT_KERNEL void select_k_kernel(const key_t* inK,
+RAFT_KERNEL_ void select_k_kernel(const key_t* inK,
                                   const payload_t* inV,
                                   size_t n_rows,
                                   size_t n_cols,

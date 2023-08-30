@@ -26,7 +26,7 @@
 namespace raft::sparse::solver::detail {
 
 template <typename vertex_t, typename edge_t, typename alteration_t>
-_RAFT_KERNEL void kernel_min_edge_per_vertex(const edge_t* offsets,
+RAFT_KERNEL_ void kernel_min_edge_per_vertex(const edge_t* offsets,
                                              const vertex_t* indices,
                                              const alteration_t* weights,
                                              const vertex_t* color,
@@ -107,7 +107,7 @@ _RAFT_KERNEL void kernel_min_edge_per_vertex(const edge_t* offsets,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-_RAFT_KERNEL void min_edge_per_supervertex(const vertex_t* color,
+RAFT_KERNEL_ void min_edge_per_supervertex(const vertex_t* color,
                                            const vertex_t* color_index,
                                            edge_t* new_mst_edge,
                                            bool* mst_edge,
@@ -166,7 +166,7 @@ _RAFT_KERNEL void min_edge_per_supervertex(const vertex_t* color,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-_RAFT_KERNEL void add_reverse_edge(const edge_t* new_mst_edge,
+RAFT_KERNEL_ void add_reverse_edge(const edge_t* new_mst_edge,
                                    const vertex_t* indices,
                                    const weight_t* weights,
                                    vertex_t* temp_src,
@@ -215,7 +215,7 @@ _RAFT_KERNEL void add_reverse_edge(const edge_t* new_mst_edge,
 
 // executes for newly added mst edges and updates the colors of both vertices to the lower color
 template <typename vertex_t, typename edge_t>
-_RAFT_KERNEL void min_pair_colors(const vertex_t v,
+RAFT_KERNEL_ void min_pair_colors(const vertex_t v,
                                   const vertex_t* indices,
                                   const edge_t* new_mst_edge,
                                   const vertex_t* color,
@@ -248,7 +248,7 @@ _RAFT_KERNEL void min_pair_colors(const vertex_t v,
 
 // for each vertex, update color if it was changed in min_pair_colors kernel
 template <typename vertex_t>
-_RAFT_KERNEL void update_colors(const vertex_t v,
+RAFT_KERNEL_ void update_colors(const vertex_t v,
                                 vertex_t* color,
                                 const vertex_t* color_index,
                                 const vertex_t* next_color,
@@ -271,7 +271,7 @@ _RAFT_KERNEL void update_colors(const vertex_t v,
 
 // point vertices to their final color index
 template <typename vertex_t>
-_RAFT_KERNEL void final_color_indices(const vertex_t v,
+RAFT_KERNEL_ void final_color_indices(const vertex_t v,
                                       const vertex_t* color,
                                       vertex_t* color_index)
 {
@@ -298,7 +298,7 @@ _RAFT_KERNEL void final_color_indices(const vertex_t v,
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
 // Consider using curand device API instead of precomputed random_values array
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-_RAFT_KERNEL void alteration_kernel(const vertex_t v,
+RAFT_KERNEL_ void alteration_kernel(const vertex_t v,
                                     const edge_t e,
                                     const edge_t* offsets,
                                     const vertex_t* indices,
@@ -319,7 +319,7 @@ _RAFT_KERNEL void alteration_kernel(const vertex_t v,
 }
 
 template <typename vertex_t, typename edge_t>
-_RAFT_KERNEL void kernel_count_new_mst_edges(const vertex_t* mst_src,
+RAFT_KERNEL_ void kernel_count_new_mst_edges(const vertex_t* mst_src,
                                              edge_t* mst_edge_count,
                                              const vertex_t v)
 {

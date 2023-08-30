@@ -46,7 +46,7 @@ namespace op {
 namespace detail {
 
 template <typename value_idx>
-_RAFT_KERNEL void compute_duplicates_diffs_kernel(const value_idx* rows,
+RAFT_KERNEL_ void compute_duplicates_diffs_kernel(const value_idx* rows,
                                                   const value_idx* cols,
                                                   value_idx* diff,
                                                   size_t nnz)
@@ -60,7 +60,7 @@ _RAFT_KERNEL void compute_duplicates_diffs_kernel(const value_idx* rows,
 }
 
 template <typename value_idx, typename value_t>
-_RAFT_KERNEL void max_duplicates_kernel(const value_idx* src_rows,
+RAFT_KERNEL_ void max_duplicates_kernel(const value_idx* src_rows,
                                         const value_idx* src_cols,
                                         const value_t* src_vals,
                                         const value_idx* index,

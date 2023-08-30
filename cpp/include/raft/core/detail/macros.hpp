@@ -54,18 +54,12 @@
 
 #if defined(_RAFT_HAS_CUDA)
 #if !defined(__CUDACC_RDC__)
-#define _RAFT_KERNEL static __global__
+#define RAFT_KERNEL_ static __global__
 #else
-#define _RAFT_KERNEL __attribute__((visibility("hidden"))) __global__
+#define RAFT_KERNEL_ __attribute__((visibility("hidden"))) __global__
 #endif
 #else
-#define _RAFT_KERNEL
-#endif
-
-#if !defined(RAFT_COMPILED)
-#define RAFT_HOST_TEMPLATE __attribute__((visibility("hidden")))
-#else
-#define RAFT_HOST_TEMPLATE
+#define RAFT_KERNEL_
 #endif
 
 // The RAFT_INLINE_CONDITIONAL is a conditional inline specifier that removes

@@ -54,7 +54,7 @@ struct SmemPerBlock {
 };
 
 template <typename InType>
-_RAFT_KERNEL void devLayoutIdx(InType* in, int n_cols, int totalElements)
+RAFT_KERNEL_ void devLayoutIdx(InType* in, int n_cols, int totalElements)
 {
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int n   = n_cols;
@@ -63,7 +63,7 @@ _RAFT_KERNEL void devLayoutIdx(InType* in, int n_cols, int totalElements)
 }
 
 template <typename T>
-_RAFT_KERNEL void devOffsetKernel(T* in, T value, int n_times)
+RAFT_KERNEL_ void devOffsetKernel(T* in, T value, int n_times)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < n_times) in[idx] = idx * value;
@@ -76,7 +76,7 @@ template <
   int BLOCK_SIZE,
   int ITEMS_PER_THREAD,
   typename std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid, InType>::type* = nullptr>
-_RAFT_KERNEL void __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
+RAFT_KERNEL_ void __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
                                                                        InType* outputKeys,
                                                                        OutType* inputVals,
                                                                        int n_rows,
@@ -124,7 +124,7 @@ template <
   int BLOCK_SIZE,
   int ITEMS_PER_THREAD,
   typename std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid), InType>::type* = nullptr>
-_RAFT_KERNEL void devKeyValSortColumnPerRow(const InType* inputKeys,
+RAFT_KERNEL_ void devKeyValSortColumnPerRow(const InType* inputKeys,
                                             InType* outputKeys,
                                             OutType* inputVals,
                                             int n_rows,

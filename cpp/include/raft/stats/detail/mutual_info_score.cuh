@@ -51,7 +51,7 @@ namespace detail {
  * @param d_MI: pointer to the device memory that stores the aggregate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-_RAFT_KERNEL void mutual_info_kernel(const int* dContingencyMatrix,
+RAFT_KERNEL_ void mutual_info_kernel(const int* dContingencyMatrix,
                                      const int* a,
                                      const int* b,
                                      int numUniqueClasses,

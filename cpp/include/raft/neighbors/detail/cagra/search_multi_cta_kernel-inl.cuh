@@ -132,7 +132,7 @@ template <unsigned TEAM_SIZE,
           class DISTANCE_T,
           class INDEX_T,
           class LOAD_T>
-__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) _RAFT_KERNEL void search_kernel(
+__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) RAFT_KERNEL_ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
@@ -330,7 +330,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) _RAFT_KERNEL void search_kernel(
 }
 
 template <class T>
-_RAFT_KERNEL void set_value_batch_kernel(T* const dev_ptr,
+RAFT_KERNEL_ void set_value_batch_kernel(T* const dev_ptr,
                                          const std::size_t ld,
                                          const T val,
                                          const std::size_t count,

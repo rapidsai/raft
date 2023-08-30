@@ -44,13 +44,13 @@ namespace raft::neighbors::cagra::detail {
 namespace multi_kernel_search {
 
 template <class T>
-_RAFT_KERNEL void set_value_kernel(T* const dev_ptr, const T val)
+RAFT_KERNEL_ void set_value_kernel(T* const dev_ptr, const T val)
 {
   *dev_ptr = val;
 }
 
 template <class T>
-_RAFT_KERNEL void set_value_kernel(T* const dev_ptr, const T val, const std::size_t count)
+RAFT_KERNEL_ void set_value_kernel(T* const dev_ptr, const T val, const std::size_t count)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count) { return; }
@@ -72,7 +72,7 @@ void set_value(T* const dev_ptr, const T val, const std::size_t count, cudaStrea
 }
 
 template <class T>
-_RAFT_KERNEL void get_value_kernel(T* const host_ptr, const T* const dev_ptr)
+RAFT_KERNEL_ void get_value_kernel(T* const host_ptr, const T* const dev_ptr)
 {
   *host_ptr = *dev_ptr;
 }
@@ -89,7 +89,7 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
-_RAFT_KERNEL void random_pickup_kernel(
+RAFT_KERNEL_ void random_pickup_kernel(
   const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
@@ -203,7 +203,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
 }
 
 template <class INDEX_T>
-_RAFT_KERNEL void pickup_next_parents_kernel(
+RAFT_KERNEL_ void pickup_next_parents_kernel(
   INDEX_T* const parent_candidates_ptr,        // [num_queries, lds]
   const std::size_t lds,                       // (*) lds >= parent_candidates_size
   const std::uint32_t parent_candidates_size,  //
@@ -307,7 +307,7 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class INDEX_T,
           class DISTANCE_T>
-_RAFT_KERNEL void compute_distance_to_child_nodes_kernel(
+RAFT_KERNEL_ void compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   const std::uint32_t search_width,
   const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
@@ -408,7 +408,7 @@ void compute_distance_to_child_nodes(
 }
 
 template <class INDEX_T>
-_RAFT_KERNEL void remove_parent_bit_kernel(const std::uint32_t num_queries,
+RAFT_KERNEL_ void remove_parent_bit_kernel(const std::uint32_t num_queries,
                                            const std::uint32_t num_topk,
                                            INDEX_T* const topk_indices_ptr,  // [ld, num_queries]
                                            const std::uint32_t ld)
@@ -437,7 +437,7 @@ void remove_parent_bit(const std::uint32_t num_queries,
 }
 
 template <class T>
-_RAFT_KERNEL void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_dst]
+RAFT_KERNEL_ void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_dst]
                                         const uint64_t ld_dst,
                                         const T* const src,  // [batch_size, ld_src]
                                         const uint64_t ld_src,
@@ -469,7 +469,7 @@ void batched_memcpy(T* const dst,        // [batch_size, ld_dst]
 }
 
 template <class T>
-_RAFT_KERNEL void set_value_batch_kernel(T* const dev_ptr,
+RAFT_KERNEL_ void set_value_batch_kernel(T* const dev_ptr,
                                          const std::size_t ld,
                                          const T val,
                                          const std::size_t count,

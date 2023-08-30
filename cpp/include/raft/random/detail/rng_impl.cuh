@@ -35,7 +35,7 @@ namespace detail {
  * as well as triple chevron kernel calls, see the following code example
  * @code
  * template <int C1, int C2, typename GenType>
- * _RAFT_KERNEL void my_kernel(DeviceState<GenType> state, int arg1) { ... }
+ * RAFT_KERNEL_ void my_kernel(DeviceState<GenType> state, int arg1) { ... }
  *
  * template <int C1, typename GenType, int C2 = 2>
  * void foo(DeviceState<GenType> state, int arg1) {

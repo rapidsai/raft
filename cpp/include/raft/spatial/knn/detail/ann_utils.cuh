@@ -221,7 +221,7 @@ inline void memzero(T* ptr, IdxT n_elems, rmm::cuda_stream_view stream)
 }
 
 template <typename T, typename IdxT>
-_RAFT_KERNEL void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
+RAFT_KERNEL_ void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c)
 {
   IdxT gid = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);
   IdxT i   = gid / len_b;
@@ -231,7 +231,7 @@ _RAFT_KERNEL void outer_add_kernel(const T* a, IdxT len_a, const T* b, IdxT len_
 }
 
 template <typename T, typename IdxT>
-_RAFT_KERNEL void block_copy_kernel(const IdxT* in_offsets,
+RAFT_KERNEL_ void block_copy_kernel(const IdxT* in_offsets,
                                     const IdxT* out_offsets,
                                     IdxT n_blocks,
                                     const T* in_data,
@@ -314,7 +314,7 @@ void outer_add(const T* a, IdxT len_a, const T* b, IdxT len_b, T* c, rmm::cuda_s
 }
 
 template <typename T, typename S, typename IdxT, typename LabelT>
-_RAFT_KERNEL void copy_selected_kernel(
+RAFT_KERNEL_ void copy_selected_kernel(
   IdxT n_rows, IdxT n_cols, const S* src, const LabelT* row_ids, IdxT ld_src, T* dst, IdxT ld_dst)
 {
   IdxT gid   = threadIdx.x + blockDim.x * static_cast<IdxT>(blockIdx.x);

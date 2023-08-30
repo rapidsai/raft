@@ -49,7 +49,7 @@ namespace detail {
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
 template <int TPB_X = 128, typename T, typename Lambda>
-_RAFT_KERNEL void coo_symmetrize_kernel(int* row_ind,
+RAFT_KERNEL_ void coo_symmetrize_kernel(int* row_ind,
                                         int* rows,
                                         int* cols,
                                         T* vals,
@@ -174,7 +174,7 @@ void coo_symmetrize(COO<T>* in,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename value_idx = int64_t, typename value_t = float>
-_RAFT_KERNEL static void symmetric_find_size(const value_t* __restrict__ data,
+RAFT_KERNEL_ static void symmetric_find_size(const value_t* __restrict__ data,
                                              const value_idx* __restrict__ indices,
                                              const value_idx n,
                                              const int k,
@@ -202,7 +202,7 @@ _RAFT_KERNEL static void symmetric_find_size(const value_t* __restrict__ data,
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
 template <typename value_idx>
-_RAFT_KERNEL static void reduce_find_size(const value_idx n,
+RAFT_KERNEL_ static void reduce_find_size(const value_idx n,
                                           const int k,
                                           value_idx* __restrict__ row_sizes,
                                           const value_idx* __restrict__ row_sizes2)
@@ -227,7 +227,7 @@ _RAFT_KERNEL static void reduce_find_size(const value_idx n,
  * @param k: Number of n_neighbors
  */
 template <typename value_idx = int64_t, typename value_t = float>
-_RAFT_KERNEL static void symmetric_sum(value_idx* __restrict__ edges,
+RAFT_KERNEL_ static void symmetric_sum(value_idx* __restrict__ edges,
                                        const value_t* __restrict__ data,
                                        const value_idx* __restrict__ indices,
                                        value_t* __restrict__ VAL,

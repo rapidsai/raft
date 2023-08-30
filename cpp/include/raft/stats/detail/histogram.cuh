@@ -75,7 +75,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner, C
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-_RAFT_KERNEL void gmemHistKernel(
+RAFT_KERNEL_ void gmemHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
@@ -109,7 +109,7 @@ void gmemHist(int* bins,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, bool UseMatchAny>
-_RAFT_KERNEL void smemHistKernel(
+RAFT_KERNEL_ void smemHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
@@ -204,7 +204,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId)
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS, int VecLen>
-_RAFT_KERNEL void smemBitsHistKernel(
+RAFT_KERNEL_ void smemBitsHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
@@ -287,7 +287,7 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col)
 
 ///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-_RAFT_KERNEL void smemHashHistKernel(int* bins,
+RAFT_KERNEL_ void smemHashHistKernel(int* bins,
                                      const DataT* data,
                                      IdxT nrows,
                                      IdxT nbins,

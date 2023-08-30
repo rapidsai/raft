@@ -69,7 +69,7 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
 }
 
 template <class DATA_T, class IdxT, int numElementsPerThread>
-_RAFT_KERNEL void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
+RAFT_KERNEL_ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
                             const IdxT dataset_size,
                             const uint32_t dataset_dim,
                             IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
@@ -125,7 +125,7 @@ _RAFT_KERNEL void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size
 }
 
 template <int MAX_DEGREE, class IdxT>
-_RAFT_KERNEL void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
+RAFT_KERNEL_ void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
                              const uint32_t graph_size,
                              const uint32_t graph_degree,
                              const uint32_t degree,
@@ -188,7 +188,7 @@ _RAFT_KERNEL void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size,
 }
 
 template <class IdxT>
-_RAFT_KERNEL void kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
+RAFT_KERNEL_ void kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
                                       IdxT* const rev_graph,            // [size, degree]
                                       uint32_t* const rev_graph_count,  // [graph_size]
                                       const uint32_t graph_size,

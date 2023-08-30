@@ -94,7 +94,7 @@ void matVecAdd(
 
 // helper kernels
 template <typename T>
-_RAFT_KERNEL void combined_dot_product(int rows, int cols, const T* W, T* matrix, int* check)
+RAFT_KERNEL_ void combined_dot_product(int rows, int cols, const T* W, T* matrix, int* check)
 {
   int m_i = threadIdx.x + blockDim.x * blockIdx.x;
   int Wi  = m_i / cols;
@@ -108,7 +108,7 @@ _RAFT_KERNEL void combined_dot_product(int rows, int cols, const T* W, T* matrix
 
 template <typename T>  // if uplo = 0, lower part of dim x dim matrix set to
 // value
-_RAFT_KERNEL void fill_uplo(int dim, Filler uplo, T value, T* A)
+RAFT_KERNEL_ void fill_uplo(int dim, Filler uplo, T value, T* A)
 {
   int j = threadIdx.x + blockDim.x * blockIdx.x;
   int i = threadIdx.y + blockDim.y * blockIdx.y;

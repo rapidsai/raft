@@ -44,7 +44,7 @@ namespace op {
 namespace detail {
 
 template <int TPB_X, typename T>
-_RAFT_KERNEL void coo_remove_scalar_kernel(const int* rows,
+RAFT_KERNEL_ void coo_remove_scalar_kernel(const int* rows,
                                            const int* cols,
                                            const T* vals,
                                            int nnz,

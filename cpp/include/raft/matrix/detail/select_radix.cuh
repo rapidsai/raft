@@ -422,7 +422,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
 }
 
 template <typename T, typename IdxT, int BitsPerPass>
-_RAFT_KERNEL void last_filter_kernel(const T* in,
+RAFT_KERNEL_ void last_filter_kernel(const T* in,
                                      const IdxT* in_idx,
                                      const T* in_buf,
                                      const IdxT* in_idx_buf,
@@ -525,7 +525,7 @@ _RAFT_KERNEL void last_filter_kernel(const T* in,
  * their indices.
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
-_RAFT_KERNEL void radix_kernel(const T* in,
+RAFT_KERNEL_ void radix_kernel(const T* in,
                                const IdxT* in_idx,
                                const T* in_buf,
                                const IdxT* in_idx_buf,
@@ -920,7 +920,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-_RAFT_KERNEL void radix_topk_one_block_kernel(const T* in,
+RAFT_KERNEL_ void radix_topk_one_block_kernel(const T* in,
                                               const IdxT* in_idx,
                                               const IdxT len,
                                               const IdxT k,

@@ -72,7 +72,7 @@ namespace detail {
  * @param b: number of pairs of points that both the clusters have classified differently
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-_RAFT_KERNEL void computeTheNumerator(
+RAFT_KERNEL_ void computeTheNumerator(
   const T* firstClusterArray, const T* secondClusterArray, uint64_t size, uint64_t* a, uint64_t* b)
 {
   // calculating the indices of pairs of datapoints compared by the current thread

@@ -662,7 +662,7 @@ template <int ITEMS_PER_CALL,
           typename LenType,
           typename GenType,
           typename ParamType>
-_RAFT_KERNEL void rngKernel(DeviceState<GenType> rng_state,
+RAFT_KERNEL_ void rngKernel(DeviceState<GenType> rng_state,
                             OutType* ptr,
                             LenType len,
                             ParamType params)
@@ -682,7 +682,7 @@ _RAFT_KERNEL void rngKernel(DeviceState<GenType> rng_state,
 }
 
 template <typename GenType, typename OutType, typename WeightType, typename IdxType>
-_RAFT_KERNEL void sample_with_replacement_kernel(DeviceState<GenType> rng_state,
+RAFT_KERNEL_ void sample_with_replacement_kernel(DeviceState<GenType> rng_state,
                                                  OutType* out,
                                                  const WeightType* weights_csum,
                                                  IdxType sampledLen,
@@ -723,7 +723,7 @@ template <typename OutType,
           typename GenType,
           int ITEMS_PER_CALL,
           typename ParamType>
-_RAFT_KERNEL void fillKernel(
+RAFT_KERNEL_ void fillKernel(
   uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
 {
   LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;

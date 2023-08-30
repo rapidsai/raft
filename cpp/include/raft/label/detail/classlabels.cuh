@@ -119,7 +119,7 @@ void getOvrlabels(
 // +/-1, return array with the new class labels and corresponding indices.
 
 template <typename Type, int TPB_X, typename Lambda>
-_RAFT_KERNEL void map_label_kernel(Type* map_ids,
+RAFT_KERNEL_ void map_label_kernel(Type* map_ids,
                                    size_t N_labels,
                                    Type* in,
                                    Type* out,

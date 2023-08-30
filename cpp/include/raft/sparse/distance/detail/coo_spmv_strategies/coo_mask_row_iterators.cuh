@@ -83,7 +83,7 @@ class mask_row_it {
 };
 
 template <typename value_idx>
-_RAFT_KERNEL void fill_chunk_indices_kernel(value_idx* n_chunks_per_row,
+RAFT_KERNEL_ void fill_chunk_indices_kernel(value_idx* n_chunks_per_row,
                                             value_idx* chunk_indices,
                                             value_idx n_rows)
 {

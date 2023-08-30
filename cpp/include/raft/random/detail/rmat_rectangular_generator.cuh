@@ -74,7 +74,7 @@ DI void store_ids(
 }
 
 template <typename IdxT, typename ProbT>
-_RAFT_KERNEL void rmat_gen_kernel(IdxT* out,
+RAFT_KERNEL_ void rmat_gen_kernel(IdxT* out,
                                   IdxT* out_src,
                                   IdxT* out_dst,
                                   const ProbT* theta,
@@ -134,7 +134,7 @@ void rmat_rectangular_gen_caller(IdxT* out,
 }
 
 template <typename IdxT, typename ProbT>
-_RAFT_KERNEL void rmat_gen_kernel(IdxT* out,
+RAFT_KERNEL_ void rmat_gen_kernel(IdxT* out,
                                   IdxT* out_src,
                                   IdxT* out_dst,
                                   ProbT a,

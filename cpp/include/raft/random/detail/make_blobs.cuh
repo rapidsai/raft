@@ -92,7 +92,7 @@ DI void get_mu_sigma(DataT& mu,
 }
 
 template <typename DataT, typename IdxT, typename GenType>
-_RAFT_KERNEL void generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
+RAFT_KERNEL_ void generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
                                        DataT* out,
                                        const IdxT* labels,
                                        IdxT n_rows,

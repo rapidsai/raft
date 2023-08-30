@@ -371,7 +371,7 @@ void sort_by_color(raft::resources const& handle,
 }
 
 template <typename value_idx, typename value_t>
-_RAFT_KERNEL void min_components_by_color_kernel(value_idx* out_rows,
+RAFT_KERNEL_ void min_components_by_color_kernel(value_idx* out_rows,
                                                  value_idx* out_cols,
                                                  value_t* out_vals,
                                                  const value_idx* out_index,

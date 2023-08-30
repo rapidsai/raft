@@ -159,7 +159,7 @@ __device__ void __augment(vertex_t* d_row_assignments,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_rowReduction(
+RAFT_KERNEL_ void kernel_rowReduction(
   weight_t const* d_costs, weight_t* d_row_duals, int SP, vertex_t N, weight_t infinity)
 {
   int spid     = blockIdx.y * blockDim.y + threadIdx.y;
@@ -181,7 +181,7 @@ _RAFT_KERNEL void kernel_rowReduction(
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_columnReduction(weight_t const* d_costs,
+RAFT_KERNEL_ void kernel_columnReduction(weight_t const* d_costs,
                                          weight_t const* d_row_duals,
                                          weight_t* d_col_duals,
                                          int SP,
@@ -209,7 +209,7 @@ _RAFT_KERNEL void kernel_columnReduction(weight_t const* d_costs,
 
 // Kernel for calculating initial assignments.
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_computeInitialAssignments(weight_t const* d_costs,
+RAFT_KERNEL_ void kernel_computeInitialAssignments(weight_t const* d_costs,
                                                    weight_t const* d_row_duals,
                                                    weight_t const* d_col_duals,
                                                    vertex_t* d_row_assignments,
@@ -249,7 +249,7 @@ _RAFT_KERNEL void kernel_computeInitialAssignments(weight_t const* d_costs,
 
 // Kernel for populating the cover arrays and initializing alternating tree.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_computeRowCovers(
+RAFT_KERNEL_ void kernel_computeRowCovers(
   vertex_t* d_row_assignments, int* d_row_covers, int* d_row_visited, int SP, vertex_t N)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
@@ -268,7 +268,7 @@ _RAFT_KERNEL void kernel_computeRowCovers(
 
 // Kernel for populating the predicate matrix for edges in row major format.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_rowPredicateConstructionCSR(
+RAFT_KERNEL_ void kernel_rowPredicateConstructionCSR(
   bool* d_predicates, vertex_t* d_addresses, int* d_row_visited, int SP, vertex_t N)
 {
   int spid  = blockIdx.y * blockDim.y + threadIdx.y;
@@ -289,7 +289,7 @@ _RAFT_KERNEL void kernel_rowPredicateConstructionCSR(
 
 // Kernel for scattering the edges based on the scatter addresses.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_rowScatterCSR(bool const* d_predicates,
+RAFT_KERNEL_ void kernel_rowScatterCSR(bool const* d_predicates,
                                        vertex_t const* d_addresses,
                                        vertex_t* d_neighbors,
                                        vertex_t* d_ptrs,
@@ -316,7 +316,7 @@ _RAFT_KERNEL void kernel_rowScatterCSR(bool const* d_predicates,
 
 // Kernel for finding the minimum zero cover.
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_coverAndExpand(bool* d_flag,
+RAFT_KERNEL_ void kernel_coverAndExpand(bool* d_flag,
                                         vertex_t const* d_ptrs,
                                         vertex_t const* d_neighbors,
                                         weight_t const* d_elements,
@@ -362,7 +362,7 @@ _RAFT_KERNEL void kernel_coverAndExpand(bool* d_flag,
 
 // Kernel for constructing the predicates for reverse pass or augmentation candidates.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_augmentPredicateConstruction(bool* d_predicates,
+RAFT_KERNEL_ void kernel_augmentPredicateConstruction(bool* d_predicates,
                                                       vertex_t* d_addresses,
                                                       int* d_visited,
                                                       int size)
@@ -383,7 +383,7 @@ _RAFT_KERNEL void kernel_augmentPredicateConstruction(bool* d_predicates,
 
 // Kernel for scattering the vertices based on the scatter addresses.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_augmentScatter(vertex_t* d_elements,
+RAFT_KERNEL_ void kernel_augmentScatter(vertex_t* d_elements,
                                         bool const* d_predicates,
                                         vertex_t const* d_addresses,
                                         std::size_t size)
@@ -397,7 +397,7 @@ _RAFT_KERNEL void kernel_augmentScatter(vertex_t* d_elements,
 
 // Kernel for executing the reverse pass of the maximum matching algorithm.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_reverseTraversal(vertex_t* d_elements,
+RAFT_KERNEL_ void kernel_reverseTraversal(vertex_t* d_elements,
                                           VertexData<vertex_t> d_row_data,
                                           VertexData<vertex_t> d_col_data,
                                           int size)
@@ -416,7 +416,7 @@ _RAFT_KERNEL void kernel_reverseTraversal(vertex_t* d_elements,
 
 // Kernel for executing the augmentation pass of the maximum matching algorithm.
 template <typename vertex_t>
-_RAFT_KERNEL void kernel_augmentation(vertex_t* d_row_assignments,
+RAFT_KERNEL_ void kernel_augmentation(vertex_t* d_row_assignments,
                                       vertex_t* d_col_assignments,
                                       vertex_t const* d_row_elements,
                                       VertexData<vertex_t> d_row_data,
@@ -440,7 +440,7 @@ _RAFT_KERNEL void kernel_augmentation(vertex_t* d_row_assignments,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_dualUpdate_1(weight_t* d_sp_min,
+RAFT_KERNEL_ void kernel_dualUpdate_1(weight_t* d_sp_min,
                                       weight_t const* d_col_slacks,
                                       int const* d_col_covers,
                                       int SP,
@@ -468,7 +468,7 @@ _RAFT_KERNEL void kernel_dualUpdate_1(weight_t* d_sp_min,
 //  FIXME:  Once cuda 10.2 is the standard should replace passing infinity
 //          here with using cuda::std::numeric_limits<weight_t>::max()
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_dualUpdate_2(weight_t const* d_sp_min,
+RAFT_KERNEL_ void kernel_dualUpdate_2(weight_t const* d_sp_min,
                                       weight_t* d_row_duals,
                                       weight_t* d_col_duals,
                                       weight_t* d_col_slacks,
@@ -512,7 +512,7 @@ _RAFT_KERNEL void kernel_dualUpdate_2(weight_t const* d_sp_min,
 
 // Kernel for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_calcObjValDual(weight_t* d_obj_val_dual,
+RAFT_KERNEL_ void kernel_calcObjValDual(weight_t* d_obj_val_dual,
                                         weight_t const* d_row_duals,
                                         weight_t const* d_col_duals,
                                         int SP,
@@ -532,7 +532,7 @@ _RAFT_KERNEL void kernel_calcObjValDual(weight_t* d_obj_val_dual,
 
 // Kernel for calculating optimal objective function value using dual variables.
 template <typename vertex_t, typename weight_t>
-_RAFT_KERNEL void kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
+RAFT_KERNEL_ void kernel_calcObjValPrimal(weight_t* d_obj_val_primal,
                                           weight_t const* d_costs,
                                           vertex_t const* d_row_assignments,
                                           int SP,

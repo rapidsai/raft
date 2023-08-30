@@ -40,7 +40,7 @@ template <typename Policy,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-_RAFT_KERNEL void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL_ void __launch_bounds__(Policy::ThreadsPerBlock)
   coalescedReductionThinKernel(OutType* dots,
                                const InType* data,
                                IdxType D,
@@ -137,7 +137,7 @@ template <int TPB,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-_RAFT_KERNEL void __launch_bounds__(TPB) coalescedReductionMediumKernel(OutType* dots,
+RAFT_KERNEL_ void __launch_bounds__(TPB) coalescedReductionMediumKernel(OutType* dots,
                                                                         const InType* data,
                                                                         IdxType D,
                                                                         IdxType N,
@@ -225,7 +225,7 @@ template <typename Policy,
           typename IdxType,
           typename MainLambda,
           typename ReduceLambda>
-_RAFT_KERNEL void __launch_bounds__(Policy::ThreadsPerBlock)
+RAFT_KERNEL_ void __launch_bounds__(Policy::ThreadsPerBlock)
   coalescedReductionThickKernel(OutType* buffer,
                                 const InType* data,
                                 IdxType D,

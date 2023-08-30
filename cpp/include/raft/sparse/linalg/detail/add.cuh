@@ -41,7 +41,7 @@ namespace linalg {
 namespace detail {
 
 template <typename T, int TPB_X = 128>
-_RAFT_KERNEL void csr_add_calc_row_counts_kernel(const int* a_ind,
+RAFT_KERNEL_ void csr_add_calc_row_counts_kernel(const int* a_ind,
                                                  const int* a_indptr,
                                                  const T* a_val,
                                                  int nnz1,
@@ -100,7 +100,7 @@ _RAFT_KERNEL void csr_add_calc_row_counts_kernel(const int* a_ind,
 }
 
 template <typename T, int TPB_X = 128>
-_RAFT_KERNEL void csr_add_kernel(const int* a_ind,
+RAFT_KERNEL_ void csr_add_kernel(const int* a_ind,
                                  const int* a_indptr,
                                  const T* a_val,
                                  int nnz1,

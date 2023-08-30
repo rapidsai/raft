@@ -86,7 +86,7 @@ template <typename strategy_t,
           typename product_f,
           typename accum_f,
           typename write_f>
-_RAFT_KERNEL void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
+RAFT_KERNEL_ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
                                                        indptr_it indptrA,
                                                        value_idx* indicesA,
                                                        value_t* dataA,

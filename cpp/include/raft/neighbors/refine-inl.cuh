@@ -67,14 +67,13 @@ namespace raft::neighbors {
  * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-RAFT_HOST_TEMPLATE void refine(
-  raft::resources const& handle,
-  raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
-  raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
-  raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-  raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
-  raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
-  distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+void refine(raft::resources const& handle,
+            raft::device_matrix_view<const data_t, matrix_idx, row_major> dataset,
+            raft::device_matrix_view<const data_t, matrix_idx, row_major> queries,
+            raft::device_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+            raft::device_matrix_view<idx_t, matrix_idx, row_major> indices,
+            raft::device_matrix_view<distance_t, matrix_idx, row_major> distances,
+            distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
 {
   detail::refine_device(handle, dataset, queries, neighbor_candidates, indices, distances, metric);
 }
@@ -90,14 +89,13 @@ RAFT_HOST_TEMPLATE void refine(
  * @param[in] metric distance metric to use. Euclidean (L2) is used by default
  */
 template <typename idx_t, typename data_t, typename distance_t, typename matrix_idx>
-RAFT_HOST_TEMPLATE void refine(
-  raft::resources const& handle,
-  raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
-  raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
-  raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
-  raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
-  raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
-  distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
+void refine(raft::resources const& handle,
+            raft::host_matrix_view<const data_t, matrix_idx, row_major> dataset,
+            raft::host_matrix_view<const data_t, matrix_idx, row_major> queries,
+            raft::host_matrix_view<const idx_t, matrix_idx, row_major> neighbor_candidates,
+            raft::host_matrix_view<idx_t, matrix_idx, row_major> indices,
+            raft::host_matrix_view<distance_t, matrix_idx, row_major> distances,
+            distance::DistanceType metric = distance::DistanceType::L2Unexpanded)
 {
   detail::refine_host(dataset, queries, neighbor_candidates, indices, distances, metric);
 }

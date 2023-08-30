@@ -22,7 +22,7 @@
 namespace raft::detail {
 
 template <typename DataT, int VecLen, typename Lambda, typename IdxT>
-_RAFT_KERNEL void scatterKernel(DataT* out, const DataT* in, const IdxT* idx, IdxT len, Lambda op)
+RAFT_KERNEL_ void scatterKernel(DataT* out, const DataT* in, const IdxT* idx, IdxT len, Lambda op)
 {
   typedef TxN_t<DataT, VecLen> DataVec;
   typedef TxN_t<IdxT, VecLen> IdxVec;

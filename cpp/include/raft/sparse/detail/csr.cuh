@@ -48,7 +48,7 @@ struct WeakCCState {
 };
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-_RAFT_KERNEL void weak_cc_label_device(Index_* __restrict__ labels,
+RAFT_KERNEL_ void weak_cc_label_device(Index_* __restrict__ labels,
                                        const Index_* __restrict__ row_ind,
                                        const Index_* __restrict__ row_ind_ptr,
                                        Index_ nnz,
@@ -96,7 +96,7 @@ _RAFT_KERNEL void weak_cc_label_device(Index_* __restrict__ labels,
 }
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-_RAFT_KERNEL void weak_cc_init_all_kernel(Index_* labels,
+RAFT_KERNEL_ void weak_cc_init_all_kernel(Index_* labels,
                                           Index_ N,
                                           Index_ MAX_LABEL,
                                           Lambda filter_op)

@@ -87,7 +87,7 @@ struct MinReduceOpImpl {
 };
 
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-_RAFT_KERNEL void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+RAFT_KERNEL_ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
 {
   auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
   if (tid < m) { redOp.init(min + tid, maxVal); }
@@ -139,7 +139,7 @@ template <typename DataT,
           typename KVPReduceOpT,
           typename OpT,
           typename FinalLambda>
-_RAFT_KERNEL __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
+RAFT_KERNEL_ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
                                                                     const DataT* x,
                                                                     const DataT* y,
                                                                     const DataT* xn,

@@ -112,7 +112,7 @@ auto clone(const raft::resources& res, const index<T, IdxT>& source) -> index<T,
  *
  */
 template <typename T, typename IdxT, typename LabelT, bool gather_src = false>
-_RAFT_KERNEL void build_index_kernel(const LabelT* labels,
+RAFT_KERNEL_ void build_index_kernel(const LabelT* labels,
                                      const T* source_vecs,
                                      const IdxT* source_ixs,
                                      T** list_data_ptrs,
@@ -419,7 +419,7 @@ inline void fill_refinement_index(raft::resources const& handle,
 }
 
 template <typename T>
-_RAFT_KERNEL void pack_interleaved_list_kernel(
+RAFT_KERNEL_ void pack_interleaved_list_kernel(
   const T* codes,
   T* list_data,
   uint32_t n_rows,
@@ -435,7 +435,7 @@ _RAFT_KERNEL void pack_interleaved_list_kernel(
 }
 
 template <typename T>
-_RAFT_KERNEL void unpack_interleaved_list_kernel(
+RAFT_KERNEL_ void unpack_interleaved_list_kernel(
   const T* list_data,
   T* codes,
   uint32_t n_rows,

@@ -26,7 +26,7 @@ namespace raft::random {
 namespace detail {
 
 template <typename Type, typename IntType, typename IdxType, int TPB, bool rowMajor>
-_RAFT_KERNEL void permuteKernel(
+RAFT_KERNEL_ void permuteKernel(
   IntType* perms, Type* out, const Type* in, IdxType a, IdxType b, IdxType N, IdxType D)
 {
   namespace cg        = cooperative_groups;

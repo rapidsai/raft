@@ -30,7 +30,7 @@ namespace detail {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename DataT, typename IdxT, int TPB, int ColsPerBlk = 32>
-_RAFT_KERNEL void weightedMeanKernel(
+RAFT_KERNEL_ void weightedMeanKernel(
   DataT* mu, const DataT* data, const IdxT* counts, IdxT D, IdxT N)
 {
   constexpr int RowsPerBlkPerIter = TPB / ColsPerBlk;
@@ -52,7 +52,7 @@ _RAFT_KERNEL void weightedMeanKernel(
 }
 
 template <typename DataT, typename IdxT, int TPB>
-_RAFT_KERNEL void dispersionKernel(DataT* result,
+RAFT_KERNEL_ void dispersionKernel(DataT* result,
                                    const DataT* clusters,
                                    const IdxT* clusterSizes,
                                    const DataT* mu,

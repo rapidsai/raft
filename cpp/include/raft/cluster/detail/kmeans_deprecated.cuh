@@ -92,7 +92,7 @@ constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
  *    initialized to zero.
  */
 template <typename index_type_t, typename value_type_t>
-_RAFT_KERNEL void computeDistances(index_type_t n,
+RAFT_KERNEL_ void computeDistances(index_type_t n,
                                    index_type_t d,
                                    index_type_t k,
                                    const value_type_t* __restrict__ obs,
@@ -173,7 +173,7 @@ _RAFT_KERNEL void computeDistances(index_type_t n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename index_type_t, typename value_type_t>
-_RAFT_KERNEL void minDistances(index_type_t n,
+RAFT_KERNEL_ void minDistances(index_type_t n,
                                index_type_t k,
                                value_type_t* __restrict__ dists,
                                index_type_t* __restrict__ codes,
@@ -233,7 +233,7 @@ _RAFT_KERNEL void minDistances(index_type_t n,
  *  @param code_new Index associated with new centroid.
  */
 template <typename index_type_t, typename value_type_t>
-_RAFT_KERNEL void minDistances2(index_type_t n,
+RAFT_KERNEL_ void minDistances2(index_type_t n,
                                 value_type_t* __restrict__ dists_old,
                                 const value_type_t* __restrict__ dists_new,
                                 index_type_t* __restrict__ codes_old,
@@ -275,7 +275,7 @@ _RAFT_KERNEL void minDistances2(index_type_t n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename index_type_t>
-_RAFT_KERNEL void computeClusterSizes(index_type_t n,
+RAFT_KERNEL_ void computeClusterSizes(index_type_t n,
                                       const index_type_t* __restrict__ codes,
                                       index_type_t* __restrict__ clusterSizes)
 {
@@ -308,7 +308,7 @@ _RAFT_KERNEL void computeClusterSizes(index_type_t n,
  *    column is the mean position of a cluster).
  */
 template <typename index_type_t, typename value_type_t>
-_RAFT_KERNEL void divideCentroids(index_type_t d,
+RAFT_KERNEL_ void divideCentroids(index_type_t d,
                                   index_type_t k,
                                   const index_type_t* __restrict__ clusterSizes,
                                   value_type_t* __restrict__ centroids)
