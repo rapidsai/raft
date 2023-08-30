@@ -65,12 +65,11 @@ class RaftGpu : public ANN<T> {
               cudaStream_t stream = 0) const final;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
   void set_search_dataset(const T* dataset, size_t nrow) override;

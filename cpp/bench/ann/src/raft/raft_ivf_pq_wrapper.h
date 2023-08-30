@@ -25,6 +25,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft_runtime/neighbors/ivf_pq.hpp>
 #include <raft_runtime/neighbors/refine.hpp>
@@ -47,15 +48,24 @@ class RaftIvfPQ : public ANN<T> {
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::ivf_pq::search_params pq_param;
+    float refine_ratio = 1.0f;
+    auto needs_dataset() const -> bool override { return refine_ratio > 1.0f; }
   };
 
   using BuildParam = raft::neighbors::ivf_pq::index_params;
 
-  RaftIvfPQ(Metric metric,
-            int dim,
-            const BuildParam& param,
-            float refine_ratio,
-            MemoryType dataset_memtype);
+  RaftIvfPQ(Metric metric, int dim, const BuildParam& param)
+    : ANN<T>(metric, dim),
+      index_params_(param),
+      dimension_(dim),
+      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+  {
+    rmm::mr::set_current_device_resource(&mr_);
+    index_params_.metric = parse_metric_type(metric);
+    RAFT_CUDA_TRY(cudaGetDevice(&device_));
+  }
+
+  ~RaftIvfPQ() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -72,20 +82,19 @@ class RaftIvfPQ : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = dataset_memtype_;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = refine_ratio_ > 1.0;
+    property.dataset_memory_type = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
-  ~RaftIvfPQ() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
-
  private:
+  // `mr_` must go first to make sure it dies last
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::ivf_pq::search_params search_params_;
@@ -93,24 +102,8 @@ class RaftIvfPQ : public ANN<T> {
   int device_;
   int dimension_;
   float refine_ratio_ = 1.0;
-  MemoryType dataset_memtype_;
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_matrix_view<const T, IdxT> dataset_;
 };
-template <typename T, typename IdxT>
-RaftIvfPQ<T, IdxT>::RaftIvfPQ(
-  Metric metric, int dim, const BuildParam& param, float refine_ratio, MemoryType dataset_memtype)
-  : ANN<T>(metric, dim),
-    index_params_(param),
-    dimension_(dim),
-    refine_ratio_(refine_ratio),
-    dataset_memtype_(dataset_memtype),
-    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
-{
-  rmm::mr::set_current_device_resource(&mr_);
-  index_params_.metric = parse_metric_type(metric);
-  RAFT_CUDA_TRY(cudaGetDevice(&device_));
-}
 
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::save(const std::string& file) const
@@ -141,6 +134,7 @@ void RaftIvfPQ<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
   auto search_param = dynamic_cast<const SearchParam&>(param);
   search_params_    = search_param.pq_param;
+  refine_ratio_     = search_param.refine_ratio;
   assert(search_params_.n_probes <= index_params_.n_lists);
 }
 
@@ -168,7 +162,8 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
     raft::runtime::neighbors::ivf_pq::search(
       handle_, search_params_, *index_, queries_v, candidates.view(), distances_tmp.view());
 
-    if (get_property().dataset_memory_type == MemoryType::Device) {
+    if (raft::spatial::knn::detail::utils::check_pointer_residency(dataset_.data_handle()) ==
+        raft::spatial::knn::detail::utils::pointer_residency::device_only) {
       auto queries_v =
         raft::make_device_matrix_view<const T, IdxT>(queries, batch_size, index_->dim());
       auto neighbors_v = raft::make_device_matrix_view<IdxT, IdxT>((IdxT*)neighbors, batch_size, k);
