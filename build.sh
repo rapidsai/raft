@@ -39,7 +39,6 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-lib               - compile shared library for all components
    --compile-static-lib        - compile static library for all components
-                                 can be useful for a pure header-only install
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
@@ -73,7 +72,6 @@ BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
 COMPILE_LIBRARY=OFF
-COMPILE_STATIC_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
@@ -311,7 +309,7 @@ if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
 fi
 
 if hasArg --compile-static-lib || (( ${NUMARGS} == 0 )); then
-    COMPILE_STATIC_LIBRARY=ON
+    COMPILE_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_lib_static"
 fi
 
@@ -416,7 +414,6 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
-          -DRAFT_COMPILE_STATIC_LIBRARY=${COMPILE_STATIC_LIBRARY} \
           -DRAFT_NVTX=${NVTX} \
           -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
