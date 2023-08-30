@@ -35,6 +35,25 @@ namespace *raft::core*
     :project: RAFT
     :members:
 
+Device Resources Manager
+------------------------
+
+While `raft::device_resources` provides a convenient way to access
+device-related resources for a sequence of RAFT calls, it is sometimes useful
+to be able to limit those resources across an entire application. For
+instance, in highly multi-threaded applications, it can be helpful to limit
+the total number of streams rather than relying on the default stream per
+thread. `raft::device_resources_manager` offers a way to access
+`raft::device_resources` instances that draw from a limited pool of
+underlying device resources.
+
+``#include <raft/core/device_resources_manager.hpp>``
+
+namespace *raft::core*
+
+.. doxygenclass:: raft::device_resources_manager
+    :project: RAFT
+    :members:
 
 Resource Functions
 ------------------

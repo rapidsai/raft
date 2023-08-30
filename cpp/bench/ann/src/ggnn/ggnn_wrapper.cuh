@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <memory>
-#include <stdexcept>
-
 #include "../common/ann_types.hpp"
-#include "../common/benchmark_util.hpp"
+
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <memory>
+#include <stdexcept>
 
 namespace raft::bench::ann {
 
@@ -50,6 +50,7 @@ class Ggnn : public ANN<T> {
     int max_iterations{400};
     int cache_size{512};
     int sorted_size{256};
+    auto needs_dataset() const -> bool override { return true; }
   };
 
   Ggnn(Metric metric, int dim, const BuildParam& param);
@@ -74,7 +75,7 @@ class Ggnn : public ANN<T> {
   void save(const std::string& file) const override { impl_->save(file); }
   void load(const std::string& file) override { impl_->load(file); }
 
-  AlgoProperty get_property() const override { return impl_->get_property(); }
+  AlgoProperty get_preference() const override { return impl_->get_preference(); }
 
   void set_search_dataset(const T* dataset, size_t nrow) override
   {
@@ -135,12 +136,11 @@ class GgnnImpl : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string& file) override;
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 

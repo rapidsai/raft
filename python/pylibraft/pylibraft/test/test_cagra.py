@@ -255,7 +255,8 @@ def test_cagra_search_params(params):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.int8, np.ubyte])
-def test_save_load(dtype):
+@pytest.mark.parametrize("include_dataset", [True, False])
+def test_save_load(dtype, include_dataset):
     n_rows = 10000
     n_cols = 50
     n_queries = 1000
@@ -268,8 +269,13 @@ def test_save_load(dtype):
 
     assert index.trained
     filename = "my_index.bin"
-    cagra.save(filename, index)
+    cagra.save(filename, index, include_dataset=include_dataset)
     loaded_index = cagra.load(filename)
+
+    # if we didn't save the dataset with the index, we need to update the
+    # index with an already loaded copy
+    if not include_dataset:
+        loaded_index.update_dataset(dataset)
 
     queries = generate_data((n_queries, n_cols), dtype)
 
