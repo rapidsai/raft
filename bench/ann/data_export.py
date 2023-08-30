@@ -13,67 +13,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import argparse
+import pandas as pd
 import os
-import subprocess
 import json
 
-from pathlib import Path
 
-def parse_filepaths(fs):
-    for p in fs:
-        if p.endswith(".json") and os.path.exists(p):
-            yield p
-        else:
-            for f in Path(p).rglob('*.json'):
-                yield f.as_posix()
-
-def export_results(output_filepath, recompute, groundtruth_filepath,
-                   result_filepath):
-    print(f"Writing output file to: {output_filepath}")
-
-    parsed_filepaths = parse_filepaths(result_filepaths)
-
-    with open(output_filepath, 'w') as out:
-        out.write("Algo,Recall,QPS\n")
-
-        for fp in parsed_filepaths:
-            with open(fp, 'r') as f:
+def read_file(dataset, dataset_path, method):
+    dir = os.path.join(dataset_path, dataset, "result", method)
+    for file in os.listdir(dir):
+        if file.endswith(".json"):
+            with open(os.path.join(dir, file), "r") as f:
                 data = json.load(f)
-                for benchmark_case in data["benchmarks"]:
-                    algo = benchmark_case["name"]
-                    recall = benchmark_case["Recall"]
-                    qps = benchmark_case["items_per_second"]
-                    out.write(f"{algo},{recall},{qps}\n")
+                df = pd.DataFrame(data["benchmarks"])
+                yield (os.path.join(dir, file), file.split('-')[0], df)
+
+def convert_json_to_csv_build(dataset, dataset_path):
+    for file, algo_name, df in read_file(dataset, dataset_path, "build"):
+        df['name'] = df['name'].str.split('/').str[0]
+        write = pd.DataFrame({'algo_name' : [algo_name] * len(df),
+                              'index_name' : df['name'],
+                              'time' : df['real_time']})
+        write.to_csv(file.replace('.json', '.csv'), index=False)
+
+
+def convert_json_to_csv_search(dataset, dataset_path):
+    for file, algo_name, df in read_file(dataset, dataset_path, "search"):
+        df['name'] = df['name'].str.split('/').str[0]
+        write = pd.DataFrame({'algo_name' : [algo_name] * len(df),
+                              'index_name' : df['name'],
+                              'recall' : df['Recall'],
+                              'qps' : df['items_per_second']})
+        write.to_csv(file.replace('.json', '.csv'), index=False)
 
 
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--output", help="Path to the CSV output file",
-                        required=True)
-    parser.add_argument("--recompute", action="store_true",
-                        help="Recompute metrics")
-    parser.add_argument("--dataset",
-                        help="Name of the dataset to export results for",
+    parser.add_argument("--dataset", help="dataset to download",
                         default="glove-100-inner")
-    parser.add_argument(
-        "--dataset-path",
-        help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"),
-                             "bench", "ann", "data")
-    )
-
-    args, result_filepaths = parser.parse_known_args()
-
-    # if nothing is provided
-    if len(result_filepaths) == 0:
-        raise ValueError("No filepaths to results were provided")
-
-    groundtruth_filepath = os.path.join(args.dataset_path, args.dataset,
-                                        "groundtruth.neighbors.ibin")
-    export_results(args.output, args.recompute, groundtruth_filepath,
-                   result_filepath)
+    parser.add_argument("--dataset-path", help="path to dataset folder",
+                        default=os.path.join(os.getenv("RAFT_HOME"), 
+                                             "bench", "ann", "data"))
+    args = parser.parse_args()
+    convert_json_to_csv_build(args.dataset, args.dataset_path)
+    convert_json_to_csv_search(args.dataset, args.dataset_path)
 
 
 if __name__ == "__main__":

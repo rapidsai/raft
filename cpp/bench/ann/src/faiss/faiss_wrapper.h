@@ -23,6 +23,7 @@
 #include <faiss/IndexFlat.h>
 #include <faiss/IndexIVFFlat.h>
 #include <faiss/IndexIVFPQ.h>
+#include <faiss/IndexRefine.h>
 #include <faiss/IndexScalarQuantizer.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuIndexIVFFlat.h>
@@ -81,6 +82,7 @@ class FaissGpu : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int nprobe;
+    float refine_ratio = 1.0;
   };
 
   FaissGpu(Metric metric, int dim, int nlist);
@@ -123,6 +125,7 @@ class FaissGpu : public ANN<T> {
 
   mutable faiss::gpu::StandardGpuResources gpu_resource_;
   std::unique_ptr<faiss::gpu::GpuIndex> index_;
+  std::unique_ptr<faiss::IndexRefineFlat> index_refine_;
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
@@ -154,9 +157,15 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 template <typename T>
 void FaissGpu<T>::set_search_param(const AnnSearchParam& param)
 {
-  int nprobe = dynamic_cast<const SearchParam&>(param).nprobe;
+  auto search_param = dynamic_cast<const SearchParam&>(param);
+  int nprobe        = search_param.nprobe;
   assert(nprobe <= nlist_);
   dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get())->setNumProbes(nprobe);
+
+  if (search_param.refine_ratio > 1.0) {
+    this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
+    this->index_refine_.get()->k_factor = search_param.refine_ratio;
+  }
 }
 
 template <typename T>

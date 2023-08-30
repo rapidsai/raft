@@ -100,7 +100,6 @@ To run a benchmark executable, like `RAFT_IVF_FLAT_ANN_BENCH`, a JSON configurat
 * `index` section specifies an array of configurations for index building and searching:
     - `build_param` and `search_params` are parameters for building and searching, respectively. `search_params` is an array since we will search with different parameters to get different recall values.
     - `file` is the file name of index. Building will save built index to this file, while searching will load this file.
-    - if `multigpu` is specified, multiple GPUs will be used for index build and search.
     - if `refine_ratio` is specified, refinement, as a post-processing step of search, will be done. It's for algorithms that compress vectors. For example, if `"refine_ratio" : 2` is set, 2`k` results are first computed, then exact distances of them are computed using original uncompressed vectors, and finally top `k` results among them are kept.
 
 
