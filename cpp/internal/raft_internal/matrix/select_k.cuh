@@ -150,23 +150,23 @@ void select_k_impl(const resources& handle,
                                                                stream);
     case Algo::kWarpAuto:
       return detail::select::warpsort::select_k<T, IdxT>(
-        in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+        handle, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpImmediate:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_immediate>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+          handle, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpFiltered:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_filtered>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+          handle, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpDistributed:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+          handle, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kWarpDistributedShm:
       return detail::select::warpsort::
         select_k_impl<T, IdxT, detail::select::warpsort::warp_sort_distributed_ext>(
-          in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
+          handle, in, in_idx, batch_size, len, k, out, out_idx, select_min, stream);
     case Algo::kFaissBlockSelect:
       return neighbors::detail::select_k(
         in, in_idx, batch_size, len, out, out_idx, select_min, k, stream);
