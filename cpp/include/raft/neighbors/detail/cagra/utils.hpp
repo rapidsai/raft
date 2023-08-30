@@ -156,12 +156,14 @@ struct gen_index_msb_1_mask {
  * Utility to sync memory from a host_matrix_view to a device_matrix_view
  *
  * In certain situations (UVM/HMM/ATS) host memory might be directly accessible on the
- * device, and no copy or extra allocations need to be performed. This class checks
+ * device, and no extra allocations need to be performed. This class checks
  * if the host_matrix_view is already accessible on the device, and only creates device
- *  memory and copies over if necessary
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
  */
 template <typename T, typename IdxT>
-struct device_matrix_view_from_host {
+class device_matrix_view_from_host {
+ public:
   device_matrix_view_from_host(raft::resources const& res, host_matrix_view<T, IdxT> host_view)
     : host_view_(host_view)
   {
@@ -185,6 +187,11 @@ struct device_matrix_view_from_host {
     return make_device_matrix_view<T, IdxT>(device_ptr, host_view_.extent(0), host_view_.extent(1));
   }
 
+  T* data_handle() { return device_ptr; }
+
+  bool allocated_memory() const { return device_mem_.has_value(); }
+
+ private:
   std::optional<device_matrix<T, IdxT>> device_mem_;
   host_matrix_view<T, IdxT> host_view_;
   T* device_ptr;
@@ -194,12 +201,14 @@ struct device_matrix_view_from_host {
  * Utility to sync memory from a device_matrix_view to a host_matrix_view
  *
  * In certain situations (UVM/HMM/ATS) device memory might be directly accessible on the
- * host, and no copy or extra allocations need to be performed. This class checks
+ * host, and no extra allocations need to be performed. This class checks
  * if the device_matrix_view is already accessible on the host, and only creates host
- *  memory and copies over if necessary
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
  */
 template <typename T, typename IdxT>
-struct host_matrix_view_from_device {
+class host_matrix_view_from_device {
+ public:
   host_matrix_view_from_device(raft::resources const& res, device_matrix_view<T, IdxT> device_view)
     : device_view_(device_view)
   {
@@ -223,6 +232,11 @@ struct host_matrix_view_from_device {
     return make_host_matrix_view<T, IdxT>(host_ptr, device_view_.extent(0), device_view_.extent(1));
   }
 
+  T* data_handle() { return host_ptr; }
+
+  bool allocated_memory() const { return host_mem_.has_value(); }
+
+ private:
   std::optional<host_matrix<T, IdxT>> host_mem_;
   device_matrix_view<T, IdxT> device_view_;
   T* host_ptr;

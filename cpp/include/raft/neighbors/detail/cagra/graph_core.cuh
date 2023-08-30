@@ -396,7 +396,7 @@ void optimize(raft::resources const& res,
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
       kern_prune<MAX_DEGREE, IdxT>
         <<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
-          d_input_graph.view().data_handle(),
+          d_input_graph.data_handle(),
           graph_size,
           input_graph_degree,
           output_graph_degree,
@@ -414,7 +414,6 @@ void optimize(raft::resources const& res,
     RAFT_LOG_DEBUG("\n");
 
     host_matrix_view_from_device<uint8_t, int64_t> detour_count(res, d_detour_count.view());
-    uint8_t* host_detour_count_ptr = detour_count.view().data_handle();
 
     raft::copy(
       host_stats.data_handle(), dev_stats.data_handle(), 2, resource::get_cuda_stream(res));
@@ -429,7 +428,7 @@ void optimize(raft::resources const& res,
       for (uint32_t num_detour = 0; num_detour < output_graph_degree; num_detour++) {
         if (max_detour < num_detour) { max_detour = num_detour; /* stats */ }
         for (uint64_t k = 0; k < input_graph_degree; k++) {
-          if (host_detour_count_ptr[k + (input_graph_degree * i)] != num_detour) { continue; }
+          if (detour_count.data_handle()[k + (input_graph_degree * i)] != num_detour) { continue; }
           output_graph_ptr[pk + (output_graph_degree * i)] =
             input_graph_ptr[k + (input_graph_degree * i)];
           pk += 1;
@@ -461,8 +460,7 @@ void optimize(raft::resources const& res,
     //
     const double time_make_start = cur_time();
 
-    auto d_rev_graph =
-      raft::make_device_matrix<IdxT, int64_t>(res, graph_size, output_graph_degree);
+    device_matrix_view_from_host<IdxT, int64_t> d_rev_graph(res, rev_graph.view());
     RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph.data_handle(),
                                   0xff,
                                   graph_size * output_graph_degree * sizeof(IdxT),
@@ -503,10 +501,12 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    raft::copy(rev_graph.data_handle(),
-               d_rev_graph.data_handle(),
-               graph_size * output_graph_degree,
-               resource::get_cuda_stream(res));
+    if (d_rev_graph.allocated_memory()) {
+      raft::copy(rev_graph.data_handle(),
+                 d_rev_graph.data_handle(),
+                 graph_size * output_graph_degree,
+                 resource::get_cuda_stream(res));
+    }
     raft::copy(rev_graph_count.data_handle(),
                d_rev_graph_count.data_handle(),
                graph_size,
