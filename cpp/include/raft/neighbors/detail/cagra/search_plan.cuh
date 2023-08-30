@@ -250,17 +250,10 @@ struct search_plan_impl : public search_plan_impl_base {
     }
   }
 
-  void check(uint32_t topk)
+  virtual void check(const uint32_t topk)
   {
+    // For single-CTA and multi kernel
     RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
-    if (algo == search_algo::MULTI_CTA) {
-      uint32_t mc_num_cta_per_query = max(search_width, itopk_size / 32);
-      RAFT_EXPECTS(mc_num_cta_per_query * 32 >= topk,
-                   "`mc_num_cta_per_query` (%u) * 32 must be equal to or greater than "
-                   "`topk` /%u) when 'search_mode' is \"multi-cta\"",
-                   mc_num_cta_per_query,
-                   topk);
-    }
   }
 
   inline void check_params()

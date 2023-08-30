@@ -13,598 +13,526 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifdef NVTX
-#include <nvtx3/nvToolsExt.h>
-#endif
-#include <unistd.h>
+#pragma once
+
+#include "ann_types.hpp"
+#include "conf.hpp"
+#include "dataset.hpp"
+#include "util.hpp"
+
+#include <benchmark/benchmark.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
-#include <iostream>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <string>
-#include <unordered_set>
+#include <unistd.h>
 #include <vector>
 
-#include <raft/util/integer_utils.hpp>
-
-#include "benchmark_util.hpp"
-#include "conf.h"
-#include "dataset.h"
-#include "util.h"
-
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-using std::to_string;
-using std::unordered_set;
-using std::vector;
+#ifdef ANN_BENCH_BUILD_MAIN
+#ifdef CPU_ONLY
+#define CUDART_FOUND false
+#else
+#define CUDART_FOUND true
+#endif
+#else
+#define CUDART_FOUND (cudart.found())
+#endif
 
 namespace raft::bench::ann {
 
-inline bool check_file_exist(const std::vector<string>& files)
-{
-  bool ret = true;
-  std::unordered_set<std::string> processed;
-  for (const auto& file : files) {
-    if (processed.find(file) == processed.end() && !file_exists(file)) {
-      log_error("file '%s' doesn't exist or is not a regular file", file.c_str());
-      ret = false;
-    }
-    processed.insert(file);
-  }
-  return ret;
-}
+static inline std::unique_ptr<AnnBase> current_algo{nullptr};
 
-inline bool check_file_not_exist(const std::vector<std::string>& files, bool force_overwrite)
+using kv_series = std::vector<std::tuple<std::string, std::vector<nlohmann::json>>>;
+
+inline auto apply_overrides(const std::vector<nlohmann::json>& configs,
+                            const kv_series& overrides,
+                            std::size_t override_idx = 0) -> std::vector<nlohmann::json>
 {
-  bool ret = true;
-  for (const auto& file : files) {
-    if (file_exists(file)) {
-      if (force_overwrite) {
-        log_warn("'%s' already exists, will overwrite it", file.c_str());
-      } else {
-        log_error("'%s' already exists, use '-f' to force overwriting", file.c_str());
-        ret = false;
+  std::vector<nlohmann::json> results{};
+  if (override_idx >= overrides.size()) {
+    auto n = configs.size();
+    for (size_t i = 0; i < n; i++) {
+      auto c               = configs[i];
+      c["override_suffix"] = n > 1 ? "/" + std::to_string(i) : "";
+      results.push_back(c);
+    }
+    return results;
+  }
+  auto rec_configs = apply_overrides(configs, overrides, override_idx + 1);
+  auto [key, vals] = overrides[override_idx];
+  auto n           = vals.size();
+  for (size_t i = 0; i < n; i++) {
+    const auto& val = vals[i];
+    for (auto rc : rec_configs) {
+      if (n > 1) {
+        rc["override_suffix"] =
+          static_cast<std::string>(rc["override_suffix"]) + "/" + std::to_string(i);
       }
+      rc[key] = val;
+      results.push_back(rc);
     }
   }
-  return ret;
+  return results;
 }
 
-inline bool check_no_duplicate_file(const std::vector<std::string>& files)
+inline auto apply_overrides(const nlohmann::json& config,
+                            const kv_series& overrides,
+                            std::size_t override_idx = 0)
 {
-  bool ret = true;
-  std::unordered_set<string> processed;
-  for (const auto& file : files) {
-    if (processed.find(file) != processed.end()) {
-      log_error("'%s' occurs more than once as output file, would be overwritten", file.c_str());
-      ret = false;
-    }
-    processed.insert(file);
-  }
-  return ret;
+  return apply_overrides(std::vector{config}, overrides, 0);
 }
 
-inline bool mkdir(const std::vector<std::string>& dirs)
+inline void dump_parameters(::benchmark::State& state, nlohmann::json params)
 {
-  std::unordered_set<string> processed;
-  for (const auto& dir : dirs) {
-    if (processed.find(dir) == processed.end() && !dir_exists(dir)) {
-      if (create_dir(dir)) {
-        log_info("mkdir '%s'", dir.c_str());
-      } else {
-        log_error("fail to create output directory '%s'", dir.c_str());
-        // won't create any other dir when problem occurs
-        return false;
-      }
-    }
-    processed.insert(dir);
-  }
-  return true;
-}
-
-inline bool check(const std::vector<Configuration::Index>& indices,
-                  const bool build_mode,
-                  const bool force_overwrite)
-{
-  std::vector<std::string> files_should_exist;
-  std::vector<std::string> dirs_should_exist;
-  std::vector<std::string> output_files;
-  for (const auto& index : indices) {
-    if (build_mode) {
-      output_files.push_back(index.file);
-      output_files.push_back(index.file + ".txt");
-
-      const auto pos = index.file.rfind('/');
-      if (pos != std::string::npos) { dirs_should_exist.push_back(index.file.substr(0, pos)); }
+  std::string label = "";
+  bool label_empty  = true;
+  for (auto& [key, val] : params.items()) {
+    if (val.is_number()) {
+      state.counters.insert({{key, val}});
+    } else if (val.is_boolean()) {
+      state.counters.insert({{key, val ? 1.0 : 0.0}});
     } else {
-      files_should_exist.push_back(index.file);
-      files_should_exist.push_back(index.file + ".txt");
-
-      output_files.push_back(index.search_result_file + ".0.ibin");
-      output_files.push_back(index.search_result_file + ".0.txt");
-
-      const auto pos = index.search_result_file.rfind('/');
-      if (pos != std::string::npos) {
-        dirs_should_exist.push_back(index.search_result_file.substr(0, pos));
-      }
-    }
-  }
-
-  bool ret = true;
-  if (!check_file_exist(files_should_exist)) { ret = false; }
-  if (!check_file_not_exist(output_files, force_overwrite)) { ret = false; }
-  if (!check_no_duplicate_file(output_files)) { ret = false; }
-  if (ret && !mkdir(dirs_should_exist)) { ret = false; }
-  return ret;
-}
-
-inline void write_build_info(const std::string& file_prefix,
-                             const std::string& dataset,
-                             const std::string& distance,
-                             const std::string& name,
-                             const std::string& algo,
-                             const std::string& build_param,
-                             const float build_time)
-{
-  std::ofstream ofs(file_prefix + ".txt");
-  if (!ofs) { throw std::runtime_error("can't open build info file: " + file_prefix + ".txt"); }
-  ofs << "dataset: " << dataset << "\n"
-      << "distance: " << distance << "\n"
-      << "\n"
-      << "name: " << name << "\n"
-      << "algo: " << algo << "\n"
-      << "build_param: " << build_param << "\n"
-      << "build_time: " << build_time << endl;
-  ofs.close();
-  if (!ofs) { throw std::runtime_error("can't write to build info file: " + file_prefix + ".txt"); }
-}
-
-template <typename T>
-void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& indices)
-{
-  cudaStream_t stream;
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
-  log_info(
-    "base set from dataset '%s', #vector = %zu", dataset->name().c_str(), dataset->base_set_size());
-
-  for (const auto& index : indices) {
-    log_info("creating algo '%s', param=%s", index.algo.c_str(), index.build_param.dump().c_str());
-    const auto algo          = create_algo<T>(index.algo,
-                                     dataset->distance(),
-                                     dataset->dim(),
-                                     index.refine_ratio,
-                                     index.build_param,
-                                     index.dev_list,
-                                     index.index_conf);
-    const auto algo_property = algo->get_property();
-
-    const T* base_set_ptr = nullptr;
-    if (algo_property.dataset_memory_type == MemoryType::Host) {
-      log_info("%s", "loading base set to memory");
-      base_set_ptr = dataset->base_set();
-    } else if (algo_property.dataset_memory_type == MemoryType::HostMmap) {
-      log_info("%s", "mapping base set to memory");
-      base_set_ptr = dataset->mapped_base_set();
-    } else if (algo_property.dataset_memory_type == MemoryType::Device) {
-      log_info("%s", "loading base set to GPU");
-      base_set_ptr = dataset->base_set_on_gpu();
-    }
-
-    log_info("building index '%s'", index.name.c_str());
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-#ifdef NVTX
-    nvtxRangePush("build");
-#endif
-    Timer timer;
-    algo->build(base_set_ptr, dataset->base_set_size(), stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    const float elapsed_ms = timer.elapsed_ms();
-#ifdef NVTX
-    nvtxRangePop();
-#endif
-    log_info("built index in %.2f seconds", elapsed_ms / 1000.0f);
-    RAFT_CUDA_TRY(cudaDeviceSynchronize());
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-    algo->save(index.file);
-    write_build_info(index.file,
-                     dataset->name(),
-                     dataset->distance(),
-                     index.name,
-                     index.algo,
-                     index.build_param.dump(),
-                     elapsed_ms / 1000.0f);
-    log_info("saved index to %s", index.file.c_str());
-  }
-
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
-}
-
-inline void write_search_result(const std::string& file_prefix,
-                                const std::string& dataset,
-                                const std::string& distance,
-                                const std::string& name,
-                                const std::string& algo,
-                                const std::string& build_param,
-                                const std::string& search_param,
-                                std::size_t batch_size,
-                                unsigned run_count,
-                                unsigned k,
-                                float search_time_average,
-                                float search_time_p99,
-                                float search_time_p999,
-                                float query_per_second,
-                                const int* neighbors,
-                                size_t query_set_size)
-{
-  log_info("throughput : %e [QPS]", query_per_second);
-  std::ofstream ofs(file_prefix + ".txt");
-  if (!ofs) { throw std::runtime_error("can't open search result file: " + file_prefix + ".txt"); }
-  ofs << "dataset: " << dataset << "\n"
-      << "distance: " << distance << "\n"
-      << "\n"
-      << "name: " << name << "\n"
-      << "algo: " << algo << "\n"
-      << "build_param: " << build_param << "\n"
-      << "search_param: " << search_param << "\n"
-      << "\n"
-      << "batch_size: " << batch_size << "\n"
-      << "run_count: " << run_count << "\n"
-      << "k: " << k << "\n"
-      << "query_per_second: " << query_per_second << "\n"
-      << "average_search_time: " << search_time_average << endl;
-
-  if (search_time_p99 != std::numeric_limits<float>::max()) {
-    ofs << "p99_search_time: " << search_time_p99 << endl;
-  }
-  if (search_time_p999 != std::numeric_limits<float>::max()) {
-    ofs << "p999_search_time: " << search_time_p999 << endl;
-  }
-
-  ofs.close();
-  if (!ofs) {
-    throw std::runtime_error("can't write to search result file: " + file_prefix + ".txt");
-  }
-
-  BinFile<int> neighbors_file(file_prefix + ".ibin", "w");
-  neighbors_file.write(neighbors, query_set_size, k);
-}
-
-template <typename T>
-inline void search(const Dataset<T>* dataset, const std::vector<Configuration::Index>& indices)
-{
-  if (indices.empty()) { return; }
-  cudaStream_t stream;
-  RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
-  log_info("loading query set from dataset '%s', #vector = %zu",
-           dataset->name().c_str(),
-           dataset->query_set_size());
-  const T* const query_set = dataset->query_set();
-  // query set is usually much smaller than base set, so load it eagerly
-  const T* const d_query_set  = dataset->query_set_on_gpu();
-  const size_t query_set_size = dataset->query_set_size();
-
-  // currently all indices has same batch_size, k and run_count
-  const std::size_t batch_size = indices[0].batch_size;
-  const unsigned k             = indices[0].k;
-  const unsigned run_count     = indices[0].run_count;
-  log_info(
-    "basic search parameters: batch_size = %d, k = %d, run_count = %d", batch_size, k, run_count);
-  if (query_set_size % batch_size != 0) {
-    log_warn("query set size (%zu) % batch size (%d) != 0, the size of last batch is %zu",
-             query_set_size,
-             batch_size,
-             query_set_size % batch_size);
-  }
-  const std::size_t num_batches = (query_set_size - 1) / batch_size + 1;
-  std::size_t* const neighbors  = new std::size_t[query_set_size * k];
-  int* const neighbors_buf      = new int[query_set_size * k];
-  float* const distances        = new float[query_set_size * k];
-  std::vector<float> search_times;
-  search_times.reserve(num_batches);
-  std::size_t* d_neighbors;
-  float* d_distances;
-  RAFT_CUDA_TRY(cudaMalloc((void**)&d_neighbors, query_set_size * k * sizeof(*d_neighbors)));
-  RAFT_CUDA_TRY(cudaMalloc((void**)&d_distances, query_set_size * k * sizeof(*d_distances)));
-
-  for (const auto& index : indices) {
-    log_info("creating algo '%s', param=%s", index.algo.c_str(), index.build_param.dump().c_str());
-    const auto algo          = create_algo<T>(index.algo,
-                                     dataset->distance(),
-                                     dataset->dim(),
-                                     index.refine_ratio,
-                                     index.build_param,
-                                     index.dev_list,
-                                     index.index_conf);
-    const auto algo_property = algo->get_property();
-
-    log_info("loading index '%s' from file '%s'", index.name.c_str(), index.file.c_str());
-    algo->load(index.file);
-
-    const T* this_query_set     = query_set;
-    std::size_t* this_neighbors = neighbors;
-    float* this_distances       = distances;
-    if (algo_property.query_memory_type == MemoryType::Device) {
-      this_query_set = d_query_set;
-      this_neighbors = d_neighbors;
-      this_distances = d_distances;
-    }
-
-    if (algo_property.need_dataset_when_search) {
-      log_info("loading base set from dataset '%s', #vector = %zu",
-               dataset->name().c_str(),
-               dataset->base_set_size());
-      const T* base_set_ptr = nullptr;
-      if (algo_property.dataset_memory_type == MemoryType::Host) {
-        log_info("%s", "loading base set to memory");
-        base_set_ptr = dataset->base_set();
-      } else if (algo_property.dataset_memory_type == MemoryType::HostMmap) {
-        log_info("%s", "mapping base set to memory");
-        base_set_ptr = dataset->mapped_base_set();
-      } else if (algo_property.dataset_memory_type == MemoryType::Device) {
-        log_info("%s", "loading base set to GPU");
-        base_set_ptr = dataset->base_set_on_gpu();
-      }
-      algo->set_search_dataset(base_set_ptr, dataset->base_set_size());
-    }
-
-    for (int i = 0, end_i = index.search_params.size(); i != end_i; ++i) {
-      const auto p_param = create_search_param<T>(index.algo, index.search_params[i]);
-      algo->set_search_param(*p_param);
-      log_info("search with param: %s", index.search_params[i].dump().c_str());
-
-      if (algo_property.query_memory_type == MemoryType::Device) {
-        RAFT_CUDA_TRY(cudaMemset(d_neighbors, 0, query_set_size * k * sizeof(*d_neighbors)));
-        RAFT_CUDA_TRY(cudaMemset(d_distances, 0, query_set_size * k * sizeof(*d_distances)));
+      auto kv = key + "=" + val.dump();
+      if (label_empty) {
+        label = kv;
       } else {
-        memset(neighbors, 0, query_set_size * k * sizeof(*neighbors));
-        memset(distances, 0, query_set_size * k * sizeof(*distances));
+        label += "#" + kv;
       }
+      label_empty = false;
+    }
+  }
+  if (!label_empty) { state.SetLabel(label); }
+}
 
-      float best_search_time_average = std::numeric_limits<float>::max();
-      float best_search_time_p99     = std::numeric_limits<float>::max();
-      float best_search_time_p999    = std::numeric_limits<float>::max();
-      float total_search_time        = 0;
-      for (unsigned run = 0; run < run_count; ++run) {
-        log_info("run %d / %d", run + 1, run_count);
-        for (std::size_t batch_id = 0; batch_id < num_batches; ++batch_id) {
-          const std::size_t row = batch_id * batch_size;
-          const std::size_t actual_batch_size =
-            (batch_id == num_batches - 1) ? query_set_size - row : batch_size;
-          RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-#ifdef NVTX
-          string nvtx_label = "batch" + to_string(batch_id);
-          if (run_count != 1) { nvtx_label = "run" + to_string(run) + "-" + nvtx_label; }
-          if (batch_id == 10) {
-            run = run_count - 1;
+inline auto parse_algo_property(AlgoProperty prop, const nlohmann::json& conf) -> AlgoProperty
+{
+  if (conf.contains("dataset_memory_type")) {
+    prop.dataset_memory_type = parse_memory_type(conf.at("dataset_memory_type"));
+  }
+  if (conf.contains("query_memory_type")) {
+    prop.query_memory_type = parse_memory_type(conf.at("query_memory_type"));
+  }
+  return prop;
+};
+
+template <typename T>
+void bench_build(::benchmark::State& state,
+                 std::shared_ptr<const Dataset<T>> dataset,
+                 Configuration::Index index,
+                 bool force_overwrite)
+{
+  dump_parameters(state, index.build_param);
+  if (file_exists(index.file)) {
+    if (force_overwrite) {
+      log_info("Overwriting file: %s", index.file.c_str());
+    } else {
+      return state.SkipWithMessage(
+        "Index file already exists (use --overwrite to overwrite the index).");
+    }
+  }
+
+  std::unique_ptr<ANN<T>> algo;
+  try {
+    algo = ann::create_algo<T>(
+      index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+  } catch (const std::exception& e) {
+    return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
+  }
+
+  const auto algo_property = parse_algo_property(algo->get_preference(), index.build_param);
+
+  const T* base_set      = dataset->base_set(algo_property.dataset_memory_type);
+  std::size_t index_size = dataset->base_set_size();
+
+  cuda_timer gpu_timer;
+  {
+    nvtx_case nvtx{state.name()};
+    for (auto _ : state) {
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+      try {
+        algo->build(base_set, index_size, gpu_timer.stream());
+      } catch (const std::exception& e) {
+        state.SkipWithError(std::string(e.what()));
+      }
+    }
+  }
+  state.counters.insert(
+    {{"GPU Time", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
+
+  if (state.skipped()) { return; }
+  make_sure_parent_dir_exists(index.file);
+  algo->save(index.file);
+}
+
+template <typename T>
+void bench_search(::benchmark::State& state,
+                  std::shared_ptr<const Dataset<T>> dataset,
+                  Configuration::Index index,
+                  std::size_t search_param_ix)
+{
+  const auto& sp_json = index.search_params[search_param_ix];
+  dump_parameters(state, sp_json);
+
+  // NB: `k` and `n_queries` are guaranteed to be populated in conf.cpp
+  const std::uint32_t k = sp_json["k"];
+  // Amount of data processes in one go
+  const std::size_t n_queries = sp_json["n_queries"];
+  // Round down the query data to a multiple of the batch size to loop over full batches of data
+  const std::size_t query_set_size = (dataset->query_set_size() / n_queries) * n_queries;
+
+  if (!file_exists(index.file)) {
+    state.SkipWithError("Index file is missing. Run the benchmark in the build mode first.");
+    return;
+  }
+  // algo is static to cache it between close search runs to save time on index loading
+  static std::string index_file = "";
+  if (index.file != index_file) {
+    current_algo.reset();
+    index_file = index.file;
+  }
+  ANN<T>* algo;
+  std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
+  try {
+    if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
+      auto ualgo = ann::create_algo<T>(
+        index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+      algo = ualgo.get();
+      algo->load(index_file);
+      current_algo = std::move(ualgo);
+    }
+    search_param = ann::create_search_param<T>(index.algo, sp_json);
+  } catch (const std::exception& e) {
+    return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
+  }
+  algo->set_search_param(*search_param);
+
+  const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
+  const T* query_set       = dataset->query_set(algo_property.query_memory_type);
+  buf<float> distances{algo_property.query_memory_type, k * query_set_size};
+  buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};
+
+  if (search_param->needs_dataset()) {
+    try {
+      algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
+                               dataset->base_set_size());
+    } catch (const std::exception&) {
+      state.SkipWithError("The algorithm '" + index.name +
+                          "' requires the base set, but it's not available.");
+      return;
+    }
+  }
+
+  std::ptrdiff_t batch_offset   = 0;
+  std::size_t queries_processed = 0;
+  cuda_timer gpu_timer;
+  {
+    nvtx_case nvtx{state.name()};
+    for (auto _ : state) {
+      // measure the GPU time using the RAII helper
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+      // run the search
+      try {
+        algo->search(query_set + batch_offset * dataset->dim(),
+                     n_queries,
+                     k,
+                     neighbors.data + batch_offset * k,
+                     distances.data + batch_offset * k,
+                     gpu_timer.stream());
+      } catch (const std::exception& e) {
+        state.SkipWithError(std::string(e.what()));
+      }
+      // advance to the next batch
+      batch_offset = (batch_offset + n_queries) % query_set_size;
+      queries_processed += n_queries;
+    }
+  }
+  state.SetItemsProcessed(queries_processed);
+  state.counters.insert({{"k", k}, {"n_queries", n_queries}});
+  if (CUDART_FOUND) {
+    state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
+                           {"GPU QPS", queries_processed / gpu_timer.total_time()}});
+  }
+  if (state.skipped()) { return; }
+
+  // evaluate recall
+  if (dataset->max_k() >= k) {
+    const std::int32_t* gt          = dataset->gt_set();
+    const std::uint32_t max_k       = dataset->max_k();
+    buf<std::size_t> neighbors_host = neighbors.move(MemoryType::Host);
+
+    std::size_t rows        = std::min(queries_processed, query_set_size);
+    std::size_t match_count = 0;
+    std::size_t total_count = rows * static_cast<size_t>(k);
+    for (std::size_t i = 0; i < rows; i++) {
+      for (std::uint32_t j = 0; j < k; j++) {
+        auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
+        for (std::uint32_t l = 0; l < k; l++) {
+          auto exp_idx = gt[i * max_k + l];
+          if (act_idx == exp_idx) {
+            match_count++;
             break;
           }
-#endif
-          Timer timer;
-#ifdef NVTX
-          nvtxRangePush(nvtx_label.c_str());
-#endif
-          algo->search(this_query_set + row * dataset->dim(),
-                       actual_batch_size,
-                       k,
-                       this_neighbors + row * k,
-                       this_distances + row * k,
-                       stream);
-          RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-          const float elapsed_ms = timer.elapsed_ms();
-#ifdef NVTX
-          nvtxRangePop();
-#endif
-          // If the size of the last batch is less than batch_size, don't count it for
-          // search time. But neighbors of the last batch will still be filled, so it's
-          // counted for recall calculation.
-          if (actual_batch_size == batch_size) {
-            search_times.push_back(elapsed_ms / 1000.0f);  // in seconds
-          }
         }
-
-        const float total_search_time_run =
-          std::accumulate(search_times.cbegin(), search_times.cend(), 0.0f);
-        const float search_time_average = total_search_time_run / search_times.size();
-        total_search_time += total_search_time_run;
-        best_search_time_average = std::min(best_search_time_average, search_time_average);
-
-        if (search_times.size() >= 100) {
-          std::sort(search_times.begin(), search_times.end());
-
-          const auto calc_percentile_pos = [](float percentile, size_t N) {
-            return static_cast<size_t>(std::ceil(percentile / 100.0 * N)) - 1;
-          };
-
-          const float search_time_p99 = search_times[calc_percentile_pos(99, search_times.size())];
-          best_search_time_p99        = std::min(best_search_time_p99, search_time_p99);
-
-          if (search_times.size() >= 1000) {
-            const float search_time_p999 =
-              search_times[calc_percentile_pos(99.9, search_times.size())];
-            best_search_time_p999 = std::min(best_search_time_p999, search_time_p999);
-          }
-        }
-        search_times.clear();
       }
-      RAFT_CUDA_TRY(cudaDeviceSynchronize());
-      RAFT_CUDA_TRY(cudaPeekAtLastError());
-      const auto query_per_second =
-        (run_count * raft::round_down_safe(query_set_size, batch_size)) / total_search_time;
-
-      if (algo_property.query_memory_type == MemoryType::Device) {
-        RAFT_CUDA_TRY(cudaMemcpy(neighbors,
-                                 d_neighbors,
-                                 query_set_size * k * sizeof(*d_neighbors),
-                                 cudaMemcpyDeviceToHost));
-        RAFT_CUDA_TRY(cudaMemcpy(distances,
-                                 d_distances,
-                                 query_set_size * k * sizeof(*d_distances),
-                                 cudaMemcpyDeviceToHost));
-      }
-
-      for (std::size_t j = 0; j < query_set_size * k; ++j) {
-        neighbors_buf[j] = neighbors[j];
-      }
-      write_search_result(index.search_result_file + "." + to_string(i),
-                          dataset->name(),
-                          dataset->distance(),
-                          index.name,
-                          index.algo,
-                          index.build_param.dump(),
-                          index.search_params[i].dump(),
-                          batch_size,
-                          index.run_count,
-                          k,
-                          best_search_time_average,
-                          best_search_time_p99,
-                          best_search_time_p999,
-                          query_per_second,
-                          neighbors_buf,
-                          query_set_size);
     }
-
-    log_info("finish searching for index '%s'", index.name.c_str());
+    double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
+    state.counters.insert({{"Recall", actual_recall}});
   }
-
-  delete[] neighbors;
-  delete[] neighbors_buf;
-  delete[] distances;
-  RAFT_CUDA_TRY(cudaFree(d_neighbors));
-  RAFT_CUDA_TRY(cudaFree(d_distances));
-  RAFT_CUDA_TRY(cudaStreamDestroy(stream));
 }
 
-inline const std::string usage(const string& argv0)
+inline void printf_usage()
 {
-  return "usage: " + argv0 + " -b|s [-c] [-f] [-i index_names] conf.json\n" +
-         "   -b: build mode, will build index\n" +
-         "   -s: search mode, will search using built index\n" +
-         "       one and only one of -b and -s should be specified\n" +
-         "   -c: just check command line options and conf.json are sensible\n" +
-         "       won't build or search\n" + "   -f: force overwriting existing output files\n" +
-         "   -i: by default will build/search all the indices found in conf.json\n" +
-         "       '-i' can be used to select a subset of indices\n" +
-         "       'index_names' is a list of comma-separated index names\n" +
-         "       '*' is allowed as the last character of a name to select all matched indices\n" +
-         "       for example, -i \"hnsw1,hnsw2,faiss\" or -i \"hnsw*,faiss\"";
+  ::benchmark::PrintDefaultHelp();
+  fprintf(
+    stdout,
+    "          [--build|--search] \n"
+    "          [--overwrite]\n"
+    "          [--data_prefix=<prefix>]\n"
+    "          [--index_prefix=<prefix>]\n"
+    "          [--override_kv=<key:value1:value2:...:valueN>]\n"
+    "          <conf>.json\n"
+    "\n"
+    "Note the non-standard benchmark parameters:\n"
+    "  --build: build mode, will build index\n"
+    "  --search: search mode, will search using the built index\n"
+    "            one and only one of --build and --search should be specified\n"
+    "  --overwrite: force overwriting existing index files\n"
+    "  --data_prefix=<prefix>:"
+    " prepend <prefix> to dataset file paths specified in the <conf>.json (default = 'data/').\n"
+    "  --index_prefix=<prefix>:"
+    " prepend <prefix> to index file paths specified in the <conf>.json (default = 'index/').\n"
+    "  --override_kv=<key:value1:value2:...:valueN>:"
+    " override a build/search key one or more times multiplying the number of configurations;"
+    " you can use this parameter multiple times to get the Cartesian product of benchmark"
+    " configs.\n");
 }
 
 template <typename T>
-inline int dispatch_benchmark(const Configuration& conf,
-                              const std::string& index_patterns,
-                              bool force_overwrite,
-                              bool only_check,
-                              bool build_mode,
-                              bool search_mode)
+void register_build(std::shared_ptr<const Dataset<T>> dataset,
+                    std::vector<Configuration::Index> indices,
+                    bool force_overwrite)
 {
-  try {
-    const auto dataset_conf = conf.get_dataset_conf();
+  for (auto index : indices) {
+    auto suf      = static_cast<std::string>(index.build_param["override_suffix"]);
+    auto file_suf = suf;
+    index.build_param.erase("override_suffix");
+    std::replace(file_suf.begin(), file_suf.end(), '/', '-');
+    index.file += file_suf;
+    auto* b = ::benchmark::RegisterBenchmark(
+      index.name + suf, bench_build<T>, dataset, index, force_overwrite);
+    b->Unit(benchmark::kSecond);
+    b->UseRealTime();
+  }
+}
 
-    BinDataset<T> dataset(dataset_conf.name,
-                          dataset_conf.base_file,
-                          dataset_conf.subset_first_row,
-                          dataset_conf.subset_size,
-                          dataset_conf.query_file,
-                          dataset_conf.distance);
-
-    vector<Configuration::Index> indices = conf.get_indices(index_patterns);
-    if (!check(indices, build_mode, force_overwrite)) { return -1; }
-
-    std::string message = "will ";
-    message += build_mode ? "build:" : "search:";
-    for (const auto& index : indices) {
-      message += "\n  " + index.name;
+template <typename T>
+void register_search(std::shared_ptr<const Dataset<T>> dataset,
+                     std::vector<Configuration::Index> indices)
+{
+  for (auto index : indices) {
+    for (std::size_t i = 0; i < index.search_params.size(); i++) {
+      auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
+      index.search_params[i].erase("override_suffix");
+      auto* b =
+        ::benchmark::RegisterBenchmark(index.name + suf, bench_search<T>, dataset, index, i);
+      b->Unit(benchmark::kMillisecond);
+      b->UseRealTime();
     }
-    log_info("%s", message.c_str());
+  }
+}
 
-    if (only_check) {
-      log_info("%s", "all check passed, quit due to option -c");
-      return 0;
+template <typename T>
+void dispatch_benchmark(const Configuration& conf,
+                        bool force_overwrite,
+                        bool build_mode,
+                        bool search_mode,
+                        std::string data_prefix,
+                        std::string index_prefix,
+                        kv_series override_kv)
+{
+  if (CUDART_FOUND) {
+    for (auto [key, value] : cuda_info()) {
+      ::benchmark::AddCustomContext(key, value);
     }
+  }
+  const auto dataset_conf = conf.get_dataset_conf();
+  auto base_file          = combine_path(data_prefix, dataset_conf.base_file);
+  auto query_file         = combine_path(data_prefix, dataset_conf.query_file);
+  auto gt_file            = dataset_conf.groundtruth_neighbors_file;
+  if (gt_file.has_value()) { gt_file.emplace(combine_path(data_prefix, gt_file.value())); }
+  auto dataset = std::make_shared<BinDataset<T>>(dataset_conf.name,
+                                                 base_file,
+                                                 dataset_conf.subset_first_row,
+                                                 dataset_conf.subset_size,
+                                                 query_file,
+                                                 dataset_conf.distance,
+                                                 gt_file);
+  ::benchmark::AddCustomContext("dataset", dataset_conf.name);
+  ::benchmark::AddCustomContext("distance", dataset_conf.distance);
+  std::vector<Configuration::Index> indices = conf.get_indices();
+  if (build_mode) {
+    if (file_exists(base_file)) {
+      log_info("Using the dataset file '%s'", base_file.c_str());
+      ::benchmark::AddCustomContext("n_records", std::to_string(dataset->base_set_size()));
+      ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
+    } else {
+      log_warn("Dataset file '%s' does not exist; benchmarking index building is impossible.",
+               base_file.c_str());
+    }
+    std::vector<Configuration::Index> more_indices{};
+    for (auto& index : indices) {
+      for (auto param : apply_overrides(index.build_param, override_kv)) {
+        auto modified_index        = index;
+        modified_index.build_param = param;
+        modified_index.file        = combine_path(index_prefix, modified_index.file);
+        more_indices.push_back(modified_index);
+      }
+    }
+    register_build<T>(dataset, more_indices, force_overwrite);
+  } else if (search_mode) {
+    if (file_exists(query_file)) {
+      log_info("Using the query file '%s'", query_file.c_str());
+      ::benchmark::AddCustomContext("max_n_queries", std::to_string(dataset->query_set_size()));
+      ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
+      if (gt_file.has_value()) {
+        if (file_exists(*gt_file)) {
+          log_info("Using the ground truth file '%s'", gt_file->c_str());
+          ::benchmark::AddCustomContext("max_k", std::to_string(dataset->max_k()));
+        } else {
+          log_warn("Ground truth file '%s' does not exist; the recall won't be reported.",
+                   gt_file->c_str());
+        }
+      } else {
+        log_warn(
+          "Ground truth file is not provided; the recall won't be reported. NB: use "
+          "the 'groundtruth_neighbors_file' alongside the 'query_file' key to specify the path to "
+          "the ground truth in your conf.json.");
+      }
+    } else {
+      log_warn("Query file '%s' does not exist; benchmarking search is impossible.",
+               query_file.c_str());
+    }
+    for (auto& index : indices) {
+      index.search_params = apply_overrides(index.search_params, override_kv);
+      index.file          = combine_path(index_prefix, index.file);
+    }
+    register_search<T>(dataset, indices);
+  }
+}
 
-    if (build_mode) {
-      build(&dataset, indices);
-    } else if (search_mode) {
-      search(&dataset, indices);
-    }
-  } catch (const std::exception& e) {
-    log_error("exception occurred: %s", e.what());
+inline auto parse_bool_flag(const char* arg, const char* pat, bool& result) -> bool
+{
+  if (strcmp(arg, pat) == 0) {
+    result = true;
+    return true;
+  }
+  return false;
+}
+
+inline auto parse_string_flag(const char* arg, const char* pat, std::string& result) -> bool
+{
+  auto n = strlen(pat);
+  if (strncmp(pat, arg, strlen(pat)) == 0) {
+    result = arg + n + 1;
+    return true;
+  }
+  return false;
+}
+
+inline auto run_main(int argc, char** argv) -> int
+{
+  bool force_overwrite        = false;
+  bool build_mode             = false;
+  bool search_mode            = false;
+  std::string data_prefix     = "data";
+  std::string index_prefix    = "index";
+  std::string new_override_kv = "";
+  kv_series override_kv{};
+
+  char arg0_default[] = "benchmark";  // NOLINT
+  char* args_default  = arg0_default;
+  if (!argv) {
+    argc = 1;
+    argv = &args_default;
+  }
+  if (argc == 1) {
+    printf_usage();
     return -1;
   }
 
+  char* conf_path = argv[--argc];
+  std::ifstream conf_stream(conf_path);
+
+  for (int i = 1; i < argc; i++) {
+    if (parse_bool_flag(argv[i], "--overwrite", force_overwrite) ||
+        parse_bool_flag(argv[i], "--build", build_mode) ||
+        parse_bool_flag(argv[i], "--search", search_mode) ||
+        parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
+        parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
+        parse_string_flag(argv[i], "--override_kv", new_override_kv)) {
+      if (!new_override_kv.empty()) {
+        auto kvv = split(new_override_kv, ':');
+        auto key = kvv[0];
+        std::vector<nlohmann::json> vals{};
+        for (std::size_t j = 1; j < kvv.size(); j++) {
+          vals.push_back(nlohmann::json::parse(kvv[j]));
+        }
+        override_kv.emplace_back(key, vals);
+        new_override_kv = "";
+      }
+      for (int j = i; j < argc - 1; j++) {
+        argv[j] = argv[j + 1];
+      }
+      argc--;
+      i--;
+    }
+  }
+
+  if (build_mode == search_mode) {
+    log_error("One and only one of --build and --search should be specified");
+    printf_usage();
+    return -1;
+  }
+
+  if (!conf_stream) {
+    log_error("Can't open configuration file: %s", conf_path);
+    return -1;
+  }
+
+  if (!CUDART_FOUND) { log_warn("cudart library is not found, GPU-based indices won't work."); }
+
+  Configuration conf(conf_stream);
+  std::string dtype = conf.get_dataset_conf().dtype;
+
+  if (dtype == "float") {
+    dispatch_benchmark<float>(
+      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+  } else if (dtype == "uint8") {
+    dispatch_benchmark<std::uint8_t>(
+      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+  } else if (dtype == "int8") {
+    dispatch_benchmark<std::int8_t>(
+      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+  } else {
+    log_error("datatype '%s' is not supported", dtype.c_str());
+    return -1;
+  }
+
+  ::benchmark::Initialize(&argc, argv, printf_usage);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return -1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+  // Release a possibly cached ANN object, so that it cannot be alive longer than the handle to a
+  // shared library it depends on (dynamic benchmark executable).
+  current_algo.reset();
   return 0;
 }
 
-inline int run_main(int argc, char** argv)
-{
-  bool force_overwrite = false;
-  bool build_mode      = false;
-  bool search_mode     = false;
-  bool only_check      = false;
-  std::string index_patterns("*");
-  std::string dataset_memory("device");
-
-  int opt;
-  while ((opt = getopt(argc, argv, "bscfi:h")) != -1) {
-    switch (opt) {
-      case 'b': build_mode = true; break;
-      case 's': search_mode = true; break;
-      case 'c': only_check = true; break;
-      case 'f': force_overwrite = true; break;
-      case 'i': index_patterns = optarg; break;
-      case 'm': dataset_memory = optarg; break;
-      case 'h': cout << usage(argv[0]) << endl; return -1;
-      default: cerr << "\n" << usage(argv[0]) << endl; return -1;
-    }
-  }
-  if (build_mode == search_mode) {
-    std::cerr << "one and only one of -b and -s should be specified\n\n" << usage(argv[0]) << endl;
-    return -1;
-  }
-  if (argc - optind != 1) {
-    std::cerr << usage(argv[0]) << endl;
-    return -1;
-  }
-  string conf_file = argv[optind];
-
-  std::ifstream conf_stream(conf_file.c_str());
-  if (!conf_stream) {
-    log_error("can't open configuration file: %s", argv[optind]);
-    return -1;
-  }
-
-  try {
-    Configuration conf(conf_stream);
-    std::string dtype = conf.get_dataset_conf().dtype;
-
-    if (dtype == "float") {
-      return dispatch_benchmark<float>(
-        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
-    } else if (dtype == "uint8") {
-      return dispatch_benchmark<std::uint8_t>(
-        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
-    } else if (dtype == "int8") {
-      return dispatch_benchmark<std::int8_t>(
-        conf, index_patterns, force_overwrite, only_check, build_mode, search_mode);
-    } else {
-      log_error("datatype %s not supported", dtype);
-    }
-
-  } catch (const std::exception& e) {
-    log_error("exception occurred: %s", e.what());
-    return -1;
-  }
-
-  return -1;
-}
 };  // namespace raft::bench::ann
