@@ -35,3 +35,14 @@ namespace *raft::neighbors*
     :project: RAFT
     :members:
     :content-only:
+
+Helper Methods
+--------------
+``#include <raft/neighbors/ivf_pq_helpers.cuh>``
+
+namespace *raft::neighbors::ivf_pq::helpers*
+
+.. doxygengroup:: ivf_pq_helpers
+    :project: RAFT
+    :members:
+    :content-only:

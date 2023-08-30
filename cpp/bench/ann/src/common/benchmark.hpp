@@ -182,7 +182,8 @@ void build(const Dataset<T>* dataset, const std::vector<Configuration::Index>& i
                                      dataset->dim(),
                                      index.refine_ratio,
                                      index.build_param,
-                                     index.dev_list);
+                                     index.dev_list,
+                                     index.index_conf);
     const auto algo_property = algo->get_property();
 
     const T* base_set_ptr = nullptr;
@@ -322,7 +323,8 @@ inline void search(const Dataset<T>* dataset, const std::vector<Configuration::I
                                      dataset->dim(),
                                      index.refine_ratio,
                                      index.build_param,
-                                     index.dev_list);
+                                     index.dev_list,
+                                     index.index_conf);
     const auto algo_property = algo->get_property();
 
     log_info("loading index '%s' from file '%s'", index.name.c_str(), index.file.c_str());
@@ -550,6 +552,7 @@ inline int run_main(int argc, char** argv)
   bool search_mode     = false;
   bool only_check      = false;
   std::string index_patterns("*");
+  std::string dataset_memory("device");
 
   int opt;
   while ((opt = getopt(argc, argv, "bscfi:h")) != -1) {
@@ -559,6 +562,7 @@ inline int run_main(int argc, char** argv)
       case 'c': only_check = true; break;
       case 'f': force_overwrite = true; break;
       case 'i': index_patterns = optarg; break;
+      case 'm': dataset_memory = optarg; break;
       case 'h': cout << usage(argv[0]) << endl; return -1;
       default: cerr << "\n" << usage(argv[0]) << endl; return -1;
     }

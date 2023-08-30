@@ -99,6 +99,7 @@ void Configuration::parse_index_(const nlohmann::json& index_conf,
     index.batch_size  = batch_size;
     index.k           = k;
     index.run_count   = run_count;
+    index.index_conf  = index_conf;
 
     if (conf.contains("multigpu")) {
       for (auto it : conf.at("multigpu")) {
