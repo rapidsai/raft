@@ -244,7 +244,7 @@ void sort_knn_graph(raft::resources const& res,
   const uint32_t input_graph_degree = knn_graph.extent(1);
   IdxT* const input_graph_ptr       = knn_graph.data_handle();
 
-  auto d_input_graph = raft::make_device_matrix<IdxT, IdxT>(res, graph_size, input_graph_degree);
+  auto d_input_graph = raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree);
 
   //
   // Sorting kNN graph
