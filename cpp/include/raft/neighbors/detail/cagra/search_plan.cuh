@@ -252,7 +252,7 @@ struct search_plan_impl : public search_plan_impl_base {
 
   virtual void check(const uint32_t topk)
   {
-    // For multi-CTA and multi kernel
+    // For single-CTA and multi kernel
     RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
   }
 
