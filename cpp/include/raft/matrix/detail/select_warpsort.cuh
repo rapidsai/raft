@@ -989,7 +989,7 @@ void calc_launch_parameter(raft::resources const& res,
       if (batch_size >= size_t(another.min_grid_size)  // still have enough work
           && another.block_size < block_size           // protect against an infinite loop
           && another.min_grid_size * another.block_size >
-               min_grid_size * block_size              // improve occupancy
+               min_grid_size * block_size  // improve occupancy
       ) {
         block_size    = another.block_size;
         min_grid_size = another.min_grid_size;

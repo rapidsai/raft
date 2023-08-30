@@ -18,6 +18,8 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>
@@ -161,10 +163,12 @@ template <typename idx_t = int, typename value_t = float>
         in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, true, stream);
       break;
 
-    case SelectKAlgo::WARP_SORT:
+    case SelectKAlgo::WARP_SORT: {
+      raft::resources res;
+      resource::set_cuda_stream(res, stream);
       matrix::detail::select::warpsort::select_k<value_t, idx_t>(
-        in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
-      break;
+        res, in_keys, in_values, n_inputs, input_len, k, out_keys, out_values, select_min, stream);
+    } break;
 
     default: ASSERT(false, "Unknown algorithm (id = %d)", int(algo));
   }
