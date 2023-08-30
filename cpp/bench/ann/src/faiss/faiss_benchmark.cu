@@ -68,6 +68,7 @@ void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::FaissGpu<T>::SearchParam& param)
 {
   param.nprobe = conf.at("nprobe");
+  if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
 }
 
 template <typename T, template <typename> class Algo>

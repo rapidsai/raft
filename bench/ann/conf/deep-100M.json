@@ -1,9 +1,9 @@
 {
   "dataset": {
     "name": "deep-100M",
-    "base_file": "data/deep-1B/base.1B.fbin",
+    "base_file": "deep-100M/base.1B.fbin",
     "subset_size": 100000000,
-    "query_file": "data/deep-1B/query.public.10K.fbin",
+    "query_file": "deep-100M/query.public.10K.fbin",
     "groundtruth_neighbors_file": "deep-100M/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
@@ -183,9 +183,42 @@
       ]
     },
     {
+      "name": "faiss_ivf_pq.M48-nlist200K",
+      "algo": "faiss_gpu_ivf_pq",
+      "build_param": {"nlist":200000, "M":48},
+      "file": "deep-100M/faiss_ivf_pq/M48-nlist200K",
+      "search_params": [
+        {"nprobe":20},
+        {"nprobe":30},
+        {"nprobe":40},
+        {"nprobe":50},
+        {"nprobe":100},
+        {"nprobe":200},
+        {"nprobe":500},
+        {"nprobe":1000}
+      ]
+    },
+
+
+    {
+      "name": "raft_ivf_flat.nlist50K",
+      "algo": "raft_ivf_flat",
+      "build_param": {"nlist": 50000, "niter": 25, "ratio": 5},
+      "file": "deep-100M/raft_ivf_flat/nlist50K",
+      "search_params": [
+        {"max_batch":10000, "max_k":10, "nprobe":20},
+        {"max_batch":10000, "max_k":10, "nprobe":30},
+        {"max_batch":10000, "max_k":10, "nprobe":40},
+        {"max_batch":10000, "max_k":10, "nprobe":50},
+        {"max_batch":10000, "max_k":10, "nprobe":100},
+        {"max_batch":10000, "max_k":10, "nprobe":200},
+        {"max_batch":10000, "max_k":10, "nprobe":500},
+        {"max_batch":10000, "max_k":10, "nprobe":1000}
+      ]
+    },
+    {
       "name": "raft_ivf_flat.nlist100K",
       "algo": "raft_ivf_flat",
-      "dataset_memtype":"host",
       "build_param": {"nlist": 100000, "niter": 25, "ratio": 5},
       "file": "deep-100M/raft_ivf_flat/nlist100K",
       "search_params": [
@@ -200,10 +233,224 @@
       ]
     },
     {
+      "name": "raft_ivf_flat.nlist200K",
+      "algo": "raft_ivf_flat",
+      "build_param": {"nlist": 200000, "niter": 25, "ratio": 5},
+      "file": "deep-100M/raft_ivf_flat/nlist200K",
+      "search_params": [
+        {"max_batch":10000, "max_k":10, "nprobe":20},
+        {"max_batch":10000, "max_k":10, "nprobe":30},
+        {"max_batch":10000, "max_k":10, "nprobe":40},
+        {"max_batch":10000, "max_k":10, "nprobe":50},
+        {"max_batch":10000, "max_k":10, "nprobe":100},
+        {"max_batch":10000, "max_k":10, "nprobe":200},
+        {"max_batch":10000, "max_k":10, "nprobe":500},
+        {"max_batch":10000, "max_k":10, "nprobe":1000}
+      ]
+    },
+
+    {
+      "name": "raft_ivf_pq.dimpq128-cluster1024",
+      "algo": "raft_ivf_pq",
+      "build_param": {"nlist": 1024, "pq_dim": 128, "ratio": 1, "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "half", "smemLutDtype": "half"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq128-cluster1024-float-float",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 128,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-float",
+      "search_params": [
+        {"nprobe": 1, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 5, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "float"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-float"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq128-cluster1024-float-half",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 128,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-half",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "half"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-half"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq128-cluster1024-float-fp8",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 128,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq64-cluster1024-float-fp8",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 64,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq64-cluster1024-float-half",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 64,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-half",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "half"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "half"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq64-cluster1024-float-half"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq32-cluster1024-float-fp8",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 32,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq16-cluster1024-float-fp8",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 16,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "fp8"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq128-cluster1024-half-float",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 128,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-half-float",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "half", "smemLutDtype": "float"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq128-cluster1024-half-float"
+    },
+    {
+      "name": "raft_ivf_pq.dimpq512-cluster1024-float-float",
+      "algo": "raft_ivf_pq",
+      "build_param": {
+        "nlist": 1024,
+        "pq_dim": 512,
+        "ratio": 1,
+        "niter": 25
+      },
+      "file": "index/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float",
+      "search_params": [
+        {"nprobe": 10, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float"},
+        {"nprobe": 1024, "internalDistanceDtype": "float", "smemLutDtype": "float"}
+      ],
+      "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float"
+    },    
+    {
       "name": "raft_cagra.dim32",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "single_cta"},
@@ -223,8 +470,7 @@
     {
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_cta"},
@@ -240,11 +486,11 @@
         {"itopk": 384, "search_width": 8, "max_iterations": 48, "algo": "multi_cta"},
         {"itopk": 512, "search_width": 8, "max_iterations": 64, "algo": "multi_cta"}
       ]
+    },
     {
       "name": "raft_cagra.dim32.multi_kernel",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
-      "build_param": {"index_dim": 32, "intermediate_graph_degree": 48},
+      "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "deep-100M/raft_cagra/dim32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_kernel"},
@@ -264,8 +510,7 @@
     {
       "name": "raft_cagra.dim64",
       "algo": "raft_cagra",
-      "dataset_memtype":"host",
-      "build_param": {"index_dim": 64},
+      "build_param": {"graph_degree": 64},
       "file": "deep-100M/raft_cagra/dim64",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0},
