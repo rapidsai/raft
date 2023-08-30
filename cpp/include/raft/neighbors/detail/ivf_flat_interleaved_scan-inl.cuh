@@ -884,6 +884,7 @@ void launch_kernel(Lambda lambda,
     queries += grid_dim_y * index.dim();
     neighbors += grid_dim_y * grid_dim_x * k;
     distances += grid_dim_y * grid_dim_x * k;
+    coarse_index += grid_dim_y * n_probes;
   }
 }
 
