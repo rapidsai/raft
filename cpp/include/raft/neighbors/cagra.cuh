@@ -277,9 +277,11 @@ index<T, IdxT> build(raft::resources const& res,
 
     optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
   } else {
-    auto nn_descent_params                       = std::make_optional<nn_descent::index_params>();
-    nn_descent_params->intermediate_graph_degree = intermediate_degree;
-    nn_descent_params->graph_degree              = intermediate_degree;
+    auto nn_descent_params = std::make_optional<nn_descent::index_params>();
+    // nn_descent_params->intermediate_graph_degree = intermediate_degree;
+    // nn_descent_params->graph_degree              = intermediate_degree;
+    nn_descent_params->intermediate_graph_degree = 64;
+    nn_descent_params->graph_degree              = 96;
     auto nn_descent_index = build_knn_graph<T, IdxT>(res, dataset, nn_descent_params);
 
     optimize<IdxT>(res, nn_descent_index.graph(), cagra_graph.view());
