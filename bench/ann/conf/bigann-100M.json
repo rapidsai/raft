@@ -1,80 +1,90 @@
 {
-  "dataset" : {
-    "name" : "bigann-100M",
-    "base_file" : "data/bigann-1B/base.1B.u8bin",
-    "subset_size" : 100000000,
-    "query_file" : "data/bigann-1B/query.public.10K.u8bin",
-    "distance" : "euclidean"
+  "dataset": {
+    "name": "bigann-100M",
+    "base_file": "bigann-1B/base.1B.u8bin",
+    "subset_size": 100000000,
+    "query_file": "bigann-1B/query.public.10K.u8bin",
+    "groundtruth_neighbors_file": "bigann-100M/groundtruth.neighbors.ibin",
+    "distance": "euclidean"
   },
 
-  "search_basic_param" : {
-    "batch_size" : 10000,
-    "k" : 10,
-    "run_count" : 2
+  "search_basic_param": {
+    "batch_size": 10000,
+    "k": 10
   },
 
-  "index" : [
+  "index": [
     {
-      "name": "raft_ivf_pq.dimpq64-cluster5K-float-float",
+      "name": "raft_ivf_pq.dimpq64-cluster5K",
       "algo": "raft_ivf_pq",
+      "build_param": {"niter": 25, "nlist": 5000, "pq_dim": 64, "ratio": 10},
+      "file": "bigann-100M/raft_ivf_pq/dimpq64-cluster5K",
       "dataset_memtype": "host",
-      "build_param": {
-        "niter": 25,
-        "nlist": 5000,
-        "pq_dim": 64,
-        "ratio": 10
-      },
-      "file": "index/bigann-100M/raft_ivf_pq/dimpq64-cluster5K",
       "search_params": [
-        {
-          "numProbes": 20,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 30,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 40,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 50,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 100,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 200,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 500,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        },
-        {
-          "numProbes": 1000,
-          "internalDistanceDtype": "float",
-          "smemLutDtype": "float"
-        }
-      ],
-      "search_result_file": "result/bigann-100M/raft_ivf_pq/dimpq64-cluster5K-float-float"
+        { "nprobe": 20, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 30, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 40, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 1000, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 20, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 30, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 40, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 1000, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 40, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 1000, "internalDistanceDtype": "half", "smemLutDtype": "half" }
+      ]
     },
     {
-      "name" : "hnswlib.M12",
-      "algo" : "hnswlib",
+      "name": "raft_ivf_pq.dimpq64-cluster10K",
+      "algo": "raft_ivf_pq",
+      "build_param": {"niter": 25, "nlist": 10000, "pq_dim": 64, "ratio": 10},
+      "file": "bigann-100M/raft_ivf_pq/dimpq64-cluster5K",
+      "search_params": [
+        { "nprobe": 20, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 30, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 40, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 1000, "internalDistanceDtype": "float", "smemLutDtype": "float" },
+        { "nprobe": 20, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 30, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 40, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 50, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 100, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 200, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 500, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 1000, "internalDistanceDtype": "float", "smemLutDtype": "fp8" },
+        { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 40, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 50, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 100, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 200, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 500, "internalDistanceDtype": "half", "smemLutDtype": "half" },
+        { "nprobe": 1000, "internalDistanceDtype": "half", "smemLutDtype": "half" }
+      ]
+    },
+    {
+      "name": "hnswlib.M12",
+      "algo": "hnswlib",
       "build_param": {"M":12, "efConstruction":500, "numThreads":32},
-      "file" : "index/bigann-100M/hnswlib/M12",
-      "search_params" : [
+      "file": "bigann-100M/hnswlib/M12",
+      "search_params": [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
         {"ef":40, "numThreads":1},
@@ -85,15 +95,14 @@
         {"ef":400, "numThreads":1},
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
-      ],
-      "search_result_file" : "result/bigann-100M/hnswlib/M12"
+      ]
     },
     {
-      "name" : "hnswlib.M16",
-      "algo" : "hnswlib",
+      "name": "hnswlib.M16",
+      "algo": "hnswlib",
       "build_param": {"M":16, "efConstruction":500, "numThreads":32},
-      "file" : "index/bigann-100M/hnswlib/M16",
-      "search_params" : [
+      "file": "bigann-100M/hnswlib/M16",
+      "search_params": [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
         {"ef":40, "numThreads":1},
@@ -104,15 +113,14 @@
         {"ef":400, "numThreads":1},
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
-      ],
-      "search_result_file" : "result/bigann-100M/hnswlib/M16"
+      ]
     },
     {
-      "name" : "hnswlib.M24",
-      "algo" : "hnswlib",
+      "name": "hnswlib.M24",
+      "algo": "hnswlib",
       "build_param": {"M":24, "efConstruction":500, "numThreads":32},
-      "file" : "index/bigann-100M/hnswlib/M24",
-      "search_params" : [
+      "file": "bigann-100M/hnswlib/M24",
+      "search_params": [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
         {"ef":40, "numThreads":1},
@@ -123,15 +131,14 @@
         {"ef":400, "numThreads":1},
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
-      ],
-      "search_result_file" : "result/bigann-100M/hnswlib/M24"
+      ]
     },
     {
-      "name" : "hnswlib.M36",
-      "algo" : "hnswlib",
+      "name": "hnswlib.M36",
+      "algo": "hnswlib",
       "build_param": {"M":36, "efConstruction":500, "numThreads":32},
-      "file" : "index/bigann-100M/hnswlib/M36",
-      "search_params" : [
+      "file": "bigann-100M/hnswlib/M36",
+      "search_params": [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
         {"ef":40, "numThreads":1},
@@ -142,65 +149,48 @@
         {"ef":400, "numThreads":1},
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
-      ],
-      "search_result_file" : "result/bigann-100M/hnswlib/M36"
+      ]
     },
-
-
     {
-      "name" : "raft_ivf_flat.nlist100K",
-      "algo" : "raft_ivf_flat",
-      "dataset_memtype": "host",
-      "build_param": {
-        "nlist" : 100000,
-        "niter" : 25,
-        "ratio" : 5
-      },
-      "file" : "index/bigann-100M/raft_ivf_flat/nlist100K",
-      "search_params" : [
-        {"nprobe":20},
-        {"nprobe":30},
-        {"nprobe":40},
-        {"nprobe":50},
-        {"nprobe":100},
-        {"nprobe":200},
-        {"nprobe":500},
-        {"nprobe":1000}
-      ],
-      "search_result_file" : "result/bigann-100M/raft_ivf_flat/nlist100K"
+      "name": "raft_ivf_flat.nlist100K",
+      "algo": "raft_ivf_flat",
+      "build_param": {"nlist": 100000, "niter": 25, "ratio": 5},
+      "dataset_memtype":"host",
+      "file": "bigann-100M/raft_ivf_flat/nlist100K",
+      "search_params": [
+        {"max_batch":10000, "max_k":10, "nprobe":20},
+        {"max_batch":10000, "max_k":10, "nprobe":30},
+        {"max_batch":10000, "max_k":10, "nprobe":40},
+        {"max_batch":10000, "max_k":10, "nprobe":50},
+        {"max_batch":10000, "max_k":10, "nprobe":100},
+        {"max_batch":10000, "max_k":10, "nprobe":200},
+        {"max_batch":10000, "max_k":10, "nprobe":500},
+        {"max_batch":10000, "max_k":10, "nprobe":1000}
+      ]
     },
-
     {
-      "name" : "raft_cagra.dim32",
-      "algo" : "raft_cagra",
+      "name": "raft_cagra.dim32",
+      "algo": "raft_cagra",
       "dataset_memtype": "host",
-      "build_param": {
-        "index_dim" : 32
-      },
-      "file" : "index/bigann-100M/raft_cagra/dim32",
-      "search_params" : [
+      "build_param": {"index_dim": 32},
+      "file": "bigann-100M/raft_cagra/dim32",
+      "search_params": [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
-      ],
-      "search_result_file" : "result/bigann-100M/raft_cagra/dim32"
+      ]
     },
-
-
     {
-      "name" : "raft_cagra.dim64",
-      "algo" : "raft_cagra",
-      "dataset_memtype": "host",
-      "build_param": {
-        "index_dim" : 64
-      },
-      "file" : "index/bigann-100M/raft_cagra/dim64",
-      "search_params" : [
+      "name": "raft_cagra.dim64",
+      "algo": "raft_cagra",
+      "dataset_memtype":"host",
+      "build_param": {"index_dim": 64},
+      "file": "bigann-100M/raft_cagra/dim64",
+      "search_params": [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
-      ],
-      "search_result_file" : "result/bigann-100M/raft_cagra/dim64"
+      ]
     }
   ]
 }

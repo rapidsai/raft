@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "../common/ann_types.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -22,8 +24,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "../common/ann_types.hpp"
-#include "../common/benchmark_util.hpp"
 #undef WARP_SIZE
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
 #include "raft_wrapper.h"
@@ -120,6 +120,10 @@ void parse_search_param(const nlohmann::json& conf,
     // set half as default
     param.pq_param.lut_dtype = CUDA_R_16F;
   }
+  if (conf.contains("refine_ratio")) {
+    param.refine_ratio = conf.at("refine_ratio");
+    if (param.refine_ratio < 1.0f) { throw std::runtime_error("refine_ratio should be >= 1.0"); }
+  }
 }
 #endif
 
@@ -165,31 +169,18 @@ template <typename T>
 std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
                                                       const std::string& distance,
                                                       int dim,
-                                                      float refine_ratio,
                                                       const nlohmann::json& conf,
-                                                      const std::vector<int>& dev_list,
-                                                      const nlohmann::json& index_conf)
+                                                      const std::vector<int>& dev_list)
 {
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
 
   raft::bench::ann::Metric metric = parse_metric(distance);
-  std::string memtype             = conf.at("dataset_memtype");
-
-  MemoryType dataset_memorytype = MemoryType::Device;
-  if (memtype == "host") {
-    dataset_memorytype = MemoryType::Host;
-  } else if (memtype == "mmap") {
-    dataset_memorytype = MemoryType::HostMmap;
-  }
-
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-    if (algo == "raft_bfknn") {
-      ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim, dataset_memorytype);
-    }
+    if (algo == "raft_bfknn") { ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim); }
 #endif
   }
 
@@ -199,29 +190,25 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   if (algo == "raft_ivf_flat") {
     typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::BuildParam param;
     parse_build_param<T, int64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(
-      metric, dim, param, dataset_memorytype);
+    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(metric, dim, param);
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   if (algo == "raft_ivf_pq") {
     typename raft::bench::ann::RaftIvfPQ<T, int64_t>::BuildParam param;
     parse_build_param<T, int64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfPQ<T, int64_t>>(
-      metric, dim, param, refine_ratio, dataset_memorytype);
+    ann = std::make_unique<raft::bench::ann::RaftIvfPQ<T, int64_t>>(metric, dim, param);
   }
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
   if (algo == "raft_cagra") {
     typename raft::bench::ann::RaftCagra<T, uint32_t>::BuildParam param;
     parse_build_param<T, uint32_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(
-      metric, dim, param, dataset_memorytype);
+    ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
   }
 #endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
-  if (refine_ratio > 1.0) {}
   return ann;
 }
 
@@ -263,6 +250,11 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 
 };  // namespace raft::bench::ann
 
-#include "../common/benchmark.hpp"
+REGISTER_ALGO_INSTANCE(float);
+REGISTER_ALGO_INSTANCE(std::int8_t);
+REGISTER_ALGO_INSTANCE(std::uint8_t);
 
+#ifdef ANN_BENCH_BUILD_MAIN
+#include "../common/benchmark.hpp"
 int main(int argc, char** argv) { return raft::bench::ann::run_main(argc, argv); }
+#endif
