@@ -166,7 +166,7 @@ if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_PRIMS_BENCH)
+if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench()
 endif()
