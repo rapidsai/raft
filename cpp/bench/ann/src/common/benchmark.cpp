@@ -72,8 +72,7 @@ auto create_algo(const std::string& algo,
                  const std::string& distance,
                  int dim,
                  const nlohmann::json& conf,
-                 const std::vector<int>& dev_list,
-                 const nlohman::json& index_conf) -> std::unique_ptr<raft::bench::ann::ANN<T>>
+                 const std::vector<int>& dev_list) -> std::unique_ptr<raft::bench::ann::ANN<T>>
 {
   static auto fname = get_fun_name(reinterpret_cast<void*>(&create_algo<T>));
   auto handle       = load_lib(algo);
@@ -82,7 +81,7 @@ auto create_algo(const std::string& algo,
     throw std::runtime_error("Couldn't load the create_algo function (" + algo + ")");
   }
   auto fun = reinterpret_cast<decltype(&create_algo<T>)>(fun_addr);
-  return fun(algo, distance, dim, conf, dev_list, index_conf);
+  return fun(algo, distance, dim, conf, dev_list);
 }
 
 template <typename T>
