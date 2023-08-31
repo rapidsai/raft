@@ -15,11 +15,9 @@
  */
 #pragma once
 
-#include "matmul.hpp"
+#include "cublaslt_wrappers.hpp"
 
 #include <raft/core/resources.hpp>
-
-#include <cublas_v2.h>  // cublasOperation_t
 
 namespace raft::linalg::detail {
 
