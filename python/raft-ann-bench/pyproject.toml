@@ -32,8 +32,11 @@ dynamic = ["entry-points"]
 [project.urls]
 Homepage = "https://github.com/rapidsai/raft"
 
-[tool.setuptools]
-license-files = ["LICENSE"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
 
 [tool.isort]
 line_length = 79

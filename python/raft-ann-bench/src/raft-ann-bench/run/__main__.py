@@ -47,10 +47,10 @@ def find_executable(algos_conf, algo, k, batch_size):
     build_path = os.path.join(
         os.getenv("RAFT_HOME"), "cpp", "build", executable
     )
-    if os.path.exists(conda_path):
+    if conda_path is not None and os.path.exists(conda_path):
         print("-- Using RAFT bench found in conda environment: ")
         return (executable, conda_path, f"{algo}-{k}-{batch_size}")
-    elif os.path.exists(build_path):
+    elif build_path is not None and os.path.exists(build_path):
         print(
             f"-- Using RAFT bench from repository specified in {build_path}: "
         )
@@ -140,7 +140,7 @@ def main():
 
         algo_file = "algos.yaml"
     except ImportError:
-        algo_file = "algos_cpu.yaml"
+        algo_file = "algos-cpu.yaml"
     with open(f"{scripts_path}/{algo_file}", "r") as f:
         algos_conf = yaml.safe_load(f)
 

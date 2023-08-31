@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "fashion-mnist-784-euclidean",
-    "base_file": "data/fashion-mnist-784-euclidean/base.fbin",
-    "query_file": "data/fashion-mnist-784-euclidean/query.fbin",
+    "base_file": "fashion-mnist-784-euclidean/base.fbin",
+    "query_file": "fashion-mnist-784-euclidean/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {

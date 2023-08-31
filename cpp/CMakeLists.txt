@@ -139,8 +139,10 @@ if(CUDA_STATIC_RUNTIME)
   set(_ctk_static_suffix "_static")
 endif()
 
-# CUDA runtime
-rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+if(NOT CPU_ONLY)
+  # CUDA runtime
+  rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+endif()
 
 if(NOT DISABLE_OPENMP)
   find_package(OpenMP)
