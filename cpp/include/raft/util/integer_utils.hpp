@@ -24,6 +24,7 @@
  */
 
 #include <limits>
+#include <raft/core/resources.hpp>
 #include <stdexcept>
 #include <type_traits>
 
@@ -200,7 +201,7 @@ template <typename From, typename To>
 inline constexpr bool is_narrowing_v = is_narrowing<From, To>::value;  // NOLINT
 
 /** Wide multiplication of two unsigned 64-bit integers */
-HDI void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b)
+_RAFT_HOST_DEVICE inline void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b)
 {
 #ifdef __CUDA_ARCH__
   asm("mul.hi.u64 %0, %1, %2;" : "=l"(res_hi) : "l"(a), "l"(b));

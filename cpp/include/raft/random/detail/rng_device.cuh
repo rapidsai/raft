@@ -18,7 +18,7 @@
 
 #include <raft/random/rng_state.hpp>
 #include <raft/util/cuda_utils.cuh>
-#include <raft/util/integer_utils.cuh>
+#include <raft/util/integer_utils.hpp>
 
 #include <curand_kernel.h>
 
@@ -210,7 +210,7 @@ HDI void custom_next(GenType& gen,
                      LenType idx    = 0,
                      LenType stride = 0)
 {
-  using raft::util::wmul_64bit;
+  using raft::wmul_64bit;
   uint64_t x = 0;
   gen.next(x);
   uint64_t s = params.diff;
