@@ -24,7 +24,7 @@
  */
 
 #include <limits>
-#include <raft/core/resources.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <stdexcept>
 #include <type_traits>
 
