@@ -40,12 +40,15 @@ namespace raft::neighbors::cagra {
  * @{
  */
 
-enum class graph_build_algo { IVF_PQ, NN_DESCENT };
+enum class graph_build_algo {
+  IVF_PQ,
+  NN_DESCENT
+};
 
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;                      // Degree of input graph for pruning.
-  size_t graph_degree              = 32;                       // Degree of output graph.
-  graph_build_algo build_algo = graph_build_algo::NN_DESCENT;  // ANN algorithm to build knn graph
+  size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
+  size_t graph_degree              = 64;   // Degree of output graph.
+  graph_build_algo build_algo = graph_build_algo::IVF_PQ; // ANN algorithm to build knn graph
 };
 
 enum class search_algo {
@@ -350,9 +353,9 @@ struct index : ann::index {
 
 // TODO: Remove deprecated experimental namespace in 23.12 release
 namespace raft::neighbors::experimental::cagra {
-using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::hash_mode;
 using raft::neighbors::cagra::index;
+using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::index_params;
 using raft::neighbors::cagra::search_algo;
 using raft::neighbors::cagra::search_params;

@@ -34,7 +34,7 @@ namespace raft::neighbors::nn_descent {
 struct index_params : ann::index_params {
   size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t graph_degree              = 64;      // Degree of output graph.
-  size_t max_iterations            = 15;      // Number of nn-descent iterations.
+  size_t max_iterations            = 50;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
 };
 
