@@ -13,7 +13,7 @@
 # =============================================================================
 
 # ##################################################################################################
-# * benchmark options- -----------------------------------------------------------------------------
+# * benchmark options ------------------------------------------------------------------------------
 
 option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
