@@ -35,6 +35,7 @@ ______________________________________________________________________________
 #ifndef CPU_ONLY
 #include <cuda_runtime_api.h>
 #ifdef ANN_BENCH_LINK_CUDART
+#include <cstring>
 #include <dlfcn.h>
 #endif
 #else
@@ -49,7 +50,30 @@ struct cuda_lib_handle {
   explicit cuda_lib_handle()
   {
 #ifdef ANN_BENCH_LINK_CUDART
-    handle = dlopen(ANN_BENCH_LINK_CUDART, RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND | RTLD_NODELETE);
+    constexpr int kFlags = RTLD_NOW | RTLD_GLOBAL | RTLD_DEEPBIND | RTLD_NODELETE;
+    // The full name of the linked cudart library 'cudart.so.MAJOR.MINOR.PATCH'
+    char libname[] = ANN_BENCH_LINK_CUDART;  // NOLINT
+    handle         = dlopen(ANN_BENCH_LINK_CUDART, kFlags);
+    if (handle != nullptr) { return; }
+    // try strip the PATCH
+    auto p = strrchr(libname, '.');
+    p[0]   = 0;
+    handle = dlopen(libname, kFlags);
+    if (handle != nullptr) { return; }
+    // try set the MINOR version to 0
+    p      = strrchr(libname, '.');
+    p[1]   = '0';
+    p[2]   = 0;
+    handle = dlopen(libname, kFlags);
+    if (handle != nullptr) { return; }
+    // try strip the MINOR
+    p[0]   = 0;
+    handle = dlopen(libname, kFlags);
+    if (handle != nullptr) { return; }
+    // try strip the MAJOR
+    p      = strrchr(libname, '.');
+    p[0]   = 0;
+    handle = dlopen(libname, kFlags);
 #endif
   }
   ~cuda_lib_handle() noexcept
