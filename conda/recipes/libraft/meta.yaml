@@ -62,13 +62,13 @@ outputs:
         - cuda-cudart-dev
         {% endif %}
         - cuda-version ={{ cuda_version }}
-        - librmm ={{ minor_version }}
+        #- librmm ={{ minor_version }}  # TODO: Temporarily disabled so that rmm doesn't provide CCCL
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}
-        - librmm ={{ minor_version }}
+        #- librmm ={{ minor_version }}  # TODO: Temporarily disabled so that rmm doesn't provide CCCL
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -88,7 +88,7 @@ outputs:
         - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_subpackage('libraft-headers-only', exact=True) }}
-        - librmm ={{ minor_version }}
+        #- librmm ={{ minor_version }}  # TODO: Temporarily disabled so that rmm doesn't provide CCCL
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
