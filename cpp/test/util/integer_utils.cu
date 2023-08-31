@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/util/integer_utils.cuh>
+#include <raft/util/integer_utils.hpp>
 #include <rmm/device_scalar.hpp>
 
 namespace raft {
@@ -36,7 +36,7 @@ __global__ void mul64_test_kernel(uint64_t* result_high,
                                   const uint64_t op1,
                                   const uint64_t op2)
 {
-  using raft::util::wmul_64bit;
+  using raft::wmul_64bit;
   wmul_64bit(*result_high, *result_low, op1, op2);
   wmul_64bit(*swapped_result_high, *swapped_result_low, op2, op1);
 }
@@ -55,7 +55,7 @@ class Multiplication64bit : public testing::TestWithParam<MulInputs> {
  protected:
   void SetUp() override
   {
-    using raft::util::wmul_64bit;
+    using raft::wmul_64bit;
     params = testing::TestWithParam<MulInputs>::GetParam();
     wmul_64bit(result_high, result_low, params.operand_1, params.operand_2);
     wmul_64bit(swapped_result_high, swapped_result_low, params.operand_2, params.operand_1);
