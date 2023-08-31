@@ -119,4 +119,5 @@ HDI int operator%(int n, const FastIntDiv& divisor)
   int remainder = n - quotient * divisor.d;
   return remainder;
 }
+
 };  // namespace raft::util
