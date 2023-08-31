@@ -7,6 +7,7 @@ channels:
 - conda-forge
 - nvidia
 dependencies:
+- benchmark>=1.8.2
 - c-compiler
 - clang-tools=16.0.1
 - clang==16.0.1
@@ -35,6 +36,7 @@ dependencies:
 - ninja
 - nlohmann_json>=3.11.2
 - nvcc_linux-64=11.8
+- pandas
 - pyyaml
 - scikit-build>=0.13.1
 - sysroot_linux-64==2.17

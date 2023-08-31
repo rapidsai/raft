@@ -175,6 +175,16 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     topk_workspace.resize(topk_workspace_size, resource::get_cuda_stream(res));
   }
 
+  void check(const uint32_t topk) override
+  {
+    RAFT_EXPECTS(num_cta_per_query * 32 >= topk,
+                 "`num_cta_per_query` (%u) * 32 must be equal to or greater than "
+                 "`topk` (%u) when 'search_mode' is \"multi-cta\". "
+                 "(`num_cta_per_query`=max(`search_width`, `itopk_size`/32))",
+                 num_cta_per_query,
+                 topk);
+  }
+
   ~search() {}
 
   void operator()(raft::resources const& res,
