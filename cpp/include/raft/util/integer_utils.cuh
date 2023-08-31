@@ -56,4 +56,3 @@ HDI void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b)
 }
 
 };  // namespace raft::util
-
