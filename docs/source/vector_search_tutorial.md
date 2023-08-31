@@ -52,9 +52,55 @@ for(int i = 0; i < n_streams; ++i) {
 res.sync_stream_pool();
 ```
 
-All that's been mentioned so far applies to a single CPU thread. RAFT provides a `raft::device_resources_manager` that can manage streams and stream pools for multiple devices across multiple threads.
+In multi-threaded applications, it is often useful to create a set of
+`raft::device_resources` objects on startup to avoid the overhead of
+re-initializing underlying resources every time a `raft::device_resources` object
+is needed. To help simplify this common initialization logic, RAFT
+provides a `raft::device_resources_manager` to handle this for downstream
+applications. On startup, the application can specify certain limits on the
+total resource consumption of the `raft::device_resources` objects that will be
+generated:
+```
+#include <raft/core/device_resources_manager>
 
-TODO: Examples and better explanation about `device_resources_manager`
+void initialize_application() {
+  // Set the total number of CUDA streams to use on each GPU across all CPU
+  // threads. If this method is not called, the default stream per thread
+  // will be used.
+  raft::device_resources_manager::set_streams_per_device(16);
+
+  // Create a memory pool with given max size in bytes. Passing std::nullopt will allow
+  // the pool to grow to the available memory of the device.
+  raft::device_resources_manager::set_max_mem_pool_size(std::nullopt);
+
+  // Set the initial size of the memory pool in bytes.
+  raft::device_resources_manager::set_init_mem_pool_size(16000000);
+
+  // If neither of the above methods are called, no memory pool will be used
+}
+```
+While this example shows some commonly used settings,
+`raft::device_resources_manager` provides support for several other
+resource options and constraints, including options to initialize entire
+stream pools that can be used by an individual `raft::device_resources` object. After
+this initialization method is called, the following function could be called
+from any CPU thread:
+```
+#include <raft/core/device_resources_manager>
+void foo() {
+  raft::device_resources const& res = raft::device_resources_manager::get_device_resources();
+  // Submit some work with res
+  res.sync_stream();
+}
+```
+
+If any `raft::device_resources_manager` setters are called _after_ the first
+call to `raft::device_resources_manager::get_device_resources()`, these new
+settings are ignored, and a warning will be logged. If a thread calls
+`raft::device_resources_manager::get_device_resources()` multiple times, it is
+guaranteed to access the same underlying `raft::device_resources` object every
+time. This can be useful for chaining work in different calls on the same
+thread without keeping a persistent reference to the resources object.
 
 ### Host vs Device Memory
 
