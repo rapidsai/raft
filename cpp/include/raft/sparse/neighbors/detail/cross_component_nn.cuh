@@ -35,7 +35,7 @@
 #include <raft/sparse/op/reduce.cuh>
 
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/integer_utils.cuh>
+#include <raft/util/fast_int_div.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/copy.h>

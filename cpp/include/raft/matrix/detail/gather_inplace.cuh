@@ -18,7 +18,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/linalg/map.cuh>
-#include <raft/util/integer_utils.cuh>
+#include <raft/util/fast_int_div.cuh>
 #include <thrust/iterator/counting_iterator.h>
 
 namespace raft {

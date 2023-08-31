@@ -27,7 +27,7 @@
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <raft/util/integer_utils.cuh>
+#include <raft/util/fast_int_div.cuh>
 #include <thrust/functional.h>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
