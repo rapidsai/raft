@@ -251,11 +251,7 @@ target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENAB
 endif()
 
 # ##################################################################################################
-# * raft_compiled ------------------------------------------------------------ TODO: Currently, this
-#   package also contains the 'random' namespace (for rmat logic) We couldn't get this to work
-#   properly due to strange CI failures as noticed in the PR#778. In the long term, we should rename
-#   this package to `raft_compiled` in order to have a single pre-compiled raft package for those
-#   who need it.
+# * raft_compiled ------------------------------------------------------------
 add_library(raft_compiled INTERFACE)
 
 if(TARGET raft_compiled AND (NOT TARGET raft::compiled))
@@ -265,8 +261,7 @@ endif()
 set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
 if(RAFT_COMPILE_LIBRARY)
-  add_library(
-    raft_lib
+  add_library(raft_objs OBJECT
     src/core/logger.cpp
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
@@ -432,42 +427,42 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
     src/util/memory_pool.cpp
-  )
+    )
   set_target_properties(
-    raft_lib
-    PROPERTIES OUTPUT_NAME raft
-               BUILD_RPATH "\$ORIGIN"
-               INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+    raft_objs
+    PROPERTIES CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON
+               POSITION_INDEPENDENT_CODE ON)
+
+  target_compile_definitions(raft_objs PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  target_compile_options(raft_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>")
+
+  add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
+  add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
+
+  set_target_properties(
+    raft_lib raft_lib_static
+    PROPERTIES OUTPUT_NAME raft
+               BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(
-    raft_lib
-    PUBLIC raft::raft
-           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
-                                         # will just be cublas
-           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-  )
-  target_compile_options(
-    raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                     "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-  )
+  foreach(target raft_lib raft_lib_static raft_objs)
+    target_link_libraries(${target} PUBLIC
+      raft::raft
+      ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                    # will just be cublas
+      $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
 
-  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
-  # "PUBLIC")
-  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
-
-  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
-  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
+    #So consumers know when using libraft.so/libraft.a
+    target_compile_definitions(${target} PUBLIC "RAFT_COMPILED")
+    # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+    target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+  endforeach()
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
@@ -475,6 +470,24 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
 endif()
 
 target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
+
+# ##################################################################################################
+# * raft_compiled_static----------------------------------------------------------------------------
+
+add_library(raft_compiled_static INTERFACE)
+
+if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
+  add_library(raft::compiled_static ALIAS raft_compiled_static)
+endif()
+set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
+
+if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
+  add_library(raft::raft_lib_static ALIAS raft_lib_static)
+endif()
+
+target_link_libraries(
+  raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
+)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
@@ -515,7 +528,7 @@ install(
 )
 
 install(
-  TARGETS raft_compiled
+  TARGETS raft_compiled raft_compiled_static
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-compiled-exports
@@ -527,6 +540,12 @@ if(TARGET raft_lib)
     DESTINATION ${lib_dir}
     COMPONENT compiled
     EXPORT raft-compiled-lib-exports
+  )
+  install(
+    TARGETS raft_lib_static
+    DESTINATION ${lib_dir}
+    COMPONENT compiled-static
+    EXPORT raft-compiled-static-lib-exports
   )
   install(
     DIRECTORY include/raft_runtime
@@ -572,11 +591,13 @@ for data science and machine learning.
 
 Optional Components:
   - compiled
+  - compiled_static
   - distributed
 
 Imported Targets:
   - raft::raft
   - raft::compiled brought in by the `compiled` optional component
+  - raft::compiled_static brought in by the `compiled_static` optional component
   - raft::distributed brought in by the `distributed` optional component
 
 ]=]
@@ -606,8 +627,8 @@ endif()
 set(raft_components compiled distributed)
 set(raft_export_sets raft-compiled-exports raft-distributed-exports)
 if(TARGET raft_lib)
-  list(APPEND raft_components compiled)
-  list(APPEND raft_export_sets raft-compiled-lib-exports)
+  list(APPEND raft_components compiled compiled-static)
+  list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
 endif()
 
 string(
