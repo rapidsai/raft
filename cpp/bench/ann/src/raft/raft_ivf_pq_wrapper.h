@@ -192,7 +192,7 @@ void RaftIvfPQ<T, IdxT>::search(const T* queries,
                  resource::get_cuda_stream(handle_));
 
       auto dataset_v = raft::make_host_matrix_view<const T, IdxT>(
-        dataset_.data_handle(), batch_size, index_->dim());
+        dataset_.data_handle(), dataset_.extent(0), dataset_.extent(1));
 
       raft::runtime::neighbors::refine(handle_,
                                        dataset_v,
