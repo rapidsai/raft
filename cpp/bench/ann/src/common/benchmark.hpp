@@ -33,16 +33,6 @@
 #include <unistd.h>
 #include <vector>
 
-#ifdef ANN_BENCH_BUILD_MAIN
-#ifdef CPU_ONLY
-#define CUDART_FOUND false
-#else
-#define CUDART_FOUND true
-#endif
-#else
-#define CUDART_FOUND (cudart.found())
-#endif
-
 namespace raft::bench::ann {
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
@@ -255,7 +245,7 @@ void bench_search(::benchmark::State& state,
   }
   state.SetItemsProcessed(queries_processed);
   state.counters.insert({{"k", k}, {"n_queries", n_queries}});
-  if (CUDART_FOUND) {
+  if (cudart.found()) {
     state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
                            {"GPU QPS", queries_processed / gpu_timer.total_time()}});
   }
@@ -357,7 +347,7 @@ void dispatch_benchmark(const Configuration& conf,
                         std::string index_prefix,
                         kv_series override_kv)
 {
-  if (CUDART_FOUND) {
+  if (cudart.found()) {
     for (auto [key, value] : cuda_info()) {
       ::benchmark::AddCustomContext(key, value);
     }
@@ -506,7 +496,9 @@ inline auto run_main(int argc, char** argv) -> int
     return -1;
   }
 
-  if (!CUDART_FOUND) { log_warn("cudart library is not found, GPU-based indices won't work."); }
+  if (cudart.needed() && !cudart.found()) {
+    log_warn("cudart library is not found, GPU-based indices won't work.");
+  }
 
   Configuration conf(conf_stream);
   std::string dtype = conf.get_dataset_conf().dtype;

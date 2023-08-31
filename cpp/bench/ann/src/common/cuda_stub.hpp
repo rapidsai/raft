@@ -15,15 +15,32 @@
  */
 #pragma once
 
-#ifdef ANN_BENCH_LINK_CUDART
+/*
+The content of this header is governed by two preprocessor definitions:
+
+  - CPU_ONLY - whether none of the CUDA functions are used.
+  - ANN_BENCH_LINK_CUDART - dynamically link against this string if defined.
+
+______________________________________________________________________________
+|CPU_ONLY | ANN_BENCH_LINK_CUDART |         cudart      | cuda_runtime_api.h |
+|         |                       |  found    |  needed |      included      |
+|---------|-----------------------|-----------|---------|--------------------|
+|   ON    |    <not defined>      |  false    |  false  |       NO           |
+|   ON    |   "cudart.so.xx.xx"   |  false    |  false  |       NO           |
+|  OFF    |     <nod defined>     |   true    |   true  |      YES           |
+|  OFF    |   "cudart.so.xx.xx"   | <runtime> |   true  |      YES           |
+------------------------------------------------------------------------------
+*/
+
+#ifndef CPU_ONLY
 #include <cuda_runtime_api.h>
+#ifdef ANN_BENCH_LINK_CUDART
+#include <dlfcn.h>
+#endif
 #else
-#define CPU_ONLY
 typedef void* cudaStream_t;
 typedef void* cudaEvent_t;
 #endif
-
-#include <dlfcn.h>
 
 namespace raft::bench::ann {
 
@@ -37,15 +54,47 @@ struct cuda_lib_handle {
   }
   ~cuda_lib_handle() noexcept
   {
+#ifdef ANN_BENCH_LINK_CUDART
     if (handle != nullptr) { dlclose(handle); }
+#endif
   }
 
-  [[nodiscard]] inline auto found() const -> bool { return handle != nullptr; }
+  template <typename Symbol>
+  auto sym(const char* name) -> Symbol
+  {
+#ifdef ANN_BENCH_LINK_CUDART
+    return reinterpret_cast<Symbol>(dlsym(handle, name));
+#else
+    return nullptr;
+#endif
+  }
+
+  /** Whether this is NOT a cpu-only package. */
+  [[nodiscard]] constexpr inline auto needed() const -> bool
+  {
+#if defined(CPU_ONLY)
+    return false;
+#else
+    return true;
+#endif
+  }
+
+  /** CUDA found, either at compile time or at runtime. */
+  [[nodiscard]] inline auto found() const -> bool
+  {
+#if defined(CPU_ONLY)
+    return false;
+#elif defined(ANN_BENCH_LINK_CUDART)
+    return handle != nullptr;
+#else
+    return true;
+#endif
+  }
 };
 
 static inline cuda_lib_handle cudart{};
 
-#ifndef CPU_ONLY
+#ifdef ANN_BENCH_LINK_CUDART
 namespace stub {
 
 [[gnu::weak, gnu::noinline]] cudaError_t cudaMemcpy(void* dst,
@@ -130,10 +179,9 @@ namespace stub {
 
 }  // namespace stub
 
-#define RAFT_DECLARE_CUDART(fun)                                                        \
-  static inline decltype(&stub::fun) fun =                                              \
-    cudart.found() ? reinterpret_cast<decltype(&stub::fun)>(dlsym(cudart.handle, #fun)) \
-                   : &stub::fun
+#define RAFT_DECLARE_CUDART(fun)           \
+  static inline decltype(&stub::fun) fun = \
+    cudart.found() ? cudart.sym<decltype(&stub::fun)>(#fun) : &stub::fun
 
 RAFT_DECLARE_CUDART(cudaMemcpy);
 RAFT_DECLARE_CUDART(cudaMalloc);
