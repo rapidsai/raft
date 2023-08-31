@@ -32,7 +32,7 @@ option(RAFT_ANN_BENCH_SINGLE_EXE
 
 find_package(Threads REQUIRED)
 
-if(CPU_ONLY)
+if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
@@ -103,10 +103,6 @@ function(ConfigureAnnBench)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
 
-  if(NOT CPU_ONLY)
-    set(GPU_BUILD ON)
-  endif()
-
   cmake_parse_arguments(
     ConfigureAnnBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
   )
@@ -124,11 +120,16 @@ function(ConfigureAnnBench)
     target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
   endif()
 
+  if(NOT BUILD_CPU_ONLY)
+    set(GPU_BUILD ON)
+  else()
+    target_compile_definitions(${BENCH_NAME} PUBLIC CPU_ONY)
+  endif()
+
   target_link_libraries(
     ${BENCH_NAME}
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
-            $<$<BOOL:${GPU_BUILD}>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
             ${ConfigureAnnBench_LINKS}
             Threads::Threads
             $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>

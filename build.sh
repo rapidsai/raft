@@ -72,7 +72,7 @@ BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
-CPU_ONLY=OFF
+BUILD_CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
@@ -346,7 +346,7 @@ if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
     if hasArg --cpu-only; then
         COMPILE_LIBRARY=OFF
-        CPU_ONLY=ON
+        BUILD_CPU_ONLY=ON
         NVTX=OFF
     else
         COMPILE_LIBRARY=ON
@@ -423,7 +423,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
-          -DCPU_ONLY=${CPU_ONLY} \
+          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
