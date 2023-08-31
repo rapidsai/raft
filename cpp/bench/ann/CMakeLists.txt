@@ -128,10 +128,10 @@ function(ConfigureAnnBench)
     ${BENCH_NAME}
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
-            $<$<BOOL:GPU_BUILD>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
+            $<$<BOOL:${GPU_BUILD}>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
             ${ConfigureAnnBench_LINKS}
             Threads::Threads
-            $<$<BOOL:GPU_BUILD>:${RAFT_CTK_MATH_DEPENDENCIES}>
+            $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
             -static-libgcc
@@ -176,7 +176,6 @@ function(ConfigureAnnBench)
     TARGETS ${BENCH_NAME}
     COMPONENT ann_bench
     DESTINATION bin/ann
-    EXCLUDE_FROM_ALL
   )
 endfunction()
 

@@ -90,9 +90,15 @@ struct buf {
 
 struct cuda_timer {
  private:
+#ifndef CPU_ONLY
   cudaStream_t stream_{nullptr};
   cudaEvent_t start_{nullptr};
   cudaEvent_t stop_{nullptr};
+#else
+  cudaStream_t stream_{0};
+  cudaEvent_t start_{0};
+  cudaEvent_t stop_{0};
+#endif
   double total_time_{0};
 
  public:

@@ -506,7 +506,9 @@ inline auto run_main(int argc, char** argv) -> int
     return -1;
   }
 
+#ifndef CPU_ONLY
   if (!CUDART_FOUND) { log_warn("cudart library is not found, GPU-based indices won't work."); }
+#endif
 
   Configuration conf(conf_stream);
   std::string dtype = conf.get_dataset_conf().dtype;

@@ -142,7 +142,19 @@ endif()
 if(NOT CPU_ONLY)
   # CUDA runtime
   rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+  # * find CUDAToolkit package
+  # * determine GPU architectures
+  # * enable the CMake CUDA language
+  # * set other CUDA compilation flags
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+  )
+else()
+  add_definitions(-DCPU_ONLY)
 endif()
+
 
 if(NOT DISABLE_OPENMP)
   find_package(OpenMP)
@@ -150,15 +162,7 @@ if(NOT DISABLE_OPENMP)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
   endif()
 endif()
-# * find CUDAToolkit package
-# * determine GPU architectures
-# * enable the CMake CUDA language
-# * set other CUDA compilation flags
-rapids_find_package(
-  CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET raft-exports
-  INSTALL_EXPORT_SET raft-exports
-)
+
 include(cmake/modules/ConfigureCUDA.cmake)
 
 # ##################################################################################################

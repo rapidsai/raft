@@ -347,6 +347,7 @@ if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     if hasArg --cpu-only; then
         COMPILE_LIBRARY=OFF
         CPU_ONLY=ON
+        NVTX=OFF
     else
         COMPILE_LIBRARY=ON
     fi
@@ -498,7 +499,7 @@ fi
 
 # Build and (optionally) install the raft-ann-bench Python package
 if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
-    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench
+    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench -vvv
 fi
 
 if hasArg docs; then

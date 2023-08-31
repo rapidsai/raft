@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2023, NVIDIA CORPORATION.
  *
@@ -24,6 +22,9 @@
 
 #ifndef CPU_ONLY
 #include <cuda_runtime_api.h>  // cudaStream_t
+#else
+typedef size_t cudaStream_t;
+typedef size_t cudaEvent_t;
 #endif
 
 namespace raft::bench::ann {
