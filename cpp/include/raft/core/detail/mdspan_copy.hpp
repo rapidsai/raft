@@ -24,6 +24,7 @@
 #include <raft/core/resources.hpp>
 #include <type_traits>
 #ifndef RAFT_DISABLE_CUDA
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/cudart_utils.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -49,6 +50,7 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   using dst_element_type = typename dst_type::element_type;
   using src_element_type = typename src_type::element_type;
   auto static constexpr const same_dtype = std::is_same_v<dst_value_type, src_value_type>;
+  auto static constexpr const compatible_dtype = std::is_convertible_v<src_value_type, dst_element_type>;
 
   auto static constexpr const dst_float = std::is_same_v<dst_value_type, float>;
   auto static constexpr const src_float = std::is_same_v<src_value_type, float>;
@@ -70,6 +72,8 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   using dst_layout_type = typename dst_type::layout_type;
   using src_layout_type = typename src_type::layout_type;
 
+  auto static constexpr const same_layout = std::is_same_v<dst_layout_type, src_layout_type>;
+
   auto static constexpr const src_contiguous = std::disjunction_v<
     std::is_same_v<src_layout_type, layout_c_contiguous>,
     std::is_same_v<src_layout_type, layout_f_contiguous>
@@ -82,6 +86,12 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 
   auto static constexpr const both_contiguous = src_contiguous && dst_contiguous;
 
+  auto static constexpr const same_underlying_layout = std::disjunction_v<
+    std::bool_constant<same_layout>,
+    std::bool_constant<vector_rank && both_contiguous>
+  >;
+
+
   // Accessibility
   auto static constexpr const dst_device_accessible = is_device_mdspan_v<dst_type>;
   auto static constexpr const src_device_accessible = is_device_mdspan_v<src_type>;
@@ -91,118 +101,175 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const src_host_accessible = is_host_mdspan_v<src_type>;
   auto static constexpr const both_host_accessible = dst_host_accessible && src_host_accessible;
 
+  // Allowed copy codepaths
   auto static constexpr const can_use_device = std::conjunction_v<CUDA_ENABLED, both_device_accessible>;
 
   auto static constexpr const can_use_host = both_host_accessible;
 
 #if (defined(__AVX__) || defined(__SSE__) || defined(__ARM_NEON))
-  auto static constexpr const can_use_simd = both_host_accessible;
+  auto static constexpr const can_use_simd = both_host_accessible && both_contiguous;
 # else
   auto static constexpr const can_use_simd = false;
 #endif
 
-  // Viable overload?
-  using type = std::enable_if_t<
-    std::conjunction_v<
-      is_mdspan<dst_type>,
-      is_mdspan<src_type>,
-      std::is_convertible<src_value_type, dst_element_type>,
-      std::bool_constant<compatible_rank>,
-      std::bool_constant<can_use_device || can_use_host>
-    >, T
+  auto static constexpr const can_use_std_copy = std::conjunction_v<
+    std::bool_constant<can_use_host>,
+    std::bool_constant<compatible_dtype>,
+    std::bool_constant<both_contiguous>,
+    std::bool_constant<same_underlying_layout>
   >;
+  auto static constexpr const can_use_raft_copy = std::conjunction_v<
+    std::bool_constant<CUDA_ENABLED>,
+    std::bool_constant<same_dtype>,
+    std::bool_constant<both_contiguous>,
+    std::bool_constant<same_underlying_layout>
+  >;
+  auto static constexpr const can_use_cublas = std::conjunction_v<
+    std::bool_constant<can_use_device>,
+    std::bool_constant<compatible_dtype>,
+    std::bool_constant<both_contiguous>,
+    std::bool_constant<!same_underlying_layout>,
+    std::bool_constant<matrix_rank>,
+    std::bool_constant<both_float_or_both_double>
+  >;
+
+  auto static constexpr const requires_intermediate = !both_host_accessible && !both_device_accessible && !can_use_raft_copy;
+
+  auto static constexpr const use_intermediate_dst = std::conjunction_v<
+    std::bool_constant<requires_intermediate>,
+    std::bool_constant<src_device_accessible>
+  >;
+
+  auto static constexpr const use_intermediate_src = std::conjunction_v<
+    std::bool_constant<requires_intermediate>,
+    std::bool_constant<!use_intermediate_dst>
+  >;
+
+  auto static constexpr const custom_kernel_allowed = std::conjunction_v<
+    std::bool_constant<can_use_device>,
+    std::bool_constant<!requires_intermediate>,
+    std::bool_constant<
+      !(can_use_raft_copy || can_use_cublas)
+    >
+  >;
+
+  auto static constexpr const custom_kernel_required = std::conjunction_v<
+    std::bool_constant<!can_use_host>,
+    std::bool_constant<!requires_intermediate>,
+    std::bool_constant<
+      !(can_use_raft_copy || can_use_cublas)
+    >
+  >;
+
+  // Viable overload?
+  // TODO(wphicks): Detect case where custom kernel would be required AFTER
+  // transfer only
+  auto static constexpr const value = std::conjunction_v<
+    is_mdspan<dst_type>,
+    is_mdspan<src_type>,
+#ifndef __CUDACC__
+    std::bool_constant<!custom_kernel_required>,
+#endif
+    std::bool_constant<compatible_dtype>,
+    std::bool_constant<compatible_rank>
+  >;
+  using type = std::enable_if_t<value, T>;
 };
 
-// Need custom kernel if...
+template <typename DstType, typename SrcType, typename T=void>
+using mdspan_copyable_t = typename mdspan_copyable<true, DstType, SrcType, T>::type;
 template <typename DstType, typename SrcType>
-struct mdspan_copy_requires_custom_kernel : std::conjunction<
-  // CUDA build is enabled...
-  std::bool_constant<CUDA_ENABLED>,
-  // and both mdspans can be accessed on device...
-  std::bool_constant<is_device_mdspan_v<std::remove_reference_t<DstType>, SrcType>>,
-  // and we cannot use cudaMemcpyAsync or cuBLAS.
-  std::bool_constant<!std::conjunction_v<
-    // We CAN use cudaMemcpyAsync or cuBLAS if...
-    // src and dst dtypes are the same...
-    std::is_same<typename std::remove_reference_t<DstType>::value_type, typename SrcType::value_type>,
-    // and layout is contiguous...
-    std::conjunction<
-      std::disjunction<
-        std::is_same<typename std::remove_reference_t<DstType>::layout_type, layout_c_contiguous>,
-        std::is_same<typename std::remove_reference_t<DstType>::layout_type, layout_f_contiguous>
-      >,
-      std::disjunction<
-        std::is_same<typename SrcType::layout_type, layout_c_contiguous>,
-        std::is_same<typename SrcType::layout_type, layout_f_contiguous>
-      >
-    >,
-    // and EITHER...
-    std::disjunction<
-      // the mdspans have the same layout (cudaMemcpyAsync)...
-      std::is_same<typename std::remove_reference_t<DstType>::layout_type, typename SrcType::layout_type>,
-      // OR the mdspans are 1D (in which case the underlying memory layout
-      // is actually the same...
-      std::bool_constant<std::remove_reference_t<DstType>::extents_type::rank() == 1>,
-      // OR the data are a 2D matrix of either floats or doubles, in which
-      // case we can perform the transpose with cuBLAS
-      std::conjunction<
-        std::bool_constant<std::remove_reference_t<DstType>::extents_type::rank() == 2>,
-        std::disjunction<
-          std::is_same<typename std::remove_reference_t<DstType>::value_type, float>,
-          std::is_same<typename std::remove_reference_t<DstType>::value_type, double>
-        > // end float or double check
-      > // end cuBLAS compatibility check
-    > // end cudaMemcpy || cuBLAS check
-  >>
-> {};
+using mdspan_copyable_v = typename mdspan_copyable<true, DstType, SrcType, void>::value;
 
 template <typename DstType, typename SrcType>
-auto constexpr mdspan_copy_requires_custom_kernel_v = mdspan_copy_requires_custom_kernel<std::remove_reference_t<DstType>, SrcType>{}();
-
-
-template <typename DstType, typename SrcType>
-std::enable_if_t<
-  std::conjunction_v<is_mdspan_v<std::remove_reference_t<DstType>, SrcType>,
-                     std::is_convertible_v<typename SrcType::value_type, typename std::remove_reference_t<DstType>::element_type>,
-                     std::remove_reference_t<DstType>::extents_type::rank() == SrcType::extents_type::rank()>>
+mdspan_copyable_t<DstType, SrcType>
 copy(resources const& res, DstType&& dst, SrcType const& src)
 {
-  using index_type =
-    std::conditional_t<(std::numeric_limits<typename std::remove_reference_t<DstType>::extents_type::index_type>::max() >
-                        std::numeric_limits<typename SrcType::extents_type::index_type>::max()),
-                       typename std::remove_reference_t<DstType>::extents_type::index_type,
-                       typename SrcType::extents_type::index_type>;
-  auto constexpr const both_contiguous = std::conjunction_v<
-    std::disjunction_v<std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, layout_c_contiguous>,
-                       std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, layout_f_contiguous>>,
-    std::disjunction_v<std::is_same_v<typename SrcType::layout_type, layout_c_contiguous>,
-                       std::is_same_v<typename SrcType::layout_type, layout_f_contiguous>>>;
-  auto constexpr const same_dtype = std::is_same_v<typename std::remove_reference_t<DstType>::value_type, typename SrcType::value_type>;
-  auto constexpr const both_device_accessible = is_device_mdspan_v<std::remove_reference_t<DstType>, SrcType>;
-  auto constexpr const both_host_accessible = is_host_mdspan_v<std::remove_reference_t<DstType>, SrcType>;
-  auto constexpr const same_layout    = std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, typename SrcType::layout_type>;
-  auto constexpr const can_use_device = std::conjunction_v<CUDA_ENABLED, both_device_accessible>;
-
-  auto constexpr const both_float_or_double =
-    std::conjunction_v<std::disjunction_v<std::is_same_v<typename std::remove_reference_t<DstType>::value_type, float>,
-                                          std::is_same_v<typename std::remove_reference_t<DstType>::value_type, double>>,
-                       std::disjunction_v<std::is_same_v<typename SrcType::value_type, float>,
-                                          std::is_same_v<typename SrcType::value_type, double>>>;
-
-  auto constexpr const simd_available = false;  // TODO(wphicks)
-  // TODO(wphicks): If data are on different devices, perform a
-  // cudaMemcpyPeer and then call recursively
-
-  if constexpr (!can_use_device) {
-    static_assert(both_host_accessible,
-                 "Copying to/from non-host-accessible mdspan in non-CUDA-enabled build");
-  }
-
+  using config = mdspan_copyable<true, DstType, SrcType>;
   for (auto i = std::size_t{}; i < SrcType::extents_type::rank(); ++i) {
     RAFT_EXPECTS(src.extents(i) == dst.extents(i), "Must copy between mdspans of the same shape");
   }
 
-  if constexpr (can_use_device) {
+  if constexpr(config::use_intermediate_src) {
+    // Copy to intermediate source on device, then perform necessary
+    // changes in layout on device, directly into final destination
+    auto intermediate = device_mdarray<
+      typename config::src_value_type,
+      typename config::src_extents_type,
+      typename config::src_layout_type
+    >(res, src.extents());
+    copy(res, intermediate.view(), src);
+    copy(res, dst, intermediate.view());
+
+  } else if constexpr(config::use_intermediate_dst) {
+    // Perform necessary changes in layout on device, then copy to final
+    // destination on host
+    auto intermediate = device_mdarray<
+      typename config::dst_value_type,
+      typename config::dst_extents_type,
+      typename config::dst_layout_type
+    >(res, dst.extents());
+    copy(res, intermediate.view(), src);
+    copy(res, dst, intermediate.view());
+  } else if constexpr(config::can_use_raft_copy) {
+#ifndef RAFT_DISABLE_CUDA
+    raft::copy(
+      dst.data_handle(),
+      src.data_handle(),
+      dst.size(),
+      resource::get_cuda_stream(res)
+    );
+#endif
+  } else if constexpr(config::can_use_cublas) {
+    auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
+    auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
+    CUBLAS_TRY(cublasgeam(resource::get_cublas_handle(res),
+                          CUBLAS_OP_T,
+                          CUBLAS_OP_N,
+                          dst.extent(0),
+                          dst.extent(1),
+                          &alpha,
+                          src.data_handle(),
+                          src.stride(0),
+                          &beta,
+                          static_cast<typename std::remove_reference_t<DstType>::value_type*>(nullptr),
+                          dst.stride(0),
+                          dst.data_handle(),
+                          dst.stride(0),
+                          resource::get_cuda_stream(res)));
+  } else if constexpr(config::can_use_std_copy) {
+    std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
+  } else if constexpr(config::can_use_simd) {
+  } else {
+      auto indices = std::array<index_type, std::remove_reference_t<DstType>::extents_type::rank()>{};
+      for (auto i = std::size_t{}; i < dst.size(); ++i) {
+        if constexpr (std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, layout_c_contiguous>) {
+          // For layout_right/layout_c_contiguous, we iterate over the
+          // rightmost extent fastest
+          auto dim = std::remove_reference_t<DstType>::extents_type::rank();
+          while ((indices[dim]++) == dst.extent(dim)) {
+            indices[dim] = index_type{};
+            --dim;
+          }
+        } else {
+          // For layout_left/layout_f_contiguous (and currently all other
+          // layouts), we iterate over the leftmost extent fastest
+
+          // TODO(wphicks): Add additional specialization for non-C/F
+          // arrays that have a stride of 1 in one dimension. This would
+          // be a performance enhancement; it is not required for
+          // correctness.
+          auto dim = std::size_t{};
+          while ((indices[dim]++) == dst.extent(dim)) {
+            indices[dim] = index_type{};
+            ++dim;
+          }
+        }
+        std::apply(dst, indices) = std::apply(src, indices);
+      }
+  }
+
+  if constexpr (config::can_use_device) {
 #ifndef RAFT_DISABLE_CUDA
     if constexpr (same_dtype && (same_layout || std::remove_reference_t<DstType>::extents_type::rank() == 1) && both_contiguous) {
       raft::copy(
