@@ -70,7 +70,8 @@ option(RAFT_NVTX "Enable nvtx markers" OFF)
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
 if((BUILD_TESTS
     OR BUILD_PRIMS_BENCH
-    OR BUILD_ANN_BENCH)
+    OR BUILD_ANN_BENCH
+   )
    AND NOT CPU_ONLY
 )
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
@@ -154,7 +155,6 @@ if(NOT CPU_ONLY)
 else()
   add_definitions(-DCPU_ONLY)
 endif()
-
 
 if(NOT DISABLE_OPENMP)
   find_package(OpenMP)

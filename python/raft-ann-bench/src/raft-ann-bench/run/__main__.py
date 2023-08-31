@@ -44,21 +44,15 @@ def find_executable(algos_conf, algo, k, batch_size):
 
     build_path = os.getenv("RAFT_HOME")
     if build_path is not None:
-        build_path = os.path.join(
-            build_path, "cpp", "build", executable
-        )
+        build_path = os.path.join(build_path, "cpp", "build", executable)
         if os.path.exists(build_path):
-            print(
-                f"-- Using RAFT bench from repository in {build_path}. "
-            )
+            print(f"-- Using RAFT bench from repository in {build_path}. ")
             return (executable, build_path, f"{algo}-{k}-{batch_size}")
 
     # if there is no build folder present, we look in the conda environment
     conda_path = os.getenv("CONDA_PREFIX")
     if conda_path is not None:
-        conda_path = os.path.join(
-            conda_path, "bin", "ann", executable
-        )
+        conda_path = os.path.join(conda_path, "bin", "ann", executable)
         if os.path.exists(conda_path):
             print("-- Using RAFT bench found in conda environment. ")
             return (executable, conda_path, f"{algo}-{k}-{batch_size}")
