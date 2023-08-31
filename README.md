@@ -393,6 +393,7 @@ If citing the single-linkage agglomerative clustering APIs, please consider the 
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
+```
 
 If citing CAGRA, please consider the following bibtex:
 ```bibtex
@@ -404,3 +405,4 @@ If citing CAGRA, please consider the following bibtex:
       archivePrefix={arXiv},
       primaryClass={cs.DS}
 }
+```
