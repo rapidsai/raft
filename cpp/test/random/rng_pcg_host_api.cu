@@ -15,10 +15,6 @@
  */
 
 #include "../test_utils.cuh"
-#include <cuda_runtime.h>
-#include <gtest/gtest.h>
-#include <iostream>
-#include <raft/random/rng.cuh>
 
 namespace raft {
 namespace random {

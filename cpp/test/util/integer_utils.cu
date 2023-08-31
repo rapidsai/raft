@@ -15,13 +15,8 @@
  */
 
 #include <gtest/gtest.h>
-#include <iostream>
-
 #include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resources.hpp>
-#include <raft/util/cudart_utils.hpp>
 #include <raft/util/integer_utils.cuh>
-#include <rmm/cuda_stream.hpp>
 #include <rmm/device_scalar.hpp>
 
 namespace raft {
