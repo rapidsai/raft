@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "gist-960-euclidean",
-    "base_file": "data/gist-960-euclidean/base.fbin",
-    "query_file": "data/gist-960-euclidean/query.fbin",
+    "base_file": "gist-960-euclidean/base.fbin",
+    "query_file": "gist-960-euclidean/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {

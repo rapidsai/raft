@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "mnist-784-euclidean",
-    "base_file": "data/mnist-784-euclidean/base.fbin",
-    "query_file": "data/mnist-784-euclidean/query.fbin",
+    "base_file": "mnist-784-euclidean/base.fbin",
+    "query_file": "mnist-784-euclidean/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {

@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "lastfm-65-angular",
-    "base_file": "data/lastfm-65-angular/base.fbin",
-    "query_file": "data/lastfm-65-angular/query.fbin",
+    "base_file": "lastfm-65-angular/base.fbin",
+    "query_file": "lastfm-65-angular/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {
