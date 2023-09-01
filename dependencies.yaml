@@ -417,12 +417,12 @@ dependencies:
           - joblib>=0.11
           - numba>=0.57
           - *numpy
-          - ucx-py==0.34.*
       - output_types: conda
         packages:
           - dask-core>=2023.7.1
           - ucx>=1.13.0
           - ucx-proc=*=gpu
+          - &ucx_py_conda ucx-py==0.34.*
       - output_types: pyproject
         packages:
           - &pylibraft_conda pylibraft==23.10.*
@@ -437,15 +437,17 @@ dependencies:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
               - &pylibraft_cu12 pylibraft-cu12==23.10.*
+              - &ucx_py_cu12 ucx-py-cu12==0.34.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
               - &pylibraft_cu11 pylibraft-cu11==23.10.*
+              - &ucx_py_cu11 ucx-py-cu11==0.34.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
-          - {matrix: null, packages: [*pylibraft_conda]}
+          - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
