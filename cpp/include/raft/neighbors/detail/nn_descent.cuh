@@ -39,6 +39,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft::neighbors::nn_descent::detail {
 
@@ -1173,11 +1174,8 @@ void GNND<Data_t, Index_t>::add_reverse_edges(Index_t* graph_ptr,
 {
   add_rev_edges_kernel<<<nrow_, WARP_SIZE, 0, stream>>>(
     graph_ptr, d_rev_graph_ptr, NUM_SAMPLES, list_sizes);
-  RAFT_CUDA_TRY(cudaMemcpyAsync(h_rev_graph_ptr,
-                                d_rev_graph_ptr,
-                                sizeof(*h_rev_graph_ptr) * nrow_ * NUM_SAMPLES,
-                                cudaMemcpyDefault,
-                                stream));
+  raft::copy(
+    h_rev_graph_ptr, d_rev_graph_ptr, nrow_ * NUM_SAMPLES, raft::resource::get_cuda_stream(res));
 }
 
 template <typename Data_t, typename Index_t>
@@ -1221,11 +1219,10 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
     for (size_t step = 0; step < div_up(nrow_, batch_size); step++) {
       size_t list_offset = step * batch_size;
       size_t num_lists   = step != div_up(nrow_, batch_size) - 1 ? batch_size : nrow_ - list_offset;
-      RAFT_CUDA_TRY(cudaMemcpyAsync(input_data.data_handle(),
-                                    data + list_offset * build_config_.dataset_dim,
-                                    sizeof(Data_t) * num_lists * build_config_.dataset_dim,
-                                    cudaMemcpyDefault,
-                                    stream));
+      raft::copy(input_data.data_handle(),
+                 data + list_offset * build_config_.dataset_dim,
+                 num_lists * build_config_.dataset_dim,
+                 raft::resource::get_cuda_stream(res));
       preprocess_data_kernel<<<num_lists,
                                WARP_SIZE,
                                sizeof(Data_t) * div_up(build_config_.dataset_dim, WARP_SIZE) *
@@ -1270,22 +1267,19 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   };
 
   for (size_t it = 0; it < build_config_.max_iterations; it++) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_new_.data_handle(),
-                                  thrust::raw_pointer_cast(graph_.h_list_sizes_new.data()),
-                                  sizeof(*(d_list_sizes_new_.data_handle())) * nrow_,
-                                  cudaMemcpyDefault,
-                                  stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(h_graph_old_.data()),
-                                  thrust::raw_pointer_cast(graph_.h_graph_old.data()),
-                                  sizeof(*h_graph_old_.data()) * nrow_ * NUM_SAMPLES,
-                                  cudaMemcpyDefault,
-                                  stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_old_.data_handle(),
-                                  thrust::raw_pointer_cast(graph_.h_list_sizes_old.data()),
-                                  sizeof(*(d_list_sizes_old_.data_handle())) * nrow_,
-                                  cudaMemcpyDefault,
-                                  stream));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    raft::copy(d_list_sizes_new_.data_handle(),
+               thrust::raw_pointer_cast(graph_.h_list_sizes_new.data()),
+               nrow_,
+               raft::resource::get_cuda_stream(res));
+    raft::copy(thrust::raw_pointer_cast(h_graph_old_.data()),
+               thrust::raw_pointer_cast(graph_.h_graph_old.data()),
+               nrow_ * NUM_SAMPLES,
+               raft::resource::get_cuda_stream(res));
+    raft::copy(d_list_sizes_old_.data_handle(),
+               thrust::raw_pointer_cast(graph_.h_list_sizes_old.data()),
+               nrow_,
+               raft::resource::get_cuda_stream(res));
+    raft::resource::sync_stream(res);
 
     std::thread update_and_sample_thread(update_and_sample, it);
 
@@ -1312,18 +1306,16 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
     update_and_sample_thread.join();
 
     if (update_counter_ == -1) { break; }
+    raft::copy(thrust::raw_pointer_cast(graph_host_buffer_.data()),
+               graph_buffer_.data_handle(),
+               nrow_ * DEGREE_ON_DEVICE,
+               raft::resource::get_cuda_stream(res));
+    raft::resource::sync_stream(res);
+    raft::copy(thrust::raw_pointer_cast(dists_host_buffer_.data()),
+               dists_buffer_.data_handle(),
+               nrow_ * DEGREE_ON_DEVICE,
+               raft::resource::get_cuda_stream(res));
 
-    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(graph_host_buffer_.data()),
-                                  graph_buffer_.data_handle(),
-                                  (sizeof(*graph_buffer_.data_handle())) * nrow_ * DEGREE_ON_DEVICE,
-                                  cudaMemcpyDefault,
-                                  stream));
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(dists_host_buffer_.data()),
-                                  dists_buffer_.data_handle(),
-                                  sizeof(*(dists_buffer_.data_handle())) * nrow_ * DEGREE_ON_DEVICE,
-                                  cudaMemcpyDefault,
-                                  stream));
     graph_.sample_graph_new(thrust::raw_pointer_cast(graph_host_buffer_.data()), DEGREE_ON_DEVICE);
   }
 
@@ -1331,8 +1323,7 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
                       thrust::raw_pointer_cast(dists_host_buffer_.data()),
                       DEGREE_ON_DEVICE,
                       update_counter_);
-  RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-
+  raft::resource::sync_stream(res);
   graph_.sort_lists();
 
   // Reuse graph_.h_dists as the buffer for shrink the lists in graph
