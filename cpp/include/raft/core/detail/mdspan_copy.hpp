@@ -15,10 +15,12 @@
  */
 
 #pragma once
+#include <cstdio>
 #include <execution>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resource/stream_view.hpp>
 #include <raft/core/resources.hpp>
@@ -305,6 +307,7 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
   }
 
   if constexpr(config::use_intermediate_src) {
+    RAFT_LOG_WARN("use_intermediate_src");
     // Copy to intermediate source on device, then perform necessary
     // changes in layout on device, directly into final destination
     auto intermediate = device_mdarray<
@@ -316,6 +319,7 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
     copy(res, dst, intermediate.view());
 
   } else if constexpr(config::use_intermediate_dst) {
+    RAFT_LOG_WARN("use_intermediate_dst");
     // Perform necessary changes in layout on device, then copy to final
     // destination on host
     auto intermediate = device_mdarray<
@@ -326,6 +330,7 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
     copy(res, intermediate.view(), src);
     copy(res, dst, intermediate.view());
   } else if constexpr(config::can_use_raft_copy) {
+    RAFT_LOG_WARN("can_use_raft_copy");
 #ifndef RAFT_DISABLE_CUDA
     raft::copy(
       dst.data_handle(),
@@ -335,6 +340,7 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
     );
 #endif
   } else if constexpr(config::can_use_cublas) {
+    RAFT_LOG_WARN("can_use_cublas");
     auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
     auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
     CUBLAS_TRY(cublasgeam(resource::get_cublas_handle(res),
@@ -352,6 +358,7 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
                           dst.stride(0),
                           resource::get_cuda_stream(res)));
   } else if constexpr(config::custom_kernel_allowed) {
+    RAFT_LOG_WARN("custom_kernel_allowed");
 #ifdef __CUDACC__
     // TODO(wphicks): Determine sensible kernel launch parameters
     mdspan_device_copy<<<32, 1024, 0, resource::get_cuda_stream(res)>>>(dst, src);
@@ -360,31 +367,36 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
     RAFT_FAIL("raft::copy called in a way that requires custom kernel. Please use raft/core/mdspan_copy.cuh and include the header in a .cu file");
 #endif
   } else if constexpr(config::can_use_std_copy) {
+    RAFT_LOG_WARN("can_use_std_copy");
     std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
-  } else if constexpr(config::can_use_simd) {
+  // } else if constexpr(config::can_use_simd) {
+  //   RAFT_LOG_WARN("can_use_simd");
   } else {
+      RAFT_LOG_WARN("Default host copy");
       auto indices = std::array<typename config::index_type, config::dst_rank>{};
       for (auto i = std::size_t{}; i < dst.size(); ++i) {
-        if constexpr (std::is_same_v<typename config::dst_layout, layout_c_contiguous>) {
-          // For layout_right/layout_c_contiguous, we iterate over the
-          // rightmost extent fastest
-          auto dim = config::dst_rank;
-          while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = typename config::index_type{};
-            --dim;
-          }
-        } else {
-          // For layout_left/layout_f_contiguous (and currently all other
-          // layouts), we iterate over the leftmost extent fastest
+        if (i != 0) {
+          if constexpr (std::is_same_v<typename config::src_layout_type, layout_c_contiguous>) {
+            // For layout_right/layout_c_contiguous, we iterate over the
+            // rightmost extent fastest
+            auto dim = config::src_rank - 1;
+            while ((++indices[dim]) == src.extent(dim)) {
+              indices[dim] = typename config::index_type{};
+              --dim;
+            }
+          } else {
+            // For layout_left/layout_f_contiguous (and currently all other
+            // layouts), we iterate over the leftmost extent fastest
 
-          // TODO(wphicks): Add additional specialization for non-C/F
-          // arrays that have a stride of 1 in one dimension. This would
-          // be a performance enhancement; it is not required for
-          // correctness.
-          auto dim = std::size_t{};
-          while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = typename config::index_type{};
-            ++dim;
+            // TODO(wphicks): Add additional specialization for non-C/F
+            // arrays that have a stride of 1 in one dimension. This would
+            // be a performance enhancement; it is not required for
+            // correctness.
+            auto dim = std::size_t{};
+            while ((indices[dim]++) == src.extent(dim)) {
+              indices[dim] = typename config::index_type{};
+              ++dim;
+            }
           }
         }
         std::apply(dst, indices) = std::apply(src, indices);

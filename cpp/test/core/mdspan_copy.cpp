@@ -46,7 +46,11 @@ TEST(MDSpanCopy, Mdspan3D) {
   auto constexpr depth = std::uint32_t{5};
   auto constexpr rows = std::uint32_t{3};
   auto constexpr cols = std::uint32_t{2};
-  auto in = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+  auto in_left = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+    res,
+    extents<std::uint32_t, depth, rows, cols>{}
+  );
+  auto in_right = make_host_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res,
     extents<std::uint32_t, depth, rows, cols>{}
   );
@@ -57,22 +61,66 @@ TEST(MDSpanCopy, Mdspan3D) {
   for (auto i=std::uint32_t{}; i < depth; ++i) {
     for (auto j=std::uint32_t{}; j < rows; ++j) {
       for (auto k=std::uint32_t{}; k < cols; ++k) {
-        in(i, j, k) = gen_unique_entry(i, j, k);
+        in_left(i, j, k) = gen_unique_entry(i, j, k);
+        in_right(i, j, k) = gen_unique_entry(i, j, k);
       }
     }
   }
 
-  auto out_different_contiguous_layout = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+  auto out_left = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res,
     extents<std::uint32_t, depth, rows, cols>{}
   );
-  copy(res, out_different_contiguous_layout.view(), in.view());
+  auto out_right = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+    res,
+    extents<std::uint32_t, depth, rows, cols>{}
+  );
 
+  copy(res, out_right.view(), in_right.view());
   for (auto i=std::uint32_t{}; i < depth; ++i) {
     for (auto j=std::uint32_t{}; j < rows; ++j) {
       for (auto k=std::uint32_t{}; k < cols; ++k) {
         ASSERT_TRUE(match(
-          out_different_contiguous_layout(i, j, k),
+          out_right(i, j, k),
+          double(gen_unique_entry(i, j, k)),
+          CompareApprox<double>{0.0001}
+        ));
+      }
+    }
+  }
+
+  copy(res, out_right.view(), in_left.view());
+  for (auto i=std::uint32_t{}; i < depth; ++i) {
+    for (auto j=std::uint32_t{}; j < rows; ++j) {
+      for (auto k=std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_right(i, j, k),
+          double(gen_unique_entry(i, j, k)),
+          CompareApprox<double>{0.0001}
+        ));
+      }
+    }
+  }
+
+  copy(res, out_left.view(), in_right.view());
+  for (auto i=std::uint32_t{}; i < depth; ++i) {
+    for (auto j=std::uint32_t{}; j < rows; ++j) {
+      for (auto k=std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_left(i, j, k),
+          double(gen_unique_entry(i, j, k)),
+          CompareApprox<double>{0.0001}
+        ));
+      }
+    }
+  }
+
+  copy(res, out_left.view(), in_left.view());
+  for (auto i=std::uint32_t{}; i < depth; ++i) {
+    for (auto j=std::uint32_t{}; j < rows; ++j) {
+      for (auto k=std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_left(i, j, k),
           double(gen_unique_entry(i, j, k)),
           CompareApprox<double>{0.0001}
         ));
