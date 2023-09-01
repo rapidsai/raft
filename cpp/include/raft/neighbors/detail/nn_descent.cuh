@@ -23,6 +23,9 @@
 #include <cub/cub.cuh>
 #include <limits>
 #include <queue>
+
+#include <rmm/device_uvector.hpp>
+
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/host_vector.h>
@@ -355,8 +358,7 @@ class GNND {
   GNND& operator=(const GNND&) = delete;
 
   void build(Data_t* data, const Index_t nrow, Index_t* output_graph);
-  void dealloc();
-  ~GNND();
+  ~GNND()    = default;
   using ID_t = InternalID_t<Index_t>;
 
  private:
@@ -392,8 +394,8 @@ class GNND {
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_old_;
   // int2.x is the number of forward edges, int2.y is the number of reverse edges
 
-  int2* d_list_sizes_old_;
-  int2* d_list_sizes_new_;
+  raft::device_vector<int2, Index_t> d_list_sizes_new_;
+  raft::device_vector<int2, Index_t> d_list_sizes_old_;
 };
 
 constexpr int TILE_ROW_WIDTH = 64;
@@ -1145,7 +1147,9 @@ GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build
     d_locks_{raft::make_device_vector<int, Index_t>(res, nrow_)},
     h_rev_graph_new_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
     h_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    h_rev_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)}
+    h_rev_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
+    d_list_sizes_new_{raft::make_device_vector<int2, Index_t>(res, nrow_)},
+    d_list_sizes_old_{raft::make_device_vector<int2, Index_t>(res, nrow_)}
 {
   static_assert(NUM_SAMPLES <= 32);
 
@@ -1158,9 +1162,6 @@ GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build
                reinterpret_cast<Index_t*>(graph_buffer_.data_handle()) + graph_buffer_.size(),
                std::numeric_limits<Index_t>::max());
   thrust::fill(thrust::device, d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
-
-  RAFT_CUDA_TRY(cudaMalloc(&d_list_sizes_new_, sizeof(*d_list_sizes_new_) * nrow_));
-  RAFT_CUDA_TRY(cudaMalloc(&d_list_sizes_old_, sizeof(*d_list_sizes_old_) * nrow_));
 };
 
 template <typename Data_t, typename Index_t>
@@ -1189,10 +1190,10 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
   local_join_kernel<<<nrow_, BLOCK_SIZE, 0, stream>>>(
     thrust::raw_pointer_cast(graph_.h_graph_new.data()),
     thrust::raw_pointer_cast(h_rev_graph_new_.data()),
-    d_list_sizes_new_,
+    d_list_sizes_new_.data_handle(),
     thrust::raw_pointer_cast(h_graph_old_.data()),
     thrust::raw_pointer_cast(h_rev_graph_old_.data()),
-    d_list_sizes_old_,
+    d_list_sizes_old_.data_handle(),
     NUM_SAMPLES,
     d_data_.data_handle(),
     ndim_,
@@ -1269,9 +1270,9 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   };
 
   for (size_t it = 0; it < build_config_.max_iterations; it++) {
-    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_new_,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_new_.data_handle(),
                                   thrust::raw_pointer_cast(graph_.h_list_sizes_new.data()),
-                                  sizeof(*d_list_sizes_new_) * nrow_,
+                                  sizeof(*(d_list_sizes_new_.data_handle())) * nrow_,
                                   cudaMemcpyDefault,
                                   stream));
     RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(h_graph_old_.data()),
@@ -1279,9 +1280,9 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
                                   sizeof(*h_graph_old_.data()) * nrow_ * NUM_SAMPLES,
                                   cudaMemcpyDefault,
                                   stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_old_,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_old_.data_handle(),
                                   thrust::raw_pointer_cast(graph_.h_list_sizes_old.data()),
-                                  sizeof(*d_list_sizes_old_) * nrow_,
+                                  sizeof(*(d_list_sizes_old_.data_handle())) * nrow_,
                                   cudaMemcpyDefault,
                                   stream));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
@@ -1298,12 +1299,12 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
     add_reverse_edges(thrust::raw_pointer_cast(graph_.h_graph_new.data()),
                       thrust::raw_pointer_cast(h_rev_graph_new_.data()),
                       (Index_t*)dists_buffer_.data_handle(),
-                      d_list_sizes_new_,
+                      d_list_sizes_new_.data_handle(),
                       stream);
     add_reverse_edges(thrust::raw_pointer_cast(h_graph_old_.data()),
                       thrust::raw_pointer_cast(h_rev_graph_old_.data()),
                       (Index_t*)dists_buffer_.data_handle(),
-                      d_list_sizes_old_,
+                      d_list_sizes_old_.data_handle(),
                       stream);
 
     local_join(stream);
@@ -1361,18 +1362,6 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   }
 }
 
-template <typename Data_t, typename Index_t>
-void GNND<Data_t, Index_t>::dealloc()
-{
-  RAFT_CUDA_TRY(cudaFree(d_list_sizes_new_));
-  RAFT_CUDA_TRY(cudaFree(d_list_sizes_old_));
-}
-
-template <typename Data_t, typename Index_t>
-GNND<Data_t, Index_t>::~GNND()
-{
-}
-
 template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
@@ -1420,7 +1409,6 @@ index<IdxT> build(raft::resources const& res,
 
   GNND<const T, int> nnd(res, build_config);
   nnd.build(dataset.data_handle(), dataset.extent(0), int_graph.data_handle());
-  nnd.dealloc();
   index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
