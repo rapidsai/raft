@@ -81,6 +81,28 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 
 ### `hnswlib`
 
+
+| Parameter        | Type            | Required | Data Type                            | Default | Description                                                                                                                                                                                                                                                                                       |
+|------------------|-----------------|----------|--------------------------------------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `efConstruction` | `build_param`   | Y        | Positive Integer >0                  |         | Controls index time and accuracy. Bigger values increase the index quality. At some point, increasing this will no longer improve the quality.                                                                                                                                                    |
+| `M`              | `build_param`   | Y        | Positive Integer often between 2-100 |         | Number of bi-directional links create for every new element during construction. Higher values work for higher intrinsic dimensionality and/or high recall, low values can work for datasets with low intrinsic dimensionality and/or low recalls. Also affects the algorithm's memory consumption. |
+| `numThreads`     | `build_param`   | N        | Positive Integer >0                  | 1       | Number of threads to use to build the index.                                                                                                                                                                                                                                                      |
+| `ef`             | `search_param`  | Y        | Positive Integer >0                  |         | Size of the dynamic list for the nearest neighbors used for search. Higher value leads to more accurate but slower search. Cannot be lower than `k`.                                                                                                                                              |
+| `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
+
+Please refer to [HNSW algorithm parameters guide] from `hnswlib` to learn more about these arguments.
+
 ## GGNN Index
 
 ### `ggnn`
+
+
+| Parameter      | Type            | Required | Data Type                            | Default     | Description                                                                                                                                                                                                                                                                                       |
+|----------------|-----------------|----------|--------------------------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dataset_size` | `build_param`   | Y        | Positive Integer >0                  |             | Controls index time and accuracy. Bigger values increase the index quality. At some point, increasing this will no longer improve the quality.                                                                                                                                                    |
+| `M`            | `build_param`   | Y        | Positive Integer often between 2-100 |             | Number of bi-directional links create for every new element during construction. Higher values work for higher intrinsic dimensionality and/or high recall, low values can work for datasets with low intrinsic dimensionality and/or low recalls. Also affects the algorithm's memory consumption. |
+| `numThreads`   | `build_param`   | N        | Positive Integer >0                  | # cpu cores | Number of threads to use to build the index.                                                                                                                                                                                                                                                      |
+| `ef`           | `search_param`  | Y        | Positive Integer >0                  |             | Size of the dynamic list for the nearest neighbors used for search. Higher value leads to more accurate but slower search. Cannot be lower than `k`.                                                                                                                                              |
+| `numThreads`   | `search_params` | N        | Positive Integer >0                  | # cpu cores | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
+
+
