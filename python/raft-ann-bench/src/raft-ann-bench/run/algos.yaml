@@ -27,4 +27,4 @@ ggnn:
   requires_gpu: true
 hnswlib:
   executable: HNSWLIB_ANN_BENCH
-  requires_gpu: true
+  requires_gpu: false

@@ -36,10 +36,13 @@ def positive_int(input_str: str) -> int:
 
 def validate_algorithm(algos_conf, algo, gpu_present):
     algos_conf_keys = set(algos_conf.keys())
-    return (
-        algo in algos_conf_keys
-        and algos_conf[algo]["requires_gpu"] == gpu_present
-    )
+    if gpu_present:
+        return algo in algos_conf_keys
+    else:
+        return (
+            algo in algos_conf_keys
+            and algos_conf[algo]["requires_gpu"] is False
+        )
 
 
 def find_executable(algos_conf, algo, k, batch_size):
