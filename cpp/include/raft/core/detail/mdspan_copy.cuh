@@ -20,7 +20,7 @@ namespace raft {
 namespace detail {
 
 template <typename LayoutPolicy, typename IdxType>
-auto increment_indices(IdxType* indices, IdxType const* max_indices, int rank, int incr = 1)
+__device__ auto increment_indices(IdxType* indices, IdxType const* max_indices, int rank, int incr = 1)
 {
   auto valid_index = true;
   auto dim         = std::is_same_v<LayoutPolicy, layout_c_contiguous> ? rank : 0;
@@ -46,7 +46,7 @@ template <typename MdspanType,
           typename IdxType,
           IdxType remaining = MdspanType::extents::rank(),
           typename... ResT>
-auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, ResT... resolved_indices)
+__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, ResT... resolved_indices)
 {
   if constexpr (remaining == IdxType{}) {
     return md(resolved_indices...);

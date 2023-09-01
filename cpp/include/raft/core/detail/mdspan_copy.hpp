@@ -44,6 +44,15 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   using dst_type = std::remove_reference_t<DstType>;
   using src_type = std::remove_reference_t<SrcType>;
 
+  // Extents properties
+  using dst_extents_type = typename dst_type::extents_type;
+  using src_extents_type = typename src_type::extents_type;
+  using index_type =
+    std::conditional_t<(std::numeric_limits<typename dst_extents_type::index_type>::max() >
+                        std::numeric_limits<typename src_extents_type::index_type>::max()),
+                       typename dst_extents_type::index_type,
+                       typename src_extents_type::index_type>;
+
   // Dtype properties
   using dst_value_type = typename dst_type::value_type;
   using src_value_type = typename src_type::value_type;
@@ -62,8 +71,8 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const both_float_or_both_double = both_float || both_double;
 
   // Ranks
-  auto static constexpr const dst_rank = dst_type::extents_type::rank();
-  auto static constexpr const src_rank = src_type::extents_type::rank();
+  auto static constexpr const dst_rank = dst_extents_type::rank();
+  auto static constexpr const src_rank = src_extents_type::rank();
   auto static constexpr const compatible_rank = (dst_rank == src_rank);
   auto static constexpr const vector_rank = (dst_rank == 1);
   auto static constexpr const matrix_rank = (dst_rank == 2);
@@ -90,6 +99,12 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
     std::bool_constant<same_layout>,
     std::bool_constant<vector_rank && both_contiguous>
   >;
+  // Layout for intermediate tile if copying through custom kernel
+  using tile_layout_type = std::conditional_t<
+    src_contiguous,
+    src_layout_type,
+    std::conditional_t<dst_contiguous, dst_layout_type, layout_c_contiguous>
+  >;
 
 
   // Accessibility
@@ -102,9 +117,6 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const both_host_accessible = dst_host_accessible && src_host_accessible;
 
   // Allowed copy codepaths
-  auto static constexpr const can_use_device = std::conjunction_v<CUDA_ENABLED, both_device_accessible>;
-
-  auto static constexpr const can_use_host = both_host_accessible;
 
 #if (defined(__AVX__) || defined(__SSE__) || defined(__ARM_NEON))
   auto static constexpr const can_use_simd = both_host_accessible && both_contiguous;
@@ -124,14 +136,6 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
     std::bool_constant<both_contiguous>,
     std::bool_constant<same_underlying_layout>
   >;
-  auto static constexpr const can_use_cublas = std::conjunction_v<
-    std::bool_constant<can_use_device>,
-    std::bool_constant<compatible_dtype>,
-    std::bool_constant<both_contiguous>,
-    std::bool_constant<!same_underlying_layout>,
-    std::bool_constant<matrix_rank>,
-    std::bool_constant<both_float_or_both_double>
-  >;
 
   auto static constexpr const requires_intermediate = !both_host_accessible && !both_device_accessible && !can_use_raft_copy;
 
@@ -144,10 +148,20 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
     std::bool_constant<requires_intermediate>,
     std::bool_constant<!use_intermediate_dst>
   >;
+  auto static constexpr const can_use_device = std::conjunction_v<CUDA_ENABLED, std::disjunction_v<both_device_accessible, requires_intermediate>>;
+
+  auto static constexpr const can_use_host = both_host_accessible;
+  auto static constexpr const can_use_cublas = std::conjunction_v<
+    std::bool_constant<can_use_device>,
+    std::bool_constant<compatible_dtype>,
+    std::bool_constant<both_contiguous>,
+    std::bool_constant<!same_underlying_layout>,
+    std::bool_constant<matrix_rank>,
+    std::bool_constant<both_float_or_both_double>
+  >;
 
   auto static constexpr const custom_kernel_allowed = std::conjunction_v<
     std::bool_constant<can_use_device>,
-    std::bool_constant<!requires_intermediate>,
     std::bool_constant<
       !(can_use_raft_copy || can_use_cublas)
     >
@@ -155,7 +169,6 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 
   auto static constexpr const custom_kernel_required = std::conjunction_v<
     std::bool_constant<!can_use_host>,
-    std::bool_constant<!requires_intermediate>,
     std::bool_constant<
       !(can_use_raft_copy || can_use_cublas)
     >
@@ -165,13 +178,8 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   // TODO(wphicks): Detect case where custom kernel would be required AFTER
   // transfer only
   auto static constexpr const value = std::conjunction_v<
-    is_mdspan<dst_type>,
-    is_mdspan<src_type>,
-#ifndef __CUDACC__
-    std::bool_constant<!custom_kernel_required>,
-#endif
-    std::bool_constant<compatible_dtype>,
-    std::bool_constant<compatible_rank>
+    is_mdspan_v<dst_type, src_type>,
+    std::disjunction_v<can_use_host, can_use_device>
   >;
   using type = std::enable_if_t<value, T>;
 };
@@ -181,12 +189,109 @@ using mdspan_copyable_t = typename mdspan_copyable<true, DstType, SrcType, T>::t
 template <typename DstType, typename SrcType>
 using mdspan_copyable_v = typename mdspan_copyable<true, DstType, SrcType, void>::value;
 
+#ifdef __CUDACC__
+template <typename LayoutPolicy, typename IdxType>
+__device__ auto increment_indices(IdxType* indices, IdxType const* max_indices, int rank, int incr = 1)
+{
+  auto valid_index = true;
+  auto dim         = std::is_same_v<LayoutPolicy, layout_c_contiguous> ? rank : 0;
+  do {
+    indices[dim] += incr;
+    incr = 0;
+    while (indices[dim] >= max_indices[dim]) {
+      indices[dim] -= max_indices[dim];
+      ++incr;
+    }
+    if constexpr (std::is_same_v<LayoutPolicy, layout_c_contiguous>) {
+      --dim;
+      valid_index = dim >= 0;
+    } else {
+      ++dim;
+      valid_index = dim < rank;
+    }
+  } while (incr != 0);
+  return valid_index;
+}
+
+template <typename MdspanType,
+          typename IdxType,
+          IdxType remaining = MdspanType::extents::rank(),
+          typename... ResT>
+__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, ResT... resolved_indices)
+{
+  if constexpr (remaining == IdxType{}) {
+    return md(resolved_indices...);
+  } else {
+    return get_mdspan_elem<MdspanType, IdxType, remaining - 1>(
+      md, indices, indices[remaining - 1], &resolved_indices...);
+  }
+}
+
+template <typename DstType, typename SrcType, int TileDim = 32>
+__global__ std::enable_if_t<
+  mdspan_copyable_v<DstType, SrcType>::custom_kernel_allowed
+> mdspan_device_copy(DstType dst, SrcType src)
+{
+  using config = mdspan_copyable<true, DstType, SrcType>;
+
+  __shared__ config::dst_value_type tile_buffer[TileDim][TileDim + 1];
+  auto tile = mdspan<config::dst_value_type, extents<std::uint32_t, TileDim, TileDim + 1>{tile_buffer}
+
+  auto const constexpr tile_elements               = TileDim * TileDim;
+  index_type src_indices[config::dst_rank] = {blockIdx.x * tile_elements};
+  index_type dst_indices[config::dst_rank] = {blockIdx.x * tile_elements};
+  index_type max_indices[config::dst_rank];
+  for (auto i = index_type{}; i < config::dst_rank; ++i) {
+    max_indices[i] = dst.extent(i);
+  }
+
+  auto valid_indices = true;
+  for (auto i = blockIdx.x * tile_elements; i += tile_elements * blockDim.x; i < dst.size()) {
+    for (auto tile_slow = threadIdx.y; tile_slow += gridDim.y; tile_slow < TileDim) {
+      for (auto tile_quick = threadIdx.x; tile_quick += gridDim.x; tile_quick < TileDim) {
+        if (valid_indices) {
+          if constexpr (std::is_same_v<tile_layout_policy, layout_c_contiguous>) {
+            tile(tile_slow, tile_quick) = get_mdspan_elem(src, src_indices);
+          } else {
+            tile(tile_quick, tile_slow) = get_mdspan_elem(src, src_indices);
+          }
+        }
+        valid_indices &=
+          increment_indices<SrcType::layout_policy>(src_indices, max_indices, gridDim.x);
+      }
+      valid_indices &=
+        increment_indices<SrcType::layout_policy>(src_indices, max_indices, gridDim.y * TileDim);
+    }
+    if constexpr (!std::is_same_v<DstType::layout_policy, SrcType::layout_policy>) {
+      __syncthreads();
+    }
+    for (auto tile_slow = threadIdx.y; tile_slow += gridDim.y; tile_slow < TileDim) {
+      for (auto tile_quick = threadIdx.x; tile_quick += gridDim.x; tile_quick < TileDim) {
+        if (valid_indices) {
+          if constexpr (std::is_same_v<DstType::layout_policy, layout_c_contiguous>) {
+            get_mdspan_elem(dst, dst_indices) = tile(tile_slow, tile_quick)
+          } else {
+            get_mdspan_elem(dst, dst_indices) = tile(tile_quick, tile_slow)
+          }
+        }
+        increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.x);
+      }
+      increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.y * TileDim);
+    }
+    valid_indices &= increment_indices<SrcType::layout_policy>(
+      src_indices, max_indices, blockDim.x * tile_elements);
+    increment_indices<SrcType::layout_policy>(dst_indices, max_indices, blockDim.x * tile_elements);
+    __syncthreads();
+  }
+}
+#endif
+
 template <typename DstType, typename SrcType>
 mdspan_copyable_t<DstType, SrcType>
 copy(resources const& res, DstType&& dst, SrcType const& src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
-  for (auto i = std::size_t{}; i < SrcType::extents_type::rank(); ++i) {
+  for (auto i = std::size_t{}; i < config::src_extent_types::rank(); ++i) {
     RAFT_EXPECTS(src.extents(i) == dst.extents(i), "Must copy between mdspans of the same shape");
   }
 
@@ -237,18 +342,26 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
                           dst.data_handle(),
                           dst.stride(0),
                           resource::get_cuda_stream(res)));
+  } else if constexpr(config::custom_kernel_allowed) {
+#ifdef __CUDACC__
+    // TODO(wphicks): Determine sensible kernel launch parameters
+    mdspan_device_copy<<<32, 1024, 0, resource::get_cuda_stream(res)>>>(dst, src);
+#else
+    // Should never actually reach this because of enable_ifs
+    RAFT_FAIL("raft::copy called in a way that requires custom kernel. Please use raft/core/mdspan_copy.cuh and include the header in a .cu file");
+#endif
   } else if constexpr(config::can_use_std_copy) {
     std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
   } else if constexpr(config::can_use_simd) {
   } else {
-      auto indices = std::array<index_type, std::remove_reference_t<DstType>::extents_type::rank()>{};
+      auto indices = std::array<typename config::index_type, config::dst_rank>{};
       for (auto i = std::size_t{}; i < dst.size(); ++i) {
-        if constexpr (std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, layout_c_contiguous>) {
+        if constexpr (std::is_same_v<typename config::dst_layout, layout_c_contiguous>) {
           // For layout_right/layout_c_contiguous, we iterate over the
           // rightmost extent fastest
-          auto dim = std::remove_reference_t<DstType>::extents_type::rank();
+          auto dim = config::dst_rank;
           while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = index_type{};
+            indices[dim] = typename config::index_type{};
             --dim;
           }
         } else {
@@ -261,106 +374,12 @@ copy(resources const& res, DstType&& dst, SrcType const& src)
           // correctness.
           auto dim = std::size_t{};
           while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = index_type{};
+            indices[dim] = typename config::index_type{};
             ++dim;
           }
         }
         std::apply(dst, indices) = std::apply(src, indices);
       }
-  }
-
-  if constexpr (config::can_use_device) {
-#ifndef RAFT_DISABLE_CUDA
-    if constexpr (same_dtype && (same_layout || std::remove_reference_t<DstType>::extents_type::rank() == 1) && both_contiguous) {
-      raft::copy(
-        dst.data_handle(),
-        src.data_handle(),
-        dst.size(),
-        resource::get_cuda_stream(res)
-      );
-    } else if constexpr (same_dtype && both_float_or_double && both_contiguous &&
-                         std::remove_reference_t<DstType>::extents_type::rank() == 2) {
-      auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
-      auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
-      CUBLAS_TRY(cublasgeam(resource::get_cublas_handle(res),
-                            CUBLAS_OP_T,
-                            CUBLAS_OP_N,
-                            dst.extent(0),
-                            dst.extent(1),
-                            &alpha,
-                            src.data_handle(),
-                            src.stride(0),
-                            &beta,
-                            static_cast<typename std::remove_reference_t<DstType>::value_type*>(nullptr),
-                            dst.stride(0),
-                            dst.data_handle(),
-                            dst.stride(0),
-                            resource::get_cuda_stream(res)));
-    } else {
-#ifdef __CUDACC__
-      // TODO(wphicks): Call kernel here
-#else
-      // Ordinarily, we would just make this a .cuh file, but we do not want
-      // to signal that it *must* be built with CUDA. Instead, if this header
-      // is used in a way that requires a CUDA compiler, we fail with an
-      // informative error message.
-      static_assert(
-        !mdspan_copy_requires_custom_kernel_v<std::remove_reference_t<DstType>, SrcType>,
-        "Selected instantiation of raft::copy requires nvcc compilation. Use raft/core/mdspan_copy.cuh instead of raft/core/mdspan_copy.hpp and #include it in a .cu file. The corresponding 'detail' headers should not be included anywhere else directly."
-      );
-#endif
-    }
-#endif
-  } else if constexpr (both_host_accessible) {
-    if constexpr ((same_layout || std::remove_reference_t<DstType>::extents_type::rank() == 1) && both_contiguous) {
-      // Use STL if possible; this should be well optimized
-      std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
-    } else {
-      // TODO (wphicks): Use SIMD for both_contiguous &&
-      // both_float_or_double
-
-      // Finally, copy elements one by one, trying at least to perform
-      // cache-friendly reads
-
-      auto indices = std::array<index_type, std::remove_reference_t<DstType>::extents_type::rank()>{};
-      for (auto i = std::size_t{}; i < dst.size(); ++i) {
-        if constexpr (std::is_same_v<typename std::remove_reference_t<DstType>::layout_type, layout_c_contiguous>) {
-          // For layout_right/layout_c_contiguous, we iterate over the
-          // rightmost extent fastest
-          auto dim = std::remove_reference_t<DstType>::extents_type::rank();
-          while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = index_type{};
-            --dim;
-          }
-        } else {
-          // For layout_left/layout_f_contiguous (and currently all other
-          // layouts), we iterate over the leftmost extent fastest
-
-          // TODO(wphicks): Add additional specialization for non-C/F
-          // arrays that have a stride of 1 in one dimension. This would
-          // be a performance enhancement; it is not required for
-          // correctness.
-          auto dim = std::size_t{};
-          while ((indices[dim]++) == dst.extent(dim)) {
-            indices[dim] = index_type{};
-            ++dim;
-          }
-        }
-        std::apply(dst, indices) = std::apply(src, indices);
-      }
-    }
-  } else {
-#ifndef RAFT_DISABLE_CUDA
-    if constexpr (same_dtype && same_layout && both_contiguous) {
-      raft::copy(dst.data_handle(), src.data_handle(), dst.size());
-    } else if constexpr (is_device_mdspan_v<std::remove_reference_t<DstType>>) {
-      // Copy to device memory and call recursively
-    } else {
-      // Copy to host memory and call recursively
-    }
-#else
-    RAFT_FAIL("mdspan copy required device access in non-CUDA build");
-#endif
   }
 }
 }  // namespace detail

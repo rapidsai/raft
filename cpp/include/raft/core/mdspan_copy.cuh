@@ -6,15 +6,10 @@
 #include <raft/core/mdspan_copy.hpp>
 #include <type_traits>
 namespace raft {
-
 template <typename DstType, typename SrcType>
 std::enable_if_t<
-  std::conjunction_v<
-    std::bool_constant<is_mdspan_v<DstType, SrcType>>,
-    detail::mdspan_copy_requires_custom_kernel<DstType, SrcType>,
-    std::is_convertible<typename SrcType::value_type, typename DstType::element_type>,
-    std::bool_constant<DstType::extents_type::rank() == SrcType::extents_type::rank()>
-  >
+  detail::mdspan_copyable<true, DstType, SrcType>::custom_kernel_allowed,
+  detail::mdspan_copyable_t<DstType, SrcType>
 > copy(resources const& res, DstType&& dst, SrcType const& src) {
   detail::copy(res, dst, src);
 }
