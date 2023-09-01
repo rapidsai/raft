@@ -41,7 +41,7 @@
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-namespace raft::neighbors::nn_descent::detail {
+namespace raft::neighbors::experimental::nn_descent::detail {
 
 using pinned_memory_resource = thrust::universal_host_pinned_memory_resource;
 template <typename T>
@@ -1411,4 +1411,4 @@ index<IdxT> build(raft::resources const& res,
   return idx;
 }
 
-}  // namespace raft::neighbors::nn_descent::detail
+}  // namespace raft::neighbors::experimental::nn_descent::detail

@@ -35,10 +35,9 @@ namespace raft::neighbors::cagra {
  */
 
 /**
- * @brief Build a kNN graph.
+ * @brief Build a kNN graph using IVF-PQ.
  *
  * The kNN graph is the first building block for CAGRA index.
- * This function uses the IVF-PQ method to build a kNN graph.
  *
  * The output is a dense matrix that stores the neighbor indices for each pont in the dataset.
  * Each point has the same number of neighbors.
@@ -95,14 +94,51 @@ void build_knn_graph(raft::resources const& res,
     res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
+/**
+ * @brief Build a kNN graph using NN-descent.
+ *
+ * The kNN graph is the first building block for CAGRA index.
+ *
+ * The output is a dense matrix that stores the neighbor indices for each pont in the dataset.
+ * Each point has the same number of neighbors.
+ *
+ * See [cagra::build](#cagra::build) for an alternative method.
+ *
+ * The following distance metrics are supported:
+ * - L2Expanded
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   using namespace raft::neighbors::experimental;
+ *   // use default index parameters
+ *   nn_descent::index_params build_params;
+ *   build_params.graph_degree = 128;
+ *   // create knn graph
+ *   auto nn_descent_index = cagra::build_knn_graph(res, dataset, build_params);
+ *   auto optimized_gaph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
+ *   cagra::optimize(res, dataset, nn_descent_index.graph.view(), optimized_graph.view());
+ *   // Construct an index from dataset and optimized knn_graph
+ *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset,
+ * optimized_graph.view());
+ * @endcode
+ *
+ * @tparam DataT data element type
+ * @tparam IdxT type of the dataset vector indices
+ * @tparam accessor host or device accessor_type for the dataset
+ * @param res raft::resources
+ * @param dataset raft::host/device_matrix_view
+ * @param build_params raft::neighbors::nn_descent::index_params
+ * @return raft::neighbors::nn_descent::index<IdxT>
+ */
 template <typename DataT,
           typename IdxT = uint32_t,
           typename accessor =
             host_device_accessor<std::experimental::default_accessor<DataT>, memory_type::device>>
-nn_descent::index<IdxT> build_knn_graph(
+experimental::nn_descent::index<IdxT> build_knn_graph(
   raft::resources const& res,
   mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
-  std::optional<nn_descent::index_params> build_params = std::nullopt)
+  std::optional<experimental::nn_descent::index_params> build_params = std::nullopt)
 {
   return detail::build_knn_graph<DataT, IdxT>(res, dataset, build_params);
 }
@@ -277,8 +313,8 @@ index<T, IdxT> build(raft::resources const& res,
 
     optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
   } else {
-    auto nn_descent_params                       = std::make_optional<nn_descent::index_params>();
-    nn_descent_params->graph_degree              = intermediate_degree;
+    auto nn_descent_params          = std::make_optional<experimental::nn_descent::index_params>();
+    nn_descent_params->graph_degree = intermediate_degree;
     nn_descent_params->intermediate_graph_degree = 1.5 * intermediate_degree;
     auto nn_descent_index = build_knn_graph<T, IdxT>(res, dataset, nn_descent_params);
 

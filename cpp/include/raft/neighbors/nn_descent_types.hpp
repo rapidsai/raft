@@ -25,7 +25,7 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 
-namespace raft::neighbors::nn_descent {
+namespace raft::neighbors::experimental::nn_descent {
 /**
  * @ingroup nn_descent
  * @{
@@ -104,4 +104,4 @@ struct index : ann::index {
 
 /** @} */
 
-}  // namespace raft::neighbors::nn_descent
+}  // namespace raft::neighbors::experimental::nn_descent

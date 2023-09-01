@@ -21,7 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 
-namespace raft::neighbors::nn_descent {
+namespace raft::neighbors::experimental::nn_descent {
 
 /**
  * @defgroup nn-descent CUDA ANN Graph-based gradient descent nearest neighbor
@@ -30,38 +30,70 @@ namespace raft::neighbors::nn_descent {
 
 /**
  * @brief Build nn-descent Index with dataset in device memory
- * 
- * @tparam T 
- * @tparam IdxT 
+ *
+ * The following distance metrics are supported:
+ * - L2
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors::experimental;
+ *   // use default index parameters
+ *   nn_descent::index_params index_params;
+ *   // create and fill the index from a [N, D] raft::device_matrix_view dataset
+ *   auto index = cagra::build(res, index_params, dataset);
+ *   // index.graph() provides a raft::host_matrix_view of an
+ *   // all-neighbors knn graph of dimensions [N, k] of the input
+ *   // dataset
+ * @endcode
+ *
+ * @tparam T data-type
+ * @tparam IdxT index-type
  * @param res raft::resources
  * @param params nn_descent::index_params
  * @param dataset raft::device_matrix_view
- * @return index<IdxT> 
+ * @return index<IdxT>
  */
 template <typename T, typename IdxT = uint32_t>
 index<IdxT> build(raft::resources const& res,
                   index_params const& params,
-                     raft::device_matrix_view<const T, int64_t, row_major> dataset) {
-    return detail::build<T, IdxT>(res, params, dataset);
+                  raft::device_matrix_view<const T, int64_t, row_major> dataset)
+{
+  return detail::build<T, IdxT>(res, params, dataset);
 }
 
 /**
  * @brief Build nn-descent Index with dataset in host memory
- * 
- * @tparam T 
- * @tparam IdxT 
+ *
+ * The following distance metrics are supported:
+ * - L2
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors::experimental;
+ *   // use default index parameters
+ *   nn_descent::index_params index_params;
+ *   // create and fill the index from a [N, D] raft::host_matrix_view dataset
+ *   auto index = cagra::build(res, index_params, dataset);
+ *   // index.graph() provides a raft::host_matrix_view of an
+ *   // all-neighbors knn graph of dimensions [N, k] of the input
+ *   // dataset
+ * @endcode
+ *
+ * @tparam T data-type
+ * @tparam IdxT index-type
  * @param res raft::resources
  * @param params nn_descent::index_params
  * @param dataset raft::host_matrix_view
- * @return index<IdxT> 
+ * @return index<IdxT>
  */
 template <typename T, typename IdxT = uint32_t>
 index<IdxT> build(raft::resources const& res,
-                 index_params const& params,
-                     raft::host_matrix_view<const T, int64_t, row_major> dataset) {
-    return detail::build<T, IdxT>(res, params, dataset);
+                  index_params const& params,
+                  raft::host_matrix_view<const T, int64_t, row_major> dataset)
+{
+  return detail::build<T, IdxT>(res, params, dataset);
 }
 
-/** @} */  // end group cagra
+/** @} */  // end group nn-descent
 
-}
+}  // namespace raft::neighbors::experimental::nn_descent
