@@ -289,7 +289,7 @@ def main():
     else:
         for index in conf_file["index"]:
             curr_algo = index["algo"]
-            if validate_algorithm(algos_conf, curr_algo):
+            if validate_algorithm(algos_conf, curr_algo, gpu_present):
                 executable_path = find_executable(
                     algos_conf, curr_algo, k, batch_size
                 )
