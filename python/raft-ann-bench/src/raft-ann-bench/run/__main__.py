@@ -185,7 +185,9 @@ def main():
     )
     parser.add_argument(
         "--dataset-path",
-        help="path to dataset folder",
+        help="path to dataset folder, by default will look in "
+        "RAPIDS_DATASET_ROOT_DIR if defined, otherwise a datasets "
+        "subdirectory from the calling directory",
         default=default_dataset_path,
     )
     parser.add_argument("--build", action="store_true")
