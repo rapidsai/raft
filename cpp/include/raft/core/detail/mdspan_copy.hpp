@@ -84,13 +84,13 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const same_layout = std::is_same_v<dst_layout_type, src_layout_type>;
 
   auto static constexpr const src_contiguous = std::disjunction_v<
-    std::is_same_v<src_layout_type, layout_c_contiguous>,
-    std::is_same_v<src_layout_type, layout_f_contiguous>
+    std::is_same<src_layout_type, layout_c_contiguous>,
+    std::is_same<src_layout_type, layout_f_contiguous>
   >;
 
   auto static constexpr const dst_contiguous = std::disjunction_v<
-    std::is_same_v<dst_layout_type, layout_c_contiguous>,
-    std::is_same_v<dst_layout_type, layout_f_contiguous>
+    std::is_same<dst_layout_type, layout_c_contiguous>,
+    std::is_same<dst_layout_type, layout_f_contiguous>
   >;
 
   auto static constexpr const both_contiguous = src_contiguous && dst_contiguous;
@@ -117,9 +117,10 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const both_host_accessible = dst_host_accessible && src_host_accessible;
 
   // Allowed copy codepaths
+  auto static constexpr const can_use_host = both_host_accessible;
 
 #if (defined(__AVX__) || defined(__SSE__) || defined(__ARM_NEON))
-  auto static constexpr const can_use_simd = both_host_accessible && both_contiguous;
+  auto static constexpr const can_use_simd = can_use_host && both_contiguous;
 # else
   auto static constexpr const can_use_simd = false;
 #endif
@@ -148,9 +149,14 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
     std::bool_constant<requires_intermediate>,
     std::bool_constant<!use_intermediate_dst>
   >;
-  auto static constexpr const can_use_device = std::conjunction_v<CUDA_ENABLED, std::disjunction_v<both_device_accessible, requires_intermediate>>;
+  auto static constexpr const can_use_device = std::conjunction_v<
+    std::bool_constant<CUDA_ENABLED>,
+    std::disjunction<
+      std::bool_constant<both_device_accessible>,
+      std::bool_constant<requires_intermediate>
+    >
+  >;
 
-  auto static constexpr const can_use_host = both_host_accessible;
   auto static constexpr const can_use_cublas = std::conjunction_v<
     std::bool_constant<can_use_device>,
     std::bool_constant<compatible_dtype>,
@@ -178,8 +184,11 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   // TODO(wphicks): Detect case where custom kernel would be required AFTER
   // transfer only
   auto static constexpr const value = std::conjunction_v<
-    is_mdspan_v<dst_type, src_type>,
-    std::disjunction_v<can_use_host, can_use_device>
+    std::bool_constant<is_mdspan_v<dst_type, src_type>>,
+    std::disjunction<
+      std::bool_constant<can_use_host>,
+      std::bool_constant<can_use_device>
+    >
   >;
   using type = std::enable_if_t<value, T>;
 };
@@ -291,8 +300,8 @@ mdspan_copyable_t<DstType, SrcType>
 copy(resources const& res, DstType&& dst, SrcType const& src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
-  for (auto i = std::size_t{}; i < config::src_extent_types::rank(); ++i) {
-    RAFT_EXPECTS(src.extents(i) == dst.extents(i), "Must copy between mdspans of the same shape");
+  for (auto i = std::size_t{}; i < config::src_rank; ++i) {
+    RAFT_EXPECTS(src.extent(i) == dst.extent(i), "Must copy between mdspans of the same shape");
   }
 
   if constexpr(config::use_intermediate_src) {
