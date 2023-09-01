@@ -13,8 +13,12 @@ conda activate raft_ann_benchmarks
 
 # to install GPU package:
 mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench cuda-version=11.8*
+
+# to install CPU package for usage in CPU-only systems:
+mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
 ```
-The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
+
+The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired. The CPU package currently allows to run the HNSW benchmarks.
 
 Please see the [build instructions](ann_benchmarks_build.md) to build the benchmarks from source.
 
@@ -131,11 +135,11 @@ An entry in `algos.yaml` looks like:
 ```yaml
 raft_ivf_pq:
   executable: RAFT_IVF_PQ_ANN_BENCH
-  disabled: false
+  requires_gpu: true
 ```
 `executable` : specifies the name of the binary that will build/search the index. It is assumed to be
 available in `raft/cpp/build/`.
-`disabled` : denotes whether an algorithm should be excluded from benchmark runs.
+`requires_gpu` : denotes whether an algorithm requires GPU to run.
 
 The usage of the script `bench/ann/run.py` is:
 ```bash
