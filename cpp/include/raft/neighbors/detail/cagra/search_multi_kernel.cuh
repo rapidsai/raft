@@ -88,8 +88,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T,
-          class SAMPLE_FILTER_T>
+          class INDEX_T>
 __global__ void random_pickup_kernel(
   const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
@@ -105,8 +104,7 @@ __global__ void random_pickup_kernel(
   DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
   const std::uint32_t ldr,                 // (*) ldr >= num_pickup
   INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
-  const std::uint32_t hash_bitlen,
-  SAMPLE_FILTER_T sample_filter)
+  const std::uint32_t hash_bitlen)
 {
   const auto ldb               = hashmap::get_size(hash_bitlen);
   const auto global_team_index = (blockIdx.x * blockDim.x + threadIdx.x) / TEAM_SIZE;
@@ -146,8 +144,7 @@ __global__ void random_pickup_kernel(
 
   const auto store_gmem_index = global_team_index + (ldr * query_id);
   if (threadIdx.x % TEAM_SIZE == 0) {
-    if (sample_filter(query_id, best_index_team_local) &&
-        hashmap::insert(
+    if (hashmap::insert(
           visited_hashmap_ptr + (ldb * query_id), hash_bitlen, best_index_team_local)) {
       result_distances_ptr[store_gmem_index] = best_norm2_team_local;
       result_indices_ptr[store_gmem_index]   = best_index_team_local;
@@ -163,8 +160,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T,
-          class SAMPLE_FILTER_T>
+          class INDEX_T>
 void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
                    const std::size_t dataset_dim,
                    const std::size_t dataset_size,
@@ -181,7 +177,6 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                    const std::size_t ldr,                   // (*) ldr >= num_pickup
                    INDEX_T* const visited_hashmap_ptr,      // [num_queries, 1 << bitlen]
                    const std::uint32_t hash_bitlen,
-                   SAMPLE_FILTER_T sample_filter,
                    cudaStream_t const cuda_stream = 0)
 {
   const auto block_size                = 256u;
@@ -204,8 +199,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                                                 result_distances_ptr,
                                                 ldr,
                                                 visited_hashmap_ptr,
-                                                hash_bitlen,
-                                                sample_filter);
+                                                hash_bitlen);
 }
 
 template <class INDEX_T>
@@ -312,8 +306,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class INDEX_T,
-          class DISTANCE_T,
-          class SAMPLE_FILTER_T>
+          class DISTANCE_T>
 __global__ void compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   const std::uint32_t search_width,
@@ -328,8 +321,7 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter)
+  const std::uint32_t ldd)                  // (*) ldd >= search_width * graph_degree
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
   const auto tid            = threadIdx.x + blockDim.x * blockIdx.x;
@@ -347,8 +339,7 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::size_t child_id = neighbor_list_head_ptr[global_team_id % graph_degree];
 
   if (hashmap::insert<TEAM_SIZE, INDEX_T>(
-        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id) &&
-      sample_filter(blockIdx.y, child_id)) {
+        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)) {
     device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_target;
     device::load_vector_sync(frag_target, dataset_ptr + (dataset_ld * child_id), data_dim);
 
@@ -375,8 +366,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class INDEX_T,
-          class DISTANCE_T,
-          class SAMPLE_FILTER_T>
+          class DISTANCE_T>
 void compute_distance_to_child_nodes(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   const uint32_t search_width,
@@ -393,7 +383,6 @@ void compute_distance_to_child_nodes(
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
   const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
-  SAMPLE_FILTER_T sample_filter,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -414,8 +403,7 @@ void compute_distance_to_child_nodes(
                                                 hash_bitlen,
                                                 result_indices_ptr,
                                                 result_distances_ptr,
-                                                ldd,
-                                                sample_filter);
+                                                ldd);
 }
 
 template <class INDEX_T>
@@ -644,7 +632,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       result_buffer_allocation_size,
       hashmap.data(),
       hash_bitlen,
-      sample_filter,
       stream);
 
     unsigned iter = 0;
@@ -713,7 +700,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
         result_indices.data() + itopk_size,
         result_distances.data() + itopk_size,
         result_buffer_allocation_size,
-        sample_filter,
         stream);
 
       iter++;

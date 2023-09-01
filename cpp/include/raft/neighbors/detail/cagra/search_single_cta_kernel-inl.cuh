@@ -571,9 +571,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     local_seed_ptr,
     num_seeds,
     local_visited_hashmap_ptr,
-    hash_bitlen,
-    query_id,
-    sample_filter);
+    hash_bitlen);
   __syncthreads();
   _CLK_REC(clk_compute_1st_distance);
 
@@ -697,9 +695,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_list_buffer,
-        search_width,
-        query_id,
-        sample_filter);
+        search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
