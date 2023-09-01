@@ -52,7 +52,19 @@ class RaftIvfFlatGpu : public ANN<T> {
 
   using BuildParam = raft::neighbors::ivf_flat::index_params;
 
-  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param, MemoryType dataset_memtype);
+  RaftIvfFlatGpu(Metric metric, int dim, const BuildParam& param)
+    : ANN<T>(metric, dim),
+      index_params_(param),
+      dimension_(dim),
+      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+  {
+    index_params_.metric                         = parse_metric_type(metric);
+    index_params_.conservative_memory_allocation = true;
+    rmm::mr::set_current_device_resource(&mr_);
+    RAFT_CUDA_TRY(cudaGetDevice(&device_));
+  }
+
+  ~RaftIvfFlatGpu() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -68,46 +80,26 @@ class RaftIvfFlatGpu : public ANN<T> {
               cudaStream_t stream = 0) const override;
 
   // to enable dataset access from GPU memory
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = dataset_memtype_;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = false;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
 
-  ~RaftIvfFlatGpu() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
-
  private:
+  // `mr_` must go first to make sure it dies last
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::ivf_flat::search_params search_params_;
   std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
   int device_;
   int dimension_;
-  MemoryType dataset_memtype_;
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
 };
-
-template <typename T, typename IdxT>
-RaftIvfFlatGpu<T, IdxT>::RaftIvfFlatGpu(Metric metric,
-                                        int dim,
-                                        const BuildParam& param,
-                                        MemoryType dataset_memtype)
-  : ANN<T>(metric, dim),
-    index_params_(param),
-    dimension_(dim),
-    dataset_memtype_(dataset_memtype),
-    mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
-{
-  index_params_.metric                         = parse_metric_type(metric);
-  index_params_.conservative_memory_allocation = true;
-  rmm::mr::set_current_device_resource(&mr_);
-  RAFT_CUDA_TRY(cudaGetDevice(&device_));
-}
 
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
