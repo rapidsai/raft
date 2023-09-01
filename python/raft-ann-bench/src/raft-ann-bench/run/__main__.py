@@ -36,7 +36,10 @@ def positive_int(input_str: str) -> int:
 
 def validate_algorithm(algos_conf, algo, gpu_present):
     algos_conf_keys = set(algos_conf.keys())
-    return algo in algos_conf_keys and algos_conf[algo]["requires_gpu"] == gpu_present
+    return (
+        algo in algos_conf_keys
+        and algos_conf[algo]["requires_gpu"] == gpu_present
+    )
 
 
 def find_executable(algos_conf, algo, k, batch_size):
@@ -140,6 +143,7 @@ def main():
     # Read list of allowed algorithms
     try:
         import pylibraft  # noqa: F401
+
         gpu_present = True
     except ImportError:
         gpu_present = False
