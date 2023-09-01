@@ -36,24 +36,26 @@
 #include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
- * @ingroup cagra
+ * @addtogroup cagra
  * @{
  */
 
-enum class graph_build_algo {
-  IVF_PQ,
-  NN_DESCENT
-};
+enum class graph_build_algo { IVF_PQ, NN_DESCENT };
 
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
-  size_t graph_degree              = 64;   // Degree of output graph.
-  graph_build_algo build_algo = graph_build_algo::IVF_PQ; // ANN algorithm to build knn graph
+  /** Degree of input graph for pruning. */
+  size_t intermediate_graph_degree = 128;
+  /** Degree of output graph. */
+  size_t graph_degree = 64;
+  /** ANN algorithm to build knn graph. */
+  graph_build_algo build_algo = graph_build_algo::IVF_PQ;
 };
 
 enum class search_algo {
-  SINGLE_CTA,  // for large batch
-  MULTI_CTA,   // for small batch
+  /** For large batch sizes. */
+  SINGLE_CTA,
+  /** For small batch sizes. */
+  MULTI_CTA,
   MULTI_KERNEL,
   AUTO
 };
@@ -83,7 +85,7 @@ struct search_params : ann::search_params {
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
 
-  /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
+  /** Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t search_width = 1;
   /** Lower limit of search iterations. */
@@ -98,9 +100,9 @@ struct search_params : ann::search_params {
   /** Upper limit of hashmap fill rate. More than 0.1, less than 0.9.*/
   float hashmap_max_fill_rate = 0.5;
 
-  /* Number of iterations of initial random seed node selection. 1 or more. */
+  /** Number of iterations of initial random seed node selection. 1 or more. */
   uint32_t num_random_samplings = 1;
-  // Bit mask used for initial random seed node selection. */
+  /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
 };
 
@@ -128,7 +130,7 @@ struct index : ann::index {
     return metric_;
   }
 
-  // /** Total length of the index (number of vectors). */
+  /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
     return dataset_view_.extent(0);
@@ -353,9 +355,9 @@ struct index : ann::index {
 
 // TODO: Remove deprecated experimental namespace in 23.12 release
 namespace raft::neighbors::experimental::cagra {
+using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::hash_mode;
 using raft::neighbors::cagra::index;
-using raft::neighbors::cagra::graph_build_algo;
 using raft::neighbors::cagra::index_params;
 using raft::neighbors::cagra::search_algo;
 using raft::neighbors::cagra::search_params;

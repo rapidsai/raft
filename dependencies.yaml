@@ -168,8 +168,10 @@ dependencies:
           - glog>=0.6.0
           - h5py>=3.8.0
           - libfaiss>=1.7.1
+          - benchmark>=1.8.2
           - faiss-proc=*=cuda
           - matplotlib
+          - pandas
           - pyyaml
 
   cudatoolkit:
