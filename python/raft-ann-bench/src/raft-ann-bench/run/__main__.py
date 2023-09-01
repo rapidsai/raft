@@ -34,9 +34,9 @@ def positive_int(input_str: str) -> int:
     return i
 
 
-def validate_algorithm(algos_conf, algo):
+def validate_algorithm(algos_conf, algo, gpu_present):
     algos_conf_keys = set(algos_conf.keys())
-    return algo in algos_conf_keys and not algos_conf[algo]["disabled"]
+    return algo in algos_conf_keys and algos_conf[algo]["requires_gpu"] == gpu_present
 
 
 def find_executable(algos_conf, algo, k, batch_size):
@@ -136,14 +136,15 @@ def run_build_and_search(
 def main():
     scripts_path = os.path.dirname(os.path.realpath(__file__))
     call_path = os.getcwd()
+
     # Read list of allowed algorithms
     try:
         import pylibraft  # noqa: F401
-
-        algo_file = "algos.yaml"
+        gpu_present = True
     except ImportError:
-        algo_file = "algos-cpu.yaml"
-    with open(f"{scripts_path}/{algo_file}", "r") as f:
+        gpu_present = False
+
+    with open(f"{scripts_path}/algos.yaml", "r") as f:
         algos_conf = yaml.safe_load(f)
 
     if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
@@ -252,7 +253,7 @@ def main():
         for index in conf_file["index"]:
             curr_algo = index["algo"]
             if index["name"] in indices and validate_algorithm(
-                algos_conf, curr_algo
+                algos_conf, curr_algo, gpu_present
             ):
                 executable_path = find_executable(
                     algos_conf, curr_algo, k, batch_size
@@ -269,7 +270,7 @@ def main():
         for index in conf_file["index"]:
             curr_algo = index["algo"]
             if curr_algo in algorithms and validate_algorithm(
-                algos_conf, curr_algo
+                algos_conf, curr_algo, gpu_present
             ):
                 executable_path = find_executable(
                     algos_conf, curr_algo, k, batch_size

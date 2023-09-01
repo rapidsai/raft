@@ -4,15 +4,15 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Installing the benchmarks
 
-The easiest way to install these benchmarks is through conda. We suggest using mamba as it generally leads to a faster install time::
-```bash
-git clone https://github.com/rapidsai/raft.git && cd raft
-export RAFT_HOME=$(pwd)
+The easiest way to install these benchmarks is through conda. We provide packages for GPU enabled systems, as well for systems without a GPU. We suggest using mamba as it generally leads to a faster install time:
 
-mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
+```bash
+
+mamba env create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-ann-bench cudatoolkit=11.8*
+# to install GPU package:
+mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench cuda-version=11.8*
 ```
 The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
 
@@ -38,20 +38,18 @@ expected to be defined to run these scripts; this variable holds the directory w
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset.
 
 ```bash
-export RAFT_HOME=$(pwd)
-# All scripts are present in directory raft/bench/ann
 
 # (1) prepare dataset
-python bench/ann/get_dataset.py --dataset deep-image-96-angular --normalize
+python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python bench/ann/run.py --dataset deep-image-96-inner
+python -m raft-ann-bench.run --dataset deep-image-96-inner
 
 # (3) export data
-python bench/ann/data_export.py --dataset deep-image-96-inner
+python -m raft-ann-bench.data_export --dataset deep-image-96-inner
 
 # (4) plot results
-python bench/ann/plot.py --dataset deep-image-96-inner
+python -m raft-ann-bench.plot --dataset deep-image-96-inner
 ```
 
 Configuration files already exist for the following list of the million-scale datasets. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.

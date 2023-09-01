@@ -20,7 +20,7 @@ include(rapids-cpm)
 include(rapids-export)
 include(rapids-find)
 
-option(BUILD_CPU_ONLY "Build CPU only components. Apples to RAFT ANN benchmarks currently" OFF)
+option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
 
 if(NOT BUILD_CPU_ONLY)
   include(rapids-cuda)

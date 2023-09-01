@@ -32,7 +32,7 @@ option(RAFT_ANN_BENCH_SINGLE_EXE
 
 find_package(Threads REQUIRED)
 
-if(BUILD_CPU_ONLY)
+if(CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
@@ -66,17 +66,6 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
 
-option(RAFT_ANN_BENCH_USE_MULTIGPU "Use multi-gpus (where possible) in benchmarks" OFF)
-
-message(VERBOSE "RAFT: Build ann-bench with FAISS_BFKNN: ${RAFT_ANN_BENCH_USE_FAISS_BFKNN}")
-message(VERBOSE "RAFT: Build ann-bench with FAISS_IVF_FLAT: ${RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT}")
-message(VERBOSE "RAFT: Build ann-bench with FAISS_IVF_PQ: ${RAFT_ANN_BENCH_USE_FAISS_IVF_PQ}")
-message(VERBOSE "RAFT: Build ann-bench with RAFT_IVF_FLAT: ${RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT}")
-message(VERBOSE "RAFT: Build ann-bench with RAFT_IVF_PQ: ${RAFT_ANN_BENCH_USE_RAFT_IVF_PQ}")
-message(VERBOSE "RAFT: Build ann-bench with RAFT_CAGRA: ${RAFT_ANN_BENCH_USE_RAFT_CAGRA}")
-message(VERBOSE "RAFT: Build ann-bench with HNSWLIB: ${RAFT_ANN_BENCH_USE_HNSWLIB}")
-message(VERBOSE "RAFT: Build ann-bench with GGNN: ${RAFT_ANN_BENCH_USE_GGNN}")
-message(VERBOSE "RAFT: Build ann-bench with MULTIGPU: ${RAFT_ANN_BENCH_USE_MULTIGPU}")
 
 # ##################################################################################################
 # * Fetch requirements -------------------------------------------------------------
@@ -103,6 +92,10 @@ function(ConfigureAnnBench)
   set(oneValueArgs NAME)
   set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
 
+  if(NOT BUILD_CPU_ONLY)
+    set(GPU_BUILD ON)
+  endif()
+
   cmake_parse_arguments(
     ConfigureAnnBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
   )
@@ -120,16 +113,11 @@ function(ConfigureAnnBench)
     target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
   endif()
 
-  if(NOT BUILD_CPU_ONLY)
-    set(GPU_BUILD ON)
-  else()
-    target_compile_definitions(${BENCH_NAME} PUBLIC CPU_ONY)
-  endif()
-
   target_link_libraries(
     ${BENCH_NAME}
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
+            $<$<BOOL:${GPU_BUILD}>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
             ${ConfigureAnnBench_LINKS}
             Threads::Threads
             $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>
@@ -290,7 +278,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
-      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}">
+      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}">
       $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
   )
 
