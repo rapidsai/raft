@@ -260,6 +260,8 @@ nn_descent::index<IdxT> build_knn_graph(
       nn_descent_idx.graph().extent(0),
       nn_descent_idx.graph().extent(1));
 
+  graph::sort_knn_graph(res, dataset, knn_graph_internal);
+
   return nn_descent_idx;
 }
 

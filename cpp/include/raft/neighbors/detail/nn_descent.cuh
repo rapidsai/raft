@@ -25,14 +25,24 @@
 #include <queue>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+#include <thrust/host_vector.h>
+#include <thrust/mr/allocator.h>
+#include <thrust/mr/device_memory_resource.h>
 
 #include "../nn_descent_types.hpp"
 
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cuda_rt_essentials.hpp>
 
 namespace raft::neighbors::nn_descent::detail {
+
+using pinned_memory_resource = thrust::universal_host_pinned_memory_resource;
+template <typename T>
+using pinned_memory_allocator = thrust::mr::stateless_resource_allocator<T, pinned_memory_resource>;
+
 using DistData_t = float;
 constexpr int DEGREE_ON_DEVICE{32};
 constexpr int SEGMENT_SIZE{32};
@@ -303,18 +313,19 @@ template <typename Index_t>
 struct GnndGraph {
   static constexpr int segment_size = 32;
   InternalID_t<Index_t>* h_graph;
-  DistData_t* h_dists;
 
   size_t nrow;
   size_t node_degree;
   int num_samples;
   int num_segments;
 
-  Index_t* h_graph_new;
-  int2* h_list_sizes_new;
+  raft::host_matrix<DistData_t, size_t, raft::row_major> h_dists;
 
-  Index_t* h_graph_old;
-  int2* h_list_sizes_old;
+  thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_graph_new;
+  thrust::host_vector<int2, pinned_memory_allocator<int2>> h_list_sizes_new;
+
+  thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_graph_old;
+  thrust::host_vector<int2, pinned_memory_allocator<int2>> h_list_sizes_old;
   BloomFilter<Index_t> bloom_filter;
 
   GnndGraph(const GnndGraph&)            = delete;
@@ -333,19 +344,17 @@ struct GnndGraph {
                     std::atomic<int64_t>& update_counter);
   void sort_lists();
   void clear();
-  void dealloc();
   ~GnndGraph();
 };
 
 template <typename Data_t = float, typename Index_t = int>
 class GNND {
  public:
-  GNND(const BuildConfig& build_config);
+  GNND(raft::resources const& res, const BuildConfig& build_config);
   GNND(const GNND&)            = delete;
   GNND& operator=(const GNND&) = delete;
 
-  // Use delete[] to deallocate the returned graph
-  void build(Data_t* data, const Index_t nrow, Index_t* output_graph, cudaStream_t stream = 0);
+  void build(Data_t* data, const Index_t nrow, Index_t* output_graph);
   void dealloc();
   ~GNND();
   using ID_t = InternalID_t<Index_t>;
@@ -357,32 +366,34 @@ class GNND {
                          int2* list_sizes,
                          cudaStream_t stream = 0);
   void local_join(cudaStream_t stream = 0);
-  void alloc_workspace();
+
+  raft::resources const& res;
 
   BuildConfig build_config_;
   GnndGraph<Index_t> graph_;
   std::atomic<int64_t> update_counter_;
 
-  __half* d_data_;
-  DistData_t* l2_norms_;
-
-  ID_t* graph_buffer_;
-  DistData_t* dists_buffer_;
-  ID_t* graph_host_buffer_;
-  DistData_t* dists_host_buffer_;
-
-  int* d_locks_;
-
-  Index_t* h_rev_graph_new_;
-  // int2.x is the number of forward edges, int2.y is the number of reverse edges
-  int2* d_list_sizes_new_;
-
-  Index_t* h_graph_old_;
-  Index_t* h_rev_graph_old_;
-  int2* d_list_sizes_old_;
-
   Index_t nrow_;
   const int ndim_;
+
+  raft::device_matrix<__half, Index_t, raft::row_major> d_data_;
+  raft::device_vector<DistData_t, Index_t> l2_norms_;
+
+  raft::device_matrix<ID_t, Index_t, raft::row_major> graph_buffer_;
+  raft::device_matrix<DistData_t, Index_t, raft::row_major> dists_buffer_;
+
+  thrust::host_vector<ID_t, pinned_memory_allocator<ID_t>> graph_host_buffer_;
+  thrust::host_vector<DistData_t, pinned_memory_allocator<DistData_t>> dists_host_buffer_;
+
+  raft::device_vector<int, Index_t> d_locks_;
+
+  thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_new_;
+  thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_graph_old_;
+  thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_old_;
+  // int2.x is the number of forward edges, int2.y is the number of reverse edges
+
+  int2* d_list_sizes_old_;
+  int2* d_list_sizes_new_;
 };
 
 constexpr int TILE_ROW_WIDTH = 64;
@@ -926,12 +937,12 @@ int insert_to_ordered_list(InternalID_t<Index_t>* list,
 {
   if (dist > dist_list[width - 1]) { return width; }
 
-  int idx_insert = width;
+  int idx_insert      = width;
   bool position_found = false;
   for (int i = 0; i < width; i++) {
     if (list[i].id() == neighb_id.id()) { return width; }
     if (!position_found && dist_list[i] > dist) {
-      idx_insert = i;
+      idx_insert     = i;
       position_found = true;
     }
   }
@@ -957,7 +968,12 @@ GnndGraph<Index_t>::GnndGraph(const size_t nrow,
   : nrow(nrow),
     node_degree(node_degree),
     num_samples(num_samples),
-    bloom_filter(nrow, internal_node_degree / segment_size, 3)
+    bloom_filter(nrow, internal_node_degree / segment_size, 3),
+    h_dists{raft::make_host_matrix<DistData_t, size_t, raft::row_major>(nrow, node_degree)},
+    h_graph_new{nrow * num_samples},
+    h_list_sizes_new{nrow},
+    h_graph_old{nrow * num_samples},
+    h_list_sizes_old{nrow}
 {
   // node_degree must be a multiple of segment_size;
   assert(node_degree % segment_size == 0);
@@ -966,13 +982,6 @@ GnndGraph<Index_t>::GnndGraph(const size_t nrow,
   num_segments = node_degree / segment_size;
   // To save the CPU memory, graph should be allocated by external function
   h_graph = nullptr;
-  h_dists = new DistData_t[nrow * node_degree];
-
-  RAFT_CUDA_TRY(cudaMallocHost(&h_graph_new, sizeof(*h_graph_new) * nrow * num_samples));
-  RAFT_CUDA_TRY(cudaMallocHost(&h_list_sizes_new, sizeof(*h_list_sizes_new) * nrow));
-
-  RAFT_CUDA_TRY(cudaMallocHost(&h_graph_old, sizeof(*h_graph_old) * nrow * num_samples));
-  RAFT_CUDA_TRY(cudaMallocHost(&h_list_sizes_old, sizeof(*h_list_sizes_old) * nrow));
 }
 
 // This is the only operation on the CPU that cannot be overlapped.
@@ -982,7 +991,7 @@ void GnndGraph<Index_t>::sample_graph_new(InternalID_t<Index_t>* new_neighbors, 
 {
 #pragma omp parallel for
   for (size_t i = 0; i < nrow; i++) {
-    auto list_new         = h_graph_new + i * num_samples;
+    auto list_new         = h_graph_new.data() + i * num_samples;
     h_list_sizes_new[i].x = 0;
     h_list_sizes_new[i].y = 0;
 
@@ -1010,9 +1019,9 @@ void GnndGraph<Index_t>::init_random_graph()
 
 #pragma omp parallel for
     for (size_t i = 0; i < nrow; i++) {
-      size_t base_idx = i * node_degree + seg_idx * segment_size;
+      size_t base_idx      = i * node_degree + seg_idx * segment_size;
       auto h_neighbor_list = h_graph + base_idx;
-      auto h_dist_list     = h_dists + base_idx;
+      auto h_dist_list     = h_dists.data_handle() + base_idx;
       for (size_t j = 0; j < static_cast<size_t>(segment_size); j++) {
         size_t idx = base_idx + j;
         Index_t id = rand_seq[idx % rand_seq.size()] * num_segments + seg_idx;
@@ -1037,8 +1046,8 @@ void GnndGraph<Index_t>::sample_graph(bool sample_new)
     h_list_sizes_new[i].y = 0;
 
     auto list     = h_graph + i * node_degree;
-    auto list_old = h_graph_old + i * num_samples;
-    auto list_new = h_graph_new + i * num_samples;
+    auto list_old = h_graph_old.data() + i * num_samples;
+    auto list_new = h_graph_new.data() + i * num_samples;
     for (int j = 0; j < segment_size; j++) {
       for (int k = 0; k < num_segments; k++) {
         auto neighbor = list[k * segment_size + j];
@@ -1075,7 +1084,7 @@ void GnndGraph<Index_t>::update_graph(const InternalID_t<Index_t>* new_neighbors
       if ((size_t)new_neighb_id.id() == i) continue;
       int seg_idx    = new_neighb_id.id() % num_segments;
       auto list      = h_graph + i * node_degree + seg_idx * segment_size;
-      auto dist_list = h_dists + i * node_degree + seg_idx * segment_size;
+      auto dist_list = h_dists.data_handle() + i * node_degree + seg_idx * segment_size;
       int insert_pos =
         insert_to_ordered_list(list, dist_list, segment_size, new_neighb_id, new_dist);
       if (i % counter_interval == 0 && insert_pos != segment_size) { update_counter++; }
@@ -1090,12 +1099,13 @@ void GnndGraph<Index_t>::sort_lists()
   for (size_t i = 0; i < nrow; i++) {
     std::vector<std::pair<DistData_t, Index_t>> new_list;
     for (size_t j = 0; j < node_degree; j++) {
-      new_list.emplace_back(h_dists[i * node_degree + j], h_graph[i * node_degree + j].id());
+      new_list.emplace_back(h_dists.data_handle()[i * node_degree + j],
+                            h_graph[i * node_degree + j].id());
     }
     std::sort(new_list.begin(), new_list.end());
     for (size_t j = 0; j < node_degree; j++) {
       h_graph[i * node_degree + j].id_with_flag() = new_list[j].second;
-      h_dists[i * node_degree + j]                = new_list[j].first;
+      h_dists.data_handle()[i * node_degree + j]  = new_list[j].first;
     }
   }
 }
@@ -1107,68 +1117,51 @@ void GnndGraph<Index_t>::clear()
 }
 
 template <typename Index_t>
-void GnndGraph<Index_t>::dealloc()
+GnndGraph<Index_t>::~GnndGraph()
 {
-  delete[] h_dists;
-  RAFT_CUDA_TRY(cudaFreeHost(h_graph_new));
-  RAFT_CUDA_TRY(cudaFreeHost(h_list_sizes_new));
-  RAFT_CUDA_TRY(cudaFreeHost(h_graph_old));
-  RAFT_CUDA_TRY(cudaFreeHost(h_list_sizes_old));
   assert(h_graph == nullptr);
 }
 
-template <typename Index_t>
-GnndGraph<Index_t>::~GnndGraph()
-{
-}
-
 template <typename Data_t, typename Index_t>
-GNND<Data_t, Index_t>::GNND(const BuildConfig& build_config)
-  : build_config_(build_config),
+GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build_config)
+  : res(res),
+    build_config_(build_config),
     graph_(build_config.max_dataset_size,
            to_multiple_of_32(build_config.node_degree),
            to_multiple_of_32(build_config.internal_node_degree ? build_config.internal_node_degree
                                                                : build_config.node_degree),
            NUM_SAMPLES),
     nrow_(build_config.max_dataset_size),
-    ndim_(build_config.dataset_dim)
+    ndim_(build_config.dataset_dim),
+    d_data_{raft::make_device_matrix<__half, Index_t, raft::row_major>(
+      res, nrow_, build_config.dataset_dim)},
+    l2_norms_{raft::make_device_vector<DistData_t, Index_t>(res, nrow_)},
+    graph_buffer_{
+      raft::make_device_matrix<ID_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+    dists_buffer_{
+      raft::make_device_matrix<DistData_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+    graph_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
+    dists_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
+    d_locks_{raft::make_device_vector<int, Index_t>(res, nrow_)},
+    h_rev_graph_new_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
+    h_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
+    h_rev_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)}
 {
   static_assert(NUM_SAMPLES <= 32);
-  alloc_workspace();
-};
 
-template <typename Data_t, typename Index_t>
-void GNND<Data_t, Index_t>::alloc_workspace()
-{
-  RAFT_CUDA_TRY(cudaMalloc(&d_data_, sizeof(__half) * nrow_ * ndim_));
-  RAFT_CUDA_TRY(
-    cudaMallocHost(&graph_host_buffer_, sizeof(*graph_host_buffer_) * nrow_ * DEGREE_ON_DEVICE));
-  RAFT_CUDA_TRY(
-    cudaMallocHost(&dists_host_buffer_, sizeof(*dists_host_buffer_) * nrow_ * DEGREE_ON_DEVICE));
-  RAFT_CUDA_TRY(cudaMalloc(&dists_buffer_, sizeof(*dists_buffer_) * nrow_ * DEGREE_ON_DEVICE));
   thrust::fill(thrust::device,
-               dists_buffer_,
-               dists_buffer_ + (size_t)nrow_ * DEGREE_ON_DEVICE,
+               dists_buffer_.data_handle(),
+               dists_buffer_.data_handle() + dists_buffer_.size(),
                std::numeric_limits<float>::max());
-  RAFT_CUDA_TRY(cudaMalloc(&graph_buffer_, sizeof(*graph_buffer_) * nrow_ * DEGREE_ON_DEVICE));
   thrust::fill(thrust::device,
-               reinterpret_cast<Index_t*>(graph_buffer_),
-               reinterpret_cast<Index_t*>(graph_buffer_) + (size_t)nrow_ * DEGREE_ON_DEVICE,
+               reinterpret_cast<Index_t*>(graph_buffer_.data_handle()),
+               reinterpret_cast<Index_t*>(graph_buffer_.data_handle()) + graph_buffer_.size(),
                std::numeric_limits<Index_t>::max());
-  RAFT_CUDA_TRY(cudaMalloc(&d_locks_, sizeof(*d_locks_) * nrow_));
-  thrust::fill(thrust::device, d_locks_, d_locks_ + nrow_, 0);
-  RAFT_CUDA_TRY(cudaMallocHost(&h_rev_graph_new_, sizeof(*h_rev_graph_new_) * nrow_ * NUM_SAMPLES));
-  RAFT_CUDA_TRY(cudaMallocHost(&h_graph_old_, sizeof(*h_graph_old_) * nrow_ * NUM_SAMPLES));
-  RAFT_CUDA_TRY(cudaMallocHost(&h_rev_graph_old_, sizeof(*h_rev_graph_old_) * nrow_ * NUM_SAMPLES));
+  thrust::fill(thrust::device, d_locks_.data_handle(), d_locks_.data_handle() + d_locks_.size(), 0);
+
   RAFT_CUDA_TRY(cudaMalloc(&d_list_sizes_new_, sizeof(*d_list_sizes_new_) * nrow_));
   RAFT_CUDA_TRY(cudaMalloc(&d_list_sizes_old_, sizeof(*d_list_sizes_old_) * nrow_));
-
-  if (build_config_.metric_type == Metric_t::METRIC_L2) {
-    RAFT_CUDA_TRY(cudaMalloc(&l2_norms_, sizeof(*l2_norms_) * nrow_));
-  } else {
-    l2_norms_ = nullptr;
-  }
-}
+};
 
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::add_reverse_edges(Index_t* graph_ptr,
@@ -1190,46 +1183,44 @@ template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
 {
   thrust::fill(thrust::device.on(stream),
-               dists_buffer_,
-               dists_buffer_ + (size_t)nrow_ * DEGREE_ON_DEVICE,
+               dists_buffer_.data_handle(),
+               dists_buffer_.data_handle() + dists_buffer_.size(),
                std::numeric_limits<float>::max());
-  local_join_kernel<<<nrow_, BLOCK_SIZE, 0, stream>>>(graph_.h_graph_new,
-                                                      h_rev_graph_new_,
-                                                      d_list_sizes_new_,
-                                                      h_graph_old_,
-                                                      h_rev_graph_old_,
-                                                      d_list_sizes_old_,
-                                                      NUM_SAMPLES,
-                                                      d_data_,
-                                                      ndim_,
-                                                      graph_buffer_,
-                                                      dists_buffer_,
-                                                      DEGREE_ON_DEVICE,
-                                                      d_locks_,
-                                                      l2_norms_);
+  local_join_kernel<<<nrow_, BLOCK_SIZE, 0, stream>>>(
+    thrust::raw_pointer_cast(graph_.h_graph_new.data()),
+    thrust::raw_pointer_cast(h_rev_graph_new_.data()),
+    d_list_sizes_new_,
+    thrust::raw_pointer_cast(h_graph_old_.data()),
+    thrust::raw_pointer_cast(h_rev_graph_old_.data()),
+    d_list_sizes_old_,
+    NUM_SAMPLES,
+    d_data_.data_handle(),
+    ndim_,
+    graph_buffer_.data_handle(),
+    dists_buffer_.data_handle(),
+    DEGREE_ON_DEVICE,
+    d_locks_.data_handle(),
+    l2_norms_.data_handle());
 }
 
 template <typename Data_t, typename Index_t>
-void GNND<Data_t, Index_t>::build(Data_t* data,
-                                  const Index_t nrow,
-                                  Index_t* output_graph,
-                                  cudaStream_t stream)
+void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph)
 {
-  nrow_          = nrow;
-  graph_.h_graph = (InternalID_t<Index_t>*)output_graph;
+  cudaStream_t stream = raft::resource::get_cuda_stream(res);
+  nrow_               = nrow;
+  graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
 
   cudaPointerAttributes data_ptr_attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));
   if (data_ptr_attr.type == cudaMemoryTypeUnregistered) {
-    std::cout << "HERE AS EXPECTED" << std::endl;
-    typename std::remove_const<Data_t>::type* input_data;
     size_t batch_size = 100000;
-    RAFT_CUDA_TRY(cudaMallocAsync(
-      &input_data, sizeof(Data_t) * batch_size * build_config_.dataset_dim, stream));
+    using input_t     = typename std::remove_const<Data_t>::type;
+    auto input_data   = raft::make_device_matrix<input_t, Index_t, raft::row_major>(
+      res, batch_size, build_config_.dataset_dim);
     for (size_t step = 0; step < div_up(nrow_, batch_size); step++) {
       size_t list_offset = step * batch_size;
       size_t num_lists   = step != div_up(nrow_, batch_size) - 1 ? batch_size : nrow_ - list_offset;
-      RAFT_CUDA_TRY(cudaMemcpyAsync(input_data,
+      RAFT_CUDA_TRY(cudaMemcpyAsync(input_data.data_handle(),
                                     data + list_offset * build_config_.dataset_dim,
                                     sizeof(Data_t) * num_lists * build_config_.dataset_dim,
                                     cudaMemcpyDefault,
@@ -1238,21 +1229,24 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
                                WARP_SIZE,
                                sizeof(Data_t) * div_up(build_config_.dataset_dim, WARP_SIZE) *
                                  WARP_SIZE,
-                               stream>>>(
-        input_data, d_data_, build_config_.dataset_dim, l2_norms_, list_offset);
+                               stream>>>(input_data.data_handle(),
+                                         d_data_.data_handle(),
+                                         build_config_.dataset_dim,
+                                         l2_norms_.data_handle(),
+                                         list_offset);
     }
-    RAFT_CUDA_TRY(cudaFreeAsync(input_data, stream));
   } else {
     preprocess_data_kernel<<<nrow_,
                              WARP_SIZE,
                              sizeof(Data_t) * div_up(build_config_.dataset_dim, WARP_SIZE) *
                                WARP_SIZE,
-                             stream>>>(data, d_data_, build_config_.dataset_dim, l2_norms_);
+                             stream>>>(
+      data, d_data_.data_handle(), build_config_.dataset_dim, l2_norms_.data_handle());
   }
 
   thrust::fill(thrust::device.on(stream),
-               (Index_t*)graph_buffer_,
-               (Index_t*)graph_buffer_ + (size_t)nrow_ * DEGREE_ON_DEVICE,
+               (Index_t*)graph_buffer_.data_handle(),
+               (Index_t*)graph_buffer_.data_handle() + graph_buffer_.size(),
                std::numeric_limits<Index_t>::max());
 
   graph_.clear();
@@ -1262,8 +1256,10 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
   auto update_and_sample = [&](bool update_graph) {
     if (update_graph) {
       update_counter_ = 0;
-      graph_.update_graph(
-        graph_host_buffer_, dists_host_buffer_, DEGREE_ON_DEVICE, update_counter_);
+      graph_.update_graph(thrust::raw_pointer_cast(graph_host_buffer_.data()),
+                          thrust::raw_pointer_cast(dists_host_buffer_.data()),
+                          DEGREE_ON_DEVICE,
+                          update_counter_);
       if (update_counter_ < build_config_.termination_threshold * nrow_ *
                               build_config_.dataset_dim / counter_interval) {
         update_counter_ = -1;
@@ -1274,17 +1270,17 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
 
   for (size_t it = 0; it < build_config_.max_iterations; it++) {
     RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_new_,
-                                  graph_.h_list_sizes_new,
+                                  thrust::raw_pointer_cast(graph_.h_list_sizes_new.data()),
                                   sizeof(*d_list_sizes_new_) * nrow_,
                                   cudaMemcpyDefault,
                                   stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(h_graph_old_,
-                                  graph_.h_graph_old,
-                                  sizeof(*h_graph_old_) * nrow_ * NUM_SAMPLES,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(h_graph_old_.data()),
+                                  thrust::raw_pointer_cast(graph_.h_graph_old.data()),
+                                  sizeof(*h_graph_old_.data()) * nrow_ * NUM_SAMPLES,
                                   cudaMemcpyDefault,
                                   stream));
     RAFT_CUDA_TRY(cudaMemcpyAsync(d_list_sizes_old_,
-                                  graph_.h_list_sizes_old,
+                                  thrust::raw_pointer_cast(graph_.h_list_sizes_old.data()),
                                   sizeof(*d_list_sizes_old_) * nrow_,
                                   cudaMemcpyDefault,
                                   stream));
@@ -1297,12 +1293,18 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
 
     // Reuse dists_buffer_ to save GPU memory. graph_buffer_ cannot be reused, because it
     // contains some information for local_join.
-    static_assert(DEGREE_ON_DEVICE * sizeof(*dists_buffer_) >=
-                  NUM_SAMPLES * sizeof(*graph_buffer_));
-    add_reverse_edges(
-      graph_.h_graph_new, h_rev_graph_new_, (Index_t*)dists_buffer_, d_list_sizes_new_, stream);
-    add_reverse_edges(
-      h_graph_old_, h_rev_graph_old_, (Index_t*)dists_buffer_, d_list_sizes_old_, stream);
+    static_assert(DEGREE_ON_DEVICE * sizeof(*(dists_buffer_.data_handle())) >=
+                  NUM_SAMPLES * sizeof(*(graph_buffer_.data_handle())));
+    add_reverse_edges(thrust::raw_pointer_cast(graph_.h_graph_new.data()),
+                      thrust::raw_pointer_cast(h_rev_graph_new_.data()),
+                      (Index_t*)dists_buffer_.data_handle(),
+                      d_list_sizes_new_,
+                      stream);
+    add_reverse_edges(thrust::raw_pointer_cast(h_graph_old_.data()),
+                      thrust::raw_pointer_cast(h_rev_graph_old_.data()),
+                      (Index_t*)dists_buffer_.data_handle(),
+                      d_list_sizes_old_,
+                      stream);
 
     local_join(stream);
 
@@ -1310,28 +1312,31 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
 
     if (update_counter_ == -1) { break; }
 
-    RAFT_CUDA_TRY(cudaMemcpyAsync(graph_host_buffer_,
-                                  graph_buffer_,
-                                  sizeof(*graph_buffer_) * nrow_ * DEGREE_ON_DEVICE,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(graph_host_buffer_.data()),
+                                  graph_buffer_.data_handle(),
+                                  (sizeof(*graph_buffer_.data_handle())) * nrow_ * DEGREE_ON_DEVICE,
                                   cudaMemcpyDefault,
                                   stream));
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
-    RAFT_CUDA_TRY(cudaMemcpyAsync(dists_host_buffer_,
-                                  dists_buffer_,
-                                  sizeof(*dists_buffer_) * nrow_ * DEGREE_ON_DEVICE,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(thrust::raw_pointer_cast(dists_host_buffer_.data()),
+                                  dists_buffer_.data_handle(),
+                                  sizeof(*(dists_buffer_.data_handle())) * nrow_ * DEGREE_ON_DEVICE,
                                   cudaMemcpyDefault,
                                   stream));
-    graph_.sample_graph_new(graph_host_buffer_, DEGREE_ON_DEVICE);
+    graph_.sample_graph_new(thrust::raw_pointer_cast(graph_host_buffer_.data()), DEGREE_ON_DEVICE);
   }
 
-  graph_.update_graph(graph_host_buffer_, dists_host_buffer_, DEGREE_ON_DEVICE, update_counter_);
+  graph_.update_graph(thrust::raw_pointer_cast(graph_host_buffer_.data()),
+                      thrust::raw_pointer_cast(dists_host_buffer_.data()),
+                      DEGREE_ON_DEVICE,
+                      update_counter_);
   RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
   graph_.sort_lists();
 
   // Reuse graph_.h_dists as the buffer for shrink the lists in graph
-  static_assert(sizeof(decltype(*graph_.h_dists)) >= sizeof(Index_t));
-  Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists;
+  static_assert(sizeof(decltype(*(graph_.h_dists.data_handle()))) >= sizeof(Index_t));
+  Index_t* graph_shrink_buffer = (Index_t*)graph_.h_dists.data_handle();
 
 #pragma omp parallel for
   for (size_t i = 0; i < (size_t)nrow_; i++) {
@@ -1359,19 +1364,8 @@ void GNND<Data_t, Index_t>::build(Data_t* data,
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::dealloc()
 {
-  graph_.dealloc();
-  RAFT_CUDA_TRY(cudaFree(d_data_));
-  RAFT_CUDA_TRY(cudaFreeHost(graph_host_buffer_));
-  RAFT_CUDA_TRY(cudaFreeHost(dists_host_buffer_));
-  RAFT_CUDA_TRY(cudaFree(dists_buffer_));
-  RAFT_CUDA_TRY(cudaFree(graph_buffer_));
-  RAFT_CUDA_TRY(cudaFree(d_locks_));
-  RAFT_CUDA_TRY(cudaFreeHost(h_rev_graph_new_));
-  RAFT_CUDA_TRY(cudaFreeHost(h_graph_old_));
-  RAFT_CUDA_TRY(cudaFreeHost(h_rev_graph_old_));
   RAFT_CUDA_TRY(cudaFree(d_list_sizes_new_));
   RAFT_CUDA_TRY(cudaFree(d_list_sizes_old_));
-  RAFT_CUDA_TRY(cudaFree(l2_norms_));
 }
 
 template <typename Data_t, typename Index_t>
@@ -1411,7 +1405,7 @@ index<IdxT> build(raft::resources const& res,
   // extended_graph_degree.
   size_t extended_graph_degree = to_multiple_of_32(graph_degree * (graph_degree <= 32 ? 1.0 : 1.3));
   size_t extended_intermediate_degree =
-    to_multiple_of_32(intermediate_degree * (graph_degree <= 32 ? 1.0 : 1.3));
+    to_multiple_of_32(intermediate_degree * (intermediate_degree <= 32 ? 1.0 : 1.3));
 
   auto int_graph = raft::make_host_matrix<int, int64_t, row_major>(
     dataset.extent(0), static_cast<int64_t>(extended_graph_degree));
@@ -1424,13 +1418,8 @@ index<IdxT> build(raft::resources const& res,
                            .termination_threshold = params.termination_threshold,
                            .metric_type           = Metric_t::METRIC_L2};
 
-  std::cout << "Intermediate graph dim: " << int_graph.extent(0) << ", " << int_graph.extent(1)
-            << std::endl;
-  GNND<const T, int> nnd(build_config);
-  nnd.build(dataset.data_handle(),
-            dataset.extent(0),
-            int_graph.data_handle(),
-            resource::get_cuda_stream(res));
+  GNND<const T, int> nnd(res, build_config);
+  nnd.build(dataset.data_handle(), dataset.extent(0), int_graph.data_handle());
   nnd.dealloc();
   index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
 #pragma omp parallel for
