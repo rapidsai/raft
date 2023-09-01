@@ -98,4 +98,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@fea/devcontainers
     with:
       build_command: |
+        sccache -z;
         build-raft -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON;
+        sccache -s;
