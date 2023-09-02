@@ -66,7 +66,6 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
 
-
 # ##################################################################################################
 # * Fetch requirements -------------------------------------------------------------
 
@@ -278,7 +277,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
-      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}">
+      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}">
       $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
   )
 
