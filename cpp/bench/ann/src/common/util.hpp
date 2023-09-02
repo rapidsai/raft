@@ -16,6 +16,7 @@
 #pragma once
 
 #include "ann_types.hpp"
+#include "cuda_stub.hpp"  // cuda-related utils
 
 #ifdef ANN_BENCH_NVTX3_HEADERS_FOUND
 #include <nvtx3/nvToolsExt.h>
