@@ -428,7 +428,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
-          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
+          -DBUILD_CPU_ONLY=${yea} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}

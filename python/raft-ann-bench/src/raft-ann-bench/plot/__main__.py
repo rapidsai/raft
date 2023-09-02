@@ -380,6 +380,12 @@ def load_all_results(
 
 
 def main():
+    call_path = os.getcwd()
+    if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
+        default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
+    else:
+        default_dataset_path = os.path.join(call_path, "datasets/")
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -388,8 +394,10 @@ def main():
     )
     parser.add_argument(
         "--dataset-path",
-        help="path to dataset folder",
-        default=os.path.join(os.getenv("RAFT_HOME"), "bench", "ann", "data"),
+        help="path to dataset folder, by default will look in "
+        "RAPIDS_DATASET_ROOT_DIR if defined, otherwise a datasets "
+        "subdirectory from the calling directory",
+        default=default_dataset_path,
     )
     parser.add_argument(
         "--output-filepath",
