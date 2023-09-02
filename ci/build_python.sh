@@ -33,9 +33,10 @@ rapids-mamba-retry mambabuild \
 --channel "${RAPIDS_CONDA_BLD_OUTPUT_DIR}" \
 conda/recipes/raft-ann-bench
 
-# Build ann-bench-cpu only in CUDA 12 jobs since it only depends on python
+# Build ann-bench-cpu only in CUDA 11 jobs since it only depends on python
 # version
-if [[ ${CUDA_VERSION} == "11.8.0" ]]; then
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
   rapids-mamba-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \

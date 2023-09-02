@@ -154,7 +154,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
-        echo "Limiting tests to $TEST_TARGETS"
+            echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -428,7 +428,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
-          -DBUILD_CPU_ONLY=${yea} \
+          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
