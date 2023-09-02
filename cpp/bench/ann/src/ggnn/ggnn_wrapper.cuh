@@ -180,9 +180,6 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
   }
 
   if (dim != D) { throw std::runtime_error("mis-matched dim"); }
-
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
@@ -190,6 +187,8 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
                                                        size_t nrow,
                                                        cudaStream_t stream)
 {
+  int device;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
   ggnn_ = std::make_unique<GGNNGPUInstance>(
     device, nrow, build_param_.num_layers, true, build_param_.tau);
 
