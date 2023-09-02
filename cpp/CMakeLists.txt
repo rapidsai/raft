@@ -153,7 +153,7 @@ if(NOT BUILD_CPU_ONLY)
     INSTALL_EXPORT_SET raft-exports
   )
 else()
-  add_definitions(-DBUILD_CPU_ONLY)
+  add_compile_definitions(BUILD_CPU_ONLY)
 endif()
 
 if(NOT DISABLE_OPENMP)
