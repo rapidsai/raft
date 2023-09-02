@@ -22,20 +22,20 @@ include(rapids-find)
 
 option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
 
+# workaround for rapids_cuda_init_architectures not working for arch detection with enable_language(CUDA)
+set(lang_list "CXX")
+
 if(NOT BUILD_CPU_ONLY)
   include(rapids-cuda)
   rapids_cuda_init_architectures(RAFT)
+  list(APPEND lang_list "CUDA")
 endif()
 
 project(
   RAFT
   VERSION ${RAFT_VERSION}
-  LANGUAGES CXX
+  LANGUAGES ${lang_list}
 )
-
-if(NOT BUILD_CPU_ONLY)
-  enable_language(CUDA)
-endif()
 
 # Write the version header
 rapids_cmake_write_version_file(include/raft/version_config.hpp)
