@@ -423,6 +423,7 @@ if(BUILD_TESTS)
     PATH
     test/core/seive.cu
     test/util/bitonic_sort.cu
+    test/util/bitset.cu
     test/util/cudart_utils.cpp
     test/util/device_atomics.cu
     test/util/integer_utils.cpp
