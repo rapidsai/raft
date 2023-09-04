@@ -10,9 +10,11 @@
   },
   "hostRequirements": {"gpu": "optional"},
   "features": {
+    "ghcr.io/rapidsai/devcontainers/features/ucx:23.10": {"version": "1.14.1"},
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:23.10": {}
   },
   "overrideFeatureInstallOrder": [
+    "ghcr.io/rapidsai/devcontainers/features/ucx",
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
   ],
   "initializeCommand": ["/bin/bash", "-c", "mkdir -m 0755 -p ${localWorkspaceFolder}/../.{aws,cache,config/pip,local/share/${localWorkspaceFolderBasename}-cuda11.8-venvs}"],
