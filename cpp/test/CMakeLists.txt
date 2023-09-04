@@ -105,6 +105,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    test/core/bitset.cu
     test/core/device_resources_manager.cpp
     test/core/device_setter.cpp
     test/core/logger.cpp
