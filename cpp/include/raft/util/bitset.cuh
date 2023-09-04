@@ -18,6 +18,7 @@
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/linalg/map.cuh>
 
 namespace raft::utils {
 namespace detail {
@@ -31,9 +32,11 @@ namespace detail {
  * @param sample_len
  */
 template <typename IdxT>
-__global__ void unset_kernel(uint32_t* bitset, const IdxT* sample_index_ptr, const IdxT sample_len)
+__global__ void bitset_unset_kernel(uint32_t* bitset,
+                                    const IdxT* sample_index_ptr,
+                                    const IdxT sample_len)
 {
-  for (IdxT tid = threadIdx.x + blockIdx.x * blockDim.x; tid <= sample_len;
+  for (IdxT tid = threadIdx.x + blockIdx.x * blockDim.x; tid < sample_len;
        tid += blockDim.x * gridDim.x) {
     IdxT sample_index      = sample_index_ptr[tid];
     const IdxT bit_element = sample_index / 32;
@@ -54,7 +57,7 @@ __global__ void unset_kernel(uint32_t* bitset, const IdxT* sample_index_ptr, con
  * @param index_len
  */
 template <typename IdxT, int TPB>
-__global__ void create_bitset_kernel(uint32_t* bitset,
+__global__ void bitset_create_kernel(uint32_t* bitset,
                                      const IdxT bitset_size,
                                      const IdxT* index_ptr,
                                      const IdxT index_len)
@@ -86,8 +89,8 @@ __global__ void create_bitset_kernel(uint32_t* bitset,
 
 template <typename IdxT = uint32_t>
 struct bitset_view {
-  using BitsetT    = uint32_t;
-  IdxT bitset_size = sizeof(BitsetT) * 8;
+  using BitsetT            = uint32_t;
+  IdxT bitset_element_size = sizeof(BitsetT) * 8;
 
   _RAFT_HOST_DEVICE bitset_view(BitsetT* bitset_ptr, IdxT bitset_len)
     : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}
@@ -100,8 +103,8 @@ struct bitset_view {
 
   inline _RAFT_DEVICE bool test(const IdxT sample_index) const
   {
-    const IdxT bit_element = bitset_ptr_[sample_index / bitset_size];
-    const IdxT bit_index   = sample_index % bitset_size;
+    const IdxT bit_element = bitset_ptr_[sample_index / bitset_element_size];
+    const IdxT bit_index   = sample_index % bitset_element_size;
     const bool is_bit_set  = (bit_element & (1ULL << bit_index)) != 0;
     return is_bit_set;
   }
@@ -116,19 +119,21 @@ struct bitset_view {
 
 template <typename IdxT = uint32_t>
 struct bitset {
-  using BitsetT    = uint32_t;
-  IdxT bitset_size = sizeof(BitsetT) * 8;
+  using BitsetT            = uint32_t;
+  IdxT bitset_element_size = sizeof(BitsetT) * 8;
 
   bitset(const raft::resources& res,
          raft::device_vector_view<const IdxT, IdxT> mask_index,
          IdxT bitset_len)
-    : bitset_{raft::make_device_vector<BitsetT, IdxT>(res, raft::ceildiv(bitset_len, bitset_size))}
+    : bitset_{raft::make_device_vector<BitsetT, IdxT>(
+        res, raft::ceildiv(bitset_len, bitset_element_size))}
   {
+    RAFT_EXPECTS(mask_index.extent(0) <= bitset_len, "Mask index cannot be larger than bitset len");
     static const size_t TPB_X = 128;
-    dim3 blocks(raft::ceildiv(size_t(raft::ceildiv(bitset_len, bitset_size)), TPB_X));
+    dim3 blocks(raft::ceildiv(size_t(bitset_.extent(0)), TPB_X));
     dim3 threads(TPB_X);
 
-    detail::create_bitset_kernel<IdxT, 128>
+    detail::bitset_create_kernel<IdxT, TPB_X>
       <<<blocks,
          threads,
          raft::ceildiv(bitset_len, bitset_size) * sizeof(std::uint32_t),
@@ -152,14 +157,25 @@ struct bitset {
 };
 
 template <typename IdxT>
-void unset_bitset(const raft::resources& res,
-                  bitset_view<IdxT>& bitset_view_,
+void bitset_unset(const raft::resources& res,
+                  bitset_view<IdxT> bitset_view_,
                   raft::device_vector_view<const IdxT, IdxT> mask_index)
 {
   static const size_t TPB_X = 128;
-  dim3 blocks(raft::ceildiv(mask_index.extents(), TPB_X));
+  dim3 blocks(raft::ceildiv(size_t(mask_index.extent(0)), TPB_X));
   dim3 threads(TPB_X);
-  detail::unset_kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(
+  detail::bitset_unset_kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(
     bitset_view_.get_bitset_ptr(), mask_index.data_handle(), mask_index.extent(0));
+}
+
+template <typename IdxT, typename OutputT = bool>
+void bitset_test(const raft::resources& res,
+                 const bitset_view<IdxT> bitset_view_,
+                 raft::device_vector_view<const IdxT, IdxT> queries,
+                 raft::device_vector_view<OutputT, IdxT> output)
+{
+  RAFT_EXPECTS(output.extent(0) == queries.extent(0), "Output and queries must be same size");
+  raft::linalg::map(
+    res, output, [=] __device__(IdxT query) { return OutputT(bitset_view_.test(query)); }, queries);
 }
 }  // namespace raft::utils

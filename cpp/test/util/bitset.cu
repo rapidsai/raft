@@ -39,15 +39,21 @@ auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
 }
 
 template <typename T>
+void add_cpu_bitset(std::vector<uint32_t>& bitset, const std::vector<T>& mask_idx)
+{
+  for (size_t i = 0; i < mask_idx.size(); i++) {
+    auto idx = mask_idx[i];
+    bitset[idx / 32] &= ~(1 << (idx % 32));
+  }
+}
+
+template <typename T>
 void create_cpu_bitset(std::vector<uint32_t>& bitset, const std::vector<T>& mask_idx)
 {
   for (size_t i = 0; i < bitset.size(); i++) {
     bitset[i] = 0xffffffff;
   }
-  for (size_t i = 0; i < mask_idx.size(); i++) {
-    auto idx = mask_idx[i];
-    bitset[idx / 32] &= ~(1 << (idx % 32));
-  }
+  add_cpu_bitset<T>(bitset, mask_idx);
 }
 
 template <typename T>
@@ -57,19 +63,6 @@ void test_cpu_bitset(const std::vector<uint32_t>& bitset,
 {
   for (size_t i = 0; i < queries.size(); i++) {
     result[i] = uint8_t((bitset[queries[i] / 32] & (1 << (queries[i] % 32))) != 0);
-  }
-}
-
-template <typename IdxT>
-__global__ void test_gpu_bitset(bitset_view<IdxT> bitset,
-                                const IdxT* queries,
-                                uint8_t* result,
-                                IdxT n_queries)
-{
-  for (size_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < n_queries;
-       tid += blockDim.x * gridDim.x) {
-    auto query  = queries[tid];
-    result[tid] = (uint8_t)bitset.test(query);
   }
 }
 
@@ -109,8 +102,6 @@ class BitsetTest : public testing::TestWithParam<test_spec> {
 
     // calculate the reference
     create_cpu_bitset(bitset_ref, mask_cpu);
-
-    // make sure the results are available on host
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<T>()));
 
@@ -120,17 +111,27 @@ class BitsetTest : public testing::TestWithParam<test_spec> {
     auto result_cpu    = std::vector<uint8_t>(spec.query_len);
     auto result_ref    = std::vector<uint8_t>(spec.query_len);
 
+    // Create queries and verify the test results
     raft::random::uniformInt(res, rng, query_device.view(), T(0), T(spec.bitset_len));
     update_host(query_cpu.data(), query_device.data_handle(), query_device.extent(0), stream);
-    test_gpu_bitset<<<spec.query_len, 128, 0, stream>>>(test_bitset.view(),
-                                                        query_device.data_handle(),
-                                                        result_device.data_handle(),
-                                                        query_device.extent(0));
+    raft::utils::bitset_test(
+      res, test_bitset.view(), raft::make_const_mdspan(query_device.view()), result_device.view());
     update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
     test_cpu_bitset(bitset_ref, query_cpu, result_ref);
-
     resource::sync_stream(res, stream);
-    ASSERT_TRUE(hostVecMatch(result_cpu, result_ref, Compare<uint8_t>()));
+    ASSERT_TRUE(hostVecMatch(result_cpu, result_ref, Compare<bool>()));
+
+    // Add more sample to the bitset and re-test
+    raft::random::uniformInt(res, rng, mask_device.view(), T(0), T(spec.bitset_len));
+    update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
+    resource::sync_stream(res, stream);
+    raft::utils::bitset_unset<T>(res, test_bitset.view(), mask_device.view());
+    update_host(
+      bitset_result.data(), test_bitset.view().get_bitset_ptr(), bitset_result.size(), stream);
+
+    add_cpu_bitset(bitset_ref, mask_cpu);
+    resource::sync_stream(res, stream);
+    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<T>()));
   }
 };
 
