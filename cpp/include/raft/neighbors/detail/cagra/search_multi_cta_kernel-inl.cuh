@@ -75,7 +75,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [sea
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < search_width) {
-        next_parent_indices[i] = index;
+        next_parent_indices[i] = j;
         itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
@@ -288,6 +288,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_indices_buffer,
+        result_indices_buffer,
         search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();

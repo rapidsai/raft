@@ -78,7 +78,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << threadIdx.x) - 1)) + num_new_parents;
       if (i < search_width) {
-        next_parent_indices[i] = index;
+        next_parent_indices[i] = jj;
         // set most significant bit as used node
         internal_topk_indices[jj] |= index_msb_1_mask;
       }
@@ -695,6 +695,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         local_visited_hashmap_ptr,
         hash_bitlen,
         parent_list_buffer,
+        result_indices_buffer,
         search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
