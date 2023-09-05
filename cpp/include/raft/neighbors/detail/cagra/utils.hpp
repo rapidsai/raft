@@ -160,6 +160,8 @@ struct gen_index_msb_1_mask {
  * if the host_matrix_view is already accessible on the device, and only creates device
  * memory and copies over if necessary. In memory limited situations this is preferable
  * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
  */
 template <typename T, typename IdxT>
 class device_matrix_view_from_host {
@@ -205,6 +207,8 @@ class device_matrix_view_from_host {
  * if the device_matrix_view is already accessible on the host, and only creates host
  * memory and copies over if necessary. In memory limited situations this is preferable
  * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
  */
 template <typename T, typename IdxT>
 class host_matrix_view_from_device {
