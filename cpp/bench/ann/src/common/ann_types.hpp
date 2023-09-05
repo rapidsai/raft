@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2023, NVIDIA CORPORATION.
  *
@@ -18,13 +16,11 @@
 
 #pragma once
 
+#include "cuda_stub.hpp"  // cudaStream_t
+
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#ifndef CPU_ONLY
-#include <cuda_runtime_api.h>  // cudaStream_t
-#endif
 
 namespace raft::bench::ann {
 

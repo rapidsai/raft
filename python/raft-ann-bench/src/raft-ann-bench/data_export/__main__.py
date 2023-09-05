@@ -15,9 +15,10 @@
 
 
 import argparse
-import pandas as pd
-import os
 import json
+import os
+
+import pandas as pd
 
 
 def read_file(dataset, dataset_path, method):
@@ -27,36 +28,58 @@ def read_file(dataset, dataset_path, method):
             with open(os.path.join(dir, file), "r") as f:
                 data = json.load(f)
                 df = pd.DataFrame(data["benchmarks"])
-                yield (os.path.join(dir, file), file.split('-')[0], df)
+                yield (os.path.join(dir, file), file.split("-")[0], df)
+
 
 def convert_json_to_csv_build(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "build"):
-        df['name'] = df['name'].str.split('/').str[0]
-        write = pd.DataFrame({'algo_name' : [algo_name] * len(df),
-                              'index_name' : df['name'],
-                              'time' : df['real_time']})
-        write.to_csv(file.replace('.json', '.csv'), index=False)
+        df["name"] = df["name"].str.split("/").str[0]
+        write = pd.DataFrame(
+            {
+                "algo_name": [algo_name] * len(df),
+                "index_name": df["name"],
+                "time": df["real_time"],
+            }
+        )
+        write.to_csv(file.replace(".json", ".csv"), index=False)
 
 
 def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
-        df['name'] = df['name'].str.split('/').str[0]
-        write = pd.DataFrame({'algo_name' : [algo_name] * len(df),
-                              'index_name' : df['name'],
-                              'recall' : df['Recall'],
-                              'qps' : df['items_per_second']})
-        write.to_csv(file.replace('.json', '.csv'), index=False)
+        df["name"] = df["name"].str.split("/").str[0]
+        write = pd.DataFrame(
+            {
+                "algo_name": [algo_name] * len(df),
+                "index_name": df["name"],
+                "recall": df["Recall"],
+                "qps": df["items_per_second"],
+            }
+        )
+        write.to_csv(file.replace(".json", ".csv"), index=False)
 
 
 def main():
+
+    call_path = os.getcwd()
+    if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
+        default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
+    else:
+        default_dataset_path = os.path.join(call_path, "datasets/")
+
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--dataset", help="dataset to download",
-                        default="glove-100-inner")
-    parser.add_argument("--dataset-path", help="path to dataset folder",
-                        default=os.path.join(os.getenv("RAFT_HOME"), 
-                                             "bench", "ann", "data"))
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--dataset", help="dataset to download", default="glove-100-inner"
+    )
+    parser.add_argument(
+        "--dataset-path",
+        help="path to dataset folder",
+        default=default_dataset_path,
+    )
+
     args = parser.parse_args()
+
     convert_json_to_csv_build(args.dataset, args.dataset_path)
     convert_json_to_csv_search(args.dataset, args.dataset_path)
 

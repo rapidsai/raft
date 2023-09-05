@@ -98,6 +98,20 @@ files:
       key: test
     includes:
       - test_python_common
+  py_build_raft_ann_bench:
+    output: pyproject
+    pyproject_dir: python/raft-ann-bench
+    extras:
+      table: build-system
+    includes:
+      - build_wheels
+  py_run_raft_ann_bench:
+    output: pyproject
+    pyproject_dir: python/raft-ann-bench
+    extras:
+      table: project
+    includes:
+      - nn_bench_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -161,7 +175,7 @@ dependencies:
           - clang-tools=16.0.1
   nn_bench:
     common:
-      - output_types: [conda]
+      - output_types: [conda, pyproject, requirements]
         packages:
           - hnswlib=0.7.0
           - nlohmann_json>=3.11.2
@@ -170,9 +184,14 @@ dependencies:
           - libfaiss>=1.7.1
           - benchmark>=1.8.2
           - faiss-proc=*=cuda
+  nn_bench_python:
+    common:
+      - output_types: [conda]
+        packages:
           - matplotlib
           - pandas
           - pyyaml
+          - pandas
 
   cudatoolkit:
     specific:
