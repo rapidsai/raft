@@ -18,11 +18,11 @@
 /*
 The content of this header is governed by two preprocessor definitions:
 
-  - CPU_ONLY - whether none of the CUDA functions are used.
+  - BUILD_CPU_ONLY - whether none of the CUDA functions are used.
   - ANN_BENCH_LINK_CUDART - dynamically link against this string if defined.
 
 ______________________________________________________________________________
-|CPU_ONLY | ANN_BENCH_LINK_CUDART |         cudart      | cuda_runtime_api.h |
+|BUILD_CPU_ONLY | ANN_BENCH_LINK_CUDART |         cudart      | cuda_runtime_api.h |
 |         |                       |  found    |  needed |      included      |
 |---------|-----------------------|-----------|---------|--------------------|
 |   ON    |    <not defined>      |  false    |  false  |       NO           |
@@ -32,7 +32,7 @@ ______________________________________________________________________________
 ------------------------------------------------------------------------------
 */
 
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
 #include <cuda_runtime_api.h>
 #ifdef ANN_BENCH_LINK_CUDART
 #include <cstring>
@@ -96,7 +96,7 @@ struct cuda_lib_handle {
   /** Whether this is NOT a cpu-only package. */
   [[nodiscard]] constexpr inline auto needed() const -> bool
   {
-#if defined(CPU_ONLY)
+#if defined(BUILD_CPU_ONLY)
     return false;
 #else
     return true;
@@ -106,7 +106,7 @@ struct cuda_lib_handle {
   /** CUDA found, either at compile time or at runtime. */
   [[nodiscard]] inline auto found() const -> bool
   {
-#if defined(CPU_ONLY)
+#if defined(BUILD_CPU_ONLY)
     return false;
 #elif defined(ANN_BENCH_LINK_CUDART)
     return handle != nullptr;
