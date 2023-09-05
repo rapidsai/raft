@@ -19,3 +19,4 @@ C++ API
    cpp_api/solver.rst
    cpp_api/sparse.rst
    cpp_api/stats.rst
+   cpp_api/utils.rst

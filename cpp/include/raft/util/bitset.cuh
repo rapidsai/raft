@@ -17,35 +17,13 @@
 #pragma once
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
+#include <thrust/for_each.h>
 
 namespace raft::utils {
 namespace detail {
-
-/**
- * @brief Unset bits in bitset already created
- *
- * @tparam IdxT
- * @param bitset
- * @param sample_index_ptr
- * @param sample_len
- */
-template <typename IdxT>
-__global__ void bitset_unset_kernel(uint32_t* bitset,
-                                    const IdxT* sample_index_ptr,
-                                    const IdxT sample_len)
-{
-  for (IdxT tid = threadIdx.x + blockIdx.x * blockDim.x; tid < sample_len;
-       tid += blockDim.x * gridDim.x) {
-    IdxT sample_index      = sample_index_ptr[tid];
-    const IdxT bit_element = sample_index / 32;
-    const IdxT bit_index   = sample_index % 32;
-    const uint32_t bitmask = 1 << bit_index;
-    atomicAnd(bitset + bit_element, ~bitmask);
-  }
-}
-
 /**
  * @brief Create bitset from list of indices to unset
  *
@@ -90,8 +68,20 @@ __global__ void bitset_create_kernel(uint32_t* bitset,
     bitset[tid + bitset_start] = shared_mem[tid];
   }
 }
-}  // namespace detail
+}  // end namespace detail
 
+/**
+ * @defgroup bitset Bitset
+ * @{
+ */
+/**
+ * @brief View of a RAFT Bitset.
+ *
+ * This lightweight structure stores a pointer to a bitset in device memory with it's length.
+ * It provides a test() device function to check if a given index is set in the bitset.
+ *
+ * @tparam IdxT Indexing type used. Default is uint32_t.
+ */
 template <typename IdxT = uint32_t>
 struct bitset_view {
   using BitsetT            = uint32_t;
@@ -101,20 +91,36 @@ struct bitset_view {
     : bitset_ptr_{bitset_ptr}, bitset_len_{bitset_len}
   {
   }
+  /**
+   * @brief Create a bitset view from a device vector view of the bitset.
+   *
+   * @param bitset_span Device vector view of the bitset
+   */
   _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<BitsetT, IdxT> bitset_span)
     : bitset_ptr_{bitset_span.data_handle()}, bitset_len_{bitset_span.extent(0)}
   {
   }
-
-  inline _RAFT_DEVICE bool test(const IdxT sample_index) const
+  /**
+   * @brief Device function to test if a given index is set in the bitset.
+   *
+   * @param sample_index Single index to test
+   * @return bool True if index has not been unset in the bitset
+   */
+  inline _RAFT_DEVICE auto test(const IdxT sample_index) const -> bool
   {
     const IdxT bit_element = bitset_ptr_[sample_index / bitset_element_size];
     const IdxT bit_index   = sample_index % bitset_element_size;
     const bool is_bit_set  = (bit_element & (1ULL << bit_index)) != 0;
     return is_bit_set;
   }
+  /**
+   * @brief Get the device pointer to the bitset.
+   */
   inline _RAFT_HOST_DEVICE auto get_bitset_ptr() -> BitsetT* { return bitset_ptr_; }
   inline _RAFT_HOST_DEVICE auto get_bitset_ptr() const -> const BitsetT* { return bitset_ptr_; }
+  /**
+   * @brief Get the length of the bitset representation.
+   */
   inline _RAFT_HOST_DEVICE auto get_bitset_len() const -> IdxT { return bitset_len_; }
 
  private:
@@ -122,11 +128,28 @@ struct bitset_view {
   IdxT bitset_len_;
 };
 
+/**
+ * @brief RAFT Bitset.
+ *
+ * This structure encapsulates a bitset in device memory. It provides a view() method to get a
+ * device-usable lightweight view of the bitset.
+ * Each index is represented by a single bit in the bitset. The total number of bytes used is
+ * ceil(bitset_len / 4).
+ * The underlying type of the bitset array is uint32_t.
+ * @tparam IdxT Indexing type used. Default is uint32_t.
+ */
 template <typename IdxT = uint32_t>
 struct bitset {
   using BitsetT            = uint32_t;
   IdxT bitset_element_size = sizeof(BitsetT) * 8;
 
+  /**
+   * @brief Construct a new bitset object
+   *
+   * @param res RAFT resources
+   * @param mask_index List of indices to unset in the bitset
+   * @param bitset_len Length of the bitset
+   */
   bitset(const raft::resources& res,
          raft::device_vector_view<const IdxT, IdxT> mask_index,
          IdxT bitset_len)
@@ -153,8 +176,13 @@ struct bitset {
   bitset& operator=(const bitset&) = delete;
   bitset& operator=(bitset&&)      = default;
 
-  inline auto view() -> bitset_view<IdxT> { return bitset_view<IdxT>(bitset_.view()); }
-  [[nodiscard]] inline auto view() const -> bitset_view<IdxT>
+  /**
+   * @brief Create a device-usable view of the bitset.
+   *
+   * @return bitset_view<IdxT>
+   */
+  inline auto view() -> raft::utils::bitset_view<IdxT> { return bitset_view<IdxT>(bitset_.view()); }
+  [[nodiscard]] inline auto view() const -> raft::utils::bitset_view<IdxT>
   {
     return bitset_view<IdxT>(bitset_.view());
   }
@@ -163,22 +191,44 @@ struct bitset {
   raft::device_vector<BitsetT, IdxT> bitset_;
 };
 
+/**
+ * @brief Function to unset a list of indices in a bitset.
+ *
+ * @tparam IdxT Indexing type used. Default is uint32_t.
+ * @param res RAFT resources
+ * @param bitset_view_ View of the bitset
+ * @param mask_index indices to remove from the bitset
+ */
 template <typename IdxT>
 void bitset_unset(const raft::resources& res,
-                  bitset_view<IdxT> bitset_view_,
+                  raft::utils::bitset_view<IdxT> bitset_view_,
                   raft::device_vector_view<const IdxT, IdxT> mask_index)
 {
-  static const size_t TPB_X = 128;
-  dim3 blocks(raft::ceildiv(size_t(mask_index.extent(0)), TPB_X));
-  dim3 threads(TPB_X);
-  // TODO thrust::for_each?
-  detail::bitset_unset_kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(
-    bitset_view_.get_bitset_ptr(), mask_index.data_handle(), mask_index.extent(0));
+  auto* bitset_ptr = bitset_view_.get_bitset_ptr();
+  thrust::for_each_n(resource::get_thrust_policy(res),
+                     mask_index.data_handle(),
+                     mask_index.extent(0),
+                     [bitset_ptr] __device__(const IdxT sample_index) {
+                       const IdxT bit_element = sample_index / 32;
+                       const IdxT bit_index   = sample_index % 32;
+                       const uint32_t bitmask = ~(1 << bit_index);
+                       atomicAnd(bitset_ptr + bit_element, bitmask);
+                     });
 }
 
+/**
+ * @brief Function to test a list of indices in a bitset.
+ *
+ * @tparam IdxT Indexing type
+ * @tparam OutputT Output type of the test. Default is bool.
+ * @param res RAFT resources
+ * @param bitset_view_ View of the bitset
+ * @param queries List of indices to test
+ * @param output List of outputs
+ */
 template <typename IdxT, typename OutputT = bool>
 void bitset_test(const raft::resources& res,
-                 const bitset_view<IdxT> bitset_view_,
+                 const raft::utils::bitset_view<IdxT> bitset_view_,
                  raft::device_vector_view<const IdxT, IdxT> queries,
                  raft::device_vector_view<OutputT, IdxT> output)
 {
@@ -186,4 +236,5 @@ void bitset_test(const raft::resources& res,
   raft::linalg::map(
     res, output, [=] __device__(IdxT query) { return OutputT(bitset_view_.test(query)); }, queries);
 }
-}  // namespace raft::utils
+/** @} */
+}  // end namespace raft::utils

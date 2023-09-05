@@ -26,6 +26,10 @@
 namespace raft {
 
 /**
+ * @defgroup memory_pool Memory Pool
+ * @{
+ */
+/**
  * @brief Get a pointer to a pooled memory resource within the scope of the lifetime of the returned
  * unique pointer.
  *
@@ -73,4 +77,5 @@ RAFT_INLINE_CONDITIONAL std::unique_ptr<rmm::mr::device_memory_resource> get_poo
   return pool_res;
 }
 
+/** @} */
 }  // namespace raft
