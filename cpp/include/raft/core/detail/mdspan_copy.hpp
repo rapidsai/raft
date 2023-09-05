@@ -30,9 +30,6 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#ifdef __CUDACC__
-#include <raft/core/mdspan_copy.hpp>
-#endif
 #endif
 
 namespace raft {
@@ -231,17 +228,17 @@ mdspan_device_copy(DstType dst, SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 
-  __shared__ config::dst_value_type tile_buffer[TileDim][TileDim + 1];
-  auto tile = mdspan < config::dst_value_type, extents<std::uint32_t, TileDim, TileDim + 1>
+  __shared__ typename config::dst_value_type tile_buffer[TileDim][TileDim + 1];
+  auto tile = mdspan <typename config::dst_value_type, extents<std::uint32_t, TileDim, TileDim + 1>>
   {
     tile_buffer
-  }
+  };
 
   auto const constexpr tile_elements       = TileDim * TileDim;
-  index_type src_indices[config::dst_rank] = {blockIdx.x * tile_elements};
-  index_type dst_indices[config::dst_rank] = {blockIdx.x * tile_elements};
-  index_type max_indices[config::dst_rank];
-  for (auto i = index_type{}; i < config::dst_rank; ++i) {
+  typename config::index_type src_indices[config::dst_rank] = {blockIdx.x * tile_elements};
+  typename config::index_type dst_indices[config::dst_rank] = {blockIdx.x * tile_elements};
+  typename config::index_type max_indices[config::dst_rank];
+  for (auto i = typename config::index_type{}; i < config::dst_rank; ++i) {
     max_indices[i] = dst.extent(i);
   }
 

@@ -35,6 +35,7 @@ TEST(MDSpanCopy, Mdspan1DHostHost)
   }
 
   auto out_right = make_host_vector<double, std::uint32_t, layout_f_contiguous>(res, cols);
+  // std::copy
   copy(res, out_right.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < cols; ++i) {
     ASSERT_TRUE(match(out_right(i),
@@ -54,8 +55,10 @@ TEST(MDSpanCopy, Mdspan1DHostDevice)
     in_left(i) = gen_unique_entry(i);
   }
 
+  // raft::copy
   auto out_right = make_device_vector<float, std::uint32_t, layout_f_contiguous>(res, cols);
   copy(res, out_right.view(), in_left.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < cols; ++i) {
     ASSERT_TRUE(match(float(out_right(i)),
                       float(gen_unique_entry(i)),
@@ -74,8 +77,10 @@ TEST(MDSpanCopy, Mdspan1DDeviceHost)
     in_left(i) = gen_unique_entry(i);
   }
 
+  // raft::copy
   auto out_right = make_host_vector<float, std::uint32_t, layout_f_contiguous>(res, cols);
   copy(res, out_right.view(), in_left.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < cols; ++i) {
     ASSERT_TRUE(match(float(out_right(i)),
                       float(gen_unique_entry(i)),
@@ -86,9 +91,9 @@ TEST(MDSpanCopy, Mdspan1DDeviceHost)
 TEST(MDSpanCopy, Mdspan3DHostHost)
 {
   auto res             = device_resources{};
-  auto constexpr depth = std::uint32_t{5};
-  auto constexpr rows  = std::uint32_t{3};
-  auto constexpr cols  = std::uint32_t{2};
+  auto constexpr depth = std::uint32_t{500};
+  auto constexpr rows  = std::uint32_t{300};
+  auto constexpr cols  = std::uint32_t{200};
   auto in_left = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
   auto in_right = make_host_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
@@ -109,6 +114,7 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
   auto out_right = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
+  // std::copy
   copy(res, out_right.view(), in_right.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -119,6 +125,7 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
+  // simd or custom logic
   copy(res, out_right.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -129,6 +136,7 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
+  // simd or custom logic
   copy(res, out_left.view(), in_right.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -139,6 +147,7 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
+  // std::copy
   copy(res, out_left.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -153,6 +162,8 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
 TEST(MDSpanCopy, Mdspan3DHostDevice)
 {
   auto res             = device_resources{};
+  // Use smaller values here since host/device copy takes awhile.
+  // Non-trivial logic is tested in the other cases.
   auto constexpr depth = std::uint32_t{5};
   auto constexpr rows  = std::uint32_t{3};
   auto constexpr cols  = std::uint32_t{2};
@@ -176,7 +187,9 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
   auto out_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
+  // raft::copy
   copy(res, out_right.view(), in_right.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
@@ -187,6 +200,7 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
   }
 
   /* copy(res, out_right.view(), in_left.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
@@ -197,6 +211,7 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
   } */
 
   /* copy(res, out_left.view(), in_right.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
@@ -206,7 +221,9 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
     }
   } */
 
+  // raft::copy
   copy(res, out_left.view(), in_left.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
@@ -220,8 +237,8 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
 TEST(MDSpanCopy, Mdspan2DDeviceDevice)
 {
   auto res             = device_resources{};
-  auto constexpr rows  = std::uint32_t{3};
-  auto constexpr cols  = std::uint32_t{2};
+  auto constexpr rows  = std::uint32_t{300};
+  auto constexpr cols  = std::uint32_t{200};
   auto in_left = make_device_mdarray<float, std::uint32_t, layout_c_contiguous, rows, cols>(
     res, extents<std::uint32_t, rows, cols>{});
   auto in_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, rows, cols>(
@@ -240,7 +257,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
   auto out_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, rows, cols>(
     res, extents<std::uint32_t, rows, cols>{});
 
+  // raft::copy
   copy(res, out_right.view(), in_right.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
     for (auto j = std::uint32_t{}; j < cols; ++j) {
       ASSERT_TRUE(match(
@@ -248,7 +267,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
     }
   }
 
+  // cublas
   copy(res, out_right.view(), in_left.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
     for (auto j = std::uint32_t{}; j < cols; ++j) {
       ASSERT_TRUE(match(
@@ -256,7 +277,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
     }
   }
 
+  // cublas
   copy(res, out_left.view(), in_right.view());
+  res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
     for (auto j = std::uint32_t{}; j < cols; ++j) {
       ASSERT_TRUE(match(
@@ -264,5 +287,76 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
     }
   }
 }
+
+/* TEST(MDSpanCopy, Mdspan3DDeviceDevice)
+{
+  auto res             = device_resources{};
+  auto constexpr depth = std::uint32_t{50};
+  auto constexpr rows  = std::uint32_t{30};
+  auto constexpr cols  = std::uint32_t{20};
+  auto in_left = make_device_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+    res, extents<std::uint32_t, depth, rows, cols>{});
+  auto in_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+    res, extents<std::uint32_t, depth, rows, cols>{});
+  auto gen_unique_entry = [](auto&& x, auto&& y, auto&& z) { return x * 7 + y * 11 + z * 13; };
+
+  for (auto i = std::uint32_t{}; i < depth; ++i) {
+    for (auto j = std::uint32_t{}; j < rows; ++j) {
+      for (auto k = std::uint32_t{}; k < cols; ++k) {
+        in_left(i, j, k)  = gen_unique_entry(i, j, k);
+        in_right(i, j, k) = gen_unique_entry(i, j, k);
+      }
+    }
+  }
+
+  auto out_left = make_device_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+    res, extents<std::uint32_t, depth, rows, cols>{});
+  auto out_right = make_device_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+    res, extents<std::uint32_t, depth, rows, cols>{});
+
+  // Custom kernel
+  copy(res, out_right.view(), in_right.view());
+  for (auto i = std::uint32_t{}; i < depth; ++i) {
+    for (auto j = std::uint32_t{}; j < rows; ++j) {
+      for (auto k = std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_right(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+      }
+    }
+  }
+
+  // Custom kernel
+  copy(res, out_right.view(), in_left.view());
+  for (auto i = std::uint32_t{}; i < depth; ++i) {
+    for (auto j = std::uint32_t{}; j < rows; ++j) {
+      for (auto k = std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_right(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+      }
+    }
+  }
+
+  // Custom kernel
+  copy(res, out_left.view(), in_right.view());
+  for (auto i = std::uint32_t{}; i < depth; ++i) {
+    for (auto j = std::uint32_t{}; j < rows; ++j) {
+      for (auto k = std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_left(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+      }
+    }
+  }
+
+  // Custom kernel
+  copy(res, out_left.view(), in_left.view());
+  for (auto i = std::uint32_t{}; i < depth; ++i) {
+    for (auto j = std::uint32_t{}; j < rows; ++j) {
+      for (auto k = std::uint32_t{}; k < cols; ++k) {
+        ASSERT_TRUE(match(
+          out_left(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+      }
+    }
+  }
+} */
 
 }  // namespace raft
