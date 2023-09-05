@@ -36,6 +36,7 @@ fi
 
 if [[ ${package_name} == "raft_dask" ]]; then
     sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+    sed -i "s/ucx-py/ucx-py${PACKAGE_CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
 else
     sed -r -i "s/rmm(.*)\"/rmm${PACKAGE_CUDA_SUFFIX}\1${alpha_spec}\"/g" ${pyproject_file}
 fi
