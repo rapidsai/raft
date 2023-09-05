@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "glove-50-angular",
-    "base_file": "data/glove-50-angular/base.fbin",
-    "query_file": "data/glove-50-angular/query.fbin",
+    "base_file": "glove-50-angular/base.fbin",
+    "query_file": "glove-50-angular/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {
