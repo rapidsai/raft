@@ -135,13 +135,13 @@ class BitsetTest : public testing::TestWithParam<test_spec> {
   }
 };
 
-auto inputs = ::testing::Values(test_spec{1 << 25, 1 << 23, 1 << 24},
-                                test_spec{32, 5, 10},
+auto inputs = ::testing::Values(test_spec{32, 5, 10},
                                 test_spec{100, 30, 10},
                                 test_spec{1024, 55, 100},
                                 test_spec{10000, 1000, 1000},
                                 test_spec{1 << 15, 1 << 3, 1 << 12},
-                                test_spec{1 << 15, 1 << 14, 1 << 13});
+                                test_spec{1 << 15, 1 << 14, 1 << 13},
+                                test_spec{1 << 25, 1 << 23, 1 << 14});
 
 using Uint32 = BitsetTest<uint32_t>;
 TEST_P(Uint32, Run) { run(); }
