@@ -21,7 +21,6 @@
 #include "detail/cagra/graph_core.cuh"
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/core/error.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/resources.hpp>
@@ -95,7 +94,6 @@ void build_knn_graph(raft::resources const& res,
     res, dataset_internal, knn_graph_internal, refine_rate, build_params, search_params);
 }
 
-#if (__CUDA_ARCH__ >= 700)
 /**
  * @brief Build a kNN graph using NN-descent.
  *
@@ -144,7 +142,6 @@ experimental::nn_descent::index<IdxT> build_knn_graph(
 {
   return detail::build_knn_graph<DataT, IdxT>(res, dataset, build_params);
 }
-#endif
 
 /**
  * @brief Sort a KNN graph index.
@@ -316,16 +313,12 @@ index<T, IdxT> build(raft::resources const& res,
 
     optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
   } else {
-#if (__CUDA_ARCH__ >= 700)
     auto nn_descent_params          = std::make_optional<experimental::nn_descent::index_params>();
     nn_descent_params->graph_degree = intermediate_degree;
     nn_descent_params->intermediate_graph_degree = 1.5 * intermediate_degree;
     auto nn_descent_index = build_knn_graph<T, IdxT>(res, dataset, nn_descent_params);
 
     optimize<IdxT>(res, nn_descent_index.graph(), cagra_graph.view());
-#else
-    THROW("Cannot run CAGRA with graph_build_algo::NN_Descent for CUDA_ARCH<700");
-#endif
   }
 
   // Construct an index from dataset and optimized knn graph.

@@ -28,7 +28,6 @@ namespace raft::neighbors::experimental::nn_descent {
  * @{
  */
 
-#if (__CUDA_ARCH__ >= 700)
 /**
  * @brief Build nn-descent Index with dataset in device memory
  *
@@ -94,7 +93,6 @@ index<IdxT> build(raft::resources const& res,
 {
   return detail::build<T, IdxT>(res, params, dataset);
 }
-#endif
 
 /** @} */  // end group nn-descent
 
