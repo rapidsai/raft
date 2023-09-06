@@ -692,6 +692,12 @@ __device__ __forceinline__ void remove_duplicates(
   }
 }
 
+// launch_bounds here denote BLOCK_SIZE = 512 and MIN_BLOCKS_PER_SM = 4
+// Per
+// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#features-and-technical-specifications,
+// MAX_RESIDENT_THREAD_PER_SM = BLOCK_SIZE * BLOCKS_PER_SM = 2048
+// For architectures 750 and 860, the values for MAX_RESIDENT_THREAD_PER_SM
+// is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
 __global__ void
 #ifdef __CUDA_ARCH__
