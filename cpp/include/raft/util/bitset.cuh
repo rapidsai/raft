@@ -23,53 +23,6 @@
 #include <thrust/for_each.h>
 
 namespace raft::utils {
-namespace detail {
-/**
- * @brief Create bitset from list of indices to unset
- *
- * @tparam IdxT
- * @tparam TPB
- * @param bitset
- * @param bitset_size
- * @param index_ptr
- * @param index_len
- */
-template <typename IdxT, int TPB>
-__global__ void bitset_create_kernel(uint32_t* bitset,
-                                     const IdxT bitset_len,
-                                     const IdxT bitset_len_per_block,
-                                     const IdxT* index_ptr,
-                                     const IdxT index_len)
-{
-  extern __shared__ std::uint32_t shared_mem[];
-  const IdxT bitset_start = blockIdx.x * blockDim.x;
-
-  // Create local bitset in shmem
-  for (IdxT tid = threadIdx.x; tid < bitset_len_per_block; tid += TPB) {
-    shared_mem[tid] = 0xffffffff;
-  }
-
-  __syncthreads();
-
-  for (IdxT tid = threadIdx.x; tid < index_len; tid += TPB) {
-    const IdxT sample_index = index_ptr[tid];
-    const IdxT bit_element  = sample_index / 32;
-    if (bit_element < bitset_start || (bit_element >= (bitset_start + bitset_len_per_block)))
-      continue;
-    const IdxT bit_index        = sample_index % 32;
-    const std::uint32_t bitmask = ~(1 << bit_index);
-    atomicAnd(shared_mem + bit_element - bitset_start, bitmask);
-  }
-
-  __syncthreads();
-  // Output global bitset
-  for (IdxT tid = threadIdx.x; tid < bitset_len_per_block && (tid + bitset_start) < bitset_len;
-       tid += TPB) {
-    bitset[tid + bitset_start] = shared_mem[tid];
-  }
-}
-}  // end namespace detail
-
 /**
  * @defgroup bitset Bitset
  * @{
@@ -144,7 +97,7 @@ struct bitset {
   IdxT bitset_element_size = sizeof(BitsetT) * 8;
 
   /**
-   * @brief Construct a new bitset object
+   * @brief Construct a new bitset object with a list of indices to unset.
    *
    * @param res RAFT resources
    * @param mask_index List of indices to unset in the bitset
@@ -157,18 +110,27 @@ struct bitset {
         res, raft::ceildiv(bitset_len, bitset_element_size))}
   {
     RAFT_EXPECTS(mask_index.extent(0) <= bitset_len, "Mask index cannot be larger than bitset len");
-    static const size_t TPB_X = 512;
-    dim3 blocks(raft::ceildiv(size_t(bitset_.extent(0)), TPB_X));
-    dim3 threads(TPB_X);
-    auto bitset_len_per_block = TPB_X;
+    cudaMemsetAsync(bitset_.data_handle(),
+                    0xff,
+                    bitset_.size() * sizeof(BitsetT),
+                    resource::get_cuda_stream(res));
+    bitset_unset(res, view(), mask_index);
+  }
 
-    detail::bitset_create_kernel<IdxT, TPB_X>
-      <<<blocks, threads, bitset_len_per_block * sizeof(BitsetT), resource::get_cuda_stream(res)>>>(
-        bitset_.data_handle(),
-        bitset_.extent(0),
-        bitset_len_per_block,
-        mask_index.data_handle(),
-        mask_index.extent(0));
+  /**
+   * @brief Construct a new bitset object
+   *
+   * @param res RAFT resources
+   * @param bitset_len Length of the bitset
+   */
+  bitset(const raft::resources& res, IdxT bitset_len)
+    : bitset_{raft::make_device_vector<BitsetT, IdxT>(
+        res, raft::ceildiv(bitset_len, bitset_element_size))}
+  {
+    cudaMemsetAsync(bitset_.data_handle(),
+                    0xff,
+                    bitset_.size() * sizeof(BitsetT),
+                    resource::get_cuda_stream(res));
   }
   // Disable copy constructor
   bitset(const bitset&)            = delete;
