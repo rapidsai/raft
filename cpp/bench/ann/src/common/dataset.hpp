@@ -17,7 +17,7 @@
 
 #include "util.hpp"
 
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
 #include <cuda_fp16.h>
 #else
 typedef uint16_t half;
@@ -326,7 +326,7 @@ Dataset<T>::~Dataset()
   delete[] base_set_;
   delete[] query_set_;
   delete[] gt_set_;
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
   if (d_base_set_) { cudaFree(d_base_set_); }
   if (d_query_set_) { cudaFree(d_query_set_); }
 #endif
@@ -335,7 +335,7 @@ Dataset<T>::~Dataset()
 template <typename T>
 const T* Dataset<T>::base_set_on_gpu() const
 {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
   if (!d_base_set_) {
     base_set();
     cudaMalloc((void**)&d_base_set_, base_set_size() * dim() * sizeof(T));
@@ -348,7 +348,7 @@ const T* Dataset<T>::base_set_on_gpu() const
 template <typename T>
 const T* Dataset<T>::query_set_on_gpu() const
 {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
   if (!d_query_set_) {
     query_set();
     cudaMalloc((void**)&d_query_set_, query_set_size() * dim() * sizeof(T));

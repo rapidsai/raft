@@ -1,0 +1,64 @@
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+
+# Usage:
+#   conda build . -c conda-forge -c nvidia -c rapidsai
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
+{% set py_version = environ['CONDA_PY'] %}
+{% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
+
+package:
+  name: raft-ann-bench-cpu
+  version: {{ version }}
+  script: build.sh
+
+source:
+  git_url: ../../..
+
+build:
+  script_env:
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
+    - AWS_SESSION_TOKEN
+    - CMAKE_C_COMPILER_LAUNCHER
+    - CMAKE_CUDA_COMPILER_LAUNCHER
+    - CMAKE_CXX_COMPILER_LAUNCHER
+    - CMAKE_GENERATOR
+    - PARALLEL_LEVEL
+    - RAPIDS_ARTIFACTS_DIR
+    - SCCACHE_BUCKET
+    - SCCACHE_IDLE_TIMEOUT
+    - SCCACHE_REGION
+    - SCCACHE_S3_KEY_PREFIX=libraft-aarch64 # [aarch64]
+    - SCCACHE_S3_KEY_PREFIX=libraft-linux64 # [linux64]
+    - SCCACHE_S3_USE_SSL
+  number: {{ GIT_DESCRIBE_NUMBER }}
+  string: py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - cmake {{ cmake_version }}
+    - ninja
+    - sysroot_{{ target_platform }} {{ sysroot_version }}
+
+  host:
+    - glog {{ glog_version }}
+    - matplotlib
+    - nlohmann_json {{ nlohmann_json_version }}
+    - python
+    - pyyaml
+
+  run:
+    - glog {{ glog_version }}
+    - h5py {{ h5py_version }}
+    - matplotlib
+    - python
+    - pyyaml
+
+about:
+  home: https://rapids.ai/
+  license: Apache-2.0
+  summary: libraft ann bench

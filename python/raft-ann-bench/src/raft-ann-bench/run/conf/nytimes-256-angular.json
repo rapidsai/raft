@@ -1,8 +1,8 @@
 {
   "dataset": {
     "name": "nytimes-256-angular",
-    "base_file": "data/nytimes-256-angular/base.fbin",
-    "query_file": "data/nytimes-256-angular/query.fbin",
+    "base_file": "nytimes-256-angular/base.fbin",
+    "query_file": "nytimes-256-angular/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {
