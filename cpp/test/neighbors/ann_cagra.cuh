@@ -47,15 +47,16 @@
 namespace raft::neighbors::cagra {
 namespace {
 
-/* A filter that excludes all indices below 650. */
+/* A filter that excludes all indices below `offset`. */
 struct test_cagra_sample_filter {
+  static constexpr unsigned offset = 650;
   inline _RAFT_HOST_DEVICE auto operator()(
     // query index
     const uint32_t query_ix,
     // the index of the current sample inside the current inverted list
     const uint32_t sample_ix) const
   {
-    return sample_ix >= 650;
+    return sample_ix >= offset;
   }
 };
 
@@ -404,19 +405,22 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     {
       rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      auto* database_filtered_ptr = database.data() + 650 * ps.dim;
+      auto* database_filtered_ptr = database.data() + test_cagra_sample_filter::offset * ps.dim;
       naive_knn<DistanceT, DataT, IdxT>(handle_,
                                         distances_naive_dev.data(),
                                         indices_naive_dev.data(),
                                         search_queries.data(),
                                         database_filtered_ptr,
                                         ps.n_queries,
-                                        ps.n_rows - 650,
+                                        ps.n_rows - test_cagra_sample_filter::offset,
                                         ps.dim,
                                         ps.k,
                                         ps.metric);
-      raft::linalg::addScalar(
-        indices_naive_dev.data(), indices_naive_dev.data(), IdxT(650), ps.n_rows - 650, stream_);
+      raft::linalg::addScalar(indices_naive_dev.data(),
+                              indices_naive_dev.data(),
+                              IdxT(test_cagra_sample_filter::offset),
+                              ps.n_rows - test_cagra_sample_filter::offset,
+                              stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
