@@ -35,9 +35,11 @@
 #include "../nn_descent_types.hpp"
 
 #include <raft/core/device_mdarray.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/util/arch.cuh>  // raft::util::arch::SM_*
 #include <raft/util/cuda_rt_essentials.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -706,6 +708,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, 4) local_join_kernel(const Index_t
                                                                    int* locks,
                                                                    DistData_t* l2_norms)
 {
+#if (__CUDA_ARCH__ >= 700)
   using namespace nvcuda;
   __shared__ int s_list[MAX_NUM_BI_SAMPLES * 2];
 
@@ -928,6 +931,7 @@ __global__ void __launch_bounds__(BLOCK_SIZE, 4) local_join_kernel(const Index_t
       insert_to_global_graph(min_elem, s_list[idx_in_list], graph, dists, graph_width, locks);
     }
   }
+#endif
 }
 
 namespace {
@@ -1205,6 +1209,8 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph)
 {
+  using input_t = typename std::remove_const<Data_t>::type;
+
   cudaStream_t stream = raft::resource::get_cuda_stream(res);
   nrow_               = nrow;
   graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
@@ -1213,7 +1219,6 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));
   if (data_ptr_attr.type == cudaMemoryTypeUnregistered) {
     size_t batch_size = 100000;
-    using input_t     = typename std::remove_const<Data_t>::type;
     auto input_data   = raft::make_device_matrix<input_t, Index_t, raft::row_major>(
       res, batch_size, build_config_.dataset_dim);
     for (size_t step = 0; step < div_up(nrow_, batch_size); step++) {
@@ -1301,7 +1306,21 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
                       d_list_sizes_old_.data_handle(),
                       stream);
 
-    local_join(stream);
+    // Tensor operations from `mma.h` are guarded with archicteture
+    // __CUDA_ARCH__ >= 700. Since RAFT supports compilation for ARCH 600,
+    // we need to ensure that `local_join_kernel` (which uses tensor) operations
+    // is not only not compiled, but also a runtime error is presented to the user
+    auto kernel       = preprocess_data_kernel<input_t>;
+    void* kernel_ptr  = reinterpret_cast<void*>(kernel);
+    auto runtime_arch = raft::util::arch::kernel_virtual_arch(kernel_ptr);
+    auto wmma_range =
+      raft::util::arch::SM_range(raft::util::arch::SM_70(), raft::util::arch::SM_future());
+
+    if (wmma_range.contains(runtime_arch)) {
+      local_join(stream);
+    } else {
+      THROW("NN_DESCENT cannot be run for __CUDA_ARCH__ < 700");
+    }
 
     update_and_sample_thread.join();
 
