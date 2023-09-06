@@ -34,7 +34,7 @@ if ! rapids-is-release-build; then
     alpha_spec=',>=0.0.0a0'
 fi
 
-if [[ ${package_name} == "raft_dask" ]]; then
+if [[ ${package_name} == "raft-dask" ]]; then
     sed -r -i "s/pylibraft==(.*)\"/pylibraft${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
     sed -i "s/ucx-py/ucx-py${PACKAGE_CUDA_SUFFIX}/g" python/raft-dask/pyproject.toml
 else
