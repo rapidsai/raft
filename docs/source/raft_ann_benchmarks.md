@@ -4,24 +4,28 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Installing the benchmarks
 
-The easiest way to install these benchmarks is through conda. We suggest using mamba as it generally leads to a faster install time::
-```bash
-git clone https://github.com/rapidsai/raft.git && cd raft
-export RAFT_HOME=$(pwd)
+The easiest way to install these benchmarks is through conda. We provide packages for GPU enabled systems, as well for systems without a GPU. We suggest using mamba as it generally leads to a faster install time:
 
-mamba env create --name raft_ann_benchmarks -f conda/environments/bench_ann_cuda-118_arch-x86_64.yaml
+```bash
+
+mamba env create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
-mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-ann-bench cudatoolkit=11.8*
+# to install GPU package:
+mamba install -c rapidsai -c conda-forge -c nvidia raft-ann-bench cuda-version=11.8*
+
+# to install CPU package for usage in CPU-only systems:
+mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
 ```
-The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired.
+
+The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired. The CPU package currently allows to run the HNSW benchmarks.
 
 Please see the [build instructions](ann_benchmarks_build.md) to build the benchmarks from source.
 
 ## Running the benchmarks
 
 ### Usage
-There are 4 general steps to running the benchmarks and vizualizing the results:
+There are 3 general steps to running the benchmarks and vizualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
 3. Data Export
@@ -35,26 +39,24 @@ expected to be defined to run these scripts; this variable holds the directory w
 
 ### End-to-end example: Million-scale
 
-The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset.
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the RAPIDS_DATASET_ROOT_DIR environment variable if defined, otherwise a datasets subfolder from where the script is being called:
 
 ```bash
-export RAFT_HOME=$(pwd)
-# All scripts are present in directory raft/bench/ann
 
-# (1) prepare dataset
-python bench/ann/get_dataset.py --dataset deep-image-96-angular --normalize
+# (1) prepare dataset.
+python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
 
 # (2) build and search index
-python bench/ann/run.py --dataset deep-image-96-inner
+python -m raft-ann-bench.run --dataset deep-image-96-inner
 
 # (3) export data
-python bench/ann/data_export.py --dataset deep-image-96-inner
+python -m raft-ann-bench.data_export --dataset deep-image-96-inner
 
 # (4) plot results
-python bench/ann/plot.py --dataset deep-image-96-inner
+python -m raft-ann-bench.plot --dataset deep-image-96-inner
 ```
 
-Configuration files already exist for the following list of the million-scale datasets. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `bench/ann/conf`.
+Configuration files already exist for the following list of the million-scale datasets. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `python/raft-ann-bench/src/raft-ann-bench/conf`.
 - `deep-image-96-angular`
 - `fashion-mnist-784-euclidean`
 - `glove-50-angular`
@@ -65,7 +67,7 @@ Configuration files already exist for the following list of the million-scale da
 - `sift-128-euclidean`
 
 ### End-to-end example: Billion-scale
-`bench/ann/get_dataset.py` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale) 
+`raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python  mentioned below work as intended once the
 billion-scale dataset has been downloaded.
@@ -73,27 +75,25 @@ To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-be
 
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
 ```bash
-export RAFT_HOME=$(pwd)
-# All scripts are present in directory raft/bench/ann
 
-mkdir -p bench/ann/data/deep-1B
+mkdir -p datasets/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python bench/ann/split_groundtruth.py --groundtruth bench/ann/data/deep-1B/deep_new_groundtruth.public.10K.bin
+python python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python bench/ann/run.py --dataset deep-1B
+python python -m raft-ann-bench.run --dataset deep-1B
 
 # (3) export data
-python bench/ann/data_export.py --dataset deep-1B
+python python -m raft-ann-bench.data_export --dataset deep-1B
 
 # (4) plot results
-python bench/ann/plot.py --dataset deep-1B
+python python -m raft-ann-bench.plot --dataset deep-1B
 ```
 
-The usage of `bench/ann/split-groundtruth.py` is:
+The usage of `python -m raft-ann-bench.split-groundtruth` is:
 ```bash
 usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
 
@@ -104,7 +104,7 @@ options:
 ```
 
 ##### Step 1: Prepare Dataset<a id='prep-dataset'></a>
-The script `bench/ann/get_dataset.py` will download and unpack the dataset in directory
+The script `raft-ann-bench.get_dataset` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
 script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
 
@@ -116,13 +116,13 @@ options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to download (default: glove-100-angular)
   --dataset-path DATASET_PATH
-                        path to download dataset (default: ${RAFT_HOME}/bench/ann/data)
+                        path to download dataset (default: ${RAPIDS_DATASET_ROOT_DIR})
   --normalize           normalize cosine distance to inner product (default: False)
 ```
 
 When option `normalize` is provided to the script, any dataset that has cosine distances
 will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
-will be written at location `${RAFT_HOME}/bench/ann/data/glove-100-inner/`.
+will be written at location `datasets/glove-100-inner/`.
 
 #### Step 2: Build and Search Index
 The script `bench/ann/run.py` will build and search indices for a given dataset and its
@@ -133,13 +133,13 @@ An entry in `algos.yaml` looks like:
 ```yaml
 raft_ivf_pq:
   executable: RAFT_IVF_PQ_ANN_BENCH
-  disabled: false
+  requires_gpu: true
 ```
 `executable` : specifies the name of the binary that will build/search the index. It is assumed to be
 available in `raft/cpp/build/`.
-`disabled` : denotes whether an algorithm should be excluded from benchmark runs.
+`requires_gpu` : denotes whether an algorithm requires GPU to run.
 
-The usage of the script `bench/ann/run.py` is:
+The usage of the script `raft-ann-bench.run` is:
 ```bash
 usage: run.py [-h] [-k COUNT] [-bs BATCH_SIZE] [--configuration CONFIGURATION] [--dataset DATASET] [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES]
               [-f]
@@ -154,7 +154,7 @@ options:
                         path to configuration file for a dataset (default: None)
   --dataset DATASET     dataset whose configuration file will be used (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
+                        path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
   --build
   --search
   --algorithms ALGORITHMS
@@ -166,7 +166,7 @@ options:
 `configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.
 The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
 provided with the `dataset` argument, in which case
-a configuration file will be searched for as `${RAFT_HOME}/bench/ann/conf/<dataset>.json`.
+a configuration file will be searched for as `python/raft-ann-bench/src/raft-ann-bench/run/conf/<dataset>.json`.
 For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.json>`
 and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.json>`.
 
@@ -182,8 +182,8 @@ it is assumed both are `True`.
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 #### Step 3: Data Export
-The script `bench/ann/data_export.py` will convert the intermediate JSON outputs produced by `bench/ann/run.py` to more
-easily readable CSV files, which are needed to build charts made by `bench/ann/plot.py`.
+The script `bench/ann/data_export.py` will convert the intermediate JSON outputs produced by `raft-ann-bench.run` to more
+easily readable CSV files, which are needed to build charts made by `raft-ann-bench.plot`.
 
 ```bash
 usage: data_export.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH]
@@ -192,7 +192,7 @@ options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to download (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
+                        path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
 ```
 Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.csv>`
 and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
@@ -210,7 +210,7 @@ options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to download (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAFT_HOME}/bench/ann/data)
+                        path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
   --output-filepath OUTPUT_FILEPATH
                         directory for PNG to be saved (default: os.getcwd())
   --algorithms ALGORITHMS
