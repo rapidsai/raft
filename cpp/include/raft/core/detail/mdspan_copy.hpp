@@ -30,6 +30,9 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/resource/cublas_handle.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+#ifdef __CUDACC__
+#include <raft/util/cuda_dev_essentials.cuh>
+#endif
 #endif
 
 namespace raft {
@@ -74,8 +77,8 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const dst_rank        = dst_extents_type::rank();
   auto static constexpr const src_rank        = src_extents_type::rank();
   auto static constexpr const compatible_rank = (dst_rank == src_rank);
-  auto static constexpr const vector_rank     = (dst_rank == 1);
-  auto static constexpr const matrix_rank     = (dst_rank == 2);
+  auto static constexpr const has_vector_rank     = (dst_rank == 1);
+  auto static constexpr const has_matrix_rank     = (dst_rank == 2);
 
   // Layout properties
   using dst_layout_type = typename dst_type::layout_type;
@@ -95,7 +98,7 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 
   auto static constexpr const same_underlying_layout =
     std::disjunction_v<std::bool_constant<same_layout>,
-                       std::bool_constant<vector_rank && both_contiguous>>;
+                       std::bool_constant<has_vector_rank && both_contiguous>>;
   // Layout for intermediate tile if copying through custom kernel
   using tile_layout_type =
     std::conditional_t<src_contiguous,
@@ -156,7 +159,7 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
                        std::bool_constant<compatible_dtype>,
                        std::bool_constant<both_contiguous>,
                        std::bool_constant<!same_underlying_layout>,
-                       std::bool_constant<matrix_rank>,
+                       std::bool_constant<has_matrix_rank>,
                        std::bool_constant<both_float_or_both_double>>;
 
   auto static constexpr const custom_kernel_allowed =
@@ -179,106 +182,165 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 template <typename DstType, typename SrcType, typename T = void>
 using mdspan_copyable_t = typename mdspan_copyable<true, DstType, SrcType, T>::type;
 template <typename DstType, typename SrcType>
-using mdspan_copyable_v = typename mdspan_copyable<true, DstType, SrcType, void>::value;
+auto static constexpr const mdspan_copyable_v = mdspan_copyable<true, DstType, SrcType, void>::value;
+
+template <typename DstType, typename SrcType>
+auto static constexpr const mdspan_copyable_with_kernel_v = mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
+template <typename DstType, typename SrcType>
+auto static constexpr const mdspan_uncopyable_with_kernel_v = !mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
+
+
+template <typename DstType, typename SrcType, typename T=void>
+using mdspan_copyable_with_kernel_t = std::enable_if_t<mdspan_copyable_with_kernel_v<DstType, SrcType>, T>;
+
+template <typename DstType, typename SrcType, typename T=void>
+using mdspan_uncopyable_with_kernel_t = std::enable_if_t<mdspan_uncopyable_with_kernel_v<DstType, SrcType>, T>;
 
 #ifdef __CUDACC__
-template <typename LayoutPolicy, typename IdxType>
-__device__ auto increment_indices(IdxType* indices,
-                                  IdxType const* max_indices,
-                                  int rank,
-                                  int incr = 1)
+auto static constexpr const mdspan_copy_tile_dim = 32;
+auto static constexpr const mdspan_copy_tile_elems = mdspan_copy_tile_dim * mdspan_copy_tile_dim;
+
+// Helper struct to work around lack of CUDA-native std::apply
+template<typename IdxType, IdxType... Idx>
+struct index_sequence {
+};
+
+template<typename IdxType, IdxType N, IdxType... Idx>
+struct make_index_sequence : std::conditional_t<
+  N == IdxType{},
+  index_sequence<IdxType, Idx...>,
+  make_index_sequence<IdxType, N - IdxType{1}, N - IdxType{1}, Idx...>> {};
+
+
+/*
+ * Given an mdspan and an array of indices, return a reference to the
+ * indicated element.
+ */
+template <typename MdspanType, typename IdxType, IdxType... Idx>
+__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, index_sequence<IdxType, Idx...>)
 {
+  return md(indices[Idx]...);
+}
+
+template <typename MdspanType, typename IdxType>
+__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices) {
+  return get_mdspan_elem(md, indices, make_index_sequence<IdxType, MdspanType::extents_type::rank()>{});
+}
+
+/* Advance old_indices forward by the number of mdspan elements specified
+ * by increment. Store the result in indices. Return true if the new
+ * indices are valid for the input mdspan.
+ */
+template <typename MdspanType,
+          typename IdxType>
+__device__ auto increment_indices(
+    IdxType* indices,
+    MdspanType const& md,
+    IdxType const* old_indices,
+    IdxType const* index_strides,
+    IdxType increment
+) {
+  auto constexpr init_dim = std::is_same_v<typename MdspanType::layout_type, layout_c_contiguous> ? IdxType{} :IdxType(MdspanType::rank() - 1);
+  auto constexpr final_dim = std::is_same_v<typename MdspanType::layout_type, layout_c_contiguous> ? IdxType{} : IdxType(MdspanType::rank() - 1);
+
   auto valid_index = true;
-  auto dim         = std::is_same_v<LayoutPolicy, layout_c_contiguous> ? rank : 0;
-  do {
-    indices[dim] += incr;
-    incr = 0;
-    while (indices[dim] >= max_indices[dim]) {
-      indices[dim] -= max_indices[dim];
-      ++incr;
+#pragma unroll
+  for (
+      auto i = init_dim;
+      i != final_dim;
+      std::is_same_v<typename MdspanType::layout_type, layout_c_contiguous> ? --i : ++i
+  ) {
+    auto cur_index = old_indices[i];
+    while (increment >= index_strides[i]) {
+      increment -= index_strides[i];
+      ++cur_index;
     }
-    if constexpr (std::is_same_v<LayoutPolicy, layout_c_contiguous>) {
-      --dim;
-      valid_index = dim >= 0;
-    } else {
-      ++dim;
-      valid_index = dim < rank;
-    }
-  } while (incr != 0);
+    indices[i] = cur_index;
+    valid_index &= cur_index < md.extent(i);
+  }
+
   return valid_index;
 }
 
-template <typename MdspanType,
-          typename IdxType,
-          IdxType remaining = MdspanType::extents::rank(),
-          typename... ResT>
-__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, ResT... resolved_indices)
-{
-  if constexpr (remaining == IdxType{}) {
-    return md(resolved_indices...);
-  } else {
-    return get_mdspan_elem<MdspanType, IdxType, remaining - 1>(
-      md, indices, indices[remaining - 1], &resolved_indices...);
-  }
-}
-
-template <typename DstType, typename SrcType, int TileDim = 32>
-__global__ std::enable_if_t<mdspan_copyable_v<DstType, SrcType>::custom_kernel_allowed>
+/*
+ * WARNING: This kernel _must_ be launched with mdspan_copy_tile_dim x
+ * mdspan_copy_tile_dim threads per block. This restriction allows for
+ * additional optimizations at the expense of generalized launch
+ * parameters.
+ */
+template <typename DstType, typename SrcType>
+__global__ mdspan_copyable_with_kernel_t<DstType, SrcType>
 mdspan_device_copy(DstType dst, SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 
-  __shared__ typename config::dst_value_type tile_buffer[TileDim][TileDim + 1];
-  auto tile = mdspan <typename config::dst_value_type, extents<std::uint32_t, TileDim, TileDim + 1>>
-  {
-    tile_buffer
-  };
+  // An intermediate storage location for the data to be copied.
+  __shared__ typename config::dst_value_type tile[mdspan_copy_tile_dim][mdspan_copy_tile_dim + 1];
 
-  auto const constexpr tile_elements       = TileDim * TileDim;
-  typename config::index_type src_indices[config::dst_rank] = {blockIdx.x * tile_elements};
-  typename config::index_type dst_indices[config::dst_rank] = {blockIdx.x * tile_elements};
-  typename config::index_type max_indices[config::dst_rank];
-  for (auto i = typename config::index_type{}; i < config::dst_rank; ++i) {
-    max_indices[i] = dst.extent(i);
+  // Compute the cumulative product of extents in order from fastest to
+  // slowest varying extent
+  auto constexpr init_dim_fast = std::is_same_v<typename config::src_layout_type, layout_c_contiguous> ? typename config::index_type(config::src_rank - 1) : typename config::index_type{};
+  auto constexpr final_dim_fast = std::is_same_v<typename config::src_layout_type, layout_c_contiguous> ? typename config::index_type{} : typename config::index_type(config::src_rank - 1);
+  typename config::index_type index_strides[config::dst_rank];
+  auto cur_stride = typename config::index_type{1};
+#pragma unroll
+  for (
+      auto i = init_dim_fast;
+      i != final_dim_fast;
+      std::is_same_v<typename config::src_layout_type, layout_c_contiguous> ? --i : ++i
+  ) {
+    index_strides[i] = cur_stride;
+    cur_stride *= src.extent(i);
   }
 
-  auto valid_indices = true;
-  for (auto i = blockIdx.x * tile_elements; i += tile_elements * blockDim.x; i < dst.size()) {
-    for (auto tile_slow = threadIdx.y; tile_slow += gridDim.y; tile_slow < TileDim) {
-      for (auto tile_quick = threadIdx.x; tile_quick += gridDim.x; tile_quick < TileDim) {
-        if (valid_indices) {
-          if constexpr (std::is_same_v<tile_layout_policy, layout_c_contiguous>) {
-            tile(tile_slow, tile_quick) = get_mdspan_elem(src, src_indices);
-          } else {
-            tile(tile_quick, tile_slow) = get_mdspan_elem(src, src_indices);
-          }
-        }
-        valid_indices &=
-          increment_indices<SrcType::layout_policy>(src_indices, max_indices, gridDim.x);
+  // The index of the first element in the mdspan which will be copied via
+  // the current tile for this block.
+  typename config::index_type tile_offset[config::dst_rank] = {0};
+  typename config::index_type cur_indices[config::dst_rank];
+
+  while (
+    increment_indices(
+      tile_offset,
+      src,
+      tile_offset,
+      index_strides,
+      blockIdx.x * mdspan_copy_tile_elems
+    )
+  ) {
+    auto tile_read_x = std::is_same_v<typename config::src_layout_type, layout_f_contiguous> ? threadIdx.x : threadIdx.y;
+    auto tile_read_y = std::is_same_v<typename config::src_layout_type, layout_f_contiguous> ? threadIdx.y : threadIdx.x;
+
+    auto valid_index = increment_indices(
+      cur_indices,
+      src,
+      tile_offset,
+      index_strides,
+      tile_read_x * mdspan_copy_tile_dim + tile_read_y
+    );
+
+    if constexpr (config::same_underlying_layout || !config::dst_contiguous) {
+      if (valid_index) {
+        tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices);
+        get_mdspan_elem(dst, cur_indices) = tile[tile_read_x][tile_read_y];
       }
-      valid_indices &=
-        increment_indices<SrcType::layout_policy>(src_indices, max_indices, gridDim.y * TileDim);
-    }
-    if constexpr (!std::is_same_v<DstType::layout_policy, SrcType::layout_policy>) {
+    } else {
+      if (valid_index) {
+        tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices);
+      }
+      __syncthreads();
+
+      valid_index = increment_indices(
+        cur_indices,
+        src,
+        tile_offset,
+        index_strides,
+        tile_read_y * mdspan_copy_tile_dim + tile_read_x
+      );
+      if (valid_index) {
+        get_mdspan_elem(dst, static_cast<typename config::index_type const*>(cur_indices)) = tile[tile_read_y][tile_read_x];
+      }
       __syncthreads();
     }
-    for (auto tile_slow = threadIdx.y; tile_slow += gridDim.y; tile_slow < TileDim) {
-      for (auto tile_quick = threadIdx.x; tile_quick += gridDim.x; tile_quick < TileDim) {
-        if (valid_indices) {
-          if constexpr (std::is_same_v<DstType::layout_policy, layout_c_contiguous>) {
-            get_mdspan_elem(dst, dst_indices) = tile(tile_slow, tile_quick)
-          } else {
-            get_mdspan_elem(dst, dst_indices) = tile(tile_quick, tile_slow)
-          }
-        }
-        increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.x);
-      }
-      increment_indices<SrcType::layout_policy>(dst_indices, max_indices, gridDim.y * TileDim);
-    }
-    valid_indices &= increment_indices<SrcType::layout_policy>(
-      src_indices, max_indices, blockDim.x * tile_elements);
-    increment_indices<SrcType::layout_policy>(dst_indices, max_indices, blockDim.x * tile_elements);
-    __syncthreads();
   }
 }
 #endif
@@ -355,8 +417,18 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
   } else if constexpr (config::custom_kernel_allowed) {
     RAFT_LOG_WARN("custom_kernel_allowed");
 #ifdef __CUDACC__
-    // TODO(wphicks): Determine sensible kernel launch parameters
-    mdspan_device_copy<<<32, 1024, 0, resource::get_cuda_stream(res)>>>(dst, src);
+    auto const blocks = std::min(
+      // This maximum is somewhat arbitrary. Could query the device to see
+      // how many blocks we could reasonably allow, but this is probably
+      // sufficient considering that this kernel will likely overlap with
+      // real computations for most use cases.
+      typename config::index_type{32},
+      raft::ceildiv(
+        typename config::index_type(dst.size()),
+        typename config::index_type(mdspan_copy_tile_elems))
+    );
+    auto constexpr const threads = dim3{mdspan_copy_tile_dim, mdspan_copy_tile_dim, 1};
+    mdspan_device_copy<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(dst, src);
 #else
     // Should never actually reach this because of enable_ifs
     RAFT_FAIL(

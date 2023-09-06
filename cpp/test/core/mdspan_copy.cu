@@ -23,7 +23,7 @@
 #include <raft/core/mdspan_copy.cuh>
 
 namespace raft {
-/*TEST(MDSpanCopy, Mdspan3DHostDevice)
+TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)
 {
   auto res             = device_resources{};
   // Use smaller values here since host/device copy takes awhile.
@@ -31,9 +31,9 @@ namespace raft {
   auto constexpr depth = std::uint32_t{5};
   auto constexpr rows  = std::uint32_t{3};
   auto constexpr cols  = std::uint32_t{2};
-  auto in_left = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+  auto in_left = make_device_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
-  auto in_right = make_host_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+  auto in_right = make_device_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
   auto gen_unique_entry = [](auto&& x, auto&& y, auto&& z) { return x * 7 + y * 11 + z * 13; };
 
@@ -46,9 +46,9 @@ namespace raft {
     }
   }
 
-  auto out_left = make_device_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+  auto out_left = make_device_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
-  auto out_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+  auto out_right = make_device_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
   copy(res, out_right.view(), in_left.view());
@@ -56,23 +56,21 @@ namespace raft {
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
-        ASSERT_TRUE(match(
-          out_right(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+        ASSERT_EQ(out_right(i, j, k), gen_unique_entry(i, j, k));
       }
     }
   }
 
-  copy(res, out_left.view(), in_right.view());
+  /* copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {
-        ASSERT_TRUE(match(
-          out_left(i, j, k), double(gen_unique_entry(i, j, k)), CompareApprox<double>{0.0001}));
+        ASSERT_EQ(out_left(i, j, k), gen_unique_entry(i, j, k));
       }
     }
-  }
-}*/
+  } */
+}
 
 /* TEST(MDSpanCopy, Mdspan2DDeviceDevice)
 {
