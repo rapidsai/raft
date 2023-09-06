@@ -693,20 +693,28 @@ __device__ __forceinline__ void remove_duplicates(
 }
 
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
-__global__ void __launch_bounds__(BLOCK_SIZE, 4) local_join_kernel(const Index_t* graph_new,
-                                                                   const Index_t* rev_graph_new,
-                                                                   const int2* sizes_new,
-                                                                   const Index_t* graph_old,
-                                                                   const Index_t* rev_graph_old,
-                                                                   const int2* sizes_old,
-                                                                   const int width,
-                                                                   const __half* data,
-                                                                   const int data_dim,
-                                                                   ID_t* graph,
-                                                                   DistData_t* dists,
-                                                                   int graph_width,
-                                                                   int* locks,
-                                                                   DistData_t* l2_norms)
+__global__ void
+#ifdef __CUDA_ARCH__
+#if (__CUDA_ARCH__) == 750 || (__CUDA_ARCH__) == 860
+__launch_bounds__(BLOCK_SIZE)
+#else
+__launch_bounds__(BLOCK_SIZE, 4)
+#endif
+#endif
+  local_join_kernel(const Index_t* graph_new,
+                    const Index_t* rev_graph_new,
+                    const int2* sizes_new,
+                    const Index_t* graph_old,
+                    const Index_t* rev_graph_old,
+                    const int2* sizes_old,
+                    const int width,
+                    const __half* data,
+                    const int data_dim,
+                    ID_t* graph,
+                    DistData_t* dists,
+                    int graph_width,
+                    int* locks,
+                    DistData_t* l2_norms)
 {
 #if (__CUDA_ARCH__ >= 700)
   using namespace nvcuda;
