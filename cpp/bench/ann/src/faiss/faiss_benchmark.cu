@@ -35,7 +35,7 @@ void parse_base_build_param(const nlohmann::json& conf,
                             typename raft::bench::ann::FaissGpu<T>::BuildParam& param)
 {
   param.nlist = conf.at("nlist");
-  if (conf.contains("ratio")) { param.ratio = 1.0; }
+  if (conf.contains("ratio")) { param.ratio = conf.at("ratio"); }
 }
 
 template <typename T>
