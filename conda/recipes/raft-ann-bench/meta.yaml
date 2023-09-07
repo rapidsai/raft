@@ -78,6 +78,7 @@ requirements:
 
   run:
     - python
+    - libraft {{ version }}
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
@@ -90,12 +91,10 @@ requirements:
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
-    - pylibraft {{ version }}
     - glog {{ glog_version }}
     - matplotlib
     - python
     - pyyaml
-
 about:
   home: https://rapids.ai/
   license: Apache-2.0
