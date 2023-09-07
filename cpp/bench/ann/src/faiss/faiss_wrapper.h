@@ -87,8 +87,8 @@ class FaissGpu : public ANN<T> {
   };
 
   struct BuildParam {
-    int nlist = 0;
-    int ratio = 1;
+    int nlist = 1;
+    int ratio = 2;
   };
 
   FaissGpu(Metric metric, int dim, const BuildParam& param)
@@ -148,7 +148,7 @@ class FaissGpu : public ANN<T> {
   int device_;
   cudaEvent_t sync_{nullptr};
   cudaStream_t faiss_default_stream_{nullptr};
-  double training_sample_fraction_{1.0};
+  double training_sample_fraction_;
 };
 
 template <typename T>
