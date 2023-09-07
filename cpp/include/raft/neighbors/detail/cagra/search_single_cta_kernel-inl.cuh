@@ -952,7 +952,7 @@ void select_and_run(  // raft::resources const& res,
   dim3 thread_dims(block_size, 1, 1);
   dim3 block_dims(1, num_queries, 1);
   RAFT_LOG_DEBUG(
-    "Launching kernel with %u threads, %u block %lu smem", block_size, num_queries, smem_size);
+    "Launching kernel with %u threads, %u block %u smem", block_size, num_queries, smem_size);
   kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
                                                          topk_distances_ptr,
                                                          topk,

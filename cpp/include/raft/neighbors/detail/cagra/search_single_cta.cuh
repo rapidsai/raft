@@ -113,7 +113,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     RAFT_EXPECTS(itopk_size <= max_itopk, "itopk_size cannot be larger than %u", max_itopk);
 
     RAFT_LOG_DEBUG("# num_itopk_candidates: %u", num_itopk_candidates);
-    RAFT_LOG_DEBUG("# num_itopk: %u", itopk_size);
+    RAFT_LOG_DEBUG("# num_itopk: %lu", itopk_size);
     //
     // Determine the thread block size
     //

@@ -130,13 +130,13 @@ struct search_plan_impl : public search_plan_impl_base {
     if (max_iterations < min_iterations) { _max_iterations = min_iterations; }
     if (max_iterations < _max_iterations) {
       RAFT_LOG_DEBUG(
-        "# max_iterations is increased from %u to %u.", max_iterations, _max_iterations);
+        "# max_iterations is increased from %lu to %u.", max_iterations, _max_iterations);
       max_iterations = _max_iterations;
     }
     if (itopk_size % 32) {
       uint32_t itopk32 = itopk_size;
       itopk32 += 32 - (itopk_size % 32);
-      RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.",
+      RAFT_LOG_DEBUG("# internal_topk is increased from %lu to %u, as it must be multiple of 32.",
                      itopk_size,
                      itopk32);
       itopk_size = itopk32;
