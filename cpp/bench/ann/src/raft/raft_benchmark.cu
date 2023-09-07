@@ -60,7 +60,6 @@ void parse_build_param(const nlohmann::json& conf,
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
   if (conf.contains("ratio")) {
     param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio");
-    std::cout << "kmeans_trainset_fraction " << param.kmeans_trainset_fraction;
   }
 }
 
