@@ -8,7 +8,7 @@ The easiest way to install these benchmarks is through conda. We provide package
 
 ```bash
 
-mamba env create --name raft_ann_benchmarks
+mamba create --name raft_ann_benchmarks
 conda activate raft_ann_benchmarks
 
 # to install GPU package:
@@ -80,17 +80,17 @@ mkdir -p datasets/deep-1B
 # (1) prepare dataset
 # download manually "Ground Truth" file of "Yandex DEEP"
 # suppose the file name is deep_new_groundtruth.public.10K.bin
-python python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
+python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
 # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
 
 # (2) build and search index
-python python -m raft-ann-bench.run --dataset deep-1B
+python -m raft-ann-bench.run --dataset deep-1B
 
 # (3) export data
-python python -m raft-ann-bench.data_export --dataset deep-1B
+python -m raft-ann-bench.data_export --dataset deep-1B
 
 # (4) plot results
-python python -m raft-ann-bench.plot --dataset deep-1B
+python -m raft-ann-bench.plot --dataset deep-1B
 ```
 
 The usage of `python -m raft-ann-bench.split-groundtruth` is:
