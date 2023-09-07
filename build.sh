@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --cpu-only --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -39,6 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    --uninstall                 - uninstall files for specified targets which were built and installed prior
    --compile-lib               - compile shared library for all components
    --compile-static-lib        - compile static library for all components
+   --cpu-only                  - build CPU only components without CUDA. Applies to bench-ann only currently.
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
@@ -71,6 +72,7 @@ BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
+BUILD_CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
@@ -152,7 +154,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
-	    echo "Limiting tests to $TEST_TARGETS"
+            echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -347,7 +349,13 @@ fi
 if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     BUILD_ANN_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
-    COMPILE_LIBRARY=ON
+    if hasArg --cpu-only; then
+        COMPILE_LIBRARY=OFF
+        BUILD_CPU_ONLY=ON
+        NVTX=OFF
+    else
+        COMPILE_LIBRARY=ON
+    fi
 fi
 
 if hasArg --no-nvtx; then
@@ -420,6 +428,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
+          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
@@ -493,6 +502,10 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
+# Build and (optionally) install the raft-ann-bench Python package
+if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
+    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench -vvv
+fi
 
 if hasArg docs; then
     set -x

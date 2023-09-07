@@ -47,7 +47,7 @@ struct buf {
     : memory_type(memory_type), size(size), data(nullptr)
   {
     switch (memory_type) {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
       case MemoryType::Device: {
         cudaMalloc(reinterpret_cast<void**>(&data), size * sizeof(T));
         cudaMemset(data, 0, size * sizeof(T));
@@ -63,7 +63,7 @@ struct buf {
   {
     if (data == nullptr) { return; }
     switch (memory_type) {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
       case MemoryType::Device: {
         cudaFree(data);
       } break;
@@ -77,7 +77,7 @@ struct buf {
   [[nodiscard]] auto move(MemoryType target_memory_type) -> buf<T>
   {
     buf<T> r{target_memory_type, size};
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
     if ((memory_type == MemoryType::Device && target_memory_type != MemoryType::Device) ||
         (memory_type != MemoryType::Device && target_memory_type == MemoryType::Device)) {
       cudaMemcpy(r.data, data, size * sizeof(T), cudaMemcpyDefault);
@@ -108,7 +108,7 @@ struct cuda_timer {
     cuda_lap(cudaStream_t stream, cudaEvent_t start, cudaEvent_t stop, double& total_time)
       : start_(start), stop_(stop), stream_(stream), total_time_(total_time)
     {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
       cudaStreamSynchronize(stream_);
       cudaEventRecord(start_, stream_);
 #endif
@@ -117,7 +117,7 @@ struct cuda_timer {
 
     ~cuda_lap() noexcept
     {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
       cudaEventRecord(stop_, stream_);
       cudaEventSynchronize(stop_);
       float milliseconds = 0.0f;
@@ -129,7 +129,7 @@ struct cuda_timer {
 
   cuda_timer()
   {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
     cudaStreamCreateWithFlags(&stream_, cudaStreamNonBlocking);
     cudaEventCreate(&stop_);
     cudaEventCreate(&start_);
@@ -138,7 +138,7 @@ struct cuda_timer {
 
   ~cuda_timer() noexcept
   {
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
     cudaEventDestroy(start_);
     cudaEventDestroy(stop_);
     cudaStreamDestroy(stream_);
@@ -158,7 +158,7 @@ struct cuda_timer {
 inline auto cuda_info()
 {
   std::vector<std::tuple<std::string, std::string>> props;
-#ifndef CPU_ONLY
+#ifndef BUILD_CPU_ONLY
   int dev, driver = 0, runtime = 0;
   cudaDriverGetVersion(&driver);
   cudaRuntimeGetVersion(&runtime);
