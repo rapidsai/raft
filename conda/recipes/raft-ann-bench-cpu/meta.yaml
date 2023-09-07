@@ -57,6 +57,7 @@ requirements:
     - matplotlib
     - python
     - pyyaml
+    - benchmark
 
 about:
   home: https://rapids.ai/
