@@ -25,6 +25,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -529,6 +530,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto terminate_flag     = reinterpret_cast<std::uint32_t*>(topk_ws + 3);
   auto smem_working_ptr   = reinterpret_cast<std::uint32_t*>(terminate_flag + 1);
 
+  // A flag for filtering.
+  auto filter_frag = terminate_flag;
+
   const DATA_T* const query_ptr = queries_ptr + query_id * dataset_dim;
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
     unsigned j = device::swizzling(i);
@@ -578,7 +582,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   std::uint32_t iter = 0;
   while (1) {
     // sort
-    if (TOPK_BY_BITONIC_SORT) {
+    if constexpr (TOPK_BY_BITONIC_SORT) {
       // [Notice]
       // It is good to use multiple warps in topk_by_bitonic_sort() when
       // batch size is small (short-latency), but it might not be always good
@@ -616,17 +620,28 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 
       // topk with bitonic sort
       _CLK_START();
-      topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES, multi_warps_1, multi_warps_2>(
-        result_distances_buffer,
-        result_indices_buffer,
-        internal_topk,
-        result_distances_buffer + internal_topk,
-        result_indices_buffer + internal_topk,
-        search_width * graph_degree,
-        topk_ws,
-        (iter == 0));
+      if (std::is_same<SAMPLE_FILTER_T,
+                       raft::neighbors::filtering::none_cagra_sample_filter>::value ||
+          *filter_frag == 0) {
+        topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES, multi_warps_1, multi_warps_2>(
+          result_distances_buffer,
+          result_indices_buffer,
+          internal_topk,
+          result_distances_buffer + internal_topk,
+          result_indices_buffer + internal_topk,
+          search_width * graph_degree,
+          topk_ws,
+          (iter == 0));
+        __syncthreads();
+      } else {
+        topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES, false>(
+          result_distances_buffer,
+          result_indices_buffer,
+          internal_topk + search_width * graph_degree,
+          internal_topk);
+        if (threadIdx.x == 0) { *terminate_flag = 0; }
+      }
       _CLK_REC(clk_topk);
-
     } else {
       _CLK_START();
       // topk with radix block sort
@@ -700,8 +715,58 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
+    // Filtering
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      if (threadIdx.x == 0) { *filter_frag = 0; }
+      __syncthreads();
+
+      constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+      const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+      for (unsigned p = threadIdx.x; p < search_width; p += blockDim.x) {
+        if (parent_list_buffer[p] != invalid_index) {
+          const auto parent_id = result_indices_buffer[parent_list_buffer[p]] & ~index_msb_1_mask;
+          if (!sample_filter(query_id, parent_id)) {
+            // If the parent must not be in the resulting top-k list, remove from the parent list
+            result_distances_buffer[parent_list_buffer[p]] = utils::get_max_value<DISTANCE_T>();
+            result_indices_buffer[parent_list_buffer[p]]   = invalid_index;
+            *filter_frag                                   = 1;
+          }
+        }
+      }
+      __syncthreads();
+    }
+
     iter++;
   }
+
+  // Post process for filtering
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    for (unsigned i = threadIdx.x; i < internal_topk + search_width * graph_degree;
+         i += blockDim.x) {
+      const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
+      auto ii            = i;
+      if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
+      if (!sample_filter(query_id, node_id)) {
+        result_distances_buffer[ii] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[ii]   = invalid_index;
+      }
+    }
+
+    __syncthreads();
+    topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES, false>(
+      result_distances_buffer,
+      result_indices_buffer,
+      internal_topk + search_width * graph_degree,
+      top_k);
+    __syncthreads();
+  }
+
   for (std::uint32_t i = threadIdx.x; i < top_k; i += BLOCK_SIZE) {
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
