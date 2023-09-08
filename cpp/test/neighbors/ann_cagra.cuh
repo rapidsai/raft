@@ -49,7 +49,7 @@ namespace {
 
 /* A filter that excludes all indices below `offset`. */
 struct test_cagra_sample_filter {
-  static constexpr unsigned offset = 650;
+  static constexpr unsigned offset = 200;
   inline _RAFT_HOST_DEVICE auto operator()(
     // query index
     const uint32_t query_ix,
@@ -419,7 +419,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
       raft::linalg::addScalar(indices_naive_dev.data(),
                               indices_naive_dev.data(),
                               IdxT(test_cagra_sample_filter::offset),
-                              ps.n_rows - test_cagra_sample_filter::offset,
+                              queries_size,
                               stream_);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
@@ -435,9 +435,10 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
         cagra::search_params search_params;
-        search_params.algo        = ps.algo;
-        search_params.max_queries = ps.max_queries;
-        search_params.team_size   = ps.team_size;
+        search_params.algo         = ps.algo;
+        search_params.max_queries  = ps.max_queries;
+        search_params.team_size    = ps.team_size;
+        search_params.hashmap_mode = cagra::hash_mode::HASH;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
