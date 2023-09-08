@@ -622,7 +622,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
       _CLK_START();
       if (std::is_same<SAMPLE_FILTER_T,
                        raft::neighbors::filtering::none_cagra_sample_filter>::value ||
-          *filter_frag == 0) {
+          *filter_flag == 0) {
         topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES, multi_warps_1, multi_warps_2>(
           result_distances_buffer,
           result_indices_buffer,
@@ -718,7 +718,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     // Filtering
     if constexpr (!std::is_same<SAMPLE_FILTER_T,
                                 raft::neighbors::filtering::none_cagra_sample_filter>::value) {
-      if (threadIdx.x == 0) { *filter_frag = 0; }
+      if (threadIdx.x == 0) { *filter_flag = 0; }
       __syncthreads();
 
       constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
@@ -731,7 +731,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
             // If the parent must not be in the resulting top-k list, remove from the parent list
             result_distances_buffer[parent_list_buffer[p]] = utils::get_max_value<DISTANCE_T>();
             result_indices_buffer[parent_list_buffer[p]]   = invalid_index;
-            *filter_frag                                   = 1;
+            *filter_flag                                   = 1;
           }
         }
       }
