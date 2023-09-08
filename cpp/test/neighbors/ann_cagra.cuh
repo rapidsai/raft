@@ -476,14 +476,14 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
       }
 
       // Test filter
-      bool unacceptable_item = false;
+      bool unacceptable_node = false;
       for (int q = 0; q < ps.n_queries; q++) {
         for (int i = 0; i < ps.k; i++) {
           const auto n      = indices_Cagra[q * ps.k + i];
-          unacceptable_item = unacceptable_item | !test_cagra_sample_filter()(q, n);
+          unacceptable_node = unacceptable_node | !test_cagra_sample_filter()(q, n);
         }
       }
-      EXPECT_FALSE(unacceptable_item);
+      EXPECT_FALSE(unacceptable_node);
 
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_neighbours(indices_naive,
