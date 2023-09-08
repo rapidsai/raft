@@ -90,7 +90,11 @@ requirements:
     - libfaiss {{ faiss_version }}
     {% endif %}
     - h5py {{ h5py_version }}
-
+    - benchmark
+    - glog {{ glog_version }}
+    - matplotlib
+    - python
+    - pyyaml
 about:
   home: https://rapids.ai/
   license: Apache-2.0
