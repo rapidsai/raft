@@ -38,7 +38,7 @@ struct CagraSampleFilterWithQueryIdOffset {
   const std::size_t offset;
   CagraSampleFilterT filter;
 
-  CagraSampleFilterWithQueryIdOffset(const std::size_t offset, const CagraSampleFilterT filter)
+  CagraSampleFilterWithQueryIdOffset(const uint32_t offset, const CagraSampleFilterT filter)
     : offset(offset), filter(filter)
   {
   }
