@@ -75,6 +75,12 @@ requirements:
     - faiss-proc=*=cuda
     - libfaiss {{ faiss_version }}
     {% endif %}
+    - h5py {{ h5py_version }}
+    - benchmark
+    - matplotlib
+    - python
+    - pandas
+    - pyyaml
 
   run:
     - python
@@ -94,6 +100,7 @@ requirements:
     - glog {{ glog_version }}
     - matplotlib
     - python
+    - pandas
     - pyyaml
 about:
   home: https://rapids.ai/
