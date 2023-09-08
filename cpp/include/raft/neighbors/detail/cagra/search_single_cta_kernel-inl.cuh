@@ -531,7 +531,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto smem_working_ptr   = reinterpret_cast<std::uint32_t*>(terminate_flag + 1);
 
   // A flag for filtering.
-  auto filter_frag = terminate_flag;
+  auto filter_flag = terminate_flag;
 
   const DATA_T* const query_ptr = queries_ptr + query_id * dataset_dim;
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
