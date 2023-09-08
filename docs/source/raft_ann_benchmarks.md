@@ -261,7 +261,7 @@ The `index` section will contain a list of index objects, each of which will hav
    "algo": "algo_name",
    "file": "sift-128-euclidean/algo_name/param1_val1-param2_val2",
    "build_param": { "param1": "val1", "param2": "val2" },
-   "search_params": { "search_param1": "search_val1" }
+   "search_params": [{ "search_param1": "search_val1" }]
 }
 ```
 
