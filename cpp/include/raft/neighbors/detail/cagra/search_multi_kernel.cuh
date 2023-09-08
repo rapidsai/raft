@@ -25,6 +25,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -242,7 +243,7 @@ __global__ void pickup_next_parents_kernel(
       if (new_parent) {
         const auto i = __popc(ballot_mask & ((1 << threadIdx.x) - 1)) + num_new_parents;
         if (i < parent_list_size) {
-          parent_list_ptr[i + (ldd * query_id)] = index;
+          parent_list_ptr[i + (ldd * query_id)] = j;
           parent_candidates_ptr[j + (lds * query_id)] |=
             index_msb_1_mask;  // set most significant bit as used node
         }
@@ -306,11 +307,15 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class INDEX_T,
-          class DISTANCE_T>
+          class DISTANCE_T,
+          class SAMPLE_FILTER_T>
 __global__ void compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
+  INDEX_T* const parent_candidates_ptr,   // [num_queries, search_width]
+  DISTANCE_T* const parent_distance_ptr,  // [num_queries, search_width]
+  const std::size_t lds,
   const std::uint32_t search_width,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
@@ -321,15 +326,25 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const std::uint32_t hash_bitlen,
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd)                  // (*) ldd >= search_width * graph_degree
+  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  SAMPLE_FILTER_T sample_filter)
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
   const auto tid            = threadIdx.x + blockDim.x * blockIdx.x;
   const auto global_team_id = tid / TEAM_SIZE;
+  const auto query_id       = blockIdx.y;
+
   if (global_team_id >= search_width * graph_degree) { return; }
 
-  const std::size_t parent_index =
+  const std::size_t parent_list_index =
     parent_node_list[global_team_id / graph_degree + (search_width * blockIdx.y)];
+
+  if (parent_list_index == utils::get_max_value<INDEX_T>()) { return; }
+
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+  const auto parent_index =
+    parent_candidates_ptr[parent_list_index + (lds * query_id)] & ~index_msb_1_mask;
+
   if (parent_index == utils::get_max_value<INDEX_T>()) {
     result_distances_ptr[ldd * blockIdx.y + global_team_id] = utils::get_max_value<DISTANCE_T>();
     return;
@@ -360,17 +375,30 @@ __global__ void compute_distance_to_child_nodes_kernel(
       result_distances_ptr[ldd * blockIdx.y + global_team_id] = utils::get_max_value<DISTANCE_T>();
     }
   }
+
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    if (!sample_filter(query_id, parent_index)) {
+      parent_candidates_ptr[parent_list_index + (lds * query_id)] = utils::get_max_value<INDEX_T>();
+      parent_distance_ptr[parent_list_index + (lds * query_id)] =
+        utils::get_max_value<DISTANCE_T>();
+    }
+  }
 }
 
 template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class INDEX_T,
-          class DISTANCE_T>
+          class DISTANCE_T,
+          class SAMPLE_FILTER_T>
 void compute_distance_to_child_nodes(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
+  INDEX_T* const parent_candidates_ptr,   // [num_queries, search_width]
+  DISTANCE_T* const parent_distance_ptr,  // [num_queries, search_width]
+  const std::size_t lds,
   const uint32_t search_width,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
@@ -383,6 +411,7 @@ void compute_distance_to_child_nodes(
   INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
   DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
   const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -391,6 +420,9 @@ void compute_distance_to_child_nodes(
     num_queries);
   compute_distance_to_child_nodes_kernel<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>
     <<<grid_size, block_size, 0, cuda_stream>>>(parent_node_list,
+                                                parent_candidates_ptr,
+                                                parent_distance_ptr,
+                                                lds,
                                                 search_width,
                                                 dataset_ptr,
                                                 data_dim,
@@ -403,7 +435,8 @@ void compute_distance_to_child_nodes(
                                                 hash_bitlen,
                                                 result_indices_ptr,
                                                 result_distances_ptr,
-                                                ldd);
+                                                ldd,
+                                                sample_filter);
 }
 
 template <class INDEX_T>
@@ -433,6 +466,50 @@ void remove_parent_bit(const std::uint32_t num_queries,
   const std::size_t block_size = 256;
   remove_parent_bit_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
     num_queries, num_topk, topk_indices_ptr, ld);
+}
+
+// This function called after the `remove_parent_bit` function
+template <class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
+__global__ void apply_filter_kernel(INDEX_T* const result_indices_ptr,
+                                    DISTANCE_T* const result_distances_ptr,
+                                    const std::size_t lds,
+                                    const std::uint32_t result_buffer_size,
+                                    const std::uint32_t num_queries,
+                                    const INDEX_T query_id_offset,
+                                    SAMPLE_FILTER_T sample_filter)
+{
+  const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= result_buffer_size * num_queries) { return; }
+  const auto i     = tid % result_buffer_size;
+  const auto j     = tid / result_buffer_size;
+  const auto index = i + j * lds;
+
+  if (!sample_filter(query_id_offset + j, result_indices_ptr[index])) {
+    result_indices_ptr[index]   = utils::get_max_value<INDEX_T>();
+    result_distances_ptr[index] = utils::get_max_value<DISTANCE_T>();
+  }
+}
+
+template <class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
+void apply_filter(INDEX_T* const result_indices_ptr,
+                  DISTANCE_T* const result_distances_ptr,
+                  const std::size_t lds,
+                  const std::uint32_t result_buffer_size,
+                  const std::uint32_t num_queries,
+                  const INDEX_T query_id_offset,
+                  SAMPLE_FILTER_T sample_filter,
+                  cudaStream_t cuda_stream)
+{
+  const std::size_t block_size = 256;
+  const std::size_t grid_size  = (num_queries * result_buffer_size + block_size - 1) / block_size;
+
+  apply_filter_kernel<<<grid_size, block_size, 0, cuda_stream>>>(result_indices_ptr,
+                                                                 result_distances_ptr,
+                                                                 lds,
+                                                                 result_buffer_size,
+                                                                 num_queries,
+                                                                 query_id_offset,
+                                                                 sample_filter);
 }
 
 template <class T>
@@ -686,6 +763,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       // Compute distance to child nodes that are adjacent to the parent node
       compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM>(
         parent_node_list.data(),
+        result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size,
+        result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size,
+        result_buffer_allocation_size,
         search_width,
         dataset.data_handle(),
         dataset.extent(1),
@@ -700,22 +780,53 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
         result_indices.data() + itopk_size,
         result_distances.data() + itopk_size,
         result_buffer_allocation_size,
+        sample_filter,
         stream);
 
       iter++;
     }  // while ( 1 )
+    auto result_indices_ptr   = result_indices.data() + (iter & 0x1) * result_buffer_size;
+    auto result_distances_ptr = result_distances.data() + (iter & 0x1) * result_buffer_size;
 
     // Remove parent bit in search results
-    remove_parent_bit(num_queries,
-                      itopk_size,
-                      result_indices.data() + (iter & 0x1) * result_buffer_size,
-                      result_buffer_allocation_size,
-                      stream);
+    remove_parent_bit(
+      num_queries, itopk_size, result_indices_ptr, result_buffer_allocation_size, stream);
+
+    if (!std::is_same<SAMPLE_FILTER_T,
+                      raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      apply_filter<INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
+        result_indices.data() + (iter & 0x1) * itopk_size,
+        result_distances.data() + (iter & 0x1) * itopk_size,
+        result_buffer_allocation_size,
+        result_buffer_size,
+        num_queries,
+        0,
+        sample_filter,
+        stream);
+
+      result_indices_ptr   = result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size;
+      result_distances_ptr = result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size;
+      _cuann_find_topk(itopk_size,
+                       num_queries,
+                       result_buffer_size,
+                       result_distances.data() + (iter & 0x1) * itopk_size,
+                       result_buffer_allocation_size,
+                       result_indices.data() + (iter & 0x1) * itopk_size,
+                       result_buffer_allocation_size,
+                       result_distances_ptr,
+                       result_buffer_allocation_size,
+                       result_indices_ptr,
+                       result_buffer_allocation_size,
+                       topk_workspace.data(),
+                       true,
+                       topk_hint.data(),
+                       stream);
+    }
 
     // Copy results from working buffer to final buffer
     batched_memcpy(topk_indices_ptr,
                    topk,
-                   result_indices.data() + (iter & 0x1) * result_buffer_size,
+                   result_indices_ptr,
                    result_buffer_allocation_size,
                    topk,
                    num_queries,
@@ -723,7 +834,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     if (topk_distances_ptr) {
       batched_memcpy(topk_distances_ptr,
                      topk,
-                     result_distances.data() + (iter & 0x1) * result_buffer_size,
+                     result_distances_ptr,
                      result_buffer_allocation_size,
                      topk,
                      num_queries,
