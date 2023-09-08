@@ -26,6 +26,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #include <vector>
 
@@ -293,7 +294,50 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
+    // Filtering
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+      const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+      for (unsigned p = threadIdx.x; p < search_width; p += blockDim.x) {
+        if (parent_indices_buffer[p] != invalid_index) {
+          const auto parent_id =
+            result_indices_buffer[parent_indices_buffer[p]] & ~index_msb_1_mask;
+          if (!sample_filter(query_id, parent_id)) {
+            // If the parent must not be in the resulting top-k list, remove from the parent list
+            result_distances_buffer[parent_indices_buffer[p]] = utils::get_max_value<DISTANCE_T>();
+            result_indices_buffer[parent_indices_buffer[p]]   = invalid_index;
+          }
+        }
+      }
+      __syncthreads();
+    }
+
     iter++;
+  }
+
+  // Post process for filtering
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    for (unsigned i = threadIdx.x; i < itopk_size + search_width * graph_degree; i += blockDim.x) {
+      const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
+      if (!sample_filter(query_id, node_id)) {
+        // If the parent must not be in the resulting top-k list, remove from the parent list
+        result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[i]   = invalid_index;
+      }
+    }
+
+    __syncthreads();
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (search_width * graph_degree),
+                                                itopk_size);
+    __syncthreads();
   }
 
   for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
@@ -501,7 +545,7 @@ void select_and_run(  // raft::resources const& res,
 
   dim3 block_dims(block_size, 1, 1);
   dim3 grid_dims(num_cta_per_query, num_queries, 1);
-  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
+  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %u smem",
                  block_size,
                  num_cta_per_query,
                  num_queries,
