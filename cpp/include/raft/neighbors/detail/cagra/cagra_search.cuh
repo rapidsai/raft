@@ -35,7 +35,7 @@ namespace raft::neighbors::cagra::detail {
 
 template <class CagraSampleFilterT>
 struct CagraSampleFilterWithQueryIdOffset {
-  const std::size_t offset;
+  const uint32_t offset;
   CagraSampleFilterT filter;
 
   CagraSampleFilterWithQueryIdOffset(const uint32_t offset, const CagraSampleFilterT filter)
