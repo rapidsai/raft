@@ -50,6 +50,7 @@ requirements:
     - nlohmann_json {{ nlohmann_json_version }}
     - python
     - pyyaml
+    - pandas
 
   run:
     - glog {{ glog_version }}
@@ -57,6 +58,7 @@ requirements:
     - matplotlib
     - python
     - pyyaml
+    - pandas
     - benchmark
 
 about:
