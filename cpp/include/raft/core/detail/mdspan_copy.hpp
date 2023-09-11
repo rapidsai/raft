@@ -33,9 +33,6 @@
 #ifdef __CUDACC__
 #include <raft/util/cuda_dev_essentials.cuh>
 #endif
-#ifdef __SSE__
-#include <immintrin.h>
-#endif
 #endif
 
 namespace raft {
@@ -195,101 +192,12 @@ auto static constexpr const mdspan_copyable_with_kernel_v = mdspan_copyable<true
 template <typename DstType, typename SrcType>
 auto static constexpr const mdspan_uncopyable_with_kernel_v = !mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
 
+
 template <typename DstType, typename SrcType, typename T=void>
 using mdspan_copyable_with_kernel_t = std::enable_if_t<mdspan_copyable_with_kernel_v<DstType, SrcType>, T>;
 
 template <typename DstType, typename SrcType, typename T=void>
 using mdspan_uncopyable_with_kernel_t = std::enable_if_t<mdspan_uncopyable_with_kernel_v<DstType, SrcType>, T>;
-
-template <typename DstType, typename SrcType>
-auto static constexpr const mdspan_copyable_with_simd_v = mdspan_copyable<true, DstType, SrcType, void>::can_use_simd;
-template <typename DstType, typename SrcType, typename T=void>
-using mdspan_copyable_with_simd_t = std::enable_if_t<mdspan_copyable_with_simd_v<DstType, SrcType>, T>;
-
-template <typename T>
-struct simd_type_2x2 {
-  struct type {
-   type(T val0, T val1, T val2, T val3) : data{val0, val1, val2, val3} {}
-   private:
-    std::array<T, 4> data;
-  };
-  auto static load(T const* row0_ptr, T const* row1_ptr) {
-    return type{row0_ptr[0], row0_ptr[1], row1_ptr[2], row1_ptr[3]};
-  }
-  auto static transpose(type data) {
-    return type{data[0], data[2], data[1], data[3]};
-  }
-  void static store(type data, T* row0_ptr, T* row1_ptr) {
-    row0_ptr[0] = data[0];
-    row0_ptr[1] = data[1];
-    row1_ptr[0] = data[2];
-    row1_ptr[1] = data[3];
-  }
-};
-
-#ifdef __SSE__
-template<>
-struct simd_type_2x2<float> {
-  using type=__m128;
-  auto static load(float const* row0_ptr, float const* row1_ptr) {
-    return _mm_set_ps(row1_ptr[1], row1_ptr[0], row0_ptr[1], row0_ptr[0]);
-  }
-  auto static transpose(type data) {
-    return _mm_shuffle_ps(data, data, _MM_SHUFFLE(3, 1, 2, 0));
-  }
-  void static store(type data, float* row0_ptr, float* row1_ptr) {
-  }
-};
-#endif
-
-#ifdef __AVX__
-template<>
-struct simd_type_2x2<double> {
-  using type=__m256;
-  auto static load(double const* row0_ptr, double const* row1_ptr) {
-    __m128d row0 = _mm_loadu_pd(row0_ptr);
-    __m128d row1 = _mm_loadu_pd(row1_ptr);
-    return _mm256_set_m128d(row1, row0);
-  }
-  auto static transpose(type data) {
-    return _mm256_permute4x64_pd(data, _MM_SHUFFLE(3, 1, 2, 0));
-  }
-};
-#endif
-
-template <typename T, typename IdxT=std::size_t, typename simd_type=simd_type_2x2<T>::type>
-struct simd_matrix_2x2 {
-  using value_type = std::remove_cv_t<T>;
-
-  simd_matrix_2x2(T const* row0_ptr, T const* row1_ptr) : data{simd_type::load(row0_ptr, row1_ptr)} {}
-
-  auto transpose() {
-    return simd_type::
-  }
-  auto store(value_type* row0_ptr, value_type* row1_ptr) {
-    _mm_storeu_ps(row0_ptr, row0);
-    _mm_storeu_ps(row1_ptr, row1);
-  }
-  auto transpose(T* row0_ptr, T* row1_ptr) {
-    transpose().store(row0_ptr, row1_ptr);
-  }
-
- private:
-  simd_type data;
-};
-
-template <typename T, typename IdxT=std::size_t>
-struct simd_matrix_mxn {
-  std::vector<T*> rows;
-  IdxT row_length;
-};
-
-template <typename DstType, typename SrcType>
-mdspan_copyable_with_simd_t<DstType, SrcType> mdspan_host_copy(DstType&& dst, SrcType const& src) {
-  using config = mdspan_copyable<true, DstType, SrcType>;
-}
-
-
 
 #ifdef __CUDACC__
 auto static constexpr const mdspan_copy_tile_dim = 32;
@@ -625,34 +533,33 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
     RAFT_LOG_WARN("can_use_simd");
 #ifdef __SSE__
     constexpr auto elem_per_vector = 4;  // 4 floats per __m128
-    auto i = 0;
-    for (; i < src.extent(0); i += elem_per_vector) {
-      auto j = 0;
-      for (; j < src.extent(1); j += elem_per_vector) {
+
+    for (auto i = 0; i < src.extent(0); i += elem_per_vector) {
+      for (auto j = 0; j < src.extent(1); j += elem_per_vector) {
         // Load a row of 4 floats from src into row0
-        auto row0 = _mm_loadu_ps(&src(i, j));
+        __m128 row0 = _mm_loadu_ps(&src(i, j));
         // Load the next row of 4 floats from src into row1
-        auto row1 = _mm_loadu_ps(&src(i + 1, j));
+        __m128 row1 = _mm_loadu_ps(&src(i + 1, j));
         // Load another row of 4 floats from src into row2
-        auto row2 = _mm_loadu_ps(&src(i + 2, j));
+        __m128 row2 = _mm_loadu_ps(&src(i + 2, j));
         // Load the final row of 4 floats from src into row3
-        auto row3 = _mm_loadu_ps(&src(i + 3, j));
+        __m128 row3 = _mm_loadu_ps(&src(i + 3, j));
 
         // Shuffle elements from row0 and row1. tmp0 holds elements (0,1) from both row0 and row1
-        auto tmp0 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(1, 0, 1, 0));
+        __m128 tmp0 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(1, 0, 1, 0));
         // Shuffle elements from row0 and row1. tmp2 holds elements (2,3) from both row0 and row1
-        auto tmp2 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(3, 2, 3, 2));
+        __m128 tmp2 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(3, 2, 3, 2));
         // Shuffle elements from row2 and row3. tmp1 holds elements (0,1) from both row2 and row3
-        auto tmp1 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(1, 0, 1, 0));
+        __m128 tmp1 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(1, 0, 1, 0));
         // Shuffle elements from row2 and row3. tmp3 holds elements (2,3) from both row2 and row3
-        auto tmp3 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(3, 2, 3, 2));
+        __m128 tmp3 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(3, 2, 3, 2));
 
         // Final shuffle and store. Shuffle elements from tmp0 and tmp1 into first row of dst.
-        _mm_storeu_ps(&dst(i, j), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(2, 0, 2, 0)));
+        _mm_storeu_ps(&dst(j, i), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(2, 0, 2, 0)));
         // Final shuffle and store. Shuffle elements from tmp0 and tmp1 into second row of dst.
-        _mm_storeu_ps(&dst(i + 1, j), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(3, 1, 3, 1)));
+        _mm_storeu_ps(&dst(j + 1, i), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(3, 1, 3, 1)));
         // Final shuffle and store. Shuffle elements from tmp2 and tmp3 into third row of dst.
-        _mm_storeu_ps(&dst(i + 2, i), _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(2, 0, 2, 0)));
+        _mm_storeu_ps(&dst(j + 2, i), _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(2, 0, 2, 0)));
         // Final shuffle and store. Shuffle elements from tmp2 and tmp3 into fourth row of dst.
         _mm_storeu_ps(&dst(j + 3, i), _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(3, 1, 3, 1)));
       }
