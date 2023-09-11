@@ -155,4 +155,6 @@ if(BUILD_PRIMS_BENCH)
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
+
+  ConfigureBench(NAME UTIL_BENCH PATH bench/prims/util/bitset.cu bench/prims/main.cpp)
 endif()
