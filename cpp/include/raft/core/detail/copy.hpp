@@ -281,16 +281,12 @@ __device__ auto increment_indices(IdxType* indices,
 
     auto cur_index = IdxType{};
 
-    // printf("pre-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2],
-    // int(increment));
     while (cur_index < md.extent(real_index) - 1 && increment >= index_strides[real_index]) {
       increment -= index_strides[real_index];
       ++cur_index;
     }
     indices[real_index] = cur_index;
   }
-  // printf("post-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2],
-  // int(increment));
 
   return increment == IdxType{};
 }
@@ -332,54 +328,6 @@ __global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(Ds
   // The index of the first element in the mdspan which will be copied via
   // the current tile for this block.
   typename config::index_type tile_offset[config::dst_rank] = {0};
-  /* // 0 0 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{0}
-  );
-  // 1 0 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{1}
-  );
-  // 2 0 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{1}
-  );
-  // 3 0 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{1}
-  );
-  // 4 0 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{1}
-  );
-  // 0 1 0
-  increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    typename config::index_type{1}
-  ); */
   typename config::index_type cur_indices[config::dst_rank];
   auto valid_tile = increment_indices(
     tile_offset, src, tile_offset, index_strides, blockIdx.x * mdspan_copy_tile_elems);
@@ -404,11 +352,7 @@ __global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(Ds
         get_mdspan_elem(dst, cur_indices) = tile[tile_read_x][tile_read_y];
       }
     } else {
-      if (valid_index) {
-        // printf("read: %d %d %d -> %d %d: %d\n", cur_indices[0], cur_indices[1], cur_indices[2],
-        // tile_read_x, tile_read_y, int(get_mdspan_elem(src, cur_indices)));
-        tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices);
-      }
+      if (valid_index) { tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices); }
       __syncthreads();
 
       valid_index = increment_indices(cur_indices,
@@ -416,13 +360,7 @@ __global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(Ds
                                       tile_offset,
                                       index_strides,
                                       tile_read_y * mdspan_copy_tile_dim + tile_read_x);
-      if (valid_index) {
-        // printf("write: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0],
-        // cur_indices[1], cur_indices[2], int(tile[tile_read_y][tile_read_x]));
-        get_mdspan_elem(dst, cur_indices) = tile[tile_read_y][tile_read_x];
-        // printf("final: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0],
-        // cur_indices[1], cur_indices[2], int(get_mdspan_elem(dst, cur_indices)));
-      }
+      if (valid_index) { get_mdspan_elem(dst, cur_indices) = tile[tile_read_y][tile_read_x]; }
       __syncthreads();
     }
     valid_tile = increment_indices(
