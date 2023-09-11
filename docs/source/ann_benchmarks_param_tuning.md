@@ -99,4 +99,4 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `ef`             | `search_param`  | Y        | Positive Integer >0                  |         | Size of the dynamic list for the nearest neighbors used for search. Higher value leads to more accurate but slower search. Cannot be lower than `k`.                                                                                                                                              |
 | `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
 
-Please refer to [HNSW algorithm parameters guide](https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md) from `hnswlib` to learn more about these arguments.
+Please refer to [HNSW algorithm parameters guide] from `hnswlib` to learn more about these arguments.
