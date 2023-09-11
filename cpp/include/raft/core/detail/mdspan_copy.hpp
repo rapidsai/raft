@@ -41,6 +41,10 @@ namespace detail {
 template <bool B, typename DstType = void, typename SrcType = void, typename T = void>
 struct mdspan_copyable {};
 
+/*
+ * A helper struct used to determine whether one mdspan type can be copied to
+ * another and if so how
+ */
 template <typename DstType, typename SrcType, typename T>
 struct mdspan_copyable<true, DstType, SrcType, T> {
   using dst_type = std::remove_reference_t<DstType>;
@@ -293,7 +297,7 @@ __device__ auto increment_indices(
  */
 template <typename DstType, typename SrcType>
 __global__ mdspan_copyable_with_kernel_t<DstType, SrcType>
-mdspan_device_copy(DstType dst, SrcType src)
+mdspan_copy_kernel(DstType dst, SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 
@@ -520,52 +524,18 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
         typename config::index_type(mdspan_copy_tile_elems))
     );
     auto constexpr const threads = dim3{mdspan_copy_tile_dim, mdspan_copy_tile_dim, 1};
-    mdspan_device_copy<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(dst, src);
+    mdspan_copy_kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(dst, src);
 #else
-    // Should never actually reach this because of enable_ifs
+    // Should never actually reach this because of enable_ifs. Included for
+    // safety.
     RAFT_FAIL(
       "raft::copy called in a way that requires custom kernel. Please use "
       "raft/core/mdspan_copy.cuh and include the header in a .cu file");
 #endif
   } else if constexpr (config::can_use_std_copy) {
     std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
-  } else if constexpr(config::can_use_simd) {
-    RAFT_LOG_WARN("can_use_simd");
-#ifdef __SSE__
-    constexpr auto elem_per_vector = 4;  // 4 floats per __m128
-
-    for (auto i = 0; i < src.extent(0); i += elem_per_vector) {
-      for (auto j = 0; j < src.extent(1); j += elem_per_vector) {
-        // Load a row of 4 floats from src into row0
-        __m128 row0 = _mm_loadu_ps(&src(i, j));
-        // Load the next row of 4 floats from src into row1
-        __m128 row1 = _mm_loadu_ps(&src(i + 1, j));
-        // Load another row of 4 floats from src into row2
-        __m128 row2 = _mm_loadu_ps(&src(i + 2, j));
-        // Load the final row of 4 floats from src into row3
-        __m128 row3 = _mm_loadu_ps(&src(i + 3, j));
-
-        // Shuffle elements from row0 and row1. tmp0 holds elements (0,1) from both row0 and row1
-        __m128 tmp0 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(1, 0, 1, 0));
-        // Shuffle elements from row0 and row1. tmp2 holds elements (2,3) from both row0 and row1
-        __m128 tmp2 = _mm_shuffle_ps(row0, row1, _MM_SHUFFLE(3, 2, 3, 2));
-        // Shuffle elements from row2 and row3. tmp1 holds elements (0,1) from both row2 and row3
-        __m128 tmp1 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(1, 0, 1, 0));
-        // Shuffle elements from row2 and row3. tmp3 holds elements (2,3) from both row2 and row3
-        __m128 tmp3 = _mm_shuffle_ps(row2, row3, _MM_SHUFFLE(3, 2, 3, 2));
-
-        // Final shuffle and store. Shuffle elements from tmp0 and tmp1 into first row of dst.
-        _mm_storeu_ps(&dst(j, i), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(2, 0, 2, 0)));
-        // Final shuffle and store. Shuffle elements from tmp0 and tmp1 into second row of dst.
-        _mm_storeu_ps(&dst(j + 1, i), _mm_shuffle_ps(tmp0, tmp1, _MM_SHUFFLE(3, 1, 3, 1)));
-        // Final shuffle and store. Shuffle elements from tmp2 and tmp3 into third row of dst.
-        _mm_storeu_ps(&dst(j + 2, i), _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(2, 0, 2, 0)));
-        // Final shuffle and store. Shuffle elements from tmp2 and tmp3 into fourth row of dst.
-        _mm_storeu_ps(&dst(j + 3, i), _mm_shuffle_ps(tmp2, tmp3, _MM_SHUFFLE(3, 1, 3, 1)));
-      }
-    }
-#endif
   } else {
+    // TODO(wphicks): Make the following cache-oblivious and add SIMD support
     auto indices = std::array<typename config::index_type, config::dst_rank>{};
     for (auto i = std::size_t{}; i < dst.size(); ++i) {
       if (i != 0) {
@@ -579,12 +549,9 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
           }
         } else {
           // For layout_left/layout_f_contiguous (and currently all other
-          // layouts), we iterate over the leftmost extent fastest
-
-          // TODO(wphicks): Add additional specialization for non-C/F
-          // arrays that have a stride of 1 in one dimension. This would
-          // be a performance enhancement; it is not required for
-          // correctness.
+          // layouts), we iterate over the leftmost extent fastest. The
+          // cache-oblivious implementation should work through dimensions in
+          // order of increasing stride.
           auto dim = std::size_t{};
           while ((indices[dim]++) == src.extent(dim)) {
             indices[dim] = typename config::index_type{};

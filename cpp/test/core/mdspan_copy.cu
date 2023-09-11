@@ -181,7 +181,7 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
     }
   }
 
-  /* // Test transpose
+  // Test transpose
   auto out_left = make_host_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
   auto out_right = make_host_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
@@ -205,7 +205,7 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
         ASSERT_EQ(int(out_left(i, j, k)), int(gen_unique_entry(i, j, k)));
       }
     }
-  } */
+  }
 }
 
 TEST(MDSpanCopy, Mdspan2DDeviceHostCuda)
