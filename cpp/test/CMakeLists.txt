@@ -282,20 +282,21 @@ if(BUILD_TESTS)
       EXPLICIT_INSTANTIATE_ONLY
     )
 
-    ConfigureTest(
-      NAME
-      RANDOM_TEST
-      PATH
-      test/random/make_blobs.cu
-      test/random/make_regression.cu
-      test/random/multi_variable_gaussian.cu
-      test/random/permute.cu
-      test/random/rng.cu
-      test/random/rng_discrete.cu
-      test/random/rng_int.cu
-      test/random/rmat_rectangular_generator.cu
-      test/random/sample_without_replacement.cu
-    )
+  ConfigureTest(
+    NAME
+    RANDOM_TEST
+    PATH
+    test/random/make_blobs.cu
+    test/random/make_regression.cu
+    test/random/multi_variable_gaussian.cu
+    test/random/rng_pcg_host_api.cu
+    test/random/permute.cu
+    test/random/rng.cu
+    test/random/rng_discrete.cu
+    test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
+    test/random/sample_without_replacement.cu
+  )
 
     ConfigureTest(
       NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu
@@ -436,22 +437,19 @@ if(BUILD_TESTS)
       EXPLICIT_INSTANTIATE_ONLY
     )
 
-    ConfigureTest(
-      NAME UTILS_TEST PATH test/core/seive.cu test/util/bitonic_sort.cu test/util/cudart_utils.cpp
-      test/util/device_atomics.cu test/util/integer_utils.cpp
-    )
-  else()
-    ConfigureTest(
-      NAME CORE_TEST PATH
-      test/core/logger.cpp
-      test/core/math_host.cpp
-      test/core/operators_host.cpp
-      test/core/memory_type.cpp
-      test/core/mdspan_copy.cpp
-      test/core/stream_view.cpp
-      OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
-    )
-  endif()
+  ConfigureTest(
+    NAME
+    UTILS_TEST
+    PATH
+    test/core/seive.cu
+    test/util/bitonic_sort.cu
+    test/util/cudart_utils.cpp
+    test/util/device_atomics.cu
+    test/util/integer_utils.cpp
+    test/util/integer_utils.cu
+    test/util/pow2_utils.cu
+    test/util/reduction.cu
+  )
 endif()
 
 # ##################################################################################################

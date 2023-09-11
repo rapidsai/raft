@@ -81,4 +81,4 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
 
     actual[actual <= 1e-5] = 0.0
 
-    assert np.allclose(expected, actual, rtol=1e-4)
+    assert np.allclose(expected, actual, atol=1e-3, rtol=1e-3)

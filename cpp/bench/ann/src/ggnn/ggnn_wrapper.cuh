@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <memory>
-#include <stdexcept>
-
 #include "../common/ann_types.hpp"
-#include "../common/benchmark_util.hpp"
+
 #include <ggnn/cuda_knn_ggnn_gpu_instance.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <memory>
+#include <stdexcept>
 
 namespace raft::bench::ann {
 
@@ -38,8 +38,6 @@ class Ggnn : public ANN<T> {
     int num_layers{4};     // L
     float tau{0.5};
     int refine_iterations{2};
-
-    size_t dataset_size;
     int k;  // GGNN requires to know k during building
   };
 
@@ -50,6 +48,7 @@ class Ggnn : public ANN<T> {
     int max_iterations{400};
     int cache_size{512};
     int sorted_size{256};
+    auto needs_dataset() const -> bool override { return true; }
   };
 
   Ggnn(Metric metric, int dim, const BuildParam& param);
@@ -74,7 +73,7 @@ class Ggnn : public ANN<T> {
   void save(const std::string& file) const override { impl_->save(file); }
   void load(const std::string& file) override { impl_->load(file); }
 
-  AlgoProperty get_property() const override { return impl_->get_property(); }
+  AlgoProperty get_preference() const override { return impl_->get_preference(); }
 
   void set_search_dataset(const T* dataset, size_t nrow) override
   {
@@ -135,12 +134,11 @@ class GgnnImpl : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string& file) override;
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
 
@@ -182,12 +180,6 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
   }
 
   if (dim != D) { throw std::runtime_error("mis-matched dim"); }
-
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
-
-  ggnn_ = std::make_unique<GGNNGPUInstance>(
-    device, build_param_.dataset_size, build_param_.num_layers, true, build_param_.tau);
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
@@ -195,11 +187,10 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
                                                        size_t nrow,
                                                        cudaStream_t stream)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
+  int device;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
+  ggnn_ = std::make_unique<GGNNGPUInstance>(
+    device, nrow, build_param_.num_layers, true, build_param_.tau);
 
   ggnn_->set_base_data(dataset);
   ggnn_->set_stream(stream);
@@ -212,11 +203,6 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_dataset(const T* dataset, size_t nrow)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
   ggnn_->set_base_data(dataset);
 }
 
