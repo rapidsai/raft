@@ -18,6 +18,13 @@
 option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_BFKNN
+       "Include faiss' cpu brute-force knn algorithm in benchmark" ON
+)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
+       ON
+)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ "Include faiss' cpu ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
@@ -56,6 +63,14 @@ if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
    OR RAFT_ANN_BENCH_USE_FAISS_IFFLAT
 )
   set(RAFT_ANN_BENCH_USE_FAISS ON)
+endif()
+
+set(RAFT_ANN_BENCH_USE_FAISS_CPU OFF)
+if(RAFT_ANN_BENCH_USE_FAISS_CPU_BFKNN
+   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVFPQ
+   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IFFLAT
+)
+  set(RAFT_ANN_BENCH_USE_FAISS_CPU ON)
 endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
@@ -216,6 +231,18 @@ endif()
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
   ConfigureAnnBench(
     NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cpp LINKS faiss::faiss
+  )
+endif()
+
+if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cpp LINKS faiss::faiss
   )
 endif()
 
