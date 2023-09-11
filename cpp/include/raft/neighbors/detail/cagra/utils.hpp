@@ -20,6 +20,8 @@
 #include <cuda.h>
 #include <cuda_fp16.h>
 #include <raft/core/detail/macros.hpp>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <type_traits>
 
 namespace raft::neighbors::cagra::detail {
@@ -150,4 +152,97 @@ struct gen_index_msb_1_mask {
 };
 }  // namespace utils
 
+/**
+ * Utility to sync memory from a host_matrix_view to a device_matrix_view
+ *
+ * In certain situations (UVM/HMM/ATS) host memory might be directly accessible on the
+ * device, and no extra allocations need to be performed. This class checks
+ * if the host_matrix_view is already accessible on the device, and only creates device
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
+ */
+template <typename T, typename IdxT>
+class device_matrix_view_from_host {
+ public:
+  device_matrix_view_from_host(raft::resources const& res, host_matrix_view<T, IdxT> host_view)
+    : host_view_(host_view)
+  {
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, host_view.data_handle()));
+    device_ptr = reinterpret_cast<T*>(attr.devicePointer);
+    if (device_ptr == NULL) {
+      // allocate memory and copy over
+      device_mem_.emplace(
+        raft::make_device_matrix<T, IdxT>(res, host_view.extent(0), host_view.extent(1)));
+      raft::copy(device_mem_->data_handle(),
+                 host_view.data_handle(),
+                 host_view.extent(0) * host_view.extent(1),
+                 resource::get_cuda_stream(res));
+      device_ptr = device_mem_->data_handle();
+    }
+  }
+
+  device_matrix_view<T, IdxT> view()
+  {
+    return make_device_matrix_view<T, IdxT>(device_ptr, host_view_.extent(0), host_view_.extent(1));
+  }
+
+  T* data_handle() { return device_ptr; }
+
+  bool allocated_memory() const { return device_mem_.has_value(); }
+
+ private:
+  std::optional<device_matrix<T, IdxT>> device_mem_;
+  host_matrix_view<T, IdxT> host_view_;
+  T* device_ptr;
+};
+
+/**
+ * Utility to sync memory from a device_matrix_view to a host_matrix_view
+ *
+ * In certain situations (UVM/HMM/ATS) device memory might be directly accessible on the
+ * host, and no extra allocations need to be performed. This class checks
+ * if the device_matrix_view is already accessible on the host, and only creates host
+ * memory and copies over if necessary. In memory limited situations this is preferable
+ * to having both a host and device copy
+ * TODO: once the mdbuffer changes here https://github.com/wphicks/raft/blob/fea-mdbuffer
+ * have been merged, we should remove this class and switch over to using mdbuffer for this
+ */
+template <typename T, typename IdxT>
+class host_matrix_view_from_device {
+ public:
+  host_matrix_view_from_device(raft::resources const& res, device_matrix_view<T, IdxT> device_view)
+    : device_view_(device_view)
+  {
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, device_view.data_handle()));
+    host_ptr = reinterpret_cast<T*>(attr.hostPointer);
+    if (host_ptr == NULL) {
+      // allocate memory and copy over
+      host_mem_.emplace(
+        raft::make_host_matrix<T, IdxT>(device_view.extent(0), device_view.extent(1)));
+      raft::copy(host_mem_->data_handle(),
+                 device_view.data_handle(),
+                 device_view.extent(0) * device_view.extent(1),
+                 resource::get_cuda_stream(res));
+      host_ptr = host_mem_->data_handle();
+    }
+  }
+
+  host_matrix_view<T, IdxT> view()
+  {
+    return make_host_matrix_view<T, IdxT>(host_ptr, device_view_.extent(0), device_view_.extent(1));
+  }
+
+  T* data_handle() { return host_ptr; }
+
+  bool allocated_memory() const { return host_mem_.has_value(); }
+
+ private:
+  std::optional<host_matrix<T, IdxT>> host_mem_;
+  device_matrix_view<T, IdxT> device_view_;
+  T* host_ptr;
+};
 }  // namespace raft::neighbors::cagra::detail
