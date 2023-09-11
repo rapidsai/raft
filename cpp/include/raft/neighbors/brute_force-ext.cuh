@@ -129,10 +129,6 @@ extern template raft::neighbors::brute_force::index<float> raft::neighbors::brut
          raft::distance::DistanceType metric,
          float metric_arg);
 
-// instantiate_raft_neighbors_brute_force_knn_index(float, int);
-// instantiate_raft_neighbors_brute_force_knn_index(float, int64_t);
-#undef instantiate_raft_neighbors_brute_force_knn_index
-
 #define instantiate_raft_neighbors_brute_force_fused_l2_knn(            \
   value_t, idx_t, idx_layout, query_layout)                             \
   extern template void raft::neighbors::brute_force::fused_l2_knn(      \
