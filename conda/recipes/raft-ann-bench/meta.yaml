@@ -79,7 +79,7 @@ requirements:
     - benchmark
     - matplotlib
     # rmm is needed to determine if package is gpu-enabled
-    - rmm = {{ minor_version }}
+    - rmm ={{ minor_version }}
     - python
     - pandas
     - pyyaml
