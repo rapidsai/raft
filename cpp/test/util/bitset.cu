@@ -27,58 +27,71 @@
 namespace raft::utils {
 
 struct test_spec {
-  int bitset_len;
-  int mask_len;
-  int query_len;
+  uint64_t bitset_len;
+  uint64_t mask_len;
+  uint64_t query_len;
 };
 
 auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
 {
-  os << "bitset{bitset_len: " << ss.bitset_len << ", mask_len: " << ss.mask_len << "}";
+  os << "bitset{bitset_len: " << ss.bitset_len << ", mask_len: " << ss.mask_len
+     << ", query_len: " << ss.query_len << "}";
   return os;
 }
 
-template <typename T>
-void add_cpu_bitset(std::vector<uint32_t>& bitset, const std::vector<T>& mask_idx)
+template <typename bitset_t, typename index_t>
+void add_cpu_bitset(std::vector<bitset_t>& bitset, const std::vector<index_t>& mask_idx)
 {
+  static size_t constexpr const bitset_element_size = sizeof(bitset_t) * 8;
   for (size_t i = 0; i < mask_idx.size(); i++) {
     auto idx = mask_idx[i];
-    bitset[idx / 32] &= ~(1 << (idx % 32));
+    bitset[idx / bitset_element_size] &= ~(bitset_t{1} << (idx % bitset_element_size));
   }
 }
 
-template <typename T>
-void create_cpu_bitset(std::vector<uint32_t>& bitset, const std::vector<T>& mask_idx)
+template <typename bitset_t, typename index_t>
+void create_cpu_bitset(std::vector<bitset_t>& bitset, const std::vector<index_t>& mask_idx)
 {
   for (size_t i = 0; i < bitset.size(); i++) {
-    bitset[i] = 0xffffffff;
+    bitset[i] = ~bitset_t(0x00);
   }
-  add_cpu_bitset<T>(bitset, mask_idx);
+  add_cpu_bitset(bitset, mask_idx);
 }
 
-template <typename T>
-void test_cpu_bitset(const std::vector<uint32_t>& bitset,
-                     const std::vector<T>& queries,
+template <typename bitset_t, typename index_t>
+void test_cpu_bitset(const std::vector<bitset_t>& bitset,
+                     const std::vector<index_t>& queries,
                      std::vector<uint8_t>& result)
 {
+  static size_t constexpr const bitset_element_size = sizeof(bitset_t) * 8;
   for (size_t i = 0; i < queries.size(); i++) {
-    result[i] = uint8_t((bitset[queries[i] / 32] & (1 << (queries[i] % 32))) != 0);
+    result[i] = uint8_t((bitset[queries[i] / bitset_element_size] &
+                         (bitset_t{1} << (queries[i] % bitset_element_size))) != 0);
   }
 }
 
-template <typename T>
+template <typename bitset_t>
+void flip_cpu_bitset(std::vector<bitset_t>& bitset)
+{
+  for (size_t i = 0; i < bitset.size(); i++) {
+    bitset[i] = ~bitset[i];
+  }
+}
+
+template <typename bitset_t, typename index_t>
 class BitsetTest : public testing::TestWithParam<test_spec> {
  protected:
+  index_t static constexpr const bitset_element_size = sizeof(bitset_t) * 8;
   const test_spec spec;
-  std::vector<uint32_t> bitset_result;
-  std::vector<uint32_t> bitset_ref;
+  std::vector<bitset_t> bitset_result;
+  std::vector<bitset_t> bitset_ref;
   raft::resources res;
 
  public:
   explicit BitsetTest()
     : spec(testing::TestWithParam<test_spec>::GetParam()),
-      bitset_result(raft::ceildiv(spec.bitset_len, 32)),
-      bitset_ref(raft::ceildiv(spec.bitset_len, 32))
+      bitset_result(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size))),
+      bitset_ref(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size)))
   {
   }
 
@@ -88,50 +101,56 @@ class BitsetTest : public testing::TestWithParam<test_spec> {
 
     // generate input and mask
     raft::random::RngState rng(42);
-    auto mask_device = raft::make_device_vector<T, T>(res, spec.mask_len);
-    std::vector<T> mask_cpu(spec.mask_len);
-    raft::random::uniformInt(res, rng, mask_device.view(), T(0), T(spec.bitset_len));
+    auto mask_device = raft::make_device_vector<index_t, index_t>(res, spec.mask_len);
+    std::vector<index_t> mask_cpu(spec.mask_len);
+    raft::random::uniformInt(res, rng, mask_device.view(), index_t(0), index_t(spec.bitset_len));
     update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
     resource::sync_stream(res, stream);
 
     // calculate the results
-    auto test_bitset =
-      raft::utils::bitset<T>(res, raft::make_const_mdspan(mask_device.view()), T(spec.bitset_len));
+    auto test_bitset = raft::utils::bitset<bitset_t, index_t>(
+      res, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len));
     update_host(
-      bitset_result.data(), test_bitset.view().get_bitset_ptr(), bitset_result.size(), stream);
+      bitset_result.data(), test_bitset.view().data_handle(), bitset_result.size(), stream);
 
     // calculate the reference
     create_cpu_bitset(bitset_ref, mask_cpu);
     resource::sync_stream(res, stream);
-    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<T>()));
+    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
-    auto query_device  = raft::make_device_vector<T, T>(res, spec.query_len);
-    auto result_device = raft::make_device_vector<uint8_t, T>(res, spec.query_len);
-    auto query_cpu     = std::vector<T>(spec.query_len);
+    auto query_device  = raft::make_device_vector<index_t, index_t>(res, spec.query_len);
+    auto result_device = raft::make_device_vector<uint8_t, index_t>(res, spec.query_len);
+    auto query_cpu     = std::vector<index_t>(spec.query_len);
     auto result_cpu    = std::vector<uint8_t>(spec.query_len);
     auto result_ref    = std::vector<uint8_t>(spec.query_len);
 
     // Create queries and verify the test results
-    raft::random::uniformInt(res, rng, query_device.view(), T(0), T(spec.bitset_len));
+    raft::random::uniformInt(res, rng, query_device.view(), index_t(0), index_t(spec.bitset_len));
     update_host(query_cpu.data(), query_device.data_handle(), query_device.extent(0), stream);
     raft::utils::bitset_test(
       res, test_bitset.view(), raft::make_const_mdspan(query_device.view()), result_device.view());
     update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
     test_cpu_bitset(bitset_ref, query_cpu, result_ref);
     resource::sync_stream(res, stream);
-    ASSERT_TRUE(hostVecMatch(result_cpu, result_ref, Compare<bool>()));
+    ASSERT_TRUE(hostVecMatch(result_cpu, result_ref, Compare<uint8_t>()));
 
     // Add more sample to the bitset and re-test
-    raft::random::uniformInt(res, rng, mask_device.view(), T(0), T(spec.bitset_len));
+    raft::random::uniformInt(res, rng, mask_device.view(), index_t(0), index_t(spec.bitset_len));
     update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
     resource::sync_stream(res, stream);
-    raft::utils::bitset_unset<T>(res, test_bitset.view(), mask_device.view());
-    update_host(
-      bitset_result.data(), test_bitset.view().get_bitset_ptr(), bitset_result.size(), stream);
+    raft::utils::bitset_set<bitset_t, index_t>(res, test_bitset.view(), mask_device.view());
+    update_host(bitset_result.data(), test_bitset.data_handle(), bitset_result.size(), stream);
 
     add_cpu_bitset(bitset_ref, mask_cpu);
     resource::sync_stream(res, stream);
-    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<T>()));
+    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
+
+    // Flip the bitset and re-test
+    raft::utils::bitset_flip<bitset_t, index_t>(res, test_bitset.view());
+    update_host(bitset_result.data(), test_bitset.data_handle(), bitset_result.size(), stream);
+    flip_cpu_bitset(bitset_ref);
+    resource::sync_stream(res, stream);
+    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
   }
 };
 
@@ -140,15 +159,31 @@ auto inputs = ::testing::Values(test_spec{32, 5, 10},
                                 test_spec{1024, 55, 100},
                                 test_spec{10000, 1000, 1000},
                                 test_spec{1 << 15, 1 << 3, 1 << 12},
-                                test_spec{1 << 15, 1 << 14, 1 << 13},
+                                test_spec{1 << 15, 1 << 24, 1 << 13},
                                 test_spec{1 << 25, 1 << 23, 1 << 14});
 
-using Uint32 = BitsetTest<uint32_t>;
-TEST_P(Uint32, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32, inputs);
+using Uint16_32 = BitsetTest<uint16_t, uint32_t>;
+TEST_P(Uint16_32, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint16_32, inputs);
 
-using Uint64 = BitsetTest<uint64_t>;
-TEST_P(Uint64, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64, inputs);
+using Uint32_32 = BitsetTest<uint32_t, uint32_t>;
+TEST_P(Uint32_32, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_32, inputs);
+
+using Uint64_32 = BitsetTest<uint64_t, uint32_t>;
+TEST_P(Uint64_32, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_32, inputs);
+
+using Uint8_64 = BitsetTest<uint8_t, uint64_t>;
+TEST_P(Uint8_64, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint8_64, inputs);
+
+using Uint32_64 = BitsetTest<uint32_t, uint64_t>;
+TEST_P(Uint32_64, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_64, inputs);
+
+using Uint64_64 = BitsetTest<uint64_t, uint64_t>;
+TEST_P(Uint64_64, Run) { run(); }
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_64, inputs);
 
 }  // namespace raft::utils
