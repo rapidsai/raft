@@ -81,8 +81,8 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   auto static constexpr const dst_rank        = dst_extents_type::rank();
   auto static constexpr const src_rank        = src_extents_type::rank();
   auto static constexpr const compatible_rank = (dst_rank == src_rank);
-  auto static constexpr const has_vector_rank     = (dst_rank == 1);
-  auto static constexpr const has_matrix_rank     = (dst_rank == 2);
+  auto static constexpr const has_vector_rank = (dst_rank == 1);
+  auto static constexpr const has_matrix_rank = (dst_rank == 2);
 
   // Layout properties
   using dst_layout_type = typename dst_type::layout_type;
@@ -125,8 +125,10 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 #if (defined(__AVX__) || defined(__SSE__) || defined(__ARM_NEON))
   // TODO(wphicks): Following should be only necessary restrictions. Test if
   // perf actually improves once fully implemented.
-  // auto static constexpr const can_use_simd = can_use_host && both_contiguous && both_float_or_both_double;
-  auto static constexpr const can_use_simd = can_use_host && both_contiguous && both_float && has_matrix_rank;
+  // auto static constexpr const can_use_simd = can_use_host && both_contiguous &&
+  // both_float_or_both_double;
+  auto static constexpr const can_use_simd =
+    can_use_host && both_contiguous && both_float && has_matrix_rank;
 #else
   auto static constexpr const can_use_simd = false;
 #endif
@@ -154,12 +156,9 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
                        std::bool_constant<!use_intermediate_dst>>;
   auto static constexpr const can_use_device =
     std::conjunction_v<std::bool_constant<CUDA_ENABLED>,
-                       std::disjunction<
-                         std::bool_constant<both_device_accessible>,
-                         std::bool_constant<requires_intermediate>,
-                         std::bool_constant<can_use_raft_copy>
-                       >
-                     >;
+                       std::disjunction<std::bool_constant<both_device_accessible>,
+                                        std::bool_constant<requires_intermediate>,
+                                        std::bool_constant<can_use_raft_copy>>>;
 
   auto static constexpr const can_use_cublas =
     std::conjunction_v<std::bool_constant<can_use_device>,
@@ -178,48 +177,51 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
                        std::bool_constant<!(can_use_raft_copy || can_use_cublas)>>;
 
   // Viable overload?
-  auto static constexpr const value = std::conjunction_v<
-    std::bool_constant<is_mdspan_v<src_type>>,
-    std::bool_constant<is_mdspan_v<dst_type>>,
-    std::bool_constant<can_use_host || can_use_device>
-  >;
+  auto static constexpr const value =
+    std::conjunction_v<std::bool_constant<is_mdspan_v<src_type>>,
+                       std::bool_constant<is_mdspan_v<dst_type>>,
+                       std::bool_constant<can_use_host || can_use_device>>;
   using type = std::enable_if_t<value, T>;
 };
 
 template <typename DstType, typename SrcType, typename T = void>
 using mdspan_copyable_t = typename mdspan_copyable<true, DstType, SrcType, T>::type;
 template <typename DstType, typename SrcType>
-auto static constexpr const mdspan_copyable_v = mdspan_copyable<true, DstType, SrcType, void>::value;
+auto static constexpr const mdspan_copyable_v =
+  mdspan_copyable<true, DstType, SrcType, void>::value;
 
 template <typename DstType, typename SrcType>
-auto static constexpr const mdspan_copyable_with_kernel_v = mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
+auto static constexpr const mdspan_copyable_with_kernel_v =
+  mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
 template <typename DstType, typename SrcType>
-auto static constexpr const mdspan_uncopyable_with_kernel_v = !mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
+auto static constexpr const mdspan_uncopyable_with_kernel_v =
+  !mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
 
+template <typename DstType, typename SrcType, typename T = void>
+using mdspan_copyable_with_kernel_t =
+  std::enable_if_t<mdspan_copyable_with_kernel_v<DstType, SrcType>, T>;
 
-template <typename DstType, typename SrcType, typename T=void>
-using mdspan_copyable_with_kernel_t = std::enable_if_t<mdspan_copyable_with_kernel_v<DstType, SrcType>, T>;
-
-template <typename DstType, typename SrcType, typename T=void>
-using mdspan_uncopyable_with_kernel_t = std::enable_if_t<mdspan_uncopyable_with_kernel_v<DstType, SrcType>, T>;
+template <typename DstType, typename SrcType, typename T = void>
+using mdspan_uncopyable_with_kernel_t =
+  std::enable_if_t<mdspan_uncopyable_with_kernel_v<DstType, SrcType>, T>;
 
 #ifdef __CUDACC__
-auto static constexpr const mdspan_copy_tile_dim = 32;
+auto static constexpr const mdspan_copy_tile_dim   = 32;
 auto static constexpr const mdspan_copy_tile_elems = mdspan_copy_tile_dim * mdspan_copy_tile_dim;
 
 // Helper struct to work around lack of CUDA-native std::apply
-template<typename IdxType, IdxType... Idx>
-struct index_sequence {
-};
+template <typename IdxType, IdxType... Idx>
+struct index_sequence {};
 
-template<typename IdxType, IdxType N, IdxType... Idx>
-struct make_index_sequence : std::conditional_t<
-  N == IdxType{},
-  index_sequence<IdxType, Idx...>,
-  make_index_sequence<IdxType, N - IdxType{1}, N - IdxType{1}, Idx...>> {};
+template <typename IdxType, IdxType N, IdxType... Idx>
+struct make_index_sequence
+  : std::conditional_t<N == IdxType{},
+                       index_sequence<IdxType, Idx...>,
+                       make_index_sequence<IdxType, N - IdxType{1}, N - IdxType{1}, Idx...>> {};
 
 /* template <typename LambdaT, typename ContainerT, typename IdxT, IdxT... Idx>
-__host__ __device__ decltype(auto) apply(LambdaT&& lambda, ContainerT&& args, index_sequence<IdxT, Idx...>)
+__host__ __device__ decltype(auto) apply(LambdaT&& lambda, ContainerT&& args, index_sequence<IdxT,
+Idx...>)
 {
   return lambda(args[Idx]...);
 }
@@ -227,38 +229,40 @@ __host__ __device__ decltype(auto) apply(LambdaT&& lambda, ContainerT&& args, in
 template <typename LambdaT, typename ContainerT, typename IdxT, IdxT size>
 __host__ __device__ decltype(auto) apply(LambdaT&& lambda, ContainerT&& args)
 {
-  return apply(std::forward<LambdaT>(lambda), std::forward<ContainerT>(args), make_index_sequence<IdxT, size>{});
+  return apply(std::forward<LambdaT>(lambda), std::forward<ContainerT>(args),
+make_index_sequence<IdxT, size>{});
 } */
-
 
 /*
  * Given an mdspan and an array of indices, return a reference to the
  * indicated element.
  */
 template <typename MdspanType, typename IdxType, IdxType... Idx>
-__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices, index_sequence<IdxType, Idx...>)
+__device__ auto& get_mdspan_elem(MdspanType& md,
+                                 IdxType const* indices,
+                                 index_sequence<IdxType, Idx...>)
 {
   return md(indices[Idx]...);
 }
 
 template <typename MdspanType, typename IdxType>
-__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices) {
-  return get_mdspan_elem(md, indices, make_index_sequence<IdxType, MdspanType::extents_type::rank()>{});
+__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices)
+{
+  return get_mdspan_elem(
+    md, indices, make_index_sequence<IdxType, MdspanType::extents_type::rank()>{});
 }
 
 /* Advance old_indices forward by the number of mdspan elements specified
  * by increment. Store the result in indices. Return true if the new
  * indices are valid for the input mdspan.
  */
-template <typename MdspanType,
-          typename IdxType>
-__device__ auto increment_indices(
-    IdxType* indices,
-    MdspanType const& md,
-    IdxType const* old_indices,
-    IdxType const* index_strides,
-    IdxType increment
-) {
+template <typename MdspanType, typename IdxType>
+__device__ auto increment_indices(IdxType* indices,
+                                  MdspanType const& md,
+                                  IdxType const* old_indices,
+                                  IdxType const* index_strides,
+                                  IdxType increment)
+{
 #pragma unroll
   for (auto i = typename MdspanType::extents_type::rank_type{}; i < md.rank(); ++i) {
     increment += index_strides[i] * old_indices[i];
@@ -277,14 +281,16 @@ __device__ auto increment_indices(
 
     auto cur_index = IdxType{};
 
-    // printf("pre-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2], int(increment));
+    // printf("pre-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2],
+    // int(increment));
     while (cur_index < md.extent(real_index) - 1 && increment >= index_strides[real_index]) {
       increment -= index_strides[real_index];
       ++cur_index;
     }
     indices[real_index] = cur_index;
   }
-    // printf("post-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2], int(increment));
+  // printf("post-increment: %d %d %d: %d\n", old_indices[0], old_indices[1], old_indices[2],
+  // int(increment));
 
   return increment == IdxType{};
 }
@@ -296,8 +302,8 @@ __device__ auto increment_indices(
  * parameters.
  */
 template <typename DstType, typename SrcType>
-__global__ mdspan_copyable_with_kernel_t<DstType, SrcType>
-mdspan_copy_kernel(DstType dst, SrcType src)
+__global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(DstType dst,
+                                                                              SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 
@@ -376,58 +382,51 @@ mdspan_copy_kernel(DstType dst, SrcType src)
   ); */
   typename config::index_type cur_indices[config::dst_rank];
   auto valid_tile = increment_indices(
-    tile_offset,
-    src,
-    tile_offset,
-    index_strides,
-    blockIdx.x * mdspan_copy_tile_elems
-  );
+    tile_offset, src, tile_offset, index_strides, blockIdx.x * mdspan_copy_tile_elems);
 
   while (valid_tile) {
-    auto tile_read_x = std::is_same_v<typename config::src_layout_type, layout_f_contiguous> ? threadIdx.x : threadIdx.y;
-    auto tile_read_y = std::is_same_v<typename config::src_layout_type, layout_f_contiguous> ? threadIdx.y : threadIdx.x;
+    auto tile_read_x = std::is_same_v<typename config::src_layout_type, layout_f_contiguous>
+                         ? threadIdx.x
+                         : threadIdx.y;
+    auto tile_read_y = std::is_same_v<typename config::src_layout_type, layout_f_contiguous>
+                         ? threadIdx.y
+                         : threadIdx.x;
 
-    auto valid_index = increment_indices(
-      cur_indices,
-      src,
-      tile_offset,
-      index_strides,
-      tile_read_x * mdspan_copy_tile_dim + tile_read_y
-    );
+    auto valid_index = increment_indices(cur_indices,
+                                         src,
+                                         tile_offset,
+                                         index_strides,
+                                         tile_read_x * mdspan_copy_tile_dim + tile_read_y);
 
     if constexpr (config::same_underlying_layout || !config::dst_contiguous) {
       if (valid_index) {
-        tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices);
+        tile[tile_read_x][tile_read_y]    = get_mdspan_elem(src, cur_indices);
         get_mdspan_elem(dst, cur_indices) = tile[tile_read_x][tile_read_y];
       }
     } else {
       if (valid_index) {
-        // printf("read: %d %d %d -> %d %d: %d\n", cur_indices[0], cur_indices[1], cur_indices[2], tile_read_x, tile_read_y, int(get_mdspan_elem(src, cur_indices)));
+        // printf("read: %d %d %d -> %d %d: %d\n", cur_indices[0], cur_indices[1], cur_indices[2],
+        // tile_read_x, tile_read_y, int(get_mdspan_elem(src, cur_indices)));
         tile[tile_read_x][tile_read_y] = get_mdspan_elem(src, cur_indices);
       }
       __syncthreads();
 
-      valid_index = increment_indices(
-        cur_indices,
-        src,
-        tile_offset,
-        index_strides,
-        tile_read_y * mdspan_copy_tile_dim + tile_read_x
-      );
+      valid_index = increment_indices(cur_indices,
+                                      src,
+                                      tile_offset,
+                                      index_strides,
+                                      tile_read_y * mdspan_copy_tile_dim + tile_read_x);
       if (valid_index) {
-        // printf("write: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0], cur_indices[1], cur_indices[2], int(tile[tile_read_y][tile_read_x]));
+        // printf("write: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0],
+        // cur_indices[1], cur_indices[2], int(tile[tile_read_y][tile_read_x]));
         get_mdspan_elem(dst, cur_indices) = tile[tile_read_y][tile_read_x];
-        // printf("final: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0], cur_indices[1], cur_indices[2], int(get_mdspan_elem(dst, cur_indices)));
+        // printf("final: %d %d -> %d %d %d: %d\n", tile_read_x, tile_read_y, cur_indices[0],
+        // cur_indices[1], cur_indices[2], int(get_mdspan_elem(dst, cur_indices)));
       }
       __syncthreads();
     }
     valid_tile = increment_indices(
-      tile_offset,
-      src,
-      tile_offset,
-      index_strides,
-      blockDim.x * mdspan_copy_tile_elems
-    ); 
+      tile_offset, src, tile_offset, index_strides, blockDim.x * mdspan_copy_tile_elems);
   }
 }
 #endif
@@ -443,32 +442,24 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
   if constexpr (config::use_intermediate_src) {
     // Copy to intermediate source on device, then perform necessary
     // changes in layout on device, directly into final destination
-    using mdarray_t = device_mdarray<
-      typename config::src_value_type,
-      typename config::src_extents_type,
-      typename config::src_layout_type
-    >;
-    auto intermediate = mdarray_t(
-      res,
-      typename mdarray_t::mapping_type{src.extents()},
-      typename mdarray_t::container_policy_type{}
-    );
+    using mdarray_t   = device_mdarray<typename config::src_value_type,
+                                     typename config::src_extents_type,
+                                     typename config::src_layout_type>;
+    auto intermediate = mdarray_t(res,
+                                  typename mdarray_t::mapping_type{src.extents()},
+                                  typename mdarray_t::container_policy_type{});
     detail::copy(res, intermediate.view(), src);
     detail::copy(res, dst, intermediate.view());
 
   } else if constexpr (config::use_intermediate_dst) {
     // Perform necessary changes in layout on device, then copy to final
     // destination on host
-    using mdarray_t = device_mdarray<
-      typename config::dst_value_type,
-      typename config::dst_extents_type,
-      typename config::dst_layout_type
-    >;
-    auto intermediate = mdarray_t(
-      res,
-      typename mdarray_t::mapping_type{dst.extents()},
-      typename mdarray_t::container_policy_type{}
-    );
+    using mdarray_t   = device_mdarray<typename config::dst_value_type,
+                                     typename config::dst_extents_type,
+                                     typename config::dst_layout_type>;
+    auto intermediate = mdarray_t(res,
+                                  typename mdarray_t::mapping_type{dst.extents()},
+                                  typename mdarray_t::container_policy_type{});
     detail::copy(res, intermediate.view(), src);
     detail::copy(res, dst, intermediate.view());
   } else if constexpr (config::can_use_raft_copy) {
@@ -479,37 +470,35 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
     auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
     auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
     if constexpr (std::is_same_v<typename config::dst_layout_type, layout_c_contiguous>) {
-      CUBLAS_TRY(
-        linalg::detail::cublasgeam(resource::get_cublas_handle(res),
-                   CUBLAS_OP_T,
-                   CUBLAS_OP_N,
-                   dst.extent(1),
-                   dst.extent(0),
-                   &alpha,
-                   src.data_handle(),
-                   src.extent(0),
-                   &beta,
-                   dst.data_handle(),
-                   dst.extent(1),
-                   dst.data_handle(),
-                   dst.extent(1),
-                   resource::get_cuda_stream(res)));
+      CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
+                                            CUBLAS_OP_T,
+                                            CUBLAS_OP_N,
+                                            dst.extent(1),
+                                            dst.extent(0),
+                                            &alpha,
+                                            src.data_handle(),
+                                            src.extent(0),
+                                            &beta,
+                                            dst.data_handle(),
+                                            dst.extent(1),
+                                            dst.data_handle(),
+                                            dst.extent(1),
+                                            resource::get_cuda_stream(res)));
     } else {
-      CUBLAS_TRY(
-        linalg::detail::cublasgeam(resource::get_cublas_handle(res),
-                   CUBLAS_OP_T,
-                   CUBLAS_OP_N,
-                   dst.extent(0),
-                   dst.extent(1),
-                   &alpha,
-                   src.data_handle(),
-                   src.extent(1),
-                   &beta,
-                   dst.data_handle(),
-                   dst.extent(0),
-                   dst.data_handle(),
-                   dst.extent(0),
-                   resource::get_cuda_stream(res)));
+      CUBLAS_TRY(linalg::detail::cublasgeam(resource::get_cublas_handle(res),
+                                            CUBLAS_OP_T,
+                                            CUBLAS_OP_N,
+                                            dst.extent(0),
+                                            dst.extent(1),
+                                            &alpha,
+                                            src.data_handle(),
+                                            src.extent(1),
+                                            &beta,
+                                            dst.data_handle(),
+                                            dst.extent(0),
+                                            dst.data_handle(),
+                                            dst.extent(0),
+                                            resource::get_cuda_stream(res)));
     }
   } else if constexpr (config::custom_kernel_allowed) {
 #ifdef __CUDACC__
@@ -519,10 +508,8 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
       // sufficient considering that this kernel will likely overlap with
       // real computations for most use cases.
       typename config::index_type{32},
-      raft::ceildiv(
-        typename config::index_type(dst.size()),
-        typename config::index_type(mdspan_copy_tile_elems))
-    );
+      raft::ceildiv(typename config::index_type(dst.size()),
+                    typename config::index_type(mdspan_copy_tile_elems)));
     auto constexpr const threads = dim3{mdspan_copy_tile_dim, mdspan_copy_tile_dim, 1};
     mdspan_copy_kernel<<<blocks, threads, 0, resource::get_cuda_stream(res)>>>(dst, src);
 #else
@@ -530,7 +517,7 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
     // safety.
     RAFT_FAIL(
       "raft::copy called in a way that requires custom kernel. Please use "
-      "raft/core/mdspan_copy.cuh and include the header in a .cu file");
+      "raft/core/copy.cuh and include the header in a .cu file");
 #endif
   } else if constexpr (config::can_use_std_copy) {
     std::copy(src.data_handle(), src.data_handle() + dst.size(), dst.data_handle());
