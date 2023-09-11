@@ -214,7 +214,7 @@ void bench_search(::benchmark::State& state,
     } catch (const std::exception& ex) {
       state.SkipWithError("The algorithm '" + index.name +
                           "' requires the base set, but it's not available. " +
-                          "Exception: " + ex.what());
+                          "Exception: " + std::string(ex.what()));
       return;
     }
   }
