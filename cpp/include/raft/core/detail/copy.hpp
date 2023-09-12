@@ -239,15 +239,15 @@ make_index_sequence<IdxT, size>{});
  * indicated element.
  */
 template <typename MdspanType, typename IdxType, IdxType... Idx>
-__device__ auto& get_mdspan_elem(MdspanType& md,
-                                 IdxType const* indices,
-                                 index_sequence<IdxType, Idx...>)
+__device__ decltype(auto) get_mdspan_elem(MdspanType md,
+                                          IdxType const* indices,
+                                          index_sequence<IdxType, Idx...>)
 {
   return md(indices[Idx]...);
 }
 
 template <typename MdspanType, typename IdxType>
-__device__ auto& get_mdspan_elem(MdspanType& md, IdxType const* indices)
+__device__ decltype(auto) get_mdspan_elem(MdspanType md, IdxType const* indices)
 {
   return get_mdspan_elem(
     md, indices, make_index_sequence<IdxType, MdspanType::extents_type::rank()>{});
