@@ -13,8 +13,6 @@
 set(RAPIDS_VERSION "23.10")
 set(RAFT_VERSION "23.10.00")
 
-option(DISABLE_CUDA "Disable CUDA" OFF)
-
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
@@ -105,7 +103,6 @@ message(VERBOSE "RAFT: Build CPU only components: ${BUILD_CPU_ONLY}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
-message(VERBOSE "RAFT: Disable CUDA: ${DISABLE_CUDA}")
 message(VERBOSE "RAFT: Enable kernel resource usage info: ${CUDA_ENABLE_KERNELINFO}")
 message(VERBOSE "RAFT: Enable lineinfo in nvcc: ${CUDA_ENABLE_LINEINFO}")
 message(VERBOSE "RAFT: Enable nvtx markers: ${RAFT_NVTX}")
@@ -213,22 +210,19 @@ if(NOT BUILD_CPU_ONLY)
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
-set(RAFT_CTK_MATH_DEPENDENCIES "")
-if(NOT DISABLE_CUDA)
-  target_compile_options(
-    raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
-                   --expt-relaxed-constexpr>
-  )
+target_compile_options(
+  raft INTERFACE $<$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>:--expt-extended-lambda
+                 --expt-relaxed-constexpr>
+)
 
-  set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
-  set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
-  set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
-  set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
+set(RAFT_CUSOLVER_DEPENDENCY CUDA::cusolver${_ctk_static_suffix})
+set(RAFT_CUBLAS_DEPENDENCY CUDA::cublas${_ctk_static_suffix})
+set(RAFT_CURAND_DEPENDENCY CUDA::curand${_ctk_static_suffix})
+set(RAFT_CUSPARSE_DEPENDENCY CUDA::cusparse${_ctk_static_suffix})
 
-  set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
-                                 ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
-  )
-endif()
+set(RAFT_CTK_MATH_DEPENDENCIES ${RAFT_CUBLAS_DEPENDENCY} ${RAFT_CUSOLVER_DEPENDENCY}
+                               ${RAFT_CUSPARSE_DEPENDENCY} ${RAFT_CURAND_DEPENDENCY}
+)
 
 # Endian detection
 include(TestBigEndian)
@@ -255,7 +249,7 @@ endif()
 # ##################################################################################################
 # * NVTX support in raft -----------------------------------------------------
 
-if(RAFT_NVTX AND (NOT DISABLE_CUDA))
+if(RAFT_NVTX)
   # This enables NVTX within the project with no option to disable it downstream.
   target_link_libraries(raft INTERFACE CUDA::nvToolsExt)
   target_compile_definitions(raft INTERFACE NVTX_ENABLED)
@@ -531,35 +525,26 @@ target_link_libraries(
 # * raft_distributed -------------------------------------------------------------------------------
 add_library(raft_distributed INTERFACE)
 
-# No distributed support for CUDA-free builds yet
-if(TARGET raft_distributed
-   AND (NOT TARGET raft::distributed)
-   AND (NOT DISABLE_CUDA)
-)
+if(TARGET raft_distributed AND (NOT TARGET raft::distributed))
   add_library(raft::distributed ALIAS raft_distributed)
 endif()
 
 set_target_properties(raft_distributed PROPERTIES EXPORT_NAME distributed)
 
-if(NOT RAFT_DISABLE_CUDA)
-  rapids_find_generate_module(
-    NCCL
-    HEADER_NAMES nccl.h
-    LIBRARY_NAMES nccl
-    BUILD_EXPORT_SET raft-distributed-exports
-    INSTALL_EXPORT_SET raft-distributed-exports
-  )
-endif()
+rapids_find_generate_module(
+  NCCL
+  HEADER_NAMES nccl.h
+  LIBRARY_NAMES nccl
+  BUILD_EXPORT_SET raft-distributed-exports
+  INSTALL_EXPORT_SET raft-distributed-exports
+)
 
 rapids_export_package(BUILD ucx raft-distributed-exports)
 rapids_export_package(INSTALL ucx raft-distributed-exports)
-if(NOT RAFT_DISABLE_CUDA)
-  rapids_export_package(BUILD NCCL raft-distributed-exports)
-  rapids_export_package(INSTALL NCCL raft-distributed-exports)
-  target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
-else()
-  target_link_libraries(raft_distributed INTERFACE ucx::ucp)
-endif()
+rapids_export_package(BUILD NCCL raft-distributed-exports)
+rapids_export_package(INSTALL NCCL raft-distributed-exports)
+
+target_link_libraries(raft_distributed INTERFACE ucx::ucp NCCL::NCCL)
 
 # ##################################################################################################
 # * install targets-----------------------------------------------------------

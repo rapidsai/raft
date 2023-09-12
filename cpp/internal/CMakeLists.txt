@@ -17,9 +17,5 @@ if(BUILD_TESTS OR BUILD_PRIMS_BENCH)
   target_include_directories(
     raft_internal INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/internal>"
   )
-  if(DISABLE_CUDA)
-    target_compile_features(raft_internal INTERFACE cxx_std_17)
-  else()
-    target_compile_features(raft_internal INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
-  endif()
+  target_compile_features(raft_internal INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 endif()
