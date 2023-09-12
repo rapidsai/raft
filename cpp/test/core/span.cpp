@@ -13,6 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/* TODO: This include of cuda_runtime.h is needed to work around
+ * https://github.com/NVIDIA/libcudacxx/pull/476
+ * which is resolved in CCCL 2.2.0. The macro definition order requires CUDA
+ * headers to be included before libcudacxx headers.
+ */
+#include <cuda_runtime.h>
+
 #include "test_span.hpp"
 #include <gtest/gtest.h>
 #include <numeric>  // iota
