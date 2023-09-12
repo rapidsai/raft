@@ -21,7 +21,6 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/logger.hpp>
 
 namespace raft {
 TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)
@@ -168,10 +167,8 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
   auto out_long =
     make_host_mdarray<std::int64_t, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
       res, extents<std::uint32_t, depth, rows, cols>{});
-  RAFT_LOG_WARN("BEGIN dtype conversion without transpose");
   copy(res, out_long.view(), in_left.view());
   res.sync_stream();
-  RAFT_LOG_WARN("END dtype conversion without transpose");
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
       for (auto k = std::uint32_t{}; k < cols; ++k) {

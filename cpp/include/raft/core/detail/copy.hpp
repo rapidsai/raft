@@ -19,6 +19,7 @@
 #include <execution>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/device_mdspan.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/mdspan.hpp>
@@ -378,6 +379,7 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
   }
 
   if constexpr (config::use_intermediate_src) {
+#ifndef RAFT_DISABLE_CUDA
     // Copy to intermediate source on device, then perform necessary
     // changes in layout on device, directly into final destination
     using mdarray_t   = device_mdarray<typename config::src_value_type,
@@ -388,8 +390,13 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
                                   typename mdarray_t::container_policy_type{});
     detail::copy(res, intermediate.view(), src);
     detail::copy(res, dst, intermediate.view());
+#else
+    // Not possible to reach this due to enable_ifs. Included for safety.
+    throw(raft::non_cuda_build_error("Copying to device in non-CUDA build"));
+#endif
 
   } else if constexpr (config::use_intermediate_dst) {
+#ifndef RAFT_DISABLE_CUDA
     // Perform necessary changes in layout on device, then copy to final
     // destination on host
     using mdarray_t   = device_mdarray<typename config::dst_value_type,
@@ -400,11 +407,18 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
                                   typename mdarray_t::container_policy_type{});
     detail::copy(res, intermediate.view(), src);
     detail::copy(res, dst, intermediate.view());
+#else
+    throw(raft::non_cuda_build_error("Copying from device in non-CUDA build"));
+#endif
   } else if constexpr (config::can_use_raft_copy) {
 #ifndef RAFT_DISABLE_CUDA
     raft::copy(dst.data_handle(), src.data_handle(), dst.size(), resource::get_cuda_stream(res));
+#else
+    // Not possible to reach this due to enable_ifs. Included for safety.
+    throw(raft::non_cuda_build_error("Copying to from or on device in non-CUDA build"));
 #endif
   } else if constexpr (config::can_use_cublas) {
+#ifndef RAFT_DISABLE_CUDA
     auto constexpr const alpha = typename std::remove_reference_t<DstType>::value_type{1};
     auto constexpr const beta  = typename std::remove_reference_t<DstType>::value_type{0};
     if constexpr (std::is_same_v<typename config::dst_layout_type, layout_c_contiguous>) {
@@ -438,6 +452,10 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
                                             dst.extent(0),
                                             resource::get_cuda_stream(res)));
     }
+#else
+    // Not possible to reach this due to enable_ifs. Included for safety.
+    throw(raft::non_cuda_build_error("Copying to from or on device in non-CUDA build"));
+#endif
   } else if constexpr (config::custom_kernel_allowed) {
 #ifdef __CUDACC__
     auto const blocks = std::min(

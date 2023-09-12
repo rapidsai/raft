@@ -21,7 +21,7 @@ rapids_test_init()
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA)
   set(oneValueArgs NAME GPUS PERCENT)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -37,7 +37,11 @@ function(ConfigureTest)
     set(_RAFT_TEST_PERCENT 100)
   endif()
 
-  set(TEST_NAME ${_RAFT_TEST_NAME})
+  if(_RAFT_TEST_NOCUDA)
+    set(TEST_NAME "${_RAFT_TEST_NAME}_NOCUDA")
+  else()
+    set(TEST_NAME ${_RAFT_TEST_NAME})
+  endif()
 
   add_executable(${TEST_NAME} ${_RAFT_TEST_PATH})
   target_link_libraries(
@@ -67,6 +71,9 @@ function(ConfigureTest)
   )
   if(_RAFT_TEST_EXPLICIT_INSTANTIATE_ONLY)
     target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
+  if(_RAFT_TEST_NOCUDA)
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_DISABLE_CUDA")
   endif()
 
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
@@ -125,10 +132,16 @@ if(BUILD_TESTS)
     test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/stream_view.cpp
     test/core/temporary_device_buffer.cu
     test/test.cpp
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(
+    NAME CORE_TEST PATH test/core/stream_view.cpp test/core/mdspan_copy.cpp LIB
+    EXPLICIT_INSTANTIATE_ONLY NOCUDA
   )
 
   ConfigureTest(
