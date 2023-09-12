@@ -31,18 +31,26 @@
 namespace raft::bench::ann {
 
 template <typename T>
+void parse_base_build_param(const nlohmann::json& conf,
+                            typename raft::bench::ann::FaissGpu<T>::BuildParam& param)
+{
+  param.nlist = conf.at("nlist");
+  if (conf.contains("ratio")) { param.ratio = conf.at("ratio"); }
+}
+
+template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFFlat<T>::BuildParam& param)
 {
-  param.nlist = conf.at("nlist");
+  parse_base_build_param<T>(conf, param);
 }
 
 template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFPQ<T>::BuildParam& param)
 {
-  param.nlist = conf.at("nlist");
-  param.M     = conf.at("M");
+  parse_base_build_param<T>(conf, param);
+  param.M = conf.at("M");
   if (conf.contains("usePrecomputed")) {
     param.usePrecomputed = conf.at("usePrecomputed");
   } else {
@@ -59,7 +67,7 @@ template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFSQ<T>::BuildParam& param)
 {
-  param.nlist          = conf.at("nlist");
+  parse_base_build_param<T>(conf, param);
   param.quantizer_type = conf.at("quantizer_type");
 }
 
