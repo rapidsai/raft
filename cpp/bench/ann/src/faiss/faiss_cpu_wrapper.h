@@ -17,6 +17,7 @@
 
 #include "../common/ann_types.hpp"
 
+#define FMT_HEADER_ONLY
 #include <raft/core/logger.hpp>
 
 #include <faiss/IndexFlat.h>
@@ -98,6 +99,15 @@ class Faiss : public ANN<T> {
 
   void set_search_param(const AnnSearchParam& param) override;
 
+  void init_quantizer(int dim)
+  {
+    if (this->metric_type_ == faiss::MetricType::METRIC_L2) {
+      this->quantizer_ = std::make_unique<faiss::IndexFlatL2>(dim);
+    } else if (this->metric_type_ == faiss::MetricType::METRIC_INNER_PRODUCT) {
+      this->quantizer_ = std::make_unique<faiss::IndexFlatIP>(dim);
+    }
+  }
+
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
   void search(const T* queries,
@@ -117,13 +127,14 @@ class Faiss : public ANN<T> {
   }
 
  protected:
-  template <typename Index, typename CpuIndex>
+  template <typename Index>
   void save_(const std::string& file) const;
 
-  template <typename Index, typename CpuIndex>
+  template <typename Index>
   void load_(const std::string& file);
 
   std::unique_ptr<faiss::Index> index_;
+  std::unique_ptr<faiss::Index> quantizer_;
   std::unique_ptr<faiss::IndexRefineFlat> index_refine_;
   faiss::MetricType metric_type_;
   int nlist_;
@@ -159,7 +170,6 @@ void Faiss<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::IndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
-  stream_wait(stream);
 }
 
 template <typename T>
@@ -168,7 +178,7 @@ void Faiss<T>::set_search_param(const AnnSearchParam& param)
   auto search_param = dynamic_cast<const SearchParam&>(param);
   int nprobe        = search_param.nprobe;
   assert(nprobe <= nlist_);
-  dynamic_cast<faiss::IndexIVF*>(index_.get())->setNumProbes(nprobe);
+  dynamic_cast<faiss::IndexIVF*>(index_.get())->nprobe = nprobe;
 
   if (search_param.refine_ratio > 1.0) {
     this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
@@ -191,14 +201,11 @@ void Faiss<T>::search(const T* queries,
 }
 
 template <typename T>
-template <typename Index, typename CpuIndex>
+template <typename Index>
 void Faiss<T>::save_(const std::string& file) const
 {
   OmpSingleThreadScope omp_single_thread;
-
-  auto cpu_index = std::make_unique<CpuIndex>();
-  dynamic_cast<Index*>(index_.get())->copyTo(cpu_index.get());
-  faiss::write_index(cpu_index.get(), file.c_str());
+  faiss::write_index(index_.get(), file.c_str());
 }
 
 template <typename T>
@@ -206,8 +213,7 @@ template <typename Index>
 void Faiss<T>::load_(const std::string& file)
 {
   OmpSingleThreadScope omp_single_thread;
-
-  index_ = std::make_unique<Index>(dynamic_cast<CpuIndex*>(faiss::read_index(file.c_str())));
+  index_ = std::unique_ptr<Index>(dynamic_cast<Index*>(faiss::read_index(file.c_str())));
 }
 
 template <typename T>
@@ -217,20 +223,16 @@ class FaissIVFFlat : public Faiss<T> {
 
   FaissIVFFlat(Metric metric, int dim, const BuildParam& param) : Faiss<T>(metric, dim, param)
   {
-    faiss::IndexIVFFlatConfig config;
-    config.device = this->device_;
-    this->index_  = std::make_unique<faiss::IndexIVFFlat>(
-      &(this->_resource_), dim, param.nlist, this->metric_type_, config);
+    this->init_quantizer(dim);
+    this->index_ = std::make_unique<faiss::IndexIVFFlat>(
+      this->quantizer_.get(), dim, param.nlist, this->metric_type_);
   }
 
   void save(const std::string& file) const override
   {
-    this->template save_<faiss::IndexIVFFlat, faiss::IndexIVFFlat>(file);
+    this->template save_<faiss::IndexIVFFlat>(file);
   }
-  void load(const std::string& file) override
-  {
-    this->template load_<faiss::IndexIVFFlat, faiss::IndexIVFFlat>(file);
-  }
+  void load(const std::string& file) override { this->template load_<faiss::IndexIVFFlat>(file); }
 };
 
 template <typename T>
@@ -238,33 +240,22 @@ class FaissIVFPQ : public Faiss<T> {
  public:
   struct BuildParam : public Faiss<T>::BuildParam {
     int M;
-    bool useFloat16;
+    int bitsPerCode;
     bool usePrecomputed;
   };
 
   FaissIVFPQ(Metric metric, int dim, const BuildParam& param) : Faiss<T>(metric, dim, param)
   {
-    faiss::IndexIVFPQConfig config;
-    config.useFloat16LookupTables = param.useFloat16;
-    config.usePrecomputedTables   = param.usePrecomputed;
-    config.device                 = this->device_;
-    this->index_                  = std::make_unique<faiss::IndexIVFPQ>(&(this->_resource_),
-                                                       dim,
-                                                       param.nlist,
-                                                       param.M,
-                                                       8,  // FAISS only supports bitsPerCode=8
-                                                       this->metric_type_,
-                                                       config);
+    this->init_quantizer(dim);
+    this->index_ = std::make_unique<faiss::IndexIVFPQ>(
+      this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);
   }
 
   void save(const std::string& file) const override
   {
-    this->template save_<faiss::IndexIVFPQ, faiss::IndexIVFPQ>(file);
+    this->template save_<faiss::IndexIVFPQ>(file);
   }
-  void load(const std::string& file) override
-  {
-    this->template load_<faiss::IndexIVFPQ, faiss::IndexIVFPQ>(file);
-  }
+  void load(const std::string& file) override { this->template load_<faiss::IndexIVFPQ>(file); }
 };
 
 template <typename T>
@@ -286,19 +277,18 @@ class FaissIVFSQ : public Faiss<T> {
                                param.quantizer_type);
     }
 
-    faiss::IndexIVFScalarQuantizerConfig config;
-    config.device = this->device_;
-    this->index_  = std::make_unique<faiss::IndexIVFScalarQuantizer>(
-      &(this->_resource_), dim, param.nlist, qtype, this->metric_type_, true, config);
+    this->init_quantizer(dim);
+    this->index_ = std::make_unique<faiss::IndexIVFScalarQuantizer>(
+      this->quantizer_.get(), dim, param.nlist, qtype, this->metric_type_, true);
   }
 
   void save(const std::string& file) const override
   {
-    this->template save_<faiss::IndexIVFScalarQuantizer, faiss::IndexIVFScalarQuantizer>(file);
+    this->template save_<faiss::IndexIVFScalarQuantizer>(file);
   }
   void load(const std::string& file) override
   {
-    this->template load_<faiss::IndexIVFScalarQuantizer, faiss::IndexIVFScalarQuantizer>(file);
+    this->template load_<faiss::IndexIVFScalarQuantizer>(file);
   }
 };
 
@@ -307,10 +297,7 @@ class FaissFlat : public Faiss<T> {
  public:
   FaissFlat(Metric metric, int dim) : Faiss<T>(metric, dim, typename Faiss<T>::BuildParam{})
   {
-    faiss::IndexFlatConfig config;
-    config.device = this->device_;
-    this->index_ =
-      std::make_unique<faiss::IndexFlat>(&(this->_resource_), dim, this->metric_type_, config);
+    this->index_ = std::make_unique<faiss::IndexFlat>(dim, this->metric_type_);
   }
 
   // class Faiss is more like a IVF class, so need special treating here
@@ -318,12 +305,9 @@ class FaissFlat : public Faiss<T> {
 
   void save(const std::string& file) const override
   {
-    this->template save_<faiss::IndexFlat, faiss::IndexFlat>(file);
+    this->template save_<faiss::IndexFlat>(file);
   }
-  void load(const std::string& file) override
-  {
-    this->template load_<faiss::IndexFlat, faiss::IndexFlat>(file);
-  }
+  void load(const std::string& file) override { this->template load_<faiss::IndexFlat>(file); }
 };
 
 }  // namespace raft::bench::ann

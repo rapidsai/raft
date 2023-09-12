@@ -55,10 +55,10 @@ void parse_build_param(const nlohmann::json& conf,
   } else {
     param.usePrecomputed = false;
   }
-  if (conf.contains("useFloat16")) {
-    param.useFloat16 = conf.at("useFloat16");
+  if (conf.contains("bitsPerCode")) {
+    param.bitsPerCode = conf.at("bitsPerCode");
   } else {
-    param.useFloat16 = false;
+    param.bitsPerCode = 8;
   }
 }
 

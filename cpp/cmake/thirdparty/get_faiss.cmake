@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_and_configure_faiss)
-    set(oneValueArgs VERSION REPOSITORY PINNED_TAG BUILD_STATIC_LIBS EXCLUDE_FROM_ALL)
+    set(oneValueArgs VERSION REPOSITORY PINNED_TAG BUILD_STATIC_LIBS EXCLUDE_FROM_ALL ENABLE_GPU)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
@@ -39,7 +39,7 @@ function(find_and_configure_faiss)
                 OPTIONS
                 "FAISS_ENABLE_PYTHON OFF"
                 "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
-                "FAISS_ENABLE_GPU ON"
+                "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
                 "BUILD_TESTING OFF"
                 "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
@@ -84,4 +84,6 @@ find_and_configure_faiss(VERSION    1.7.0
         REPOSITORY  ${RAFT_FAISS_GIT_REPOSITORY}
         PINNED_TAG  ${RAFT_FAISS_GIT_TAG}
         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
-        EXCLUDE_FROM_ALL ${RAFT_EXCLUDE_FAISS_FROM_ALL})
+        EXCLUDE_FROM_ALL ${RAFT_EXCLUDE_FAISS_FROM_ALL}
+        ENABLE_GPU ${RAFT_FAISS_ENABLE_GPU})
+
