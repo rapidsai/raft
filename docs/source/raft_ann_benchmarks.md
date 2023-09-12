@@ -34,12 +34,11 @@ There are 4 general steps to running the benchmarks and visualizing the results:
 We provide a collection of lightweight Python scripts that are wrappers over
 lower level scripts and executables to run our benchmarks. Either Python scripts or
 [low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
-however plots are only provided through our Python scripts. An environment variable `RAFT_HOME` is
-expected to be defined to run these scripts; this variable holds the directory where RAFT is cloned.
+however plots are only provided through our Python scripts.
 
 ### End-to-end example: Million-scale
 
-The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the RAPIDS_DATASET_ROOT_DIR environment variable if defined, otherwise a datasets sub-folder from where the script is being called:
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the `RAPIDS_DATASET_ROOT_DIR` environment variable if defined, otherwise a datasets sub-folder from where the script is being called:
 
 ```bash
 
@@ -56,7 +55,7 @@ python -m raft-ann-bench.data_export --dataset deep-image-96-inner
 python -m raft-ann-bench.plot --dataset deep-image-96-inner
 ```
 
-Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `python/raft-ann-bench/src/raft-ann-bench/run/conf`.
+Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft-ann-bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
 - `deep-image-96-angular`
 - `fashion-mnist-784-euclidean`
 - `glove-50-angular`
@@ -93,7 +92,7 @@ python -m raft-ann-bench.data_export --dataset deep-1B
 python -m raft-ann-bench.plot --dataset deep-1B
 ```
 
-The usage of `python -m raft-ann-bench.split-groundtruth` is:
+The usage of `python -m raft-ann-bench.split_groundtruth` is:
 ```bash
 usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
 
@@ -125,7 +124,7 @@ will be normalized to inner product. So, for example, the dataset `glove-100-ang
 will be written at location `datasets/glove-100-inner/`.
 
 #### Step 2: Build and Search Index
-The script `bench/ann/run.py` will build and search indices for a given dataset and its
+The script `raft-ann-bench.run` will build and search indices for a given dataset and its
 specified configuration.
 To confirgure which algorithms are available, we use `algos.yaml`.
 To configure building/searching indices for a dataset, look at [index configuration](#json-index-config).
@@ -182,7 +181,7 @@ it is assumed both are `True`.
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 #### Step 3: Data Export
-The script `bench/ann/data_export.py` will convert the intermediate JSON outputs produced by `raft-ann-bench.run` to more
+The script `raft-ann-bench.data_export` will convert the intermediate JSON outputs produced by `raft-ann-bench.run` to more
 easily readable CSV files, which are needed to build charts made by `raft-ann-bench.plot`.
 
 ```bash
@@ -198,7 +197,7 @@ Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<al
 and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
 
 #### Step 4: Plot Results
-The script `bench/ann/plot.py` will plot results for all algorithms found in index search statistics
+The script `raft-ann-bench.plot` will plot results for all algorithms found in index search statistics
 CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}>.csv`.
 
 The usage of this script is:
@@ -262,7 +261,7 @@ The `index` section will contain a list of index objects, each of which will hav
    "algo": "algo_name",
    "file": "sift-128-euclidean/algo_name/param1_val1-param2_val2",
    "build_param": { "param1": "val1", "param2": "val2" },
-   "search_params": { "search_param1": "search_val1" }
+   "search_params": [{ "search_param1": "search_val1" }]
 }
 ```
 
@@ -345,7 +344,7 @@ How to interpret these JSON objects is totally left to the implementation and sh
     }
     ```
 
-2. Next, add corresponding `if` case to functions `create_algo()` (in `bench/ann/) and `create_search_param()` by calling parsing functions. The string literal in `if` condition statement must be the same as the value of `algo` in configuration file. For example,
+2. Next, add corresponding `if` case to functions `create_algo()` (in `cpp/bench/ann/) and `create_search_param()` by calling parsing functions. The string literal in `if` condition statement must be the same as the value of `algo` in configuration file. For example,
     ```c++
       // JSON configuration file contains a line like:  "algo" : "hnswlib"
       if (algo == "hnswlib") {
