@@ -17,7 +17,10 @@
 
 #include "../common/ann_types.hpp"
 
+#ifndef FMT_HEADER_ONLY
+#define FMT_HEADER_ONLY_DEF
 #define FMT_HEADER_ONLY
+#endif
 #include <raft/core/logger.hpp>
 
 #include <faiss/IndexFlat.h>
@@ -311,3 +314,7 @@ class FaissFlat : public Faiss<T> {
 };
 
 }  // namespace raft::bench::ann
+
+#ifdef FMT_HEADER_ONLY_DEF
+#undef FMT_HEADER_ONLY
+#endif

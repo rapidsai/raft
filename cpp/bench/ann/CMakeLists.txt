@@ -15,12 +15,14 @@
 # ##################################################################################################
 # * benchmark options ------------------------------------------------------------------------------
 
-option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_FAISS_CPU_BFKNN
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
        "Include faiss' cpu brute-force knn algorithm in benchmark" ON
 )
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark" ON)
+
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
        ON
 )
@@ -41,7 +43,7 @@ find_package(Threads REQUIRED)
 
 if(BUILD_CPU_ONLY)
   set(RAFT_FAISS_ENABLE_GPU OFF)
-  set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
+  set(RAFT_ANN_BENCH_USE_FAISS_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
   set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
@@ -53,7 +55,7 @@ else()
   # https://github.com/rapidsai/raft/issues/1627
   if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
     set(RAFT_FAISS_ENABLE_GPU OFF)
-    set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
   else()
@@ -62,10 +64,10 @@ else()
 endif()
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
-if(RAFT_ANN_BENCH_USE_FAISS_BFKNN
+if(RAFT_ANN_BENCH_USE_FAISS_FLAT
    OR RAFT_ANN_BENCH_USE_FAISS_IVFPQ
    OR RAFT_ANN_BENCH_USE_FAISS_IFFLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_BFKNN
+   OR RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVFPQ
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_IFFLAT
 )
@@ -74,6 +76,7 @@ endif()
 
 set(RAFT_ANN_BENCH_USE_RAFT OFF)
 if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
+   OR RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE
    OR RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_RAFT_CAGRA
 )
@@ -215,6 +218,12 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT)
   )
 endif()
 
+if(RAFT_ANN_BENCH_USE_RAFT_BRUTE_FORCE)
+  ConfigureAnnBench(
+    NAME RAFT_BRUTE_FORCE PATH bench/ann/src/raft/raft_benchmark.cu LINKS raft::compiled
+  )
+endif()
+
 if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
   ConfigureAnnBench(
     NAME
@@ -227,9 +236,9 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
+if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+    NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
   )
 endif()
 
@@ -245,14 +254,20 @@ if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   )
 endif()
 
+if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
+  ConfigureAnnBench(
+    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+  )
+endif()
+
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
   ConfigureAnnBench(
     NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
   )
 endif()
 
-if(RAFT_ANN_BENCH_USE_FAISS_BFKNN)
-  ConfigureAnnBench(NAME FAISS_BFKNN PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
+if(RAFT_ANN_BENCH_USE_FAISS_FLAT)
+  ConfigureAnnBench(NAME FAISS_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)
