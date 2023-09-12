@@ -16,8 +16,8 @@
 #pragma once
 namespace raft {
 #ifndef RAFT_DISABLE_CUDA
-  auto constexpr static const CUDA_ENABLED = true;
+auto constexpr static const CUDA_ENABLED = true;
 #else
-  auto constexpr static const CUDA_ENABLED = false;
+auto constexpr static const CUDA_ENABLED = false;
 #endif
 }  // namespace raft

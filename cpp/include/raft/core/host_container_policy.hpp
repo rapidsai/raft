@@ -76,8 +76,10 @@ class host_vector_policy {
  */
 template <typename ElementType>
 struct pinned_vector_policy {
-  using element_type          = ElementType;
-  using allocator_type        = thrust::mr::stateless_resource_allocator<element_type, thrust::cuda::universal_host_pinned_memory_resource>;
+  using element_type = ElementType;
+  using allocator_type =
+    thrust::mr::stateless_resource_allocator<element_type,
+                                             thrust::cuda::universal_host_pinned_memory_resource>;
   using container_type        = thrust::host_vector<element_type, allocator_type>;
   using pointer               = typename container_type::pointer;
   using const_pointer         = typename container_type::const_pointer;
@@ -86,9 +88,15 @@ struct pinned_vector_policy {
   using accessor_policy       = std::experimental::default_accessor<element_type>;
   using const_accessor_policy = std::experimental::default_accessor<element_type const>;
 
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, allocator_); }
+  auto create(raft::resources const&, size_t n) -> container_type
+  {
+    return container_type(n, allocator_);
+  }
 
-  constexpr pinned_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) : mr_{}, allocator_{&mr_} {}
+  constexpr pinned_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>)
+    : mr_{}, allocator_{&mr_}
+  {
+  }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -102,6 +110,7 @@ struct pinned_vector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+
  private:
   thrust::system::cuda::universal_host_pinned_memory_resource mr_;
   allocator_type allocator_;
