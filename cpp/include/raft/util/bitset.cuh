@@ -23,7 +23,7 @@
 #include <raft/util/device_atomics.cuh>
 #include <thrust/for_each.h>
 
-namespace raft::utils {
+namespace raft::util {
 /**
  * @defgroup bitset Bitset
  * @{
@@ -157,11 +157,11 @@ struct bitset {
    *
    * @return bitset_view<bitset_t, index_t>
    */
-  inline auto view() -> raft::utils::bitset_view<bitset_t, index_t>
+  inline auto view() -> raft::util::bitset_view<bitset_t, index_t>
   {
     return bitset_view<bitset_t, index_t>(bitset_.view());
   }
-  [[nodiscard]] inline auto view() const -> raft::utils::bitset_view<const bitset_t, index_t>
+  [[nodiscard]] inline auto view() const -> raft::util::bitset_view<const bitset_t, index_t>
   {
     return bitset_view<const bitset_t, index_t>(bitset_.view());
   }
@@ -201,13 +201,13 @@ struct bitset {
  */
 template <typename bitset_t, typename index_t>
 void bitset_set(const raft::resources& res,
-                raft::utils::bitset_view<bitset_t, index_t> bitset_view_,
+                raft::util::bitset_view<bitset_t, index_t> bitset_view_,
                 raft::device_vector_view<const index_t, index_t> mask_index,
                 bool set_value = false)
 {
   auto* bitset_ptr = bitset_view_.data_handle();
   constexpr auto bitset_element_size =
-    raft::utils::bitset_view<bitset_t, index_t>::bitset_element_size;
+    raft::util::bitset_view<bitset_t, index_t>::bitset_element_size;
   thrust::for_each_n(
     resource::get_thrust_policy(res),
     mask_index.data_handle(),
@@ -238,7 +238,7 @@ void bitset_set(const raft::resources& res,
  */
 template <typename bitset_t, typename index_t, typename output_t = bool>
 void bitset_test(const raft::resources& res,
-                 const raft::utils::bitset_view<bitset_t, index_t> bitset_view_,
+                 const raft::util::bitset_view<bitset_t, index_t> bitset_view_,
                  raft::device_vector_view<const index_t, index_t> queries,
                  raft::device_vector_view<output_t, index_t> output)
 {
@@ -260,7 +260,7 @@ void bitset_test(const raft::resources& res,
  */
 template <typename bitset_t, typename index_t>
 void bitset_flip(const raft::resources& res,
-                 raft::utils::bitset_view<bitset_t, index_t> bitset_view_)
+                 raft::util::bitset_view<bitset_t, index_t> bitset_view_)
 {
   auto bitset_span = bitset_view_.to_mdspan();
   raft::linalg::map(
@@ -270,4 +270,4 @@ void bitset_flip(const raft::resources& res,
     raft::make_const_mdspan(bitset_span));
 }
 /** @} */
-}  // end namespace raft::utils
+}  // end namespace raft::util
