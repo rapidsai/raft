@@ -38,8 +38,6 @@ class Ggnn : public ANN<T> {
     int num_layers{4};     // L
     float tau{0.5};
     int refine_iterations{2};
-
-    size_t dataset_size;
     int k;  // GGNN requires to know k during building
   };
 
@@ -182,12 +180,6 @@ GgnnImpl<T, measure, D, KBuild, KQuery, S>::GgnnImpl(Metric metric,
   }
 
   if (dim != D) { throw std::runtime_error("mis-matched dim"); }
-
-  int device;
-  RAFT_CUDA_TRY(cudaGetDevice(&device));
-
-  ggnn_ = std::make_unique<GGNNGPUInstance>(
-    device, build_param_.dataset_size, build_param_.num_layers, true, build_param_.tau);
 }
 
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
@@ -195,11 +187,10 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
                                                        size_t nrow,
                                                        cudaStream_t stream)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
+  int device;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
+  ggnn_ = std::make_unique<GGNNGPUInstance>(
+    device, nrow, build_param_.num_layers, true, build_param_.tau);
 
   ggnn_->set_base_data(dataset);
   ggnn_->set_stream(stream);
@@ -212,11 +203,6 @@ void GgnnImpl<T, measure, D, KBuild, KQuery, S>::build(const T* dataset,
 template <typename T, DistanceMeasure measure, int D, int KBuild, int KQuery, int S>
 void GgnnImpl<T, measure, D, KBuild, KQuery, S>::set_search_dataset(const T* dataset, size_t nrow)
 {
-  if (nrow != build_param_.dataset_size) {
-    throw std::runtime_error(
-      "build_param_.dataset_size = " + std::to_string(build_param_.dataset_size) +
-      " , but nrow = " + std::to_string(nrow));
-  }
   ggnn_->set_base_data(dataset);
 }
 
