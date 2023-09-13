@@ -80,20 +80,6 @@ function(find_and_configure_faiss)
     rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-ann-bench-exports)
 endfunction()
 
-if(NOT RAFT_FAISS_GIT_TAG)
-    # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
-    # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_TAG fea/statically-link-ctk-v1.7.0)
-    # set(RAFT_FAISS_GIT_TAG bde7c0027191f29c9dadafe4f6e68ca0ee31fb30)
-endif()
-
-if(NOT RAFT_FAISS_GIT_REPOSITORY)
-    # TODO: Remove this once faiss supports FAISS_USE_CUDA_TOOLKIT_STATIC
-    # (https://github.com/facebookresearch/faiss/pull/2446)
-    set(RAFT_FAISS_GIT_REPOSITORY https://github.com/trxcllnt/faiss.git)
-    # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/facebookresearch/faiss.git)
-endif()
-
 find_and_configure_faiss(VERSION    1.7.4
         REPOSITORY  ${RAFT_FAISS_GIT_REPOSITORY}
         PINNED_TAG  ${RAFT_FAISS_GIT_TAG}
