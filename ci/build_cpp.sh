@@ -9,7 +9,7 @@ export CMAKE_GENERATOR=Ninja
 
 # Replace conda-forge with nvidia/label/tst.
 sed -i "s/conda-forge/nvidia\/label\/tst/g" /opt/conda/.condarc
-sed -i "/  - nvidia/a \  - main" /opt/conda/.condarc
+sed -i "/^  - nvidia$/a \  - main" /opt/conda/.condarc
 echo "Contents of /opt/conda/.condarc:"
 cat /opt/conda/.condarc
 
