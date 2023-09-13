@@ -40,19 +40,12 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% endif %}
         - librmm
     requirements:
       build:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
@@ -79,9 +72,6 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% endif %}
         - librmm
     requirements:
       host:
@@ -120,19 +110,11 @@ outputs:
       script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% endif %}
     requirements:
       build:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
@@ -171,19 +153,11 @@ outputs:
       script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% endif %}
     requirements:
       build:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
@@ -222,19 +196,11 @@ outputs:
       script_env: *script_env
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
-      ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% endif %}
     requirements:
       build:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
@@ -289,11 +255,7 @@ outputs:
       build:
         - {{ compiler('c') }}
         - {{ compiler('cxx') }}
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }} ={{ cuda_version }}
-        {% else %}
-        - {{ compiler('cuda') }}
-        {% endif %}
+        - {{ compiler('cuda') }} ={{ cuda_version }}
         - cuda-version ={{ cuda_version }}
         - cmake {{ cmake_version }}
         - ninja
