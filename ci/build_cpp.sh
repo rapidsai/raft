@@ -7,8 +7,8 @@ source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
 
-grep -v "conda-forge" /opt/conda/.condarc > /opt/conda/.condarc.tmp
-mv /opt/conda/.condarc.tmp /opt/conda/.condarc
+# Replace conda-forge with nvidia/label/tst.
+sed -i "s/conda-forge/nvidia\/label\/tst/g" /opt/conda/.condarc
 echo "Contents of /opt/conda/.condarc:"
 cat /opt/conda/.condarc
 
