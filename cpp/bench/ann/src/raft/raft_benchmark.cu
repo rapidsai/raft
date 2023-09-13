@@ -58,10 +58,7 @@ void parse_build_param(const nlohmann::json& conf,
 {
   param.n_lists = conf.at("nlist");
   if (conf.contains("niter")) { param.kmeans_n_iters = conf.at("niter"); }
-  if (conf.contains("ratio")) {
-    param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio");
-    std::cout << "kmeans_trainset_fraction " << param.kmeans_trainset_fraction;
-  }
+  if (conf.contains("ratio")) { param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio"); }
 }
 
 template <typename T, typename IdxT>
@@ -82,6 +79,17 @@ void parse_build_param(const nlohmann::json& conf,
   if (conf.contains("ratio")) { param.kmeans_trainset_fraction = 1.0 / (double)conf.at("ratio"); }
   if (conf.contains("pq_bits")) { param.pq_bits = conf.at("pq_bits"); }
   if (conf.contains("pq_dim")) { param.pq_dim = conf.at("pq_dim"); }
+  if (conf.contains("codebook_kind")) {
+    std::string kind = conf.at("codebook_kind");
+    if (kind == "cluster") {
+      param.codebook_kind = raft::neighbors::ivf_pq::codebook_gen::PER_CLUSTER;
+    } else if (kind == "subspace") {
+      param.codebook_kind = raft::neighbors::ivf_pq::codebook_gen::PER_SUBSPACE;
+    } else {
+      throw std::runtime_error("codebook_kind: '" + kind +
+                               "', should be either 'cluster' or 'subspace'");
+    }
+  }
 }
 
 template <typename T, typename IdxT>

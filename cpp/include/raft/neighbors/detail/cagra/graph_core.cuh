@@ -334,18 +334,13 @@ void optimize(raft::resources const& res,
   auto output_graph_ptr              = new_graph.data_handle();
   const IdxT graph_size              = new_graph.extent(0);
 
-  auto pruned_graph = raft::make_host_matrix<IdxT, int64_t>(graph_size, output_graph_degree);
-
   {
     //
     // Prune kNN graph
     //
-    auto d_input_graph =
-      raft::make_device_matrix<IdxT, int64_t>(res, graph_size, input_graph_degree);
-
-    auto detour_count = raft::make_host_matrix<uint8_t, int64_t>(graph_size, input_graph_degree);
     auto d_detour_count =
       raft::make_device_matrix<uint8_t, int64_t>(res, graph_size, input_graph_degree);
+
     RAFT_CUDA_TRY(cudaMemsetAsync(d_detour_count.data_handle(),
                                   0xff,
                                   graph_size * input_graph_degree * sizeof(uint8_t),
@@ -376,24 +371,13 @@ void optimize(raft::resources const& res,
     const double time_prune_start = cur_time();
     RAFT_LOG_DEBUG("# Pruning kNN Graph on GPUs\r");
 
-    raft::copy(d_input_graph.data_handle(),
-               input_graph_ptr,
-               graph_size * input_graph_degree,
-               resource::get_cuda_stream(res));
-    void (*kernel_prune)(const IdxT* const,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         const uint32_t,
-                         uint8_t* const,
-                         uint32_t* const,
-                         uint64_t* const);
+    // Copy input_graph_ptr over to device if necessary
+    device_matrix_view_from_host d_input_graph(
+      res,
+      raft::make_host_matrix_view<IdxT, int64_t>(input_graph_ptr, graph_size, input_graph_degree));
 
     constexpr int MAX_DEGREE = 1024;
-    if (input_graph_degree <= MAX_DEGREE) {
-      kernel_prune = kern_prune<MAX_DEGREE, IdxT>;
-    } else {
+    if (input_graph_degree > MAX_DEGREE) {
       RAFT_FAIL(
         "The degree of input knn graph is too large (%u). "
         "It must be equal to or smaller than %d.",
@@ -410,16 +394,17 @@ void optimize(raft::resources const& res,
       dev_stats.data_handle(), 0, sizeof(uint64_t) * 2, resource::get_cuda_stream(res)));
 
     for (uint32_t i_batch = 0; i_batch < num_batch; i_batch++) {
-      kernel_prune<<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
-        d_input_graph.data_handle(),
-        graph_size,
-        input_graph_degree,
-        output_graph_degree,
-        batch_size,
-        i_batch,
-        d_detour_count.data_handle(),
-        d_num_no_detour_edges.data_handle(),
-        dev_stats.data_handle());
+      kern_prune<MAX_DEGREE, IdxT>
+        <<<blocks_prune, threads_prune, 0, resource::get_cuda_stream(res)>>>(
+          d_input_graph.data_handle(),
+          graph_size,
+          input_graph_degree,
+          output_graph_degree,
+          batch_size,
+          i_batch,
+          d_detour_count.data_handle(),
+          d_num_no_detour_edges.data_handle(),
+          dev_stats.data_handle());
       resource::sync_stream(res);
       RAFT_LOG_DEBUG(
         "# Pruning kNN Graph on GPUs (%.1lf %%)\r",
@@ -428,10 +413,7 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    raft::copy(detour_count.data_handle(),
-               d_detour_count.data_handle(),
-               graph_size * input_graph_degree,
-               resource::get_cuda_stream(res));
+    host_matrix_view_from_device<uint8_t, int64_t> detour_count(res, d_detour_count.view());
 
     raft::copy(
       host_stats.data_handle(), dev_stats.data_handle(), 2, resource::get_cuda_stream(res));
@@ -447,7 +429,7 @@ void optimize(raft::resources const& res,
         if (max_detour < num_detour) { max_detour = num_detour; /* stats */ }
         for (uint64_t k = 0; k < input_graph_degree; k++) {
           if (detour_count.data_handle()[k + (input_graph_degree * i)] != num_detour) { continue; }
-          pruned_graph.data_handle()[pk + (output_graph_degree * i)] =
+          output_graph_ptr[pk + (output_graph_degree * i)] =
             input_graph_ptr[k + (input_graph_degree * i)];
           pk += 1;
           if (pk >= output_graph_degree) break;
@@ -478,8 +460,7 @@ void optimize(raft::resources const& res,
     //
     const double time_make_start = cur_time();
 
-    auto d_rev_graph =
-      raft::make_device_matrix<IdxT, int64_t>(res, graph_size, output_graph_degree);
+    device_matrix_view_from_host<IdxT, int64_t> d_rev_graph(res, rev_graph.view());
     RAFT_CUDA_TRY(cudaMemsetAsync(d_rev_graph.data_handle(),
                                   0xff,
                                   graph_size * output_graph_degree * sizeof(IdxT),
@@ -497,7 +478,7 @@ void optimize(raft::resources const& res,
     for (uint64_t k = 0; k < output_graph_degree; k++) {
 #pragma omp parallel for
       for (uint64_t i = 0; i < graph_size; i++) {
-        dest_nodes.data_handle()[i] = pruned_graph.data_handle()[k + (output_graph_degree * i)];
+        dest_nodes.data_handle()[i] = output_graph_ptr[k + (output_graph_degree * i)];
       }
       resource::sync_stream(res);
 
@@ -520,10 +501,12 @@ void optimize(raft::resources const& res,
     resource::sync_stream(res);
     RAFT_LOG_DEBUG("\n");
 
-    raft::copy(rev_graph.data_handle(),
-               d_rev_graph.data_handle(),
-               graph_size * output_graph_degree,
-               resource::get_cuda_stream(res));
+    if (d_rev_graph.allocated_memory()) {
+      raft::copy(rev_graph.data_handle(),
+                 d_rev_graph.data_handle(),
+                 graph_size * output_graph_degree,
+                 resource::get_cuda_stream(res));
+    }
     raft::copy(rev_graph_count.data_handle(),
                d_rev_graph_count.data_handle(),
                graph_size,
@@ -541,10 +524,6 @@ void optimize(raft::resources const& res,
 
     const uint64_t num_protected_edges = output_graph_degree / 2;
     RAFT_LOG_DEBUG("# num_protected_edges: %lu", num_protected_edges);
-
-    memcpy(output_graph_ptr,
-           pruned_graph.data_handle(),
-           sizeof(IdxT) * graph_size * output_graph_degree);
 
     constexpr int _omp_chunk = 1024;
 #pragma omp parallel for schedule(dynamic, _omp_chunk)
@@ -578,7 +557,7 @@ void optimize(raft::resources const& res,
 #pragma omp parallel for reduction(+ : num_replaced_edges)
     for (uint64_t i = 0; i < graph_size; i++) {
       for (uint64_t k = 0; k < output_graph_degree; k++) {
-        const uint64_t j = pruned_graph.data_handle()[k + (output_graph_degree * i)];
+        const uint64_t j = output_graph_ptr[k + (output_graph_degree * i)];
         const uint64_t pos =
           pos_in_array<IdxT>(j, output_graph_ptr + (output_graph_degree * i), output_graph_degree);
         if (pos == output_graph_degree) { num_replaced_edges += 1; }
