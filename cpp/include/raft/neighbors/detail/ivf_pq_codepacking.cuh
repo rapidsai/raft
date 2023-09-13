@@ -81,6 +81,9 @@ struct bitfield_view_t {
   constexpr auto operator[](uint32_t i) -> bitfield_ref_t<Bits>
   {
     uint32_t bit_offset = i * Bits;
+    i = 1
+    bit_offset = 6
+    bitfield_ref_t<6>{raw, 6};
     return bitfield_ref_t<Bits>{raw + Pow2<8>::div(bit_offset), Pow2<8>::mod(bit_offset)};
   }
 };
@@ -149,6 +152,8 @@ __device__ void write_vector(
   Action action)
 {
   const uint32_t lane_id = Pow2<SubWarpSize>::mod(threadIdx.x);
+  if (lane_id == 0) printf("SubWarpSize %u\n", SubWarpSize);
+
 
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(out_ix);
@@ -157,12 +162,14 @@ __device__ void write_vector(
   pq_vec_t code_chunk;
   bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  if (lane_id == 0) printf("PqBits %u, sizeof(pq_vec_t) %zu, kChunkSize %u\n", PqBits, sizeof(pq_vec_t), kChunkSize);
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // clear the chunk
     if (lane_id == 0) { code_chunk = pq_vec_t{}; }
     // write the codes, one/pq_dim at a time
 #pragma unroll
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
+      if (lane_id == 0) printf("k %u\n", k);
       // write a single code
       uint8_t code = action(in_ix, j);
       if (lane_id == 0) { code_view[k] = code; }
