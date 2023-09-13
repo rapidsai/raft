@@ -47,6 +47,8 @@ requirements:
   host:
     - glog {{ glog_version }}
     - matplotlib
+    - libfaiss-avx2 {{ faiss_version }} # [linux64]
+    - libfaiss {{ faiss_version }} # [aarch64]
     - nlohmann_json {{ nlohmann_json_version }}
     - python
     - pyyaml
@@ -55,13 +57,14 @@ requirements:
   run:
     - glog {{ glog_version }}
     - h5py {{ h5py_version }}
+    - libfaiss-avx2 {{ faiss_version }} # [linux64]
+    - libfaiss {{ faiss_version }} # [aarch64]
     - matplotlib
     - python
     - pyyaml
     - pandas
     - benchmark
-
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  summary: libraft ann bench
+  summary: RAFT ANN CPU benchmarks
