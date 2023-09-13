@@ -91,6 +91,13 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
 
   auto static constexpr const same_layout = std::is_same_v<dst_layout_type, src_layout_type>;
 
+  auto static check_for_unique_dst(dst_type dst)
+  {
+    if constexpr (!dst_type::is_always_unique()) {
+      RAFT_EXPECTS(dst.is_unique(), "Destination mdspan must be unique for parallelized copies");
+    }
+  }
+
   auto static constexpr const src_contiguous =
     std::disjunction_v<std::is_same<src_layout_type, layout_c_contiguous>,
                        std::is_same<src_layout_type, layout_f_contiguous>>;
@@ -458,6 +465,7 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
 #endif
   } else if constexpr (config::custom_kernel_allowed) {
 #ifdef __CUDACC__
+    config::check_for_unique_dst(dst);
     auto const blocks = std::min(
       // This maximum is somewhat arbitrary. Could query the device to see
       // how many blocks we could reasonably allow, but this is probably
