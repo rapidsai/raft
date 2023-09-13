@@ -51,9 +51,9 @@ namespace raft {
 template <typename DstType, typename SrcType>
 detail::mdspan_copyable_with_kernel_t<DstType, SrcType> copy(resources const& res,
                                                              DstType&& dst,
-                                                             SrcType const& src)
+                                                             SrcType&& src)
 {
-  detail::copy(res, dst, src);
+  detail::copy(res, std::forward<DstType>(dst), std::forward<SrcType>(src));
 }
 
 #ifndef RAFT_NON_CUDA_COPY_IMPLEMENTED
@@ -61,9 +61,9 @@ detail::mdspan_copyable_with_kernel_t<DstType, SrcType> copy(resources const& re
 template <typename DstType, typename SrcType>
 detail::mdspan_uncopyable_with_kernel_t<DstType, SrcType> copy(resources const& res,
                                                                DstType&& dst,
-                                                               SrcType const& src)
+                                                               SrcType&& src)
 {
-  detail::copy(res, dst, src);
+  detail::copy(res, std::forward<DstType>(dst), std::forward<SrcType>(src));
 }
 #endif
 }  // namespace raft

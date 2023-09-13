@@ -378,7 +378,7 @@ __global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(Ds
 #endif
 
 template <typename DstType, typename SrcType>
-mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, SrcType const& src)
+mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, SrcType&& src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
   for (auto i = std::size_t{}; i < config::src_rank; ++i) {

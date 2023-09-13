@@ -53,9 +53,9 @@ namespace raft {
 template <typename DstType, typename SrcType>
 detail::mdspan_uncopyable_with_kernel_t<DstType, SrcType> copy(resources const& res,
                                                                DstType&& dst,
-                                                               SrcType const& src)
+                                                               SrcType&& src)
 {
-  detail::copy(res, dst, src);
+  detail::copy(res, std::forward<DstType>(dst), std::forward<SrcType>(src));
 }
 #endif
 
