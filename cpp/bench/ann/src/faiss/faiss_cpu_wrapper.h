@@ -192,10 +192,9 @@ void Faiss<T>::search(const T* queries,
                       float* distances,
                       cudaStream_t stream) const
 {
-  static_assert(sizeof(size_t) == sizeof(faiss::Index::idx_t),
-                "sizes of size_t and faiss::Index::idx_t are different");
-  index_->search(
-    batch_size, queries, k, distances, reinterpret_cast<faiss::Index::idx_t*>(neighbors));
+  static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
+                "sizes of size_t and faiss::idx_t are different");
+  index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
 }
 
 template <typename T>

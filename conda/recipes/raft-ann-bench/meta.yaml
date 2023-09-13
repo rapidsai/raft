@@ -74,6 +74,7 @@ requirements:
     {% if cuda_major == "11" %}
     - faiss-proc=*=cuda
     - libfaiss {{ faiss_version }}
+    - libfaiss-avx2 {{ faiss_version }} # [linux64]
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
@@ -96,6 +97,7 @@ requirements:
     {% if cuda_major == "11" %}
     - faiss-proc=*=cuda
     - libfaiss {{ faiss_version }}
+    - libfaiss-avx2 {{ faiss_version }} # [linux64]
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark

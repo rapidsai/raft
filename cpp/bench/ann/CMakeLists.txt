@@ -138,7 +138,6 @@ function(ConfigureAnnBench)
     ${BENCH_NAME}
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
-            $<$<BOOL:${GPU_BUILD}>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
             ${ConfigureAnnBench_LINKS}
             Threads::Threads
             $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>
@@ -246,18 +245,21 @@ endif()
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
     NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
+    faiss::faiss_avx2
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
   ConfigureAnnBench(
     NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
+    faiss::faiss_avx2
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   ConfigureAnnBench(
     NAME FAISS_CPU_IVF_PQ PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
+    faiss::faiss_avx2
   )
 endif()
 

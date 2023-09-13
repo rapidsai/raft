@@ -30,8 +30,16 @@ function(find_and_configure_faiss)
             set(CPM_DOWNLOAD_faiss ON)
         endif()
 
+        include(cmake/modules/FindAVX.cmake)
+
+        # Link against AVX CPU lib if it exists
+        set(RAFT_FAISS_OPT_LEVEL "generic")
+        if(CXX_AVX_FOUND)
+            set(RAFT_FAISS_OPT_LEVEL "avx2")
+        endif()
+
         rapids_cpm_find(faiss ${PKG_VERSION}
-                GLOBAL_TARGETS     faiss::faiss
+                GLOBAL_TARGETS     faiss::faiss faiss::faiss_avx2
                 CPM_ARGS
                 GIT_REPOSITORY   ${PKG_REPOSITORY}
                 GIT_TAG          ${PKG_PINNED_TAG}
@@ -39,7 +47,7 @@ function(find_and_configure_faiss)
                 OPTIONS
                 "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
                 "FAISS_ENABLE_PYTHON OFF"
-                "FAISS_OPT_LEVEL avx2"
+                "FAISS_OPT_LEVEL ${RAFT_FAISS_OPT_LEVEL}"
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
                 "BUILD_TESTING OFF"
                 "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
@@ -50,18 +58,22 @@ function(find_and_configure_faiss)
             add_library(faiss::faiss ALIAS faiss)
         endif()
 
+    if(TARGET faiss_avx2 AND NOT TARGET faiss::faiss_avx2)
+        add_library(faiss::faiss_avx2 ALIAS faiss_avx2)
+    endif()
+
 
     if(faiss_ADDED)
             rapids_export(BUILD faiss
                     EXPORT_SET faiss-targets
-                    GLOBAL_TARGETS faiss
+                    GLOBAL_TARGETS faiss faiss_avx2
                     NAMESPACE faiss::)
         endif()
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
     rapids_export_package(BUILD OpenMP raft-ann-bench-exports) # faiss uses openMP but doesn't export a need for it
-    rapids_export_package(BUILD faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss)
-    rapids_export_package(INSTALL faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss)
+    rapids_export_package(BUILD faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss faiss::faiss_avx2 faiss_avx2)
+    rapids_export_package(INSTALL faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss faiss::faiss_avx2 faiss_avx2)
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
@@ -82,7 +94,7 @@ if(NOT RAFT_FAISS_GIT_REPOSITORY)
     # set(RAFT_FAISS_GIT_REPOSITORY https://github.com/facebookresearch/faiss.git)
 endif()
 
-find_and_configure_faiss(VERSION    1.7.0
+find_and_configure_faiss(VERSION    1.7.4
         REPOSITORY  ${RAFT_FAISS_GIT_REPOSITORY}
         PINNED_TAG  ${RAFT_FAISS_GIT_TAG}
         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
