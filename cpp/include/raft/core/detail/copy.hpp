@@ -278,7 +278,13 @@ __device__ auto increment_indices(IdxType* indices,
 
 #pragma unroll
   for (auto i = typename MdspanType::extents_type::rank_type{}; i < md.rank(); ++i) {
-    // Iterate through dimensions in order from slowest to fastest varying
+    // Iterate through dimensions in order from slowest to fastest varying for
+    // layout_right and layout_left. Otherwise, just iterate through dimensions
+    // in order.
+    //
+    // TODO(wphicks): It is possible to always iterate through dimensions in
+    // the slowest to fastest order. Consider this or at minimum expanding to
+    // padded layouts.
     auto const real_index = [](auto ind) {
       if constexpr (std::is_same_v<typename MdspanType::layout_type, layout_f_contiguous>) {
         return MdspanType::rank() - ind - 1;
