@@ -56,6 +56,28 @@ function(find_and_configure_faiss)
                     NAMESPACE faiss::)
         endif()
 
+        # Build a second copy of FAISS without GPU support.
+        # Also make it static for simplicity - without GPU libs it does not take much space
+        ExternalProject_Add(faiss_cpu_external
+            PREFIX            ${faiss_SOURCE_DIR}
+            BINARY_DIR        ${faiss_BINARY_DIR}/cpu_only
+            BUILD_IN_SOURCE   FALSE
+            DOWNLOAD_COMMAND  ""
+            CONFIGURE_COMMAND cmake -S ${faiss_SOURCE_DIR} -B ${faiss_BINARY_DIR}/cpu_only -DFAISS_ENABLE_PYTHON=OFF -DFAISS_ENABLE_GPU=OFF -DBUILD_TESTING=OFF -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -DBUILD_SHARED_LIBS=OFF
+            BUILD_COMMAND     cmake --build "${faiss_BINARY_DIR}/cpu_only" -j --target faiss
+            INSTALL_COMMAND   ""
+            TEST_COMMAND      ""
+            BUILD_BYPRODUCTS  ${faiss_BINARY_DIR}/cpu_only/faiss/libfaiss.a
+            )
+        add_library(faiss_cpu STATIC IMPORTED)
+        set_property(TARGET faiss_cpu PROPERTY IMPORTED_LOCATION ${faiss_BINARY_DIR}/cpu_only/faiss/libfaiss.a)
+        get_target_property(FAISS_INCLUDE_DIRECTORIES faiss INCLUDE_DIRECTORIES)
+        target_include_directories(faiss_cpu INTERFACE ${FAISS_INCLUDE_DIRECTORIES})
+        add_dependencies(faiss_cpu faiss_cpu_external)
+        if(TARGET faiss_cpu AND NOT TARGET faiss::faiss_cpu)
+            add_library(faiss::faiss_cpu ALIAS faiss_cpu)
+        endif()
+
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
     rapids_export_package(BUILD OpenMP raft-ann-bench-exports) # faiss uses openMP but doesn't export a need for it
     rapids_export_package(BUILD faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss)
