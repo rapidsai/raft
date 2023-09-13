@@ -164,6 +164,8 @@ auto eval_recall(const std::vector<T>& expected_idx,
   return testing::AssertionSuccess();
 }
 
+/** same as eval_recall, but in case indices do not match,
+ * then check distances as well, and accept match if actual dist is equal to expected_dist */
 template <typename T, typename DistT>
 auto eval_neighbours(const std::vector<T>& expected_idx,
                      const std::vector<T>& actual_idx,

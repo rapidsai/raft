@@ -40,6 +40,10 @@ namespace raft::neighbors::cagra {
  * @{
  */
 
+/**
+ * @brief ANN algorithm used by CAGRA to build knn graph
+ *
+ */
 enum class graph_build_algo { IVF_PQ, NN_DESCENT };
 
 struct index_params : ann::index_params {

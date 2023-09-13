@@ -24,7 +24,7 @@
 namespace raft::neighbors::experimental::nn_descent {
 
 /**
- * @defgroup nn-descent CUDA ANN Graph-based gradient descent nearest neighbor
+ * @defgroup nn-descent CUDA gradient descent nearest neighbor
  * @{
  */
 
@@ -46,12 +46,14 @@ namespace raft::neighbors::experimental::nn_descent {
  *   // dataset
  * @endcode
  *
- * @tparam T data-type
- * @tparam IdxT index-type
- * @param res raft::resources
- * @param params nn_descent::index_params
- * @param dataset raft::device_matrix_view
- * @return index<IdxT>
+ * @tparam T data-type of the input dataset
+ * @tparam IdxT data-type for the output index
+ * @param res raft::resources is an object mangaging resources
+ * @param params an instance of nn_descent::index_params that are parameters
+ *               to run the nn-descent algorithm
+ * @param dataset raft::device_matrix_view input dataset expected to be located
+ *                in device memory
+ * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
 index<IdxT> build(raft::resources const& res,
@@ -79,12 +81,14 @@ index<IdxT> build(raft::resources const& res,
  *   // dataset
  * @endcode
  *
- * @tparam T data-type
- * @tparam IdxT index-type
- * @param res raft::resources
- * @param params nn_descent::index_params
- * @param dataset raft::host_matrix_view
- * @return index<IdxT>
+ * @tparam T data-type of the input dataset
+ * @tparam IdxT data-type for the output index
+ * @param res raft::resources is an object mangaging resources
+ * @param params an instance of nn_descent::index_params that are parameters
+ *               to run the nn-descent algorithm
+ * @param dataset raft::host_matrix_view input dataset expected to be located
+ *                in host memory
+ * @return index<IdxT> index containing all-neighbors knn graph in host memory
  */
 template <typename T, typename IdxT = uint32_t>
 index<IdxT> build(raft::resources const& res,

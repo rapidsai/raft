@@ -31,15 +31,32 @@ namespace raft::neighbors::experimental::nn_descent {
  * @{
  */
 
+/**
+ * @brief Parameters used to build an nn-descent index
+ *
+ * `graph_degree`: For an input dataset of dimensions (N, D),
+ * determines the final dimensions of the all-neighbors knn graph
+ * which turns out to be of dimensions (N, graph_degree)
+ * `intermediate_graph_degree`: Internally, nn-descent builds an
+ * all-neighbors knn graph of dimensions (N, intermediate_graph_degree)
+ * before selecting the final `graph_degree` neighbors. It's recommended
+ * that `intermediate_graph_degree` >= 1.5 * graph_degree
+ * `max_iterations`: The number of iterations that nn-descent will refine
+ * the graph for. More iterations produce a better quality graph at cost of performance
+ * `termination_threshold`: The delta at which nn-descent will terminate its iterations
+ *
+ */
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
   size_t graph_degree              = 64;      // Degree of output graph.
-  size_t max_iterations            = 50;      // Number of nn-descent iterations.
+  size_t intermediate_graph_degree = 128;     // Degree of input graph for pruning.
+  size_t max_iterations            = 20;      // Number of nn-descent iterations.
   float termination_threshold      = 0.0001;  // Termination threshold of nn-descent.
 };
 
 /**
- * @brief nn-descent Index
+ * @brief nn-descent Build an nn-descent index
+ * The index contains an all-neighbors graph of the input dataset
+ * stored in host memory of dimensions (n_rows, n_cols)
  *
  * @tparam IdxT dtype to be used for constructing knn-graph
  */
@@ -53,7 +70,7 @@ struct index : ann::index {
    * The type of the knn-graph is a dense raft::host_matrix and dimensions are
    * (n_rows, n_cols).
    *
-   * @param res raft::resources
+   * @param res raft::resources is an object mangaging resources
    * @param n_rows number of rows in knn-graph
    * @param n_cols number of cols in knn-graph
    */
