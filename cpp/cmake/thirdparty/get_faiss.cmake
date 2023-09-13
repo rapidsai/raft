@@ -37,19 +37,21 @@ function(find_and_configure_faiss)
                 GIT_TAG          ${PKG_PINNED_TAG}
                 EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
                 OPTIONS
-                "FAISS_ENABLE_PYTHON OFF"
-                "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
                 "FAISS_ENABLE_GPU ${PKG_ENABLE_GPU}"
+                "FAISS_ENABLE_PYTHON OFF"
+                "FAISS_OPT_LEVEL avx2"
+                "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
                 "BUILD_TESTING OFF"
                 "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
-                "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
+                "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
                 )
 
         if(TARGET faiss AND NOT TARGET faiss::faiss)
             add_library(faiss::faiss ALIAS faiss)
         endif()
 
-        if(faiss_ADDED)
+
+    if(faiss_ADDED)
             rapids_export(BUILD faiss
                     EXPORT_SET faiss-targets
                     GLOBAL_TARGETS faiss

@@ -42,6 +42,11 @@ option(RAFT_ANN_BENCH_SINGLE_EXE
 find_package(Threads REQUIRED)
 
 if(BUILD_CPU_ONLY)
+
+  # Include necessary logging dependencies
+  include(cmake/thirdparty/get_fmt.cmake)
+  include(cmake/thirdparty/get_spdlog.cmake)
+
   set(RAFT_FAISS_ENABLE_GPU OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
@@ -141,6 +146,8 @@ function(ConfigureAnnBench)
             $<TARGET_NAME_IF_EXISTS:conda_env>
             -static-libgcc
             -static-libstdc++
+            $<$<BOOL:${BUILD_CPU_ONLY}>:fmt::fmt-header-only>
+            $<$<BOOL:${BUILD_CPU_ONLY}>:spdlog::spdlog_header_only>
   )
 
   set_target_properties(
