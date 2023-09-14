@@ -43,6 +43,13 @@ namespace raft {
  * correct CUDA device. Furthermore, host-to-host copies that require a transformation of the
  * underlying memory layout are currently not performant, although they are supported.
  *
+ * Note that when copying to an mdspan with a non-unique layout (i.e. the same
+ * underlying memory is addressed by different element indexes), the source
+ * data must contain non-unique values for every non-unique destination
+ * element. If this is not the case, the behavior is undefined. Some copies
+ * to non-unique layouts which are well-defined will nevertheless fail with an
+ * exception to avoid race conditions in the underlying copy.
+ *
  * @tparam DstType An mdspan type for the destination container.
  * @tparam SrcType An mdspan type for the source container
  * @param res raft::resources used to provide a stream for copies involving the
