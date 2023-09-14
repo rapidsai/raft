@@ -242,41 +242,48 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
   )
 endif()
 
+set(RAFT_FAISS_TARGETS faiss::faiss)
+if(CXX_AVX_FOUND)
+  list(APPEND RAFT_FAISS_TARGETS faiss::faiss_avx2)
+endif()
+
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
-    faiss::faiss_avx2
+    NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
-    faiss::faiss_avx2
+    NAME FAISS_CPU_IVF_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_CPU_IVF_PQ PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS faiss::faiss
-    faiss::faiss_avx2
+    NAME FAISS_CPU_IVF_PQ PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
+    ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)
   ConfigureAnnBench(
-    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+    NAME FAISS_IVF_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ)
   ConfigureAnnBench(
-    NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss
+    NAME FAISS_IVF_PQ PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
   )
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_FLAT)
-  ConfigureAnnBench(NAME FAISS_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS faiss::faiss)
+  ConfigureAnnBench(
+    NAME FAISS_FLAT PATH bench/ann/src/faiss/faiss_benchmark.cu LINKS ${RAFT_FAISS_TARGETS}
+  )
 endif()
 
 if(RAFT_ANN_BENCH_USE_GGNN)

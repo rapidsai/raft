@@ -33,13 +33,19 @@ function(find_and_configure_faiss)
         include(cmake/modules/FindAVX.cmake)
 
         # Link against AVX CPU lib if it exists
+        set(RAFT_FAISS_GLOBAL_TARGETS faiss::faiss)
+        set(RAFT_FAISS_EXPORT_GLOBAL_TARGETS faiss)
         set(RAFT_FAISS_OPT_LEVEL "generic")
         if(CXX_AVX_FOUND)
             set(RAFT_FAISS_OPT_LEVEL "avx2")
+            list(APPEND RAFT_FAISS_GLOBAL_TARGETS faiss::faiss_avx2)
+            list(APPEND RAFT_FAISS_EXPORT_GLOBAL_TARGETS faiss_avx2)
         endif()
 
+
+
         rapids_cpm_find(faiss ${PKG_VERSION}
-                GLOBAL_TARGETS     faiss::faiss faiss::faiss_avx2
+                GLOBAL_TARGETS ${RAFT_FAISS_GLOBAL_TARGETS}
                 CPM_ARGS
                 GIT_REPOSITORY   ${PKG_REPOSITORY}
                 GIT_TAG          ${PKG_PINNED_TAG}
@@ -58,22 +64,25 @@ function(find_and_configure_faiss)
             add_library(faiss::faiss ALIAS faiss)
         endif()
 
-    if(TARGET faiss_avx2 AND NOT TARGET faiss::faiss_avx2)
-        add_library(faiss::faiss_avx2 ALIAS faiss_avx2)
+    if(CXX_AVX_FOUND)
+
+        if(TARGET faiss_avx2 AND NOT TARGET faiss::faiss_avx2)
+            add_library(faiss::faiss_avx2 ALIAS faiss_avx2)
+        endif()
     endif()
 
 
     if(faiss_ADDED)
             rapids_export(BUILD faiss
                     EXPORT_SET faiss-targets
-                    GLOBAL_TARGETS faiss faiss_avx2
+                    GLOBAL_TARGETS ${RAFT_FAISS_EXPORT_GLOBAL_TARGETS}
                     NAMESPACE faiss::)
         endif()
 
     # We generate the faiss-config files when we built faiss locally, so always do `find_dependency`
     rapids_export_package(BUILD OpenMP raft-ann-bench-exports) # faiss uses openMP but doesn't export a need for it
-    rapids_export_package(BUILD faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss faiss::faiss_avx2 faiss_avx2)
-    rapids_export_package(INSTALL faiss raft-ann-bench-exports GLOBAL_TARGETS faiss::faiss faiss faiss::faiss_avx2 faiss_avx2)
+    rapids_export_package(BUILD faiss raft-ann-bench-exports GLOBAL_TARGETS ${RAFT_FAISS_GLOBAL_TARGETS} ${RAFT_FAISS_EXPORT_GLOBAL_TARGETS})
+    rapids_export_package(INSTALL faiss raft-ann-bench-exports GLOBAL_TARGETS ${RAFT_FAISS_GLOBAL_TARGETS} ${RAFT_FAISS_EXPORT_GLOBAL_TARGETS})
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
