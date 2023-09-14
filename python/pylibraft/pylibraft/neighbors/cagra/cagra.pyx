@@ -104,11 +104,13 @@ cdef class IndexParams:
 
     graph_degree : int, default = 64
 
-    add_data_on_build : bool, default = True
-        After training the coarse and fine quantizers, we will populate
-        the index with the dataset if add_data_on_build == True, otherwise
-        the index is left empty, and the extend method can be used
-        to add new vectors to the index.
+    build_algo: string denoting the graph building algorithm to use,
+                default = "ivf_pq"
+        Valid values for algo: ["ivf_pq", "nn_descent"], where
+        - ivf_pq will use the IVF-PQ algorithm for building the knn graph
+        - nn_descent (experimental) will use the NN-Descent algorithm for
+          building the knn graph. It is expected to be generally
+          faster than ivf_pq.
     """
     cdef c_cagra.index_params params
 
@@ -116,12 +118,15 @@ cdef class IndexParams:
                  metric="sqeuclidean",
                  intermediate_graph_degree=128,
                  graph_degree=64,
-                 add_data_on_build=True):
+                 build_algo="ivf_pq"):
         self.params.metric = _get_metric(metric)
         self.params.metric_arg = 0
         self.params.intermediate_graph_degree = intermediate_graph_degree
         self.params.graph_degree = graph_degree
-        self.params.add_data_on_build = add_data_on_build
+        if build_algo == "ivf_pq":
+            self.params.build_algo = c_cagra.graph_build_algo.IVF_PQ
+        elif build_algo == "nn_descent":
+            self.params.build_algo = c_cagra.graph_build_algo.NN_DESCENT
 
     @property
     def metric(self):
@@ -134,10 +139,6 @@ cdef class IndexParams:
     @property
     def graph_degree(self):
         return self.params.graph_degree
-
-    @property
-    def add_data_on_build(self):
-        return self.params.add_data_on_build
 
 
 cdef class Index:

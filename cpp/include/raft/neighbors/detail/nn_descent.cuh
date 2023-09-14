@@ -1207,6 +1207,8 @@ void GNND<Data_t, Index_t>::local_join(cudaStream_t stream)
 template <typename Data_t, typename Index_t>
 void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* output_graph)
 {
+  using input_t = typename std::remove_const<Data_t>::type;
+
   cudaStream_t stream = raft::resource::get_cuda_stream(res);
   nrow_               = nrow;
   graph_.h_graph      = (InternalID_t<Index_t>*)output_graph;
