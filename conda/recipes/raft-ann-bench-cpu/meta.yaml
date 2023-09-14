@@ -48,7 +48,7 @@ requirements:
     - glog {{ glog_version }}
     - matplotlib
     - libfaiss-avx2 {{ faiss_version }} # [linux64]
-    - libfaiss {{ faiss_version }}
+    - libfaiss {{ faiss_version }} # [aarch64]
     - nlohmann_json {{ nlohmann_json_version }}
     - python
     - pyyaml
@@ -58,7 +58,7 @@ requirements:
     - glog {{ glog_version }}
     - h5py {{ h5py_version }}
     - libfaiss-avx2 {{ faiss_version }} # [linux64]
-    - libfaiss {{ faiss_version }}
+    - libfaiss {{ faiss_version }} # [aarch64]
     - matplotlib
     - python
     - pyyaml
