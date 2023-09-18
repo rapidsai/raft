@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/logger.hpp>
@@ -60,7 +61,8 @@ struct stream_view {
   using underlying_view_type = detail::fail_stream_view;
 #endif
 
-  constexpr stream_view(underlying_view_type base_view = stream_view::get_underlying_per_thread_default())
+  constexpr stream_view(
+    underlying_view_type base_view = stream_view::get_underlying_per_thread_default())
     : base_view_{base_view}
   {
   }
@@ -86,9 +88,7 @@ struct stream_view {
   auto underlying() { return base_view_; }
   void synchronize_if_cuda_enabled()
   {
-    if constexpr (raft::CUDA_ENABLED) {
-      base_view_.synchronize();
-    }
+    if constexpr (raft::CUDA_ENABLED) { base_view_.synchronize(); }
   }
 
  private:

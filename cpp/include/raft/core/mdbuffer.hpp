@@ -17,7 +17,10 @@
 #include <algorithm>
 #include <execution>
 #include <optional>
+// TODO(wphicks): Correctly handle cuh/hpp split
+#include <raft/core/copy.cuh>
 #include <raft/core/cuda_support.hpp>
+#include <raft/core/detail/copy.hpp>
 #include <raft/core/device_container_policy.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_container_policy.hpp>
@@ -43,7 +46,8 @@ inline auto constexpr variant_index_from_memory_type(raft::memory_type mem_type)
 
 template <raft::memory_type MemType, typename Variant>
 using alternate_from_mem_type =
-  std::variant_alternative_t<variant_index_from_memory_type(MemType), Variant>;
+  std::variant_alternative_t<variant_index_from_memory_type(MemType) % std::variant_size_v<Variant>,
+                             Variant>;
 
 template <typename T>
 using default_container_policy_variant = std::variant<host_vector_policy<T>,
@@ -251,6 +255,16 @@ struct default_buffer_container_policy {
   }
 };
 
+template <bool B, typename VariantT>
+struct is_variant_of_mdspans : std::false_type {};
+
+template <typename... AllVariantTs>
+struct is_variant_of_mdspans<true, std::variant<AllVariantTs...>>
+  : std::conjunction<is_mdspan<AllVariantTs>...> {};
+
+template <typename VariantT>
+auto static constexpr const is_variant_of_mdspans_v = is_variant_of_mdspans<true, VariantT>::value;
+
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
@@ -315,73 +329,120 @@ struct mdbuffer {
                                  std::size_t{variant_index_from_memory_type(MemType)},
                                storage_type_variant>;
 
-  constexpr mdbuffer() = default;
+  template <bool B, typename FromT, typename T = void>
+  struct constructible_from : std::false_type {};
 
-  template <typename AccessorPolicy,
-            std::enable_if_t<
-              std::is_convertible_v<mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>,
-                                    storage_type_variant>>* = nullptr>
-  constexpr mdbuffer(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> other)
-    : data_{std::move(other)}
-  {
-  }
+  template <typename FromT, typename T>
+  class constructible_from<true, FromT, T> {
+    template <typename U>
+    auto static constexpr has_mdspan_view() -> decltype(std::declval<U>().view(), bool())
+    {
+      return is_variant_of_mdspans_v<decltype(std::declval<U>().view())> ||
+             raft::is_mdspan_v<decltype(std::declval<U>().view())>;
+    };
+    auto static constexpr has_mdspan_view(...) -> bool { return false; };
 
-  template <typename AccessorPolicy,
-            std::enable_if_t<
-              std::is_convertible_v<mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>,
-                                    storage_type_variant>>* = nullptr>
-  constexpr mdbuffer(mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> other,
-                     memory_type mem_type)
-    : data_{[mem_type]() {
-        auto result = storage_type_variant{};
-        if constexpr (AccessorPolicy::is_host_device_accessible()) {
-          if (mem_type != memory_type::host || mem_type != memory_type::device ||
-              mem_type != memory_type::managed) {
-            // TODO(wphicks): Build owning variant and copy
-          }
-        } else if constexpr (AccessorPolicy::is_host_accessible()) {
-          if (mem_type != memory_type::host) {
-            // TODO(wphicks): Build owning variant and copy
-          }
-        } else if constexpr (AccessorPolicy::is_device_accessible()) {
-          if (mem_type != memory_type::device) {
-            // TODO(wphicks): Build owning variant and copy
-          }
+    auto static constexpr const from_has_mdspan_view = has_mdspan_view<FromT>();
+
+    using from_mdspan_type_variant =
+      std::conditional_t<from_has_mdspan_view,
+                         std::conditional_t<is_variant_of_mdspans_v<std::declval<FromT>().view()>,
+                                            decltype(std::declval<FromT>().view()),
+                                            std::variant<decltype(std::declval<FromT>().view())>>,
+                         FromT>;
+
+   public:
+    template <memory_type MemType>
+    using from_mdspan_type = alternate_from_mem_type<MemType, from_mdspan_type_variant>;
+
+    auto static constexpr const default_mem_type_destination = []() {
+      if constexpr (is_host_mdspan_v<from_mdspan_type<memory_type::managed>> &&
+                    is_device_mdspan_v<from_mdspan_type<memory_type::managed>>) {
+        return memory_type::managed;
+      } else if constexpr (is_device_mdspan_v<from_mdspan_type<memory_type::device>>) {
+        return memory_type::device;
+      } else if constexpr (is_host_mdspan_v<from_mdspan_type<memory_type::host>>) {
+        return memory_type::host;
+      } else if (CUDA_ENABLED) {
+        return memory_type::device;
+      } else {
+        return memory_type::host;
+      }
+    }();
+
+    auto static constexpr const value =
+      (detail::mdspan_copyable_v<from_mdspan_type<memory_type::host>,
+                                 view_type<memory_type::host>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::host>,
+                                 view_type<memory_type::device>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::host>,
+                                 view_type<memory_type::managed>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::host>,
+                                 view_type<memory_type::pinned>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::device>,
+                                 view_type<memory_type::host>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::device>,
+                                 view_type<memory_type::device>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::device>,
+                                 view_type<memory_type::managed>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::device>,
+                                 view_type<memory_type::pinned>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::managed>,
+                                 view_type<memory_type::host>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::managed>,
+                                 view_type<memory_type::device>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::managed>,
+                                 view_type<memory_type::managed>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::managed>,
+                                 view_type<memory_type::pinned>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::pinned>,
+                                 view_type<memory_type::host>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::pinned>,
+                                 view_type<memory_type::device>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::pinned>,
+                                 view_type<memory_type::managed>> ||
+       detail::mdspan_copyable_v<from_mdspan_type<memory_type::pinned>,
+                                 view_type<memory_type::pinned>>);
+    using type = std::enable_if_t<value, T>;
+
+    template <
+      typename U = FromT,
+      std::enable_if_t<std::conjunction_v<std::is_same_v<U, FromT>, from_has_mdspan_view, value>>* =
+        nullptr>
+    auto static constexpr get_mdspan(U&& from) -> from_mdspan_type_variant
+    {
+      return from.view();
+    }
+
+    template <typename U = FromT,
+              std::enable_if_t<
+                std::conjunction_v<std::is_same_v<U, FromT>, is_mdspan_v<U>, value>>* = nullptr>
+    auto static constexpr const get_mdspan(U&& from)
+    {
+      return std::forward<U>(from);
+    }
+  };
+
+  template <typename FromT, typename T = void>
+  using constructible_from_t = typename constructible_from<true, FromT, T>::type
+
+    constexpr mdbuffer() = default;
+
+  template <typename FromT, constructible_from_t<FromT>* = nullptr>
+  constexpr mdbuffer(FromT&& other,
+                     memory_type mem_type =
+                       constructible_from<true, FromT, memory_type>::default_mem_type_destination)
+    : data_{[&other]() {
+        using config = constructible_from<true, FromT, void>;
+        if constexpr (std::is_convertible_v<std::forward<FromT>, storage_type_variant>) {
+          return std::move(other);
+        } else {
+          auto result = storage_type_variant{};
+          // TODO(wphicks): Construct owning variant of correct memory type. Copy
+          // from other's view (remembering that it may be a variant of views).
+          // Logic should be same for copy constructor.
         }
-        return result;
       }()}
-  {
-  }
-
-  template <typename OtherContainerPolicy,
-            std::enable_if_t<std::is_convertible_v<
-              typename mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>::view_type,
-              storage_type_variant>>* = nullptr>
-  constexpr mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>& other)
-    : mdbuffer{other.view()}
-  {
-  }
-
-  template <typename OtherContainerPolicy,
-            std::enable_if_t<std::is_convertible_v<
-              mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>,
-              storage_type_variant>>* = nullptr>
-  constexpr mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
-    : data_{std::move(other)}
-  {
-  }
-
-  template <
-    typename OtherElementType     = ElementType,
-    typename OtherExtents         = Extents,
-    typename OtherLayoutPolicy    = LayoutPolicy,
-    typename OtherContainerPolicy = ContainerPolicy,
-    std::enable_if_t<std::conjunction_v<std::is_convertible_v<ElementType, OtherElementType>,
-                                        Extents::rank() == OtherExtents::rank()>>* = nullptr>
-  constexpr mdbuffer(
-    resources const& res,
-    mdbuffer<ElementType, Extents, LayoutPolicy, OtherContainerPolicy> const& other)
-    : data_{other.data_}
   {
   }
 
@@ -431,6 +492,8 @@ struct mdbuffer {
   }
 
  public:
+  // TODO(wphicks): Allow this to take an optional memory type template
+  // parameter and return non-variant view if available for that memory type.
   [[nodiscard]] auto view()
   {
     return fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
