@@ -16,6 +16,7 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/device_mdarray.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/bitset.cuh>
 

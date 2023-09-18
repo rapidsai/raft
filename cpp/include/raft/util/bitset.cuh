@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_container_policy.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/linalg/map.cuh>
@@ -120,12 +120,14 @@ struct bitset {
          raft::device_vector_view<const index_t, index_t> mask_index,
          index_t bitset_len,
          bool default_value = true)
-    : bitset_{raft::make_device_vector<bitset_t, index_t>(
-        res, raft::ceildiv(bitset_len, bitset_element_size))}
+    : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+              raft::resource::get_cuda_stream(res)},
+      bitset_len_{bitset_len},
+      default_value_{default_value}
   {
-    cudaMemsetAsync(bitset_.data_handle(),
+    cudaMemsetAsync(bitset_.data(),
                     default_value ? 0xff : 0x00,
-                    bitset_.size() * sizeof(bitset_t),
+                    raft::ceildiv(bitset_len, bitset_element_size) * sizeof(bitset_t),
                     resource::get_cuda_stream(res));
     bitset_set(res, view(), mask_index, !default_value);
   }
@@ -138,12 +140,14 @@ struct bitset {
    * @param default_value Default value to set the bits to. Default is true.
    */
   bitset(const raft::resources& res, index_t bitset_len, bool default_value = true)
-    : bitset_{raft::make_device_vector<bitset_t, index_t>(
-        res, raft::ceildiv(bitset_len, bitset_element_size))}
+    : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
+              resource::get_cuda_stream(res)},
+      bitset_len_{bitset_len},
+      default_value_{default_value}
   {
-    cudaMemsetAsync(bitset_.data_handle(),
+    cudaMemsetAsync(bitset_.data(),
                     default_value ? 0xff : 0x00,
-                    bitset_.size() * sizeof(bitset_t),
+                    raft::ceildiv(bitset_len, bitset_element_size) * sizeof(bitset_t),
                     resource::get_cuda_stream(res));
   }
   // Disable copy constructor
@@ -159,34 +163,56 @@ struct bitset {
    */
   inline auto view() -> raft::util::bitset_view<bitset_t, index_t>
   {
-    return bitset_view<bitset_t, index_t>(bitset_.view());
+    return bitset_view<bitset_t, index_t>(view_mdspan());
   }
   [[nodiscard]] inline auto view() const -> raft::util::bitset_view<const bitset_t, index_t>
   {
-    return bitset_view<const bitset_t, index_t>(bitset_.view());
+    return bitset_view<const bitset_t, index_t>(view_mdspan());
   }
 
   /**
    * @brief Get the device pointer to the bitset.
    */
-  inline auto data_handle() -> bitset_t* { return bitset_.data_handle(); }
-  inline auto data_handle() const -> const bitset_t* { return bitset_.data_handle(); }
+  inline auto data_handle() -> bitset_t* { return bitset_.data(); }
+  inline auto data_handle() const -> const bitset_t* { return bitset_.data(); }
   /**
    * @brief Get the number of bits of the bitset representation.
    */
-  inline auto size() const -> index_t { return bitset_.size() * bitset_element_size; }
+  inline auto size() const -> index_t { return bitset_len_; }
 
+  /** @brief Get an mdspan view of the current bitset */
   inline auto view_mdspan() -> raft::device_vector_view<bitset_t, index_t>
   {
-    return bitset_.view();
+    return raft::make_device_vector_view<bitset_t, index_t>(
+      bitset_.data(), raft::ceildiv(bitset_len_, bitset_element_size));
   }
   [[nodiscard]] inline auto view_mdspan() const -> raft::device_vector_view<const bitset_t, index_t>
   {
-    return bitset_.view();
+    return raft::make_device_vector_view<const bitset_t, index_t>(
+      bitset_.data(), raft::ceildiv(bitset_len_, bitset_element_size));
+  }
+
+  /** @brief Resize the bitset. If the requested size is larger, new memory is allocated and set to
+   * the default value. */
+  void resize(const raft::resources& res, index_t new_bitset_len)
+  {
+    auto old_size = raft::ceildiv(bitset_len_, bitset_element_size);
+    auto new_size = raft::ceildiv(new_bitset_len, bitset_element_size);
+    bitset_.resize(new_size);
+    bitset_len_ = new_bitset_len;
+    if (old_size < new_size) {
+      // If the new size is larger, set the new bits to the default value
+      cudaMemsetAsync(bitset_.data() + old_size,
+                      default_value_ ? 0xff : 0x00,
+                      (new_size - old_size) * sizeof(bitset_t),
+                      resource::get_cuda_stream(res));
+    }
   }
 
  private:
-  raft::device_vector<bitset_t, index_t> bitset_;
+  raft::device_uvector<bitset_t> bitset_;
+  index_t bitset_len_;
+  bool default_value_;
 };
 
 /**
