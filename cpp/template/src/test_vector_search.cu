@@ -37,7 +37,7 @@ int main()
   auto input     = raft::make_device_matrix<float>(dev_resources, n_samples, n_dim);
   auto labels    = raft::make_device_vector<int64_t>(dev_resources, n_samples);
   auto queries   = raft::make_device_matrix<float>(dev_resources, n_queries, n_dim);
-  auto neighbors = raft::make_device_matrix<int64_t>(dev_resources, n_queries, topk);
+  auto neighbors = raft::make_device_matrix<uint32_t>(dev_resources, n_queries, topk);
   auto distances = raft::make_device_matrix<float>(dev_resources, n_queries, topk);
 
   raft::random::make_blobs(dev_resources, input.view(), labels.view());
@@ -45,15 +45,15 @@ int main()
   // use default index parameters
   cagra::index_params index_params;
   // create and fill the index from a [n_samples, n_dim] input
-  auto index = cagra::build<float, int64_t>(
+  auto index = cagra::build<float, uint32_t>(
     dev_resources, index_params, raft::make_const_mdspan(input.view()));
   // use default search parameters
   cagra::search_params search_params;
   // search K nearest neighbors
-  cagra::search<float, int64_t>(dev_resources,
-                                search_params,
-                                index,
-                                raft::make_const_mdspan(queries.view()),
-                                neighbors.view(),
-                                distances.view());
+  cagra::search<float, uint32_t>(dev_resources,
+                                 search_params,
+                                 index,
+                                 raft::make_const_mdspan(queries.view()),
+                                 neighbors.view(),
+                                 distances.view());
 }

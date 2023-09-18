@@ -36,3 +36,8 @@ include(cmake/thirdparty/get_raft.cmake)
 # -------------- compile tasks ----------------- #
 add_executable(TEST_RAFT src/test_vector_search.cu)
 target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled)
+target_compile_definitions(TEST_RAFT PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+
+add_executable(IVF_FLAT_EXAMPLE src/ivf_flat_example.cu)
+target_link_libraries(IVF_FLAT_EXAMPLE PRIVATE raft::raft raft::compiled)
+target_compile_definitions(IVF_FLAT_EXAMPLE PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
