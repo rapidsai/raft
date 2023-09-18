@@ -43,7 +43,7 @@ void print_results(raft::device_resources const& dev_resources,
   raft::copy(neighbors_host.data_handle(), neighbors.data_handle(), neighbors.size(), stream);
   raft::copy(distances_host.data_handle(), distances.data_handle(), distances.size(), stream);
 
-  // The calls to ivf_flat::search and  raft::copy is asyncronous.
+  // The calls to ivf_flat::search and  raft::copy is asynchronous.
   // We need to sync the stream before accessing the data.
   raft::resource::sync_stream(dev_resources, stream);
 
@@ -86,7 +86,7 @@ void ivf_flat_build_search_simple(raft::device_resources const& dev_resources,
   ivf_flat::search(
     dev_resources, search_params, index, queries, neighbors.view(), distances.view());
 
-  // The call to ivf_flat::search is asyncronous. Before accessing the data, sync by calling
+  // The call to ivf_flat::search is asynchronous. Before accessing the data, sync by calling
   // raft::resource::sync_stream(dev_resources);
 
   print_results(dev_resources, neighbors.view(), distances.view());
@@ -168,7 +168,7 @@ void ivf_flat_build_extend_search(raft::device_resources const& dev_resources,
   ivf_flat::search(
     dev_resources, search_params, index, queries, neighbors.view(), distances.view());
 
-  // The call to ivf_flat::search is asyncronous. Before accessing the data, sync using:
+  // The call to ivf_flat::search is asynchronous. Before accessing the data, sync using:
   // raft::resource::sync_stream(dev_resources);
 
   print_results(dev_resources, neighbors.view(), distances.view());
