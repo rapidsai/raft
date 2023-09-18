@@ -19,6 +19,7 @@
 #include <common/benchmark.hpp>
 
 #include <raft/core/device_resources.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/sparse/detail/utils.h>
 #include <raft/util/cudart_utils.hpp>
@@ -37,6 +38,19 @@
 
 namespace raft::matrix {
 using namespace raft::bench;  // NOLINT
+
+template <typename KeyT>
+struct replace_with_mask {
+  KeyT replacement;
+  int64_t line_length;
+  int64_t spared_inputs;
+  constexpr auto inline operator()(int64_t offset, KeyT x, uint8_t mask) -> KeyT
+  {
+    auto i = offset % line_length;
+    // don't replace all the inputs, spare a few elements at the beginning of the input
+    return (mask && i >= spared_inputs) ? replacement : x;
+  }
+};
 
 template <typename KeyT, typename IdxT, select::Algo Algo>
 struct selection : public fixture {
@@ -67,6 +81,21 @@ struct selection : public fixture {
       }
     }
     raft::random::uniform(handle, state, in_dists_.data(), in_dists_.size(), min_value, max_value);
+    if (p.frac_infinities > 0.0) {
+      rmm::device_uvector<uint8_t> mask_buf(p.batch_size * p.len, stream);
+      auto mask = make_device_vector_view<uint8_t, size_t>(mask_buf.data(), mask_buf.size());
+      raft::random::bernoulli(handle, state, mask, p.frac_infinities);
+      KeyT bound = p.select_min ? raft::upper_bound<KeyT>() : raft::lower_bound<KeyT>();
+      auto mask_in =
+        make_device_vector_view<const uint8_t, size_t>(mask_buf.data(), mask_buf.size());
+      auto dists_in  = make_device_vector_view<const KeyT>(in_dists_.data(), in_dists_.size());
+      auto dists_out = make_device_vector_view<KeyT>(in_dists_.data(), in_dists_.size());
+      raft::linalg::map_offset(handle,
+                               dists_out,
+                               replace_with_mask<KeyT>{bound, int64_t(p.len), int64_t(p.k / 2)},
+                               dists_in,
+                               mask_in);
+    }
   }
 
   void run_benchmark(::benchmark::State& state) override  // NOLINT
@@ -75,8 +104,12 @@ struct selection : public fixture {
       std::ostringstream label_stream;
       label_stream << params_.batch_size << "#" << params_.len << "#" << params_.k;
       if (params_.use_same_leading_bits) { label_stream << "#same-leading-bits"; }
+      if (params_.frac_infinities > 0) { label_stream << "#infs-" << params_.frac_infinities; }
       state.SetLabel(label_stream.str());
-      loop_on_state(state, [this]() {
+      common::nvtx::range case_scope("%s - %s", state.name().c_str(), label_stream.str().c_str());
+      int iter = 0;
+      loop_on_state(state, [&iter, this]() {
+        common::nvtx::range lap_scope("lap-", iter++);
         select::select_k_impl<KeyT, IdxT>(handle,
                                           Algo,
                                           in_dists_.data(),
@@ -149,6 +182,35 @@ const std::vector<select::params> kInputs{
   {10, 1000000, 64, true, false, true},
   {10, 1000000, 128, true, false, true},
   {10, 1000000, 256, true, false, true},
+
+  {10, 1000000, 1, true, false, false, true, 0.1},
+  {10, 1000000, 16, true, false, false, true, 0.1},
+  {10, 1000000, 64, true, false, false, true, 0.1},
+  {10, 1000000, 128, true, false, false, true, 0.1},
+  {10, 1000000, 256, true, false, false, true, 0.1},
+
+  {10, 1000000, 1, true, false, false, true, 0.9},
+  {10, 1000000, 16, true, false, false, true, 0.9},
+  {10, 1000000, 64, true, false, false, true, 0.9},
+  {10, 1000000, 128, true, false, false, true, 0.9},
+  {10, 1000000, 256, true, false, false, true, 0.9},
+  {1000, 10000, 1, true, false, false, true, 0.9},
+  {1000, 10000, 16, true, false, false, true, 0.9},
+  {1000, 10000, 64, true, false, false, true, 0.9},
+  {1000, 10000, 128, true, false, false, true, 0.9},
+  {1000, 10000, 256, true, false, false, true, 0.9},
+
+  {10, 1000000, 1, true, false, false, true, 1.0},
+  {10, 1000000, 16, true, false, false, true, 1.0},
+  {10, 1000000, 64, true, false, false, true, 1.0},
+  {10, 1000000, 128, true, false, false, true, 1.0},
+  {10, 1000000, 256, true, false, false, true, 1.0},
+  {1000, 10000, 1, true, false, false, true, 1.0},
+  {1000, 10000, 16, true, false, false, true, 1.0},
+  {1000, 10000, 64, true, false, false, true, 1.0},
+  {1000, 10000, 128, true, false, false, true, 1.0},
+  {1000, 10000, 256, true, false, false, true, 1.0},
+  {1000, 10000, 256, true, false, false, true, 0.999},
 };
 
 #define SELECTION_REGISTER(KeyT, IdxT, A)                        \
