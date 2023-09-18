@@ -27,13 +27,13 @@
 
 namespace raft::util {
 
-struct test_spec {
+struct test_spec_bitset {
   uint64_t bitset_len;
   uint64_t mask_len;
   uint64_t query_len;
 };
 
-auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
+auto operator<<(std::ostream& os, const test_spec_bitset& ss) -> std::ostream&
 {
   os << "bitset{bitset_len: " << ss.bitset_len << ", mask_len: " << ss.mask_len
      << ", query_len: " << ss.query_len << "}";
@@ -80,17 +80,17 @@ void flip_cpu_bitset(std::vector<bitset_t>& bitset)
 }
 
 template <typename bitset_t, typename index_t>
-class BitsetTest : public testing::TestWithParam<test_spec> {
+class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
  protected:
   index_t static constexpr const bitset_element_size = sizeof(bitset_t) * 8;
-  const test_spec spec;
+  const test_spec_bitset spec;
   std::vector<bitset_t> bitset_result;
   std::vector<bitset_t> bitset_ref;
   raft::resources res;
 
  public:
   explicit BitsetTest()
-    : spec(testing::TestWithParam<test_spec>::GetParam()),
+    : spec(testing::TestWithParam<test_spec_bitset>::GetParam()),
       bitset_result(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size))),
       bitset_ref(raft::ceildiv(spec.bitset_len, uint64_t(bitset_element_size)))
   {
@@ -155,13 +155,13 @@ class BitsetTest : public testing::TestWithParam<test_spec> {
   }
 };
 
-auto inputs = ::testing::Values(test_spec{32, 5, 10},
-                                test_spec{100, 30, 10},
-                                test_spec{1024, 55, 100},
-                                test_spec{10000, 1000, 1000},
-                                test_spec{1 << 15, 1 << 3, 1 << 12},
-                                test_spec{1 << 15, 1 << 24, 1 << 13},
-                                test_spec{1 << 25, 1 << 23, 1 << 14});
+auto inputs = ::testing::Values(test_spec_bitset{32, 5, 10},
+                                test_spec_bitset{100, 30, 10},
+                                test_spec_bitset{1024, 55, 100},
+                                test_spec_bitset{10000, 1000, 1000},
+                                test_spec_bitset{1 << 15, 1 << 3, 1 << 12},
+                                test_spec_bitset{1 << 15, 1 << 24, 1 << 13},
+                                test_spec_bitset{1 << 25, 1 << 23, 1 << 14});
 
 using Uint16_32 = BitsetTest<uint16_t, uint32_t>;
 TEST_P(Uint16_32, Run) { run(); }
