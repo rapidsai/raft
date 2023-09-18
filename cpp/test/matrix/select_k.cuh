@@ -238,7 +238,7 @@ struct SelectK  // NOLINT
       auto forgive_i = forgive_algo(ref.algo, i);
       auto forgive_j = forgive_algo(res.algo, j);
       // Some algorithms return invalid indices in special cases.
-      // This can be considered as TODO for us to fix.
+      // TODO: https://github.com/rapidsai/raft/issues/1822
       if (static_cast<size_t>(ix_i) >= in_ids.size()) return forgive_i;
       if (static_cast<size_t>(ix_j) >= in_ids.size()) return forgive_j;
       auto dist_i = in_dists[ix_i];
