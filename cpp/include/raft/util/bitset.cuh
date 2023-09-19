@@ -49,10 +49,11 @@ struct bitset_view {
    * @brief Create a bitset view from a device vector view of the bitset.
    *
    * @param bitset_span Device vector view of the bitset
+   * @param bitset_len Number of bits in the bitset
    */
-  _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<bitset_t, index_t> bitset_span)
-    : bitset_ptr_{bitset_span.data_handle()},
-      bitset_len_{bitset_span.extent(0) * bitset_element_size}
+  _RAFT_HOST_DEVICE bitset_view(raft::device_vector_view<bitset_t, index_t> bitset_span,
+                                index_t bitset_len)
+    : bitset_ptr_{bitset_span.data_handle()}, bitset_len_{bitset_len}
   {
   }
   /**
@@ -169,11 +170,11 @@ struct bitset {
    */
   inline auto view() -> raft::util::bitset_view<bitset_t, index_t>
   {
-    return bitset_view<bitset_t, index_t>(view_mdspan());
+    return bitset_view<bitset_t, index_t>(view_mdspan(), bitset_len_);
   }
   [[nodiscard]] inline auto view() const -> raft::util::bitset_view<const bitset_t, index_t>
   {
-    return bitset_view<const bitset_t, index_t>(view_mdspan());
+    return bitset_view<const bitset_t, index_t>(view_mdspan(), bitset_len_);
   }
 
   /**
