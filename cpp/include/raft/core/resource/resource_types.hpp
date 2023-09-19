@@ -44,7 +44,7 @@ enum resource_type {
   CUBLASLT_HANDLE,         // cublasLt handle
   USER_DEFINED,            // user-defined default-constructible resource
 
-  LAST_KEY                 // reserved for the last key
+  LAST_KEY  // reserved for the last key
 };
 
 /**

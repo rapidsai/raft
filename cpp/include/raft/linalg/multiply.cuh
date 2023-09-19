@@ -98,7 +98,7 @@ void multiply_scalar(
 
 /** @} */  // end of group multiply
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif
