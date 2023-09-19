@@ -264,12 +264,12 @@ __device__ decltype(auto) get_mdspan_elem(MdspanType md, IdxType const* indices)
  * by increment. Store the result in indices. Return true if the new
  * indices are valid for the input mdspan.
  */
-template <typename MdspanType, typename IdxType>
+template <typename MdspanType, typename IdxType, typename IncrType>
 __device__ auto increment_indices(IdxType* indices,
                                   MdspanType const& md,
                                   IdxType const* old_indices,
                                   IdxType const* index_strides,
-                                  IdxType increment)
+                                  IncrType increment)
 {
 #pragma unroll
   for (auto i = typename MdspanType::extents_type::rank_type{}; i < md.rank(); ++i) {
