@@ -155,36 +155,36 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
   }
 };
 
-auto inputs = ::testing::Values(test_spec_bitset{32, 5, 10},
-                                test_spec_bitset{100, 30, 10},
-                                test_spec_bitset{1024, 55, 100},
-                                test_spec_bitset{10000, 1000, 1000},
-                                test_spec_bitset{1 << 15, 1 << 3, 1 << 12},
-                                test_spec_bitset{1 << 15, 1 << 24, 1 << 13},
-                                test_spec_bitset{1 << 25, 1 << 23, 1 << 14});
+auto inputs_bitset = ::testing::Values(test_spec_bitset{32, 5, 10},
+                                       test_spec_bitset{100, 30, 10},
+                                       test_spec_bitset{1024, 55, 100},
+                                       test_spec_bitset{10000, 1000, 1000},
+                                       test_spec_bitset{1 << 15, 1 << 3, 1 << 12},
+                                       test_spec_bitset{1 << 15, 1 << 24, 1 << 13},
+                                       test_spec_bitset{1 << 25, 1 << 23, 1 << 14});
 
 using Uint16_32 = BitsetTest<uint16_t, uint32_t>;
 TEST_P(Uint16_32, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint16_32, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint16_32, inputs_bitset);
 
 using Uint32_32 = BitsetTest<uint32_t, uint32_t>;
 TEST_P(Uint32_32, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_32, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_32, inputs_bitset);
 
 using Uint64_32 = BitsetTest<uint64_t, uint32_t>;
 TEST_P(Uint64_32, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_32, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_32, inputs_bitset);
 
 using Uint8_64 = BitsetTest<uint8_t, uint64_t>;
 TEST_P(Uint8_64, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint8_64, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint8_64, inputs_bitset);
 
 using Uint32_64 = BitsetTest<uint32_t, uint64_t>;
 TEST_P(Uint32_64, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_64, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint32_64, inputs_bitset);
 
 using Uint64_64 = BitsetTest<uint64_t, uint64_t>;
 TEST_P(Uint64_64, Run) { run(); }
-INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_64, inputs);
+INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_64, inputs_bitset);
 
 }  // namespace raft::util
