@@ -4,7 +4,82 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Installing the benchmarks
 
-The easiest way to install these benchmarks is through conda. We provide packages for GPU enabled systems, as well for systems without a GPU. We suggest using mamba as it generally leads to a faster install time:
+There are two main ways pre-compiled benchmarks are distributed: Docker and conda. The following sub sections demonstrate how to install and run each path.
+
+### Docker
+
+We provide images for GPU enabled systems, as well as systems without a GPU. The following images are available:
+
+- `raft-ann-bench`: Contains GPU and CPU benchmarks, can run all algorithms supported. Will download million-scale datasets as required. Best suited for users that prefer a smaller container size for GPU based systems. Requires the NVIDIA Container Toolkit to run GPU algorithms, can run CPU algorithms without it.
+- `raft-ann-bench-datasets`: Contains the GPU and CPU benchmarks with million-scale datasets already included in the container. Best suited for users that want to run multiple million scale datasets already included in the image.
+- `raft-ann-bench-cpu`: Contains only CPU benchmarks with minimal size. Best suited for users that want the smallest containers to reproduce benchmarks on systems without a GPU.
+- `raft-ann-bench-cpu-datasets`: Contains only CPU benchmarks with million-scale datasets already included.
+
+Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft-ann-bench), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft-ann-bench), starting with release 23.10.
+
+#### Container Usage
+
+The containers can be used in two manners:
+
+1. **Quick benchmark with single `docker run`**: The docker containers already include helper scripts to be able to invoke most of the functionality of the benchmarks from docker run for a simple and easy way to run benchmarks. To use the containers in this manner, use the following commands:
+
+For GPU systems, where $DATA_FOLDER is a local folder where you want datasets stored in $DATA_FOLDER/datasets and results in $DATA_FOLDER/results:
+
+```bash
+docker run --gpus all --rm -it \
+    -v $DATA_FOLDER:/home/rapids/benchmarks  \
+    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \
+    "--dataset deep-image-96-angular" \
+    "--normalize" \
+    "--algorithms raft_cagra" \
+    ""
+```
+
+Where:
+
+```bash
+docker run --gpus all --rm -it \
+    -v $DATA_FOLDER:/home/rapids/benchmarks  \ # <- local folder to store datasets and results
+    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`
+    "--dataset deep-image-96-angular" \ # <- dataset name
+    "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
+    "--algorithms raft_cagra" \ # <- what algorithm(s) to use as a ; separated list, as well as any other argument to pass to `raft_ann_benchmarks.run`
+    "" # optional argumetns to pass to `raft_ann_benchmarks.plot`
+```
+
+For CPU systems the same interface applies, except for not needing the gpus argument and using the cpu images:
+```bash
+docker run  all --rm -it \
+    -v $DATA_FOLDER:/home/rapids/benchmarks  \
+    rapidsai/raft-ann-bench-cpu:23.10a-py3.10 \
+     "--dataset deep-image-96-angular" \
+     "--normalize" \
+     "--algorithms raft_cagra" \
+     ""
+```
+
+2. **Using the preinstalled `raft_ann_benchmarks` python package**: The docker containers are built using the conda packages described in the following section, so they can be used directly as if they were installed manually following the instructions in the next section. This allows using the full flexibility of the scripts. To use the python scripts directly, an easy way is to use the following command:
+
+```bash
+docker run --gpus all --rm -it \
+    -v $DATA_FOLDER:/home/rapids/benchmarks  \
+    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \
+    --entrypoint /bin/bash
+```
+
+This will drop you into a command line in the container, with the `raft_ann_benchmarks` python package ready to use:
+
+```
+(base) root@00b068fbb862:/home/rapids#
+```
+
+Additionally, the containers could be run in dettached form without any issue.
+
+For details on how to use the python package from the command line, see the [corresponding section](#python-pacakge-usage).
+
+### Conda
+
+If containers are not an option or not preferred, the easiest way to install the ANN benchmarks is through conda. We provide packages for GPU enabled systems, as well for systems without a GPU. We suggest using mamba as it generally leads to a faster install time:
 
 ```bash
 
@@ -24,7 +99,7 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 
 ## Running the benchmarks
 
-### Usage
+### Python Pacakge Usage
 There are 4 general steps to running the benchmarks and visualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
