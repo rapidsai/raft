@@ -196,18 +196,18 @@ void bench_search(::benchmark::State& state,
       algo = ualgo.get();
       algo->load(index_file);
       current_algo = std::move(ualgo);
-    }
 
-    if (search_param->needs_dataset()) {
-      try {
-        const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
-        algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
-                                 dataset->base_set_size());
-      } catch (const std::exception& ex) {
-        state.SkipWithError("The algorithm '" + index.name +
-                            "' requires the base set, but it's not available. " +
-                            "Exception: " + std::string(ex.what()));
-        return;
+      if (search_param->needs_dataset()) {
+        try {
+          const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
+          algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
+                                   dataset->base_set_size());
+        } catch (const std::exception& ex) {
+          state.SkipWithError("The algorithm '" + index.name +
+                              "' requires the base set, but it's not available. " +
+                              "Exception: " + std::string(ex.what()));
+          return;
+        }
       }
     }
   } catch (const std::exception& e) {
