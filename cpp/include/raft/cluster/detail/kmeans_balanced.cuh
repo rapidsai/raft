@@ -438,7 +438,7 @@ __global__ void __launch_bounds__((WarpSize * BlockDimY))
   adjust_centers_kernel(MathT* centers,  // [n_clusters, dim]
                         IdxT n_clusters,
                         IdxT dim,
-                        const T* dataset,               // [n_rows, dim]
+                        const T* dataset,  // [n_rows, dim]
                         IdxT n_rows,
                         const LabelT* labels,           // [n_rows]
                         const CounterT* cluster_sizes,  // [n_clusters]

@@ -78,10 +78,10 @@ class MST_solver {
   rmm::device_uvector<alteration_t> altered_weights;  // weights to be used for mst
   rmm::device_scalar<edge_t> mst_edge_count;  // total number of edges added after every iteration
   rmm::device_scalar<edge_t>
-    prev_mst_edge_count;                      // total number of edges up to the previous iteration
-  rmm::device_uvector<bool> mst_edge;         // mst output -  true if the edge belongs in mst
-  rmm::device_uvector<vertex_t> next_color;   //  next iteration color
-  rmm::device_uvector<vertex_t> color;        // index of color that vertex points to
+    prev_mst_edge_count;                     // total number of edges up to the previous iteration
+  rmm::device_uvector<bool> mst_edge;        // mst output -  true if the edge belongs in mst
+  rmm::device_uvector<vertex_t> next_color;  //  next iteration color
+  rmm::device_uvector<vertex_t> color;       // index of color that vertex points to
 
   // new src-dst pairs found per iteration
   rmm::device_uvector<vertex_t> temp_src;
