@@ -183,9 +183,9 @@ __device__ inline void update_histogram(int itr,
                                         uint32_t threshold,
                                         uint32_t& num_bins,
                                         uint32_t& shift,
-                                        const T* x,        // [nx,]
+                                        const T* x,  // [nx,]
                                         uint32_t nx,
-                                        uint32_t* hist,    // [num_bins]
+                                        uint32_t* hist,  // [num_bins]
                                         uint8_t* state,
                                         uint32_t* output,  // [topk]
                                         uint32_t* output_count)
@@ -761,16 +761,16 @@ __launch_bounds__(1024, 1) __global__
   void kern_topk_cta_11(uint32_t topk,
                         uint32_t size_batch,
                         uint32_t len_x,
-                        const uint32_t* _x,    // [size_batch, ld_x,]
+                        const uint32_t* _x,  // [size_batch, ld_x,]
                         uint32_t ld_x,
                         const ValT* _in_vals,  // [size_batch, ld_iv,]
                         uint32_t ld_iv,
-                        uint32_t* _y,          // [size_batch, ld_y,]
+                        uint32_t* _y,  // [size_batch, ld_y,]
                         uint32_t ld_y,
-                        ValT* _out_vals,       // [size_batch, ld_ov,]
+                        ValT* _out_vals,  // [size_batch, ld_ov,]
                         uint32_t ld_ov,
-                        uint8_t* _state,       // [size_batch, ...,]
-                        uint32_t* _hints,      // [size_batch,]
+                        uint8_t* _state,   // [size_batch, ...,]
+                        uint32_t* _hints,  // [size_batch,]
                         bool sort)
 {
   const uint32_t i_batch = blockIdx.x;
