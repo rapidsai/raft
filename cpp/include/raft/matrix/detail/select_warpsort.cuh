@@ -959,7 +959,7 @@ void calc_launch_parameter(
       if (batch_size >= size_t(another_min_grid_size)  // still have enough work
           && another_block_size < block_size           // protect against an infinite loop
           && another_min_grid_size * another_block_size >
-               min_grid_size * block_size              // improve occupancy
+               min_grid_size * block_size  // improve occupancy
       ) {
         block_size    = another_block_size;
         min_grid_size = another_min_grid_size;

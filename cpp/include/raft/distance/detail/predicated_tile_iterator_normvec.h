@@ -57,8 +57,8 @@ namespace threadblock {
 ///
 /// Satisfies: ReadableTileIterator | PredicatedTileIterator | ForwardTileIterator
 ///
-template <typename ThreadMap_,        ///< Thread map (conept: OutputTileThreadMap)
-          typename Element_,          ///< Element data type
+template <typename ThreadMap_,  ///< Thread map (conept: OutputTileThreadMap)
+          typename Element_,    ///< Element data type
           typename Layout_,
           bool ScatterD     = false,  ///< Scatter D operand or not
           bool UseCUDAStore = false>

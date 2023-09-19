@@ -219,28 +219,28 @@ const std::vector<select::params> kInputs{
   RAFT_BENCH_REGISTER(SelectK, #KeyT "/" #IdxT "/" #A, kInputs); \
   }
 
-SELECTION_REGISTER(float, uint32_t, kPublicApi);              // NOLINT
-SELECTION_REGISTER(float, uint32_t, kRadix8bits);             // NOLINT
-SELECTION_REGISTER(float, uint32_t, kRadix11bits);            // NOLINT
-SELECTION_REGISTER(float, uint32_t, kRadix11bitsExtraPass);   // NOLINT
-SELECTION_REGISTER(float, uint32_t, kWarpAuto);               // NOLINT
-SELECTION_REGISTER(float, uint32_t, kWarpImmediate);          // NOLINT
-SELECTION_REGISTER(float, uint32_t, kWarpFiltered);           // NOLINT
-SELECTION_REGISTER(float, uint32_t, kWarpDistributed);        // NOLINT
-SELECTION_REGISTER(float, uint32_t, kWarpDistributedShm);     // NOLINT
+SELECTION_REGISTER(float, uint32_t, kPublicApi);             // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix8bits);            // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix11bits);           // NOLINT
+SELECTION_REGISTER(float, uint32_t, kRadix11bitsExtraPass);  // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpAuto);              // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpImmediate);         // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpFiltered);          // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpDistributed);       // NOLINT
+SELECTION_REGISTER(float, uint32_t, kWarpDistributedShm);    // NOLINT
 
 SELECTION_REGISTER(double, uint32_t, kRadix8bits);            // NOLINT
 SELECTION_REGISTER(double, uint32_t, kRadix11bits);           // NOLINT
 SELECTION_REGISTER(double, uint32_t, kRadix11bitsExtraPass);  // NOLINT
 SELECTION_REGISTER(double, uint32_t, kWarpAuto);              // NOLINT
 
-SELECTION_REGISTER(double, int64_t, kRadix8bits);             // NOLINT
-SELECTION_REGISTER(double, int64_t, kRadix11bits);            // NOLINT
-SELECTION_REGISTER(double, int64_t, kRadix11bitsExtraPass);   // NOLINT
-SELECTION_REGISTER(double, int64_t, kWarpImmediate);          // NOLINT
-SELECTION_REGISTER(double, int64_t, kWarpFiltered);           // NOLINT
-SELECTION_REGISTER(double, int64_t, kWarpDistributed);        // NOLINT
-SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);     // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix8bits);            // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix11bits);           // NOLINT
+SELECTION_REGISTER(double, int64_t, kRadix11bitsExtraPass);  // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpImmediate);         // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpFiltered);          // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpDistributed);       // NOLINT
+SELECTION_REGISTER(double, int64_t, kWarpDistributedShm);    // NOLINT
 
 // For learning a heuristic of which selection algorithm to use, we
 // have a couple of additional constraints when generating the dataset:
