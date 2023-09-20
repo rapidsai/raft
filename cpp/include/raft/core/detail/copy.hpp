@@ -67,7 +67,7 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
   using src_element_type                 = typename src_type::element_type;
   auto static constexpr const same_dtype = std::is_same_v<dst_value_type, src_value_type>;
   auto static constexpr const compatible_dtype =
-    std::is_convertible_v<src_value_type, dst_element_type>;
+    std::is_assignable_v<src_value_type, dst_element_type>;
 
   auto static constexpr const dst_float  = std::is_same_v<dst_value_type, float>;
   auto static constexpr const src_float  = std::is_same_v<src_value_type, float>;
