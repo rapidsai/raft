@@ -152,6 +152,9 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
                        std::bool_constant<both_contiguous>,
                        std::bool_constant<same_underlying_layout>>;
 
+  // Do we need intermediate storage on device in order to perform
+  // non-trivial layout or dtype conversions after copying source from host or
+  // before copying converted results back to host?
   auto static constexpr const requires_intermediate =
     !both_host_accessible && !both_device_accessible && !can_use_raft_copy;
 
