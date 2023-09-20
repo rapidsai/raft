@@ -42,7 +42,7 @@ enum resource_type {
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
 
-  LAST_KEY                 // reserved for the last key
+  LAST_KEY  // reserved for the last key
 };
 
 /**
