@@ -189,27 +189,14 @@ void bench_search(::benchmark::State& state,
   ANN<T>* algo;
   std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
   try {
-    search_param = ann::create_search_param<T>(index.algo, sp_json);
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
       auto ualgo = ann::create_algo<T>(
         index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
       algo = ualgo.get();
       algo->load(index_file);
       current_algo = std::move(ualgo);
-
-      if (search_param->needs_dataset()) {
-        try {
-          const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
-          algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
-                                   dataset->base_set_size());
-        } catch (const std::exception& ex) {
-          state.SkipWithError("The algorithm '" + index.name +
-                              "' requires the base set, but it's not available. " +
-                              "Exception: " + std::string(ex.what()));
-          return;
-        }
-      }
     }
+    search_param = ann::create_search_param<T>(index.algo, sp_json);
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
@@ -219,6 +206,18 @@ void bench_search(::benchmark::State& state,
   const T* query_set       = dataset->query_set(algo_property.query_memory_type);
   buf<float> distances{algo_property.query_memory_type, k * query_set_size};
   buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};
+
+  if (search_param->needs_dataset()) {
+    try {
+      algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
+                               dataset->base_set_size());
+    } catch (const std::exception& ex) {
+      state.SkipWithError("The algorithm '" + index.name +
+                          "' requires the base set, but it's not available. " +
+                          "Exception: " + std::string(ex.what()));
+      return;
+    }
+  }
 
   std::ptrdiff_t batch_offset   = 0;
   std::size_t queries_processed = 0;
