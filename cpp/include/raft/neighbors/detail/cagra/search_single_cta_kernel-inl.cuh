@@ -745,11 +745,40 @@ template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typena
 struct search_kernel_config {
   using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 64, 0, MX_DIM, T, DistT, IdxT>);
 
-  template <unsigned MAX_ITOPK, unsigned CANDIDATES, unsigned USE_BITONIC_SORT>
-  static auto choose_block_size(unsigned block_size) -> kernel_t
+  template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
+  static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
   {
-    constexpr unsigned BS = USE_BITONIC_SORT;
-    return search_kernel<TEAM_SIZE, MAX_ITOPK, CANDIDATES, BS, MX_DIM, T, DistT, IdxT>;
+    if (itopk_size <= 64) {
+      return search_kernel<TEAM_SIZE, 64, MAX_CANDIDATES, USE_BITONIC_SORT, MX_DIM, T, DistT, IdxT>;
+    } else if (itopk_size <= 128) {
+      return search_kernel<TEAM_SIZE,
+                           128,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT>;
+    } else if (itopk_size <= 256) {
+      return search_kernel<TEAM_SIZE,
+                           256,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT>;
+    } else if (itopk_size <= 512) {
+      return search_kernel<TEAM_SIZE,
+                           512,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT>;
+    }
+    THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
 
   static auto choose_itopk_and_mx_candidates(unsigned itopk_size,
@@ -758,45 +787,18 @@ struct search_kernel_config {
   {
     if (num_itopk_candidates <= 64) {
       // use bitonic sort based topk
-      constexpr unsigned max_candidates = 64;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<64, 1>(itopk_size);
     } else if (num_itopk_candidates <= 128) {
-      constexpr unsigned max_candidates = 128;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<128, 1>(itopk_size);
     } else if (num_itopk_candidates <= 256) {
-      constexpr unsigned max_candidates = 256;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<526, 1>(itopk_size);
     } else {
       // Radix-based topk is used
       constexpr unsigned max_candidates = 32;  // to avoid build failure
       if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 0>(block_size);
+        return search_kernel<TEAM_SIZE, 256, max_candidates, 0, MX_DIM, T, DistT, IdxT>;
       } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 0>(block_size);
+        return search_kernel<TEAM_SIZE, 512, max_candidates, 0, MX_DIM, T, DistT, IdxT>;
       }
     }
     THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",

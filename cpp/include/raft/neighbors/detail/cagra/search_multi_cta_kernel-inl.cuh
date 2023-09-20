@@ -373,26 +373,31 @@ struct search_kernel_config {
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return choose_max_elements<64>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           64,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     } else if (result_buffer_size <= 128) {
-      return choose_max_elements<128>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           128,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     } else if (result_buffer_size <= 256) {
-      return choose_max_elements<256>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           256,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
-  }
-
-  template <unsigned MAX_ELEMENTS>
-  // Todo: rename this to choose block_size
-  static auto choose_max_elements(unsigned block_size) -> kernel_t
-  {
-    return search_kernel<TEAM_SIZE,
-                         MAX_ELEMENTS,
-                         MAX_DATASET_DIM,
-                         DATA_T,
-                         DISTANCE_T,
-                         INDEX_T,
-                         device::LOAD_128BIT_T>;
   }
 };
 
