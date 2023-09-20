@@ -16,16 +16,16 @@
 
 #include "../test_utils.cuh"
 
+#include <raft/core/bitset.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/random/rng.cuh>
-#include <raft/util/bitset.cuh>
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
 #include <numeric>
 
-namespace raft::util {
+namespace raft::core {
 
 struct test_spec_bitset {
   uint64_t bitset_len;
@@ -109,10 +109,9 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     resource::sync_stream(res, stream);
 
     // calculate the results
-    auto test_bitset = raft::util::bitset<bitset_t, index_t>(
+    auto my_bitset = raft::core::bitset<bitset_t, index_t>(
       res, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len));
-    update_host(
-      bitset_result.data(), test_bitset.view().data_handle(), bitset_result.size(), stream);
+    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
 
     // calculate the reference
     create_cpu_bitset(bitset_ref, mask_cpu);
@@ -128,8 +127,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     // Create queries and verify the test results
     raft::random::uniformInt(res, rng, query_device.view(), index_t(0), index_t(spec.bitset_len));
     update_host(query_cpu.data(), query_device.data_handle(), query_device.extent(0), stream);
-    raft::util::bitset_test(
-      res, test_bitset.view(), raft::make_const_mdspan(query_device.view()), result_device.view());
+    my_bitset.test(res, raft::make_const_mdspan(query_device.view()), result_device.view());
     update_host(result_cpu.data(), result_device.data_handle(), result_device.extent(0), stream);
     test_cpu_bitset(bitset_ref, query_cpu, result_ref);
     resource::sync_stream(res, stream);
@@ -139,16 +137,16 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     raft::random::uniformInt(res, rng, mask_device.view(), index_t(0), index_t(spec.bitset_len));
     update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
     resource::sync_stream(res, stream);
-    raft::util::bitset_set<bitset_t, index_t>(res, test_bitset.view(), mask_device.view());
-    update_host(bitset_result.data(), test_bitset.data_handle(), bitset_result.size(), stream);
+    my_bitset.set(res, mask_device.view());
+    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
 
     add_cpu_bitset(bitset_ref, mask_cpu);
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
     // Flip the bitset and re-test
-    raft::util::bitset_flip<bitset_t, index_t>(res, test_bitset.view());
-    update_host(bitset_result.data(), test_bitset.data_handle(), bitset_result.size(), stream);
+    my_bitset.flip(res);
+    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
     flip_cpu_bitset(bitset_ref);
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
@@ -187,4 +185,4 @@ using Uint64_64 = BitsetTest<uint64_t, uint64_t>;
 TEST_P(Uint64_64, Run) { run(); }
 INSTANTIATE_TEST_CASE_P(BitsetTest, Uint64_64, inputs_bitset);
 
-}  // namespace raft::util
+}  // namespace raft::core

@@ -15,11 +15,11 @@
  */
 
 #include <common/benchmark.hpp>
+#include <raft/core/bitset.cuh>
 #include <raft/core/device_mdspan.hpp>
-#include <raft/util/bitset.cuh>
 #include <rmm/device_uvector.hpp>
 
-namespace raft::bench::util {
+namespace raft::bench::core {
 
 struct bitset_inputs {
   uint32_t bitset_len;
@@ -42,10 +42,9 @@ struct bitset_bench : public fixture {
   void run_benchmark(::benchmark::State& state) override
   {
     loop_on_state(state, [this]() {
-      auto my_bitset = raft::util::bitset<bitset_t, index_t>(
+      auto my_bitset = raft::core::bitset<bitset_t, index_t>(
         this->res, raft::make_const_mdspan(mask.view()), params.bitset_len);
-      raft::util::bitset_test(
-        res, my_bitset.view(), raft::make_const_mdspan(queries.view()), outputs.view());
+      my_bitset.test(res, raft::make_const_mdspan(queries.view()), outputs.view());
     });
   }
 
@@ -72,4 +71,4 @@ RAFT_BENCH_REGISTER(Uint16_64, "", bitset_input_vecs);
 RAFT_BENCH_REGISTER(Uint32_32, "", bitset_input_vecs);
 RAFT_BENCH_REGISTER(Uint32_64, "", bitset_input_vecs);
 
-}  // namespace raft::bench::util
+}  // namespace raft::bench::core

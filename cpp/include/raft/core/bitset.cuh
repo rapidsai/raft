@@ -23,7 +23,7 @@
 #include <raft/util/device_atomics.cuh>
 #include <thrust/for_each.h>
 
-namespace raft::util {
+namespace raft::core {
 /**
  * @defgroup bitset Bitset
  * @{
@@ -69,6 +69,7 @@ struct bitset_view {
     const bool is_bit_set      = (bit_element & (bitset_t{1} << bit_index)) != 0;
     return is_bit_set;
   }
+
   /**
    * @brief Get the device pointer to the bitset.
    */
@@ -82,7 +83,7 @@ struct bitset_view {
   /**
    * @brief Get the number of elements used by the bitset representation.
    */
-  inline auto n_elements() const -> index_t
+  inline _RAFT_HOST_DEVICE auto n_elements() const -> index_t
   {
     return raft::ceildiv(bitset_len_, bitset_element_size);
   }
@@ -136,7 +137,7 @@ struct bitset {
                     default_value ? 0xff : 0x00,
                     n_elements() * sizeof(bitset_t),
                     resource::get_cuda_stream(res));
-    bitset_set(res, view(), mask_index, !default_value);
+    set(res, mask_index, !default_value);
   }
 
   /**
@@ -168,13 +169,13 @@ struct bitset {
    *
    * @return bitset_view<bitset_t, index_t>
    */
-  inline auto view() -> raft::util::bitset_view<bitset_t, index_t>
+  inline auto view() -> raft::core::bitset_view<bitset_t, index_t>
   {
-    return bitset_view<bitset_t, index_t>(view_mdspan(), bitset_len_);
+    return bitset_view<bitset_t, index_t>(to_mdspan(), bitset_len_);
   }
-  [[nodiscard]] inline auto view() const -> raft::util::bitset_view<const bitset_t, index_t>
+  [[nodiscard]] inline auto view() const -> raft::core::bitset_view<const bitset_t, index_t>
   {
-    return bitset_view<const bitset_t, index_t>(view_mdspan(), bitset_len_);
+    return bitset_view<const bitset_t, index_t>(to_mdspan(), bitset_len_);
   }
 
   /**
@@ -196,11 +197,11 @@ struct bitset {
   }
 
   /** @brief Get an mdspan view of the current bitset */
-  inline auto view_mdspan() -> raft::device_vector_view<bitset_t, index_t>
+  inline auto to_mdspan() -> raft::device_vector_view<bitset_t, index_t>
   {
     return raft::make_device_vector_view<bitset_t, index_t>(bitset_.data(), n_elements());
   }
-  [[nodiscard]] inline auto view_mdspan() const -> raft::device_vector_view<const bitset_t, index_t>
+  [[nodiscard]] inline auto to_mdspan() const -> raft::device_vector_view<const bitset_t, index_t>
   {
     return raft::make_device_vector_view<const bitset_t, index_t>(bitset_.data(), n_elements());
   }
@@ -222,91 +223,86 @@ struct bitset {
     }
   }
 
+  /**
+   * @brief Test a list of indices in a bitset.
+   *
+   * @tparam output_t Output type of the test. Default is bool.
+   * @param res RAFT resources
+   * @param queries List of indices to test
+   * @param output List of outputs
+   */
+  template <typename output_t = bool>
+  void test(const raft::resources& res,
+            raft::device_vector_view<const index_t, index_t> queries,
+            raft::device_vector_view<output_t, index_t> output) const
+  {
+    RAFT_EXPECTS(output.extent(0) == queries.extent(0), "Output and queries must be same size");
+    auto bitset_view = view();
+    raft::linalg::map(
+      res,
+      output,
+      [bitset_view] __device__(index_t query) { return output_t(bitset_view.test(query)); },
+      queries);
+  }
+  /**
+   * @brief Set a list of indices in a bitset to set_value.
+   *
+   * @param res RAFT resources
+   * @param mask_index indices to remove from the bitset
+   * @param set_value Value to set the bits to (true or false)
+   */
+  void set(const raft::resources& res,
+           raft::device_vector_view<const index_t, index_t> mask_index,
+           bool set_value = false)
+  {
+    auto* bitset_ptr = this->data_handle();
+    thrust::for_each_n(resource::get_thrust_policy(res),
+                       mask_index.data_handle(),
+                       mask_index.extent(0),
+                       [bitset_ptr, set_value] __device__(const index_t sample_index) {
+                         const index_t bit_element = sample_index / bitset_element_size;
+                         const index_t bit_index   = sample_index % bitset_element_size;
+                         const bitset_t bitmask    = bitset_t{1} << bit_index;
+                         if (set_value) {
+                           atomicOr(bitset_ptr + bit_element, bitmask);
+                         } else {
+                           const bitset_t bitmask2 = ~bitmask;
+                           atomicAnd(bitset_ptr + bit_element, bitmask2);
+                         }
+                       });
+  }
+  /**
+   * @brief Flip all the bits in a bitset.
+   *
+   * @param res RAFT resources
+   */
+  void flip(const raft::resources& res)
+  {
+    auto bitset_span = this->to_mdspan();
+    raft::linalg::map(
+      res,
+      bitset_span,
+      [] __device__(bitset_t element) { return bitset_t(~element); },
+      raft::make_const_mdspan(bitset_span));
+  }
+  /**
+   * @brief Reset the bits in a bitset.
+   *
+   * @param res RAFT resources
+   */
+  void reset(const raft::resources& res)
+  {
+    cudaMemsetAsync(bitset_.data(),
+                    default_value_ ? 0xff : 0x00,
+                    n_elements() * sizeof(bitset_t),
+                    resource::get_cuda_stream(res));
+  }
+
  private:
   raft::device_uvector<bitset_t> bitset_;
   index_t bitset_len_;
   bool default_value_;
 };
 
-/**
- * @brief Set a list of indices in a bitset to set_value.
- *
- * @tparam bitset_t Underlying type of the bitset array
- * @tparam index_t Indexing type used.
- * @param res RAFT resources
- * @param bitset_view_ View of the bitset
- * @param mask_index indices to remove from the bitset
- * @param set_value Value to set the bits to (true or false)
- */
-template <typename bitset_t, typename index_t>
-void bitset_set(const raft::resources& res,
-                raft::util::bitset_view<bitset_t, index_t> bitset_view_,
-                raft::device_vector_view<const index_t, index_t> mask_index,
-                bool set_value = false)
-{
-  auto* bitset_ptr = bitset_view_.data_handle();
-  constexpr auto bitset_element_size =
-    raft::util::bitset_view<bitset_t, index_t>::bitset_element_size;
-  thrust::for_each_n(
-    resource::get_thrust_policy(res),
-    mask_index.data_handle(),
-    mask_index.extent(0),
-    [bitset_ptr, set_value, bitset_element_size] __device__(const index_t sample_index) {
-      const index_t bit_element = sample_index / bitset_element_size;
-      const index_t bit_index   = sample_index % bitset_element_size;
-      const bitset_t bitmask    = bitset_t{1} << bit_index;
-      if (set_value) {
-        atomicOr(bitset_ptr + bit_element, bitmask);
-      } else {
-        const bitset_t bitmask2 = ~bitmask;
-        atomicAnd(bitset_ptr + bit_element, bitmask2);
-      }
-    });
-}
-
-/**
- * @brief Test a list of indices in a bitset.
- *
- * @tparam bitset_t Underlying type of the bitset array
- * @tparam index_t Indexing type
- * @tparam output_t Output type of the test. Default is bool.
- * @param res RAFT resources
- * @param bitset_view_ View of the bitset
- * @param queries List of indices to test
- * @param output List of outputs
- */
-template <typename bitset_t, typename index_t, typename output_t = bool>
-void bitset_test(const raft::resources& res,
-                 const raft::util::bitset_view<bitset_t, index_t> bitset_view_,
-                 raft::device_vector_view<const index_t, index_t> queries,
-                 raft::device_vector_view<output_t, index_t> output)
-{
-  RAFT_EXPECTS(output.extent(0) == queries.extent(0), "Output and queries must be same size");
-  raft::linalg::map(
-    res,
-    output,
-    [=] __device__(index_t query) { return output_t(bitset_view_.test(query)); },
-    queries);
-}
-
-/**
- * @brief Flip all the bit in a bitset.
- *
- * @tparam bitset_t Underlying type of the bitset array
- * @tparam index_t Indexing type
- * @param res RAFT resources
- * @param bitset_view_ View of the bitset
- */
-template <typename bitset_t, typename index_t>
-void bitset_flip(const raft::resources& res,
-                 raft::util::bitset_view<bitset_t, index_t> bitset_view_)
-{
-  auto bitset_span = bitset_view_.to_mdspan();
-  raft::linalg::map(
-    res,
-    bitset_span,
-    [] __device__(bitset_t element) { return bitset_t(~element); },
-    raft::make_const_mdspan(bitset_span));
-}
 /** @} */
-}  // end namespace raft::util
+}  // end namespace raft::core

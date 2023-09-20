@@ -8,18 +8,6 @@ This page provides C++ API references for the publicly-exposed utility functions
    :language: c++
    :class: highlight
 
-Bitset
-------
-
-``#include <raft/utils/bitset.cuh>``
-
-namespace *raft::utils*
-
-.. doxygengroup:: bitset
-    :project: RAFT
-    :members:
-    :content-only:
-
 Memory Pool
 -----------
 
