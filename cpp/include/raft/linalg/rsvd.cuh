@@ -876,7 +876,7 @@ void randomized_svd(const raft::resources& handle,
 
 /** @} */  // end of group rsvd
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

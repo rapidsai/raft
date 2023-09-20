@@ -85,7 +85,7 @@ void sum(raft::resources const& handle,
 
 /** @} */  // end group stats_sum
 
-};         // end namespace stats
-};         // end namespace raft
+};  // end namespace stats
+};  // end namespace raft
 
 #endif

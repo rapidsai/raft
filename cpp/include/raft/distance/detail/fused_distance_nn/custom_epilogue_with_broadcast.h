@@ -397,7 +397,7 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
     TensorTileIterator
       tensor_iterator,  ///< Threadblock tile iterator for additional tensor operand
     MatrixCoord const&
-      problem_size =    ///< Problem size needed to guard against out-of-bounds accesses
+      problem_size =  ///< Problem size needed to guard against out-of-bounds accesses
     MatrixCoord(Shape::kM, Shape::kN),
     MatrixCoord const&
       threadblock_offset =  ///< Threadblock's initial offset within the problem size space
@@ -418,7 +418,7 @@ class EpilogueWithBroadcastCustom : public EpilogueBase<Shape_,
       broadcast_fragment,  ///< Fragment containing the accumulated partial reduction over columns
     ElementVector const* broadcast_ptr,  ///< Broadcast vector
     MatrixCoord const&
-      problem_size,       ///< Problem size needed to guard against out-of-bounds accesses
+      problem_size,  ///< Problem size needed to guard against out-of-bounds accesses
     MatrixCoord const&
       threadblock_offset  ///< Threadblock's initial offset within the problem size space
   )
