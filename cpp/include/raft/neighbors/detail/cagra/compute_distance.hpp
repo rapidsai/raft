@@ -53,7 +53,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
   INDEX_T* const result_indices_ptr,       // [num_pickup]
   DISTANCE_T* const result_distances_ptr,  // [num_pickup]
   const float* const query_buffer,
-  const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
   const std::size_t dataset_dim,
   const std::size_t dataset_size,
   const std::size_t dataset_ld,

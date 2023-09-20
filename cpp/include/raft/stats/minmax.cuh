@@ -139,6 +139,6 @@ void minmax(raft::resources const& handle,
 
 /** @} */  // end group stats_minmax
 
-};         // namespace stats
-};         // namespace raft
+};  // namespace stats
+};  // namespace raft
 #endif

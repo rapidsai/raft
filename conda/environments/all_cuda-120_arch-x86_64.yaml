@@ -9,8 +9,8 @@ channels:
 dependencies:
 - breathe
 - c-compiler
-- clang-tools=16.0.1
-- clang=16.0.1
+- clang-tools=16.0.6
+- clang=16.0.6
 - cmake>=3.26.4
 - cuda-cudart-dev
 - cuda-profiler-api

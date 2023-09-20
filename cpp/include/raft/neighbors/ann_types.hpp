@@ -49,4 +49,4 @@ struct search_params {};
 
 /** @} */  // end group ann_types
 
-};         // namespace raft::neighbors::ann
+};  // namespace raft::neighbors::ann
