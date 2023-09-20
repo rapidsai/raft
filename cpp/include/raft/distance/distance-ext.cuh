@@ -140,8 +140,8 @@ void pairwise_distance(raft::resources const& handle,
                        raft::distance::DistanceType metric,
                        Type metric_arg = 2.0f) RAFT_EXPLICIT;
 
-};      // namespace distance
-};      // namespace raft
+};  // namespace distance
+};  // namespace raft
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 

@@ -103,12 +103,12 @@ struct bitonic_launch {
 };
 
 template <typename T>
-class BitonicTest : public testing::TestWithParam<test_spec> {     // NOLINT
+class BitonicTest : public testing::TestWithParam<test_spec> {  // NOLINT
  protected:
-  const test_spec spec;                                            // NOLINT
-  std::vector<T> in;                                               // NOLINT
-  std::vector<T> out;                                              // NOLINT
-  std::vector<T> ref;                                              // NOLINT
+  const test_spec spec;  // NOLINT
+  std::vector<T> in;     // NOLINT
+  std::vector<T> out;    // NOLINT
+  std::vector<T> ref;    // NOLINT
 
   void segmented_sort(std::vector<T>& vec, int k, bool ascending)  // NOLINT
   {
@@ -184,13 +184,13 @@ auto inputs = ::testing::Values(test_spec{1, 1, 1, true},
                                 test_spec{70, 1, 64, true},
                                 test_spec{70, 2, 128, false});
 
-using Floats = BitonicTest<float>;                      // NOLINT
-TEST_P(Floats, Run) { run(); }                          // NOLINT
-INSTANTIATE_TEST_CASE_P(BitonicTest, Floats, inputs);   // NOLINT
+using Floats = BitonicTest<float>;                     // NOLINT
+TEST_P(Floats, Run) { run(); }                         // NOLINT
+INSTANTIATE_TEST_CASE_P(BitonicTest, Floats, inputs);  // NOLINT
 
-using Ints = BitonicTest<int>;                          // NOLINT
-TEST_P(Ints, Run) { run(); }                            // NOLINT
-INSTANTIATE_TEST_CASE_P(BitonicTest, Ints, inputs);     // NOLINT
+using Ints = BitonicTest<int>;                       // NOLINT
+TEST_P(Ints, Run) { run(); }                         // NOLINT
+INSTANTIATE_TEST_CASE_P(BitonicTest, Ints, inputs);  // NOLINT
 
 using Doubles = BitonicTest<double>;                    // NOLINT
 TEST_P(Doubles, Run) { run(); }                         // NOLINT

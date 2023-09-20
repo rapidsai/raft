@@ -160,24 +160,24 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
 
 const std::vector<RsvdInputs<float>> inputs_fx = {
   // Test with ratios
-  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},      // Square + BBT
-  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},     // Tall + BBT
+  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Tall + BBT
 
-  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},     // Square + non-BBT
-  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},    // Tall + non-BBT
+  {0.20f, 256, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Square + non-BBT
+  {0.20f, 2048, 256, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Tall + non-BBT
 
-  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},    // Square + BBT
-  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Tall + BBT
+  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Tall + BBT
 
-  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Square + non-BBT
-  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL}   // Tall + non-BBT
+  {0.20f, 2048, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Square + non-BBT
+  {0.60f, 16384, 2048, 0.25f, 0.2f, 0.05f, 0, 0, false, 4321ULL}  // Tall + non-BBT
 
-  ,                                                                // Test with fixed ranks
-  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},     // Square + BBT
-  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},    // Tall + BBT
+  ,                                                              // Test with fixed ranks
+  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Square + BBT
+  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Tall + BBT
 
-  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},    // Square + non-BBT
-  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Tall + non-BBT
+  {0.10f, 256, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Square + non-BBT
+  {0.12f, 2048, 256, 0.25f, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Tall + non-BBT
 
   {0.60f, 2048, 2048, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Square + BBT
   {1.00f, 16384, 2048, 0.25f, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Tall + BBT
@@ -188,14 +188,14 @@ const std::vector<RsvdInputs<float>> inputs_fx = {
 
 const std::vector<RsvdInputs<double>> inputs_dx = {
   // Test with ratios
-  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},      // Square + BBT
-  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},     // Tall + BBT
-  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},     // Square + non-BBT
-  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},    // Tall + non-BBT
-  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},    // Square + BBT
-  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},   // Tall + BBT
-  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},   // Square + non-BBT
-  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL}   // Tall + non-BBT
+  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},     // Square + BBT
+  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},    // Tall + BBT
+  {0.20, 256, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},    // Square + non-BBT
+  {0.20, 2048, 256, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},   // Tall + non-BBT
+  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},   // Square + BBT
+  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, true, 4321ULL},  // Tall + BBT
+  {0.20, 2048, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL},  // Square + non-BBT
+  {0.60, 16384, 2048, 0.25f, 0.2, 0.05, 0, 0, false, 4321ULL}  // Tall + non-BBT
 
   ,                                                             // Test with fixed ranks
   {0.10, 256, 256, 0.25f, 0.0, 0.0, 100, 5, true, 4321ULL},     // Square + BBT

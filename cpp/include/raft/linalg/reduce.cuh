@@ -162,7 +162,7 @@ void reduce(raft::resources const& handle,
 
 /** @} */  // end of group reduction
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

@@ -898,7 +898,7 @@ auto compute_similarity_select(const cudaDeviceProp& dev_props,
     }
 
     {
-      if (selected_perf.occupancy <= 0.0                 // no candidate yet
+      if (selected_perf.occupancy <= 0.0  // no candidate yet
           || (selected_perf.occupancy < cur.occupancy * kTargetOccupancy &&
               selected_perf.shmem_use >= cur.shmem_use)  // much improved occupancy
       ) {
