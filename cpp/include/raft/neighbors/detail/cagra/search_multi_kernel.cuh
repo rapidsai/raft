@@ -324,9 +324,9 @@ __global__ void compute_distance_to_child_nodes_kernel(
   const DATA_T* query_ptr,             // [num_queries, data_dim]
   INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd,                 // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter)
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
@@ -408,9 +408,9 @@ void compute_distance_to_child_nodes(
   const std::uint32_t num_queries,
   INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd,                 // (*) ldd >= search_width * graph_degree
   SAMPLE_FILTER_T sample_filter,
   cudaStream_t cuda_stream = 0)
 {
