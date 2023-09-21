@@ -74,7 +74,7 @@ class BenchmarkTimer:
 
 
 def load_dataset(dataset_url, work_folder=None):
-    """Download dataset from url. It is expeted that the dataset contains a hdf5 file in ann-benchmarks format
+    """Download dataset from url. It is expected that the dataset contains a hdf5 file in ann-benchmarks format
 
     Parameters
     ----------
