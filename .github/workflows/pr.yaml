@@ -99,5 +99,5 @@ jobs:
     with:
       build_command: |
         sccache -z;
-        build-all -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON;
+        build-all -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON --verbose;
         sccache -s;
