@@ -85,7 +85,7 @@ double completeness_score(raft::resources const& handle,
 
 /** @} */  // end group stats_completeness
 
-};         // end namespace stats
-};         // end namespace raft
+};  // end namespace stats
+};  // end namespace raft
 
 #endif

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cstdint>                           // int64_t
+#include <cstdint>  // int64_t
 
 #include <raft/core/host_mdspan.hpp>         // raft::host_matrix_view
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType

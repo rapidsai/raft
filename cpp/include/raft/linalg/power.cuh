@@ -154,7 +154,7 @@ void power_scalar(
 
 /** @} */  // end of group add
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

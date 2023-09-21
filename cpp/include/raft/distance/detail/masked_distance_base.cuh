@@ -217,7 +217,7 @@ struct MaskedDistances : public BaseClass {
         }  // tile_idx_n
       }    // idx_g
       rowEpilog_op(tile_idx_m);
-    }      // tile_idx_m
+    }  // tile_idx_m
   }
 
  private:
