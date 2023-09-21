@@ -442,6 +442,7 @@ __device__ __forceinline__ void load_vec(Data_t* vec_buffer,
   }
 }
 
+/** Calculate L2 norm, and cast data to __half */
 template <typename Data_t>
 __global__ void preprocess_data_kernel(const Data_t* input_data,
                                        __half* output_data,
@@ -1215,30 +1216,21 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
 
   cudaPointerAttributes data_ptr_attr;
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&data_ptr_attr, data));
-  if (data_ptr_attr.type == cudaMemoryTypeUnregistered) {
-    size_t batch_size = 100000;
-    raft::spatial::knn::detail::utils::batch_load_iterator vec_batches{
-      data, static_cast<size_t>(nrow_), build_config_.dataset_dim, batch_size, stream};
-    for (auto const& batch : vec_batches) {
-      preprocess_data_kernel<<<batch.size(),
-                               raft::warp_size(),
-                               sizeof(Data_t) *
-                                 ceildiv(build_config_.dataset_dim,
-                                         static_cast<size_t>(raft::warp_size())) *
-                                 raft::warp_size(),
-                               stream>>>(batch.data(),
-                                         d_data_.data_handle(),
-                                         build_config_.dataset_dim,
-                                         l2_norms_.data_handle(),
-                                         batch.offset());
-    }
-  } else {
+  size_t batch_size = (data_ptr_attr.devicePointer == nullptr) ? 100000 : nrow_;
+
+  raft::spatial::knn::detail::utils::batch_load_iterator vec_batches{
+    data, static_cast<size_t>(nrow_), build_config_.dataset_dim, batch_size, stream};
+  for (auto const& batch : vec_batches) {
     preprocess_data_kernel<<<
-      nrow_,
+      batch.size(),
       raft::warp_size(),
       sizeof(Data_t) * ceildiv(build_config_.dataset_dim, static_cast<size_t>(raft::warp_size())) *
         raft::warp_size(),
-      stream>>>(data, d_data_.data_handle(), build_config_.dataset_dim, l2_norms_.data_handle());
+      stream>>>(batch.data(),
+                d_data_.data_handle(),
+                build_config_.dataset_dim,
+                l2_norms_.data_handle(),
+                batch.offset());
   }
 
   thrust::fill(thrust::device.on(stream),
