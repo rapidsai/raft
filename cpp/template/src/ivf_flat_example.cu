@@ -19,41 +19,17 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
-#include <raft/matrix/copy.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
-#include <raft/random/make_blobs.cuh>
-#include <raft/random/sample_without_replacement.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/mr/device/device_memory_resource.hpp>
+#include <rmm/mr/device/pool_memory_resource.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
 
-// Copy the results to host and print a few samples
-void print_results(raft::device_resources const& dev_resources,
-                   raft::device_matrix_view<int64_t, int64_t> neighbors,
-                   raft::device_matrix_view<float, int64_t> distances)
-{
-  int64_t topk        = neighbors.extent(1);
-  auto neighbors_host = raft::make_host_matrix<int64_t, int64_t>(neighbors.extent(0), topk);
-  auto distances_host = raft::make_host_matrix<float, int64_t>(distances.extent(0), topk);
-
-  cudaStream_t stream = raft::resource::get_cuda_stream(dev_resources);
-
-  raft::copy(neighbors_host.data_handle(), neighbors.data_handle(), neighbors.size(), stream);
-  raft::copy(distances_host.data_handle(), distances.data_handle(), distances.size(), stream);
-
-  // The calls to ivf_flat::search and  raft::copy is asynchronous.
-  // We need to sync the stream before accessing the data.
-  raft::resource::sync_stream(dev_resources, stream);
-
-  for (int query_id = 0; query_id < 2; query_id++) {
-    std::cout << "Query " << query_id << " neighbor indices: ";
-    raft::print_host_vector("", &neighbors_host(query_id, 0), topk, std::cout);
-    std::cout << "Query " << query_id << " neighbor distances: ";
-    raft::print_host_vector("", &distances_host(query_id, 0), topk, std::cout);
-  }
-}
+#include "common.cuh"
 
 void ivf_flat_build_search_simple(raft::device_resources const& dev_resources,
                                   raft::device_matrix_view<const float, int64_t> dataset,
@@ -90,31 +66,6 @@ void ivf_flat_build_search_simple(raft::device_resources const& dev_resources,
   // raft::resource::sync_stream(dev_resources);
 
   print_results(dev_resources, neighbors.view(), distances.view());
-}
-
-/** Subsample the dataset to create a training set*/
-raft::device_matrix<float, int64_t> subsample(
-  raft::device_resources const& dev_resources,
-  raft::device_matrix_view<const float, int64_t> dataset,
-  raft::device_vector_view<const int64_t, int64_t> data_indices,
-  float fraction)
-{
-  int64_t n_samples = dataset.extent(0);
-  int64_t n_dim     = dataset.extent(1);
-  int64_t n_train   = n_samples * fraction;
-  auto trainset     = raft::make_device_matrix<float, int64_t>(dev_resources, n_train, n_dim);
-
-  int seed = 137;
-  raft::random::RngState rng(seed);
-  auto train_indices = raft::make_device_vector<int64_t>(dev_resources, n_train);
-
-  raft::random::sample_without_replacement(
-    dev_resources, rng, data_indices, std::nullopt, train_indices.view(), std::nullopt);
-
-  raft::matrix::copy_rows(
-    dev_resources, dataset, trainset.view(), raft::make_const_mdspan(train_indices.view()));
-
-  return trainset;
 }
 
 void ivf_flat_build_extend_search(raft::device_resources const& dev_resources,
@@ -178,23 +129,24 @@ int main()
 {
   raft::device_resources dev_resources;
 
-  // Set pool allocator with 2 GiB limit for temporary arrays.
-  raft::resource::set_workspace_to_pool_resource(dev_resources, 2 * 1024 * 1024 * 1024ull);
+  // Set pool memory resource with 1 GiB initial pool size. All allocations use the same pool.
+  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> pool_mr(
+    rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull);
+  rmm::mr::set_current_device_resource(&pool_mr);
+
+  // Alternatively, one could define a pool allocator for temporary arrays (used within RAFT
+  // algorithms). In that case only the internal arrays would use the pool, any other allocation
+  // uses the default RMM memory resource. Here is how to change the workspace memory resource to
+  // a pool with 2 GiB upper limit.
+  // raft::resource::set_workspace_to_pool_resource(dev_resources, 2 * 1024 * 1024 * 1024ull);
 
   // Create input arrays.
   int64_t n_samples = 10000;
   int64_t n_dim     = 3;
   int64_t n_queries = 10;
   auto dataset      = raft::make_device_matrix<float, int64_t>(dev_resources, n_samples, n_dim);
-  auto labels       = raft::make_device_vector<int64_t, int64_t>(dev_resources, n_samples);
   auto queries      = raft::make_device_matrix<float, int64_t>(dev_resources, n_queries, n_dim);
-  raft::random::make_blobs(dev_resources, dataset.view(), labels.view());
-  raft::random::RngState r(1234ULL);
-  raft::random::uniform(dev_resources,
-                        r,
-                        raft::make_device_vector_view(queries.data_handle(), queries.size()),
-                        -1.0f,
-                        1.0f);
+  generate_dataset(dev_resources, dataset.view(), queries.view());
 
   // Simple build and search example.
   ivf_flat_build_search_simple(dev_resources,
