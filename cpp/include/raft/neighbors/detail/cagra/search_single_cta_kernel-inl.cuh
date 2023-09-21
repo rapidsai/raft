@@ -750,11 +750,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     for (unsigned i = threadIdx.x; i < internal_topk + search_width * graph_degree;
          i += blockDim.x) {
       const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
-      auto ii            = i;
-      if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
-      if (!sample_filter(query_id, node_id)) {
-        result_distances_buffer[ii] = utils::get_max_value<DISTANCE_T>();
-        result_indices_buffer[ii]   = invalid_index;
+      if (node_id != (invalid_index & ~index_msb_1_mask) && !sample_filter(query_id, node_id)) {
+        result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[i]   = invalid_index;
       }
     }
 

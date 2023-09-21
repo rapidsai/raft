@@ -500,8 +500,8 @@ void apply_filter(INDEX_T* const result_indices_ptr,
                   SAMPLE_FILTER_T sample_filter,
                   cudaStream_t cuda_stream)
 {
-  const std::size_t block_size = 256;
-  const std::size_t grid_size  = ceildiv(num_queries * result_buffer_size, block_size ) ;
+  const std::uint32_t block_size = 256;
+  const std::uint32_t grid_size  = ceildiv(num_queries * result_buffer_size, block_size);
 
   apply_filter_kernel<<<grid_size, block_size, 0, cuda_stream>>>(result_indices_ptr,
                                                                  result_distances_ptr,
