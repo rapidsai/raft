@@ -325,7 +325,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
 
     for (unsigned i = threadIdx.x; i < itopk_size + search_width * graph_degree; i += blockDim.x) {
       const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
-      if (!sample_filter(query_id, node_id)) {
+      if (node_id != (invalid_index & ~index_msb_1_mask) && !sample_filter(query_id, node_id)) {
         // If the parent must not be in the resulting top-k list, remove from the parent list
         result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
         result_indices_buffer[i]   = invalid_index;
