@@ -525,6 +525,112 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     }
   }
 
+  void testCagraRemoved()
+  {
+    size_t queries_size = ps.n_queries * ps.k;
+    std::vector<IdxT> indices_Cagra(queries_size);
+    std::vector<IdxT> indices_naive(queries_size);
+    std::vector<DistanceT> distances_Cagra(queries_size);
+    std::vector<DistanceT> distances_naive(queries_size);
+
+    {
+      rmm::device_uvector<DistanceT> distances_naive_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+      auto* database_filtered_ptr = database.data() + test_cagra_sample_filter::offset * ps.dim;
+      naive_knn<DistanceT, DataT, IdxT>(handle_,
+                                        distances_naive_dev.data(),
+                                        indices_naive_dev.data(),
+                                        search_queries.data(),
+                                        database_filtered_ptr,
+                                        ps.n_queries,
+                                        ps.n_rows - test_cagra_sample_filter::offset,
+                                        ps.dim,
+                                        ps.k,
+                                        ps.metric);
+      raft::linalg::addScalar(indices_naive_dev.data(),
+                              indices_naive_dev.data(),
+                              IdxT(test_cagra_sample_filter::offset),
+                              queries_size,
+                              stream_);
+      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
+      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+      resource::sync_stream(handle_);
+    }
+
+    {
+      rmm::device_uvector<DistanceT> distances_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_dev(queries_size, stream_);
+
+      {
+        cagra::index_params index_params;
+        index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
+                                          // not used for knn_graph building.
+        cagra::search_params search_params;
+        search_params.algo         = ps.algo;
+        search_params.max_queries  = ps.max_queries;
+        search_params.team_size    = ps.team_size;
+        search_params.hashmap_mode = cagra::hash_mode::HASH;
+
+        auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
+          (const DataT*)database.data(), ps.n_rows, ps.dim);
+
+        cagra::index<DataT, IdxT> index(handle_);
+        if (ps.host_dataset) {
+          auto database_host = raft::make_host_matrix<DataT, int64_t>(ps.n_rows, ps.dim);
+          raft::copy(database_host.data_handle(), database.data(), database.size(), stream_);
+          auto database_host_view = raft::make_host_matrix_view<const DataT, int64_t>(
+            (const DataT*)database_host.data_handle(), ps.n_rows, ps.dim);
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_host_view);
+        } else {
+          index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
+        }
+
+        if (!ps.include_serialized_dataset) { index.update_dataset(handle_, database_view); }
+
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
+          search_queries.data(), ps.n_queries, ps.dim);
+        auto indices_out_view =
+          raft::make_device_matrix_view<IdxT, int64_t>(indices_dev.data(), ps.n_queries, ps.k);
+        auto dists_out_view = raft::make_device_matrix_view<DistanceT, int64_t>(
+          distances_dev.data(), ps.n_queries, ps.k);
+        auto removed_indices =
+          raft::make_device_vector<IdxT, int64_t>(handle_, test_cagra_sample_filter::offset);
+        thrust::sequence(
+          resource::get_thrust_policy(handle_),
+          thrust::device_pointer_cast(removed_indices.data_handle()),
+          thrust::device_pointer_cast(removed_indices.data_handle() + removed_indices.extent(0)));
+        resource::sync_stream(handle_);
+        cagra::remove(handle_, index, raft::make_const_mdspan(removed_indices.view()));
+        cagra::search(
+          handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
+        update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
+        update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
+        resource::sync_stream(handle_);
+      }
+
+      double min_recall = ps.min_recall;
+      EXPECT_TRUE(eval_neighbours(indices_naive,
+                                  indices_Cagra,
+                                  distances_naive,
+                                  distances_Cagra,
+                                  ps.n_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
+      EXPECT_TRUE(eval_distances(handle_,
+                                 database.data(),
+                                 search_queries.data(),
+                                 indices_dev.data(),
+                                 distances_dev.data(),
+                                 ps.n_rows,
+                                 ps.dim,
+                                 ps.n_queries,
+                                 ps.k,
+                                 ps.metric,
+                                 1.0e-4));
+    }
+  }
+
   void SetUp() override
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);

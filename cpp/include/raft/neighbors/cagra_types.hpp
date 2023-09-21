@@ -19,6 +19,7 @@
 #include "ann_types.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
 
+#include <raft/core/bitset.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -170,6 +171,17 @@ struct index : ann::index {
     return graph_view_;
   }
 
+  /** Get bitset of removed indices [size] */
+  [[nodiscard]] inline auto removed_indices() noexcept -> raft::core::bitset<std::uint32_t, IdxT>&
+  {
+    return removed_indices_;
+  }
+  [[nodiscard]] inline auto removed_indices() const noexcept
+    -> const raft::core::bitset<std::uint32_t, IdxT>&
+  {
+    return removed_indices_;
+  }
+
   // Don't allow copying the index for performance reasons (try avoiding copying data)
   index(const index&)                    = delete;
   index(index&&)                         = default;
@@ -183,7 +195,8 @@ struct index : ann::index {
     : ann::index(),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      removed_indices_(res, 0)
   {
   }
 
@@ -249,7 +262,8 @@ struct index : ann::index {
     : ann::index(),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      removed_indices_(res, dataset.extent(0))
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
@@ -367,6 +381,7 @@ struct index : ann::index {
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
   raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
   raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
+  raft::core::bitset<uint32_t, IdxT> removed_indices_;
 };
 
 /** @} */
