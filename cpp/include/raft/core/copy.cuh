@@ -64,9 +64,9 @@ detail::mdspan_copyable_with_kernel_t<DstType, SrcType> copy(resources const& re
 #ifndef RAFT_NON_CUDA_COPY_IMPLEMENTED
 #define RAFT_NON_CUDA_COPY_IMPLEMENTED
 template <typename DstType, typename SrcType>
-detail::mdspan_uncopyable_with_kernel_t<DstType, SrcType> copy(resources const& res,
-                                                               DstType&& dst,
-                                                               SrcType&& src)
+detail::mdspan_copyable_not_with_kernel_t<DstType, SrcType> copy(resources const& res,
+                                                                 DstType&& dst,
+                                                                 SrcType&& src)
 {
   detail::copy(res, std::forward<DstType>(dst), std::forward<SrcType>(src));
 }

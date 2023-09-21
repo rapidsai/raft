@@ -39,15 +39,28 @@
 namespace raft {
 namespace detail {
 
-template <bool B, typename DstType = void, typename SrcType = void, typename T = void>
-struct mdspan_copyable {};
+template <bool B,
+          typename DstType = void,
+          typename SrcType = void,
+          typename T       = void,
+          typename         = void>
+struct mdspan_copyable : std::false_type {
+  auto static constexpr const custom_kernel_allowed     = false;
+  auto static constexpr const custom_kernel_not_allowed = false;
+};
 
 /*
  * A helper struct used to determine whether one mdspan type can be copied to
  * another and if so how
  */
 template <typename DstType, typename SrcType, typename T>
-struct mdspan_copyable<true, DstType, SrcType, T> {
+struct mdspan_copyable<true,
+                       DstType,
+                       SrcType,
+                       T,
+                       std::enable_if_t<std::conjunction_v<
+                         std::bool_constant<is_mdspan_v<std::remove_reference_t<DstType>>>,
+                         std::bool_constant<is_mdspan_v<std::remove_reference_t<SrcType>>>>>> {
   using dst_type = std::remove_reference_t<DstType>;
   using src_type = std::remove_reference_t<SrcType>;
 
@@ -183,6 +196,7 @@ struct mdspan_copyable<true, DstType, SrcType, T> {
     std::conjunction_v<std::bool_constant<can_use_device>,
                        std::bool_constant<!(can_use_raft_copy || can_use_cublas)>>;
 
+  auto static constexpr const custom_kernel_not_allowed = !custom_kernel_allowed;
   auto static constexpr const custom_kernel_required =
     std::conjunction_v<std::bool_constant<!can_use_host>,
                        std::bool_constant<!(can_use_raft_copy || can_use_cublas)>>;
@@ -205,16 +219,16 @@ template <typename DstType, typename SrcType>
 auto static constexpr const mdspan_copyable_with_kernel_v =
   mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
 template <typename DstType, typename SrcType>
-auto static constexpr const mdspan_uncopyable_with_kernel_v =
-  !mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_allowed;
+auto static constexpr const mdspan_copyable_not_with_kernel_v =
+  mdspan_copyable<true, DstType, SrcType, void>::custom_kernel_not_allowed;
 
 template <typename DstType, typename SrcType, typename T = void>
 using mdspan_copyable_with_kernel_t =
   std::enable_if_t<mdspan_copyable_with_kernel_v<DstType, SrcType>, T>;
 
 template <typename DstType, typename SrcType, typename T = void>
-using mdspan_uncopyable_with_kernel_t =
-  std::enable_if_t<mdspan_uncopyable_with_kernel_v<DstType, SrcType>, T>;
+using mdspan_copyable_not_with_kernel_t =
+  std::enable_if_t<mdspan_copyable_not_with_kernel_v<DstType, SrcType>, T>;
 
 #ifdef __CUDACC__
 auto static constexpr const mdspan_copy_tile_dim   = 32;
