@@ -134,6 +134,6 @@ void sort_cols_per_row(Args... args)
 
 /** @} */  // end of group col_wise_sort
 
-};         // end namespace raft::matrix
+};  // end namespace raft::matrix
 
 #endif
