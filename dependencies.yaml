@@ -11,6 +11,7 @@ files:
       - cudatoolkit
       - develop
       - checks
+      - build_wheels
       - test_libraft
       - docs
       - run_raft_dask
@@ -369,7 +370,7 @@ dependencies:
           - sphinx-markdown-tables
   build_wheels:
     common:
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         packages:
           - wheel
           - setuptools
