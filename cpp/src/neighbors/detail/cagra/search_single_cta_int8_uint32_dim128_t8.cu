@@ -60,7 +60,12 @@ namespace raft::neighbors::cagra::detail::single_cta_search {
     cudaStream_t stream);
 
 instantiate_single_cta_select_and_run(
-  8, 128, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+  8,
+  128,
+  int8_t,
+  uint32_t,
+  float,
+  raft::neighbors::filtering::removed_cagra_filter_with_offset_u32);
 
 #undef instantiate_single_cta_search_kernel
 

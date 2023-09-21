@@ -27,7 +27,7 @@ namespace raft::neighbors::cagra::detail {
 template <typename T,
           typename IdxT               = uint32_t,
           typename DistanceT          = float,
-          typename CagraSampleFilterT = raft::neighbors::filtering::none_cagra_sample_filter>
+          typename CagraSampleFilterT = raft::neighbors::filtering::removed_cagra_filter<IdxT>>
 class factory {
  public:
   /**
