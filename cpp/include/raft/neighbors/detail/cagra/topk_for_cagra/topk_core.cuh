@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include "block_scan.h"
 #include "topk.h"
 #include <assert.h>
 #include <float.h>
@@ -172,6 +171,72 @@ __device__ inline uint16_t get_element_from_u16_vector(struct u16_vector& vec, i
   return xi;
 }
 
+template <typename T>
+__device__ inline void block_scan(const T input, T& output)
+{
+  switch (blockDim.x) {
+    case 64: {
+      typedef cub::BlockScan<uint32_t, 64> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 128: {
+      typedef cub::BlockScan<uint32_t, 128> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 256: {
+      typedef cub::BlockScan<uint32_t, 256> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 512: {
+      typedef cub::BlockScan<uint32_t, 512> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 1024: {
+      typedef cub::BlockScan<uint32_t, 1024> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    default: break;
+  }
+}
+
+template <typename T, unsigned N>
+__device__ inline void block_scan(T (&input)[N], T (&output)[N])
+{
+  switch (blockDim.x) {
+    case 64: {
+      typedef cub::BlockScan<uint32_t, 64> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 128: {
+      typedef cub::BlockScan<uint32_t, 128> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 256: {
+      typedef cub::BlockScan<uint32_t, 256> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 512: {
+      typedef cub::BlockScan<uint32_t, 512> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    case 1024: {
+      typedef cub::BlockScan<uint32_t, 1024> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
+    default: break;
+  }
+}
+
 //
 template <typename T, int stateBitLen, int vecLen>
 __device__ inline void update_histogram(int itr,
@@ -299,15 +364,12 @@ __device__ inline void select_best_index_for_next_threshold(
   // index under the condition that the sum of the number of elements found
   // so far ('nx_below_threshold') and the csum value does not exceed the
   // topk value.
-  typedef block_scan<uint32_t> BlockScanT;
-  __shared__ typename BlockScanT::TempStorage temp_storage;
-
   uint32_t my_index = 0xffffffff;
   uint32_t my_csum  = 0;
   if (num_bins <= blockDim.x) {
     uint32_t csum = 0;
     if (threadIdx.x < num_bins) { csum = hist[threadIdx.x]; }
-    BlockScanT{temp_storage}.template scan<inclusive>(csum, csum);
+    detail::block_scan(csum, csum);
     if (threadIdx.x < num_bins) {
       const uint32_t index = threadIdx.x;
       if ((nx_below_threshold + csum <= topk) && (threshold + (index << shift) <= max_threshold)) {
@@ -319,6 +381,7 @@ __device__ inline void select_best_index_for_next_threshold(
     constexpr int n_data = 4;
     uint32_t csum[n_data];
     uint32_t hist_offset = 0;
+    __shared__ uint32_t temp_smem;
 
     if (n_data * threadIdx.x < num_bins) {
       for (unsigned hist_index_offset = 0; hist_index_offset < num_bins;
@@ -326,11 +389,12 @@ __device__ inline void select_best_index_for_next_threshold(
         for (int i = 0; i < n_data; i++) {
           csum[i] = hist[i + (n_data * threadIdx.x) + hist_index_offset] + hist_offset;
         }
-        BlockScanT{temp_storage}.template scan<inclusive>(csum, csum);
+
+        detail::block_scan(csum, csum);
         __syncthreads();
-        if (threadIdx.x == blockDim.x - 1) { temp_storage[0] = csum[n_data - 1]; }
+        if (threadIdx.x == blockDim.x - 1) { temp_smem = csum[n_data - 1]; }
         __syncthreads();
-        hist_offset = temp_storage[0];
+        hist_offset = temp_smem;
 
         bool should_check = false;
         if (hist_offset + blockDim.x * n_data >= num_bins) { should_check = true; }
