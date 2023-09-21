@@ -48,7 +48,7 @@ namespace multi_cta_search {
 template <class INDEX_T>
 __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [search_width]
                                     const uint32_t search_width,
-                                    INDEX_T* const itopk_indices,        // [num_itopk]
+                                    INDEX_T* const itopk_indices,  // [num_itopk]
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
@@ -86,8 +86,8 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [sea
 }
 
 template <unsigned MAX_ELEMENTS, class INDEX_T>
-__device__ inline void topk_by_bitonic_sort(float* distances,         // [num_elements]
-                                            INDEX_T* indices,         // [num_elements]
+__device__ inline void topk_by_bitonic_sort(float* distances,  // [num_elements]
+                                            INDEX_T* indices,  // [num_elements]
                                             const uint32_t num_elements,
                                             const uint32_t num_itopk  // num_itopk <= num_elements
 )
@@ -142,7 +142,7 @@ __launch_bounds__(1024, 1) __global__ void search_kernel(
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
   const uint32_t num_seeds,
   INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
@@ -373,26 +373,31 @@ struct search_kernel_config {
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return choose_max_elements<64>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           64,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     } else if (result_buffer_size <= 128) {
-      return choose_max_elements<128>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           128,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     } else if (result_buffer_size <= 256) {
-      return choose_max_elements<256>(block_size);
+      return search_kernel<TEAM_SIZE,
+                           256,
+                           MAX_DATASET_DIM,
+                           DATA_T,
+                           DISTANCE_T,
+                           INDEX_T,
+                           device::LOAD_128BIT_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
-  }
-
-  template <unsigned MAX_ELEMENTS>
-  // Todo: rename this to choose block_size
-  static auto choose_max_elements(unsigned block_size) -> kernel_t
-  {
-    return search_kernel<TEAM_SIZE,
-                         MAX_ELEMENTS,
-                         MAX_DATASET_DIM,
-                         DATA_T,
-                         DISTANCE_T,
-                         INDEX_T,
-                         device::LOAD_128BIT_T>;
   }
 };
 
@@ -404,9 +409,9 @@ template <unsigned TEAM_SIZE,
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
   const uint32_t num_queries,
   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
   uint32_t* const num_executed_iterations,  // [num_queries,]

@@ -39,8 +39,8 @@ namespace linalg {
 template <typename T>
 void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
                           const T* vals,
-                          int nnz,        // array of values and number of non-zeros
-                          int m,          // num rows in csr
+                          int nnz,  // array of values and number of non-zeros
+                          int m,    // num rows in csr
                           T* result,
                           cudaStream_t stream)
 {  // output array
@@ -60,8 +60,8 @@ void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
 template <typename T>
 void csr_row_normalize_max(const int* ia,  // csr row ind array (sorted by row)
                            const T* vals,
-                           int nnz,        // array of values and number of non-zeros
-                           int m,          // num total rows in csr
+                           int nnz,  // array of values and number of non-zeros
+                           int m,    // num total rows in csr
                            T* result,
                            cudaStream_t stream)
 {

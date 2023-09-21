@@ -550,7 +550,7 @@ cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         float* const A[],       // NOLINT
+                                         float* const A[],  // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,
@@ -564,7 +564,7 @@ inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
 template <>
 inline cublasStatus_t cublasgetrfBatched(cublasHandle_t handle,  // NOLINT
                                          int n,
-                                         double* const A[],      // NOLINT
+                                         double* const A[],  // NOLINT
                                          int lda,
                                          int* P,
                                          int* info,
