@@ -8,13 +8,13 @@ repos:
                 # Use the config file specific to each subproject so that each
                 # project can specify its own first/third-party packages.
                 args: ["--config-root=python/", "--resolve-all-configs"]
-                files: (python|bench/ann)/.*
+                files: python/.*
                 types_or: [python, cython, pyi]
       - repo: https://github.com/psf/black
         rev: 22.3.0
         hooks:
               - id: black
-                files: (python|bench/ann)/.*
+                files: python/.*
                 # Explicitly specify the pyproject.toml at the repo root, not per-project.
                 args: ["--config", "pyproject.toml"]
       - repo: https://github.com/PyCQA/flake8
@@ -22,7 +22,7 @@ repos:
         hooks:
               - id: flake8
                 args: ["--config=.flake8"]
-                files: (python|bench/ann)/.*
+                files: python/.*$
                 types: [file]
                 types_or: [python, cython]
                 additional_dependencies: ["flake8-force"]

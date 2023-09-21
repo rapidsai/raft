@@ -20,10 +20,6 @@ import subprocess
 
 import yaml
 
-RAFT_HOME = os.getenv("RAFT_HOME")
-if RAFT_HOME is None:
-    RAFT_HOME = os.path.realpath(os.path.join(__file__, "..", "..", ".."))
-
 
 def positive_int(input_str: str) -> int:
     try:
@@ -190,7 +186,6 @@ def main():
         help="dataset whose configuration file will be used",
         default="glove-100-inner",
     )
-
     parser.add_argument(
         "--dataset-path",
         help="path to dataset folder, by default will look in "
