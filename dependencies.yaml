@@ -211,11 +211,9 @@ dependencies:
           - pre-commit
   develop:
     common:
-      - output_types: [conda, requirements]
+      - output_types: conda
         packages:
           - clang==16.0.6
-      - output_types: [conda]
-        packages:
           - clang-tools=16.0.6
   nn_bench:
     common:
