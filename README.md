@@ -286,7 +286,7 @@ pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
-## Building and installing RAFT
+### Building and installing RAFT from source
 
 RAFT can be installed through [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake). Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on installing and building RAFT and using it in downstream projects.
 
