@@ -44,6 +44,7 @@ dependencies:
 - numpy>=1.21
 - numpydoc
 - nvcc_linux-64=11.8
+- pre-commit
 - pydata-sphinx-theme
 - pytest
 - pytest-cov

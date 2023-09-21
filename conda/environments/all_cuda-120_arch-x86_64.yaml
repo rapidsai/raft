@@ -40,6 +40,7 @@ dependencies:
 - numba>=0.57
 - numpy>=1.21
 - numpydoc
+- pre-commit
 - pydata-sphinx-theme
 - pytest
 - pytest-cov

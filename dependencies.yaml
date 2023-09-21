@@ -10,6 +10,7 @@ files:
       - build_pylibraft
       - cudatoolkit
       - develop
+      - checks
       - test_libraft
       - docs
       - run_raft_dask
