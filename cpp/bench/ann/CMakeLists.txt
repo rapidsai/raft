@@ -13,7 +13,7 @@
 # =============================================================================
 
 # ##################################################################################################
-# * compiler function -----------------------------------------------------------------------------
+# * benchmark options ------------------------------------------------------------------------------
 
 option(RAFT_ANN_BENCH_USE_FAISS_BFKNN "Include faiss' brute-force knn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
@@ -27,14 +27,27 @@ option(RAFT_ANN_BENCH_SINGLE_EXE
        "Make a single executable with benchmark as shared library modules" OFF
 )
 
+# ##################################################################################################
+# * Process options ----------------------------------------------------------
+
 find_package(Threads REQUIRED)
 
-# Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
-# https://github.com/rapidsai/raft/issues/1627
-if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
+if(BUILD_CPU_ONLY)
   set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ OFF)
+  set(RAFT_ANN_BENCH_USE_RAFT_CAGRA OFF)
+  set(RAFT_ANN_BENCH_USE_GGNN OFF)
+else()
+  # Disable faiss benchmarks on CUDA 12 since faiss is not yet CUDA 12-enabled.
+  # https://github.com/rapidsai/raft/issues/1627
+  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER_EQUAL 12.0.0)
+    set(RAFT_ANN_BENCH_USE_FAISS_BFKNN OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_IVF_PQ OFF)
+  endif()
 endif()
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
@@ -53,11 +66,12 @@ if(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
   set(RAFT_ANN_BENCH_USE_RAFT ON)
 endif()
 
+# ##################################################################################################
+# * Fetch requirements -------------------------------------------------------------
+
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   include(cmake/thirdparty/get_hnswlib.cmake)
 endif()
-
-option(RAFT_ANN_BENCH_USE_MULTIGPU "Use multi-gpus (where possible) in benchmarks" OFF)
 
 include(cmake/thirdparty/get_nlohmann_json.cmake)
 
@@ -69,10 +83,17 @@ if(RAFT_ANN_BENCH_USE_FAISS)
   include(cmake/thirdparty/get_faiss.cmake)
 endif()
 
+# ##################################################################################################
+# * Configure tests function-------------------------------------------------------------
+
 function(ConfigureAnnBench)
 
   set(oneValueArgs NAME)
   set(multiValueArgs PATH LINKS CXXFLAGS INCLUDES)
+
+  if(NOT BUILD_CPU_ONLY)
+    set(GPU_BUILD ON)
+  endif()
 
   cmake_parse_arguments(
     ConfigureAnnBench "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN}
@@ -95,10 +116,10 @@ function(ConfigureAnnBench)
     ${BENCH_NAME}
     PRIVATE raft::raft
             nlohmann_json::nlohmann_json
-            $<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>
+            $<$<BOOL:${GPU_BUILD}>:$<$<BOOL:${RAFT_ANN_BENCH_USE_MULTIGPU}>:NCCL::NCCL>>
             ${ConfigureAnnBench_LINKS}
             Threads::Threads
-            ${RAFT_CTK_MATH_DEPENDENCIES}
+            $<$<BOOL:${GPU_BUILD}>:${RAFT_CTK_MATH_DEPENDENCIES}>
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
             $<TARGET_NAME_IF_EXISTS:conda_env>
             -static-libgcc
@@ -143,9 +164,11 @@ function(ConfigureAnnBench)
     TARGETS ${BENCH_NAME}
     COMPONENT ann_bench
     DESTINATION bin/ann
-    EXCLUDE_FROM_ALL
   )
 endfunction()
+
+# ##################################################################################################
+# * Configure tests-------------------------------------------------------------
 
 if(RAFT_ANN_BENCH_USE_HNSWLIB)
   ConfigureAnnBench(
@@ -254,7 +277,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
-      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}">
+      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}">
       $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
   )
 

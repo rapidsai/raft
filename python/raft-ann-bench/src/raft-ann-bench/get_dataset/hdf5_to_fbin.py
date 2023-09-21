@@ -1,3 +1,4 @@
+#
 # Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+
 
 import sys
 
@@ -68,8 +69,8 @@ if __name__ == "__main__":
         query = normalize(query)
     elif hdf5.attrs["distance"] == "angular":
         print(
-            "warning: input has angular distance, specify -n to normalize"
-            " base/query set!"
+            "warning: input has angular distance, ",
+            "specify -n to normalize base/query set!\n",
         )
 
     output_fname = fname_prefix + ".base.fbin"

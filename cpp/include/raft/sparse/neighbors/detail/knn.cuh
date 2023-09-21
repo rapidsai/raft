@@ -58,7 +58,7 @@ struct csr_batcher_t {
   void set_batch(int batch_num)
   {
     batch_start_ = batch_num * batch_size_;
-    batch_stop_  = batch_start_ + batch_size_ - 1;                  // zero-based indexing
+    batch_stop_  = batch_start_ + batch_size_ - 1;  // zero-based indexing
 
     if (batch_stop_ >= total_rows_) batch_stop_ = total_rows_ - 1;  // zero-based indexing
 

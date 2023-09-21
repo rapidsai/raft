@@ -32,12 +32,9 @@ def download_dataset(url, path):
 
 
 def convert_hdf5_to_fbin(path, normalize):
-    ann_bench_scripts_dir = os.path.join(
-        os.getenv("RAFT_HOME"), "cpp/bench/ann/scripts"
-    )
-    ann_bench_scripts_path = os.path.join(
-        ann_bench_scripts_dir, "hdf5_to_fbin.py"
-    )
+    scripts_path = os.path.dirname(os.path.realpath(__file__))
+    ann_bench_scripts_path = os.path.join(scripts_path, "hdf5_to_fbin.py")
+    print(f"calling script {ann_bench_scripts_path}")
     if normalize and "angular" in path:
         p = subprocess.Popen(
             ["python", ann_bench_scripts_path, "-n", "%s" % path]
@@ -82,6 +79,11 @@ def download(name, normalize, ann_bench_data_path):
 
 
 def main():
+    call_path = os.getcwd()
+    if "RAPIDS_DATASET_ROOT_DIR" in os.environ:
+        default_dataset_path = os.getenv("RAPIDS_DATASET_ROOT_DIR")
+    else:
+        default_dataset_path = os.path.join(call_path, "datasets/")
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -91,7 +93,7 @@ def main():
     parser.add_argument(
         "--dataset-path",
         help="path to download dataset",
-        default=os.path.join(os.getenv("RAFT_HOME"), "bench", "ann", "data"),
+        default=default_dataset_path,
     )
     parser.add_argument(
         "--normalize",
