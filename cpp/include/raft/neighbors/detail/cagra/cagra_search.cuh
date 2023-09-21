@@ -22,6 +22,8 @@
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
@@ -60,16 +62,20 @@ void search_main(raft::resources const& res,
                  raft::device_matrix_view<internal_IdxT, int64_t, row_major> neighbors,
                  raft::device_matrix_view<DistanceT, int64_t, row_major> distances)
 {
+  resource::detail::warn_non_pool_workspace(res, "raft::neighbors::cagra::search");
   RAFT_LOG_DEBUG("# dataset size = %lu, dim = %lu\n",
                  static_cast<size_t>(index.dataset().extent(0)),
                  static_cast<size_t>(index.dataset().extent(1)));
   RAFT_LOG_DEBUG("# query size = %lu, dim = %lu\n",
                  static_cast<size_t>(queries.extent(0)),
                  static_cast<size_t>(queries.extent(1)));
-  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Querise and index dim must match");
+  RAFT_EXPECTS(queries.extent(1) == index.dim(), "Queries and index dim must match");
   const uint32_t topk = neighbors.extent(1);
 
   if (params.max_queries == 0) { params.max_queries = queries.extent(0); }
+
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope(
+    "cagra::search(max_queries = %u, k = %u, dim = %zu)", params.max_queries, topk, index.dim());
 
   std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT>> plan =
     factory<T, internal_IdxT, DistanceT>::create(
