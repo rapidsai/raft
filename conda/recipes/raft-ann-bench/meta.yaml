@@ -78,8 +78,6 @@ requirements:
     - h5py {{ h5py_version }}
     - benchmark
     - matplotlib
-    # rmm is needed to determine if package is gpu-enabled
-    - rmm ={{ minor_version }}
     - python
     - pandas
     - pyyaml
@@ -100,6 +98,8 @@ requirements:
     - h5py {{ h5py_version }}
     - benchmark
     - glog {{ glog_version }}
+    # rmm is needed to determine if package is gpu-enabled
+    - rmm ={{ minor_version }}
     - matplotlib
     - python
     - pandas
