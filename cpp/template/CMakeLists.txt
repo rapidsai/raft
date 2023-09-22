@@ -40,9 +40,3 @@ target_link_libraries(CAGRA_EXAMPLE PRIVATE raft::raft raft::compiled)
 add_executable(IVF_FLAT_EXAMPLE src/ivf_flat_example.cu)
 target_link_libraries(IVF_FLAT_EXAMPLE PRIVATE raft::raft raft::compiled)
 
-# We link the example programs to raft::compiled, to reduce compile time. To ensure that we do not
-# implicitly instantiate kernels that are expensive to compile, we add the 
-# RAF_EXPLICIT_INSTANTIATE_ONLY flag. This is optional, for details see
-# https://github.com/rapidsai/raft/blob/branch-23.10/docs/source/developer_guide.md#header-organization-of-expensive-function-templates
-target_compile_definitions(CAGRA_EXAMPLE PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-target_compile_definitions(IVF_FLAT_EXAMPLE PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
