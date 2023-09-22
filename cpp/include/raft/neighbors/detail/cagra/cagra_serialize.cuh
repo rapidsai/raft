@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 
@@ -54,6 +55,8 @@ void serialize(raft::resources const& res,
                const index<T, IdxT>& index_,
                bool include_dataset)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize");
+
   RAFT_LOG_DEBUG(
     "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
 
@@ -113,6 +116,8 @@ void serialize(raft::resources const& res,
 template <typename T, typename IdxT>
 auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::deserialize");
+
   char dtype_string[4];
   is.read(dtype_string, 4);
 
