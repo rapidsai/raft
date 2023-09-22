@@ -42,7 +42,7 @@
         {"ef":40, "numThreads":1},
         {"ef":60, "numThreads":1},
         {"ef":80, "numThreads":1},
-        {"ef":120, "numThreads":1},w
+        {"ef":120, "numThreads":1},
         {"ef":200, "numThreads":1},
         {"ef":400, "numThreads":1},
         {"ef":600, "numThreads":1},
