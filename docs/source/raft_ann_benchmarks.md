@@ -135,7 +135,6 @@ Configuration files already exist for the following list of the million-scale da
 - `fashion-mnist-784-euclidean`
 - `glove-50-angular`
 - `glove-100-angular`
-- `lastfm-65-angular`
 - `mnist-784-euclidean`
 - `nytimes-256-angular`
 - `sift-128-euclidean`
