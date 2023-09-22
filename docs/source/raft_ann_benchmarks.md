@@ -44,7 +44,7 @@ docker run --gpus all --rm -it \
     "--dataset deep-image-96-angular" \ # <- dataset name
     "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
     "--algorithms raft_cagra" \ # <- what algorithm(s) to use as a ; separated list, as well as any other argument to pass to `raft_ann_benchmarks.run`
-    "" # optional argumetns to pass to `raft_ann_benchmarks.plot`
+    "" # optional arguments to pass to `raft_ann_benchmarks.plot`
 ```
 
 For CPU systems the same interface applies, except for not needing the gpus argument and using the cpu images:
@@ -75,7 +75,7 @@ This will drop you into a command line in the container, with the `raft_ann_benc
 
 Additionally, the containers could be run in dettached form without any issue.
 
-For details on how to use the python package from the command line, see the [corresponding section](#python-pacakge-usage).
+For details on how to use the python package from the command line, see the [corresponding section](#python-package-usage).
 
 ### Conda
 
@@ -99,7 +99,7 @@ Please see the [build instructions](ann_benchmarks_build.md) to build the benchm
 
 ## Running the benchmarks
 
-### Python Pacakge Usage
+### Python Package Usage
 There are 4 general steps to running the benchmarks and visualizing the results:
 1. Prepare Dataset
 2. Build Index and Search Index
