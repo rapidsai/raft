@@ -103,11 +103,11 @@ struct bitfield_view_t {
  *    type: void (uint8_t code, uint32_t out_ix, uint32_t j), where j = [0..pq_dim).
  */
 template <uint32_t PqBits, typename Action>
-__device__ void run_on_vector(std::variant<const uint8_t*, list_const_view> in_list_data,
-                              uint32_t in_ix,
-                              uint32_t out_ix,
-                              uint32_t pq_dim,
-                              Action action)
+__host__ __device__ void run_on_vector(std::variant<const uint8_t*, list_const_view> in_list_data,
+                                       uint32_t in_ix,
+                                       uint32_t out_ix,
+                                       uint32_t pq_dim,
+                                       Action action)
 {
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(in_ix);

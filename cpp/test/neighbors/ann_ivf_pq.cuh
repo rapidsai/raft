@@ -17,7 +17,6 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include "raft/core/logger-macros.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
@@ -387,7 +386,6 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
           check_reconstruct_extend(&index, compression_ratio, label);
         } break;
         case 1: {
-          RAFT_LOG_INFO("------PACKING------");
           // Dump and re-write codes for one label
           check_packing(&index, label);
         } break;
