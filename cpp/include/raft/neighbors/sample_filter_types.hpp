@@ -89,7 +89,7 @@ struct CagraSampleFilterWithQueryIdOffset {
   }
 };
 
-/** Utility to add an offset to the query ud */
+/** Utility to add an offset to the query id */
 template <class CagraSampleFilterT>
 struct CagraSampleFilterT_Selector {
   using type = CagraSampleFilterWithQueryIdOffset<CagraSampleFilterT>;
@@ -98,23 +98,6 @@ template <>
 struct CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter> {
   using type = raft::neighbors::filtering::none_cagra_sample_filter;
 };
-
-// A helper function to set a query id offset
-template <class CagraSampleFilterT>
-inline typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type set_offset(
-  CagraSampleFilterT filter, const uint32_t offset)
-{
-  typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type new_filter(offset, filter);
-  return new_filter;
-}
-template <>
-inline
-  typename CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter>::type
-  set_offset<raft::neighbors::filtering::none_cagra_sample_filter>(
-    raft::neighbors::filtering::none_cagra_sample_filter filter, const uint32_t)
-{
-  return filter;
-}
 
 using removed_cagra_filter_with_offset_u32 =
   CagraSampleFilterWithQueryIdOffset<removed_cagra_filter<uint32_t>>;

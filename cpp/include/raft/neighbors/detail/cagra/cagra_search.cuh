@@ -36,6 +36,24 @@
 
 namespace raft::neighbors::cagra::detail {
 
+// A helper function to set a query id offset
+template <class CagraSampleFilterT>
+inline typename raft::neighbors::filtering::CagraSampleFilterT_Selector<CagraSampleFilterT>::type
+set_offset(CagraSampleFilterT filter, const uint32_t offset)
+{
+  typename raft::neighbors::filtering::CagraSampleFilterT_Selector<CagraSampleFilterT>::type
+    new_filter(offset, filter);
+  return new_filter;
+}
+template <>
+inline typename raft::neighbors::filtering::CagraSampleFilterT_Selector<
+  raft::neighbors::filtering::none_cagra_sample_filter>::type
+set_offset<raft::neighbors::filtering::none_cagra_sample_filter>(
+  raft::neighbors::filtering::none_cagra_sample_filter filter, const uint32_t)
+{
+  return filter;
+}
+
 /**
  * @brief Search ANN using the constructed index.
  *
