@@ -20,7 +20,6 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/neighbors/detail/div_utils.hpp>
 #include <raft/neighbors/detail/ivf_pq_codepacking.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
 
