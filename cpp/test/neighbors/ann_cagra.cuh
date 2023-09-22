@@ -372,7 +372,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {100},
     {1000},
     {1, 8, 17},
-    {1, 16},          // k
+    {1, 16},  // k
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
     {0, 1, 10, 100},  // query size
     {0},

@@ -113,7 +113,7 @@ void reduce_cols_by_key(
 
 /** @} */  // end of group reduce_cols_by_key
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

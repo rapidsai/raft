@@ -98,7 +98,7 @@ __global__ void random_pickup_kernel(
   const std::size_t num_pickup,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,                 // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
   const uint32_t num_seeds,
   INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
@@ -170,7 +170,7 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
                    const std::size_t num_pickup,
                    const unsigned num_distilation,
                    const uint64_t rand_xor_mask,
-                   const INDEX_T* seed_ptr,                 // [num_queries, num_seeds]
+                   const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
                    const uint32_t num_seeds,
                    INDEX_T* const result_indices_ptr,       // [num_queries, ldr]
                    DISTANCE_T* const result_distances_ptr,  // [num_queries, ldr]
@@ -310,18 +310,18 @@ template <unsigned TEAM_SIZE,
 __global__ void compute_distance_to_child_nodes_kernel(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   const std::uint32_t search_width,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
-  const DATA_T* query_ptr,                  // [num_queries, data_dim]
-  INDEX_T* const visited_hashmap_ptr,       // [num_queries, 1 << hash_bitlen]
+  const DATA_T* query_ptr,             // [num_queries, data_dim]
+  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd                   // (*) ldd >= search_width * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd                  // (*) ldd >= search_width * graph_degree
 )
 {
   const uint32_t ldb        = hashmap::get_size(hash_bitlen);
@@ -371,19 +371,19 @@ template <unsigned TEAM_SIZE,
 void compute_distance_to_child_nodes(
   const INDEX_T* const parent_node_list,  // [num_queries, search_width]
   const uint32_t search_width,
-  const DATA_T* const dataset_ptr,        // [dataset_size, data_dim]
+  const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
   const std::uint32_t data_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
   const std::uint32_t graph_degree,
-  const DATA_T* query_ptr,                  // [num_queries, data_dim]
+  const DATA_T* query_ptr,  // [num_queries, data_dim]
   const std::uint32_t num_queries,
-  INDEX_T* const visited_hashmap_ptr,       // [num_queries, 1 << hash_bitlen]
+  INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const std::uint32_t hash_bitlen,
-  INDEX_T* const result_indices_ptr,        // [num_queries, ldd]
-  DISTANCE_T* const result_distances_ptr,   // [num_queries, ldd]
-  const std::uint32_t ldd,                  // (*) ldd >= search_width * graph_degree
+  INDEX_T* const result_indices_ptr,       // [num_queries, ldd]
+  DISTANCE_T* const result_distances_ptr,  // [num_queries, ldd]
+  const std::uint32_t ldd,                 // (*) ldd >= search_width * graph_degree
   cudaStream_t cuda_stream = 0)
 {
   const auto block_size = 128;
@@ -437,7 +437,7 @@ void remove_parent_bit(const std::uint32_t num_queries,
 }
 
 template <class T>
-__global__ void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_dst]
+__global__ void batched_memcpy_kernel(T* const dst,  // [batch_size, ld_dst]
                                       const uint64_t ld_dst,
                                       const T* const src,  // [batch_size, ld_src]
                                       const uint64_t ld_src,
@@ -452,7 +452,7 @@ __global__ void batched_memcpy_kernel(T* const dst,        // [batch_size, ld_ds
 }
 
 template <class T>
-void batched_memcpy(T* const dst,        // [batch_size, ld_dst]
+void batched_memcpy(T* const dst,  // [batch_size, ld_dst]
                     const uint64_t ld_dst,
                     const T* const src,  // [batch_size, ld_src]
                     const uint64_t ld_src,
@@ -596,9 +596,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
   void operator()(raft::resources const& res,
                   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
                   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-                  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-                  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-                  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+                  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+                  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+                  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
                   const uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
                   uint32_t* const num_executed_iterations,  // [num_queries,]

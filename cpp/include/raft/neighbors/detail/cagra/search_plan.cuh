@@ -111,7 +111,7 @@ struct search_plan_impl : public search_plan_impl_base {
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
                           const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
                           const std::uint32_t num_queries,
-                          const INDEX_T* dev_seed_ptr,             // [num_queries, num_seeds]
+                          const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                           std::uint32_t* const num_executed_iterations,  // [num_queries]
                           uint32_t topk){};
 
