@@ -3,6 +3,7 @@
     "name": "deep-image-96-inner",
     "base_file": "deep-image-96-inner/base.fbin",
     "query_file": "deep-image-96-inner/query.fbin",
+    "groundtruth_neighbors_file": "deep-image-96-inner/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {
