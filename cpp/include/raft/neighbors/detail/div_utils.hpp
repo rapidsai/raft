@@ -21,9 +21,9 @@
 #endif
 
 /**
- * @brief A simple wrapper around raft::Pow2 which uses Pow2 utils only when available and regular
- * integer division otherwise. This is done to allow a common interface for division interface for
- * non CUDA enabled headers.
+ * @brief A simple wrapper for raft::Pow2 which uses Pow2 utils only when available and regular
+ * integer division otherwise. This is done to allow a common interface for division arithmetic for
+ * non CUDA headers.
  *
  * @tparam Value_ a compile-time value representable as a power-of-two.
  */
