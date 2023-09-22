@@ -71,7 +71,7 @@ inline raft::stream_view get_stream_view(resources const& res)
  * Load a raft::stream__view from a resources instance (and populate it on the res
  * if needed).
  * @param[in] res raft resources object for managing resources
- * @param[in] stream_view raft stream view
+ * @param[in] view raft stream view
  */
 inline void set_stream_view(resources const& res, raft::stream_view view)
 {
