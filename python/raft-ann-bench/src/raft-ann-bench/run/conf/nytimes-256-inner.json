@@ -1,9 +1,9 @@
-c{
+{
   "dataset": {
-    "name": "mnist-784-euclidean",
-    "base_file": "mnist-784-euclidean/base.fbin",
-    "query_file": "mnist-784-euclidean/query.fbin",
-    "groundtruth_neighbors_file": "mnist-784-euclidean/groundtruth.neighbors.ibin",
+    "name": "nytimes-256-inner",
+    "base_file": "nytimes-256-inner/base.fbin",
+    "query_file": "nytimes-256-inner/query.fbin",
+    "groundtruth_neighbors_file": "nytimes-256-inner/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {
@@ -16,7 +16,7 @@ c{
       "name" : "hnswlib.M12",
       "algo" : "hnswlib",
       "build_param": {"M":12, "efConstruction":500, "numThreads":32},
-      "file" : "index/mnist-784-euclidean/hnswlib/M12",
+      "file" : "index/nytimes-256-inner/hnswlib/M12",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -29,13 +29,13 @@ c{
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/hnswlib/M12"
+      "search_result_file" : "result/nytimes-256-inner/hnswlib/M12"
     },
     {
       "name" : "hnswlib.M16",
       "algo" : "hnswlib",
       "build_param": {"M":16, "efConstruction":500, "numThreads":32},
-      "file" : "index/mnist-784-euclidean/hnswlib/M16",
+      "file" : "index/nytimes-256-inner/hnswlib/M16",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -48,13 +48,13 @@ c{
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/hnswlib/M16"
+      "search_result_file" : "result/nytimes-256-inner/hnswlib/M16"
     },
     {
       "name" : "hnswlib.M24",
       "algo" : "hnswlib",
       "build_param": {"M":24, "efConstruction":500, "numThreads":32},
-      "file" : "index/mnist-784-euclidean/hnswlib/M24",
+      "file" : "index/nytimes-256-inner/hnswlib/M24",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -67,13 +67,13 @@ c{
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/hnswlib/M24"
+      "search_result_file" : "result/nytimes-256-inner/hnswlib/M24"
     },
     {
       "name" : "hnswlib.M36",
       "algo" : "hnswlib",
       "build_param": {"M":36, "efConstruction":500, "numThreads":32},
-      "file" : "index/mnist-784-euclidean/hnswlib/M36",
+      "file" : "index/nytimes-256-inner/hnswlib/M36",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -86,7 +86,7 @@ c{
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/hnswlib/M36"
+      "search_result_file" : "result/nytimes-256-inner/hnswlib/M36"
     },
 
 
@@ -96,13 +96,13 @@ c{
       "name": "raft_bfknn",
       "algo": "raft_bfknn",
       "build_param": {},
-      "file": "index/mnist-784-euclidean/raft_bfknn/bfknn",
+      "file": "index/nytimes-256-inner/raft_bfknn/bfknn",
       "search_params": [
         {
           "probe": 1
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_bfknn/bfknn"
+      "search_result_file": "result/nytimes-256-inner/raft_bfknn/bfknn"
     },
     {
       "name": "faiss_ivf_flat.nlist1024",
@@ -110,7 +110,7 @@ c{
       "build_param": {
         "nlist": 1024
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_flat/nlist1024",
+      "file": "index/nytimes-256-inner/faiss_ivf_flat/nlist1024",
       "search_params": [
         {
           "nprobe": 1
@@ -137,7 +137,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_flat/nlist1024"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_flat/nlist1024"
     },
     {
       "name": "faiss_ivf_flat.nlist2048",
@@ -145,7 +145,7 @@ c{
       "build_param": {
         "nlist": 2048
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_flat/nlist2048",
+      "file": "index/nytimes-256-inner/faiss_ivf_flat/nlist2048",
       "search_params": [
         {
           "nprobe": 1
@@ -172,7 +172,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_flat/nlist2048"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_flat/nlist2048"
     },
     {
       "name": "faiss_ivf_flat.nlist4096",
@@ -180,7 +180,7 @@ c{
       "build_param": {
         "nlist": 4096
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_flat/nlist4096",
+      "file": "index/nytimes-256-inner/faiss_ivf_flat/nlist4096",
       "search_params": [
         {
           "nprobe": 1
@@ -207,7 +207,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_flat/nlist4096"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_flat/nlist4096"
     },
     {
       "name": "faiss_ivf_flat.nlist8192",
@@ -215,7 +215,7 @@ c{
       "build_param": {
         "nlist": 8192
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_flat/nlist8192",
+      "file": "index/nytimes-256-inner/faiss_ivf_flat/nlist8192",
       "search_params": [
         {
           "nprobe": 1
@@ -242,7 +242,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_flat/nlist8192"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_flat/nlist8192"
     },
     {
       "name": "faiss_ivf_flat.nlist16384",
@@ -250,7 +250,7 @@ c{
       "build_param": {
         "nlist": 16384
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_flat/nlist16384",
+      "file": "index/nytimes-256-inner/faiss_ivf_flat/nlist16384",
       "search_params": [
         {
           "nprobe": 1
@@ -280,7 +280,7 @@ c{
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_flat/nlist16384"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_flat/nlist16384"
     },
     {
       "name": "faiss_ivf_pq.M64-nlist1024",
@@ -291,7 +291,7 @@ c{
         "useFloat16": true,
         "usePrecomputed": true
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024",
+      "file": "index/nytimes-256-inner/faiss_ivf_pq/M64-nlist1024",
       "search_params": [
         {
           "nprobe": 10
@@ -312,7 +312,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_pq/M64-nlist1024"
     },
     {
       "name": "faiss_ivf_pq.M64-nlist1024.noprecomp",
@@ -323,7 +323,7 @@ c{
         "useFloat16": true,
         "usePrecomputed": false
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024.noprecomp",
+      "file": "index/nytimes-256-inner/faiss_ivf_pq/M64-nlist1024.noprecomp",
       "search_params": [
         {
           "nprobe": 10
@@ -344,7 +344,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_pq/M64-nlist1024"
     },
     {
       "name": "faiss_ivf_sq.nlist1024-fp16",
@@ -353,7 +353,7 @@ c{
         "nlist": 1024,
         "quantizer_type": "fp16"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist1024-fp16",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist1024-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -380,7 +380,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist1024-fp16"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist1024-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist2048-fp16",
@@ -389,7 +389,7 @@ c{
         "nlist": 2048,
         "quantizer_type": "fp16"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist2048-fp16",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist2048-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -416,7 +416,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist2048-fp16"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist2048-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist4096-fp16",
@@ -425,7 +425,7 @@ c{
         "nlist": 4096,
         "quantizer_type": "fp16"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist4096-fp16",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist4096-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -452,7 +452,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist4096-fp16"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist4096-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist8192-fp16",
@@ -461,7 +461,7 @@ c{
         "nlist": 8192,
         "quantizer_type": "fp16"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist8192-fp16",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist8192-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -488,7 +488,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist8192-fp16"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist8192-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist16384-fp16",
@@ -497,7 +497,7 @@ c{
         "nlist": 16384,
         "quantizer_type": "fp16"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist16384-fp16",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist16384-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -527,7 +527,7 @@ c{
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist16384-fp16"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist16384-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist1024-int8",
@@ -536,7 +536,7 @@ c{
         "nlist": 1024,
         "quantizer_type": "int8"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist1024-int8",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist1024-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -563,7 +563,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist1024-int8"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist1024-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist2048-int8",
@@ -572,7 +572,7 @@ c{
         "nlist": 2048,
         "quantizer_type": "int8"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist2048-int8",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist2048-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -599,7 +599,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist2048-int8"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist2048-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist4096-int8",
@@ -608,7 +608,7 @@ c{
         "nlist": 4096,
         "quantizer_type": "int8"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist4096-int8",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist4096-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -635,7 +635,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist4096-int8"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist4096-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist8192-int8",
@@ -644,7 +644,7 @@ c{
         "nlist": 8192,
         "quantizer_type": "int8"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist8192-int8",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist8192-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -671,7 +671,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist8192-int8"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist8192-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist16384-int8",
@@ -680,7 +680,7 @@ c{
         "nlist": 16384,
         "quantizer_type": "int8"
       },
-      "file": "index/mnist-784-euclidean/faiss_ivf_sq/nlist16384-int8",
+      "file": "index/nytimes-256-inner/faiss_ivf_sq/nlist16384-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -710,17 +710,17 @@ c{
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_ivf_sq/nlist16384-int8"
+      "search_result_file": "result/nytimes-256-inner/faiss_ivf_sq/nlist16384-int8"
     },
     {
       "name": "faiss_flat",
       "algo": "faiss_gpu_flat",
       "build_param": {},
-      "file": "index/mnist-784-euclidean/faiss_flat/flat",
+      "file": "index/nytimes-256-inner/faiss_flat/flat",
       "search_params": [
         {}
       ],
-      "search_result_file": "result/mnist-784-euclidean/faiss_flat/flat"
+      "search_result_file": "result/nytimes-256-inner/faiss_flat/flat"
     },
 
     {
@@ -732,7 +732,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024",
       "search_params": [
         {
           "k": 10,
@@ -771,7 +771,7 @@ c{
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-float",
@@ -782,7 +782,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-float",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-float",
       "search_params": [
         {
           "k": 10,
@@ -839,7 +839,7 @@ c{
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-float"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-float"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-half",
@@ -850,7 +850,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-half",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-half",
       "search_params": [
         {
           "k": 10,
@@ -889,7 +889,7 @@ c{
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-half"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-half"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-fp8",
@@ -900,7 +900,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -939,7 +939,7 @@ c{
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-fp8",
@@ -950,7 +950,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -989,7 +989,7 @@ c{
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-half",
@@ -1000,7 +1000,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq64-cluster1024-float-half",
       "search_params": [
         {
           "k": 10,
@@ -1039,7 +1039,7 @@ c{
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq64-cluster1024-float-half"
     },
     {
       "name": "raft_ivf_pq.dimpq32-cluster1024-float-fp8",
@@ -1050,7 +1050,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -1089,7 +1089,7 @@ c{
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq16-cluster1024-float-fp8",
@@ -1100,7 +1100,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -1139,7 +1139,7 @@ c{
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-half-float",
@@ -1150,7 +1150,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-half-float",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-half-float",
       "search_params": [
         {
           "k": 10,
@@ -1189,7 +1189,7 @@ c{
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-half-float"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq128-cluster1024-half-float"
     },
     {
       "name": "raft_ivf_pq.dimpq512-cluster1024-float-float",
@@ -1200,7 +1200,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_pq/dimpq512-cluster1024-float-float",
+      "file": "index/nytimes-256-inner/raft_ivf_pq/dimpq512-cluster1024-float-float",
       "search_params": [
         {
           "k": 10,
@@ -1239,7 +1239,7 @@ c{
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_pq/dimpq512-cluster1024-float-float"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_pq/dimpq512-cluster1024-float-float"
     },
     {
       "name": "raft_ivf_flat.nlist1024",
@@ -1249,7 +1249,7 @@ c{
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_flat/nlist1024",
+      "file": "index/nytimes-256-inner/raft_ivf_flat/nlist1024",
       "search_params": [
         {
           "nprobe": 1
@@ -1276,7 +1276,7 @@ c{
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_flat/nlist1024"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_flat/nlist1024"
     },
     {
       "name": "raft_ivf_flat.nlist16384",
@@ -1286,7 +1286,7 @@ c{
         "ratio": 2,
         "niter": 20
       },
-      "file": "index/mnist-784-euclidean/raft_ivf_flat/nlist16384",
+      "file": "index/nytimes-256-inner/raft_ivf_flat/nlist16384",
       "search_params": [
         {
           "nprobe": 1
@@ -1316,7 +1316,7 @@ c{
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/mnist-784-euclidean/raft_ivf_flat/nlist16384"
+      "search_result_file": "result/nytimes-256-inner/raft_ivf_flat/nlist16384"
     },
 
     {
@@ -1325,13 +1325,13 @@ c{
       "build_param": {
         "graph_degree" : 32
       },
-      "file" : "index/mnist-784-euclidean/raft_cagra/dim32",
+      "file" : "index/nytimes-256-inner/raft_cagra/dim32",
       "search_params" : [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/raft_cagra/dim32"
+      "search_result_file" : "result/nytimes-256-inner/raft_cagra/dim32"
     },
 
     {
@@ -1340,13 +1340,13 @@ c{
       "build_param": {
         "graph_degree" : 64
       },
-      "file" : "index/mnist-784-euclidean/raft_cagra/dim64",
+      "file" : "index/nytimes-256-inner/raft_cagra/dim64",
       "search_params" : [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
       ],
-      "search_result_file" : "result/mnist-784-euclidean/raft_cagra/dim64"
+      "search_result_file" : "result/nytimes-256-inner/raft_cagra/dim64"
     }
   ]
 }
