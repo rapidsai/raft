@@ -19,14 +19,14 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
-#include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/detail/div_utils.hpp>
+#include <raft/neighbors/ivf_flat_types.hpp>
 
 namespace raft::neighbors::ivf_flat::codepacker {
 
 /**
  * Write one flat code into a block by the given offset. The offset indicates the id of the record
-* in the list. This function interleaves the code and is intended to later copy the interleaved
+ * in the list. This function interleaves the code and is intended to later copy the interleaved
  * codes over to the IVF list on device. NB: no memory allocation happens here; the block must fit
  * the record (offset + 1).
  *
@@ -44,7 +44,6 @@ _RAFT_HOST_DEVICE void pack_1(
 {
   // The data is written in interleaved groups of `index::kGroupSize` vectors
   using interleaved_group = neighbors::detail::div_utils<kIndexGroupSize>;
-
 
   // Interleave dimensions of the source vector while recording it.
   // NB: such `veclen` is selected, that `dim % veclen == 0`

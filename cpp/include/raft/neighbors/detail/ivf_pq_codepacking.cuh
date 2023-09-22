@@ -33,6 +33,10 @@ namespace raft::neighbors::ivf_pq::detail {
 /** A chunk of PQ-encoded vector managed by one CUDA thread. */
 using pq_vec_t = TxN_t<uint8_t, kIndexGroupVecLen>::io_t;
 
+using list_view = device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major>;
+using list_const_view =
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major>;
+
 /**
  * This type mimics the `uint8_t&` for the indexing operator of `bitfield_view_t`.
  *
@@ -99,12 +103,11 @@ struct bitfield_view_t {
  *    type: void (uint8_t code, uint32_t out_ix, uint32_t j), where j = [0..pq_dim).
  */
 template <uint32_t PqBits, typename Action>
-__device__ void run_on_vector(
-  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
-  uint32_t in_ix,
-  uint32_t out_ix,
-  uint32_t pq_dim,
-  Action action)
+__device__ void run_on_vector(std::variant<const uint8_t*, list_const_view> in_list_data,
+                              uint32_t in_ix,
+                              uint32_t out_ix,
+                              uint32_t pq_dim,
+                              Action action)
 {
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(in_ix);
@@ -115,9 +118,18 @@ __device__ void run_on_vector(
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // read the chunk
-    code_chunk = *reinterpret_cast<const pq_vec_t*>(&in_list_data(group_ix, i, ingroup_ix, 0));
+    if (std::holds_alternative<list_const_view>(in_list_data)) {
+      code_chunk = *reinterpret_cast<const pq_vec_t*>(
+        &(std::get<list_const_view>(in_list_data))(group_ix, i, ingroup_ix, 0));
+    } else {
+      code_chunk = *reinterpret_cast<const pq_vec_t*>(std::get<const uint8_t*>(in_list_data) +
+                                                      group_ix * kIndexGroupSize * pq_dim +
+                                                      ingroup_ix * kIndexGroupVecLen + i * pq_dim);
+    }
     // read the codes, one/pq_dim at a time
+#ifdef __CUDA_ARCH__
 #pragma unroll
+#endif
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
       // read a piece of the reconstructed vector
       action(code_view[k], out_ix, j);
@@ -141,14 +153,17 @@ __device__ void run_on_vector(
  *    type: (uint32_t in_ix, uint32_t j) -> uint8_t, where j = [0..pq_dim).
  */
 template <uint32_t PqBits, uint32_t SubWarpSize, typename IdxT, typename Action>
-__device__ void write_vector(
-  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
-  uint32_t out_ix,
-  IdxT in_ix,
-  uint32_t pq_dim,
-  Action action)
+__host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list_data,
+                                      uint32_t out_ix,
+                                      IdxT in_ix,
+                                      uint32_t pq_dim,
+                                      Action action)
 {
+#ifdef __CUDA_ARCH__
   const uint32_t lane_id = Pow2<SubWarpSize>::mod(threadIdx.x);
+#else
+  const uint32_t lane_id = 0;
+#endif
 
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(out_ix);
@@ -161,7 +176,9 @@ __device__ void write_vector(
     // clear the chunk
     if (lane_id == 0) { code_chunk = pq_vec_t{}; }
     // write the codes, one/pq_dim at a time
+#ifdef __CUDA_ARCH__
 #pragma unroll
+#endif
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
       // write a single code
       uint8_t code = action(in_ix, j);
@@ -169,7 +186,14 @@ __device__ void write_vector(
     }
     // write the chunk to the list
     if (lane_id == 0) {
-      *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code_chunk;
+      if (std::holds_alternative<list_view>(out_list_data)) {
+        *reinterpret_cast<pq_vec_t*>(
+          &(std::get<list_view>(out_list_data))(group_ix, i, ingroup_ix, 0)) = code_chunk;
+      } else {
+        *reinterpret_cast<pq_vec_t*>(std::get<uint8_t*>(out_list_data) +
+                                     group_ix * kIndexGroupSize * pq_dim +
+                                     ingroup_ix * kIndexGroupVecLen + i * pq_dim) = code_chunk;
+      }
     }
   }
 }

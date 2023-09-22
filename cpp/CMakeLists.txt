@@ -22,7 +22,8 @@ include(rapids-find)
 
 option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
 
-# workaround for rapids_cuda_init_architectures not working for arch detection with enable_language(CUDA)
+# workaround for rapids_cuda_init_architectures not working for arch detection with
+# enable_language(CUDA)
 set(lang_list "CXX")
 
 if(NOT BUILD_CPU_ONLY)
@@ -286,7 +287,8 @@ endif()
 set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
 if(RAFT_COMPILE_LIBRARY)
-  add_library(raft_objs OBJECT
+  add_library(
+    raft_objs OBJECT
     src/core/logger.cpp
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
@@ -452,18 +454,21 @@ if(RAFT_COMPILE_LIBRARY)
     src/spatial/knn/detail/fused_l2_knn_int64_t_float.cu
     src/spatial/knn/detail/fused_l2_knn_uint32_t_float.cu
     src/util/memory_pool.cpp
-    )
+  )
   set_target_properties(
     raft_objs
     PROPERTIES CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
-               POSITION_INDEPENDENT_CODE ON)
+               POSITION_INDEPENDENT_CODE ON
+  )
 
   target_compile_definitions(raft_objs PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-  target_compile_options(raft_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                                           "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>")
+  target_compile_options(
+    raft_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
 
   add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
   add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
@@ -477,13 +482,15 @@ if(RAFT_COMPILE_LIBRARY)
   )
 
   foreach(target raft_lib raft_lib_static raft_objs)
-    target_link_libraries(${target} PUBLIC
-      raft::raft
-      ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
-                                    # will just be cublas
-      $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>)
+    target_link_libraries(
+      ${target}
+      PUBLIC raft::raft
+             ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                           # will just be cublas
+             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+    )
 
-    #So consumers know when using libraft.so/libraft.a
+    # So consumers know when using libraft.so/libraft.a
     target_compile_definitions(${target} PUBLIC "RAFT_COMPILED")
     # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
     target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
