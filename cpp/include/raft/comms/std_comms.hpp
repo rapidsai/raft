@@ -143,17 +143,17 @@ void build_comms_nccl_ucx(
  * @}
  */
 
-inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId, int size)
+inline void nccl_unique_id_from_char(ncclUniqueId* id, char* uniqueId)
 {
-  memcpy(id->internal, uniqueId, size);
+  memcpy(id->internal, uniqueId, NCCL_UNIQUE_ID_BYTES);
 }
 
-inline void get_unique_id(char* uid, int size)
+inline void get_nccl_unique_id(char* uid)
 {
   ncclUniqueId id;
   ncclGetUniqueId(&id);
 
-  memcpy(uid, id.internal, size);
+  memcpy(uid, id.internal, NCCL_UNIQUE_ID_BYTES);
 }
 };  // namespace comms
 };  // end namespace raft

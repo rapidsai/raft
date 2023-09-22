@@ -256,13 +256,17 @@ index<T, IdxT> build(raft::resources const& res,
     graph_degree = intermediate_degree;
   }
 
-  auto knn_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree);
+  std::optional<raft::host_matrix<IdxT, int64_t>> knn_graph(
+    raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
 
-  build_knn_graph(res, dataset, knn_graph.view());
+  build_knn_graph(res, dataset, knn_graph->view());
 
   auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
 
-  optimize<IdxT>(res, knn_graph.view(), cagra_graph.view());
+  optimize<IdxT>(res, knn_graph->view(), cagra_graph.view());
+
+  // free intermediate graph before trying to create the index
+  knn_graph.reset();
 
   // Construct an index from dataset and optimized knn graph.
   return index<T, IdxT>(res, params.metric, dataset, raft::make_const_mdspan(cagra_graph.view()));

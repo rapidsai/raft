@@ -24,13 +24,6 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <vector>
-#ifndef RAFT_DISABLE_CUDA
-#include <thrust/host_vector.h>
-#include <thrust/mr/allocator.h>
-#include <thrust/system/cuda/memory_resource.h>
-#else
-#include <raft/core/detail/fail_container_policy.hpp>
-#endif
 
 namespace raft {
 
@@ -69,45 +62,4 @@ class host_vector_policy {
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
 };
-
-#ifndef RAFT_DISABLE_CUDA
-/**
- * @brief A container policy for pinned mdarray.
- */
-template <typename ElementType>
-struct pinned_vector_policy {
-  using element_type          = ElementType;
-  using allocator_type        = thrust::mr::stateless_resource_allocator<element_type, thrust::cuda::universal_host_pinned_memory_resource>;
-  using container_type        = thrust::host_vector<element_type, allocator_type>;
-  using pointer               = typename container_type::pointer;
-  using const_pointer         = typename container_type::const_pointer;
-  using reference             = element_type&;
-  using const_reference       = element_type const&;
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
-
-  auto create(raft::resources const&, size_t n) -> container_type { return container_type(n, allocator_); }
-
-  constexpr pinned_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>) : mr_{}, allocator_{&mr_} {}
-
-  [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
-  {
-    return c[n];
-  }
-  [[nodiscard]] constexpr auto access(container_type const& c, size_t n) const noexcept
-    -> const_reference
-  {
-    return c[n];
-  }
-
-  [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
-  [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
- private:
-  thrust::system::cuda::universal_host_pinned_memory_resource mr_;
-  allocator_type allocator_;
-};
-#else
-template <typename ElementType>
-using pinned_vector_policy = detail::fail_container_policy<ElementType>;
-#endif
 }  // namespace raft

@@ -34,6 +34,7 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
   raft::host_matrix_view<DistanceT, ExtentsT, row_major> distances)
 {
   size_t n_queries = queries.extent(0);
+  size_t n_rows    = dataset.extent(0);
   size_t dim       = dataset.extent(1);
   size_t orig_k    = neighbor_candidates.extent(1);
   size_t refined_k = indices.extent(1);
@@ -52,10 +53,14 @@ template <typename DC, typename IdxT, typename DataT, typename DistanceT, typena
       const DataT* query = queries.data_handle() + dim * i;
       for (size_t j = 0; j < orig_k; j++) {
         IdxT id            = neighbor_candidates(i, j);
-        const DataT* row   = dataset.data_handle() + dim * id;
         DistanceT distance = 0.0;
-        for (size_t k = 0; k < dim; k++) {
-          distance += DC::template eval<DistanceT>(query[k], row[k]);
+        if (static_cast<size_t>(id) >= n_rows) {
+          distance = std::numeric_limits<DistanceT>::max();
+        } else {
+          const DataT* row = dataset.data_handle() + dim * id;
+          for (size_t k = 0; k < dim; k++) {
+            distance += DC::template eval<DistanceT>(query[k], row[k]);
+          }
         }
         refined_pairs[j] = std::make_tuple(distance, id);
       }

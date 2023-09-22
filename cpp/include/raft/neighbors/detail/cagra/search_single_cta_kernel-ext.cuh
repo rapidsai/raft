@@ -29,9 +29,9 @@ template <unsigned TEAM_SIZE,
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
   const uint32_t num_queries,
   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
   uint32_t* const num_executed_iterations,  // [num_queries,]

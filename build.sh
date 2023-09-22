@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --disable-cuda --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --cpu-only --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -37,14 +37,14 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    -n                          - no install step
    --uninstall                 - uninstall files for specified targets which were built and installed prior
-   --compile-lib               - compile shared libraries for all components
-                                 can be useful for a pure header-only install
+   --compile-lib               - compile shared library for all components
+   --compile-static-lib        - compile static library for all components
+   --cpu-only                  - build CPU only components without CUDA. Applies to bench-ann only currently.
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
    --allgpuarch                - build for all supported GPU architectures
    --no-nvtx                   - disable nvtx (profiling markers), but allow enabling it in downstream projects
-   --disable-cuda              - do not use CUDA symbols anywhere in build
    --show_depr_warn            - show cmake deprecation warnings
    --build-metrics             - filename for generating build metrics report for libraft
    --incl-cache-stats          - include cache statistics in build metrics report
@@ -72,8 +72,8 @@ BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
+BUILD_CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
-DISABLE_CUDA=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
@@ -154,7 +154,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
-	    echo "Limiting tests to $TEST_TARGETS"
+            echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -300,10 +300,6 @@ fi
 if hasArg -g; then
     BUILD_TYPE=Debug
 fi
-if hasArg --disable-cuda; then
-    DISABLE_CUDA=ON
-    TEST_TARGETS="CORE_TEST"
-fi
 
 if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
@@ -312,6 +308,11 @@ fi
 if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
     COMPILE_LIBRARY=ON
     CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
+fi
+
+if hasArg --compile-static-lib || (( ${NUMARGS} == 0 )); then
+    COMPILE_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};raft_lib_static"
 fi
 
 if hasArg tests || (( ${NUMARGS} == 0 )); then
@@ -348,7 +349,13 @@ fi
 if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     BUILD_ANN_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
-    COMPILE_LIBRARY=ON
+    if hasArg --cpu-only; then
+        COMPILE_LIBRARY=OFF
+        BUILD_CPU_ONLY=ON
+        NVTX=OFF
+    else
+        COMPILE_LIBRARY=ON
+    fi
 fi
 
 if hasArg --no-nvtx; then
@@ -415,13 +422,13 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DRAFT_COMPILE_LIBRARY=${COMPILE_LIBRARY} \
-          -DDISABLE_CUDA=${DISABLE_CUDA} \
           -DRAFT_NVTX=${NVTX} \
           -DCUDA_LOG_COMPILE_TIME=${LOG_COMPILE_TIME} \
           -DDISABLE_DEPRECATION_WARNINGS=${DISABLE_DEPRECATION_WARNINGS} \
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
+          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
@@ -495,6 +502,10 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
+# Build and (optionally) install the raft-ann-bench Python package
+if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
+    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench -vvv
+fi
 
 if hasArg docs; then
     set -x

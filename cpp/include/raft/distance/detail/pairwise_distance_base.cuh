@@ -18,7 +18,7 @@
 #include <raft/util/cuda_dev_essentials.cuh>  // ceildiv
 #include <raft/util/cuda_rt_essentials.hpp>   // RAFT_CUDA_TRY
 
-#include <cstddef>                            // size_t
+#include <cstddef>  // size_t
 
 namespace raft {
 namespace distance {

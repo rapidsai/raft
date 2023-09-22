@@ -24,6 +24,7 @@
  */
 
 #include <limits>
+#include <raft/core/detail/macros.hpp>
 #include <stdexcept>
 #include <type_traits>
 
@@ -198,5 +199,39 @@ struct is_narrowing<From, To, std::void_t<decltype(To{std::declval<From>()})>> :
 /** Check whether the numeric conversion is narrowing */
 template <typename From, typename To>
 inline constexpr bool is_narrowing_v = is_narrowing<From, To>::value;  // NOLINT
+
+/** Wide multiplication of two unsigned 64-bit integers */
+_RAFT_HOST_DEVICE inline void wmul_64bit(uint64_t& res_hi, uint64_t& res_lo, uint64_t a, uint64_t b)
+{
+#ifdef __CUDA_ARCH__
+  asm("mul.hi.u64 %0, %1, %2;" : "=l"(res_hi) : "l"(a), "l"(b));
+  asm("mul.lo.u64 %0, %1, %2;" : "=l"(res_lo) : "l"(a), "l"(b));
+#else
+  uint32_t a_hi, a_lo, b_hi, b_lo;
+
+  a_hi = uint32_t(a >> 32);
+  a_lo = uint32_t(a & uint64_t(0x00000000FFFFFFFF));
+  b_hi = uint32_t(b >> 32);
+  b_lo = uint32_t(b & uint64_t(0x00000000FFFFFFFF));
+
+  uint64_t t0 = uint64_t(a_lo) * uint64_t(b_lo);
+  uint64_t t1 = uint64_t(a_hi) * uint64_t(b_lo);
+  uint64_t t2 = uint64_t(a_lo) * uint64_t(b_hi);
+  uint64_t t3 = uint64_t(a_hi) * uint64_t(b_hi);
+
+  uint64_t carry = 0, trial = 0;
+
+  res_lo = t0;
+  trial  = res_lo + (t1 << 32);
+  if (trial < res_lo) carry++;
+  res_lo = trial;
+  trial  = res_lo + (t2 << 32);
+  if (trial < res_lo) carry++;
+  res_lo = trial;
+
+  // No need to worry about carry in this addition
+  res_hi = (t1 >> 32) + (t2 >> 32) + t3 + carry;
+#endif
+}
 
 }  // namespace raft

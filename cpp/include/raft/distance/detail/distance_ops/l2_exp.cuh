@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/math.hpp>
 #include <raft/util/cuda_dev_essentials.cuh>  // DI
 
 namespace raft::distance::detail::ops {
@@ -33,7 +34,7 @@ struct l2_exp_cutlass_op {
     // outVal could be negative due to numerical instability, especially when
     // calculating self distance.
     // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (outVal > DataT(0.0));
+    outVal = outVal * (raft::abs(outVal) >= DataT(0.0001));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
@@ -88,7 +89,7 @@ struct l2_exp_distance_op {
         DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
         // val could be negative due to numerical instability, especially when
         // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
-        acc[i][j] = val * (val > DataT(0.0));
+        acc[i][j] = val * (raft::abs(val) >= DataT(0.0001));
       }
     }
     if (sqrt) {
