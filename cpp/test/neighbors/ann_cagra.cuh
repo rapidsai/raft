@@ -333,20 +333,16 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
           cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
         }
       } else {
-        auto nn_descent_idx_params          = std::make_optional<nn_descent::index_params>();
-        nn_descent_idx_params->graph_degree = index_params.intermediate_graph_degree;
-        nn_descent_idx_params->intermediate_graph_degree = index_params.intermediate_graph_degree;
+        auto nn_descent_idx_params                      = nn_descent::index_params{};
+        nn_descent_idx_params.graph_degree              = index_params.intermediate_graph_degree;
+        nn_descent_idx_params.intermediate_graph_degree = index_params.intermediate_graph_degree;
 
         if (ps.host_dataset) {
-          auto nn_descent_idx =
-            cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, nn_descent_idx_params);
-          std::memcpy(
-            knn_graph.data_handle(), nn_descent_idx.graph().data_handle(), knn_graph.size());
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_host_view, knn_graph.view(), nn_descent_idx_params);
         } else {
-          auto nn_descent_idx =
-            cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, nn_descent_idx_params);
-          std::memcpy(
-            knn_graph.data_handle(), nn_descent_idx.graph().data_handle(), knn_graph.size());
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_host_view, knn_graph.view(), nn_descent_idx_params);
         }
       }
 

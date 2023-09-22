@@ -240,16 +240,13 @@ void build_knn_graph(raft::resources const& res,
 }
 
 template <typename DataT, typename IdxT, typename accessor>
-experimental::nn_descent::index<IdxT> build_knn_graph(
-  raft::resources const& res,
-  mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
-  std::optional<experimental::nn_descent::index_params> build_params = std::nullopt)
+void build_knn_graph(raft::resources const& res,
+                     mdspan<const DataT, matrix_extent<int64_t>, row_major, accessor> dataset,
+                     raft::host_matrix_view<IdxT, int64_t, row_major> knn_graph,
+                     experimental::nn_descent::index_params build_params)
 {
-  if (!build_params) {
-    build_params = std::make_optional<experimental::nn_descent::index_params>();
-  }
-
-  auto nn_descent_idx = experimental::nn_descent::build<DataT, IdxT>(res, *build_params, dataset);
+  auto nn_descent_idx = experimental::nn_descent::index<IdxT>(res, knn_graph);
+  experimental::nn_descent::build<DataT, IdxT>(res, build_params, dataset, nn_descent_idx);
 
   using internal_IdxT = typename std::make_unsigned<IdxT>::type;
   using g_accessor    = typename decltype(nn_descent_idx.graph())::accessor_type;
@@ -263,8 +260,6 @@ experimental::nn_descent::index<IdxT> build_knn_graph(
       nn_descent_idx.graph().extent(1));
 
   graph::sort_knn_graph(res, dataset, knn_graph_internal);
-
-  return nn_descent_idx;
 }
 
 }  // namespace raft::neighbors::cagra::detail

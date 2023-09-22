@@ -78,7 +78,28 @@ struct index : ann::index {
     : ann::index(),
       res_{res},
       metric_{raft::distance::DistanceType::L2Expanded},
-      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)}
+      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(n_rows, n_cols)},
+      graph_view_{graph_.view()}
+  {
+  }
+
+  /**
+   * @brief Construct a new index object
+   *
+   * This constructor creates an nn-descent index using a user allocated host memory knn-graph.
+   * The type of the knn-graph is a dense raft::host_matrix and dimensions are
+   * (n_rows, n_cols).
+   *
+   * @param res raft::resources is an object mangaging resources
+   * @param graph_view raft::host_matrix_view<IdxT, int64_t, raft::row_major> for storing knn-graph
+   */
+  index(raft::resources const& res,
+        raft::host_matrix_view<IdxT, int64_t, raft::row_major> graph_view)
+    : ann::index(),
+      res_{res},
+      metric_{raft::distance::DistanceType::L2Expanded},
+      graph_{raft::make_host_matrix<IdxT, int64_t, row_major>(0, 0)},
+      graph_view_{graph_view}
   {
   }
 
@@ -91,19 +112,19 @@ struct index : ann::index {
   // /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
-    return graph_.view().extent(0);
+    return graph_view_.extent(0);
   }
 
   /** Graph degree */
   [[nodiscard]] constexpr inline auto graph_degree() const noexcept -> uint32_t
   {
-    return graph_.view().extent(1);
+    return graph_view_.extent(1);
   }
 
   /** neighborhood graph [size, graph-degree] */
   [[nodiscard]] inline auto graph() noexcept -> host_matrix_view<IdxT, int64_t, row_major>
   {
-    return graph_.view();
+    return graph_view_;
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
@@ -117,6 +138,8 @@ struct index : ann::index {
   raft::resources const& res_;
   raft::distance::DistanceType metric_;
   raft::host_matrix<IdxT, int64_t, row_major> graph_;  // graph to return for non-int IdxT
+  raft::host_matrix_view<IdxT, int64_t, row_major>
+    graph_view_;  // view of graph for user provided matrix
 };
 
 /** @} */

@@ -386,7 +386,6 @@ if(BUILD_TESTS)
     test/neighbors/ann_nn_descent/test_float_uint32_t.cu
     test/neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
     test/neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
-    test/neighbors/ann_nn_descent/test_float_int64_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS

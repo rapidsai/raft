@@ -177,6 +177,7 @@ __device__ __forceinline__ int xor_swap(int x, int mask, int dir)
   return x < y == dir ? y : x;
 }
 
+// TODO: Move to RAFT utils https://github.com/rapidsai/raft/issues/1827
 __device__ __forceinline__ uint bfe(uint lane_id, uint pos)
 {
   uint res;
@@ -323,6 +324,7 @@ struct GnndGraph {
             const size_t internal_node_degree,
             const size_t num_samples);
   void init_random_graph();
+  // TODO: Create a generic bloom filter utility https://github.com/rapidsai/raft/issues/1827
   // Use Bloom filter to sample "new" neighbors for local joining
   void sample_graph_new(InternalID_t<Index_t>* new_neighbors, const size_t width);
   void sample_graph(bool sample_new);
@@ -369,6 +371,7 @@ class GNND {
   raft::device_matrix<ID_t, Index_t, raft::row_major> graph_buffer_;
   raft::device_matrix<DistData_t, Index_t, raft::row_major> dists_buffer_;
 
+  // TODO: Investigate using RMM/RAFT types https://github.com/rapidsai/raft/issues/1827
   thrust::host_vector<ID_t, pinned_memory_allocator<ID_t>> graph_host_buffer_;
   thrust::host_vector<DistData_t, pinned_memory_allocator<DistData_t>> dists_host_buffer_;
 
@@ -442,6 +445,7 @@ __device__ __forceinline__ void load_vec(Data_t* vec_buffer,
   }
 }
 
+// TODO: Replace with RAFT utilities https://github.com/rapidsai/raft/issues/1827
 /** Calculate L2 norm, and cast data to __half */
 template <typename Data_t>
 __global__ void preprocess_data_kernel(const Data_t* input_data,
@@ -1363,15 +1367,17 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<IdxT> build(raft::resources const& res,
-                  const index_params& params,
-                  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+void build(raft::resources const& res,
+           const index_params& params,
+           mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
+           index<IdxT>& idx)
 {
   RAFT_EXPECTS(dataset.extent(0) < std::numeric_limits<int>::max() - 1,
                "The dataset size for GNND should be less than %d",
                std::numeric_limits<int>::max() - 1);
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
+
   if (intermediate_degree >= static_cast<size_t>(dataset.extent(0))) {
     RAFT_LOG_WARN(
       "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu",
@@ -1386,6 +1392,7 @@ index<IdxT> build(raft::resources const& res,
       intermediate_degree);
     graph_degree = intermediate_degree;
   }
+
   // The elements in each knn-list are partitioned into different buckets, and we need more buckets
   // to mitigate bucket collisions. `intermediate_degree` is OK to larger than
   // extended_graph_degree.
@@ -1406,7 +1413,7 @@ index<IdxT> build(raft::resources const& res,
 
   GNND<const T, int> nnd(res, build_config);
   nnd.build(dataset.data_handle(), dataset.extent(0), int_graph.data_handle());
-  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+
 #pragma omp parallel for
   for (size_t i = 0; i < static_cast<size_t>(dataset.extent(0)); i++) {
     for (size_t j = 0; j < graph_degree; j++) {
@@ -1414,6 +1421,32 @@ index<IdxT> build(raft::resources const& res,
       graph[i * graph_degree + j] = int_graph.data_handle()[i * extended_graph_degree + j];
     }
   }
+}
+
+template <typename T,
+          typename IdxT = uint32_t,
+          typename Accessor =
+            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+index<IdxT> build(raft::resources const& res,
+                  const index_params& params,
+                  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
+{
+  size_t intermediate_degree = params.intermediate_graph_degree;
+  size_t graph_degree        = params.graph_degree;
+
+  if (intermediate_degree < graph_degree) {
+    RAFT_LOG_WARN(
+      "Graph degree (%lu) cannot be larger than intermediate graph degree (%lu), reducing "
+      "graph_degree.",
+      graph_degree,
+      intermediate_degree);
+    graph_degree = intermediate_degree;
+  }
+
+  index<IdxT> idx{res, dataset.extent(0), static_cast<int64_t>(graph_degree)};
+
+  build(res, params, dataset, idx);
+
   return idx;
 }
 

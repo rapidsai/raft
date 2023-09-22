@@ -112,13 +112,6 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
         resource::sync_stream(handle_);
       }
 
-      // for (int i = 0; i < min(ps.n_queries, 10); i++) {
-      //   //  std::cout << "query " << i << std::end;
-      //   print_vector("T", indices_naive.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("C", indices_Cagra.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("T", distances_naive.data() + i * ps.k, ps.k, std::cout);
-      //   print_vector("C", distances_Cagra.data() + i * ps.k, ps.k, std::cout);
-      // }
       double min_recall = ps.min_recall;
       EXPECT_TRUE(eval_recall(
         indices_naive, indices_NNDescent, ps.n_rows, ps.graph_degree, 0.001, min_recall));
