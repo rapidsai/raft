@@ -1,4 +1,4 @@
-c{
+{
   "dataset": {
     "name": "mnist-784-euclidean",
     "base_file": "mnist-784-euclidean/base.fbin",
