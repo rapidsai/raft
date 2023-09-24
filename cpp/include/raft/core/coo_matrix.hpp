@@ -23,6 +23,11 @@
 
 namespace raft {
 
+/**
+ * \defgroup coo_matrix COO Matrix
+ * @{
+ */
+
 template <typename RowType, typename ColType, typename NZType, int is_device>
 class coordinate_structure_t : public sparse_structure<RowType, ColType, NZType, is_device> {
  public:
@@ -289,4 +294,7 @@ class coo_matrix
     }
   }
 };
+
+/** @} */
+
 }  // namespace raft

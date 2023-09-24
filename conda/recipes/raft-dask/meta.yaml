@@ -45,7 +45,7 @@ requirements:
     - cuda-python >=12.0,<13.0a0
     {% endif %}
     - cuda-version ={{ cuda_version }}
-    - cython >=0.29,<0.30
+    - cython >=3.0.0
     - nccl >=2.9.9
     - pylibraft {{ version }}
     - python x.x
@@ -60,10 +60,10 @@ requirements:
     - cudatoolkit
     {% endif %}
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
-    - dask >=2023.5.1
-    - dask-core >=2023.5.1
+    - dask >=2023.7.1
+    - dask-core >=2023.7.1
     - dask-cuda ={{ minor_version }}
-    - distributed >=2023.5.1
+    - distributed >=2023.7.1
     - joblib >=0.11
     - nccl >=2.9.9
     - pylibraft {{ version }}

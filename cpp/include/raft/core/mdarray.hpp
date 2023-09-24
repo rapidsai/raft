@@ -34,7 +34,7 @@
 namespace raft {
 
 /**
- * @defgroup mdarray multi-dimensional memory-owning type
+ * @defgroup mdarray_apis multi-dimensional memory-owning type
  * @{
  */
 
@@ -343,9 +343,7 @@ class mdarray
   container_type c_;
 };
 
-/**
- * @}
- */
+/** @} */
 
 /**
  * @defgroup mdarray_reshape Row- or Col-norm computation
@@ -387,8 +385,6 @@ auto reshape(const array_interface_type& mda, extents<IndexType, Extents...> new
   return reshape(mda.view(), new_shape);
 }
 
-/**
- * }@
- */
+/** @} */
 
 }  // namespace raft

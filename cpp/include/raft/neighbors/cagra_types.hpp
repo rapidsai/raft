@@ -26,7 +26,6 @@
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/integer_utils.hpp>
-#include <raft/util/pow2_utils.cuh>
 
 #include <memory>
 #include <optional>
@@ -41,18 +40,22 @@
 #include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
- * @ingroup cagra
+ * @addtogroup cagra
  * @{
  */
 
 struct index_params : ann::index_params {
-  size_t intermediate_graph_degree = 128;  // Degree of input graph for pruning.
-  size_t graph_degree              = 64;   // Degree of output graph.
+  /** Degree of input graph for pruning. */
+  size_t intermediate_graph_degree = 128;
+  /** Degree of output graph. */
+  size_t graph_degree = 64;
 };
 
 enum class search_algo {
-  SINGLE_CTA,  // for large batch
-  MULTI_CTA,   // for small batch
+  /** For large batch sizes. */
+  SINGLE_CTA,
+  /** For small batch sizes. */
+  MULTI_CTA,
   MULTI_KERNEL,
   AUTO
 };
@@ -82,7 +85,7 @@ struct search_params : ann::search_params {
   /** Number of threads used to calculate a single distance. 4, 8, 16, or 32. */
   size_t team_size = 0;
 
-  /*/ Number of graph nodes to select as the starting point for the search in each iteration. aka
+  /** Number of graph nodes to select as the starting point for the search in each iteration. aka
    * search width?*/
   size_t search_width = 1;
   /** Lower limit of search iterations. */
@@ -97,9 +100,9 @@ struct search_params : ann::search_params {
   /** Upper limit of hashmap fill rate. More than 0.1, less than 0.9.*/
   float hashmap_max_fill_rate = 0.5;
 
-  /* Number of iterations of initial random seed node selection. 1 or more. */
+  /** Number of iterations of initial random seed node selection. 1 or more. */
   uint32_t num_random_samplings = 1;
-  // Bit mask used for initial random seed node selection. */
+  /** Bit mask used for initial random seed node selection. */
   uint64_t rand_xor_mask = 0x128394;
 };
 
@@ -117,7 +120,6 @@ static_assert(std::is_aggregate_v<search_params>);
  */
 template <typename T, typename IdxT>
 struct index : ann::index {
-  using AlignDim = raft::Pow2<16 / sizeof(T)>;
   static_assert(!raft::is_narrowing_v<uint32_t, IdxT>,
                 "IdxT must be able to represent all values of uint32_t");
 
@@ -128,7 +130,7 @@ struct index : ann::index {
     return metric_;
   }
 
-  // /** Total length of the index (number of vectors). */
+  /** Total length of the index (number of vectors). */
   [[nodiscard]] constexpr inline auto size() const noexcept -> IdxT
   {
     return dataset_view_.extent(0);
@@ -304,7 +306,7 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    if (dataset.extent(1) % AlignDim::Value != 0) {
+    if (dataset.extent(1) * sizeof(T) % 16 != 0) {
       RAFT_LOG_DEBUG("Creating a padded copy of CAGRA dataset in device memory");
       copy_padded(res, dataset);
     } else {
@@ -360,8 +362,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
-    dataset_ =
-      make_device_matrix<T, int64_t>(res, dataset.extent(0), AlignDim::roundUp(dataset.extent(1)));
+    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
+    dataset_          = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),

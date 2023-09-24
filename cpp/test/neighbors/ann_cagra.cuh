@@ -137,6 +137,7 @@ struct AnnCagraInputs {
   int search_width;
   raft::distance::DistanceType metric;
   bool host_dataset;
+  bool include_serialized_dataset;
   // std::optional<double>
   double min_recall;  // = std::nullopt;
 };
@@ -217,9 +218,11 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
           } else {
             index = cagra::build<DataT, IdxT>(handle_, index_params, database_view);
           };
-          cagra::serialize(handle_, "cagra_index", index);
+          cagra::serialize(handle_, "cagra_index", index, ps.include_serialized_dataset);
         }
+
         auto index = cagra::deserialize<DataT, IdxT>(handle_, "cagra_index");
+        if (!ps.include_serialized_dataset) { index.update_dataset(handle_, database_view); }
 
         auto search_queries_view = raft::make_device_matrix_view<const DataT, int64_t>(
           search_queries.data(), ps.n_queries, ps.dim);
@@ -340,9 +343,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
 
   void SetUp() override
   {
-    std::cout << "Resizing database: " << ps.n_rows * ps.dim << std::endl;
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
-    std::cout << "Done.\nRuning rng" << std::endl;
     raft::random::Rng r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
       GenerateRoundingErrorFreeDataset(database.data(), ps.n_rows, ps.dim, r, handle_.get_stream());
@@ -371,7 +372,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {100},
     {1000},
     {1, 8, 17},
-    {1, 16},          // k
+    {1, 16},  // k
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
     {0, 1, 10, 100},  // query size
     {0},
@@ -379,6 +380,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {1},
     {raft::distance::DistanceType::L2Expanded},
     {false},
+    {true},
     {0.995});
 
   auto inputs2 = raft::util::itertools::product<AnnCagraInputs>(
@@ -393,6 +395,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {1},
     {raft::distance::DistanceType::L2Expanded},
     {false},
+    {true},
     {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
   inputs2 =
@@ -406,6 +409,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
                                                    {64},
                                                    {1},
                                                    {raft::distance::DistanceType::L2Expanded},
+                                                   {false},
                                                    {false},
                                                    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
@@ -422,6 +426,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
                                                    {1},
                                                    {raft::distance::DistanceType::L2Expanded},
                                                    {false},
+                                                   {true},
                                                    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
@@ -437,6 +442,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
                                                    {1},
                                                    {raft::distance::DistanceType::L2Expanded},
                                                    {false, true},
+                                                   {false},
                                                    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
@@ -452,6 +458,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
                                                    {1},
                                                    {raft::distance::DistanceType::L2Expanded},
                                                    {false, true},
+                                                   {true},
                                                    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 

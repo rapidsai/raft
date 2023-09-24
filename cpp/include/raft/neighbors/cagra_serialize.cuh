@@ -47,12 +47,16 @@ namespace raft::neighbors::cagra {
  * @param[in] handle the raft handle
  * @param[in] os output stream
  * @param[in] index CAGRA index
+ * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::resources const& handle, std::ostream& os, const index<T, IdxT>& index)
+void serialize(raft::resources const& handle,
+               std::ostream& os,
+               const index<T, IdxT>& index,
+               bool include_dataset = true)
 {
-  detail::serialize(handle, os, index);
+  detail::serialize(handle, os, index, include_dataset);
 }
 
 /**
@@ -77,14 +81,16 @@ void serialize(raft::resources const& handle, std::ostream& os, const index<T, I
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
  * @param[in] index CAGRA index
+ * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
 void serialize(raft::resources const& handle,
                const std::string& filename,
-               const index<T, IdxT>& index)
+               const index<T, IdxT>& index,
+               bool include_dataset = true)
 {
-  detail::serialize(handle, filename, index);
+  detail::serialize(handle, filename, index, include_dataset);
 }
 
 /**

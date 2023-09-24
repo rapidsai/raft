@@ -22,6 +22,11 @@
 
 namespace raft {
 
+/**
+ * \defgroup sparse_types Sparse API vocabulary
+ * @{
+ */
+
 enum SparsityType { OWNING, PRESERVING };
 
 /**
@@ -214,4 +219,7 @@ class sparse_matrix {
   container_policy_type cp_;
   container_type c_elements_;
 };
+
+/* @} */
+
 }  // namespace raft

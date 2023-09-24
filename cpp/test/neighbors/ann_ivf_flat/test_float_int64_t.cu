@@ -21,7 +21,11 @@
 namespace raft::neighbors::ivf_flat {
 
 typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;
-TEST_P(AnnIVFFlatTestF, AnnIVFFlat) { this->testIVFFlat(); }
+TEST_P(AnnIVFFlatTestF, AnnIVFFlat)
+{
+  this->testIVFFlat();
+  this->testPacker();
+}
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));
 

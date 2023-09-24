@@ -37,6 +37,7 @@ class cai_wrapper(ai_wrapper):
             __array_interface__=cai_arr.__cuda_array_interface__
         )
         super().__init__(helper)
+        self.from_cai = True
 
 
 def wrap_array(array):

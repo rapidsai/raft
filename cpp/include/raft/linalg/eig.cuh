@@ -220,7 +220,7 @@ void eig_jacobi(raft::resources const& handle,
 
 /** @} */  // end of eig
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

@@ -19,11 +19,15 @@ mdspan: Multi-dimensional Non-owning View
 .. doxygenfunction:: raft::make_strided_layout(Extents extents, Strides strides)
     :project: RAFT
 
-.. doxygenfunction:: raft::unravel_index
+.. doxygengroup:: mdspan_unravel
     :project: RAFT
+    :members:
+    :content-only:
 
-.. doxygenfunction:: raft::make_const_mdspan(mdspan_type mds)
+.. doxygengroup:: mdspan_make_const
     :project: RAFT
+    :members:
+    :content-only:
 
 
 Device Vocabulary

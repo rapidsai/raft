@@ -97,8 +97,11 @@ DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.common))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.distance))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.matrix.select_k))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors))
-DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.brute_force))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.cagra))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_flat))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.ivf_pq))
+DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.neighbors.refine))
 DOC_STRINGS.extend(_find_doctests_in_obj(pylibraft.random))
 
 

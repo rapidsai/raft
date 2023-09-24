@@ -7,17 +7,15 @@ temporary_device_buffer: Temporary raft::device_mdspan Producing Object
 
 ``#include <raft/core/temporary_device_buffer.hpp>``
 
-.. doxygenclass:: raft::temporary_device_buffer
+.. doxygengroup:: temporary_device_buffer
     :project: RAFT
     :members:
+    :content-only:
 
 Factories
 ---------
-.. doxygenfunction:: raft::make_temporary_device_buffer
-    :project: RAFT
 
-.. doxygenfunction:: raft::make_readonly_temporary_device_buffer
+.. doxygengroup:: temporary_device_buffer_factories
     :project: RAFT
-
-.. doxygenfunction:: raft::make_writeback_temporary_device_buffer
-    :project: RAFT
+    :members:
+    :content-only:

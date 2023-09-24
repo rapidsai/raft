@@ -175,14 +175,24 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     topk_workspace.resize(topk_workspace_size, resource::get_cuda_stream(res));
   }
 
+  void check(const uint32_t topk) override
+  {
+    RAFT_EXPECTS(num_cta_per_query * 32 >= topk,
+                 "`num_cta_per_query` (%u) * 32 must be equal to or greater than "
+                 "`topk` (%u) when 'search_mode' is \"multi-cta\". "
+                 "(`num_cta_per_query`=max(`search_width`, `itopk_size`/32))",
+                 num_cta_per_query,
+                 topk);
+  }
+
   ~search() {}
 
   void operator()(raft::resources const& res,
                   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
                   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-                  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-                  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-                  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+                  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+                  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+                  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
                   const uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
                   uint32_t* const num_executed_iterations,  // [num_queries,]

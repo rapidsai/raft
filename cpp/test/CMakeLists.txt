@@ -101,31 +101,33 @@ if(BUILD_TESTS)
   #   EXPLICIT_INSTANTIATE_ONLY
   # )
 
-  # ConfigureTest(
-  #   NAME
-  #   CORE_TEST
-  #   PATH
-  #   test/core/logger.cpp
-  #   test/core/math_device.cu
-  #   test/core/math_host.cpp
-  #   test/core/operators_device.cu
-  #   test/core/operators_host.cpp
-  #   test/core/handle.cpp
-  #   test/core/interruptible.cu
-  #   test/core/nvtx.cpp
-  #   test/core/mdarray.cu
-  #   test/core/mdspan_utils.cu
-  #   test/core/numpy_serializer.cu
-  #   test/core/memory_type.cpp
-  #   test/core/sparse_matrix.cu
-  #   test/core/sparse_matrix.cpp
-  #   test/core/span.cpp
-  #   test/core/span.cu
-  #   test/core/temporary_device_buffer.cu
-  #   test/test.cpp
-  #   LIB
-  #   EXPLICIT_INSTANTIATE_ONLY
-  # )
+  ConfigureTest(
+    NAME
+    CORE_TEST
+    PATH
+    test/core/device_resources_manager.cpp
+    test/core/device_setter.cpp
+    test/core/logger.cpp
+    test/core/math_device.cu
+    test/core/math_host.cpp
+    test/core/operators_device.cu
+    test/core/operators_host.cpp
+    test/core/handle.cpp
+    test/core/interruptible.cu
+    test/core/nvtx.cpp
+    test/core/mdarray.cu
+    test/core/mdspan_utils.cu
+    test/core/numpy_serializer.cu
+    test/core/memory_type.cpp
+    test/core/sparse_matrix.cu
+    test/core/sparse_matrix.cpp
+    test/core/span.cpp
+    test/core/span.cu
+    test/core/temporary_device_buffer.cu
+    test/test.cpp
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
 
   # ConfigureTest(
   #   NAME
@@ -260,20 +262,21 @@ if(BUILD_TESTS)
   #   NAME MATRIX_SELECT_LARGE_TEST PATH test/matrix/select_large_k.cu LIB EXPLICIT_INSTANTIATE_ONLY
   # )
 
-  # ConfigureTest(
-  #   NAME
-  #   RANDOM_TEST
-  #   PATH
-  #   test/random/make_blobs.cu
-  #   test/random/make_regression.cu
-  #   test/random/multi_variable_gaussian.cu
-  #   test/random/permute.cu
-  #   test/random/rng.cu
-  #   test/random/rng_discrete.cu
-  #   test/random/rng_int.cu
-  #   test/random/rmat_rectangular_generator.cu
-  #   test/random/sample_without_replacement.cu
-  # )
+  ConfigureTest(
+    NAME
+    RANDOM_TEST
+    PATH
+    test/random/make_blobs.cu
+    test/random/make_regression.cu
+    test/random/multi_variable_gaussian.cu
+    test/random/rng_pcg_host_api.cu
+    test/random/permute.cu
+    test/random/rng.cu
+    test/random/rng_discrete.cu
+    test/random/rng_int.cu
+    test/random/rmat_rectangular_generator.cu
+    test/random/sample_without_replacement.cu
+  )
 
   # ConfigureTest(
   #   NAME SOLVERS_TEST PATH test/cluster/cluster_solvers_deprecated.cu test/linalg/eigen_solvers.cu
@@ -414,52 +417,19 @@ if(BUILD_TESTS)
   #   EXPLICIT_INSTANTIATE_ONLY
   # )
 
-  # ConfigureTest(
-  #   NAME
-  #   STATS_TEST
-  #   PATH
-  #   test/stats/accuracy.cu
-  #   test/stats/adjusted_rand_index.cu
-  #   test/stats/completeness_score.cu
-  #   test/stats/contingencyMatrix.cu
-  #   test/stats/cov.cu
-  #   test/stats/dispersion.cu
-  #   test/stats/entropy.cu
-  #   test/stats/histogram.cu
-  #   test/stats/homogeneity_score.cu
-  #   test/stats/information_criterion.cu
-  #   test/stats/kl_divergence.cu
-  #   test/stats/mean.cu
-  #   test/stats/meanvar.cu
-  #   test/stats/mean_center.cu
-  #   test/stats/minmax.cu
-  #   test/stats/mutual_info_score.cu
-  #   test/stats/r2_score.cu
-  #   test/stats/rand_index.cu
-  #   test/stats/regression_metrics.cu
-  #   test/stats/silhouette_score.cu
-  #   test/stats/stddev.cu
-  #   test/stats/sum.cu
-  #   test/stats/trustworthiness.cu
-  #   test/stats/weighted_mean.cu
-  #   test/stats/v_measure.cu
-  #   OPTIONAL
-  #   LIB
-  #   EXPLICIT_INSTANTIATE_ONLY
-  # )
-
-  # ConfigureTest(
-  #   NAME
-  #   UTILS_TEST
-  #   PATH
-  #   test/core/seive.cu
-  #   test/util/bitonic_sort.cu
-  #   test/util/cudart_utils.cpp
-  #   test/util/device_atomics.cu
-  #   test/util/integer_utils.cpp
-  #   test/util/pow2_utils.cu
-  #   test/util/reduction.cu
-  # )
+  ConfigureTest(
+    NAME
+    UTILS_TEST
+    PATH
+    test/core/seive.cu
+    test/util/bitonic_sort.cu
+    test/util/cudart_utils.cpp
+    test/util/device_atomics.cu
+    test/util/integer_utils.cpp
+    test/util/integer_utils.cu
+    test/util/pow2_utils.cu
+    test/util/reduction.cu
+  )
 endif()
 
 # ##################################################################################################

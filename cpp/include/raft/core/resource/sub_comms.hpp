@@ -43,7 +43,7 @@ class sub_comms_resource_factory : public resource_factory {
 };
 
 /**
- * @defgroup resource_subcomms Subcommunicator resource functions
+ * @defgroup resource_sub_comms Subcommunicator resource functions
  * @{
  */
 

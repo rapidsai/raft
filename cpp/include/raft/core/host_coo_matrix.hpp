@@ -23,6 +23,11 @@
 namespace raft {
 
 /**
+ * \defgroup host_coo_matrix Host COO Matrix
+ * @{
+ */
+
+/**
  * Specialization for a sparsity-preserving coordinate structure view which uses host memory
  */
 template <typename RowType, typename ColType, typename NZType>
@@ -385,5 +390,7 @@ auto make_host_coordinate_structure_view(raft::host_span<RowType> rows,
 {
   return host_coordinate_structure_view<RowType, ColType, NZType>(rows, cols, n_rows, n_cols);
 }
+
+/** @} */
 
 };  // namespace raft

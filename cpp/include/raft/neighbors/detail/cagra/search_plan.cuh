@@ -111,7 +111,7 @@ struct search_plan_impl : public search_plan_impl_base {
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
                           const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
                           const std::uint32_t num_queries,
-                          const INDEX_T* dev_seed_ptr,             // [num_queries, num_seeds]
+                          const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                           std::uint32_t* const num_executed_iterations,  // [num_queries]
                           uint32_t topk){};
 
@@ -250,17 +250,10 @@ struct search_plan_impl : public search_plan_impl_base {
     }
   }
 
-  void check(uint32_t topk)
+  virtual void check(const uint32_t topk)
   {
+    // For single-CTA and multi kernel
     RAFT_EXPECTS(topk <= itopk_size, "topk must be smaller than itopk_size = %lu", itopk_size);
-    if (algo == search_algo::MULTI_CTA) {
-      uint32_t mc_num_cta_per_query = max(search_width, itopk_size / 32);
-      RAFT_EXPECTS(mc_num_cta_per_query * 32 >= topk,
-                   "`mc_num_cta_per_query` (%u) * 32 must be equal to or greater than "
-                   "`topk` /%u) when 'search_mode' is \"multi-cta\"",
-                   mc_num_cta_per_query,
-                   topk);
-    }
   }
 
   inline void check_params()

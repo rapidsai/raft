@@ -7,7 +7,7 @@ mdarray: Multi-dimensional Owning Container
 
 ``#include <raft/core/mdarray.hpp>``
 
-.. doxygengroup:: mdarray
+.. doxygengroup:: mdarray_apis
     :project: RAFT
     :members:
     :content-only:

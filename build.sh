@@ -18,7 +18,7 @@ ARGS=$*
 # scripts, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --allgpuarch --no-nvtx --show_depr_warn --incl-cache-stats --time -h"
+VALIDARGS="clean libraft pylibraft raft-dask docs tests template bench-prims bench-ann clean --uninstall  -v -g -n --compile-lib --compile-static-lib --allgpuarch --no-nvtx --cpu-only --show_depr_warn --incl-cache-stats --time -h"
 HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<tool>] [--limit-tests=<targets>] [--limit-bench-prims=<targets>] [--limit-bench-ann=<targets>] [--build-metrics=<filename>]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -37,8 +37,9 @@ HELP="$0 [<target> ...] [<flag> ...] [--cmake-args=\"<args>\"] [--cache-tool=<to
    -g                          - build for debug
    -n                          - no install step
    --uninstall                 - uninstall files for specified targets which were built and installed prior
-   --compile-lib               - compile shared libraries for all components
-                                 can be useful for a pure header-only install
+   --compile-lib               - compile shared library for all components
+   --compile-static-lib        - compile static library for all components
+   --cpu-only                  - build CPU only components without CUDA. Applies to bench-ann only currently.
    --limit-tests               - semicolon-separated list of test executables to compile (e.g. NEIGHBORS_TEST;CLUSTER_TEST)
    --limit-bench-prims         - semicolon-separated list of prims benchmark executables to compute (e.g. NEIGHBORS_PRIMS_BENCH;CLUSTER_PRIMS_BENCH)
    --limit-bench-ann           - semicolon-separated list of ann benchmark executables to compute (e.g. HNSWLIB_ANN_BENCH;RAFT_IVF_PQ_ANN_BENCH)
@@ -71,12 +72,13 @@ BUILD_TESTS=OFF
 BUILD_TYPE=Release
 BUILD_PRIMS_BENCH=OFF
 BUILD_ANN_BENCH=OFF
+BUILD_CPU_ONLY=OFF
 COMPILE_LIBRARY=OFF
 INSTALL_TARGET=install
 BUILD_REPORT_METRICS=""
 BUILD_REPORT_INCL_CACHE_STATS=OFF
 
-TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
+TEST_TARGETS="CLUSTER_TEST;CORE_TEST;DISTANCE_TEST;LABEL_TEST;LINALG_TEST;MATRIX_TEST;NEIGHBORS_TEST;NEIGHBORS_ANN_CAGRA_TEST;RANDOM_TEST;SOLVERS_TEST;SPARSE_TEST;SPARSE_DIST_TEST;SPARSE_NEIGHBORS_TEST;STATS_TEST;UTILS_TEST"
 BENCH_TARGETS="CLUSTER_BENCH;NEIGHBORS_BENCH;DISTANCE_BENCH;LINALG_BENCH;MATRIX_BENCH;SPARSE_BENCH;RANDOM_BENCH"
 
 CACHE_ARGS=""
@@ -152,7 +154,7 @@ function limitTests {
             # Remove the full LIMIT_TEST_TARGETS argument from list of args so that it passes validArgs function
             ARGS=${ARGS//--limit-tests=$LIMIT_TEST_TARGETS/}
             TEST_TARGETS=${LIMIT_TEST_TARGETS}
-	    echo "Limiting tests to $TEST_TARGETS"
+            echo "Limiting tests to $TEST_TARGETS"
         fi
     fi
 }
@@ -308,6 +310,11 @@ if hasArg --compile-lib || (( ${NUMARGS} == 0 )); then
     CMAKE_TARGET="${CMAKE_TARGET};raft_lib"
 fi
 
+if hasArg --compile-static-lib || (( ${NUMARGS} == 0 )); then
+    COMPILE_LIBRARY=ON
+    CMAKE_TARGET="${CMAKE_TARGET};raft_lib_static"
+fi
+
 if hasArg tests || (( ${NUMARGS} == 0 )); then
     BUILD_TESTS=ON
     CMAKE_TARGET="${CMAKE_TARGET};${TEST_TARGETS}"
@@ -315,10 +322,11 @@ if hasArg tests || (( ${NUMARGS} == 0 )); then
     # Force compile library when needed test targets are specified
     if [[ $CMAKE_TARGET == *"CLUSTER_TEST"* || \
           $CMAKE_TARGET == *"DISTANCE_TEST"* || \
+          $CMAKE_TARGET == *"MATRIX_TEST"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_ANN_CAGRA_TEST"* || \
+          $CMAKE_TARGET == *"NEIGHBORS_TEST"* || \
           $CMAKE_TARGET == *"SPARSE_DIST_TEST" || \
           $CMAKE_TARGET == *"SPARSE_NEIGHBORS_TEST"* || \
-          $CMAKE_TARGET == *"MATRIX_TEST"* || \
-          $CMAKE_TARGET == *"NEIGHBORS_TEST" || \
           $CMAKE_TARGET == *"STATS_TEST"* ]]; then
       echo "-- Enabling compiled lib for gtests"
       COMPILE_LIBRARY=ON
@@ -341,7 +349,13 @@ fi
 if hasArg bench-ann || (( ${NUMARGS} == 0 )); then
     BUILD_ANN_BENCH=ON
     CMAKE_TARGET="${CMAKE_TARGET};${ANN_BENCH_TARGETS}"
-    COMPILE_LIBRARY=ON
+    if hasArg --cpu-only; then
+        COMPILE_LIBRARY=OFF
+        BUILD_CPU_ONLY=ON
+        NVTX=OFF
+    else
+        COMPILE_LIBRARY=ON
+    fi
 fi
 
 if hasArg --no-nvtx; then
@@ -414,6 +428,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libraft || hasArg docs || hasArg tests || has
           -DBUILD_TESTS=${BUILD_TESTS} \
           -DBUILD_PRIMS_BENCH=${BUILD_PRIMS_BENCH} \
           -DBUILD_ANN_BENCH=${BUILD_ANN_BENCH} \
+          -DBUILD_CPU_ONLY=${BUILD_CPU_ONLY} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CACHE_ARGS} \
           ${EXTRA_CMAKE_ARGS}
@@ -487,6 +502,10 @@ if (( ${NUMARGS} == 0 )) || hasArg raft-dask; then
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-dask
 fi
 
+# Build and (optionally) install the raft-ann-bench Python package
+if (( ${NUMARGS} == 0 )) || hasArg bench-ann; then
+    python -m pip install --no-build-isolation --no-deps ${REPODIR}/python/raft-ann-bench -vvv
+fi
 
 if hasArg docs; then
     set -x

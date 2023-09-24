@@ -29,6 +29,12 @@
 #include <optional>
 
 namespace raft::resource {
+
+/**
+ * \defgroup device_memory_resource Device memory resources
+ * @{
+ */
+
 class limiting_memory_resource : public resource {
  public:
   limiting_memory_resource(std::shared_ptr<rmm::mr::device_memory_resource> mr,
@@ -234,5 +240,7 @@ inline void set_workspace_to_global_resource(
   res.add_resource_factory(std::make_shared<workspace_resource_factory>(
     workspace_resource_factory::default_plain_resource(), allocation_limit, std::nullopt));
 };
+
+/** @} */
 
 }  // namespace raft::resource
