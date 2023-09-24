@@ -64,6 +64,7 @@ class Cagra : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::experimental::cagra::search_params p;
+    auto needs_dataset() const -> bool override { return true; }
     std::string search_mode;  // "single-cta", "multi-cta", or "multi-kernel"
     int batch_size;
     int k;
@@ -85,17 +86,17 @@ class Cagra : public ANN<T> {
               float* distances,
               cudaStream_t stream = 0) const override;
 
-  void save(const std::string& file) const override;
-  void load(const std::string& file) override;
-
-  AlgoProperty get_property() const override
+  // to enable dataset access from GPU memory
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Device;
-    property.query_memory_type        = MemoryType::Device;
-    property.need_dataset_when_search = true;
+    property.dataset_memory_type = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Device;
     return property;
   }
+
+  void save(const std::string& file) const override;
+  void load(const std::string& file) override;
 
   void set_search_dataset(const T* dataset, size_t nrow) override
   {
@@ -139,52 +140,6 @@ void Cagra<T>::build(const T*, size_t, cudaStream_t)
   throw std::runtime_error("Cagra's build() is not available now, use its tools to build index");
 }
 
-// // from cagra/tools/cagra_search.cu
-// template <typename T>
-// void Cagra<T>::check_search_param_(SearchParam& param)
-// {
-//   if (param.search_mode != "single-cta" && param.search_mode != "multi-cta" &&
-//       param.search_mode != "multi-kernel") {
-//     throw std::runtime_error("Cagra: illegal search_mode: '" + param.search_mode + "'");
-//   }
-
-//   if (param.team_size != 0 && param.team_size != 4 && param.team_size != 8 &&
-//       param.team_size != 16 && param.team_size != 32) {
-//     throw std::runtime_error("Cagra: team_size must be 0, 4, 8, 16 or 32. " +
-//                              std::to_string(param.team_size) + " has been given.\n");
-//   }
-
-//   if (param.internal_k < static_cast<decltype(param.internal_k)>(param.k)) {
-//     throw std::runtime_error("Cagra: internal_k must >= k");
-//   }
-//   if (param.internal_k % 32) {
-//     throw std::runtime_error("Cagra: internal_k must be multiple of 32");
-//   }
-//   if (param.internal_k > 1024 && param.search_mode != "multi-cta") {
-//     throw std::runtime_error("Cagra: internal_k must <= 1024 unless in multi-cta mode");
-//   }
-
-//   if (param.max_iterations == 0) {
-//     if (param.search_mode == "multi-cta") {
-//       param.max_iterations = 1 + std::min(32 * 1.1, 32 + 10.0);
-//     } else {
-//       param.max_iterations = 1 + std::min((param.internal_k / param.search_width) * 1.1,
-//                                           (param.internal_k / param.search_width) + 10.0);
-//     }
-//   }
-//   if (param.max_iterations < param.min_iterations) { param.max_iterations = param.min_iterations;
-//   }
-
-//   if (param.search_mode == "multi-cta") {
-//     int mc_num_cta_per_query = std::max(param.search_width, param.internal_k / 32);
-//     if (mc_num_cta_per_query * 32 < param.k) {
-//       throw std::runtime_error("mc_num_cta_per_query (" + std::to_string(mc_num_cta_per_query) +
-//                                ") * 32 must be >= k (" + std::to_string(param.k) +
-//                                ") when search_mode is multi-cta");
-//     }
-//   }
-// }
-
 template <typename T>
 void Cagra<T>::set_search_param(const AnnSearchParam& param)
 {
@@ -193,29 +148,12 @@ void Cagra<T>::set_search_param(const AnnSearchParam& param)
   if (!graph_ || degree_ == 0) { throw std::runtime_error("Cagra: index is not loaded"); }
 
   auto new_search_param = dynamic_cast<const SearchParam&>(param);
-  // check_search_param_(new_search_param);
 
-  //   if (new_search_param.search_mode != search_param_.search_mode ||
-  //       new_search_param.batch_size != search_param_.batch_size ||
-  //       new_search_param.k != search_param_.k ||
-  //       new_search_param.team_size != search_param_.team_size ||
-  //       new_search_param.internal_k != search_param_.internal_k ||
-  //       new_search_param.search_width != search_param_.search_width ||
-  //       new_search_param.min_iterations != search_param_.min_iterations ||
-  //       new_search_param.max_iterations != search_param_.max_iterations) {
-
-  if (plan_) {
-    // std::cout << "Cagra destroying plan" << std::endl;
-
-    destroy_plan(plan_);
-  }
-
-  //   if (new_search_param.batch_size != search_param_.batch_size ||
-  //       new_search_param.k != search_param_.k) {
+  if (plan_) { destroy_plan(plan_); }
   if (tmp_neighbors_) RAFT_CUDA_TRY(cudaFree(tmp_neighbors_));
   RAFT_CUDA_TRY(
     cudaMalloc(&tmp_neighbors_, sizeof(size_t) * new_search_param.batch_size * new_search_param.k));
-  //   }
+
   search_param_ = new_search_param;
   // std::cout << "Cagra creating new plan" << std::endl;
   create_plan(&plan_,
@@ -239,7 +177,6 @@ void Cagra<T>::set_search_param(const AnnSearchParam& param)
               dataset_,
               graph_);
 }
-//}
 
 template <typename T>
 void Cagra<T>::search(const T* queries,

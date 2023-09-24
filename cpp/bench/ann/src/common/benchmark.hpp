@@ -200,7 +200,6 @@ void bench_search(::benchmark::State& state,
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
-  algo->set_search_param(*search_param);
 
   const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
   const T* query_set       = dataset->query_set(algo_property.query_memory_type);
@@ -218,6 +217,7 @@ void bench_search(::benchmark::State& state,
       return;
     }
   }
+  algo->set_search_param(*search_param);
 
   std::ptrdiff_t batch_offset   = 0;
   std::size_t queries_processed = 0;

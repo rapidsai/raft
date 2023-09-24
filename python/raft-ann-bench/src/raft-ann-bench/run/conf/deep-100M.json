@@ -375,7 +375,7 @@
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float"
     },    
     {
-      "name": "raft_cagra.dim32",
+      "name": "raft_cagra.dim32.single_cta",
       "algo": "raft_cagra",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "/workspace1/index/cagra/deep100m_n48_fp32.opt32",
@@ -416,7 +416,7 @@
     },
     {
       "name": "raft_cagra.dim32.multi_kernel",
-      "algo": "raft_cagra",
+      "algo": "cagra",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
       "file": "/workspace1/index/cagra/deep100m_n48_fp32.opt32",
       "search_params": [

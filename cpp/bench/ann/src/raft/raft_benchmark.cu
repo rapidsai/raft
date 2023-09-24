@@ -45,10 +45,10 @@ extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 extern template class raft::bench::ann::RaftCagra<float, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
-// #include "orig_cagra_wrapper.h"
-// extern template class raft::bench::ann::Cagra<float>;
-// extern template class raft::bench::ann::Cagra<uint8_t>;
-// extern template class raft::bench::ann::Cagra<int8_t>;
+#include "orig_cagra_wrapper.h"
+extern template class raft::bench::ann::Cagra<float>;
+extern template class raft::bench::ann::Cagra<uint8_t>;
+extern template class raft::bench::ann::Cagra<int8_t>;
 #endif
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
@@ -175,46 +175,46 @@ void parse_search_param(const nlohmann::json& conf,
     }
   }
 }
-// template <typename T>
-// void parse_build_param(const nlohmann::json& conf,
-//                        typename raft::bench::ann::Cagra<T>::BuildParam& param)
-// {
-// }
-// template <typename T>
-// void parse_search_param(const nlohmann::json& conf,
-//                         typename raft::bench::ann::Cagra<T>::SearchParam& param)
-// {
-//   if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
-//   if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
-//   if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
-//   if (conf.contains("algo")) {
-//     if (conf.at("algo") == "single_cta") {
-//       param.p.algo      = raft::neighbors::experimental::cagra::search_algo::SINGLE_CTA;
-//       param.search_mode = "single-cta";
-//     } else if (conf.at("algo") == "multi_cta") {
-//       param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_CTA;
-//       param.search_mode = "multi-cta";
-//     } else if (conf.at("algo") == "multi_kernel") {
-//       param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL;
-//       param.search_mode = "multi-kernel";
-//     } else if (conf.at("algo") == "auto") {
-//       param.p.algo = raft::neighbors::experimental::cagra::search_algo::AUTO;
-//     } else {
-//       std::string tmp = conf.at("algo");
-//       THROW("Invalid value for algo: %s", tmp.c_str());
-//     }
-//   }
-//   if (conf.contains("k")) {
-//     param.k = conf.at("k");
-//   } else {
-//     param.k = 10;
-//   }
-//   if (conf.contains("batch_size")) {
-//     param.batch_size = conf.at("batch_size");
-//   } else {
-//     param.batch_size = 10000;
-//   };
-// }
+template <typename T>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::Cagra<T>::BuildParam& param)
+{
+}
+template <typename T>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::Cagra<T>::SearchParam& param)
+{
+  if (conf.contains("itopk")) { param.p.itopk_size = conf.at("itopk"); }
+  if (conf.contains("search_width")) { param.p.search_width = conf.at("search_width"); }
+  if (conf.contains("max_iterations")) { param.p.max_iterations = conf.at("max_iterations"); }
+  if (conf.contains("algo")) {
+    if (conf.at("algo") == "single_cta") {
+      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::SINGLE_CTA;
+      param.search_mode = "single-cta";
+    } else if (conf.at("algo") == "multi_cta") {
+      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_CTA;
+      param.search_mode = "multi-cta";
+    } else if (conf.at("algo") == "multi_kernel") {
+      param.p.algo      = raft::neighbors::experimental::cagra::search_algo::MULTI_KERNEL;
+      param.search_mode = "multi-kernel";
+    } else if (conf.at("algo") == "auto") {
+      param.p.algo = raft::neighbors::experimental::cagra::search_algo::AUTO;
+    } else {
+      std::string tmp = conf.at("algo");
+      THROW("Invalid value for algo: %s", tmp.c_str());
+    }
+  }
+  if (conf.contains("k")) {
+    param.k = conf.at("k");
+  } else {
+    param.k = 10;
+  }
+  if (conf.contains("batch_size")) {
+    param.batch_size = conf.at("batch_size");
+  } else {
+    param.batch_size = 10000;
+  };
+}
 #endif
 
 template <typename T>
@@ -258,11 +258,11 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
     parse_build_param<T, uint32_t>(conf, param);
     ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
   }
-  // if (algo == "cagra") {
-  //   typename raft::bench::ann::Cagra<T>::BuildParam param;
-  //   parse_build_param<T>(conf, param);
-  //   ann = std::make_unique<raft::bench::ann::Cagra<T>>(metric, dim, param);
-  // }
+  if (algo == "cagra") {
+    typename raft::bench::ann::Cagra<T>::BuildParam param;
+    // parse_build_param<T, uint32_t>(conf, param);
+    ann = std::make_unique<raft::bench::ann::Cagra<T>>(metric, dim, param);
+  }
 #endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
@@ -300,11 +300,11 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
-  // if (algo == "cagra") {
-  //   auto param = std::make_unique<typename raft::bench::ann::Cagra<T>::SearchParam>();
-  //   parse_search_param<T>(conf, *param);
-  //   return param;
-  // }
+  if (algo == "cagra") {
+    auto param = std::make_unique<typename raft::bench::ann::Cagra<T>::SearchParam>();
+    parse_search_param<T>(conf, *param);
+    return param;
+  }
 #endif
   // else
   throw std::runtime_error("invalid algo: '" + algo + "'");

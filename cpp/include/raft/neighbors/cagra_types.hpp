@@ -239,8 +239,8 @@ struct index : ann::index {
         raft::distance::DistanceType metric,
         mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph,
-        bool graph_pinned = true,
-        bool data_pinned  = true)
+        bool graph_pinned = false,
+        bool data_pinned  = false)
     : ann::index(),
       mr_(new rmm::mr::cuda_pinned_resource()),
       metric_(metric),
@@ -253,7 +253,7 @@ struct index : ann::index {
                  "Dataset and knn_graph must have equal number of rows");
     if (data_pinned) {
       // copy with padding
-      int64_t aligned_dim = AlignDim::roundUp(dataset.extent(1));
+      int64_t aligned_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
       dataset_pinned_.resize(dataset.extent(0) * aligned_dim, resource::get_cuda_stream(res));
       resource::sync_stream(res);
 
