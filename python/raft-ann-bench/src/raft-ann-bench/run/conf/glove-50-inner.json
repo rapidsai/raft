@@ -1,9 +1,8 @@
 {
   "dataset": {
-    "name": "fashion-mnist-784-euclidean",
-    "base_file": "fashion-mnist-784-euclidean/base.fbin",
-    "query_file": "fashion-mnist-784-euclidean/query.fbin",
-    "groundtruth_neighbors_file": "fashion-mnist-784-euclidean/groundtruth.neighbors.ibin",
+    "name": "glove-50-inner",
+    "base_file": "glove-50-inner/base.fbin",
+    "query_file": "glove-50-inner/query.fbin",
     "distance": "euclidean"
   },
   "search_basic_param": {
@@ -16,7 +15,7 @@
       "name" : "hnswlib.M12",
       "algo" : "hnswlib",
       "build_param": {"M":12, "efConstruction":500, "numThreads":32},
-      "file" : "index/fashion-mnist-784-euclidean/hnswlib/M12",
+      "file" : "index/glove-50-inner/hnswlib/M12",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -29,13 +28,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/hnswlib/M12"
+      "search_result_file" : "result/glove-50-inner/hnswlib/M12"
     },
     {
       "name" : "hnswlib.M16",
       "algo" : "hnswlib",
       "build_param": {"M":16, "efConstruction":500, "numThreads":32},
-      "file" : "index/fashion-mnist-784-euclidean/hnswlib/M16",
+      "file" : "index/glove-50-inner/hnswlib/M16",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -48,13 +47,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/hnswlib/M16"
+      "search_result_file" : "result/glove-50-inner/hnswlib/M16"
     },
     {
       "name" : "hnswlib.M24",
       "algo" : "hnswlib",
       "build_param": {"M":24, "efConstruction":500, "numThreads":32},
-      "file" : "index/fashion-mnist-784-euclidean/hnswlib/M24",
+      "file" : "index/glove-50-inner/hnswlib/M24",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -67,13 +66,13 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/hnswlib/M24"
+      "search_result_file" : "result/glove-50-inner/hnswlib/M24"
     },
     {
       "name" : "hnswlib.M36",
       "algo" : "hnswlib",
       "build_param": {"M":36, "efConstruction":500, "numThreads":32},
-      "file" : "index/fashion-mnist-784-euclidean/hnswlib/M36",
+      "file" : "index/glove-50-inner/hnswlib/M36",
       "search_params" : [
         {"ef":10, "numThreads":1},
         {"ef":20, "numThreads":1},
@@ -86,7 +85,7 @@
         {"ef":600, "numThreads":1},
         {"ef":800, "numThreads":1}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/hnswlib/M36"
+      "search_result_file" : "result/glove-50-inner/hnswlib/M36"
     },
 
 
@@ -96,13 +95,13 @@
       "name": "raft_bfknn",
       "algo": "raft_bfknn",
       "build_param": {},
-      "file": "index/fashion-mnist-784-euclidean/raft_bfknn/bfknn",
+      "file": "index/glove-50-inner/raft_bfknn/bfknn",
       "search_params": [
         {
           "probe": 1
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_bfknn/bfknn"
+      "search_result_file": "result/glove-50-inner/raft_bfknn/bfknn"
     },
     {
       "name": "faiss_ivf_flat.nlist1024",
@@ -110,7 +109,7 @@
       "build_param": {
         "nlist": 1024
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist1024",
+      "file": "index/glove-50-inner/faiss_ivf_flat/nlist1024",
       "search_params": [
         {
           "nprobe": 1
@@ -137,7 +136,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist1024"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_flat/nlist1024"
     },
     {
       "name": "faiss_ivf_flat.nlist2048",
@@ -145,7 +144,7 @@
       "build_param": {
         "nlist": 2048
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist2048",
+      "file": "index/glove-50-inner/faiss_ivf_flat/nlist2048",
       "search_params": [
         {
           "nprobe": 1
@@ -172,7 +171,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist2048"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_flat/nlist2048"
     },
     {
       "name": "faiss_ivf_flat.nlist4096",
@@ -180,7 +179,7 @@
       "build_param": {
         "nlist": 4096
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist4096",
+      "file": "index/glove-50-inner/faiss_ivf_flat/nlist4096",
       "search_params": [
         {
           "nprobe": 1
@@ -207,7 +206,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist4096"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_flat/nlist4096"
     },
     {
       "name": "faiss_ivf_flat.nlist8192",
@@ -215,7 +214,7 @@
       "build_param": {
         "nlist": 8192
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist8192",
+      "file": "index/glove-50-inner/faiss_ivf_flat/nlist8192",
       "search_params": [
         {
           "nprobe": 1
@@ -242,7 +241,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist8192"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_flat/nlist8192"
     },
     {
       "name": "faiss_ivf_flat.nlist16384",
@@ -250,7 +249,7 @@
       "build_param": {
         "nlist": 16384
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist16384",
+      "file": "index/glove-50-inner/faiss_ivf_flat/nlist16384",
       "search_params": [
         {
           "nprobe": 1
@@ -280,7 +279,7 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_flat/nlist16384"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_flat/nlist16384"
     },
     {
       "name": "faiss_ivf_pq.M64-nlist1024",
@@ -291,7 +290,7 @@
         "useFloat16": true,
         "usePrecomputed": true
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024",
+      "file": "index/glove-50-inner/faiss_ivf_pq/M64-nlist1024",
       "search_params": [
         {
           "nprobe": 10
@@ -312,7 +311,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_pq/M64-nlist1024"
     },
     {
       "name": "faiss_ivf_pq.M64-nlist1024.noprecomp",
@@ -323,7 +322,7 @@
         "useFloat16": true,
         "usePrecomputed": false
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024.noprecomp",
+      "file": "index/glove-50-inner/faiss_ivf_pq/M64-nlist1024.noprecomp",
       "search_params": [
         {
           "nprobe": 10
@@ -344,7 +343,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_pq/M64-nlist1024"
     },
     {
       "name": "faiss_ivf_sq.nlist1024-fp16",
@@ -353,7 +352,7 @@
         "nlist": 1024,
         "quantizer_type": "fp16"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist1024-fp16",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist1024-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -380,7 +379,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist1024-fp16"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist1024-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist2048-fp16",
@@ -389,7 +388,7 @@
         "nlist": 2048,
         "quantizer_type": "fp16"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist2048-fp16",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist2048-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -416,7 +415,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist2048-fp16"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist2048-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist4096-fp16",
@@ -425,7 +424,7 @@
         "nlist": 4096,
         "quantizer_type": "fp16"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist4096-fp16",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist4096-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -452,7 +451,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist4096-fp16"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist4096-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist8192-fp16",
@@ -461,7 +460,7 @@
         "nlist": 8192,
         "quantizer_type": "fp16"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist8192-fp16",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist8192-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -488,7 +487,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist8192-fp16"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist8192-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist16384-fp16",
@@ -497,7 +496,7 @@
         "nlist": 16384,
         "quantizer_type": "fp16"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist16384-fp16",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist16384-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -527,7 +526,7 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist16384-fp16"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist16384-fp16"
     },
     {
       "name": "faiss_ivf_sq.nlist1024-int8",
@@ -536,7 +535,7 @@
         "nlist": 1024,
         "quantizer_type": "int8"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist1024-int8",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist1024-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -563,7 +562,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist1024-int8"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist1024-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist2048-int8",
@@ -572,7 +571,7 @@
         "nlist": 2048,
         "quantizer_type": "int8"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist2048-int8",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist2048-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -599,7 +598,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist2048-int8"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist2048-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist4096-int8",
@@ -608,7 +607,7 @@
         "nlist": 4096,
         "quantizer_type": "int8"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist4096-int8",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist4096-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -635,7 +634,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist4096-int8"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist4096-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist8192-int8",
@@ -644,7 +643,7 @@
         "nlist": 8192,
         "quantizer_type": "int8"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist8192-int8",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist8192-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -671,7 +670,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist8192-int8"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist8192-int8"
     },
     {
       "name": "faiss_ivf_sq.nlist16384-int8",
@@ -680,7 +679,7 @@
         "nlist": 16384,
         "quantizer_type": "int8"
       },
-      "file": "index/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist16384-int8",
+      "file": "index/glove-50-inner/faiss_ivf_sq/nlist16384-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -710,17 +709,17 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_ivf_sq/nlist16384-int8"
+      "search_result_file": "result/glove-50-inner/faiss_ivf_sq/nlist16384-int8"
     },
     {
       "name": "faiss_flat",
       "algo": "faiss_gpu_flat",
       "build_param": {},
-      "file": "index/fashion-mnist-784-euclidean/faiss_flat/flat",
+      "file": "index/glove-50-inner/faiss_flat/flat",
       "search_params": [
         {}
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/faiss_flat/flat"
+      "search_result_file": "result/glove-50-inner/faiss_flat/flat"
     },
 
     {
@@ -732,7 +731,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024",
       "search_params": [
         {
           "k": 10,
@@ -771,7 +770,7 @@
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-float",
@@ -782,7 +781,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-float",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-float",
       "search_params": [
         {
           "k": 10,
@@ -839,7 +838,7 @@
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-float"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-float"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-half",
@@ -850,7 +849,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-half",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-half",
       "search_params": [
         {
           "k": 10,
@@ -889,7 +888,7 @@
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-half"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-half"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-float-fp8",
@@ -900,7 +899,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -939,7 +938,7 @@
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-fp8",
@@ -950,7 +949,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq64-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -989,7 +988,7 @@
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq64-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq64-cluster1024-float-half",
@@ -1000,7 +999,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq64-cluster1024-float-half",
       "search_params": [
         {
           "k": 10,
@@ -1039,7 +1038,7 @@
           "smemLutDtype": "half"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq64-cluster1024-float-half"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq64-cluster1024-float-half"
     },
     {
       "name": "raft_ivf_pq.dimpq32-cluster1024-float-fp8",
@@ -1050,7 +1049,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq32-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -1089,7 +1088,7 @@
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq32-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq16-cluster1024-float-fp8",
@@ -1100,7 +1099,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq16-cluster1024-float-fp8",
       "search_params": [
         {
           "k": 10,
@@ -1139,7 +1138,7 @@
           "smemLutDtype": "fp8"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq16-cluster1024-float-fp8"
     },
     {
       "name": "raft_ivf_pq.dimpq128-cluster1024-half-float",
@@ -1150,7 +1149,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-half-float",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-half-float",
       "search_params": [
         {
           "k": 10,
@@ -1189,7 +1188,7 @@
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq128-cluster1024-half-float"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq128-cluster1024-half-float"
     },
     {
       "name": "raft_ivf_pq.dimpq512-cluster1024-float-float",
@@ -1200,7 +1199,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq512-cluster1024-float-float",
+      "file": "index/glove-50-inner/raft_ivf_pq/dimpq512-cluster1024-float-float",
       "search_params": [
         {
           "k": 10,
@@ -1239,7 +1238,7 @@
           "smemLutDtype": "float"
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_pq/dimpq512-cluster1024-float-float"
+      "search_result_file": "result/glove-50-inner/raft_ivf_pq/dimpq512-cluster1024-float-float"
     },
     {
       "name": "raft_ivf_flat.nlist1024",
@@ -1249,7 +1248,7 @@
         "ratio": 1,
         "niter": 25
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_flat/nlist1024",
+      "file": "index/glove-50-inner/raft_ivf_flat/nlist1024",
       "search_params": [
         {
           "nprobe": 1
@@ -1276,7 +1275,7 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_flat/nlist1024"
+      "search_result_file": "result/glove-50-inner/raft_ivf_flat/nlist1024"
     },
     {
       "name": "raft_ivf_flat.nlist16384",
@@ -1286,7 +1285,7 @@
         "ratio": 2,
         "niter": 20
       },
-      "file": "index/fashion-mnist-784-euclidean/raft_ivf_flat/nlist16384",
+      "file": "index/glove-50-inner/raft_ivf_flat/nlist16384",
       "search_params": [
         {
           "nprobe": 1
@@ -1316,7 +1315,7 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/fashion-mnist-784-euclidean/raft_ivf_flat/nlist16384"
+      "search_result_file": "result/glove-50-inner/raft_ivf_flat/nlist16384"
     },
 
     {
@@ -1325,13 +1324,13 @@
       "build_param": {
         "graph_degree" : 32
       },
-      "file" : "index/fashion-mnist-784-euclidean/raft_cagra/dim32",
+      "file" : "index/glove-50-inner/raft_cagra/dim32",
       "search_params" : [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/raft_cagra/dim32"
+      "search_result_file" : "result/glove-50-inner/raft_cagra/dim32"
     },
 
     {
@@ -1340,13 +1339,13 @@
       "build_param": {
         "graph_degree" : 64
       },
-      "file" : "index/fashion-mnist-784-euclidean/raft_cagra/dim64",
+      "file" : "index/glove-50-inner/raft_cagra/dim64",
       "search_params" : [
         {"itopk": 32},
         {"itopk": 64},
         {"itopk": 128}
       ],
-      "search_result_file" : "result/fashion-mnist-784-euclidean/raft_cagra/dim64"
+      "search_result_file" : "result/glove-50-inner/raft_cagra/dim64"
     }
   ]
 }
