@@ -735,37 +735,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "half",
           "smemLutDtype": "half"
         }
@@ -785,55 +785,55 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 1,
+          "nprobe": 1,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 1,
+          "nprobe": 1,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 5,
+          "nprobe": 5,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         }
@@ -853,37 +853,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         }
@@ -903,37 +903,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         }
@@ -953,37 +953,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         }
@@ -1003,37 +1003,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "half"
         }
@@ -1053,37 +1053,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         }
@@ -1103,37 +1103,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "fp8"
         }
@@ -1153,37 +1153,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "half",
           "smemLutDtype": "float"
         }
@@ -1203,37 +1203,37 @@
       "search_params": [
         {
           "k": 10,
-          "numProbes": 10,
+          "nprobe": 10,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 50,
+          "nprobe": 50,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 100,
+          "nprobe": 100,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 200,
+          "nprobe": 200,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 500,
+          "nprobe": 500,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         },
         {
           "k": 10,
-          "numProbes": 1024,
+          "nprobe": 1024,
           "internalDistanceDtype": "float",
           "smemLutDtype": "float"
         }
