@@ -193,8 +193,8 @@ __device__ inline void topk_by_bitonic_sort_1st(float* candidate_distances,  // 
 }
 
 template <unsigned MAX_ITOPK, class IdxT = void>
-__device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,      // [num_itopk]
-                                                IdxT* itopk_indices,         // [num_itopk]
+__device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,  // [num_itopk]
+                                                IdxT* itopk_indices,     // [num_itopk]
                                                 const std::uint32_t num_itopk,
                                                 float* candidate_distances,  // [num_candidates]
                                                 IdxT* candidate_indices,     // [num_candidates]

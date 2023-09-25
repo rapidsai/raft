@@ -16,6 +16,7 @@
 #pragma once
 #include "topk.h"
 #include <assert.h>
+#include <cub/cub.cuh>
 #include <float.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -209,44 +210,6 @@ __device__ inline void block_scan(const T input, T& output)
   }
 }
 
-template <typename T, unsigned N>
-__device__ inline void block_scan(T (&input)[N], T (&output)[N])
-{
-  switch (blockDim.x) {
-    case 32: {
-      typedef cub::BlockScan<T, 32> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    case 64: {
-      typedef cub::BlockScan<T, 64> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    case 128: {
-      typedef cub::BlockScan<T, 128> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    case 256: {
-      typedef cub::BlockScan<T, 256> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    case 512: {
-      typedef cub::BlockScan<T, 512> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    case 1024: {
-      typedef cub::BlockScan<T, 1024> BlockScanT;
-      __shared__ typename BlockScanT::TempStorage temp_storage;
-      BlockScanT(temp_storage).InclusiveSum(input, output);
-    } break;
-    default: break;
-  }
-}
-
 //
 template <typename T, int stateBitLen, int vecLen>
 __device__ inline void update_histogram(int itr,
@@ -358,6 +321,52 @@ __device__ inline void update_histogram(int itr,
   __syncthreads();
 }
 
+template <unsigned blockDim_x>
+__device__ inline void select_best_index_for_next_threshold_core(uint32_t& my_index,
+                                                                 uint32_t& my_csum,
+                                                                 const unsigned num_bins,
+                                                                 const uint32_t* const hist,
+                                                                 const uint32_t nx_below_threshold,
+                                                                 const uint32_t max_threshold,
+                                                                 const uint32_t threshold,
+                                                                 const uint32_t shift,
+                                                                 const uint32_t topk)
+{
+  typedef cub::BlockScan<uint32_t, blockDim_x> BlockScanT;
+  __shared__ typename BlockScanT::TempStorage temp_storage;
+  if (num_bins == 2048) {
+    constexpr int n_data = 2048 / blockDim_x;
+    uint32_t csum[n_data];
+    for (int i = 0; i < n_data; i++) {
+      csum[i] = hist[i + (n_data * threadIdx.x)];
+    }
+    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    for (int i = n_data - 1; i >= 0; i--) {
+      if (nx_below_threshold + csum[i] > topk) continue;
+      const uint32_t index = i + (n_data * threadIdx.x);
+      if (threshold + (index << shift) > max_threshold) continue;
+      my_index = index;
+      my_csum  = csum[i];
+      break;
+    }
+  } else if (num_bins == 1024) {
+    constexpr int n_data = 1024 / blockDim_x;
+    uint32_t csum[n_data];
+    for (int i = 0; i < n_data; i++) {
+      csum[i] = hist[i + (n_data * threadIdx.x)];
+    }
+    BlockScanT(temp_storage).InclusiveSum(csum, csum);
+    for (int i = n_data - 1; i >= 0; i--) {
+      if (nx_below_threshold + csum[i] > topk) continue;
+      const uint32_t index = i + (n_data * threadIdx.x);
+      if (threshold + (index << shift) > max_threshold) continue;
+      my_index = index;
+      my_csum  = csum[i];
+      break;
+    }
+  }
+}
+
 //
 __device__ inline void select_best_index_for_next_threshold(
   const uint32_t topk,
@@ -388,42 +397,62 @@ __device__ inline void select_best_index_for_next_threshold(
       }
     }
   } else {
-    constexpr int n_data = 4;
-    uint32_t csum[n_data];
-    uint32_t hist_offset = 0;
-    __shared__ uint32_t temp_smem;
-
-    if (n_data * threadIdx.x < num_bins) {
-      for (unsigned hist_index_offset = 0; hist_index_offset < num_bins;
-           hist_index_offset += blockDim.x * n_data) {
-        for (int i = 0; i < n_data; i++) {
-          csum[i] = hist[i + (n_data * threadIdx.x) + hist_index_offset] + hist_offset;
-        }
-
-        detail::block_scan(csum, csum);
-        __syncthreads();
-        if (threadIdx.x == blockDim.x - 1) { temp_smem = csum[n_data - 1]; }
-        __syncthreads();
-        hist_offset = temp_smem;
-
-        bool should_check = false;
-        if (hist_offset + blockDim.x * n_data >= num_bins) { should_check = true; }
-        if (nx_below_threshold + hist_offset + hist[hist_index_offset] > topk) {
-          should_check = true;
-        }
-
-        if (should_check) {
-          for (int i = n_data - 1; i >= 0; i--) {
-            if (nx_below_threshold + csum[i] > topk) continue;
-            const uint32_t index = i + (n_data * threadIdx.x) + hist_index_offset;
-            if (threshold + (index << shift) > max_threshold) continue;
-            my_index = index;
-            my_csum  = csum[i];
-            break;
-          }
-          break;
-        }
-      }
+    switch (blockDim.x) {
+      case 64:
+        select_best_index_for_next_threshold_core<64>(my_index,
+                                                      my_csum,
+                                                      num_bins,
+                                                      hist,
+                                                      nx_below_threshold,
+                                                      max_threshold,
+                                                      threshold,
+                                                      shift,
+                                                      topk);
+        break;
+      case 128:
+        select_best_index_for_next_threshold_core<128>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
+        break;
+      case 256:
+        select_best_index_for_next_threshold_core<256>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
+        break;
+      case 512:
+        select_best_index_for_next_threshold_core<512>(my_index,
+                                                       my_csum,
+                                                       num_bins,
+                                                       hist,
+                                                       nx_below_threshold,
+                                                       max_threshold,
+                                                       threshold,
+                                                       shift,
+                                                       topk);
+        break;
+      case 1024:
+        select_best_index_for_next_threshold_core<1024>(my_index,
+                                                        my_csum,
+                                                        num_bins,
+                                                        hist,
+                                                        nx_below_threshold,
+                                                        max_threshold,
+                                                        threshold,
+                                                        shift,
+                                                        topk);
+        break;
     }
   }
   if (threadIdx.x < num_bins) {
