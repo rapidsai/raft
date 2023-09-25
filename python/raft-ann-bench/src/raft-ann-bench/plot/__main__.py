@@ -254,18 +254,18 @@ def create_plot_build(
     xn = "k-nn"
     yn = "qps"
 
-    # recall_85 = [-1] * len(linestyles)
     qps_85 = [-1] * len(linestyles)
     bt_85 = [0] * len(linestyles)
     i_85 = [-1] * len(linestyles)
-    # recall_90 = [-1] * len(linestyles)
+
     qps_90 = [-1] * len(linestyles)
     bt_90 = [0] * len(linestyles)
     i_90 = [-1] * len(linestyles)
-    # recall_95 = [-1] * len(linestyles)
+
     qps_95 = [-1] * len(linestyles)
     bt_95 = [0] * len(linestyles)
     i_95 = [-1] * len(linestyles)
+
     data = OrderedDict()
     colors = OrderedDict()
 
@@ -303,7 +303,7 @@ def create_plot_build(
     plt.figure(figsize=(12, 9))
     ax = df.plot.bar(rot=0, color=colors)
     fig = ax.get_figure()
-    print(f"writing search output to {fn_out}")
+    print(f"writing build output to {fn_out}")
     plt.title("Build Time for Highest QPS")
     plt.suptitle(f"{dataset} k={k} batch_size={batch_size}")
     plt.ylabel("Build Time (s)")
@@ -313,35 +313,22 @@ def create_plot_build(
 def load_lines(results_path, result_files, method, index_key):
     results = dict()
 
-    linebreaker = "name,iterations"
-
     for result_filename in result_files:
         if result_filename.endswith(".csv"):
             with open(os.path.join(results_path, result_filename), "r") as f:
                 lines = f.readlines()
                 lines = lines[:-1] if lines[-1] == "\n" else lines
-                idx = 0
-                for pos, line in enumerate(lines):
-                    if linebreaker in line:
-                        idx = pos
-                        break
 
                 if method == "build":
-                    if "hnswlib" in result_filename:
-                        key_idx = [2]
-                    else:
-                        key_idx = [10]
+                    key_idx = [2]
                 elif method == "search":
-                    if "hnswlib" in result_filename:
-                        key_idx = [10, 6]
-                    else:
-                        key_idx = [12, 10]
+                    key_idx = [2, 3]
 
-                for line in lines[idx + 1 :]:
+                for line in lines[1:]:
                     split_lines = line.split(",")
 
-                    algo_name = split_lines[0].split(".")[0].strip('"')
-                    index_name = split_lines[0].split("/")[0].strip('"')
+                    algo_name = split_lines[0]
+                    index_name = split_lines[1]
 
                     if index_key == "algo":
                         dict_key = algo_name
@@ -394,9 +381,7 @@ def main():
     )
     parser.add_argument(
         "--dataset-path",
-        help="path to dataset folder, by default will look in "
-        "RAPIDS_DATASET_ROOT_DIR if defined, otherwise a datasets "
-        "subdirectory from the calling directory",
+        help="path to dataset folder",
         default=default_dataset_path,
     )
     parser.add_argument(
@@ -460,10 +445,12 @@ def main():
         search = args.search
 
     search_output_filepath = os.path.join(
-        args.output_filepath, f"search-{args.dataset}-{k}-{batch_size}.png"
+        args.output_filepath,
+        f"search-{args.dataset}-k{k}-batch_size{batch_size}.png",
     )
     build_output_filepath = os.path.join(
-        args.output_filepath, f"build-{args.dataset}-{k}-{batch_size}.png"
+        args.output_filepath,
+        f"build-{args.dataset}-k{k}-batch_size{batch_size}.png",
     )
 
     search_results = load_all_results(
