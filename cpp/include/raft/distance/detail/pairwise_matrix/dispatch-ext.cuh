@@ -45,7 +45,7 @@ void pairwise_matrix_dispatch(OpT distance_op,
                               cudaStream_t stream,
                               bool is_row_major) RAFT_EXPLICIT;
 
-};      // namespace raft::distance::detail
+};  // namespace raft::distance::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 

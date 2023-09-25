@@ -69,7 +69,7 @@ void fit_embedding(raft::resources const& handle,
     handle, ro, ci, vs, n, nnz};
 
   index_type neigvs       = n_components + 1;
-  index_type maxiter      = 4000;         // default reset value (when set to 0);
+  index_type maxiter      = 4000;  // default reset value (when set to 0);
   value_type tol          = 0.01;
   index_type restart_iter = 15 + neigvs;  // what cugraph is using
 
