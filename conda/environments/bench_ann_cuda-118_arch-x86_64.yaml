@@ -30,7 +30,8 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
-- libfaiss>=1.7.1
+- libfaiss-avx2=1.7.4
+- libfaiss=1.7.4
 - nccl>=2.9.9
 - ninja
 - nlohmann_json>=3.11.2
