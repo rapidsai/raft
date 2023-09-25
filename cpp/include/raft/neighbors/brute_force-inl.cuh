@@ -299,8 +299,8 @@ template <typename T,
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<T> build(raft::resources const& res,
                mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-               raft::distance::DistanceType metric = = distance::DistanceType::L2Unexpanded,
-               T metric_arg                          = 0.0)
+               raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
+               T metric_arg                        = 0.0)
 {
   auto ret = index<T>(res, dataset, metric, metric_arg);
 
