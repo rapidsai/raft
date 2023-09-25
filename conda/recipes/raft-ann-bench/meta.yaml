@@ -73,8 +73,7 @@ requirements:
     # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
     {% if cuda_major == "11" %}
     - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }} # [aarch64]
-    - libfaiss-avx2 {{ faiss_version }} # [linux64]
+    - libfaiss {{ faiss_version }}
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
@@ -96,8 +95,7 @@ requirements:
     # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
     {% if cuda_major == "11" %}
     - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }} # [aarch64]
-    - libfaiss-avx2 {{ faiss_version }} # [linux64]
+    - libfaiss {{ faiss_version }}
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
