@@ -13,9 +13,27 @@ We provide images for GPU enabled systems, as well as systems without a GPU. The
 - `raft-ann-bench`: Contains GPU and CPU benchmarks, can run all algorithms supported. Will download million-scale datasets as required. Best suited for users that prefer a smaller container size for GPU based systems. Requires the NVIDIA Container Toolkit to run GPU algorithms, can run CPU algorithms without it.
 - `raft-ann-bench-datasets`: Contains the GPU and CPU benchmarks with million-scale datasets already included in the container. Best suited for users that want to run multiple million scale datasets already included in the image.
 - `raft-ann-bench-cpu`: Contains only CPU benchmarks with minimal size. Best suited for users that want the smallest containers to reproduce benchmarks on systems without a GPU.
-- `raft-ann-bench-cpu-datasets`: Contains only CPU benchmarks with million-scale datasets already included.
 
 Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft-ann-bench), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft-ann-bench), starting with release 23.10.
+
+- To pull the nightly containers the format is the following:
+
+```bash
+docker pull rapidsai/raft-ann-bench:23.10a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+```
+
+The CUDA and python versions can be changed for the supported values:
+
+Supported CUDA versions: 11.8 and 12.0
+Supported Python versions: 3.9 and 3.10.
+
+**Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver.
+
+- To pull the release containers the format is the following (only available after RAPIDS 23.10 release):
+
+```bash
+docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.08-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.
+```
 
 #### Container Usage
 
@@ -23,7 +41,7 @@ The containers can be used in two manners:
 
 1. **Quick benchmark with single `docker run`**: The docker containers already include helper scripts to be able to invoke most of the functionality of the benchmarks from docker run for a simple and easy way to run benchmarks. To use the containers in this manner, use the following commands:
 
-For GPU systems, where $DATA_FOLDER is a local folder where you want datasets stored in $DATA_FOLDER/datasets and results in $DATA_FOLDER/results:
+For GPU systems, where `$DATA_FOLDER` is a local folder where you want datasets stored in $DATA_FOLDER/datasets and results in `$DATA_FOLDER/result` (we highly recommend `$DATA_FOLDER` to be a dedicated folder for the datasets and results of the containers):
 
 ```bash
 docker run --gpus all --rm -it \
@@ -31,7 +49,7 @@ docker run --gpus all --rm -it \
     rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \
     "--dataset deep-image-96-angular" \
     "--normalize" \
-    "--algorithms raft_cagra" \
+    "--algorithms raft_cagra,raft_ivf_pq" \
     ""
 ```
 
@@ -40,7 +58,7 @@ Where:
 ```bash
 docker run --gpus all --rm -it \
     -v $DATA_FOLDER:/home/rapids/benchmarks  \ # <- local folder to store datasets and results
-    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`
+    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`, can choose RAPIDS, cuda and python versions.
     "--dataset deep-image-96-angular" \ # <- dataset name
     "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
     "--algorithms raft_cagra" \ # <- what algorithm(s) to use as a ; separated list, as well as any other argument to pass to `raft_ann_benchmarks.run`
@@ -58,7 +76,9 @@ docker run  all --rm -it \
      ""
 ```
 
-2. **Using the preinstalled `raft_ann_benchmarks` python package**: The docker containers are built using the conda packages described in the following section, so they can be used directly as if they were installed manually following the instructions in the next section. This allows using the full flexibility of the scripts. To use the python scripts directly, an easy way is to use the following command:
+**Note:** The user inside the containers is `root`, to workaround this the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the datasets/results produced by the container will be wrong, and can be fixed by the user.
+
+2. **Using the preinstalled `raft_ann_benchmarks` python package**: The docker containers are built using the conda packages described in the following section, so they can be used directly as if they were installed manually following the instructions in the next section. This is the option that allows the full flexibility of the benchmarking scripts, and recommended for advanced users. This allows using the full flexibility of the scripts. To use the python scripts directly, an easy way is to use the following command:
 
 ```bash
 docker run --gpus all --rm -it \
