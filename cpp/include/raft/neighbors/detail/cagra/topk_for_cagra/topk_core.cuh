@@ -175,28 +175,33 @@ template <typename T>
 __device__ inline void block_scan(const T input, T& output)
 {
   switch (blockDim.x) {
+    case 32: {
+      typedef cub::BlockScan<T, 32> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
     case 64: {
-      typedef cub::BlockScan<uint32_t, 64> BlockScanT;
+      typedef cub::BlockScan<T, 64> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 128: {
-      typedef cub::BlockScan<uint32_t, 128> BlockScanT;
+      typedef cub::BlockScan<T, 128> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 256: {
-      typedef cub::BlockScan<uint32_t, 256> BlockScanT;
+      typedef cub::BlockScan<T, 256> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 512: {
-      typedef cub::BlockScan<uint32_t, 512> BlockScanT;
+      typedef cub::BlockScan<T, 512> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 1024: {
-      typedef cub::BlockScan<uint32_t, 1024> BlockScanT;
+      typedef cub::BlockScan<T, 1024> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
@@ -208,28 +213,33 @@ template <typename T, unsigned N>
 __device__ inline void block_scan(T (&input)[N], T (&output)[N])
 {
   switch (blockDim.x) {
+    case 32: {
+      typedef cub::BlockScan<T, 32> BlockScanT;
+      __shared__ typename BlockScanT::TempStorage temp_storage;
+      BlockScanT(temp_storage).InclusiveSum(input, output);
+    } break;
     case 64: {
-      typedef cub::BlockScan<uint32_t, 64> BlockScanT;
+      typedef cub::BlockScan<T, 64> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 128: {
-      typedef cub::BlockScan<uint32_t, 128> BlockScanT;
+      typedef cub::BlockScan<T, 128> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 256: {
-      typedef cub::BlockScan<uint32_t, 256> BlockScanT;
+      typedef cub::BlockScan<T, 256> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 512: {
-      typedef cub::BlockScan<uint32_t, 512> BlockScanT;
+      typedef cub::BlockScan<T, 512> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
     case 1024: {
-      typedef cub::BlockScan<uint32_t, 1024> BlockScanT;
+      typedef cub::BlockScan<T, 1024> BlockScanT;
       __shared__ typename BlockScanT::TempStorage temp_storage;
       BlockScanT(temp_storage).InclusiveSum(input, output);
     } break;
