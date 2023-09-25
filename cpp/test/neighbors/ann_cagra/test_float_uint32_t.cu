@@ -18,7 +18,7 @@
 
 #include "../ann_cagra.cuh"
 
-namespace raft::neighbors::experimental::cagra {
+namespace raft::neighbors::cagra {
 
 typedef AnnCagraTest<float, float, std::uint32_t> AnnCagraTestF_U32;
 TEST_P(AnnCagraTestF_U32, AnnCagra) { this->testCagra(); }
@@ -26,7 +26,11 @@ TEST_P(AnnCagraTestF_U32, AnnCagra) { this->testCagra(); }
 typedef AnnCagraSortTest<float, float, std::uint32_t> AnnCagraSortTestF_U32;
 TEST_P(AnnCagraSortTestF_U32, AnnCagraSort) { this->testCagraSort(); }
 
+typedef AnnCagraFilterTest<float, float, std::uint32_t> AnnCagraFilterTestF_U32;
+TEST_P(AnnCagraFilterTestF_U32, AnnCagraFilter) { this->testCagraFilter(); }
+
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestF_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnCagraFilterTest, AnnCagraFilterTestF_U32, ::testing::ValuesIn(inputs));
 
-}  // namespace raft::neighbors::experimental::cagra
+}  // namespace raft::neighbors::cagra

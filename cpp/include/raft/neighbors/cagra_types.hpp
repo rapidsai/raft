@@ -178,9 +178,10 @@ struct index : ann::index {
   ~index()                               = default;
 
   /** Construct an empty index. */
-  index(raft::resources const& res)
+  index(raft::resources const& res,
+        raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
-      metric_(raft::distance::DistanceType::L2Expanded),
+      metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
   {
@@ -309,7 +310,11 @@ struct index : ann::index {
                     raft::host_matrix_view<const IdxT, int64_t, row_major> knn_graph)
   {
     RAFT_LOG_DEBUG("Copying CAGRA knn graph from host to device");
-    graph_ = make_device_matrix<IdxT, int64_t>(res, knn_graph.extent(0), knn_graph.extent(1));
+    if ((graph_.extent(0) != knn_graph.extent(0)) || (graph_.extent(1) != knn_graph.extent(1))) {
+      // clear existing memory before allocating to prevent OOM errors on large graphs
+      if (graph_.size()) { graph_ = make_device_matrix<IdxT, int64_t>(res, 0, 0); }
+      graph_ = make_device_matrix<IdxT, int64_t>(res, knn_graph.extent(0), knn_graph.extent(1));
+    }
     raft::copy(graph_.data_handle(),
                knn_graph.data_handle(),
                knn_graph.size(),
@@ -324,7 +329,13 @@ struct index : ann::index {
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
     size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
-    dataset_          = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
+
+    if ((dataset_.extent(0) != dataset.extent(0)) ||
+        (static_cast<size_t>(dataset_.extent(1)) != padded_dim)) {
+      // clear existing memory before allocating to prevent OOM errors on large datasets
+      if (dataset_.size()) { dataset_ = make_device_matrix<T, int64_t>(res, 0, 0); }
+      dataset_ = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
+    }
     if (dataset_.extent(1) == dataset.extent(1)) {
       raft::copy(dataset_.data_handle(),
                  dataset.data_handle(),
