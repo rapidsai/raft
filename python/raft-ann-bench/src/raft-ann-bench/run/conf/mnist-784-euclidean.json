@@ -3,6 +3,7 @@
     "name": "mnist-784-euclidean",
     "base_file": "mnist-784-euclidean/base.fbin",
     "query_file": "mnist-784-euclidean/query.fbin",
+    "groundtruth_neighbors_file": "mnist-784-euclidean/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {

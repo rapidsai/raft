@@ -305,6 +305,6 @@ void gemv(raft::resources const& handle,
 }
 /** @} */  // end of gemv
 
-};         // namespace linalg
-};         // namespace raft
+};  // namespace linalg
+};  // namespace raft
 #endif

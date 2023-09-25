@@ -79,7 +79,7 @@ void mean_squared_error(raft::resources const& handle,
 
 /** @} */  // end of group mean_squared_error
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif
