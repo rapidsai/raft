@@ -287,8 +287,10 @@ void fused_l2_knn(raft::resources const& handle,
  * @tparam T data element type
  *
  * @param[in] res
- * @param[in] params parameters for building the index
  * @param[in] dataset a matrix view (host or device) to a row-major matrix [n_rows, dim]
+ * @param[in] metric: distance metric to use. Euclidean (L2) is used by default
+ * @param[in] metric_arg: the value of `p` for Minkowski (l-p) distances. This
+ *           is ignored if the metric_type is not Minkowski.
  *
  * @return the constructed brute force index
  */
@@ -297,8 +299,8 @@ template <typename T,
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
 index<T> build(raft::resources const& res,
                mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-               raft::distance::DistanceType metric,
-               T metric_arg = 0.0)
+               raft::distance::DistanceType metric = = distance::DistanceType::L2Unexpanded,
+               T metric_arg                          = 0.0)
 {
   auto ret = index<T>(res, dataset, metric, metric_arg);
 
@@ -336,7 +338,6 @@ index<T> build(raft::resources const& res,
  * @tparam IdxT type of the indices
  *
  * @param[in] res raft resources
- * @param[in] params configure the search
  * @param[in] idx brute force index
  * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
@@ -347,13 +348,13 @@ index<T> build(raft::resources const& res,
 template <typename T, typename IdxT>
 void search(raft::resources const& res,
             const index<T>& idx,
-            raft::device_matrix_view<const T, int64_t, row_major> query,
+            raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
             raft::device_matrix_view<float, int64_t, row_major> distances)
 {
   RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1), "Value of k must match for outputs");
-  RAFT_EXPECTS(idx.dataset().extent(1) == query.extent(1),
-               "Number of columns in query must match brute force index");
+  RAFT_EXPECTS(idx.dataset().extent(1) == queries.extent(1),
+               "Number of columns in queries must match brute force index");
 
   auto k = neighbors.extent(1);
   auto d = idx.dataset().extent(1);
@@ -367,8 +368,8 @@ void search(raft::resources const& res,
                                                  dataset,
                                                  sizes,
                                                  d,
-                                                 const_cast<T*>(query.data_handle()),
-                                                 query.extent(0),
+                                                 const_cast<T*>(queries.data_handle()),
+                                                 queries.extent(0),
                                                  neighbors.data_handle(),
                                                  distances.data_handle(),
                                                  k,
