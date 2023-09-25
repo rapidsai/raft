@@ -105,12 +105,12 @@
       "search_result_file": "result/deep-image-96-inner/raft_bfknn/bfknn"
     },
     {
-      "name": "faiss_ivf_flat.nlist1024",
+      "name": "faiss_gpu_ivf_flat.nlist1024",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {
         "nlist": 1024
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_flat/nlist1024",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_flat/nlist1024",
       "search_params": [
         {
           "nprobe": 1
@@ -137,15 +137,15 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_flat/nlist1024"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_flat/nlist1024"
     },
     {
-      "name": "faiss_ivf_flat.nlist2048",
+      "name": "faiss_gpu_ivf_flat.nlist2048",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {
         "nlist": 2048
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_flat/nlist2048",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_flat/nlist2048",
       "search_params": [
         {
           "nprobe": 1
@@ -172,15 +172,15 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_flat/nlist2048"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_flat/nlist2048"
     },
     {
-      "name": "faiss_ivf_flat.nlist4096",
+      "name": "faiss_gpu_ivf_flat.nlist4096",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {
         "nlist": 4096
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_flat/nlist4096",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_flat/nlist4096",
       "search_params": [
         {
           "nprobe": 1
@@ -207,15 +207,15 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_flat/nlist4096"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_flat/nlist4096"
     },
     {
-      "name": "faiss_ivf_flat.nlist8192",
+      "name": "faiss_gpu_ivf_flat.nlist8192",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {
         "nlist": 8192
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_flat/nlist8192",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_flat/nlist8192",
       "search_params": [
         {
           "nprobe": 1
@@ -242,15 +242,15 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_flat/nlist8192"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_flat/nlist8192"
     },
     {
-      "name": "faiss_ivf_flat.nlist16384",
+      "name": "faiss_gpu_ivf_flat.nlist16384",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {
         "nlist": 16384
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_flat/nlist16384",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_flat/nlist16384",
       "search_params": [
         {
           "nprobe": 1
@@ -280,10 +280,10 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_flat/nlist16384"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_flat/nlist16384"
     },
     {
-      "name": "faiss_ivf_pq.M64-nlist1024",
+      "name": "faiss_gpu_ivf_pq.M64-nlist1024",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {
         "nlist": 1024,
@@ -291,7 +291,7 @@
         "useFloat16": true,
         "usePrecomputed": true
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_pq/M64-nlist1024",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_pq/M64-nlist1024",
       "search_params": [
         {"nprobe": 10},
         {"nprobe": 50},
@@ -300,10 +300,10 @@
         {"nprobe": 500},
         {"nprobe": 1000}
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_pq/M64-nlist1024"
     },
     {
-      "name": "faiss_ivf_pq.M64-nlist1024.noprecomp",
+      "name": "faiss_gpu_ivf_pq.M64-nlist1024.noprecomp",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {
         "nlist": 1024,
@@ -311,7 +311,7 @@
         "useFloat16": true,
         "usePrecomputed": false
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_pq/M64-nlist1024.noprecomp",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_pq/M64-nlist1024.noprecomp",
       "search_params": [
         {"nprobe": 10},
         {"nprobe": 50},
@@ -320,16 +320,16 @@
         {"nprobe": 500},
         {"nprobe": 1000}
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_pq/M64-nlist1024"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_pq/M64-nlist1024"
     },
     {
-      "name": "faiss_ivf_sq.nlist1024-fp16",
+      "name": "faiss_gpu_ivf_sq.nlist1024-fp16",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 1024,
         "quantizer_type": "fp16"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist1024-fp16",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist1024-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -356,16 +356,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist1024-fp16"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist1024-fp16"
     },
     {
-      "name": "faiss_ivf_sq.nlist2048-fp16",
+      "name": "faiss_gpu_ivf_sq.nlist2048-fp16",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 2048,
         "quantizer_type": "fp16"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist2048-fp16",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist2048-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -392,16 +392,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist2048-fp16"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist2048-fp16"
     },
     {
-      "name": "faiss_ivf_sq.nlist4096-fp16",
+      "name": "faiss_gpu_ivf_sq.nlist4096-fp16",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 4096,
         "quantizer_type": "fp16"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist4096-fp16",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist4096-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -428,16 +428,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist4096-fp16"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist4096-fp16"
     },
     {
-      "name": "faiss_ivf_sq.nlist8192-fp16",
+      "name": "faiss_gpu_ivf_sq.nlist8192-fp16",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 8192,
         "quantizer_type": "fp16"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist8192-fp16",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist8192-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -464,16 +464,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist8192-fp16"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist8192-fp16"
     },
     {
-      "name": "faiss_ivf_sq.nlist16384-fp16",
+      "name": "faiss_gpu_ivf_sq.nlist16384-fp16",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 16384,
         "quantizer_type": "fp16"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist16384-fp16",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist16384-fp16",
       "search_params": [
         {
           "nprobe": 1
@@ -503,16 +503,16 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist16384-fp16"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist16384-fp16"
     },
     {
-      "name": "faiss_ivf_sq.nlist1024-int8",
+      "name": "faiss_gpu_ivf_sq.nlist1024-int8",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 1024,
         "quantizer_type": "int8"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist1024-int8",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist1024-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -539,16 +539,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist1024-int8"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist1024-int8"
     },
     {
-      "name": "faiss_ivf_sq.nlist2048-int8",
+      "name": "faiss_gpu_ivf_sq.nlist2048-int8",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 2048,
         "quantizer_type": "int8"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist2048-int8",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist2048-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -575,16 +575,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist2048-int8"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist2048-int8"
     },
     {
-      "name": "faiss_ivf_sq.nlist4096-int8",
+      "name": "faiss_gpu_ivf_sq.nlist4096-int8",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 4096,
         "quantizer_type": "int8"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist4096-int8",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist4096-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -611,16 +611,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist4096-int8"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist4096-int8"
     },
     {
-      "name": "faiss_ivf_sq.nlist8192-int8",
+      "name": "faiss_gpu_ivf_sq.nlist8192-int8",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 8192,
         "quantizer_type": "int8"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist8192-int8",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist8192-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -647,16 +647,16 @@
           "nprobe": 1000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist8192-int8"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist8192-int8"
     },
     {
-      "name": "faiss_ivf_sq.nlist16384-int8",
+      "name": "faiss_gpu_ivf_sq.nlist16384-int8",
       "algo": "faiss_gpu_ivf_sq",
       "build_param": {
         "nlist": 16384,
         "quantizer_type": "int8"
       },
-      "file": "index/deep-image-96-inner/faiss_ivf_sq/nlist16384-int8",
+      "file": "index/deep-image-96-inner/faiss_gpu_ivf_sq/nlist16384-int8",
       "search_params": [
         {
           "nprobe": 1
@@ -686,17 +686,17 @@
           "nprobe": 2000
         }
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_ivf_sq/nlist16384-int8"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_ivf_sq/nlist16384-int8"
     },
     {
-      "name": "faiss_flat",
+      "name": "faiss_gpu_flat",
       "algo": "faiss_gpu_flat",
       "build_param": {},
-      "file": "index/deep-image-96-inner/faiss_flat/flat",
+      "file": "index/deep-image-96-inner/faiss_gpu_flat/flat",
       "search_params": [
         {}
       ],
-      "search_result_file": "result/deep-image-96-inner/faiss_flat/flat"
+      "search_result_file": "result/deep-image-96-inner/faiss_gpu_flat/flat"
     },
 
     {

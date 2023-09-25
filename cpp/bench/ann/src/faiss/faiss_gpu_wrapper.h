@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#ifndef FAISS_WRAPPER_H_
+#define FAISS_WRAPPER_H_
+
 #include "../common/ann_types.hpp"
 
 #include <raft/core/logger.hpp>
@@ -105,7 +107,7 @@ class FaissGpu : public ANN<T> {
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
 
-  virtual void set_search_param(const AnnSearchParam& param) {}
+  virtual void set_search_param(const FaissGpu<T>::AnnSearchParam& param) {}
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
@@ -192,12 +194,7 @@ void FaissGpu<T>::search(const T* queries,
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
-  index_->search(batch_size,
-                 queries,
-                 k,
-                 distances,
-                 reinterpret_cast<faiss::idx_t*>(neighbors),
-                 search_params_.get());
+  index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
   stream_wait(stream);
 }
 
@@ -317,8 +314,6 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
 template <typename T>
 class FaissGpuIVFSQ : public FaissGpu<T> {
  public:
-  using typename FaissGpu<T>::AnnSearchParam;
-  using typename FaissGpu<T>::SearchParam;
   struct BuildParam : public FaissGpu<T>::BuildParam {
     std::string quantizer_type;
   };
@@ -341,9 +336,9 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
       &(this->gpu_resource_), dim, param.nlist, qtype, this->metric_type_, true, config);
   }
 
-  virtual void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
+  void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
-    auto search_param = dynamic_cast<const SearchParam&>(param);
+    auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
     assert(nprobe <= nlist_);
 
@@ -381,7 +376,6 @@ class FaissGpuFlat : public FaissGpu<T> {
     this->index_  = std::make_unique<faiss::gpu::GpuIndexFlat>(
       &(this->gpu_resource_), dim, this->metric_type_, config);
   }
-
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
@@ -390,6 +384,7 @@ class FaissGpuFlat : public FaissGpu<T> {
 
     this->search_params_ = std::make_unique<faiss::SearchParameters>();
   }
+
   void save(const std::string& file) const override
   {
     this->template save_<faiss::gpu::GpuIndexFlat, faiss::IndexFlat>(file);
@@ -401,3 +396,5 @@ class FaissGpuFlat : public FaissGpu<T> {
 };
 
 }  // namespace raft::bench::ann
+
+#endif

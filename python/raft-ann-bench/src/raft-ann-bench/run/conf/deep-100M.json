@@ -87,10 +87,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist50K",
+      "name": "faiss_gpu_ivf_flat.nlist50K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":50000},
-      "file": "deep-100M/faiss_ivf_flat/nlist50K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist50K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -103,10 +103,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist100K",
+      "name": "faiss_gpu_ivf_flat.nlist100K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":100000},
-      "file": "deep-100M/faiss_ivf_flat/nlist100K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist100K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -119,10 +119,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_flat.nlist200K",
+      "name": "faiss_gpu_ivf_flat.nlist200K",
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":200000},
-      "file": "deep-100M/faiss_ivf_flat/nlist200K",
+      "file": "deep-100M/faiss_gpu_ivf_flat/nlist200K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -135,10 +135,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist16K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist16K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":16384, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist16K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist16K",
       "search_params": [
         {"nprobe":10},
         {"nprobe":20},
@@ -151,10 +151,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist50K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist50K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":50000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist50K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist50K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -167,10 +167,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist100K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist100K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":100000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist100K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist100K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},
@@ -183,10 +183,10 @@
       ]
     },
     {
-      "name": "faiss_ivf_pq.M48-nlist200K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist200K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":200000, "M":48},
-      "file": "deep-100M/faiss_ivf_pq/M48-nlist200K",
+      "file": "deep-100M/faiss_gpu_ivf_pq/M48-nlist200K",
       "search_params": [
         {"nprobe":20},
         {"nprobe":30},

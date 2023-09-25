@@ -1,14 +1,14 @@
 faiss_gpu_flat:
-  executable: FAISS_FLAT_ANN_BENCH
+  executable: FAISS_GPU_FLAT_ANN_BENCH
   requires_gpu: true
 faiss_gpu_ivf_flat:
-  executable: FAISS_IVF_FLAT_ANN_BENCH
+  executable: FAISS_GPU_IVF_FLAT_ANN_BENCH
   requires_gpu: true
 faiss_gpu_ivf_pq:
-  executable: FAISS_IVF_PQ_ANN_BENCH
+  executable: FAISS_GPU_IVF_PQ_ANN_BENCH
   requires_gpu: true
 faiss_gpu_ivf_sq:
-  executable: FAISS_IVF_PQ_ANN_BENCH
+  executable: FAISS_GPU_IVF_PQ_ANN_BENCH
   requires_gpu: true
 faiss_flat:
   executable: FAISS_CPU_FLAT_ANN_BENCH

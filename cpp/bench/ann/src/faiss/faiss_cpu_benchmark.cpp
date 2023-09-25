@@ -31,7 +31,7 @@ namespace raft::bench::ann {
 
 template <typename T>
 void parse_base_build_param(const nlohmann::json& conf,
-                            typename raft::bench::ann::Faiss<T>::BuildParam& param)
+                            typename raft::bench::ann::FaissCpu<T>::BuildParam& param)
 {
   param.nlist = conf.at("nlist");
   if (conf.contains("ratio")) { param.ratio = conf.at("ratio"); }
@@ -39,14 +39,14 @@ void parse_base_build_param(const nlohmann::json& conf,
 
 template <typename T>
 void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::FaissIVFFlat<T>::BuildParam& param)
+                       typename raft::bench::ann::FaissCpuIVFFlat<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
 }
 
 template <typename T>
 void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::FaissIVFPQ<T>::BuildParam& param)
+                       typename raft::bench::ann::FaissCpuIVFPQ<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
   param.M = conf.at("M");
@@ -64,7 +64,7 @@ void parse_build_param(const nlohmann::json& conf,
 
 template <typename T>
 void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::FaissIVFSQ<T>::BuildParam& param)
+                       typename raft::bench::ann::FaissCpuIVFSQ<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
   param.quantizer_type = conf.at("quantizer_type");
@@ -72,7 +72,7 @@ void parse_build_param(const nlohmann::json& conf,
 
 template <typename T>
 void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::Faiss<T>::SearchParam& param)
+                        typename raft::bench::ann::FaissCpu<T>::SearchParam& param)
 {
   param.nprobe = conf.at("nprobe");
   if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
@@ -115,14 +115,14 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
   if constexpr (std::is_same_v<T, float>) {
     raft::bench::ann::Metric metric = parse_metric(distance);
-    if (algo == "faiss_ivf_flat") {
-      ann = make_algo<T, raft::bench::ann::FaissIVFFlat>(metric, dim, conf, dev_list);
-    } else if (algo == "faiss_ivf_pq") {
-      ann = make_algo<T, raft::bench::ann::FaissIVFPQ>(metric, dim, conf);
-    } else if (algo == "faiss_ivf_sq") {
-      ann = make_algo<T, raft::bench::ann::FaissIVFSQ>(metric, dim, conf);
-    } else if (algo == "faiss_flat") {
-      ann = std::make_unique<raft::bench::ann::FaissFlat<T>>(metric, dim);
+    if (algo == "faiss_gpu_ivf_flat") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFFlat>(metric, dim, conf, dev_list);
+    } else if (algo == "faiss_gpu_ivf_pq") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFPQ>(metric, dim, conf);
+    } else if (algo == "faiss_gpu_ivf_sq") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFSQ>(metric, dim, conf);
+    } else if (algo == "faiss_gpu_flat") {
+      ann = std::make_unique<raft::bench::ann::FaissCpuFlat<T>>(metric, dim);
     }
   }
 
@@ -137,11 +137,11 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  if (algo == "faiss_ivf_flat" || algo == "faiss_ivf_pq" || algo == "faiss_ivf_sq") {
-    auto param = std::make_unique<typename raft::bench::ann::Faiss<T>::SearchParam>();
+  if (algo == "faiss_gpu_ivf_flat" || algo == "faiss_gpu_ivf_pq" || algo == "faiss_gpu_ivf_sq") {
+    auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
     parse_search_param<T>(conf, *param);
     return param;
-  } else if (algo == "faiss_flat") {
+  } else if (algo == "faiss_gpu_flat") {
     auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;
   }

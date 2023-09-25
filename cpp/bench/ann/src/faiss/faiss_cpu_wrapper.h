@@ -24,7 +24,6 @@
 #include <faiss/IndexRefine.h>
 #include <faiss/IndexScalarQuantizer.h>
 #include <faiss/index_io.h>
-#include <omp.h>
 
 #include <cassert>
 #include <memory>
@@ -44,32 +43,12 @@ faiss::MetricType parse_metric_type(raft::bench::ann::Metric metric)
     throw std::runtime_error("faiss supports only metric type of inner product and L2");
   }
 }
-
-// note BLAS library can still use multi-threading, and
-// setting environment variable like OPENBLAS_NUM_THREADS can control it
-class OmpSingleThreadScope {
- public:
-  OmpSingleThreadScope()
-  {
-    max_threads_ = omp_get_max_threads();
-    omp_set_num_threads(1);
-  }
-  ~OmpSingleThreadScope()
-  {
-    // the best we can do
-    omp_set_num_threads(max_threads_);
-  }
-
- private:
-  int max_threads_;
-};
-
 }  // namespace
 
 namespace raft::bench::ann {
 
 template <typename T>
-class Faiss : public ANN<T> {
+class FaissCpu : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
@@ -82,7 +61,7 @@ class Faiss : public ANN<T> {
     int ratio = 2;
   };
 
-  Faiss(Metric metric, int dim, const BuildParam& param)
+  FaissCpu(Metric metric, int dim, const BuildParam& param)
     : ANN<T>(metric, dim),
       metric_type_(parse_metric_type(metric)),
       nlist_{param.nlist},
@@ -91,7 +70,7 @@ class Faiss : public ANN<T> {
     static_assert(std::is_same_v<T, float>, "faiss support only float type");
   }
 
-  virtual ~Faiss() noexcept {}
+  virtual ~FaissCpu() noexcept {}
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
 
@@ -140,9 +119,8 @@ class Faiss : public ANN<T> {
 };
 
 template <typename T>
-void Faiss<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
+void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  OmpSingleThreadScope omp_single_thread;
   auto index_ivf = dynamic_cast<faiss::IndexIVF*>(index_.get());
   if (index_ivf != nullptr) {
     // set the min/max training size for clustering to use the whole provided training set.
@@ -171,7 +149,7 @@ void Faiss<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 }
 
 template <typename T>
-void Faiss<T>::set_search_param(const AnnSearchParam& param)
+void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
 {
   auto search_param = dynamic_cast<const SearchParam&>(param);
   int nprobe        = search_param.nprobe;
@@ -185,12 +163,12 @@ void Faiss<T>::set_search_param(const AnnSearchParam& param)
 }
 
 template <typename T>
-void Faiss<T>::search(const T* queries,
-                      int batch_size,
-                      int k,
-                      size_t* neighbors,
-                      float* distances,
-                      cudaStream_t stream) const
+void FaissCpu<T>::search(const T* queries,
+                         int batch_size,
+                         int k,
+                         size_t* neighbors,
+                         float* distances,
+                         cudaStream_t stream) const
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
@@ -199,26 +177,24 @@ void Faiss<T>::search(const T* queries,
 
 template <typename T>
 template <typename Index>
-void Faiss<T>::save_(const std::string& file) const
+void FaissCpu<T>::save_(const std::string& file) const
 {
-  OmpSingleThreadScope omp_single_thread;
   faiss::write_index(index_.get(), file.c_str());
 }
 
 template <typename T>
 template <typename Index>
-void Faiss<T>::load_(const std::string& file)
+void FaissCpu<T>::load_(const std::string& file)
 {
-  OmpSingleThreadScope omp_single_thread;
   index_ = std::unique_ptr<Index>(dynamic_cast<Index*>(faiss::read_index(file.c_str())));
 }
 
 template <typename T>
-class FaissIVFFlat : public Faiss<T> {
+class FaissCpuIVFFlat : public FaissCpu<T> {
  public:
-  using typename Faiss<T>::BuildParam;
+  using typename FaissCpu<T>::BuildParam;
 
-  FaissIVFFlat(Metric metric, int dim, const BuildParam& param) : Faiss<T>(metric, dim, param)
+  FaissCpuIVFFlat(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
     this->index_ = std::make_unique<faiss::IndexIVFFlat>(
@@ -233,15 +209,15 @@ class FaissIVFFlat : public Faiss<T> {
 };
 
 template <typename T>
-class FaissIVFPQ : public Faiss<T> {
+class FaissCpuIVFPQ : public FaissCpu<T> {
  public:
-  struct BuildParam : public Faiss<T>::BuildParam {
+  struct BuildParam : public FaissCpu<T>::BuildParam {
     int M;
     int bitsPerCode;
     bool usePrecomputed;
   };
 
-  FaissIVFPQ(Metric metric, int dim, const BuildParam& param) : Faiss<T>(metric, dim, param)
+  FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
     this->index_ = std::make_unique<faiss::IndexIVFPQ>(
@@ -256,13 +232,13 @@ class FaissIVFPQ : public Faiss<T> {
 };
 
 template <typename T>
-class FaissIVFSQ : public Faiss<T> {
+class FaissCpuIVFSQ : public FaissCpu<T> {
  public:
-  struct BuildParam : public Faiss<T>::BuildParam {
+  struct BuildParam : public FaissCpu<T>::BuildParam {
     std::string quantizer_type;
   };
 
-  FaissIVFSQ(Metric metric, int dim, const BuildParam& param) : Faiss<T>(metric, dim, param)
+  FaissCpuIVFSQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     faiss::ScalarQuantizer::QuantizerType qtype;
     if (param.quantizer_type == "fp16") {
@@ -270,7 +246,7 @@ class FaissIVFSQ : public Faiss<T> {
     } else if (param.quantizer_type == "int8") {
       qtype = faiss::ScalarQuantizer::QT_8bit;
     } else {
-      throw std::runtime_error("FaissIVFSQ supports only fp16 and int8 but got " +
+      throw std::runtime_error("FaissCpuIVFSQ supports only fp16 and int8 but got " +
                                param.quantizer_type);
     }
 
@@ -290,14 +266,15 @@ class FaissIVFSQ : public Faiss<T> {
 };
 
 template <typename T>
-class FaissFlat : public Faiss<T> {
+class FaissCpuFlat : public FaissCpu<T> {
  public:
-  FaissFlat(Metric metric, int dim) : Faiss<T>(metric, dim, typename Faiss<T>::BuildParam{})
+  FaissCpuFlat(Metric metric, int dim)
+    : FaissCpu<T>(metric, dim, typename FaissCpu<T>::BuildParam{})
   {
     this->index_ = std::make_unique<faiss::IndexFlat>(dim, this->metric_type_);
   }
 
-  // class Faiss is more like a IVF class, so need special treating here
+  // class FaissCpu is more like a IVF class, so need special treating here
   void set_search_param(const typename ANN<T>::AnnSearchParam&) override{};
 
   void save(const std::string& file) const override
