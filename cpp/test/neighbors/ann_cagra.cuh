@@ -147,6 +147,7 @@ struct AnnCagraInputs {
   int n_rows;
   int dim;
   int k;
+  graph_build_algo build_algo;
   search_algo algo;
   int max_queries;
   int team_size;
@@ -161,12 +162,13 @@ struct AnnCagraInputs {
 
 inline ::std::ostream& operator<<(::std::ostream& os, const AnnCagraInputs& p)
 {
-  std::vector<std::string> algo = {"single-cta", "multi_cta", "multi_kernel", "auto"};
+  std::vector<std::string> algo       = {"single-cta", "multi_cta", "multi_kernel", "auto"};
+  std::vector<std::string> build_algo = {"IVF_PQ", "NN_DESCENT"};
   os << "{n_queries=" << p.n_queries << ", dataset shape=" << p.n_rows << "x" << p.dim
      << ", k=" << p.k << ", " << algo.at((int)p.algo) << ", max_queries=" << p.max_queries
      << ", itopk_size=" << p.itopk_size << ", search_width=" << p.search_width
-     << ", metric=" << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device") << '}'
-     << std::endl;
+     << ", metric=" << static_cast<int>(p.metric) << (p.host_dataset ? ", host" : ", device")
+     << ", build_algo=" << build_algo.at((int)p.build_algo) << '}' << std::endl;
   return os;
 }
 
@@ -216,6 +218,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        index_params.build_algo = ps.build_algo;
         cagra::search_params search_params;
         search_params.algo        = ps.algo;
         search_params.max_queries = ps.max_queries;
@@ -340,11 +343,25 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
       auto knn_graph =
         raft::make_host_matrix<IdxT, int64_t>(ps.n_rows, index_params.intermediate_graph_degree);
 
-      if (ps.host_dataset) {
-        cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view());
+      if (ps.build_algo == graph_build_algo::IVF_PQ) {
+        if (ps.host_dataset) {
+          cagra::build_knn_graph<DataT, IdxT>(handle_, database_host_view, knn_graph.view());
+        } else {
+          cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
+        }
       } else {
-        cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
-      };
+        auto nn_descent_idx_params                      = experimental::nn_descent::index_params{};
+        nn_descent_idx_params.graph_degree              = index_params.intermediate_graph_degree;
+        nn_descent_idx_params.intermediate_graph_degree = index_params.intermediate_graph_degree;
+
+        if (ps.host_dataset) {
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_host_view, knn_graph.view(), nn_descent_idx_params);
+        } else {
+          cagra::build_knn_graph<DataT, IdxT>(
+            handle_, database_host_view, knn_graph.view(), nn_descent_idx_params);
+        }
+      }
 
       handle_.sync_stream();
       ASSERT_TRUE(CheckOrder<DistanceT>(knn_graph.view(), database_host.view()));
@@ -546,6 +563,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {1000},
     {1, 8, 17},
     {1, 16},  // k
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
     {0, 1, 10, 100},  // query size
     {0},
@@ -561,6 +579,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {1000},
     {1, 3, 5, 7, 8, 17, 64, 128, 137, 192, 256, 512, 619, 1024},  // dim
     {16},                                                         // k
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
     {search_algo::AUTO},
     {10},
     {0},
@@ -571,68 +590,55 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {true},
     {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
-  inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {1000},
-                                                   {64},
-                                                   {16},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0, 4, 8, 16, 32},  // team_size
-                                                   {64},
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false},
-                                                   {false},
-                                                   {0.995});
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {64},
+    {16},
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
+    {search_algo::AUTO},
+    {10},
+    {0, 4, 8, 16, 32},  // team_size
+    {64},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {false},
+    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
-  inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {1000},
-                                                   {64},
-                                                   {16},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0},  // team_size
-                                                   {32, 64, 128, 256, 512, 768},
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false},
-                                                   {true},
-                                                   {0.995});
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {64},
+    {16},
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
+    {search_algo::AUTO},
+    {10},
+    {0},  // team_size
+    {32, 64, 128, 256, 512, 768},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {true},
+    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
-  inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {10000, 20000},
-                                                   {32},
-                                                   {10},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0},  // team_size
-                                                   {64},
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false, true},
-                                                   {false},
-                                                   {0.995});
-  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
-
-  inputs2 =
-    raft::util::itertools::product<AnnCagraInputs>({100},
-                                                   {10000, 20000},
-                                                   {32},
-                                                   {10},
-                                                   {search_algo::AUTO},
-                                                   {10},
-                                                   {0},  // team_size
-                                                   {64},
-                                                   {1},
-                                                   {raft::distance::DistanceType::L2Expanded},
-                                                   {false, true},
-                                                   {true},
-                                                   {0.995});
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {10000, 20000},
+    {32},
+    {10},
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
+    {search_algo::AUTO},
+    {10},
+    {0},  // team_size
+    {64},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false, true},
+    {false},
+    {0.995});
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   return inputs;
