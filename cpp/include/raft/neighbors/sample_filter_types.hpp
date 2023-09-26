@@ -37,6 +37,18 @@ struct none_ivf_sample_filter {
   }
 };
 
+/* A filter that filters nothing. This is the default behavior. */
+struct none_cagra_sample_filter {
+  inline _RAFT_HOST_DEVICE bool operator()(
+    // query index
+    const uint32_t query_ix,
+    // the index of the current sample
+    const uint32_t sample_ix) const
+  {
+    return true;
+  }
+};
+
 /**
  * If the filtering depends on the index of a sample, then the following
  * filter template can be used:
