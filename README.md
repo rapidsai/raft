@@ -258,8 +258,8 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 ### Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-headers` RAFT headers
-- `libraft` (optional) shared library containing pre-compiled template instantiations and runtime API.
+- `libraft-headers` RAFT headers.
+- `libraft` (optional) shared library containing pre-compiled template instantiations and runtime APIs.
 - `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
 - `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
 
