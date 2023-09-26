@@ -140,7 +140,7 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
     deserialize_mdspan(res, is, dataset.view());
     auto idx = index<T, IdxT>(
       res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
-    
+
     deserialize_mdspan(res, is, idx.removed_indices().to_mdspan());
     return idx;
   } else {
