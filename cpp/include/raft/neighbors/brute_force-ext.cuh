@@ -39,9 +39,7 @@ inline void knn_merge_parts(
   size_t n_samples,
   std::optional<raft::device_vector_view<idx_t, idx_t>> translations = std::nullopt) RAFT_EXPLICIT;
 
-template <typename T,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <typename T, typename Accessor>
 index<T> build(raft::resources const& res,
                mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
                raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded,

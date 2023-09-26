@@ -294,23 +294,19 @@ void fused_l2_knn(raft::resources const& handle,
  *
  * @return the constructed brute force index
  */
-template <typename T,
-          typename Accessor =
-            host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
+template <typename T, typename Accessor>
 index<T> build(raft::resources const& res,
                mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
                raft::distance::DistanceType metric = distance::DistanceType::L2Unexpanded,
                T metric_arg                        = 0.0)
 {
-  auto ret = index<T>(res, dataset, metric, metric_arg);
-
   // certain distance metrics can benefit by pre-calculating the norms for the index dataset
   // which lets us avoid calculating these at query time
+  auto norms = make_device_vector<T, int64_t>(res, 0);
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::CosineExpanded) {
-    auto norms = make_device_vector<T, int64_t>(res, dataset.extent(0));
-
+    norms = make_device_vector<T, int64_t>(res, dataset.extent(0));
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
       raft::linalg::norm(res,
@@ -326,9 +322,9 @@ index<T> build(raft::resources const& res,
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS);
     }
-    ret.update_norms(std::move(norms));
   }
-  return ret;
+
+  return index<T>(res, dataset, std::move(norms), metric, metric_arg);
 }
 
 /**

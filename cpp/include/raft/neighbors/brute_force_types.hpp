@@ -91,26 +91,27 @@ struct index : ann::index {
   template <typename data_accessor>
   index(raft::resources const& res,
         mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
+        raft::device_vector<T, int64_t>&& norms,
         raft::distance::DistanceType metric,
         T metric_arg = 0.0)
     : ann::index(),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      norms_(make_device_vector<T, int64_t>(res, 0)),
+      norms_(std::move(norms)),
       metric_arg_(metric_arg)
   {
     update_dataset(res, dataset);
     resource::sync_stream(res);
   }
 
+ private:
   /**
    * Replace the dataset with a new dataset.
    */
   void update_dataset(raft::resources const& res,
                       raft::device_matrix_view<const T, int64_t, row_major> dataset)
   {
-    dataset_view_ = make_device_matrix_view<const T, int64_t>(
-      dataset.data_handle(), dataset.extent(0), dataset.extent(1));
+    dataset_view_ = dataset;
   }
 
   /**
@@ -121,15 +122,14 @@ struct index : ann::index {
   void update_dataset(raft::resources const& res,
                       raft::host_matrix_view<const T, int64_t, row_major> dataset)
   {
-    // TODO: initialize device dataset_ , copy to device
+    dataset_ = make_device_matrix<T, int64_t>(dataset.extents(0), dataset.extents(1));
+    raft::copy(dataset_.data_handle(),
+               dataset.data_handle(),
+               dataset.size(),
+               resource::get_cuda_stream(res));
+    dataset_view_ = make_const_mdspan(dataset_.view());
   }
 
-  /**
-   * Replace the dataset norms with a new vector
-   */
-  void update_norms(raft::device_vector<T, int64_t>&& norms) { norms_ = std::move(norms); }
-
- private:
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   raft::device_vector<T, int64_t> norms_;
