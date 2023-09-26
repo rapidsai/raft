@@ -39,4 +39,3 @@ target_link_libraries(CAGRA_EXAMPLE PRIVATE raft::raft raft::compiled)
 
 add_executable(IVF_FLAT_EXAMPLE src/ivf_flat_example.cu)
 target_link_libraries(IVF_FLAT_EXAMPLE PRIVATE raft::raft raft::compiled)
-

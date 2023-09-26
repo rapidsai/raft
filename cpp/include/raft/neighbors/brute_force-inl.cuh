@@ -302,7 +302,7 @@ index<T> build(raft::resources const& res,
 {
   // certain distance metrics can benefit by pre-calculating the norms for the index dataset
   // which lets us avoid calculating these at query time
-  auto norms = make_device_vector<T, int64_t>(res, 0);
+  std::optional<device_vector<T, int64_t>> norms;
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::CosineExpanded) {
@@ -311,14 +311,14 @@ index<T> build(raft::resources const& res,
     if (metric == raft::distance::DistanceType::CosineExpanded) {
       raft::linalg::norm(res,
                          dataset,
-                         norms.view(),
+                         norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS,
                          raft::sqrt_op{});
     } else {
       raft::linalg::norm(res,
                          dataset,
-                         norms.view(),
+                         norms->view(),
                          raft::linalg::NormType::L2Norm,
                          raft::linalg::Apply::ALONG_ROWS);
     }
@@ -358,7 +358,7 @@ void search(raft::resources const& res,
   std::vector<T*> dataset    = {const_cast<T*>(idx.dataset().data_handle())};
   std::vector<int64_t> sizes = {idx.dataset().extent(0)};
   std::vector<T*> norms;
-  if (idx.norms().extent(0)) { norms.push_back(const_cast<T*>(idx.norms().data_handle())); }
+  if (idx.has_norms()) { norms.push_back(const_cast<T*>(idx.norms().data_handle())); }
 
   detail::brute_force_knn_impl<int64_t, IdxT, T>(res,
                                                  dataset,

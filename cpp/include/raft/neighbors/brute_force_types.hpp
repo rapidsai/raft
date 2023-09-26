@@ -64,11 +64,13 @@ struct index : ann::index {
   }
 
   /** Dataset norms */
-  [[nodiscard]] inline auto norms() const noexcept
-    -> device_vector_view<const T, int64_t, row_major>
+  [[nodiscard]] inline auto norms() const -> device_vector_view<const T, int64_t, row_major>
   {
-    return make_const_mdspan(norms_.view());
+    return make_const_mdspan(norms_.value().view());
   }
+
+  /** Whether ot not this index has dataset norms */
+  [[nodiscard]] inline bool has_norms() const noexcept { return norms_.has_value(); }
 
   [[nodiscard]] inline T metric_arg() const noexcept { return metric_arg_; }
 
@@ -91,7 +93,7 @@ struct index : ann::index {
   template <typename data_accessor>
   index(raft::resources const& res,
         mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
-        raft::device_vector<T, int64_t>&& norms,
+        std::optional<raft::device_vector<T, int64_t>>&& norms,
         raft::distance::DistanceType metric,
         T metric_arg = 0.0)
     : ann::index(),
@@ -132,7 +134,7 @@ struct index : ann::index {
 
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
-  raft::device_vector<T, int64_t> norms_;
+  std::optional<raft::device_vector<T, int64_t>> norms_;
   raft::device_matrix_view<const T, int64_t, row_major> dataset_view_;
   T metric_arg_;
 };
