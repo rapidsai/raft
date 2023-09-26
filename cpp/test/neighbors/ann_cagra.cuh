@@ -350,7 +350,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
           cagra::build_knn_graph<DataT, IdxT>(handle_, database_view, knn_graph.view());
         }
       } else {
-        auto nn_descent_idx_params                      = nn_descent::index_params{};
+        auto nn_descent_idx_params                      = experimental::nn_descent::index_params{};
         nn_descent_idx_params.graph_degree              = index_params.intermediate_graph_degree;
         nn_descent_idx_params.intermediate_graph_degree = index_params.intermediate_graph_degree;
 
