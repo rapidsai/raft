@@ -241,7 +241,7 @@ def test_cagra_index_params(params):
             "search_width": 4,
             "min_iterations": 0,
             "thread_block_size": 0,
-            "hashmap_mode": "small",
+            "hashmap_mode": "auto",
             "hashmap_min_bitlen": 0,
             "hashmap_max_fill_rate": 0.5,
             "num_random_samplings": 1,
