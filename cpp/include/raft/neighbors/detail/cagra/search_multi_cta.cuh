@@ -109,9 +109,10 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILT
 
   void set_params(raft::resources const& res, const search_params& params)
   {
-    this->itopk_size   = 32;
-    search_width       = 1;
-    num_cta_per_query  = max(params.search_width, params.itopk_size / 32);
+    constexpr unsigned muti_cta_itopk_size = 32;
+    this->itopk_size                       = muti_cta_itopk_size;
+    search_width                           = 1;
+    num_cta_per_query  = max(params.search_width, params.itopk_size / muti_cta_itopk_size);
     result_buffer_size = itopk_size + search_width * graph_degree;
     typedef raft::Pow2<32> AlignBytes;
     unsigned result_buffer_size_32 = AlignBytes::roundUp(result_buffer_size);
