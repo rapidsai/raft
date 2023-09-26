@@ -273,21 +273,20 @@ __launch_bounds__(1024, 1) __global__ void search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::
-      compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-        result_indices_buffer + itopk_size,
-        result_distances_buffer + itopk_size,
-        query_buffer,
-        dataset_ptr,
-        dataset_dim,
-        dataset_ld,
-        knn_graph,
-        graph_degree,
-        local_visited_hashmap_ptr,
-        hash_bitlen,
-        parent_indices_buffer,
-        result_indices_buffer,
-        search_width);
+    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+      result_indices_buffer + itopk_size,
+      result_distances_buffer + itopk_size,
+      query_buffer,
+      dataset_ptr,
+      dataset_dim,
+      dataset_ld,
+      knn_graph,
+      graph_degree,
+      local_visited_hashmap_ptr,
+      hash_bitlen,
+      parent_indices_buffer,
+      result_indices_buffer,
+      search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 

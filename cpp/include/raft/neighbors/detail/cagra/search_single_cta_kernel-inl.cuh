@@ -627,16 +627,16 @@ __launch_bounds__(1024, 1) __global__
       if (std::is_same<SAMPLE_FILTER_T,
                        raft::neighbors::filtering::none_cagra_sample_filter>::value ||
           *filter_flag == 0) {
-      topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES>(result_distances_buffer,
-                                                      result_indices_buffer,
-                                                      internal_topk,
-                                                      result_distances_buffer + internal_topk,
-                                                      result_indices_buffer + internal_topk,
-                                                      search_width * graph_degree,
-                                                      topk_ws,
-                                                      (iter == 0),
-                                                      multi_warps_1,
-                                                      multi_warps_2);
+        topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES>(result_distances_buffer,
+                                                        result_indices_buffer,
+                                                        internal_topk,
+                                                        result_distances_buffer + internal_topk,
+                                                        result_indices_buffer + internal_topk,
+                                                        search_width * graph_degree,
+                                                        topk_ws,
+                                                        (iter == 0),
+                                                        multi_warps_1,
+                                                        multi_warps_2);
         __syncthreads();
       } else {
         topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES>(
@@ -644,7 +644,7 @@ __launch_bounds__(1024, 1) __global__
           result_indices_buffer,
           internal_topk + search_width * graph_degree,
           internal_topk,
-					false);
+          false);
         if (threadIdx.x == 0) { *terminate_flag = 0; }
       }
       _CLK_REC(clk_topk);
@@ -703,21 +703,20 @@ __launch_bounds__(1024, 1) __global__
     // compute the norms between child nodes and query node
     _CLK_START();
     constexpr unsigned max_n_frags = 16;
-    device::
-      compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-        result_indices_buffer + internal_topk,
-        result_distances_buffer + internal_topk,
-        query_buffer,
-        dataset_ptr,
-        dataset_dim,
-        dataset_ld,
-        knn_graph,
-        graph_degree,
-        local_visited_hashmap_ptr,
-        hash_bitlen,
-        parent_list_buffer,
-        result_indices_buffer,
-        search_width);
+    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+      result_indices_buffer + internal_topk,
+      result_distances_buffer + internal_topk,
+      query_buffer,
+      dataset_ptr,
+      dataset_dim,
+      dataset_ld,
+      knn_graph,
+      graph_degree,
+      local_visited_hashmap_ptr,
+      hash_bitlen,
+      parent_list_buffer,
+      result_indices_buffer,
+      search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -768,7 +767,7 @@ __launch_bounds__(1024, 1) __global__
       result_indices_buffer,
       internal_topk + search_width * graph_degree,
       top_k,
-			false);
+      false);
     __syncthreads();
   }
 
@@ -834,8 +833,7 @@ struct search_kernel_config {
                            T,
                            DistT,
                            IdxT,
-													 SAMPLE_FILTER_T
-													 >;
+                           SAMPLE_FILTER_T>;
     } else if (itopk_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            256,
@@ -845,7 +843,7 @@ struct search_kernel_config {
                            T,
                            DistT,
                            IdxT,
-													 SAMPLE_FILTER_T>;
+                           SAMPLE_FILTER_T>;
     } else if (itopk_size <= 512) {
       return search_kernel<TEAM_SIZE,
                            512,
@@ -855,7 +853,7 @@ struct search_kernel_config {
                            T,
                            DistT,
                            IdxT,
-													 SAMPLE_FILTER_T>;
+                           SAMPLE_FILTER_T>;
     }
     THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
