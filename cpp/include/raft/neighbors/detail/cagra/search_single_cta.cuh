@@ -131,11 +131,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       // Tentatively calculate the required share memory size when radix
       // sort based topk is used, assuming the block size is the maximum.
       if (itopk_size <= 256) {
-        smem_size +=
-          topk_by_radix_sort<256, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
+        smem_size += topk_by_radix_sort<256, INDEX_T>::smem_size * sizeof(std::uint32_t);
       } else {
-        smem_size +=
-          topk_by_radix_sort<512, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
+        smem_size += topk_by_radix_sort<512, INDEX_T>::smem_size * sizeof(std::uint32_t);
       }
     }
 
@@ -188,34 +186,10 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       smem_size = base_smem_size;
       if (itopk_size <= 256) {
         constexpr unsigned MAX_ITOPK = 256;
-        if (block_size == 256) {
-          constexpr unsigned BLOCK_SIZE = 256;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else if (block_size == 512) {
-          constexpr unsigned BLOCK_SIZE = 512;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else {
-          constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        }
+        smem_size += topk_by_radix_sort<MAX_ITOPK, INDEX_T>::smem_size * sizeof(std::uint32_t);
       } else {
         constexpr unsigned MAX_ITOPK = 512;
-        if (block_size == 256) {
-          constexpr unsigned BLOCK_SIZE = 256;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else if (block_size == 512) {
-          constexpr unsigned BLOCK_SIZE = 512;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else {
-          constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        }
+        smem_size += topk_by_radix_sort<MAX_ITOPK, INDEX_T>::smem_size * sizeof(std::uint32_t);
       }
     }
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);

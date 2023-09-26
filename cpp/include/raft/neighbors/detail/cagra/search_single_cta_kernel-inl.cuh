@@ -90,11 +90,12 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
   if (threadIdx.x == 0 && (num_new_parents == 0)) { *terminate_flag = 1; }
 }
 
-template <unsigned MAX_CANDIDATES, unsigned MULTI_WARPS = 0, class IdxT = void>
+template <unsigned MAX_CANDIDATES, class IdxT = void>
 __device__ inline void topk_by_bitonic_sort_1st(float* candidate_distances,  // [num_candidates]
                                                 IdxT* candidate_indices,     // [num_candidates]
                                                 const std::uint32_t num_candidates,
-                                                const std::uint32_t num_itopk)
+                                                const std::uint32_t num_itopk,
+                                                unsigned MULTI_WARPS = 0)
 {
   const unsigned lane_id = threadIdx.x % 32;
   const unsigned warp_id = threadIdx.x / 32;
@@ -192,7 +193,7 @@ __device__ inline void topk_by_bitonic_sort_1st(float* candidate_distances,  // 
   }
 }
 
-template <unsigned MAX_ITOPK, unsigned MULTI_WARPS = 0, class IdxT = void>
+template <unsigned MAX_ITOPK, class IdxT = void>
 __device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,  // [num_itopk]
                                                 IdxT* itopk_indices,     // [num_itopk]
                                                 const std::uint32_t num_itopk,
@@ -200,7 +201,8 @@ __device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,  // [num
                                                 IdxT* candidate_indices,     // [num_candidates]
                                                 const std::uint32_t num_candidates,
                                                 std::uint32_t* work_buf,
-                                                const bool first)
+                                                const bool first,
+                                                unsigned MULTI_WARPS = 0)
 {
   const unsigned lane_id = threadIdx.x % 32;
   const unsigned warp_id = threadIdx.x / 32;
@@ -399,8 +401,6 @@ __device__ inline void topk_by_bitonic_sort_2nd(float* itopk_distances,  // [num
 
 template <unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
-          unsigned MULTI_WARPS_1,
-          unsigned MULTI_WARPS_2,
           class IdxT>
 __device__ void topk_by_bitonic_sort(float* itopk_distances,  // [num_itopk]
                                      IdxT* itopk_indices,     // [num_itopk]
@@ -409,33 +409,37 @@ __device__ void topk_by_bitonic_sort(float* itopk_distances,  // [num_itopk]
                                      IdxT* candidate_indices,     // [num_candidates]
                                      const std::uint32_t num_candidates,
                                      std::uint32_t* work_buf,
-                                     const bool first)
+                                     const bool first,
+                                     const unsigned MULTI_WARPS_1,
+                                     const unsigned MULTI_WARPS_2)
 {
   // The results in candidate_distances/indices are sorted by bitonic sort.
-  topk_by_bitonic_sort_1st<MAX_CANDIDATES, MULTI_WARPS_1, IdxT>(
-    candidate_distances, candidate_indices, num_candidates, num_itopk);
+  topk_by_bitonic_sort_1st<MAX_CANDIDATES, IdxT>(
+    candidate_distances, candidate_indices, num_candidates, num_itopk, MULTI_WARPS_1);
 
   // The results sorted above are merged with the internal intermediate top-k
   // results so far using bitonic merge.
-  topk_by_bitonic_sort_2nd<MAX_ITOPK, MULTI_WARPS_2, IdxT>(itopk_distances,
-                                                           itopk_indices,
-                                                           num_itopk,
-                                                           candidate_distances,
-                                                           candidate_indices,
-                                                           num_candidates,
-                                                           work_buf,
-                                                           first);
+  topk_by_bitonic_sort_2nd<MAX_ITOPK, IdxT>(itopk_distances,
+                                            itopk_indices,
+                                            num_itopk,
+                                            candidate_distances,
+                                            candidate_indices,
+                                            num_candidates,
+                                            work_buf,
+                                            first,
+                                            MULTI_WARPS_2);
 }
 
-template <unsigned FIRST_TID, unsigned LAST_TID, class INDEX_T>
+template <class INDEX_T>
 __device__ inline void hashmap_restore(INDEX_T* const hashmap_ptr,
                                        const size_t hashmap_bitlen,
                                        const INDEX_T* itopk_indices,
-                                       uint32_t itopk_size)
+                                       const uint32_t itopk_size,
+                                       const uint32_t first_tid = 0)
 {
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
-  if (threadIdx.x < FIRST_TID || threadIdx.x >= LAST_TID) return;
-  for (unsigned i = threadIdx.x - FIRST_TID; i < itopk_size; i += LAST_TID - FIRST_TID) {
+  if (threadIdx.x < first_tid) return;
+  for (unsigned i = threadIdx.x - first_tid; i < itopk_size; i += blockDim.x - first_tid) {
     auto key = itopk_indices[i] & ~index_msb_1_mask;  // clear most significant bit
     hashmap::insert(hashmap_ptr, hashmap_bitlen, key);
   }
@@ -451,8 +455,6 @@ __device__ inline void set_value_device(T* const ptr, const T fill, const std::u
 
 // One query one thread block
 template <unsigned TEAM_SIZE,
-          unsigned BLOCK_SIZE,
-          unsigned BLOCK_COUNT,
           unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
           unsigned TOPK_BY_BITONIC_SORT,
@@ -461,7 +463,7 @@ template <unsigned TEAM_SIZE,
           class DISTANCE_T,
           class INDEX_T,
           class SAMPLE_FILTER_T>
-__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
+__launch_bounds__(1024, 1) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
                      const std::uint32_t top_k,
@@ -534,7 +536,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   auto filter_flag = terminate_flag;
 
   const DATA_T* const query_ptr = queries_ptr + query_id * dataset_dim;
-  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
+  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += blockDim.x) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
       query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
@@ -554,7 +556,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
   } else {
     local_visited_hashmap_ptr = visited_hashmap_ptr + (hashmap::get_size(hash_bitlen) * query_id);
   }
-  hashmap::init<0, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+  hashmap::init(local_visited_hashmap_ptr, hash_bitlen, 0);
   __syncthreads();
   _CLK_REC(clk_init);
 
@@ -590,8 +592,8 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
       // topk_by_bitonic_sort() consists of two operations:
       // if MAX_CANDIDATES is greater than 128, the first operation uses two warps;
       // if MAX_ITOPK is greater than 256, the second operation used two warps.
-      constexpr unsigned multi_warps_1 = ((BLOCK_SIZE >= 64) && (MAX_CANDIDATES > 128)) ? 1 : 0;
-      constexpr unsigned multi_warps_2 = ((BLOCK_SIZE >= 64) && (MAX_ITOPK > 256)) ? 1 : 0;
+      const unsigned multi_warps_1 = ((blockDim.x >= 64) && (MAX_CANDIDATES > 128)) ? 1 : 0;
+      const unsigned multi_warps_2 = ((blockDim.x >= 64) && (MAX_ITOPK > 256)) ? 1 : 0;
 
       // reset small-hash table.
       if ((iter + 1) % small_hash_reset_interval == 0) {
@@ -600,21 +602,23 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
         // the small hash and whether they are performed in overlap with
         // topk_by_bitonic_sort().
         _CLK_START();
-        if (BLOCK_SIZE == 32) {
-          hashmap::init<0, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
-        } else if (BLOCK_SIZE == 64) {
+        unsigned hash_start_tid;
+        if (blockDim.x == 32) {
+          hash_start_tid = 0;
+        } else if (blockDim.x == 64) {
           if (multi_warps_1 || multi_warps_2) {
-            hashmap::init<0, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+            hash_start_tid = 0;
           } else {
-            hashmap::init<32, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+            hash_start_tid = 32;
           }
         } else {
           if (multi_warps_1 || multi_warps_2) {
-            hashmap::init<64, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+            hash_start_tid = 64;
           } else {
-            hashmap::init<32, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+            hash_start_tid = 32;
           }
         }
+        hashmap::init(local_visited_hashmap_ptr, hash_bitlen, hash_start_tid);
         _CLK_REC(clk_reset_hash);
       }
 
@@ -623,29 +627,31 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
       if (std::is_same<SAMPLE_FILTER_T,
                        raft::neighbors::filtering::none_cagra_sample_filter>::value ||
           *filter_flag == 0) {
-        topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES, multi_warps_1, multi_warps_2>(
-          result_distances_buffer,
-          result_indices_buffer,
-          internal_topk,
-          result_distances_buffer + internal_topk,
-          result_indices_buffer + internal_topk,
-          search_width * graph_degree,
-          topk_ws,
-          (iter == 0));
+        topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES>(result_distances_buffer,
+                                                        result_indices_buffer,
+                                                        internal_topk,
+                                                        result_distances_buffer + internal_topk,
+                                                        result_indices_buffer + internal_topk,
+                                                        search_width * graph_degree,
+                                                        topk_ws,
+                                                        (iter == 0),
+                                                        multi_warps_1,
+                                                        multi_warps_2);
         __syncthreads();
       } else {
-        topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES, false>(
+        topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES>(
           result_distances_buffer,
           result_indices_buffer,
           internal_topk + search_width * graph_degree,
-          internal_topk);
+          internal_topk,
+          false);
         if (threadIdx.x == 0) { *terminate_flag = 0; }
       }
       _CLK_REC(clk_topk);
     } else {
       _CLK_START();
       // topk with radix block sort
-      topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>{}(
+      topk_by_radix_sort<MAX_ITOPK, INDEX_T>{}(
         internal_topk,
         gridDim.x,
         result_buffer_size,
@@ -662,7 +668,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
       // reset small-hash table
       if ((iter + 1) % small_hash_reset_interval == 0) {
         _CLK_START();
-        hashmap::init<0, BLOCK_SIZE>(local_visited_hashmap_ptr, hash_bitlen);
+        hashmap::init(local_visited_hashmap_ptr, hash_bitlen);
         _CLK_REC(clk_reset_hash);
       }
     }
@@ -684,10 +690,10 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
 
     // restore small-hash table by putting internal-topk indices in it
     if ((iter + 1) % small_hash_reset_interval == 0) {
-      constexpr unsigned first_tid = ((BLOCK_SIZE <= 32) ? 0 : 32);
+      const unsigned first_tid = ((blockDim.x <= 32) ? 0 : 32);
       _CLK_START();
-      hashmap_restore<first_tid, BLOCK_SIZE>(
-        local_visited_hashmap_ptr, hash_bitlen, result_indices_buffer, internal_topk);
+      hashmap_restore(
+        local_visited_hashmap_ptr, hash_bitlen, result_indices_buffer, internal_topk, first_tid);
       _CLK_REC(clk_restore_hash);
     }
     __syncthreads();
@@ -697,21 +703,20 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     // compute the norms between child nodes and query node
     _CLK_START();
     constexpr unsigned max_n_frags = 16;
-    device::
-      compute_distance_to_child_nodes<TEAM_SIZE, BLOCK_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-        result_indices_buffer + internal_topk,
-        result_distances_buffer + internal_topk,
-        query_buffer,
-        dataset_ptr,
-        dataset_dim,
-        dataset_ld,
-        knn_graph,
-        graph_degree,
-        local_visited_hashmap_ptr,
-        hash_bitlen,
-        parent_list_buffer,
-        result_indices_buffer,
-        search_width);
+    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+      result_indices_buffer + internal_topk,
+      result_distances_buffer + internal_topk,
+      query_buffer,
+      dataset_ptr,
+      dataset_dim,
+      dataset_ld,
+      knn_graph,
+      graph_degree,
+      local_visited_hashmap_ptr,
+      hash_bitlen,
+      parent_list_buffer,
+      result_indices_buffer,
+      search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
@@ -757,15 +762,16 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__
     }
 
     __syncthreads();
-    topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES, false>(
+    topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES>(
       result_distances_buffer,
       result_indices_buffer,
       internal_topk + search_width * graph_degree,
-      top_k);
+      top_k,
+      false);
     __syncthreads();
   }
 
-  for (std::uint32_t i = threadIdx.x; i < top_k; i += BLOCK_SIZE) {
+  for (std::uint32_t i = threadIdx.x; i < top_k; i += blockDim.x) {
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
     if (TOPK_BY_BITONIC_SORT) { ii = device::swizzling(i); }
@@ -811,114 +817,45 @@ template <unsigned TEAM_SIZE,
           typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   using kernel_t =
-    decltype(&search_kernel<TEAM_SIZE, 64, 16, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
+    decltype(&search_kernel<TEAM_SIZE, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
 
-  template <unsigned MAX_ITOPK, unsigned CANDIDATES, unsigned USE_BITONIC_SORT>
-  static auto choose_block_size(unsigned block_size) -> kernel_t
+  template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
+  static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
   {
-    constexpr unsigned BS = USE_BITONIC_SORT;
-    if constexpr (BS) {
-      if (block_size == 64) {
-        return search_kernel<TEAM_SIZE,
-                             64,
-                             16,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else if (block_size == 128) {
-        return search_kernel<TEAM_SIZE,
-                             128,
-                             8,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else if (block_size == 256) {
-        return search_kernel<TEAM_SIZE,
-                             256,
-                             4,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE,
-                             512,
-                             2,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else {
-        return search_kernel<TEAM_SIZE,
-                             1024,
-                             1,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      }
-
-    } else {
-      if (block_size == 256) {
-        return search_kernel<TEAM_SIZE,
-                             256,
-                             4,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else if (block_size == 512) {
-        return search_kernel<TEAM_SIZE,
-                             512,
-                             2,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      } else {
-        return search_kernel<TEAM_SIZE,
-                             1024,
-                             1,
-                             MAX_ITOPK,
-                             CANDIDATES,
-                             BS,
-                             MX_DIM,
-                             T,
-                             DistT,
-                             IdxT,
-                             SAMPLE_FILTER_T>;
-      }
+    if (itopk_size <= 64) {
+      return search_kernel<TEAM_SIZE, 64, MAX_CANDIDATES, USE_BITONIC_SORT, MX_DIM, T, DistT, IdxT>;
+    } else if (itopk_size <= 128) {
+      return search_kernel<TEAM_SIZE,
+                           128,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT,
+                           SAMPLE_FILTER_T>;
+    } else if (itopk_size <= 256) {
+      return search_kernel<TEAM_SIZE,
+                           256,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT,
+                           SAMPLE_FILTER_T>;
+    } else if (itopk_size <= 512) {
+      return search_kernel<TEAM_SIZE,
+                           512,
+                           MAX_CANDIDATES,
+                           USE_BITONIC_SORT,
+                           MX_DIM,
+                           T,
+                           DistT,
+                           IdxT,
+                           SAMPLE_FILTER_T>;
     }
+    THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
 
   static auto choose_itopk_and_mx_candidates(unsigned itopk_size,
@@ -927,45 +864,18 @@ struct search_kernel_config {
   {
     if (num_itopk_candidates <= 64) {
       // use bitonic sort based topk
-      constexpr unsigned max_candidates = 64;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<64, 1>(itopk_size);
     } else if (num_itopk_candidates <= 128) {
-      constexpr unsigned max_candidates = 128;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<128, 1>(itopk_size);
     } else if (num_itopk_candidates <= 256) {
-      constexpr unsigned max_candidates = 256;
-      if (itopk_size <= 64) {
-        return choose_block_size<64, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 128) {
-        return choose_block_size<128, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 1>(block_size);
-      } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 1>(block_size);
-      }
+      return choose_search_kernel<256, 1>(itopk_size);
     } else {
       // Radix-based topk is used
       constexpr unsigned max_candidates = 32;  // to avoid build failure
       if (itopk_size <= 256) {
-        return choose_block_size<256, max_candidates, 0>(block_size);
+        return search_kernel<TEAM_SIZE, 256, max_candidates, 0, MX_DIM, T, DistT, IdxT>;
       } else if (itopk_size <= 512) {
-        return choose_block_size<512, max_candidates, 0>(block_size);
+        return search_kernel<TEAM_SIZE, 512, max_candidates, 0, MX_DIM, T, DistT, IdxT>;
       }
     }
     THROW("No kernel for parametels itopk_size %u, num_itopk_candidates %u",

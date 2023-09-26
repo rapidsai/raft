@@ -133,7 +133,6 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
 }
 
 template <unsigned TEAM_SIZE,
-          unsigned BLOCK_SIZE,
           unsigned MAX_DATASET_DIM,
           unsigned MAX_N_FRAGS,
           class LOAD_T,
@@ -163,7 +162,7 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
 
   // Read child indices of parents from knn graph and check if the distance
   // computaiton is necessary.
-  for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += BLOCK_SIZE) {
+  for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += blockDim.x) {
     const INDEX_T smem_parent_id = parent_indices[i / knn_k];
     INDEX_T child_id             = invalid_index;
     if (smem_parent_id != invalid_index) {
@@ -208,7 +207,8 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
   // Compute the distance to child nodes
   std::uint32_t max_i = knn_k * search_width;
   if (max_i % (32 / TEAM_SIZE)) { max_i += (32 / TEAM_SIZE) - (max_i % (32 / TEAM_SIZE)); }
-  for (std::uint32_t i = threadIdx.x / TEAM_SIZE; i < max_i; i += BLOCK_SIZE / TEAM_SIZE) {
+  for (std::uint32_t tid = threadIdx.x; tid < max_i * TEAM_SIZE; tid += blockDim.x) {
+    const auto i       = tid / TEAM_SIZE;
     const bool valid_i = (i < (knn_k * search_width));
     INDEX_T child_id   = invalid_index;
     if (valid_i) { child_id = result_child_indices_ptr[i]; }
