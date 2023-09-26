@@ -38,12 +38,13 @@ struct search_plan_impl_base : public search_params {
   {
     set_max_dim_team(dim);
     if (algo == search_algo::AUTO) {
-      if (itopk_size <= 512) {
+      const size_t num_sm = raft::getMultiProcessorCount();
+      if (itopk_size <= 512 && search_params::max_queries >= num_sm * 2lu) {
         algo = search_algo::SINGLE_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting single-cta");
       } else {
-        algo = search_algo::MULTI_KERNEL;
-        RAFT_LOG_DEBUG("Auto strategy: selecting multi-kernel");
+        algo = search_algo::MULTI_CTA;
+        RAFT_LOG_DEBUG("Auto strategy: selecting multi-cta");
       }
     }
   }

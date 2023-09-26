@@ -123,6 +123,49 @@ struct idx_dist_pair {
   idx_dist_pair(IdxT x, DistT y, CompareDist op) : idx(x), dist(y), eq_compare(op) {}
 };
 
+template <typename T>
+auto eval_recall(const std::vector<T>& expected_idx,
+                 const std::vector<T>& actual_idx,
+                 size_t rows,
+                 size_t cols,
+                 double eps,
+                 double min_recall) -> testing::AssertionResult
+{
+  size_t match_count = 0;
+  size_t total_count = static_cast<size_t>(rows) * static_cast<size_t>(cols);
+  for (size_t i = 0; i < rows; ++i) {
+    for (size_t k = 0; k < cols; ++k) {
+      size_t idx_k = i * cols + k;  // row major assumption!
+      auto act_idx = actual_idx[idx_k];
+      for (size_t j = 0; j < cols; ++j) {
+        size_t idx   = i * cols + j;  // row major assumption!
+        auto exp_idx = expected_idx[idx];
+        if (act_idx == exp_idx) {
+          match_count++;
+          break;
+        }
+      }
+    }
+  }
+  double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
+  double error_margin  = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
+  RAFT_LOG_INFO("Recall = %f (%zu/%zu), the error is %2.1f%% %s the threshold (eps = %f).",
+                actual_recall,
+                match_count,
+                total_count,
+                std::abs(error_margin * 100.0),
+                error_margin < 0 ? "above" : "below",
+                eps);
+  if (actual_recall < min_recall - eps) {
+    return testing::AssertionFailure()
+           << "actual recall (" << actual_recall << ") is lower than the minimum expected recall ("
+           << min_recall << "); eps = " << eps << ". ";
+  }
+  return testing::AssertionSuccess();
+}
+
+/** same as eval_recall, but in case indices do not match,
+ * then check distances as well, and accept match if actual dist is equal to expected_dist */
 template <typename T, typename DistT>
 auto eval_neighbours(const std::vector<T>& expected_idx,
                      const std::vector<T>& actual_idx,
