@@ -154,17 +154,20 @@ _RAFT_DEVICE void compute_distance_to_child_nodes(INDEX_T* const result_child_in
                                                   INDEX_T* const visited_hashmap_ptr,
                                                   const std::uint32_t hash_bitlen,
                                                   const INDEX_T* const parent_indices,
+                                                  const INDEX_T* const internal_topk_list,
                                                   const std::uint32_t search_width)
 {
-  const INDEX_T invalid_index = utils::get_max_value<INDEX_T>();
+  constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+  const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
 
   // Read child indices of parents from knn graph and check if the distance
   // computaiton is necessary.
   for (uint32_t i = threadIdx.x; i < knn_k * search_width; i += blockDim.x) {
-    const INDEX_T parent_id = parent_indices[i / knn_k];
+    const INDEX_T smem_parent_id = parent_indices[i / knn_k];
     INDEX_T child_id        = invalid_index;
-    if (parent_id != invalid_index) {
-      child_id = knn_graph[(i % knn_k) + ((uint64_t)knn_k * parent_id)];
+    if (smem_parent_id != invalid_index) {
+      const auto parent_id = internal_topk_list[smem_parent_id] & ~index_msb_1_mask;
+      child_id             = knn_graph[(i % knn_k) + ((uint64_t)knn_k * parent_id)];
     }
     if (child_id != invalid_index) {
       if (hashmap::insert(visited_hashmap_ptr, hash_bitlen, child_id) == 0) {

@@ -54,14 +54,14 @@ namespace raft::neighbors::cagra {
  *   // use default index parameters
  *   cagra::index_params build_params;
  *   cagra::search_params search_params
- *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
+ *   auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // create knn graph
  *   cagra::build_knn_graph(res, dataset, knn_graph.view(), 2, build_params, search_params);
- *   auto optimized_gaph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
+ *   auto optimized_gaph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 64);
  *   cagra::optimize(res, dataset, knn_graph.view(), optimized_graph.view());
  *   // Construct an index from dataset and optimized knn_graph
  *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset,
- * optimized_graph.view());
+ *                                      optimized_graph.view());
  * @endcode
  *
  * @tparam DataT data element type
@@ -106,7 +106,7 @@ void build_knn_graph(raft::resources const& res,
  * @code{.cpp}
  *   using namespace raft::neighbors;
  *   cagra::index_params build_params;
- *   auto knn_graph      = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
+ *   auto knn_graph = raft::make_host_matrix<IdxT, IdxT>(dataset.extent(0), 128);
  *   // build KNN graph not using `cagra::build_knn_graph`
  *   // build(knn_graph, dataset, ...);
  *   // sort graph index
@@ -115,7 +115,7 @@ void build_knn_graph(raft::resources const& res,
  *   cagra::optimize(res, dataset, knn_graph.view(), optimized_graph.view());
  *   // Construct an index from dataset and optimized knn_graph
  *   auto index = cagra::index<T, IdxT>(res, build_params.metric(), dataset,
- * optimized_graph.view());
+ *                                      optimized_graph.view());
  * @endcode
  *
  * @tparam DataT type of the data in the source dataset
@@ -316,9 +316,70 @@ void search(raft::resources const& res,
   auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  cagra::detail::search_main<T, internal_IdxT, IdxT>(
-    res, params, idx, queries_internal, neighbors_internal, distances_internal);
+  cagra::detail::search_main<T,
+                             internal_IdxT,
+                             decltype(raft::neighbors::filtering::none_cagra_sample_filter()),
+                             IdxT>(res,
+                                   params,
+                                   idx,
+                                   queries_internal,
+                                   neighbors_internal,
+                                   distances_internal,
+                                   raft::neighbors::filtering::none_cagra_sample_filter());
 }
+
+/**
+ * @brief Search ANN using the constructed index with the given sample filter.
+ *
+ * See the [cagra::build](#cagra::build) documentation for a usage example.
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices
+ * @tparam CagraSampleFilterT Device filter function, with the signature
+ *         `(uint32_t query ix, uint32_t sample_ix) -> bool`
+ *
+ * @param[in] res raft resources
+ * @param[in] params configure the search
+ * @param[in] idx cagra index
+ * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
+ * [n_queries, k]
+ * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
+ * k]
+ * @param[in] sample_filter a device filter function that greenlights samples for a given query
+ */
+template <typename T, typename IdxT, typename CagraSampleFilterT>
+void search_with_filtering(raft::resources const& res,
+                           const search_params& params,
+                           const index<T, IdxT>& idx,
+                           raft::device_matrix_view<const T, int64_t, row_major> queries,
+                           raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
+                           raft::device_matrix_view<float, int64_t, row_major> distances,
+                           CagraSampleFilterT sample_filter = CagraSampleFilterT())
+{
+  RAFT_EXPECTS(
+    queries.extent(0) == neighbors.extent(0) && queries.extent(0) == distances.extent(0),
+    "Number of rows in output neighbors and distances matrices must equal the number of queries.");
+
+  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1),
+               "Number of columns in output neighbors and distances matrices must equal k");
+  RAFT_EXPECTS(queries.extent(1) == idx.dim(),
+               "Number of query dimensions should equal number of dimensions in the index.");
+
+  using internal_IdxT   = typename std::make_unsigned<IdxT>::type;
+  auto queries_internal = raft::make_device_matrix_view<const T, int64_t, row_major>(
+    queries.data_handle(), queries.extent(0), queries.extent(1));
+  auto neighbors_internal = raft::make_device_matrix_view<internal_IdxT, int64_t, row_major>(
+    reinterpret_cast<internal_IdxT*>(neighbors.data_handle()),
+    neighbors.extent(0),
+    neighbors.extent(1));
+  auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
+    distances.data_handle(), distances.extent(0), distances.extent(1));
+
+  cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
+    res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
+}
+
 /** @} */  // end group cagra
 
 }  // namespace raft::neighbors::cagra

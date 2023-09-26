@@ -26,6 +26,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #include <vector>
 
@@ -75,7 +76,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [sea
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < search_width) {
-        next_parent_indices[i] = index;
+        next_parent_indices[i] = j;
         itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
@@ -129,7 +130,8 @@ template <unsigned TEAM_SIZE,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T,
-          class LOAD_T>
+          class LOAD_T,
+          class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) __global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
@@ -150,8 +152,8 @@ __launch_bounds__(1024, 1) __global__ void search_kernel(
   const uint32_t search_width,
   const uint32_t min_iteration,
   const uint32_t max_iteration,
-  uint32_t* const num_executed_iterations /* stats */
-)
+  uint32_t* const num_executed_iterations, /* stats */
+  SAMPLE_FILTER_T sample_filter)
 {
   assert(dataset_dim <= MAX_DATASET_DIM);
 
@@ -271,23 +273,68 @@ __launch_bounds__(1024, 1) __global__ void search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-      result_indices_buffer + itopk_size,
-      result_distances_buffer + itopk_size,
-      query_buffer,
-      dataset_ptr,
-      dataset_dim,
-      dataset_ld,
-      knn_graph,
-      graph_degree,
-      local_visited_hashmap_ptr,
-      hash_bitlen,
-      parent_indices_buffer,
-      search_width);
+    device::
+      compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+        result_indices_buffer + itopk_size,
+        result_distances_buffer + itopk_size,
+        query_buffer,
+        dataset_ptr,
+        dataset_dim,
+        dataset_ld,
+        knn_graph,
+        graph_degree,
+        local_visited_hashmap_ptr,
+        hash_bitlen,
+        parent_indices_buffer,
+        result_indices_buffer,
+        search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
 
+    // Filtering
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+      const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+      for (unsigned p = threadIdx.x; p < search_width; p += blockDim.x) {
+        if (parent_indices_buffer[p] != invalid_index) {
+          const auto parent_id =
+            result_indices_buffer[parent_indices_buffer[p]] & ~index_msb_1_mask;
+          if (!sample_filter(query_id, parent_id)) {
+            // If the parent must not be in the resulting top-k list, remove from the parent list
+            result_distances_buffer[parent_indices_buffer[p]] = utils::get_max_value<DISTANCE_T>();
+            result_indices_buffer[parent_indices_buffer[p]]   = invalid_index;
+          }
+        }
+      }
+      __syncthreads();
+    }
+
     iter++;
+  }
+
+  // Post process for filtering
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    for (unsigned i = threadIdx.x; i < itopk_size + search_width * graph_degree; i += blockDim.x) {
+      const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
+      if (node_id != (invalid_index & ~index_msb_1_mask) && !sample_filter(query_id, node_id)) {
+        // If the parent must not be in the resulting top-k list, remove from the parent list
+        result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[i]   = invalid_index;
+      }
+    }
+
+    __syncthreads();
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (search_width * graph_degree),
+                                                itopk_size);
+    __syncthreads();
   }
 
   for (uint32_t i = threadIdx.x; i < itopk_size; i += blockDim.x) {
@@ -357,7 +404,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
@@ -368,7 +416,8 @@ struct search_kernel_config {
                                            DATA_T,
                                            DISTANCE_T,
                                            INDEX_T,
-                                           device::LOAD_128BIT_T>);
+                                           device::LOAD_128BIT_T,
+                                           SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
@@ -379,7 +428,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 128) {
       return search_kernel<TEAM_SIZE,
                            128,
@@ -387,7 +437,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     } else if (result_buffer_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            256,
@@ -395,7 +446,8 @@ struct search_kernel_config {
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     }
     THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
   }
@@ -405,7 +457,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
@@ -430,10 +483,12 @@ void select_and_run(  // raft::resources const& res,
   size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
-    choose_buffer_size(result_buffer_size, block_size);
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
+      choose_buffer_size(result_buffer_size, block_size);
 
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
@@ -444,7 +499,7 @@ void select_and_run(  // raft::resources const& res,
 
   dim3 block_dims(block_size, 1, 1);
   dim3 grid_dims(num_cta_per_query, num_queries, 1);
-  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
+  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %u smem",
                  block_size,
                  num_cta_per_query,
                  num_queries,
@@ -468,7 +523,8 @@ void select_and_run(  // raft::resources const& res,
                                                        search_width,
                                                        min_iterations,
                                                        max_iterations,
-                                                       num_executed_iterations);
+                                                       num_executed_iterations,
+                                                       sample_filter);
 }
 
 }  // namespace multi_cta_search

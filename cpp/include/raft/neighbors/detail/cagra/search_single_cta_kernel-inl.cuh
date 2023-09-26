@@ -25,6 +25,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <vector>
@@ -78,7 +79,7 @@ __device__ void pickup_next_parents(std::uint32_t* const terminate_flag,
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << threadIdx.x) - 1)) + num_new_parents;
       if (i < search_width) {
-        next_parent_indices[i] = index;
+        next_parent_indices[i] = jj;
         // set most significant bit as used node
         internal_topk_indices[jj] |= index_msb_1_mask;
       }
@@ -460,7 +461,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
-          class INDEX_T>
+          class INDEX_T,
+          class SAMPLE_FILTER_T>
 __launch_bounds__(1024, 1) __global__
   void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
                      DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
@@ -484,7 +486,8 @@ __launch_bounds__(1024, 1) __global__
                      std::uint32_t* const num_executed_iterations,  // [num_queries]
                      const std::uint32_t hash_bitlen,
                      const std::uint32_t small_hash_bitlen,
-                     const std::uint32_t small_hash_reset_interval)
+                     const std::uint32_t small_hash_reset_interval,
+                     SAMPLE_FILTER_T sample_filter)
 {
   using LOAD_T        = device::LOAD_128BIT_T;
   const auto query_id = blockIdx.y;
@@ -528,6 +531,9 @@ __launch_bounds__(1024, 1) __global__
   auto topk_ws            = reinterpret_cast<std::uint32_t*>(parent_list_buffer + search_width);
   auto terminate_flag     = reinterpret_cast<std::uint32_t*>(topk_ws + 3);
   auto smem_working_ptr   = reinterpret_cast<std::uint32_t*>(terminate_flag + 1);
+
+  // A flag for filtering.
+  auto filter_flag = terminate_flag;
 
   const DATA_T* const query_ptr = queries_ptr + query_id * dataset_dim;
   for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += blockDim.x) {
@@ -578,7 +584,7 @@ __launch_bounds__(1024, 1) __global__
   std::uint32_t iter = 0;
   while (1) {
     // sort
-    if (TOPK_BY_BITONIC_SORT) {
+    if constexpr (TOPK_BY_BITONIC_SORT) {
       // [Notice]
       // It is good to use multiple warps in topk_by_bitonic_sort() when
       // batch size is small (short-latency), but it might not be always good
@@ -618,6 +624,9 @@ __launch_bounds__(1024, 1) __global__
 
       // topk with bitonic sort
       _CLK_START();
+      if (std::is_same<SAMPLE_FILTER_T,
+                       raft::neighbors::filtering::none_cagra_sample_filter>::value ||
+          *filter_flag == 0) {
       topk_by_bitonic_sort<MAX_ITOPK, MAX_CANDIDATES>(result_distances_buffer,
                                                       result_indices_buffer,
                                                       internal_topk,
@@ -628,8 +637,17 @@ __launch_bounds__(1024, 1) __global__
                                                       (iter == 0),
                                                       multi_warps_1,
                                                       multi_warps_2);
+        __syncthreads();
+      } else {
+        topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES>(
+          result_distances_buffer,
+          result_indices_buffer,
+          internal_topk + search_width * graph_degree,
+          internal_topk,
+					false);
+        if (threadIdx.x == 0) { *terminate_flag = 0; }
+      }
       _CLK_REC(clk_topk);
-
     } else {
       _CLK_START();
       // topk with radix block sort
@@ -685,24 +703,75 @@ __launch_bounds__(1024, 1) __global__
     // compute the norms between child nodes and query node
     _CLK_START();
     constexpr unsigned max_n_frags = 16;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-      result_indices_buffer + internal_topk,
-      result_distances_buffer + internal_topk,
-      query_buffer,
-      dataset_ptr,
-      dataset_dim,
-      dataset_ld,
-      knn_graph,
-      graph_degree,
-      local_visited_hashmap_ptr,
-      hash_bitlen,
-      parent_list_buffer,
-      search_width);
+    device::
+      compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+        result_indices_buffer + internal_topk,
+        result_distances_buffer + internal_topk,
+        query_buffer,
+        dataset_ptr,
+        dataset_dim,
+        dataset_ld,
+        knn_graph,
+        graph_degree,
+        local_visited_hashmap_ptr,
+        hash_bitlen,
+        parent_list_buffer,
+        result_indices_buffer,
+        search_width);
     __syncthreads();
     _CLK_REC(clk_compute_distance);
 
+    // Filtering
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      if (threadIdx.x == 0) { *filter_flag = 0; }
+      __syncthreads();
+
+      constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+      const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+      for (unsigned p = threadIdx.x; p < search_width; p += blockDim.x) {
+        if (parent_list_buffer[p] != invalid_index) {
+          const auto parent_id = result_indices_buffer[parent_list_buffer[p]] & ~index_msb_1_mask;
+          if (!sample_filter(query_id, parent_id)) {
+            // If the parent must not be in the resulting top-k list, remove from the parent list
+            result_distances_buffer[parent_list_buffer[p]] = utils::get_max_value<DISTANCE_T>();
+            result_indices_buffer[parent_list_buffer[p]]   = invalid_index;
+            *filter_flag                                   = 1;
+          }
+        }
+      }
+      __syncthreads();
+    }
+
     iter++;
   }
+
+  // Post process for filtering
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    for (unsigned i = threadIdx.x; i < internal_topk + search_width * graph_degree;
+         i += blockDim.x) {
+      const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
+      if (node_id != (invalid_index & ~index_msb_1_mask) && !sample_filter(query_id, node_id)) {
+        result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[i]   = invalid_index;
+      }
+    }
+
+    __syncthreads();
+    topk_by_bitonic_sort_1st<MAX_ITOPK + MAX_CANDIDATES>(
+      result_distances_buffer,
+      result_indices_buffer,
+      internal_topk + search_width * graph_degree,
+      top_k,
+			false);
+    __syncthreads();
+  }
+
   for (std::uint32_t i = threadIdx.x; i < top_k; i += blockDim.x) {
     unsigned j  = i + (top_k * query_id);
     unsigned ii = i;
@@ -741,9 +810,15 @@ __launch_bounds__(1024, 1) __global__
 #endif
 }
 
-template <unsigned TEAM_SIZE, unsigned MX_DIM, typename T, typename IdxT, typename DistT>
+template <unsigned TEAM_SIZE,
+          unsigned MX_DIM,
+          typename T,
+          typename IdxT,
+          typename DistT,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
-  using kernel_t = decltype(&search_kernel<TEAM_SIZE, 64, 64, 0, MX_DIM, T, DistT, IdxT>);
+  using kernel_t =
+    decltype(&search_kernel<TEAM_SIZE, 64, 64, 0, MX_DIM, T, DistT, IdxT, SAMPLE_FILTER_T>);
 
   template <unsigned MAX_CANDIDATES, unsigned USE_BITONIC_SORT>
   static auto choose_search_kernel(unsigned itopk_size) -> kernel_t
@@ -758,7 +833,9 @@ struct search_kernel_config {
                            MX_DIM,
                            T,
                            DistT,
-                           IdxT>;
+                           IdxT,
+													 SAMPLE_FILTER_T
+													 >;
     } else if (itopk_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            256,
@@ -767,7 +844,8 @@ struct search_kernel_config {
                            MX_DIM,
                            T,
                            DistT,
-                           IdxT>;
+                           IdxT,
+													 SAMPLE_FILTER_T>;
     } else if (itopk_size <= 512) {
       return search_kernel<TEAM_SIZE,
                            512,
@@ -776,7 +854,8 @@ struct search_kernel_config {
                            MX_DIM,
                            T,
                            DistT,
-                           IdxT>;
+                           IdxT,
+													 SAMPLE_FILTER_T>;
     }
     THROW("No kernel for parametels itopk_size %u, max_candidates %u", itopk_size, MAX_CANDIDATES);
   }
@@ -811,7 +890,8 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
@@ -836,16 +916,18 @@ void select_and_run(  // raft::resources const& res,
   size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
-    choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
+      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
   dim3 thread_dims(block_size, 1, 1);
   dim3 block_dims(1, num_queries, 1);
   RAFT_LOG_DEBUG(
-    "Launching kernel with %u threads, %u block %lu smem", block_size, num_queries, smem_size);
+    "Launching kernel with %u threads, %u block %u smem", block_size, num_queries, smem_size);
   kernel<<<block_dims, thread_dims, smem_size, stream>>>(topk_indices_ptr,
                                                          topk_distances_ptr,
                                                          topk,
@@ -868,7 +950,8 @@ void select_and_run(  // raft::resources const& res,
                                                          num_executed_iterations,
                                                          hash_bitlen,
                                                          small_hash_bitlen,
-                                                         small_hash_reset_interval);
+                                                         small_hash_reset_interval,
+                                                         sample_filter);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 }  // namespace single_cta_search
