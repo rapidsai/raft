@@ -420,7 +420,6 @@ void brute_force_knn_impl(
          metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
          metric == raft::distance::DistanceType::L2Expanded ||
          metric == raft::distance::DistanceType::L2SqrtExpanded)) {
-      // TODO: can we pass pre-computed norms to fusedL2KNN ?
       fusedL2Knn(D,
                  out_i_ptr,
                  out_d_ptr,
@@ -432,7 +431,8 @@ void brute_force_knn_impl(
                  rowMajorIndex,
                  rowMajorQuery,
                  stream,
-                 metric);
+                 metric,
+                 input_norms ? (*input_norms)[i] : nullptr);
 
       // Perform necessary post-processing
       if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
