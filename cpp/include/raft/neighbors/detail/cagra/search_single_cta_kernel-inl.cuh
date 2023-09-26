@@ -791,7 +791,7 @@ struct search_kernel_config {
     } else if (num_itopk_candidates <= 128) {
       return choose_search_kernel<128, 1>(itopk_size);
     } else if (num_itopk_candidates <= 256) {
-      return choose_search_kernel<526, 1>(itopk_size);
+      return choose_search_kernel<256, 1>(itopk_size);
     } else {
       // Radix-based topk is used
       constexpr unsigned max_candidates = 32;  // to avoid build failure
