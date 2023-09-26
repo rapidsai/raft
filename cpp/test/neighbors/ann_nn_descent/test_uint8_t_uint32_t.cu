@@ -16,14 +16,13 @@
 
 #include <gtest/gtest.h>
 
-#include "../ann_cagra.cuh"
-#include "search_kernel_uint64_t.cuh"
+#include "../ann_nn_descent.cuh"
 
-namespace raft::neighbors::cagra {
+namespace raft::neighbors::experimental::nn_descent {
 
-typedef AnnCagraTest<float, float, std::int64_t> AnnCagraTestF_I64;
-TEST_P(AnnCagraTestF_I64, AnnCagra) { this->testCagra(); }
+typedef AnnNNDescentTest<float, uint8_t, std::uint32_t> AnnNNDescentTestUI8_U32;
+TEST_P(AnnNNDescentTestUI8_U32, AnnCagra) { this->testNNDescent(); }
 
-INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_I64, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(AnnNNDescentTest, AnnNNDescentTestUI8_U32, ::testing::ValuesIn(inputs));
 
-}  // namespace raft::neighbors::cagra
+}  // namespace raft::neighbors::experimental::nn_descent

@@ -147,6 +147,13 @@ void parse_build_param(const nlohmann::json& conf,
   if (conf.contains("intermediate_graph_degree")) {
     param.intermediate_graph_degree = conf.at("intermediate_graph_degree");
   }
+  if (conf.contains("graph_build_algo")) {
+    if (conf.at("graph_build_algo") == "IVF_PQ") {
+      param.build_algo = raft::neighbors::cagra::graph_build_algo::IVF_PQ;
+    } else if (conf.at("graph_build_algo") == "NN_DESCENT") {
+      param.build_algo = raft::neighbors::cagra::graph_build_algo::NN_DESCENT;
+    }
+  }
 }
 
 template <typename T, typename IdxT>
