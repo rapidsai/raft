@@ -48,42 +48,43 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 
-struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_queries;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::search_width;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_max_fill_rate;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_random_samplings;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::rand_xor_mask;
+struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_queries;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::itopk_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::algo;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::team_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::search_width;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::min_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::thread_block_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_mode;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_min_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_max_fill_rate;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_random_samplings;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::graph_degree;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::topk;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::graph_degree;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::topk;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hash_bitlen;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_reset_interval;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dataset_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_reset_interval;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dataset_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::result_buffer_size;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::smem_size;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dev_seed;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_executed_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dev_seed;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_seeds;
 
   uint32_t num_cta_per_query;
   rmm::device_uvector<INDEX_T> intermediate_indices;
@@ -96,7 +97,8 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk),
+    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk),
       intermediate_indices(0, resource::get_cuda_stream(res)),
       intermediate_distances(0, resource::get_cuda_stream(res)),
       topk_workspace(0, resource::get_cuda_stream(res))
@@ -197,7 +199,8 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   const uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
                   uint32_t* const num_executed_iterations,  // [num_queries,]
-                  uint32_t topk)
+                  uint32_t topk,
+                  SAMPLE_FILTER_T sample_filter)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
 
@@ -224,6 +227,7 @@ struct search : public search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       search_width,
       min_iterations,
       max_iterations,
+      sample_filter,
       stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
