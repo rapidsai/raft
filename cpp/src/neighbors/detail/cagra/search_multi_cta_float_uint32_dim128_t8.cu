@@ -59,6 +59,8 @@ namespace raft::neighbors::cagra::detail::multi_cta_search {
     cudaStream_t stream);
 
 instantiate_kernel_selection(
+  8, 128, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_kernel_selection(
   8, 128, float, uint32_t, float, raft::neighbors::filtering::removed_cagra_filter_with_offset_u32);
 
 #undef instantiate_kernel_selection

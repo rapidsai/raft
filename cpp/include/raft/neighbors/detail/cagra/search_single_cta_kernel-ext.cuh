@@ -89,6 +89,31 @@ void select_and_run(  // raft::resources const& res,
     cudaStream_t stream);
 
 instantiate_single_cta_select_and_run(
+  32, 1024, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  8, 128, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  16, 256, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 512, float, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 1024, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  8, 128, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  16, 256, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 512, int8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 1024, uint8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  8, 128, uint8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  16, 256, uint8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+instantiate_single_cta_select_and_run(
+  32, 512, uint8_t, uint32_t, float, raft::neighbors::filtering::none_cagra_sample_filter);
+
+instantiate_single_cta_select_and_run(
   32,
   1024,
   float,

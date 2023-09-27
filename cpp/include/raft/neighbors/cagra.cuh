@@ -377,17 +377,23 @@ void search(raft::resources const& res,
   auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  cagra::detail::search_main<
-    T,
-    internal_IdxT,
-    decltype(raft::neighbors::filtering::removed_cagra_filter(idx.removed_indices().view())),
-    IdxT>(res,
-          params,
-          idx,
-          queries_internal,
-          neighbors_internal,
-          distances_internal,
-          raft::neighbors::filtering::removed_cagra_filter(idx.removed_indices().view()));
+  if (!idx.removed_indices())
+    cagra::detail::search_main(res,
+                               params,
+                               idx,
+                               queries_internal,
+                               neighbors_internal,
+                               distances_internal,
+                               raft::neighbors::filtering::none_cagra_sample_filter());
+  else
+    cagra::detail::search_main(
+      res,
+      params,
+      idx,
+      queries_internal,
+      neighbors_internal,
+      distances_internal,
+      raft::neighbors::filtering::removed_cagra_filter(idx.removed_indices()->view()));
 }
 
 /**
@@ -450,7 +456,10 @@ void remove(raft::resources const& res,
   auto indices_internal = raft::make_device_vector_view<const IdxT, IdxT>(
     indices_to_remove.data_handle(), IdxT(indices_to_remove.extent(0)));
 
-  idx.removed_indices().set(res, indices_internal);
+  if (!idx.removed_indices())
+    idx.removed_indices().emplace(res, indices_internal, idx.size());
+  else
+    idx.removed_indices()->set(res, indices_internal);
 }
 
 /** @} */  // end group cagra

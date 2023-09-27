@@ -792,8 +792,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     remove_parent_bit(
       num_queries, itopk_size, result_indices_ptr, result_buffer_allocation_size, stream);
 
-    if (!std::is_same<SAMPLE_FILTER_T,
-                      raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
       apply_filter<INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
         result_indices.data() + (iter & 0x1) * itopk_size,
         result_distances.data() + (iter & 0x1) * itopk_size,
