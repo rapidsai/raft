@@ -45,7 +45,7 @@ __global__ void recall(
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
     ref_distances,
   raft::device_scalar_view<ScalarType> recall_score,
-  DistanceValueType const threshold)
+  DistanceValueType const eps)
 {
   IndexType const row_idx = blockIdx.x;
   auto const lane_idx     = threadIdx.x % 32;
@@ -54,12 +54,20 @@ __global__ void recall(
   IndexType thread_recall_score = 0;
   for (IndexType col_idx = lane_idx; col_idx < indices.extent(1); col_idx += 32) {
     for (IndexType ref_col_idx = 0; ref_col_idx < ref_indices.extent(1); ref_col_idx++) {
-      if (indices(row_idx, col_idx) == ref_indices(row_idx, ref_col_idx) or
-          ((distances.has_value()) and
-           (raft::abs(distances.value()(row_idx, col_idx) -
-                      ref_distances.value()(row_idx, ref_col_idx)) < threshold))) {
+      if (indices(row_idx, col_idx) == ref_indices(row_idx, ref_col_idx)) {
         thread_recall_score += 1;
         break;
+      } else if (distances.has_value()) {
+        DistanceValueType diff  = raft::abs(distances.value()(row_idx, col_idx) -
+                                           ref_distances.value()(row_idx, ref_col_idx));
+        DistanceValueType m     = std::max(std::abs(distances.value()(row_idx, col_idx)),
+                                       std::abs(ref_distances.value()(row_idx, ref_col_idx)));
+        DistanceValueType ratio = diff > eps ? diff / m : diff;
+
+        if (ratio <= eps) {
+          thread_recall_score += 1;
+          break;
+        }
       }
     }
   }
@@ -93,16 +101,14 @@ void recall(
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
     ref_distances,
   raft::device_scalar_view<ScalarType> recall_score,
-  DistanceValueType const threshold)
+  DistanceValueType const eps)
 {
   // One warp per row, launch a warp-width block per-row kernel
   auto constexpr kNumThreads = 32;
   auto const num_blocks      = indices.extent(0);
 
-  std::cout << "total count: " << indices.extent(0) * indices.extent(1);
-
   recall<<<num_blocks, kNumThreads>>>(
-    indices, ref_indices, distances, ref_distances, recall_score, threshold);
+    indices, ref_indices, distances, ref_distances, recall_score, eps);
 }
 
 }  // end namespace raft::stats::detail

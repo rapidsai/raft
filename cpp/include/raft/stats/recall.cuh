@@ -41,7 +41,7 @@ namespace raft::stats {
  * Neighbors Algorithm against reference indices, distances. Recall score is calculated by comparing
  * the total number of matching indices and dividing that value by the total size of the indices
  * matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices could
- * be considered a match if abs(dist, ref_dist) < threshold.
+ * be considered a match if abs(dist, ref_dist) < eps.
  *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices
@@ -53,7 +53,7 @@ namespace raft::stats {
  * @param[out] recall_score raft::device_scalar_view output recall score
  * @param[in] distances (optional) raft::device_matrix_view distances of neighbors
  * @param[in] ref_distances (optional) raft::device_matrix_view reference distances of neighbors
- * @param[in] threshold (optional, default = 0.001) value for distance comparison
+ * @param[in] eps (optional, default = 0.001) value within which distances are considered matching
  */
 template <typename IndicesValueType,
           typename IndexType,
@@ -67,8 +67,8 @@ void recall(
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
     distances = std::nullopt,
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
-    ref_distances                                                          = std::nullopt,
-  std::optional<raft::host_scalar_view<const DistanceValueType>> threshold = std::nullopt)
+    ref_distances                                                    = std::nullopt,
+  std::optional<raft::host_scalar_view<const DistanceValueType>> eps = std::nullopt)
 {
   RAFT_EXPECTS(indices.extent(0) == ref_indices.extent(0),
                "The number of rows in indices and reference indices should be equal");
@@ -90,10 +90,10 @@ void recall(
                  "The number of columns in indices and distances should be equal");
   }
 
-  DistanceValueType threshold_val = 0.001;
-  if (threshold.has_value()) { threshold_val = *threshold.value().data_handle(); }
+  DistanceValueType eps_val = 0.001;
+  if (eps.has_value()) { eps_val = *eps.value().data_handle(); }
 
-  detail::recall(res, indices, ref_indices, distances, ref_distances, recall_score, threshold_val);
+  detail::recall(res, indices, ref_indices, distances, ref_distances, recall_score, eps_val);
 }
 
 /**
@@ -101,7 +101,7 @@ void recall(
  * Neighbors Algorithm against reference indices, distances. Recall score is calculated by comparing
  * the total number of matching indices and dividing that value by the total size of the indices
  * matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices could
- * be considered a match if abs(dist, ref_dist) < threshold.
+ * be considered a match if abs(dist, ref_dist) < eps.
  *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices
@@ -113,7 +113,7 @@ void recall(
  * @param[out] recall_score raft::host_scalar_view output recall score
  * @param[in] distances (optional) raft::device_matrix_view distances of neighbors
  * @param[in] ref_distances (optional) raft::device_matrix_view reference distances of neighbors
- * @param[in] threshold (optional, default = 0.001) value for distance comparison
+ * @param[in] eps (optional, default = 0.001) value within which distances are considered matching
  */
 template <typename IndicesValueType,
           typename IndexType,
@@ -127,11 +127,11 @@ void recall(
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
     distances = std::nullopt,
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
-    ref_distances                                                          = std::nullopt,
-  std::optional<raft::host_scalar_view<const DistanceValueType>> threshold = std::nullopt)
+    ref_distances                                                    = std::nullopt,
+  std::optional<raft::host_scalar_view<const DistanceValueType>> eps = std::nullopt)
 {
   auto recall_score_d = raft::make_device_scalar(res, *recall_score.data_handle());
-  recall(res, indices, ref_indices, recall_score_d.view(), distances, ref_distances, threshold);
+  recall(res, indices, ref_indices, recall_score_d.view(), distances, ref_distances, eps);
   raft::update_host(recall_score.data_handle(),
                     recall_score_d.data_handle(),
                     1,

@@ -422,6 +422,7 @@ if(BUILD_TESTS)
     test/stats/mutual_info_score.cu
     test/stats/r2_score.cu
     test/stats/rand_index.cu
+    test/stats/recall.cu
     test/stats/regression_metrics.cu
     test/stats/silhouette_score.cu
     test/stats/stddev.cu
