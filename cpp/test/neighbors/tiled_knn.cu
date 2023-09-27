@@ -180,6 +180,36 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                        float(0.001),
                                                        stream_,
                                                        true));
+
+    // Also test out the 'index' api - where we can use precomputed norms
+    if (params_.row_major) {
+      auto idx =
+        raft::neighbors::brute_force::build<T>(handle_,
+                                               raft::make_device_matrix_view<const T, int64_t>(
+                                                 database.data(), params_.num_db_vecs, params_.dim),
+                                               metric,
+                                               metric_arg);
+
+      raft::neighbors::brute_force::search<T, int>(
+        handle_,
+        idx,
+        raft::make_device_matrix_view<const T, int64_t>(
+          search_queries.data(), params_.num_queries, params_.dim),
+        raft::make_device_matrix_view<int, int64_t>(
+          raft_indices_.data(), params_.num_queries, params_.k),
+        raft::make_device_matrix_view<T, int64_t>(
+          raft_distances_.data(), params_.num_queries, params_.k));
+
+      ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(ref_indices_.data(),
+                                                         raft_indices_.data(),
+                                                         ref_distances_.data(),
+                                                         raft_distances_.data(),
+                                                         num_queries,
+                                                         k_,
+                                                         float(0.001),
+                                                         stream_,
+                                                         true));
+    }
   }
 
   void SetUp() override
