@@ -24,24 +24,24 @@
 
 #include <raft_internal/neighbors/naive_knn.cuh>
 
-#include <raft/stats/recall.cuh>
+#include <raft/stats/neighborhood_recall.cuh>
 #include <raft/util/itertools.hpp>
 
 #include <gtest/gtest.h>
 
 namespace raft::stats {
 
-struct RecallInputs {
+struct NeighborhoodRecallInputs {
   int n_rows;
   int n_cols;
   int k;
 };
 
 template <typename DistanceT, typename IdxT>
-class RecallTest : public ::testing::TestWithParam<RecallInputs> {
+class NeighborhoodRecallTest : public ::testing::TestWithParam<NeighborhoodRecallInputs> {
  public:
-  RecallTest()
-    : ps{::testing::TestWithParam<RecallInputs>::GetParam()},
+  NeighborhoodRecallTest()
+    : ps{::testing::TestWithParam<NeighborhoodRecallInputs>::GetParam()},
       data_1{raft::make_device_matrix<DistanceT, IdxT>(res, ps.n_rows, ps.n_cols)},
       data_2{raft::make_device_matrix<DistanceT, IdxT>(res, ps.n_rows, ps.n_cols)}
   {
@@ -113,23 +113,23 @@ class RecallTest : public ::testing::TestWithParam<RecallInputs> {
     // find GPU recall scores
     auto s1                         = 0;
     auto indices_only_recall_scalar = raft::make_host_scalar<double>(s1);
-    recall(res,
-           raft::make_const_mdspan(indices_1.view()),
-           raft::make_const_mdspan(indices_2.view()),
-           indices_only_recall_scalar.view());
+    neighborhood_recall(res,
+                        raft::make_const_mdspan(indices_1.view()),
+                        raft::make_const_mdspan(indices_2.view()),
+                        indices_only_recall_scalar.view());
 
     auto s2            = 0;
     auto recall_scalar = raft::make_host_scalar<double>(s2);
     DistanceT s3       = 0.001;
     auto eps_mda       = raft::make_host_scalar<DistanceT>(s3);
 
-    recall<IdxT, IdxT, double, DistanceT>(res,
-                                          raft::make_const_mdspan(indices_1.view()),
-                                          raft::make_const_mdspan(indices_2.view()),
-                                          recall_scalar.view(),
-                                          raft::make_const_mdspan(distances_1.view()),
-                                          raft::make_const_mdspan(distances_2.view()),
-                                          raft::make_const_mdspan(eps_mda.view()));
+    neighborhood_recall<IdxT, IdxT, double, DistanceT>(res,
+                                                       raft::make_const_mdspan(indices_1.view()),
+                                                       raft::make_const_mdspan(indices_2.view()),
+                                                       recall_scalar.view(),
+                                                       raft::make_const_mdspan(distances_1.view()),
+                                                       raft::make_const_mdspan(distances_2.view()),
+                                                       raft::make_const_mdspan(eps_mda.view()));
 
     // assert correctness
     ASSERT_TRUE(raft::match(indices_only_recall_h,
@@ -159,19 +159,21 @@ class RecallTest : public ::testing::TestWithParam<RecallInputs> {
 
  private:
   raft::resources res;
-  RecallInputs ps;
+  NeighborhoodRecallInputs ps;
   raft::device_matrix<DistanceT, IdxT> data_1;
   raft::device_matrix<DistanceT, IdxT> data_2;
 };
 
-const std::vector<RecallInputs> inputs =
-  raft::util::itertools::product<RecallInputs>({10, 50, 100},  // n_rows
-                                               {80, 100},      // dim
-                                               {32, 64});
+const std::vector<NeighborhoodRecallInputs> inputs =
+  raft::util::itertools::product<NeighborhoodRecallInputs>({10, 50, 100},  // n_rows
+                                                           {80, 100},      // n_cols
+                                                           {32, 64});      // k
 
-using RecallTestF_U32 = RecallTest<float, std::uint32_t>;
-TEST_P(RecallTestF_U32, AnnCagra) { this->test_recall(); }
+using NeighborhoodRecallTestF_U32 = NeighborhoodRecallTest<float, std::uint32_t>;
+TEST_P(NeighborhoodRecallTestF_U32, AnnCagra) { this->test_recall(); }
 
-INSTANTIATE_TEST_CASE_P(RecallTest, RecallTestF_U32, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(NeighborhoodRecallTest,
+                        NeighborhoodRecallTestF_U32,
+                        ::testing::ValuesIn(inputs));
 
 }  // end namespace raft::stats

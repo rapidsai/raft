@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "detail/recall.cuh"
+#include "detail/neighborhood_recall.cuh"
 
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/device_mdspan.hpp>
@@ -32,16 +32,16 @@
 namespace raft::stats {
 
 /**
- * @defgroup stats_recall Recall Score
+ * @defgroup stats_neighborhood_recall Neighborhood Recall Score
  * @{
  */
 
 /**
- * @brief Calculate Recall score on the device for indices, distances computed by any Nearest
- * Neighbors Algorithm against reference indices, distances. Recall score is calculated by comparing
- * the total number of matching indices and dividing that value by the total size of the indices
- * matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices could
- * be considered a match if abs(dist, ref_dist) < eps.
+ * @brief Calculate Neighborhood Recall score on the device for indices, distances computed by any
+ * Nearest Neighbors Algorithm against reference indices, distances. Recall score is calculated by
+ * comparing the total number of matching indices and dividing that value by the total size of the
+ * indices matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices
+ * could be considered a match if abs(dist, ref_dist) < eps.
  *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices
@@ -59,7 +59,7 @@ template <typename IndicesValueType,
           typename IndexType,
           typename ScalarType,
           typename DistanceValueType = float>
-void recall(
+void neighborhood_recall(
   raft::resources const& res,
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> indices,
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> ref_indices,
@@ -93,15 +93,16 @@ void recall(
   DistanceValueType eps_val = 0.001;
   if (eps.has_value()) { eps_val = *eps.value().data_handle(); }
 
-  detail::recall(res, indices, ref_indices, distances, ref_distances, recall_score, eps_val);
+  detail::neighborhood_recall(
+    res, indices, ref_indices, distances, ref_distances, recall_score, eps_val);
 }
 
 /**
- * @brief Calculate Recall score on the host for indices, distances computed by any Nearest
- * Neighbors Algorithm against reference indices, distances. Recall score is calculated by comparing
- * the total number of matching indices and dividing that value by the total size of the indices
- * matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices could
- * be considered a match if abs(dist, ref_dist) < eps.
+ * @brief Calculate Neighborhood Recall score on the host for indices, distances computed by any
+ * Nearest Neighbors Algorithm against reference indices, distances. Recall score is calculated by
+ * comparing the total number of matching indices and dividing that value by the total size of the
+ * indices matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices
+ * could be considered a match if abs(dist, ref_dist) < eps.
  *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices
@@ -119,7 +120,7 @@ template <typename IndicesValueType,
           typename IndexType,
           typename ScalarType,
           typename DistanceValueType = float>
-void recall(
+void neighborhood_recall(
   raft::resources const& res,
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> indices,
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> ref_indices,
@@ -131,7 +132,8 @@ void recall(
   std::optional<raft::host_scalar_view<const DistanceValueType>> eps = std::nullopt)
 {
   auto recall_score_d = raft::make_device_scalar(res, *recall_score.data_handle());
-  recall(res, indices, ref_indices, recall_score_d.view(), distances, ref_distances, eps);
+  neighborhood_recall(
+    res, indices, ref_indices, recall_score_d.view(), distances, ref_distances, eps);
   raft::update_host(recall_score.data_handle(),
                     recall_score_d.data_handle(),
                     1,
