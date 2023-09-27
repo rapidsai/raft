@@ -33,3 +33,32 @@ This ensures caches, configurations, dependencies, and your commits are persiste
 To launch a devcontainer from VSCode, open the RAFT repo and select the "Reopen in Container" button in the bottom right:<br/><img src="https://user-images.githubusercontent.com/178183/221771999-97ab29d5-e718-4e5f-b32f-2cdd51bba25c.png"/>
 
 Alternatively, open the VSCode command palette (typically `cmd/ctrl + shift + P`) and run the "Rebuild and Reopen in Container" command.
+
+## Using the devcontainer
+
+On startup, the devcontainer creates or updates the conda/pip environment using `raft/dependencies.yaml`.
+
+The container includes convenience functions to clean, configure, and build the various RAFT components:
+
+```shell
+$ clean-raft-cpp # only cleans the C++ build dir
+$ clean-pylibraft-python # only cleans the Python build dir
+$ clean-raft # cleans both C++ and Python build dirs
+
+$ configure-raft-cpp # only configures raft C++ lib
+
+$ build-raft-cpp # only builds raft C++ lib
+$ build-pylibraft-python # only builds raft Python lib
+$ build-raft # builds both C++ and Python libs
+```
+
+* The C++ build script is a small wrapper around `cmake -S ~/raft/cpp -B ~/raft/cpp/build` and `cmake --build ~/raft/cpp/build`
+* The Python build script is a small wrapper around `pip install --editable ~/raft/cpp`
+
+Unlike `build.sh`, these convenience scripts *don't* install the libraries after building them. Instead, they automatically inject the correct arguments to build the C++ libraries from source and use their build dirs as package roots:
+
+```shell
+$ cmake -S ~/raft/cpp -B ~/raft/cpp/build
+$ CMAKE_ARGS="-Draft_ROOT=~/raft/cpp/build" \ # <-- this argument is automatic
+  pip install -e ~/raft/cpp
+```
