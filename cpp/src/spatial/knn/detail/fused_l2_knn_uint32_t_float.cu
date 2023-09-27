@@ -32,7 +32,9 @@
     bool rowMajorIndex,                                                                      \
     bool rowMajorQuery,                                                                      \
     cudaStream_t stream,                                                                     \
-    raft::distance::DistanceType metric)
+    raft::distance::DistanceType metric,                                                     \
+    const Mvalue_t* index_norms,                                                             \
+    const Mvalue_t* query_norms)
 
 // These are used by brute_force_knn:
 instantiate_raft_spatial_knn_detail_fusedL2Knn(uint32_t, float, true);
