@@ -58,10 +58,10 @@ __global__ void recall(
         thread_recall_score += 1;
         break;
       } else if (distances.has_value()) {
-        DistanceValueType diff  = raft::abs(distances.value()(row_idx, col_idx) -
-                                           ref_distances.value()(row_idx, ref_col_idx));
-        DistanceValueType m     = std::max(std::abs(distances.value()(row_idx, col_idx)),
-                                       std::abs(ref_distances.value()(row_idx, ref_col_idx)));
+        auto dist               = distances.value()(row_idx, col_idx);
+        auto ref_dist           = ref_distances.value()(row_idx, ref_col_idx);
+        DistanceValueType diff  = raft::abs(dist - ref_dist);
+        DistanceValueType m     = std::max(std::abs(dist), std::abs(ref_dist));
         DistanceValueType ratio = diff > eps ? diff / m : diff;
 
         if (ratio <= eps) {
