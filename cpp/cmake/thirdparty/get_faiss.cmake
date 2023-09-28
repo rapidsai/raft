@@ -90,7 +90,7 @@ function(find_and_configure_faiss)
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.4
-        REPOSITORY  git@github.com:facebookresearch/faiss.git
+        REPOSITORY  https://github.com/facebookresearch/faiss.git
         PINNED_TAG  v1.7.4
         BUILD_STATIC_LIBS ${RAFT_USE_FAISS_STATIC}
         EXCLUDE_FROM_ALL ${RAFT_EXCLUDE_FAISS_FROM_ALL}
