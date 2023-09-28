@@ -10,7 +10,7 @@ dependencies:
 - benchmark>=1.8.2
 - c-compiler
 - clang-tools=16.0.6
-- clang=16.0.6
+- clang==16.0.6
 - cmake>=3.26.4
 - cuda-profiler-api=11.8.86
 - cuda-version=11.8
@@ -34,6 +34,7 @@ dependencies:
 - ninja
 - nlohmann_json>=3.11.2
 - rmm=23.10.*
+- nvcc_linux-64=11.8
 - scikit-build>=0.13.1
 - sysroot_linux-64==2.17
 name: bench_ann_cuda-118_arch-x86_64
