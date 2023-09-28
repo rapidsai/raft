@@ -294,7 +294,7 @@ struct search_plan_impl : public search_plan_impl_base {
     if (!std::is_same<SAMPLE_FILTER_T,
                       raft::neighbors::filtering::none_cagra_sample_filter>::value) {
       if (hashmap_mode == hash_mode::SMALL) {
-        error_message += "`FORGETTABLE` hash is not available when filtering";
+        error_message += "`SMALL` hash is not available when filtering";
       } else {
         hashmap_mode = hash_mode::HASH;
       }
