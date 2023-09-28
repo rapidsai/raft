@@ -49,7 +49,7 @@ namespace {
 
 /* A filter that excludes all indices below `offset`. */
 struct test_cagra_sample_filter {
-  static constexpr unsigned offset = 400;
+  static constexpr unsigned offset = 300;
   inline _RAFT_HOST_DEVICE auto operator()(
     // query index
     const uint32_t query_ix,

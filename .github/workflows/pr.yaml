@@ -22,6 +22,7 @@ jobs:
       - wheel-tests-pylibraft
       - wheel-build-raft-dask
       - wheel-tests-raft-dask
+      - devcontainer
     secrets: inherit
     uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.10
   checks:
@@ -92,3 +93,11 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel_raft_dask.sh
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@branch-23.10
+    with:
+      build_command: |
+        sccache -z;
+        build-all -DBUILD_PRIMS_BENCH=ON -DBUILD_ANN_BENCH=ON --verbose;
+        sccache -s;

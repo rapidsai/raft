@@ -254,7 +254,7 @@ __global__ void pickup_next_parents_kernel(
     if ((num_new_parents > 0) && (threadIdx.x == 0)) { *terminate_flag = 0; }
   } else if (small_hash_bitlen) {
     // reset small-hash
-    hashmap::init<32>(visited_hashmap_ptr + (ldb * query_id), hash_bitlen);
+    hashmap::init(visited_hashmap_ptr + (ldb * query_id), hash_bitlen, 32);
   }
 
   if (small_hash_bitlen) {

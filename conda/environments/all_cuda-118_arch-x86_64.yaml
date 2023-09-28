@@ -10,7 +10,7 @@ dependencies:
 - breathe
 - c-compiler
 - clang-tools=16.0.6
-- clang=16.0.6
+- clang==16.0.6
 - cmake>=3.26.4
 - cuda-profiler-api=11.8.86
 - cuda-python>=11.7.1,<12.0a0
@@ -43,6 +43,8 @@ dependencies:
 - numba>=0.57
 - numpy>=1.21
 - numpydoc
+- nvcc_linux-64=11.8
+- pre-commit
 - pydata-sphinx-theme
 - pytest
 - pytest-cov
