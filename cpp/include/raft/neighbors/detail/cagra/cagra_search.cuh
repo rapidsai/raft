@@ -27,7 +27,6 @@
 #include <raft/core/resource/detail/device_memory_resource.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/cagra_types.hpp>
-#include <raft/neighbors/sample_filter_types.hpp>
 #include <rmm/cuda_stream_view.hpp>
 
 #include "factory.cuh"
@@ -36,20 +35,44 @@
 
 namespace raft::neighbors::cagra::detail {
 
+template <class CagraSampleFilterT>
+struct CagraSampleFilterWithQueryIdOffset {
+  const uint32_t offset;
+  CagraSampleFilterT filter;
+
+  CagraSampleFilterWithQueryIdOffset(const uint32_t offset, const CagraSampleFilterT filter)
+    : offset(offset), filter(filter)
+  {
+  }
+
+  _RAFT_DEVICE auto operator()(const uint32_t query_id, const uint32_t sample_id)
+  {
+    return filter(query_id + offset, sample_id);
+  }
+};
+
+template <class CagraSampleFilterT>
+struct CagraSampleFilterT_Selector {
+  using type = CagraSampleFilterWithQueryIdOffset<CagraSampleFilterT>;
+};
+template <>
+struct CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter> {
+  using type = raft::neighbors::filtering::none_cagra_sample_filter;
+};
+
 // A helper function to set a query id offset
 template <class CagraSampleFilterT>
-inline typename raft::neighbors::filtering::CagraSampleFilterT_Selector<CagraSampleFilterT>::type
-set_offset(CagraSampleFilterT filter, const uint32_t offset)
+inline typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type set_offset(
+  CagraSampleFilterT filter, const uint32_t offset)
 {
-  typename raft::neighbors::filtering::CagraSampleFilterT_Selector<CagraSampleFilterT>::type
-    new_filter(offset, filter);
+  typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type new_filter(offset, filter);
   return new_filter;
 }
 template <>
-inline typename raft::neighbors::filtering::CagraSampleFilterT_Selector<
-  raft::neighbors::filtering::none_cagra_sample_filter>::type
-set_offset<raft::neighbors::filtering::none_cagra_sample_filter>(
-  raft::neighbors::filtering::none_cagra_sample_filter filter, const uint32_t)
+inline
+  typename CagraSampleFilterT_Selector<raft::neighbors::filtering::none_cagra_sample_filter>::type
+  set_offset<raft::neighbors::filtering::none_cagra_sample_filter>(
+    raft::neighbors::filtering::none_cagra_sample_filter filter, const uint32_t)
 {
   return filter;
 }
@@ -102,8 +125,7 @@ void search_main(raft::resources const& res,
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "cagra::search(max_queries = %u, k = %u, dim = %zu)", params.max_queries, topk, index.dim());
 
-  using CagraSampleFilterT_s =
-    typename raft::neighbors::filtering::CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
+  using CagraSampleFilterT_s = typename CagraSampleFilterT_Selector<CagraSampleFilterT>::type;
   std::unique_ptr<search_plan_impl<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>> plan =
     factory<T, internal_IdxT, DistanceT, CagraSampleFilterT_s>::create(
       res, params, index.dim(), index.graph_degree(), topk);

@@ -19,7 +19,6 @@
 #include "ann_types.hpp"
 #include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/bitset.cuh>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdarray.hpp>
@@ -169,18 +168,6 @@ struct index : ann::index {
     -> device_matrix_view<const IdxT, int64_t, row_major>
   {
     return graph_view_;
-  }
-
-  /** Get bitset of removed indices [size] */
-  [[nodiscard]] inline auto removed_indices() noexcept
-    -> std::optional<raft::core::bitset<std::uint32_t, IdxT>>&
-  {
-    return removed_indices_;
-  }
-  [[nodiscard]] inline auto removed_indices() const noexcept
-    -> const std::optional<raft::core::bitset<std::uint32_t, IdxT>>&
-  {
-    return removed_indices_;
   }
 
   // Don't allow copying the index for performance reasons (try avoiding copying data)
@@ -380,7 +367,6 @@ struct index : ann::index {
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
   raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
   raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
-  std::optional<raft::core::bitset<uint32_t, IdxT>> removed_indices_;
 };
 
 /** @} */

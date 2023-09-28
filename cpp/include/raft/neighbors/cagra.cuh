@@ -20,7 +20,6 @@
 #include "detail/cagra/cagra_search.cuh"
 #include "detail/cagra/graph_core.cuh"
 
-#include <raft/core/bitset.cuh>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/mdspan.hpp>
@@ -377,23 +376,16 @@ void search(raft::resources const& res,
   auto distances_internal = raft::make_device_matrix_view<float, int64_t, row_major>(
     distances.data_handle(), distances.extent(0), distances.extent(1));
 
-  if (!idx.removed_indices())
-    cagra::detail::search_main(res,
-                               params,
-                               idx,
-                               queries_internal,
-                               neighbors_internal,
-                               distances_internal,
-                               raft::neighbors::filtering::none_cagra_sample_filter());
-  else
-    cagra::detail::search_main(
-      res,
-      params,
-      idx,
-      queries_internal,
-      neighbors_internal,
-      distances_internal,
-      raft::neighbors::filtering::removed_cagra_filter(idx.removed_indices()->view()));
+  cagra::detail::search_main<T,
+                             internal_IdxT,
+                             decltype(raft::neighbors::filtering::none_cagra_sample_filter()),
+                             IdxT>(res,
+                                   params,
+                                   idx,
+                                   queries_internal,
+                                   neighbors_internal,
+                                   distances_internal,
+                                   raft::neighbors::filtering::none_cagra_sample_filter());
 }
 
 /**
@@ -446,20 +438,6 @@ void search_with_filtering(raft::resources const& res,
 
   cagra::detail::search_main<T, internal_IdxT, CagraSampleFilterT, IdxT>(
     res, params, idx, queries_internal, neighbors_internal, distances_internal, sample_filter);
-}
-
-template <typename T, typename IdxT>
-void remove(raft::resources const& res,
-            index<T, IdxT>& idx,
-            raft::device_vector_view<const IdxT, int64_t> indices_to_remove)
-{
-  auto indices_internal = raft::make_device_vector_view<const IdxT, IdxT>(
-    indices_to_remove.data_handle(), IdxT(indices_to_remove.extent(0)));
-
-  if (!idx.removed_indices())
-    idx.removed_indices().emplace(res, indices_internal, idx.size());
-  else
-    idx.removed_indices()->set(res, indices_internal);
 }
 
 /** @} */  // end group cagra

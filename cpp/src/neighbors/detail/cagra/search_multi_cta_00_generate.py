@@ -103,9 +103,6 @@ for type_path, (data_t, idx_t, distance_t) in search_types.items():
             f.write(
                 f"instantiate_kernel_selection(\n  {team}, {mxdim}, {data_t}, {idx_t}, {distance_t}, raft::neighbors::filtering::none_cagra_sample_filter);\n"
             )
-            f.write(
-                f"instantiate_kernel_selection(\n  {team}, {mxdim}, {data_t}, {idx_t}, {distance_t}, raft::neighbors::filtering::removed_cagra_filter_with_offset_u32);\n"
-            )
             f.write(trailer)
             # For pasting into CMakeLists.txt
         print(f"src/neighbors/detail/cagra/{path}")

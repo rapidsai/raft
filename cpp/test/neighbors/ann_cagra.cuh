@@ -30,6 +30,7 @@
 #include <raft/linalg/add.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
 
@@ -600,9 +601,16 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
           thrust::device_pointer_cast(removed_indices.data_handle()),
           thrust::device_pointer_cast(removed_indices.data_handle() + removed_indices.extent(0)));
         resource::sync_stream(handle_);
-        cagra::remove(handle_, index, raft::make_const_mdspan(removed_indices.view()));
-        cagra::search(
-          handle_, search_params, index, search_queries_view, indices_out_view, dists_out_view);
+        raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+          handle_, removed_indices.view(), ps.n_rows);
+        cagra::search_with_filtering(
+          handle_,
+          search_params,
+          index,
+          search_queries_view,
+          indices_out_view,
+          dists_out_view,
+          raft::neighbors::filtering::bitset_filter(removed_indices_bitset.view()));
         update_host(distances_Cagra.data(), distances_dev.data(), queries_size, stream_);
         update_host(indices_Cagra.data(), indices_dev.data(), queries_size, stream_);
         resource::sync_stream(handle_);

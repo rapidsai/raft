@@ -18,6 +18,7 @@
 
 #include <common/benchmark.hpp>
 #include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/util/itertools.hpp>
 #include <thrust/sequence.h>
@@ -53,7 +54,7 @@ struct CagraBench : public fixture {
       queries_(make_device_matrix<T, int64_t>(handle, ps.n_queries, ps.n_dims)),
       dataset_(make_device_matrix<T, int64_t>(handle, ps.n_samples, ps.n_dims)),
       knn_graph_(make_device_matrix<IdxT, int64_t>(handle, ps.n_samples, ps.degree)),
-      removed_indices_(make_device_vector<IdxT, int64_t>(handle, ps.removed_ratio * ps.n_samples))
+      removed_indices_bitset_(handle, ps.n_samples)
   {
     // Generate random dataset and queriees
     raft::random::RngState state{42};
@@ -78,14 +79,15 @@ struct CagraBench : public fixture {
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
-    auto index = raft::neighbors::cagra::index<T, IdxT>(
-      handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view()));
+    auto removed_indices =
+      raft::make_device_vector<IdxT, int64_t>(handle, ps.removed_ratio * ps.n_samples);
     thrust::sequence(
       resource::get_thrust_policy(handle),
-      thrust::device_pointer_cast(removed_indices_.data_handle()),
-      thrust::device_pointer_cast(removed_indices_.data_handle() + removed_indices_.extent(0)));
-    raft::neighbors::cagra::remove(handle, index, raft::make_const_mdspan(removed_indices_.view()));
-    index_.emplace(std::move(index));
+      thrust::device_pointer_cast(removed_indices.data_handle()),
+      thrust::device_pointer_cast(removed_indices.data_handle() + removed_indices.extent(0)));
+    removed_indices_bitset_.set(handle, removed_indices.view());
+    index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
+      handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view())));
   }
 
   void run_benchmark(::benchmark::State& state) override
@@ -105,10 +107,18 @@ struct CagraBench : public fixture {
       distances.data_handle(), params_.n_queries, params_.k);
 
     auto queries_v = make_const_mdspan(queries_.view());
-    loop_on_state(state, [&]() {
-      raft::neighbors::cagra::search(
-        this->handle, search_params, *this->index_, queries_v, ind_v, dist_v);
-    });
+    if (params_.removed_ratio > 0) {
+      auto filter = raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view());
+      loop_on_state(state, [&]() {
+        raft::neighbors::cagra::search_with_filtering(
+          this->handle, search_params, *this->index_, queries_v, ind_v, dist_v, filter);
+      });
+    } else {
+      loop_on_state(state, [&]() {
+        raft::neighbors::cagra::search(
+          this->handle, search_params, *this->index_, queries_v, ind_v, dist_v);
+      });
+    }
 
     double data_size  = params_.n_samples * params_.n_dims * sizeof(T);
     double graph_size = params_.n_samples * params_.degree * sizeof(IdxT);
@@ -139,7 +149,7 @@ struct CagraBench : public fixture {
   raft::device_matrix<T, int64_t, row_major> queries_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   raft::device_matrix<IdxT, int64_t, row_major> knn_graph_;
-  raft::device_vector<IdxT, int64_t> removed_indices_;
+  raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset_;
 };
 
 inline const std::vector<params> generate_inputs()

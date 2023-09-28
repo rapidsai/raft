@@ -25,7 +25,7 @@
 
 namespace raft::neighbors::cagra::detail {
 
-constexpr int serialization_version = 4;
+constexpr int serialization_version = 3;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -36,7 +36,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-constexpr size_t expected_size = 264;
+constexpr size_t expected_size = 200;
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), expected_size>;
 
 /**
@@ -87,12 +87,6 @@ void serialize(raft::resources const& res,
     resource::sync_stream(res);
     serialize_mdspan(res, os, host_dataset.view());
   }
-  bool has_removed_indices = index_.removed_indices().has_value();
-  serialize_scalar(res, os, has_removed_indices);
-  if (has_removed_indices) {
-    // Save the removed indices
-    serialize_mdspan(res, os, index_.removed_indices()->to_mdspan());
-  }
 }
 
 template <typename T, typename IdxT>
@@ -140,23 +134,19 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   deserialize_mdspan(res, is, graph.view());
 
   bool has_dataset = deserialize_scalar<bool>(res, is);
-  index<T, IdxT> idx(res, metric);
+
   if (has_dataset) {
     auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
     deserialize_mdspan(res, is, dataset.view());
-    idx = index<T, IdxT>(
+    return index<T, IdxT>(
       res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
   } else {
     // create a new index with no dataset - the user must supply via update_dataset themselves
     // later (this avoids allocating GPU memory in the meantime)
+    index<T, IdxT> idx(res, metric);
     idx.update_graph(res, raft::make_const_mdspan(graph.view()));
+    return idx;
   }
-  bool has_removed_indices = deserialize_scalar<bool>(res, is);
-  if (has_removed_indices) {
-    idx.removed_indices().emplace(res, n_rows);
-    deserialize_mdspan(res, is, idx.removed_indices()->to_mdspan());
-  }
-  return idx;
 }
 
 template <typename T, typename IdxT>
