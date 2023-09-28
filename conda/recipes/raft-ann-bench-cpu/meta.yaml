@@ -47,7 +47,7 @@ requirements:
   host:
     - glog {{ glog_version }}
     - matplotlib
-    - faiss-cpu {{ faiss_version }}
+#    - faiss-cpu {{ faiss_version }}
     - nlohmann_json {{ nlohmann_json_version }}
     - python
     - pyyaml
@@ -56,7 +56,7 @@ requirements:
   run:
     - glog {{ glog_version }}
     - h5py {{ h5py_version }}
-    - faiss-cpu {{ faiss_version }}
+#    - faiss-cpu {{ faiss_version }}
     - matplotlib
     - python
     - pyyaml
