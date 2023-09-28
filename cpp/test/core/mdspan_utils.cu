@@ -247,4 +247,20 @@ void test_const_mdspan()
 
 TEST(MDSpan, ConstMDSpan) { test_const_mdspan(); }
 
+void test_contiguous_predicates()
+{
+  extents<std::int64_t, dynamic_extent, dynamic_extent, dynamic_extent> exts{10, 10, 10};
+  {
+    std::array<std::size_t, 3> strides{128, 32, 8};
+    ASSERT_TRUE(is_c_contiguous(exts, strides));
+    ASSERT_FALSE(is_f_contiguous(exts, strides));
+  }
+  {
+    std::array<std::size_t, 3> strides{8, 32, 128};
+    ASSERT_FALSE(is_c_contiguous(exts, strides));
+    ASSERT_TRUE(is_f_contiguous(exts, strides));
+  }
+}
+
+TEST(MDArray, Contiguous) { test_contiguous_predicates(); }
 }  // namespace raft
