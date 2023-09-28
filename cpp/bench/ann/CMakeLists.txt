@@ -208,14 +208,14 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     PATH
     bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/orig_cagra.cu>
+    # $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/orig_cagra.cu>
     LINKS
     raft::compiled
   )
-  target_compile_options(RAFT_CAGRA_ANN_BENCH PUBLIC -I/workspace/rapids/knn/cagra/include)
-  target_link_options(RAFT_CAGRA_ANN_BENCH PUBLIC -L/workspace/rapids/knn/cagra/lib)
+  # target_compile_options(RAFT_CAGRA_ANN_BENCH PUBLIC -I/workspace/rapids/knn/cagra/include)
+  # target_link_options(RAFT_CAGRA_ANN_BENCH PUBLIC -L/workspace/rapids/knn/cagra/lib)
 
-  target_link_libraries(RAFT_CAGRA_ANN_BENCH PUBLIC cagra)
+  # target_link_libraries(RAFT_CAGRA_ANN_BENCH PUBLIC cagra)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS_IVF_FLAT)

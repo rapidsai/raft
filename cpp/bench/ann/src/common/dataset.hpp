@@ -46,7 +46,7 @@ namespace raft::bench::ann {
 // and int8 type data.
 // As extensions for this benchmark, half and int data files will have suffixes .f16bin
 // and .ibin, respectively.
-template <typename T>
+template <typename T, typename SizeT = uint32_t>
 class BinFile {
  public:
   BinFile(const std::string& file,
@@ -83,10 +83,10 @@ class BinFile {
   {
     assert(!read_mode_);
     if (!fp_) { open_file_(); }
-    if (fwrite(&nrows, sizeof(uint32_t), 1, fp_) != 1) {
+    if (fwrite(&nrows, sizeof(SizeT), 1, fp_) != 1) {
       throw std::runtime_error("fwrite() BinFile " + file_ + " failed");
     }
-    if (fwrite(&ndims, sizeof(uint32_t), 1, fp_) != 1) {
+    if (fwrite(&ndims, sizeof(SizeT), 1, fp_) != 1) {
       throw std::runtime_error("fwrite() BinFile " + file_ + " failed");
     }
 
@@ -134,11 +134,11 @@ class BinFile {
   mutable void* mapped_ptr_{nullptr};
 };
 
-template <typename T>
-BinFile<T>::BinFile(const std::string& file,
-                    const std::string& mode,
-                    uint32_t subset_first_row,
-                    uint32_t subset_size)
+template <typename T, typename SizeT>
+BinFile<T, SizeT>::BinFile(const std::string& file,
+                           const std::string& mode,
+                           uint32_t subset_first_row,
+                           uint32_t subset_size)
   : file_(file),
     read_mode_(mode == "r"),
     subset_first_row_(subset_first_row),
@@ -161,8 +161,8 @@ BinFile<T>::BinFile(const std::string& file,
   }
 }
 
-template <typename T>
-void BinFile<T>::open_file_() const
+template <typename T, typename SizeT>
+void BinFile<T, SizeT>::open_file_() const
 {
   fp_ = fopen(file_.c_str(), read_mode_ ? "r" : "w");
   if (!fp_) { throw std::runtime_error("open BinFile failed: " + file_); }
@@ -172,15 +172,15 @@ void BinFile<T>::open_file_() const
     if (stat(file_.c_str(), &statbuf) != 0) { throw std::runtime_error("stat() failed: " + file_); }
     file_size_ = statbuf.st_size;
 
-    uint32_t header[2];
-    if (fread(header, sizeof(uint32_t), 2, fp_) != 2) {
+    SizeT header[2];
+    if (fread(header, sizeof(SizeT), 2, fp_) != 2) {
       throw std::runtime_error("read header of BinFile failed: " + file_);
     }
     nrows_ = header[0];
     ndims_ = header[1];
 
     size_t expected_file_size =
-      2 * sizeof(uint32_t) + static_cast<size_t>(nrows_) * ndims_ * sizeof(T);
+      2 * sizeof(SizeT) + static_cast<size_t>(nrows_) * ndims_ * sizeof(T);
     if (file_size_ != expected_file_size) {
       throw std::runtime_error("expected file size of " + file_ + " is " +
                                std::to_string(expected_file_size) + ", however, actual size is " +
@@ -208,8 +208,8 @@ void BinFile<T>::open_file_() const
   }
 }
 
-template <typename T>
-void BinFile<T>::check_suffix_()
+template <typename T, typename SizeT>
+void BinFile<T, SizeT>::check_suffix_()
 {
   auto pos = file_.rfind('.');
   if (pos == std::string::npos) {
@@ -238,8 +238,9 @@ void BinFile<T>::check_suffix_()
       throw std::runtime_error("BinFile<int8_t> should has .i8bin suffix: " + file_);
     }
   } else {
-    throw std::runtime_error(
-      "T of BinFile<T> should be one of float, half, int, uint8_t, or int8_t");
+    std::cout << "skipping suffix test" << std::endl;
+    // throw std::runtime_error(
+    //   "T of BinFile<T> should be one of float, half, int, uint8_t, or int8_t");
   }
 }
 

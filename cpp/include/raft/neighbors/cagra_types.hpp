@@ -33,7 +33,9 @@
 #include <thrust/fill.h>
 #include <type_traits>
 
+#include "cuda_huge_page_resource.hpp"
 #include "cuda_pinned_resource.hpp"
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 
@@ -172,6 +174,7 @@ struct index : ann::index {
   index(raft::resources const& res)
     : ann::index(),
       mr_(new rmm::mr::cuda_pinned_resource()),
+      mr_huge_(new rmm::mr::cuda_huge_page_resource()),
       metric_(raft::distance::DistanceType::L2Expanded),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
       dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
@@ -239,15 +242,18 @@ struct index : ann::index {
         raft::distance::DistanceType metric,
         mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
         mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph,
-        bool graph_pinned = false,
-        bool data_pinned  = false)
+        bool graph_pinned = true,
+        bool data_pinned  = true)
     : ann::index(),
       mr_(new rmm::mr::cuda_pinned_resource()),
+      mr_huge_(new rmm::mr::cuda_huge_page_resource()),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
+      dataset_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get()),
+      // dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
-      graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
+      graph_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get())
+  // graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
@@ -392,6 +398,7 @@ struct index : ann::index {
 
  private:
   std::unique_ptr<rmm ::mr::cuda_pinned_resource> mr_;
+  std::unique_ptr<rmm ::mr::cuda_huge_page_resource> mr_huge_;
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
   rmm::device_uvector<T> dataset_pinned_;
