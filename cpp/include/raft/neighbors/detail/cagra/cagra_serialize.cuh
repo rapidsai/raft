@@ -134,7 +134,6 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   deserialize_mdspan(res, is, graph.view());
 
   bool has_dataset = deserialize_scalar<bool>(res, is);
-
   if (has_dataset) {
     auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
     deserialize_mdspan(res, is, dataset.view());
