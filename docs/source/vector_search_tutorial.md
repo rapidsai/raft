@@ -181,7 +181,37 @@ Since the `make_blobs` code generates the random dataset on the GPU device, we d
 
 
 ## Step 3: Calculate exact nearest neighbors
+Consider the 10kx10k random matrix we generated in the previous step. We want to be able to find the k-nearest neighbors for all points of the matrix, or what we refer to as the all-neighbors graph which means finding the neighbors of a data point within the same matrix.
+```c++
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/neighbors/brute_force.cuh>
 
+raft::device_resources res;
+
+// set number of neighbors to search for
+int const k = 64;
+
+// using matrix `dataset` from previous example
+std::vector<raft::device_matrix_view<const float, int>> index(raft::make_const_mdspan(dataset.view()));
+auto search = raft::make_const_mdspan(dataset.view());
+
+// Indices and Distances are of dimensions (n, k)
+// where n is number of rows in the search matrix
+auto indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
+auto distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
+
+// Compute exact-neighbors using Euclidean distance
+raft::neighbors::brute_force::knn(index,
+                                  search,
+                                  indices,
+                                  distances,
+                                  raft::distance::DistanceType::L2Unexpanded);
+```
+
+We have established several things here by building a flat index. Now we know the exact 64 neighbors of all points in the matrix, and this algorithm can be generally useful in several ways:
+1. Creating a baseline to compare against when building an Approximate Nearest Neighbors index.
+2. Directly using the brute force algorithm when accuracy is more important than speed of computation. Don't worry, our implementation is still the best in-class and will provide not only significant speedups over other brute force methods, but also be quick relatively when the matrices are small!
 
 
 ## Step 4: Train an ANN index
@@ -195,4 +225,30 @@ Now comes the fun part of training
 ## Step 6: Query the index
 
 ## Step 7: Additional features
+### Comparing exact and approximate neighbor quality
+In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
+```c++
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdarray.hpp>
+#include <raft/stats/neighborhood_recall.cuh>
+
+raft::device_resources res;
+
+// Assuming matrices as type raft::device_matrix_view and variables as
+// indices : approximate neighbor indices
+// reference_indices : exact neighbor indices
+// distances : approximate neighbor distances
+// reference_distances : exact neighbor distances
+
+// We want our `neighborhood_recall` value in host memory
+float const recall_scalar = 0.0;
+auto recall_value = raft::make_host_scalar(recall_scalar);
+
+raft::stats::neighborhood_recall(res,
+                                 indices,
+                                 reference_indices,
+                                 recall_value.view(),
+                                 distances,
+                                 reference_distances);
+```
