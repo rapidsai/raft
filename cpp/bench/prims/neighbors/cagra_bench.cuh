@@ -180,13 +180,13 @@ inline const std::vector<params> generate_inputs()
   inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
 
   inputs2 = raft::util::itertools::product<params>(
-    {2000000ull},                              // n_samples
+    {2000000ull, 10000000ull},                 // n_samples
     {128},                                     // dataset dim
-    {1000},                                    // n_queries
+    {1, 100, 10000},                           // n_queries
     {32},                                      // k
     {64},                                      // knn graph degree
     {64},                                      // itopk_size
-    {128, 256},                                // block_size
+    {256},                                     // block_size
     {2},                                       // search_width
     {0},                                       // max_iterations
     {0.0, 0.02, 0.04, 0.08, 0.16, 0.32, 0.64}  // removed_ratio
