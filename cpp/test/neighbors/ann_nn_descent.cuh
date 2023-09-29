@@ -121,11 +121,12 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
   void SetUp() override
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
     } else {
-      r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
     }
     resource::sync_stream(handle_);
   }
