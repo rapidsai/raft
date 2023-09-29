@@ -182,7 +182,7 @@ inline const std::vector<params> generate_inputs()
   inputs2 = raft::util::itertools::product<params>(
     {2000000ull, 10000000ull},                 // n_samples
     {128},                                     // dataset dim
-    {1, 100, 10000},                           // n_queries
+    {1, 10, 10000},                            // n_queries
     {32},                                      // k
     {64},                                      // knn graph degree
     {64},                                      // itopk_size
