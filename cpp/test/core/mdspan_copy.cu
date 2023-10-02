@@ -50,6 +50,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)
   auto out_long =
     make_device_mdarray<std::int64_t, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
       res, extents<std::uint32_t, depth, rows, cols>{});
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_long.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_long.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -66,6 +69,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)
   auto out_right = make_device_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -76,6 +82,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceDeviceCuda)
     }
   }
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -113,6 +122,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDeviceCuda)
   res.sync_stream();
 
   // Test dtype conversion without transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -123,6 +135,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDeviceCuda)
   }
 
   // Test dtype conversion with transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -131,6 +146,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceDeviceCuda)
         double(out_right(i, j)), double(gen_unique_entry(i, j)), CompareApprox<double>{0.0001}));
     }
   }
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -167,6 +185,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
   auto out_long =
     make_host_mdarray<std::int64_t, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
       res, extents<std::uint32_t, depth, rows, cols>{});
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_long.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_long.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -183,6 +204,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
   auto out_right = make_host_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -193,6 +217,9 @@ TEST(MDSpanCopy, Mdspan3DDeviceHostCuda)
     }
   }
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -230,6 +257,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceHostCuda)
   res.sync_stream();
 
   // Test dtype conversion without transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -240,6 +270,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceHostCuda)
   }
 
   // Test dtype conversion with transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -248,6 +281,9 @@ TEST(MDSpanCopy, Mdspan2DDeviceHostCuda)
         double(out_right(i, j)), double(gen_unique_entry(i, j)), CompareApprox<double>{0.0001}));
     }
   }
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -285,6 +321,9 @@ TEST(MDSpanCopy, Mdspan3DHostDeviceCuda)
   auto out_long =
     make_device_mdarray<std::int64_t, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
       res, extents<std::uint32_t, depth, rows, cols>{});
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_long.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_long.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -301,6 +340,9 @@ TEST(MDSpanCopy, Mdspan3DHostDeviceCuda)
   auto out_right = make_device_mdarray<int, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -311,6 +353,9 @@ TEST(MDSpanCopy, Mdspan3DHostDeviceCuda)
     }
   }
 
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -348,6 +393,9 @@ TEST(MDSpanCopy, Mdspan2DHostDeviceCuda)
   res.sync_stream();
 
   // Test dtype conversion without transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -358,6 +406,9 @@ TEST(MDSpanCopy, Mdspan2DHostDeviceCuda)
   }
 
   // Test dtype conversion with transpose
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_right.view()), decltype(in_left.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -366,6 +417,9 @@ TEST(MDSpanCopy, Mdspan2DHostDeviceCuda)
         double(out_right(i, j)), double(gen_unique_entry(i, j)), CompareApprox<double>{0.0001}));
     }
   }
+  static_assert(
+    detail::mdspan_copyable_with_kernel_v<decltype(out_left.view()), decltype(in_right.view())>,
+    "Current implementation should use kernel for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {

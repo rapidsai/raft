@@ -38,7 +38,10 @@ TEST(MDSpanCopy, Mdspan1DHostHost)
   }
 
   auto out_right = make_host_vector<double, std::uint32_t, layout_f_contiguous>(res, cols);
-  // std::copy
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_left.view())>::can_use_std_copy,
+                "Current implementation should use std::copy for this copy");
   copy(res, out_right.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < cols; ++i) {
     ASSERT_TRUE(match(out_right(i), double(gen_unique_entry(i)), CompareApprox<double>{0.0001}));
@@ -57,8 +60,11 @@ TEST(MDSpanCopy, Mdspan1DHostDevice)
     in_left(i) = gen_unique_entry(i);
   }
 
-  // raft::copy
   auto out_right = make_device_vector<float, std::uint32_t, layout_f_contiguous>(res, cols);
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_left.view())>::can_use_raft_copy,
+                "Current implementation should use raft::copy for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < cols; ++i) {
@@ -78,8 +84,11 @@ TEST(MDSpanCopy, Mdspan1DDeviceHost)
     in_left(i) = gen_unique_entry(i);
   }
 
-  // raft::copy
   auto out_right = make_host_vector<float, std::uint32_t, layout_f_contiguous>(res, cols);
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_left.view())>::can_use_raft_copy,
+                "Current implementation should use raft::copy for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < cols; ++i) {
@@ -95,9 +104,9 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
   auto constexpr depth = std::uint32_t{500};
   auto constexpr rows  = std::uint32_t{300};
   auto constexpr cols  = std::uint32_t{200};
-  auto in_left = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+  auto in_left = make_host_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
-  auto in_right = make_host_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+  auto in_right = make_host_mdarray<float, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
   auto gen_unique_entry = [](auto&& x, auto&& y, auto&& z) { return x * 7 + y * 11 + z * 13; };
 
@@ -112,10 +121,13 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
 
   auto out_left = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
-  auto out_right = make_host_mdarray<double, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
+  auto out_right = make_host_mdarray<double, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
 
-  // std::copy
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_right.view())>::can_use_std_copy,
+                "Current implementation should use std::copy for this copy");
   copy(res, out_right.view(), in_right.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -126,7 +138,6 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
-  // simd or custom logic
   copy(res, out_right.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -137,7 +148,6 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
-  // simd or custom logic
   copy(res, out_left.view(), in_right.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -148,7 +158,9 @@ TEST(MDSpanCopy, Mdspan3DHostHost)
     }
   }
 
-  // std::copy
+  static_assert(detail::mdspan_copyable<true, decltype(out_left.view()), decltype(in_left.view())>::
+                  can_use_std_copy,
+                "Current implementation should use std::copy for this copy");
   copy(res, out_left.view(), in_left.view());
   for (auto i = std::uint32_t{}; i < depth; ++i) {
     for (auto j = std::uint32_t{}; j < rows; ++j) {
@@ -190,7 +202,10 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
     make_device_mdarray<float, std::uint32_t, layout_f_contiguous, depth, rows, cols>(
       res, extents<std::uint32_t, depth, rows, cols>{});
 
-  // raft::copy
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_right.view())>::can_use_raft_copy,
+                "Current implementation should use raft::copy for this copy");
   copy(res, out_right.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -203,7 +218,9 @@ TEST(MDSpanCopy, Mdspan3DHostDevice)
     }
   }
 
-  // raft::copy
+  static_assert(detail::mdspan_copyable<true, decltype(out_left.view()), decltype(in_left.view())>::
+                  can_use_raft_copy,
+                "Current implementation should use raft::copy for this copy");
   copy(res, out_left.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < depth; ++i) {
@@ -240,7 +257,10 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
   auto out_right = make_device_mdarray<float, std::uint32_t, layout_f_contiguous, rows, cols>(
     res, extents<std::uint32_t, rows, cols>{});
 
-  // raft::copy
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_right.view())>::can_use_raft_copy,
+                "Current implementation should use raft::copy for this copy");
   copy(res, out_right.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -250,7 +270,10 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
     }
   }
 
-  // cublas
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_right.view()),
+                                        decltype(in_left.view())>::can_use_cublas,
+                "Current implementation should use cuBLAS for this copy");
   copy(res, out_right.view(), in_left.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
@@ -260,7 +283,10 @@ TEST(MDSpanCopy, Mdspan2DDeviceDevice)
     }
   }
 
-  // cublas
+  static_assert(detail::mdspan_copyable<true,
+                                        decltype(out_left.view()),
+                                        decltype(in_right.view())>::can_use_cublas,
+                "Current implementation should use cuBLAS for this copy");
   copy(res, out_left.view(), in_right.view());
   res.sync_stream();
   for (auto i = std::uint32_t{}; i < rows; ++i) {
