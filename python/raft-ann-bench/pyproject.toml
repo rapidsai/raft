@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name = "raft-ann-bench"
-version = "23.10.00"
+version = "23.12.00"
 description = "RAFT ANN benchmarks"
 authors = [
     { name = "NVIDIA Corporation" },

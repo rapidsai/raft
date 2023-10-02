@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-set(raft_dask_version 23.10.00)
+set(raft_dask_version 23.12.00)
 
 include(../../fetch_rapids.cmake)
 

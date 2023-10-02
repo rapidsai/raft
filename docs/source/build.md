@@ -264,7 +264,7 @@ While not a highly suggested method for building against RAFT, when all of the n
 set(RAFT_GIT_DIR ${CMAKE_CURRENT_BINARY_DIR}/raft CACHE STRING "Path to RAFT repo")
 ExternalProject_Add(raft
   GIT_REPOSITORY    git@github.com:rapidsai/raft.git
-  GIT_TAG           branch-23.10
+  GIT_TAG           branch-23.12
   PREFIX            ${RAFT_GIT_DIR}
   CONFIGURE_COMMAND ""
   BUILD_COMMAND     ""
@@ -294,7 +294,7 @@ The following `cmake` snippet enables a flexible configuration of RAFT:
 
 ```cmake
 
-set(RAFT_VERSION "23.10")
+set(RAFT_VERSION "23.12")
 set(RAFT_FORK "rapidsai")
 set(RAFT_PINNED_TAG "branch-${RAFT_VERSION}")
 

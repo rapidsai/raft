@@ -39,41 +39,45 @@ header = """
  */
 
 #include <raft/neighbors/detail/cagra/search_multi_cta_kernel-inl.cuh>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 namespace raft::neighbors::cagra::detail::multi_cta_search {
 
-#define instantiate_kernel_selection(TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T) \\
-  template void select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(      \\
-      raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,                 \\
-      raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                      \\
-      INDEX_T* const topk_indices_ptr,                                                        \\
-      DISTANCE_T* const topk_distances_ptr,                                                   \\
-      const DATA_T* const queries_ptr,                                                        \\
-      const uint32_t num_queries,                                                             \\
-      const INDEX_T* dev_seed_ptr,                                                            \\
-      uint32_t* const num_executed_iterations,                                                \\
-      uint32_t topk,                                                                          \\
-      uint32_t block_size,                                                                    \\
-      uint32_t result_buffer_size,                                                            \\
-      uint32_t smem_size,                                                                     \\
-      int64_t hash_bitlen,                                                                    \\
-      INDEX_T* hashmap_ptr,                                                                   \\
-      uint32_t num_cta_per_query,                                                             \\
-      uint32_t num_random_samplings,                                                          \\
-      uint64_t rand_xor_mask,                                                                 \\
-      uint32_t num_seeds,                                                                     \\
-      size_t itopk_size,                                                                      \\
-      size_t search_width,                                                                     \\
-      size_t min_iterations,                                                                  \\
-      size_t max_iterations,                                                                  \\
-      cudaStream_t stream);
+#define instantiate_kernel_selection(                                                       \\
+  TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T)                 \\
+  template void                                                                             \\
+  select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>( \\
+    raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,                 \\
+    raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,                      \\
+    INDEX_T* const topk_indices_ptr,                                                        \\
+    DISTANCE_T* const topk_distances_ptr,                                                   \\
+    const DATA_T* const queries_ptr,                                                        \\
+    const uint32_t num_queries,                                                             \\
+    const INDEX_T* dev_seed_ptr,                                                            \\
+    uint32_t* const num_executed_iterations,                                                \\
+    uint32_t topk,                                                                          \\
+    uint32_t block_size,                                                                    \\
+    uint32_t result_buffer_size,                                                            \\
+    uint32_t smem_size,                                                                     \\
+    int64_t hash_bitlen,                                                                    \\
+    INDEX_T* hashmap_ptr,                                                                   \\
+    uint32_t num_cta_per_query,                                                             \\
+    uint32_t num_random_samplings,                                                          \\
+    uint64_t rand_xor_mask,                                                                 \\
+    uint32_t num_seeds,                                                                     \\
+    size_t itopk_size,                                                                      \\
+    size_t search_width,                                                                    \\
+    size_t min_iterations,                                                                  \\
+    size_t max_iterations,                                                                  \\
+    SAMPLE_FILTER_T sample_filter,                                                          \\
+    cudaStream_t stream);
 
 """
 
 trailer = """
 #undef instantiate_kernel_selection
 
-} // namespace raft::neighbors::cagra::detail::namespace multi_cta_search
+}  // namespace raft::neighbors::cagra::detail::multi_cta_search
 """
 
 mxdim_team = [(128, 8), (256, 16), (512, 32), (1024, 32)]
@@ -97,7 +101,7 @@ for type_path, (data_t, idx_t, distance_t) in search_types.items():
         with open(path, "w") as f:
             f.write(header)
             f.write(
-                f"instantiate_kernel_selection({team}, {mxdim}, {data_t}, {idx_t}, {distance_t});\n"
+                f"instantiate_kernel_selection(\n  {team}, {mxdim}, {data_t}, {idx_t}, {distance_t}, raft::neighbors::filtering::none_cagra_sample_filter);\n"
             )
             f.write(trailer)
             # For pasting into CMakeLists.txt
