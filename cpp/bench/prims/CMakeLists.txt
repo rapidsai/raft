@@ -80,6 +80,7 @@ if(BUILD_PRIMS_BENCH)
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
     bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
   )
+  ConfigureBench(NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/main.cpp)
 
   ConfigureBench(
     NAME TUNE_DISTANCE PATH bench/prims/distance/tune_pairwise/kernel.cu
@@ -158,4 +159,5 @@ if(BUILD_PRIMS_BENCH)
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
+
 endif()

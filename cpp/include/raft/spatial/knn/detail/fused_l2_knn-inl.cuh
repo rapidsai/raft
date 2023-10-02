@@ -706,6 +706,8 @@ template <typename DataT,
           bool isRowMajor>
 void fusedL2ExpKnnImpl(const DataT* x,
                        const DataT* y,
+                       const DataT* xn,
+                       const DataT* yn,
                        IdxT m,
                        IdxT n,
                        IdxT k,
@@ -787,19 +789,25 @@ void fusedL2ExpKnnImpl(const DataT* x,
       }
     }
 
-    DataT* xn = (DataT*)workspace;
-    DataT* yn = (DataT*)workspace;
-
-    if (x != y) {
-      yn += m;
+    // calculate norms if they haven't been passed in
+    if (!xn) {
+      DataT* xn_ = (DataT*)workspace;
+      workspace  = xn_ + m;
       raft::linalg::rowNorm(
-        xn, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
-      raft::linalg::rowNorm(
-        yn, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
-    } else {
-      raft::linalg::rowNorm(
-        xn, x, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+        xn_, x, k, m, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+      xn = xn_;
     }
+    if (!yn) {
+      if (x == y) {
+        yn = xn;
+      } else {
+        DataT* yn_ = (DataT*)(workspace);
+        raft::linalg::rowNorm(
+          yn_, y, k, n, raft::linalg::L2Norm, isRowMajor, stream, raft::identity_op{});
+        yn = yn_;
+      }
+    }
+
     fusedL2ExpKnnRowMajor<<<grid, blk, sharedMemSize, stream>>>(x,
                                                                 y,
                                                                 xn,
@@ -836,6 +844,8 @@ void fusedL2ExpKnn(IdxT m,
                    IdxT ldd,
                    const DataT* x,
                    const DataT* y,
+                   const DataT* xn,
+                   const DataT* yn,
                    bool sqrt,
                    OutT* out_dists,
                    IdxT* out_inds,
@@ -850,6 +860,8 @@ void fusedL2ExpKnn(IdxT m,
     fusedL2ExpKnnImpl<DataT, AccT, OutT, IdxT, 16 / sizeof(DataT), usePrevTopKs, isRowMajor>(
       x,
       y,
+      xn,
+      yn,
       m,
       n,
       k,
@@ -867,6 +879,8 @@ void fusedL2ExpKnn(IdxT m,
     fusedL2ExpKnnImpl<DataT, AccT, OutT, IdxT, 8 / sizeof(DataT), usePrevTopKs, isRowMajor>(
       x,
       y,
+      xn,
+      yn,
       m,
       n,
       k,
@@ -883,6 +897,8 @@ void fusedL2ExpKnn(IdxT m,
   } else {
     fusedL2ExpKnnImpl<DataT, AccT, OutT, IdxT, 1, usePrevTopKs, isRowMajor>(x,
                                                                             y,
+                                                                            xn,
+                                                                            yn,
                                                                             m,
                                                                             n,
                                                                             k,
@@ -927,7 +943,9 @@ void fusedL2Knn(size_t D,
                 bool rowMajorIndex,
                 bool rowMajorQuery,
                 cudaStream_t stream,
-                raft::distance::DistanceType metric)
+                raft::distance::DistanceType metric,
+                const value_t* index_norms = NULL,
+                const value_t* query_norms = NULL)
 {
   // Validate the input data
   ASSERT(k > 0, "l2Knn: k must be > 0");
@@ -968,6 +986,8 @@ void fusedL2Knn(size_t D,
                                                                               ldd,
                                                                               query,
                                                                               index,
+                                                                              query_norms,
+                                                                              index_norms,
                                                                               sqrt,
                                                                               out_dists,
                                                                               out_inds,
@@ -985,6 +1005,8 @@ void fusedL2Knn(size_t D,
                                                                                 ldd,
                                                                                 query,
                                                                                 index,
+                                                                                query_norms,
+                                                                                index_norms,
                                                                                 sqrt,
                                                                                 out_dists,
                                                                                 out_inds,
