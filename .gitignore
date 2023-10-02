@@ -62,3 +62,7 @@ _xml
 # sphinx
 _html
 _text
+
+# clang tooling
+compile_commands.json
+.clangd/
