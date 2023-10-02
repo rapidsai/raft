@@ -42,8 +42,6 @@ function(find_and_configure_faiss)
             list(APPEND RAFT_FAISS_EXPORT_GLOBAL_TARGETS faiss_avx2)
         endif()
 
-
-
         rapids_cpm_find(faiss ${PKG_VERSION}
                 GLOBAL_TARGETS ${RAFT_FAISS_GLOBAL_TARGETS}
                 CPM_ARGS
@@ -57,7 +55,7 @@ function(find_and_configure_faiss)
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
                 "BUILD_TESTING OFF"
                 "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
-                "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
+#                "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
                 )
 
         if(TARGET faiss AND NOT TARGET faiss::faiss)
