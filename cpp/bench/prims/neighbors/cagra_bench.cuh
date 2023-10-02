@@ -57,20 +57,20 @@ struct CagraBench : public fixture {
     constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
       raft::random::uniformInt(
-        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax);
       raft::random::uniformInt(
-        state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax);
     } else {
       raft::random::uniform(
-        state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, dataset_.data_handle(), dataset_.size(), kRangeMin, kRangeMax);
       raft::random::uniform(
-        state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax, stream);
+        handle, state, queries_.data_handle(), queries_.size(), kRangeMin, kRangeMax);
     }
 
     // Generate random knn graph
 
     raft::random::uniformInt<IdxT>(
-      state, knn_graph_.data_handle(), knn_graph_.size(), 0, ps.n_samples - 1, stream);
+      handle, state, knn_graph_.data_handle(), knn_graph_.size(), 0, ps.n_samples - 1);
 
     auto metric = raft::distance::DistanceType::L2Expanded;
 
