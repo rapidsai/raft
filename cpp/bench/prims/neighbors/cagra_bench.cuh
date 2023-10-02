@@ -183,9 +183,9 @@ inline const std::vector<params> generate_inputs()
     {2000000ull, 10000000ull},                 // n_samples
     {128},                                     // dataset dim
     {1, 10, 10000},                            // n_queries
-    {32},                                      // k
+    {255},                                     // k
     {64},                                      // knn graph degree
-    {64},                                      // itopk_size
+    {300},                                     // itopk_size
     {256},                                     // block_size
     {2},                                       // search_width
     {0},                                       // max_iterations
