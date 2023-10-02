@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 
+#include <omp.h>
+
 #include "../common/ann_types.hpp"
 #include <hnswlib.h>
 
@@ -164,13 +166,13 @@ class HnswLib : public ANN<T> {
   struct BuildParam {
     int M;
     int ef_construction;
-    int num_threads{1};
+    int num_threads = omp_get_num_procs();
   };
 
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int ef;
-    int num_threads{1};
+    int num_threads = omp_get_num_procs();
   };
 
   HnswLib(Metric metric, int dim, const BuildParam& param);

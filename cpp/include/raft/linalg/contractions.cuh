@@ -100,7 +100,7 @@ struct KernelPolicy {
     SmemSize = 2 * SmemPage * sizeof(DataT),
   };  // enum
 
-};    // struct KernelPolicy
+};  // struct KernelPolicy
 
 template <typename DataT, int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct ColKernelPolicy {

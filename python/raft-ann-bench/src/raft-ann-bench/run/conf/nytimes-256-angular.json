@@ -3,6 +3,7 @@
     "name": "nytimes-256-angular",
     "base_file": "nytimes-256-angular/base.fbin",
     "query_file": "nytimes-256-angular/query.fbin",
+    "groundtruth_neighbors_file": "nytimes-256-angular/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {

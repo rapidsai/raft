@@ -145,7 +145,7 @@ def main():
 
     # Read list of allowed algorithms
     try:
-        import pylibraft  # noqa: F401
+        import rmm  # noqa: F401
 
         gpu_present = True
     except ImportError:

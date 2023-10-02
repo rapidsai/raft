@@ -83,7 +83,7 @@ double adjusted_rand_index(raft::resources const& handle,
 
 /** @} */  // end group stats_adj_rand_index
 
-};         // end namespace stats
-};         // end namespace raft
+};  // end namespace stats
+};  // end namespace raft
 
 #endif

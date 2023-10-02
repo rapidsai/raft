@@ -103,7 +103,7 @@ auto transpose(raft::resources const& handle,
 
 /** @} */  // end of group transpose
 
-};         // end namespace linalg
-};         // end namespace raft
+};  // end namespace linalg
+};  // end namespace raft
 
 #endif

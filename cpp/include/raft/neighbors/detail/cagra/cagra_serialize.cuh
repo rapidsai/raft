@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 
@@ -54,6 +55,8 @@ void serialize(raft::resources const& res,
                const index<T, IdxT>& index_,
                bool include_dataset)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize");
+
   RAFT_LOG_DEBUG(
     "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
 
@@ -113,6 +116,8 @@ void serialize(raft::resources const& res,
 template <typename T, typename IdxT>
 auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::deserialize");
+
   char dtype_string[4];
   is.read(dtype_string, 4);
 
@@ -125,15 +130,22 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   auto graph_degree = deserialize_scalar<std::uint32_t>(res, is);
   auto metric       = deserialize_scalar<raft::distance::DistanceType>(res, is);
 
-  auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
-  auto graph   = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
+  auto graph = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
   deserialize_mdspan(res, is, graph.view());
 
   bool has_dataset = deserialize_scalar<bool>(res, is);
-  if (has_dataset) { deserialize_mdspan(res, is, dataset.view()); }
-
-  return index<T, IdxT>(
-    res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
+  if (has_dataset) {
+    auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
+    deserialize_mdspan(res, is, dataset.view());
+    return index<T, IdxT>(
+      res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
+  } else {
+    // create a new index with no dataset - the user must supply via update_dataset themselves
+    // later (this avoids allocating GPU memory in the meantime)
+    index<T, IdxT> idx(res, metric);
+    idx.update_graph(res, raft::make_const_mdspan(graph.view()));
+    return idx;
+  }
 }
 
 template <typename T, typename IdxT>

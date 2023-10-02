@@ -75,6 +75,14 @@ requirements:
     - faiss-proc=*=cuda
     - libfaiss {{ faiss_version }}
     {% endif %}
+    - h5py {{ h5py_version }}
+    - benchmark
+    - matplotlib
+    - python
+    - pandas
+    - pyyaml
+    # rmm is needed to determine if package is gpu-enabled
+    - rmm ={{ minor_version }}
 
   run:
     - python
@@ -90,7 +98,14 @@ requirements:
     - libfaiss {{ faiss_version }}
     {% endif %}
     - h5py {{ h5py_version }}
-
+    - benchmark
+    - glog {{ glog_version }}
+    - matplotlib
+    - python
+    - pandas
+    - pyyaml
+    # rmm is needed to determine if package is gpu-enabled
+    - rmm ={{ minor_version }}
 about:
   home: https://rapids.ai/
   license: Apache-2.0

@@ -211,9 +211,10 @@ void bench_search(::benchmark::State& state,
     try {
       algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
                                dataset->base_set_size());
-    } catch (const std::exception&) {
+    } catch (const std::exception& ex) {
       state.SkipWithError("The algorithm '" + index.name +
-                          "' requires the base set, but it's not available.");
+                          "' requires the base set, but it's not available. " +
+                          "Exception: " + std::string(ex.what()));
       return;
     }
   }

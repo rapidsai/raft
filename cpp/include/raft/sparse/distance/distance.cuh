@@ -218,8 +218,8 @@ void pairwise_distance(raft::resources const& handle,
 
 /** @} */  // end of sparse_distance
 
-};         // namespace distance
-};         // namespace sparse
-};         // namespace raft
+};  // namespace distance
+};  // namespace sparse
+};  // namespace raft
 
 #endif

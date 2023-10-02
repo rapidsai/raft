@@ -33,8 +33,7 @@ template <typename T>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::Ggnn<T>::BuildParam& param)
 {
-  param.dataset_size = conf.at("dataset_size");
-  param.k            = conf.at("k");
+  param.k = conf.at("k");
 
   if (conf.contains("k_build")) { param.k_build = conf.at("k_build"); }
   if (conf.contains("segment_size")) { param.segment_size = conf.at("segment_size"); }

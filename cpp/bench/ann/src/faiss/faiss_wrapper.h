@@ -18,6 +18,7 @@
 
 #include "../common/ann_types.hpp"
 
+#include <raft/core/logger.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <faiss/IndexFlat.h>
@@ -85,7 +86,23 @@ class FaissGpu : public ANN<T> {
     float refine_ratio = 1.0;
   };
 
-  FaissGpu(Metric metric, int dim, int nlist);
+  struct BuildParam {
+    int nlist = 1;
+    int ratio = 2;
+  };
+
+  FaissGpu(Metric metric, int dim, const BuildParam& param)
+    : ANN<T>(metric, dim),
+      metric_type_(parse_metric_type(metric)),
+      nlist_{param.nlist},
+      training_sample_fraction_{1.0 / double(param.ratio)}
+  {
+    static_assert(std::is_same_v<T, float>, "faiss support only float type");
+    RAFT_CUDA_TRY(cudaGetDevice(&device_));
+    RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
+    faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
+  }
+
   virtual ~FaissGpu() noexcept { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_)); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream = 0) final;
@@ -131,23 +148,35 @@ class FaissGpu : public ANN<T> {
   int device_;
   cudaEvent_t sync_{nullptr};
   cudaStream_t faiss_default_stream_{nullptr};
+  double training_sample_fraction_;
 };
-
-template <typename T>
-FaissGpu<T>::FaissGpu(Metric metric, int dim, int nlist)
-  : ANN<T>(metric, dim), metric_type_(parse_metric_type(metric)), nlist_(nlist)
-{
-  static_assert(std::is_same_v<T, float>, "faiss support only float type");
-  RAFT_CUDA_TRY(cudaGetDevice(&device_));
-  RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
-  faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
-}
 
 template <typename T>
 void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
   OmpSingleThreadScope omp_single_thread;
-
+  auto index_ivf = dynamic_cast<faiss::gpu::GpuIndexIVF*>(index_.get());
+  if (index_ivf != nullptr) {
+    // set the min/max training size for clustering to use the whole provided training set.
+    double trainset_size       = training_sample_fraction_ * static_cast<double>(nrow);
+    double points_per_centroid = trainset_size / static_cast<double>(nlist_);
+    int max_ppc                = std::ceil(points_per_centroid);
+    int min_ppc                = std::floor(points_per_centroid);
+    if (min_ppc < index_ivf->cp.min_points_per_centroid) {
+      RAFT_LOG_WARN(
+        "The suggested training set size %zu (data size %zu, training sample ratio %f) yields %d "
+        "points per cluster (n_lists = %d). This is smaller than the FAISS default "
+        "min_points_per_centroid = %d.",
+        static_cast<size_t>(trainset_size),
+        nrow,
+        training_sample_fraction_,
+        min_ppc,
+        nlist_,
+        index_ivf->cp.min_points_per_centroid);
+    }
+    index_ivf->cp.max_points_per_centroid = max_ppc;
+    index_ivf->cp.min_points_per_centroid = min_ppc;
+  }
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
@@ -208,12 +237,9 @@ void FaissGpu<T>::load_(const std::string& file)
 template <typename T>
 class FaissGpuIVFFlat : public FaissGpu<T> {
  public:
-  struct BuildParam {
-    int nlist;
-  };
+  using typename FaissGpu<T>::BuildParam;
 
-  FaissGpuIVFFlat(Metric metric, int dim, const BuildParam& param)
-    : FaissGpu<T>(metric, dim, param.nlist)
+  FaissGpuIVFFlat(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::gpu::GpuIndexIVFFlatConfig config;
     config.device = this->device_;
@@ -234,15 +260,13 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
 template <typename T>
 class FaissGpuIVFPQ : public FaissGpu<T> {
  public:
-  struct BuildParam {
-    int nlist;
+  struct BuildParam : public FaissGpu<T>::BuildParam {
     int M;
     bool useFloat16;
     bool usePrecomputed;
   };
 
-  FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param)
-    : FaissGpu<T>(metric, dim, param.nlist)
+  FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::gpu::GpuIndexIVFPQConfig config;
     config.useFloat16LookupTables = param.useFloat16;
@@ -271,13 +295,11 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
 template <typename T>
 class FaissGpuIVFSQ : public FaissGpu<T> {
  public:
-  struct BuildParam {
-    int nlist;
+  struct BuildParam : public FaissGpu<T>::BuildParam {
     std::string quantizer_type;
   };
 
-  FaissGpuIVFSQ(Metric metric, int dim, const BuildParam& param)
-    : FaissGpu<T>(metric, dim, param.nlist)
+  FaissGpuIVFSQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::ScalarQuantizer::QuantizerType qtype;
     if (param.quantizer_type == "fp16") {
@@ -310,7 +332,8 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
 template <typename T>
 class FaissGpuFlat : public FaissGpu<T> {
  public:
-  FaissGpuFlat(Metric metric, int dim) : FaissGpu<T>(metric, dim, 0)
+  FaissGpuFlat(Metric metric, int dim)
+    : FaissGpu<T>(metric, dim, typename FaissGpu<T>::BuildParam{})
   {
     faiss::gpu::GpuIndexFlatConfig config;
     config.device = this->device_;
