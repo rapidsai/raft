@@ -527,7 +527,7 @@ mdspan_copyable_t<DstType, SrcType> copy(resources const& res, DstType&& dst, Sr
           // cache-oblivious implementation should work through dimensions in
           // order of increasing stride.
           auto dim = std::size_t{};
-          while ((indices[dim]++) == src.extent(dim)) {
+          while ((++indices[dim]) == src.extent(dim)) {
             indices[dim] = typename config::index_type{};
             ++dim;
           }
