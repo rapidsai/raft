@@ -249,8 +249,7 @@ if(TARGET faiss::faiss_avx2)
 endif()
 
 message("RAFT_FAISS_TARGETS: ${RAFT_FAISS_TARGETS}")
-message(
-  "CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR})
+message("CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
 if(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT)
   ConfigureAnnBench(
     NAME FAISS_CPU_FLAT PATH bench/ann/src/faiss/faiss_cpu_benchmark.cpp LINKS
@@ -342,15 +341,15 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
     PRIVATE
       $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}
   ">
-  $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
-)
+      $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
+  )
 
-target_link_options(ANN_BENCH PRIVATE -export-dynamic)
+  target_link_options(ANN_BENCH PRIVATE -export-dynamic)
 
-install(
-  TARGETS ANN_BENCH
-  COMPONENT ann_bench
-  DESTINATION bin/ann
-  EXCLUDE_FROM_ALL
-)
+  install(
+    TARGETS ANN_BENCH
+    COMPONENT ann_bench
+    DESTINATION bin/ann
+    EXCLUDE_FROM_ALL
+  )
 endif()
