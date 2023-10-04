@@ -442,7 +442,7 @@ dependencies:
           - dask-core==2023.9.2
           - ucx>=1.13.0
           - ucx-proc=*=gpu
-          - &ucx_py_conda ucx-py==0.34.*
+          - &ucx_py_conda ucx-py==0.35.*
       - output_types: pyproject
         packages:
           - &pylibraft_conda pylibraft==23.12.*
@@ -457,13 +457,13 @@ dependencies:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
               - &pylibraft_cu12 pylibraft-cu12==23.12.*
-              - &ucx_py_cu12 ucx-py-cu12==0.34.*
+              - &ucx_py_cu12 ucx-py-cu12==0.35.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
               - &pylibraft_cu11 pylibraft-cu11==23.12.*
-              - &ucx_py_cu11 ucx-py-cu11==0.34.*
+              - &ucx_py_cu11 ucx-py-cu11==0.35.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
