@@ -55,7 +55,6 @@ function(find_and_configure_faiss)
                 "FAISS_USE_CUDA_TOOLKIT_STATIC ${CUDA_STATIC_RUNTIME}"
                 "BUILD_TESTING OFF"
                 "CMAKE_MESSAGE_LOG_LEVEL VERBOSE"
-                "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
                 )
 
         if(TARGET faiss AND NOT TARGET faiss::faiss)
