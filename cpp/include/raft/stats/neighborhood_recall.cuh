@@ -43,6 +43,30 @@ namespace raft::stats {
  * indices matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices
  * could be considered a match if abs(dist, ref_dist) < eps.
  *
+ * Usage example:
+ * @code{.cpp}
+ * raft::device_resources res;
+ * // assume D rows and N column dataset
+ * auto k = 64;
+ * auto indices = raft::make_device_matrix<int>(res, D, k);
+ * auto distances = raft::make_device_matrix<float>(res, D, k);
+ * // run ANN algorithm of choice
+ *
+ * auto ref_indices = raft::make_device_matrix<int>(res, D, k);
+ * auto ref_distances = raft::make_device_matrix<float>(res, D, k);
+ * // run brute-force KNN for reference
+ *
+ * auto scalar = 0.0f;
+ * auto recall_score = raft::make_device_scalar(res, scalar);
+ *
+ * raft::stats::neighborhood_recall(res,
+                                    raft::make_const_mdspan(indices.view()), 
+                                    raft::make_const_mdspan(ref_indices.view()), 
+                                    recall_score.view(),
+                                    raft::make_const_mdspan(distances.view()), 
+                                    raft::make_const_mdspan(ref_distances.view()));
+ * @endcode
+ *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices
  * @tparam ScalarType data-type to store recall score
@@ -103,6 +127,30 @@ void neighborhood_recall(
  * comparing the total number of matching indices and dividing that value by the total size of the
  * indices matrix of dimensions (D, k). If distance matrices are provided, then non-matching indices
  * could be considered a match if abs(dist, ref_dist) < eps.
+ *
+ * Usage example:
+ * @code{.cpp}
+ * raft::device_resources res;
+ * // assume D rows and N column dataset
+ * auto k = 64;
+ * auto indices = raft::make_device_matrix<int>(res, D, k);
+ * auto distances = raft::make_device_matrix<float>(res, D, k);
+ * // run ANN algorithm of choice
+ *
+ * auto ref_indices = raft::make_device_matrix<int>(res, D, k);
+ * auto ref_distances = raft::make_device_matrix<float>(res, D, k);
+ * // run brute-force KNN for reference
+ *
+ * auto scalar = 0.0f;
+ * auto recall_score = raft::make_host_scalar(scalar);
+ *
+ * raft::stats::neighborhood_recall(res,
+                                    raft::make_const_mdspan(indices.view()), 
+                                    raft::make_const_mdspan(ref_indices.view()), 
+                                    recall_score.view(),
+                                    raft::make_const_mdspan(distances.view()), 
+                                    raft::make_const_mdspan(ref_distances.view()));
+ * @endcode
  *
  * @tparam IndicesValueType data-type of the indices
  * @tparam IndexType data-type to index all matrices

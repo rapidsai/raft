@@ -128,8 +128,7 @@ class NeighborhoodRecallTest : public ::testing::TestWithParam<NeighborhoodRecal
                                                        raft::make_const_mdspan(indices_2.view()),
                                                        recall_scalar.view(),
                                                        raft::make_const_mdspan(distances_1.view()),
-                                                       raft::make_const_mdspan(distances_2.view()),
-                                                       raft::make_const_mdspan(eps_mda.view()));
+                                                       raft::make_const_mdspan(distances_2.view()));
 
     // assert correctness
     ASSERT_TRUE(raft::match(indices_only_recall_h,

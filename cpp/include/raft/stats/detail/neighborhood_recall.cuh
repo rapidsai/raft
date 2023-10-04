@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <atomic>
 #include <cstddef>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/math.hpp>
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/operators.hpp>
 #include <raft/core/resources.hpp>
@@ -47,12 +47,13 @@ __global__ void neighborhood_recall(
   raft::device_scalar_view<ScalarType> recall_score,
   DistanceValueType const eps)
 {
+  auto constexpr kThreadsPerBlock = 32;
   IndexType const row_idx = blockIdx.x;
-  auto const lane_idx     = threadIdx.x % 32;
+  auto const lane_idx     = threadIdx.x % kThreadsPerBlock;
 
   // Each warp stores a recall score computed across the columns per row
   IndexType thread_recall_score = 0;
-  for (IndexType col_idx = lane_idx; col_idx < indices.extent(1); col_idx += 32) {
+  for (IndexType col_idx = lane_idx; col_idx < indices.extent(1); col_idx += kThreadsPerBlock) {
     for (IndexType ref_col_idx = 0; ref_col_idx < ref_indices.extent(1); ref_col_idx++) {
       if (indices(row_idx, col_idx) == ref_indices(row_idx, ref_col_idx)) {
         thread_recall_score += 1;
@@ -61,7 +62,7 @@ __global__ void neighborhood_recall(
         auto dist               = distances.value()(row_idx, col_idx);
         auto ref_dist           = ref_distances.value()(row_idx, ref_col_idx);
         DistanceValueType diff  = raft::abs(dist - ref_dist);
-        DistanceValueType m     = std::max(std::abs(dist), std::abs(ref_dist));
+        DistanceValueType m     = std::max(raft::abs(dist), raft::abs(ref_dist));
         DistanceValueType ratio = diff > eps ? diff / m : diff;
 
         if (ratio <= eps) {
@@ -73,7 +74,7 @@ __global__ void neighborhood_recall(
   }
 
   // Reduce across a warp for row score
-  typedef cub::BlockReduce<int, 32> BlockReduce;
+  typedef cub::BlockReduce<IndexType, kThreadsPerBlock> BlockReduce;
 
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
@@ -104,10 +105,10 @@ void neighborhood_recall(
   DistanceValueType const eps)
 {
   // One warp per row, launch a warp-width block per-row kernel
-  auto constexpr kNumThreads = 32;
+  auto constexpr kThreadsPerBlock = 32;
   auto const num_blocks      = indices.extent(0);
 
-  neighborhood_recall<<<num_blocks, kNumThreads>>>(
+  neighborhood_recall<<<num_blocks, kThreadsPerBlock>>>(
     indices, ref_indices, distances, ref_distances, recall_score, eps);
 }
 
