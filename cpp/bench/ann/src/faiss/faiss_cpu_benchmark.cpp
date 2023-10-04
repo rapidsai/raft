@@ -76,6 +76,7 @@ void parse_search_param(const nlohmann::json& conf,
 {
   param.nprobe = conf.at("nprobe");
   if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
+  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
 }
 
 template <typename T, template <typename> class Algo>

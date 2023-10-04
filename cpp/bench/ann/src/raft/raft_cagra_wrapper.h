@@ -52,7 +52,7 @@ class RaftCagra : public ANN<T> {
 
   using BuildParam = raft::neighbors::cagra::index_params;
 
-  RaftCagra(Metric metric, int dim, const BuildParam& param)
+  RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),

@@ -16,6 +16,8 @@
 #pragma once
 
 #include "../common/ann_types.hpp"
+#include "../common/thread_pool.hpp"
+
 #include <raft/core/logger.hpp>
 
 #include <faiss/IndexFlat.h>
@@ -54,6 +56,7 @@ class FaissCpu : public ANN<T> {
   struct SearchParam : public AnnSearchParam {
     int nprobe;
     float refine_ratio = 1.0;
+    int num_threads    = omp_get_num_procs();
   };
 
   struct BuildParam {
@@ -116,6 +119,9 @@ class FaissCpu : public ANN<T> {
   faiss::MetricType metric_type_;
   int nlist_;
   double training_sample_fraction_;
+
+  int num_threads_;
+  std::unique_ptr<FixedThreadPool> thread_pool_;
 };
 
 template <typename T>
@@ -160,6 +166,11 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
     this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
     this->index_refine_.get()->k_factor = search_param.refine_ratio;
   }
+
+  if (!thread_pool_ || num_threads_ != search_param.num_threads) {
+    num_threads_ = search_param.num_threads;
+    thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
+  }
 }
 
 template <typename T>
@@ -172,7 +183,13 @@ void FaissCpu<T>::search(const T* queries,
 {
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
-  index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
+
+  thread_pool_->submit(
+    [&](int i) {
+      // Use thread pool for batch size = 1. FAISS multi-threads internally for batch size > 1.
+      index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
+    },
+    1);
 }
 
 template <typename T>
@@ -275,7 +292,14 @@ class FaissCpuFlat : public FaissCpu<T> {
   }
 
   // class FaissCpu is more like a IVF class, so need special treating here
-  void set_search_param(const typename ANN<T>::AnnSearchParam&) override{};
+  void set_search_param(const typename ANN<T>::AnnSearchParam& param) override
+  {
+    auto search_param = dynamic_cast<const typename FaissCpu<T>::SearchParam&>(param);
+    if (!this->thread_pool_ || this->num_threads_ != search_param.num_threads) {
+      this->num_threads_ = search_param.num_threads;
+      this->thread_pool_ = std::make_unique<FixedThreadPool>(this->num_threads_);
+    }
+  };
 
   void save(const std::string& file) const override
   {
