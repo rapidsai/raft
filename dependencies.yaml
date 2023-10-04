@@ -176,12 +176,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - &rmm_conda rmm==23.10.*
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          # This index is needed for rmm-cu{11,12}.
-          - --extra-index-url=https://pypi.nvidia.com
+          - &rmm rmm==23.12.*
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -431,11 +426,15 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - dask>=2023.7.1
-          - dask-cuda==23.10.*
+          - dask-cuda==23.12.*
           - distributed>=2023.7.1
           - joblib>=0.11
           - numba>=0.57
           - *numpy
+<<<<<<< HEAD
+=======
+          - ucx-py==0.35.*
+>>>>>>> upstream/branch-23.12
       - output_types: conda
         packages:
           - dask-core>=2023.7.1
@@ -444,6 +443,7 @@ dependencies:
           - &ucx_py_conda ucx-py==0.34.*
       - output_types: pyproject
         packages:
+<<<<<<< HEAD
           - &pylibraft_conda pylibraft==23.10.*
       - output_types: requirements
         packages:
@@ -467,6 +467,9 @@ dependencies:
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: null, packages: [*pylibraft_conda, *ucx_py_conda]}
+=======
+          - pylibraft==23.12.*
+>>>>>>> upstream/branch-23.12
   test_python_common:
     common:
       - output_types: [conda, requirements, pyproject]
