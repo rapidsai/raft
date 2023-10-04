@@ -430,9 +430,9 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask>=2023.9.2
+          - dask==2023.9.2
           - dask-cuda==23.12.*
-          - distributed>=2023.9.2
+          - distributed==2023.9.2
           - joblib>=0.11
           - numba>=0.57
           - *numpy
