@@ -980,9 +980,9 @@ GnndGraph<Index_t>::GnndGraph(const size_t nrow,
     num_samples(num_samples),
     bloom_filter(nrow, internal_node_degree / segment_size, 3),
     h_dists{raft::make_host_matrix<DistData_t, size_t, raft::row_major>(nrow, node_degree)},
-    h_graph_new{nrow * num_samples},
-    h_list_sizes_new{nrow},
-    h_graph_old{nrow * num_samples},
+    h_graph_new(nrow * num_samples),
+    h_list_sizes_new(nrow),
+    h_graph_old(nrow * num_samples),
     h_list_sizes_old{nrow}
 {
   // node_degree must be a multiple of segment_size;
@@ -1150,12 +1150,12 @@ GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build
       raft::make_device_matrix<ID_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
     dists_buffer_{
       raft::make_device_matrix<DistData_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
-    graph_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
-    dists_host_buffer_{static_cast<size_t>(nrow_ * DEGREE_ON_DEVICE)},
+    graph_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
+    dists_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
     d_locks_{raft::make_device_vector<int, Index_t>(res, nrow_)},
-    h_rev_graph_new_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    h_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
-    h_rev_graph_old_{static_cast<size_t>(nrow_ * NUM_SAMPLES)},
+    h_rev_graph_new_(nrow_ * NUM_SAMPLES),
+    h_graph_old_(nrow_ * NUM_SAMPLES),
+    h_rev_graph_old_(nrow_ * NUM_SAMPLES),
     d_list_sizes_new_{raft::make_device_vector<int2, Index_t>(res, nrow_)},
     d_list_sizes_old_{raft::make_device_vector<int2, Index_t>(res, nrow_)}
 {
