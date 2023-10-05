@@ -291,6 +291,14 @@ struct search_plan_impl : public search_plan_impl_base {
         "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
         std::to_string(hashmap_max_fill_rate) + " has been given.";
     }
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      if (hashmap_mode == hash_mode::SMALL) {
+        error_message += "`SMALL` hash is not available when filtering";
+      } else {
+        hashmap_mode = hash_mode::HASH;
+      }
+    }
     if (algo == search_algo::MULTI_CTA) {
       if (hashmap_mode == hash_mode::SMALL) {
         error_message += "`small_hash` is not available when 'search_mode' is \"multi-cta\"";
