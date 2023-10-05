@@ -28,20 +28,11 @@ namespace hashmap {
 
 _RAFT_HOST_DEVICE inline uint32_t get_size(const uint32_t bitlen) { return 1U << bitlen; }
 
-template <unsigned FIRST_TID = 0, class IdxT = void>
-_RAFT_DEVICE inline void init(IdxT* const table, const unsigned bitlen)
+template <class IdxT>
+_RAFT_DEVICE inline void init(IdxT* const table, const unsigned bitlen, unsigned FIRST_TID = 0)
 {
   if (threadIdx.x < FIRST_TID) return;
   for (unsigned i = threadIdx.x - FIRST_TID; i < get_size(bitlen); i += blockDim.x - FIRST_TID) {
-    table[i] = utils::get_max_value<IdxT>();
-  }
-}
-
-template <unsigned FIRST_TID, unsigned LAST_TID, class IdxT>
-_RAFT_DEVICE inline void init(IdxT* const table, const uint32_t bitlen)
-{
-  if ((FIRST_TID > 0 && threadIdx.x < FIRST_TID) || threadIdx.x >= LAST_TID) return;
-  for (unsigned i = threadIdx.x - FIRST_TID; i < get_size(bitlen); i += LAST_TID - FIRST_TID) {
     table[i] = utils::get_max_value<IdxT>();
   }
 }
