@@ -86,6 +86,14 @@ endif()
 # ##################################################################################################
 # * Configure tests function-------------------------------------------------------------
 
+# Build and link static version of the GBench to keep ANN_BENCH self-contained.
+get_target_property(TMP_PROP benchmark::benchmark SOURCES)
+add_library(benchmark_static STATIC ${TMP_PROP})
+get_target_property(TMP_PROP benchmark::benchmark INCLUDE_DIRECTORIES)
+target_include_directories(benchmark_static PUBLIC ${TMP_PROP})
+get_target_property(TMP_PROP benchmark::benchmark LINK_LIBRARIES)
+target_link_libraries(benchmark_static PUBLIC ${TMP_PROP})
+
 function(ConfigureAnnBench)
 
   set(oneValueArgs NAME)
@@ -106,10 +114,11 @@ function(ConfigureAnnBench)
     string(TOLOWER ${BENCH_NAME} BENCH_LIB_NAME)
     set_target_properties(${BENCH_NAME} PROPERTIES OUTPUT_NAME ${BENCH_LIB_NAME})
     add_dependencies(${BENCH_NAME} ANN_BENCH)
+    target_link_libraries(ANN_BENCH PRIVATE benchmark_static)
   else()
     add_executable(${BENCH_NAME} ${ConfigureAnnBench_PATH})
     target_compile_definitions(${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN)
-    target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
+    target_link_libraries(${BENCH_NAME} PRIVATE benchmark_static)
   endif()
 
   target_link_libraries(
@@ -241,14 +250,6 @@ endif()
 # * Dynamically-loading ANN_BENCH executable -------------------------------------------------------
 if(RAFT_ANN_BENCH_SINGLE_EXE)
   add_executable(ANN_BENCH bench/ann/src/common/benchmark.cpp)
-
-  # Build and link static version of the GBench to keep ANN_BENCH self-contained.
-  get_target_property(TMP_PROP benchmark::benchmark SOURCES)
-  add_library(benchmark_static STATIC ${TMP_PROP})
-  get_target_property(TMP_PROP benchmark::benchmark INCLUDE_DIRECTORIES)
-  target_include_directories(benchmark_static PUBLIC ${TMP_PROP})
-  get_target_property(TMP_PROP benchmark::benchmark LINK_LIBRARIES)
-  target_link_libraries(benchmark_static PUBLIC ${TMP_PROP})
 
   target_include_directories(ANN_BENCH PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
