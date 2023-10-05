@@ -27,7 +27,11 @@ typedef AnnCagraSortTest<float, float, std::uint32_t> AnnCagraSortTestF_U32;
 TEST_P(AnnCagraSortTestF_U32, AnnCagraSort) { this->testCagraSort(); }
 
 typedef AnnCagraFilterTest<float, float, std::uint32_t> AnnCagraFilterTestF_U32;
-TEST_P(AnnCagraFilterTestF_U32, AnnCagraFilter) { this->testCagraFilter(); }
+TEST_P(AnnCagraFilterTestF_U32, AnnCagraFilter)
+{
+  this->testCagraFilter();
+  this->testCagraRemoved();
+}
 
 INSTANTIATE_TEST_CASE_P(AnnCagraTest, AnnCagraTestF_U32, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(AnnCagraSortTest, AnnCagraSortTestF_U32, ::testing::ValuesIn(inputs));
