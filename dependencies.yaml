@@ -176,7 +176,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-          - &rmm_conda rmm==23.10.*
+          - &rmm_conda rmm==23.12.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -196,12 +196,12 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.2"}
             packages: &build_pylibraft_packages_cu12
-              - &rmm_cu12 rmm-cu12==23.10.*
+              - &rmm_cu12 rmm-cu12==23.12.*
           - {matrix: {cuda: "12.1"}, packages: *build_pylibraft_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *build_pylibraft_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &build_pylibraft_packages_cu11
-              - &rmm_cu11 rmm-cu11==23.10.*
+              - &rmm_cu11 rmm-cu11==23.12.*
           - {matrix: {cuda: "11.5"}, packages: *build_pylibraft_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *build_pylibraft_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *build_pylibraft_packages_cu11}
@@ -431,20 +431,21 @@ dependencies:
       - output_types: [conda, pyproject]
         packages:
           - dask==2023.9.2
-          - dask-cuda==23.10.*
+          - dask-cuda==23.12.*
           - distributed==2023.9.2
           - joblib>=0.11
           - numba>=0.57
           - *numpy
+          - ucx-py==0.35.*
       - output_types: conda
         packages:
           - dask-core==2023.9.2
           - ucx>=1.13.0
           - ucx-proc=*=gpu
-          - &ucx_py_conda ucx-py==0.34.*
+          - &ucx_py_conda ucx-py==0.35.*
       - output_types: pyproject
         packages:
-          - &pylibraft_conda pylibraft==23.10.*
+          - &pylibraft_conda pylibraft==23.12.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -455,14 +456,14 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.2"}
             packages: &run_raft_dask_packages_cu12
-              - &pylibraft_cu12 pylibraft-cu12==23.10.*
-              - &ucx_py_cu12 ucx-py-cu12==0.34.*
+              - &pylibraft_cu12 pylibraft-cu12==23.12.*
+              - &ucx_py_cu12 ucx-py-cu12==0.35.*
           - {matrix: {cuda: "12.1"}, packages: *run_raft_dask_packages_cu12}
           - {matrix: {cuda: "12.0"}, packages: *run_raft_dask_packages_cu12}
           - matrix: {cuda: "11.8"}
             packages: &run_raft_dask_packages_cu11
-              - &pylibraft_cu11 pylibraft-cu11==23.10.*
-              - &ucx_py_cu11 ucx-py-cu11==0.34.*
+              - &pylibraft_cu11 pylibraft-cu11==23.12.*
+              - &ucx_py_cu11 ucx-py-cu11==0.35.*
           - {matrix: {cuda: "11.5"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.4"}, packages: *run_raft_dask_packages_cu11}
           - {matrix: {cuda: "11.2"}, packages: *run_raft_dask_packages_cu11}
