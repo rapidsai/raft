@@ -36,9 +36,7 @@ def positive_int(input_str: str) -> int:
 
 def validate_algorithm(algos_conf, algo, gpu_present):
     algos_conf_keys = set(algos_conf.keys())
-    print("algo", algo)
     if gpu_present:
-        print("algo gpu_present", algo)
         return algo in algos_conf_keys
     else:
         return (
