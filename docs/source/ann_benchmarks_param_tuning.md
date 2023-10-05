@@ -48,7 +48,8 @@ CAGRA uses a graph-based index, which creates an intermediate, approximate kNN g
 |-----------------------------|----------------|----------|----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `graph_degree`              | `build_param`  | N        | Positive Integer >0        | 64 | Degree of the final kNN graph index. |
 | `intermediate_graph_degree` | `build_param`  | N        | Positive Integer >0        | 128 | Degree of the intermediate kNN graph. |
-| `dataset_memory_type`       | `build_param` | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside?                                                                                                                                       |
+| `graph_build_algo`          | `build_param`  | N | ["IVF_PQ", "NN_DESCENT"]   | "IVF_PQ" | Algorithm to use for search |
+| `dataset_memory_type`       | `build_param`  | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside?                                                                                                                                       |
 | `query_memory_type`         | `search_params` | N | ["device", "host", "mmap"] | "device | What memory type should the queries reside? |
 | `itopk`                     | `search_wdith`  | N        | Positive Integer >0        | 64 | Number of intermediate search results retained during the search. Higher values improve search accuracy at the cost of speed. |
 | `search_width`              | `search_param`  | N        | Positive Integer >0        | 1 | Number of graph nodes to select as the starting point for the search in each iteration. |
