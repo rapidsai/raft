@@ -1278,8 +1278,7 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
 
     std::thread update_and_sample_thread(update_and_sample, it);
 
-    std::cout << "# GNND iteraton: " << it + 1 << "/" << build_config_.max_iterations << "\r";
-    std::fflush(stdout);
+    RAFT_LOG_DEBUG("# GNND iteraton: %lu / %lu", it + 1, build_config_.max_iterations);
 
     // Reuse dists_buffer_ to save GPU memory. graph_buffer_ cannot be reused, because it
     // contains some information for local_join.
