@@ -105,6 +105,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    test/core/bitset.cu
     test/core/device_resources_manager.cpp
     test/core/device_setter.cpp
     test/core/logger.cpp
@@ -371,6 +372,21 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_NN_DESCENT_TEST
+    PATH
+    test/neighbors/ann_nn_descent/test_float_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS
