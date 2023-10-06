@@ -124,7 +124,7 @@ inline void make_rotation_matrix(raft::resources const& handle,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
                                  float* rotation_matrix,
-                                 raft::random::Rng rng = raft::random::Rng(7ULL))
+                                 raft::random::RngState rng = raft::random::RngState(7ULL))
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::make_rotation_matrix(%u * %u)", n_rows, n_cols);
@@ -134,7 +134,7 @@ inline void make_rotation_matrix(raft::resources const& handle,
   if (force_random_rotation || !inplace) {
     rmm::device_uvector<float> buf(inplace ? 0 : n * n, stream);
     float* mat = inplace ? rotation_matrix : buf.data();
-    rng.normal(mat, n * n, 0.0f, 1.0f, stream);
+    raft::random::normal(handle, rng, mat, n * n, 0.0f, 1.0f);
     linalg::detail::qrGetQ_inplace(handle, mat, n, n, stream);
     if (!inplace) {
       RAFT_CUDA_TRY(cudaMemcpy2DAsync(rotation_matrix,

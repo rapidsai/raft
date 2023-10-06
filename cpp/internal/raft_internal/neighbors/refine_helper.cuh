@@ -61,16 +61,20 @@ class RefineHelper {
       refined_distances_host(handle),
       refined_indices_host(handle)
   {
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState rng(1234ULL);
 
     dataset = raft::make_device_matrix<DataT, IdxT>(handle_, p.n_rows, p.dim);
     queries = raft::make_device_matrix<DataT, IdxT>(handle_, p.n_queries, p.dim);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.uniform(dataset.data_handle(), dataset.size(), DataT(-10.0), DataT(10.0), stream_);
-      r.uniform(queries.data_handle(), queries.size(), DataT(-10.0), DataT(10.0), stream_);
+      raft::random::uniform(
+        handle, rng, dataset.data_handle(), dataset.size(), DataT(-10.0), DataT(10.0));
+      raft::random::uniform(
+        handle, rng, queries.data_handle(), queries.size(), DataT(-10.0), DataT(10.0));
     } else {
-      r.uniformInt(dataset.data_handle(), dataset.size(), DataT(1), DataT(20), stream_);
-      r.uniformInt(queries.data_handle(), queries.size(), DataT(1), DataT(20), stream_);
+      raft::random::uniformInt(
+        handle, rng, dataset.data_handle(), dataset.size(), DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle, rng, queries.data_handle(), queries.size(), DataT(1), DataT(20));
     }
 
     refined_distances = raft::make_device_matrix<DistanceT, IdxT>(handle_, p.n_queries, p.k);
