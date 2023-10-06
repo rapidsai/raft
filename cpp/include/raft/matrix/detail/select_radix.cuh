@@ -676,6 +676,18 @@ int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
   return std::min(chunk_size, batch_size);
 }
 
+template <typename T, typename IdxT, int BlockSize, typename Kernel>
+int calc_chunk_size_for_one_block(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
+{
+  int active_blocks;
+  RAFT_CUDA_TRY(
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
+
+  constexpr int num_waves = 10;
+  int chunk_size          = num_waves * sm_cnt * active_blocks;
+  return std::min(chunk_size, batch_size);
+}
+
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
 unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 {
@@ -1046,7 +1058,7 @@ void radix_topk_one_block(const T* in,
   auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
   const IdxT buf_len = calc_buf_len<T>(len);
   const size_t max_chunk_size =
-    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+    calc_chunk_size_for_one_block<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
 
   auto pool_guard =
     raft::get_pool_memory_resource(mr,
