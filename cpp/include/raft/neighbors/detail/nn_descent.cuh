@@ -1342,8 +1342,8 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   for (size_t i = 0; i < (size_t)nrow_; i++) {
     for (size_t j = 0; j < build_config_.node_degree; j++) {
       size_t idx = i * graph_.node_degree + j;
-      Index_t id = graph_.h_graph[idx].id();
-      if (id < nrow_) {
+      int id = graph_.h_graph[idx].id();
+      if (id < static_cast<int>(nrow_)) {
         graph_shrink_buffer[i * build_config_.node_degree + j] = id;
       } else {
         graph_shrink_buffer[i * build_config_.node_degree + j] =
