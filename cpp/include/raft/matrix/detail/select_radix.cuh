@@ -111,7 +111,8 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
   // and `out_idx_buf`(IdxT).
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
   constexpr float ratio = 2 + sizeof(IdxT) * 2.0 / sizeof(T);
-  return len / ratio;
+  // Even such estimation is too conservative, so decrease it by 1/8
+  return len / ratio / 8;
 }
 
 /**
@@ -208,6 +209,11 @@ struct alignas(128) Counter {
 /**
  * Fused filtering of the current pass and building histogram for the next pass
  * (see steps 4 & 1 in `radix_kernel` description).
+ *
+ * This function is more complicated than the one-block counterpart because this function handles
+ * the case of early stopping. When early stopping is triggered, it's desirable to do the final
+ * filtering in this function rather than in last_filter(), because this function is run by multiple
+ * blocks while last_filter is run by single block.
  */
 template <typename T, typename IdxT, int BitsPerPass>
 _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
@@ -397,7 +403,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
   const int start_bit       = calc_start_bit<T, BitsPerPass>(pass);
 
   // changed in choose_bucket(); need to reload
-  const IdxT needed_num_of_kth = counter->k;
+  const IdxT num_of_kth_needed = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
   for (IdxT i = threadIdx.x; i < current_len; i += blockDim.x) {
@@ -412,7 +418,7 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
       out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
-      if (back_pos < needed_num_of_kth) {
+      if (back_pos < num_of_kth_needed) {
         IdxT pos     = k - 1 - back_pos;
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
@@ -428,8 +434,8 @@ __global__ void last_filter_kernel(const T* in,
                                    const IdxT* in_idx_buf,
                                    T* out,
                                    IdxT* out_idx,
-                                   IdxT len,
-                                   IdxT k,
+                                   const IdxT len,
+                                   const IdxT k,
                                    Counter<T, IdxT>* counters,
                                    const bool select_min)
 {
@@ -454,14 +460,14 @@ __global__ void last_filter_kernel(const T* in,
   constexpr int start_bit = calc_start_bit<T, BitsPerPass>(pass);
 
   const auto kth_value_bits    = counter->kth_value_bits;
-  const IdxT needed_num_of_kth = counter->k;
+  const IdxT num_of_kth_needed = counter->k;
   IdxT* p_out_cnt              = &counter->out_cnt;
   IdxT* p_out_back_cnt         = &counter->out_back_cnt;
 
   auto f = [k,
             select_min,
             kth_value_bits,
-            needed_num_of_kth,
+            num_of_kth_needed,
             p_out_cnt,
             p_out_back_cnt,
             in_idx_buf,
@@ -474,7 +480,7 @@ __global__ void last_filter_kernel(const T* in,
       out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
     } else if (bits == kth_value_bits) {
       IdxT back_pos = atomicAdd(p_out_back_cnt, static_cast<IdxT>(1));
-      if (back_pos < needed_num_of_kth) {
+      if (back_pos < num_of_kth_needed) {
         IdxT pos     = k - 1 - back_pos;
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
@@ -866,6 +872,7 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
                                                      IdxT* out_idx_buf,
                                                      T* out,
                                                      IdxT* out_idx,
+                                                     const IdxT previous_len,
                                                      Counter<T, IdxT>* counter,
                                                      IdxT* histogram,
                                                      bool select_min,
@@ -879,9 +886,8 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
   if (threadIdx.x == 0) { *p_filter_cnt = 0; }
   __syncthreads();
 
-  const int start_bit     = calc_start_bit<T, BitsPerPass>(pass);
-  const unsigned mask     = calc_mask<T, BitsPerPass>(pass);
-  const IdxT previous_len = counter->previous_len;
+  const int start_bit = calc_start_bit<T, BitsPerPass>(pass);
+  const unsigned mask = calc_mask<T, BitsPerPass>(pass);
 
   if (pass == 0) {
     auto f = [histogram, select_min, start_bit, mask](T value, IdxT) {
@@ -900,17 +906,19 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
+        if (out_buf) {
 #if CUDART_VERSION < 12000
-        // Avoiding potential compiler bug in CUDA 11
-        volatile
+          // Avoiding potential compiler bug in CUDA 11
+          volatile
 #endif
-          IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
-        out_buf[pos]     = value;
-        out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
+            IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
+          out_buf[pos]     = value;
+          out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
+        }
 
         int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram + bucket, static_cast<IdxT>(1));
-      } else if (previous_bits < kth_value_bits) {
+      } else if (out_buf && previous_bits < kth_value_bits) {
         IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
@@ -951,10 +959,11 @@ __global__ void radix_topk_one_block_kernel(const T* in,
   if (in_idx) { in_idx += batch_id * len; }
   out += batch_id * k;
   out_idx += batch_id * k;
-  buf1 += batch_id * len;
-  idx_buf1 += batch_id * len;
-  buf2 += batch_id * len;
-  idx_buf2 += batch_id * len;
+  const IdxT buf_len = calc_buf_len<T>(len);
+  buf1 += batch_id * buf_len;
+  idx_buf1 += batch_id * buf_len;
+  buf2 += batch_id * buf_len;
+  idx_buf2 += batch_id * buf_len;
   const T* in_buf        = nullptr;
   const IdxT* in_idx_buf = nullptr;
   T* out_buf             = nullptr;
@@ -965,8 +974,19 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     set_buf_pointers(
       in, in_idx, buf1, idx_buf1, buf2, idx_buf2, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
 
-    IdxT current_len = counter.len;
-    IdxT current_k   = counter.k;
+    const IdxT current_len = counter.len;
+    const IdxT current_k   = counter.k;
+    IdxT previous_len      = counter.previous_len;
+    if (previous_len > buf_len) {
+      in_buf       = in;
+      in_idx_buf   = in_idx;
+      previous_len = len;
+    }
+    if (current_len > buf_len) {
+      // so "out_buf==nullptr" denotes that writing to buffer is skipped in current pass
+      out_buf     = nullptr;
+      out_idx_buf = nullptr;
+    }
 
     filter_and_histogram_for_one_block<T, IdxT, BitsPerPass>(in_buf,
                                                              in_idx_buf,
@@ -974,6 +994,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
                                                              out_idx_buf,
                                                              out,
                                                              out_idx,
+                                                             previous_len,
                                                              &counter,
                                                              histogram,
                                                              select_min,
@@ -988,11 +1009,11 @@ __global__ void radix_topk_one_block_kernel(const T* in,
     __syncthreads();
 
     if (counter.len == counter.k || pass == num_passes - 1) {
-      last_filter<T, IdxT, BitsPerPass>(pass == 0 ? in : out_buf,
-                                        pass == 0 ? in_idx : out_idx_buf,
+      last_filter<T, IdxT, BitsPerPass>(out_buf ? out_buf : in,
+                                        out_buf ? out_idx_buf : in_idx,
                                         out,
                                         out_idx,
-                                        current_len,
+                                        out_buf ? current_len : len,
                                         k,
                                         &counter,
                                         select_min,
@@ -1022,21 +1043,22 @@ void radix_topk_one_block(const T* in,
 {
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
-  auto kernel = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
+  const IdxT buf_len = calc_buf_len<T>(len);
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
 
   auto pool_guard =
     raft::get_pool_memory_resource(mr,
-                                   max_chunk_size * len * 2 * (sizeof(T) + sizeof(IdxT)) +
+                                   max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)) +
                                      256 * 4  // might need extra memory for alignment
     );
   if (pool_guard) { RAFT_LOG_DEBUG("radix::select_k: using pool memory resource"); }
 
-  rmm::device_uvector<T> buf1(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<T> buf2(len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(len * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf1(buf_len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf1(buf_len * max_chunk_size, stream, mr);
+  rmm::device_uvector<T> buf2(buf_len * max_chunk_size, stream, mr);
+  rmm::device_uvector<IdxT> idx_buf2(buf_len * max_chunk_size, stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
