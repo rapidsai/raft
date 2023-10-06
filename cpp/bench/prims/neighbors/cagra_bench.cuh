@@ -85,7 +85,7 @@ struct CagraBench : public fixture {
       resource::get_thrust_policy(handle),
       thrust::device_pointer_cast(removed_indices.data_handle()),
       thrust::device_pointer_cast(removed_indices.data_handle() + removed_indices.extent(0)));
-    removed_indices_bitset_.set(handle, removed_indices.view());
+    removed_indices_bitset_.set(removed_indices.view());
     index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
       handle, metric, make_const_mdspan(dataset_.view()), make_const_mdspan(knn_graph_.view())));
   }

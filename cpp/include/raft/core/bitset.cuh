@@ -161,13 +161,11 @@ struct bitset {
          bool default_value = true)
     : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
               raft::resource::get_cuda_stream(res)},
-      bitset_len_{bitset_len}
+      bitset_len_{bitset_len},
+      res_{res}
   {
-    cudaMemsetAsync(bitset_.data(),
-                    default_value ? 0xff : 0x00,
-                    n_elements() * sizeof(bitset_t),
-                    resource::get_cuda_stream(res));
-    set(res, mask_index, !default_value);
+    reset(default_value);
+    set(mask_index, !default_value);
   }
 
   /**
@@ -180,12 +178,10 @@ struct bitset {
   bitset(const raft::resources& res, index_t bitset_len, bool default_value = true)
     : bitset_{std::size_t(raft::ceildiv(bitset_len, bitset_element_size)),
               resource::get_cuda_stream(res)},
-      bitset_len_{bitset_len}
+      bitset_len_{bitset_len},
+      res_{res}
   {
-    cudaMemsetAsync(bitset_.data(),
-                    default_value ? 0xff : 0x00,
-                    n_elements() * sizeof(bitset_t),
-                    resource::get_cuda_stream(res));
+    reset(default_value);
   }
   // Disable copy constructor
   bitset(const bitset&)            = delete;
@@ -237,7 +233,7 @@ struct bitset {
 
   /** @brief Resize the bitset. If the requested size is larger, new memory is allocated and set to
    * the default value. */
-  void resize(const raft::resources& res, index_t new_bitset_len, bool default_value = true)
+  void resize(index_t new_bitset_len, bool default_value = true)
   {
     auto old_size = raft::ceildiv(bitset_len_, bitset_element_size);
     auto new_size = raft::ceildiv(new_bitset_len, bitset_element_size);
@@ -245,10 +241,10 @@ struct bitset {
     bitset_len_ = new_bitset_len;
     if (old_size < new_size) {
       // If the new size is larger, set the new bits to the default value
-      cudaMemsetAsync(bitset_.data() + old_size,
-                      default_value ? 0xff : 0x00,
-                      (new_size - old_size) * sizeof(bitset_t),
-                      resource::get_cuda_stream(res));
+      RAFT_CUDA_TRY(cudaMemsetAsync(bitset_.data() + old_size,
+                                    default_value ? 0xff : 0x00,
+                                    (new_size - old_size) * sizeof(bitset_t),
+                                    resource::get_cuda_stream(res_)));
     }
   }
 
@@ -261,14 +257,13 @@ struct bitset {
    * @param output List of outputs
    */
   template <typename output_t = bool>
-  void test(const raft::resources& res,
-            raft::device_vector_view<const index_t, index_t> queries,
+  void test(raft::device_vector_view<const index_t, index_t> queries,
             raft::device_vector_view<output_t, index_t> output) const
   {
     RAFT_EXPECTS(output.extent(0) == queries.extent(0), "Output and queries must be same size");
     auto bitset_view = view();
     raft::linalg::map(
-      res,
+      res_,
       output,
       [bitset_view] __device__(index_t query) { return output_t(bitset_view.test(query)); },
       queries);
@@ -280,12 +275,10 @@ struct bitset {
    * @param mask_index indices to remove from the bitset
    * @param set_value Value to set the bits to (true or false)
    */
-  void set(const raft::resources& res,
-           raft::device_vector_view<const index_t, index_t> mask_index,
-           bool set_value = false)
+  void set(raft::device_vector_view<const index_t, index_t> mask_index, bool set_value = false)
   {
     auto this_bitset_view = view();
-    thrust::for_each_n(resource::get_thrust_policy(res),
+    thrust::for_each_n(resource::get_thrust_policy(res_),
                        mask_index.data_handle(),
                        mask_index.extent(0),
                        [this_bitset_view, set_value] __device__(const index_t sample_index) {
@@ -294,14 +287,12 @@ struct bitset {
   }
   /**
    * @brief Flip all the bits in a bitset.
-   *
-   * @param res RAFT resources
    */
-  void flip(const raft::resources& res)
+  void flip()
   {
     auto bitset_span = this->to_mdspan();
     raft::linalg::map(
-      res,
+      res_,
       bitset_span,
       [] __device__(bitset_t element) { return bitset_t(~element); },
       raft::make_const_mdspan(bitset_span));
@@ -309,23 +300,21 @@ struct bitset {
   /**
    * @brief Reset the bits in a bitset.
    *
-   * @param res RAFT resources
    * @param default_value Value to set the bits to (true or false)
    */
-  void reset(const raft::resources& res, bool default_value = true)
+  void reset(bool default_value = true)
   {
-    cudaMemsetAsync(bitset_.data(),
-                    default_value ? 0xff : 0x00,
-                    n_elements() * sizeof(bitset_t),
-                    resource::get_cuda_stream(res));
+    RAFT_CUDA_TRY(cudaMemsetAsync(bitset_.data(),
+                                  default_value ? 0xff : 0x00,
+                                  n_elements() * sizeof(bitset_t),
+                                  resource::get_cuda_stream(res_)));
   }
   /**
    * @brief Returns the number of bits set to true in count_gpu_scalar.
    *
-   * @param[in] res RAFT resources
    * @param[out] count_gpu_scalar Device scalar to store the count
    */
-  void count(const raft::resources& res, raft::device_scalar_view<index_t> count_gpu_scalar)
+  void count(raft::device_scalar_view<index_t> count_gpu_scalar)
   {
     auto n_elements_ = n_elements();
     auto count_gpu =
@@ -337,66 +326,106 @@ struct bitset {
     bitset_t last_element_mask =
       n_last_element ? (bitset_t)((bitset_t{1} << n_last_element) - bitset_t{1}) : ~bitset_t{0};
     raft::linalg::coalesced_reduction(
-      res,
+      res_,
       bitset_matrix_view,
       count_gpu,
       index_t{0},
       false,
       [last_element_mask, n_elements_] __device__(bitset_t element, index_t index) {
-        index_t res = 0;
+        index_t result = 0;
         if constexpr (bitset_element_size == 64) {  // Needed because __popc doesn't support 64bit
           if (index == n_elements_ - 1)
-            res = index_t(raft::detail::native_popc<uint64_t>(element & last_element_mask));
+            result = index_t(raft::detail::native_popc<uint64_t>(element & last_element_mask));
           else
-            res = index_t(raft::detail::native_popc<uint64_t>(element));
+            result = index_t(raft::detail::native_popc<uint64_t>(element));
         } else {
           if (index == n_elements_ - 1)
-            res = index_t(__popc(element & last_element_mask));
+            result = index_t(__popc(element & last_element_mask));
           else
-            res = index_t(__popc(element));
+            result = index_t(__popc(element));
         }
 
-        return res;
+        return result;
       });
   }
   /**
    * @brief Returns the number of bits set to true.
    *
-   * @param[in] res RAFT resources
    * @return index_t Number of bits set to true
    */
-  auto count(const raft::resources& res) -> index_t
+  auto count() -> index_t
   {
-    auto count_gpu_scalar = raft::make_device_scalar<index_t>(res, 0.0);
-    count(res, count_gpu_scalar.view());
+    auto count_gpu_scalar = raft::make_device_scalar<index_t>(res_, 0.0);
+    count(count_gpu_scalar.view());
     index_t count_cpu = 0;
     raft::update_host(
-      &count_cpu, count_gpu_scalar.data_handle(), 1, resource::get_cuda_stream(res));
-    resource::sync_stream(res);
+      &count_cpu, count_gpu_scalar.data_handle(), 1, resource::get_cuda_stream(res_));
+    resource::sync_stream(res_);
     return count_cpu;
   }
   /**
    * @brief Checks if any of the bits are set to true in the bitset.
-   *
-   * @param res RAFT resources
    */
-  bool any(const raft::resources& res) { return count(res) > 0; }
+  bool any() { return count() > 0; }
   /**
    * @brief Checks if all of the bits are set to true in the bitset.
-   *
-   * @param res RAFT resources
    */
-  bool all(const raft::resources& res) { return count(res) == bitset_len_; }
+  bool all() { return count() == bitset_len_; }
   /**
    * @brief Checks if none of the bits are set to true in the bitset.
-   *
-   * @param res RAFT resources
    */
-  bool none(const raft::resources& res) { return count(res) == 0; }
+  bool none() { return count() == 0; }
+
+  bitset<bitset_t, index_t>& operator|=(const bitset<bitset_t, index_t>& other)
+  {
+    RAFT_EXPECTS(size() == other.size(), "Sizes must be equal");
+    auto this_span  = to_mdspan();
+    auto other_span = other.to_mdspan();
+    raft::linalg::map(
+      res_,
+      this_span,
+      [] __device__(bitset_t this_element, bitset_t other_element) {
+        return this_element | other_element;
+      },
+      raft::make_const_mdspan(this_span),
+      other_span);
+    return *this;
+  }
+  bitset<bitset_t, index_t>& operator&=(const bitset<bitset_t, index_t>& other)
+  {
+    RAFT_EXPECTS(size() == other.size(), "Sizes must be equal");
+    auto this_span  = to_mdspan();
+    auto other_span = other.to_mdspan();
+    raft::linalg::map(
+      res_,
+      this_span,
+      [] __device__(bitset_t this_element, bitset_t other_element) {
+        return this_element & other_element;
+      },
+      raft::make_const_mdspan(this_span),
+      other_span);
+    return *this;
+  }
+  bitset<bitset_t, index_t>& operator^=(const bitset<bitset_t, index_t>& other)
+  {
+    RAFT_EXPECTS(size() == other.size(), "Sizes must be equal");
+    auto this_span  = to_mdspan();
+    auto other_span = other.to_mdspan();
+    raft::linalg::map(
+      res_,
+      this_span,
+      [] __device__(bitset_t this_element, bitset_t other_element) {
+        return this_element ^ other_element;
+      },
+      raft::make_const_mdspan(this_span),
+      other_span);
+    return *this;
+  }
 
  private:
   raft::device_uvector<bitset_t> bitset_;
   index_t bitset_len_;
+  const raft::resources& res_;
 };
 
 /** @} */
