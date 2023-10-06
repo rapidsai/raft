@@ -318,7 +318,7 @@ index<T, IdxT> build(raft::resources const& res,
     auto nn_descent_params                      = experimental::nn_descent::index_params();
     nn_descent_params.graph_degree              = intermediate_degree;
     nn_descent_params.intermediate_graph_degree = 1.5 * intermediate_degree;
-    nn_descent_params.max_iterations = params.nn_descent_niter;
+    nn_descent_params.max_iterations            = params.nn_descent_niter;
     build_knn_graph<T, IdxT>(res, dataset, knn_graph->view(), nn_descent_params);
   }
 

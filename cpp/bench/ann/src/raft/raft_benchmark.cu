@@ -154,9 +154,7 @@ void parse_build_param(const nlohmann::json& conf,
       param.build_algo = raft::neighbors::cagra::graph_build_algo::NN_DESCENT;
     }
   }
-  if (conf.contains("nn_descent_niter")) {
-    param.nn_descent_niter = conf.at("nn_descent_niter");
-  }
+  if (conf.contains("nn_descent_niter")) { param.nn_descent_niter = conf.at("nn_descent_niter"); }
 }
 
 template <typename T, typename IdxT>
