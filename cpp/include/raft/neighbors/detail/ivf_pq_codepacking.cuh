@@ -89,6 +89,52 @@ struct bitfield_view_t {
   }
 };
 
+// /**
+//  * A producer for the `write_vector` reads the codes byte-by-byte. That is,
+//  * independent of the code width (pq_bits), one code uses the whole byte, hence
+//  * one vectors uses pq_dim bytes.
+//  */
+// struct pass_1_action {
+//   const uint8_t* flat_code;
+
+//   /**
+//    * Create a callable to be passed to `write_vector`.
+//    *
+//    * @param[in] flat_code flat PQ codes (one byte per code) of a single vector.
+//    */
+//   __host__ __device__ inline pass_1_action(const uint8_t* flat_code) : flat_code{flat_code} {}
+
+//   /** Read j-th component (code) of the i-th vector from the source. NB: i is ignored because there is a single flat code. */
+//   __host__ __device__ inline auto operator()(uint32_t i, uint32_t j) const -> uint8_t
+//   {
+//     return flat_code[j];
+//   }
+// };
+
+// /**
+//  * A consumer for the `run_on_vector` that just flattens PQ codes
+//  * one-per-byte. That is, independent of the code width (pq_bits), one code uses
+//  * the whole byte, hence one vectors uses pq_dim bytes.
+//  */
+// struct unpack_1_action {
+//   uint8_t* out_flat_code;
+
+//   /**
+//    * Create a callable to be passed to `run_on_vector`.
+//    *
+//    * @param[out] out_flat_code the destination for the read PQ codes of a single vector. NB: i is ignored because there is a single flat code.
+//    */
+//   __host__ __device__ inline unpack_1_action(uint8_t* out_flat_code) : out_flat_code{out_flat_code}
+//   {
+//   }
+
+//   /**  Write j-th component (code) of the i-th vector into the output array.NB: i is ignored because there is a single flat code. */
+//   __host__ __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+//   {
+//     out_flat_code[j] = code;
+//   }
+// };
+
 /**
  * Process a single vector in a list.
  *
