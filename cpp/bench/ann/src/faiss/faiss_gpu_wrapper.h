@@ -311,6 +311,8 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
   }
 };
 
+// TODO: Enable this in cmake
+//  ref: https://github.com/rapidsai/raft/issues/1876
 template <typename T>
 class FaissGpuIVFSQ : public FaissGpu<T> {
  public:

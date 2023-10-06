@@ -248,6 +248,8 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   void load(const std::string& file) override { this->template load_<faiss::IndexIVFPQ>(file); }
 };
 
+// TODO: Enable this in cmake
+//  ref: https://github.com/rapidsai/raft/issues/1876
 template <typename T>
 class FaissCpuIVFSQ : public FaissCpu<T> {
  public:

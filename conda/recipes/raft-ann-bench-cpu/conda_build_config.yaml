@@ -10,9 +10,6 @@ sysroot_version:
 cmake_version:
   - ">=3.26.4"
 
-faiss_version:
-  - "1.7.4"
-
 glog_version:
   - ">=0.6.0"
 

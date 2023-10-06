@@ -116,13 +116,13 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
   if constexpr (std::is_same_v<T, float>) {
     raft::bench::ann::Metric metric = parse_metric(distance);
-    if (algo == "faiss_gpu_ivf_flat") {
+    if (algo == "faiss_cpu_ivf_flat") {
       ann = make_algo<T, raft::bench::ann::FaissCpuIVFFlat>(metric, dim, conf, dev_list);
-    } else if (algo == "faiss_gpu_ivf_pq") {
+    } else if (algo == "faiss_cpu_ivf_pq") {
       ann = make_algo<T, raft::bench::ann::FaissCpuIVFPQ>(metric, dim, conf);
-    } else if (algo == "faiss_gpu_ivf_sq") {
+    } else if (algo == "faiss_cpu_ivf_sq") {
       ann = make_algo<T, raft::bench::ann::FaissCpuIVFSQ>(metric, dim, conf);
-    } else if (algo == "faiss_gpu_flat") {
+    } else if (algo == "faiss_cpu_flat") {
       ann = std::make_unique<raft::bench::ann::FaissCpuFlat<T>>(metric, dim);
     }
   }
@@ -138,11 +138,11 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  if (algo == "faiss_gpu_ivf_flat" || algo == "faiss_gpu_ivf_pq" || algo == "faiss_gpu_ivf_sq") {
+  if (algo == "faiss_cpu_ivf_flat" || algo == "faiss_cpu_ivf_pq" || algo == "faiss_cpu_ivf_sq") {
     auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
     parse_search_param<T>(conf, *param);
     return param;
-  } else if (algo == "faiss_gpu_flat") {
+  } else if (algo == "faiss_cpu_flat") {
     auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;
   }

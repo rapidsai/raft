@@ -227,13 +227,6 @@ dependencies:
           - h5py>=3.8.0
           - benchmark>=1.8.2
           - rmm=23.10.*
-    specific:
-      - output_types: [conda, pyproject, requirements]
-        matrices:
-          - matrix:
-              arch: x86_64
-            packages:
-              - libfaiss-avx2=1.7.4
   nn_bench_python:
     common:
       - output_types: [conda]
