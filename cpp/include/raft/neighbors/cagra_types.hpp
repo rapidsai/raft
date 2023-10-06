@@ -59,7 +59,7 @@ struct index_params : ann::index_params {
   /** ANN algorithm to build knn graph. */
   graph_build_algo build_algo = graph_build_algo::IVF_PQ;
   /**Number of Iterations to run if building with NN_DESCENT*/
-  size_t nn_descent_niter = 10;
+  size_t nn_descent_niter = 20;
 };
 
 enum class search_algo {
