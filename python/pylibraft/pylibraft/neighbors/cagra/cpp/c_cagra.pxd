@@ -51,9 +51,14 @@ from pylibraft.neighbors.ivf_pq.cpp.c_ivf_pq cimport (
 cdef extern from "raft/neighbors/cagra_types.hpp" \
         namespace "raft::neighbors::cagra" nogil:
 
+    ctypedef enum graph_build_algo:
+        IVF_PQ "raft::neighbors::cagra::graph_build_algo::IVF_PQ",
+        NN_DESCENT "raft::neighbors::cagra::graph_build_algo::NN_DESCENT"
+
     cpdef cppclass index_params(ann_index_params):
         size_t intermediate_graph_degree
         size_t graph_degree
+        graph_build_algo build_algo
 
     ctypedef enum search_algo:
         SINGLE_CTA "raft::neighbors::cagra::search_algo::SINGLE_CTA",

@@ -49,41 +49,42 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
-struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_queries;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::itopk_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::algo;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::team_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::search_width;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::min_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::thread_block_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_mode;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_min_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_max_fill_rate;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_random_samplings;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::rand_xor_mask;
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
+struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_queries;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::itopk_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::algo;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::team_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::search_width;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::min_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::thread_block_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_mode;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_min_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_max_fill_rate;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_random_samplings;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::max_dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dim;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::graph_degree;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::topk;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dim;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::graph_degree;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::topk;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hash_bitlen;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_bitlen;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::small_hash_reset_interval;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dataset_size;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::result_buffer_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_bitlen;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::small_hash_reset_interval;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dataset_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::result_buffer_size;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::smem_size;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::smem_size;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::hashmap;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_executed_iterations;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::dev_seed;
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>::num_seeds;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::hashmap;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_executed_iterations;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dev_seed;
+  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_seeds;
 
   uint32_t num_itopk_candidates;
 
@@ -92,7 +93,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
          int64_t dim,
          int64_t graph_degree,
          uint32_t topk)
-    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T>(res, params, dim, graph_degree, topk)
+    : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>(
+        res, params, dim, graph_degree, topk)
   {
     set_params(res);
   }
@@ -111,7 +113,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
     RAFT_EXPECTS(itopk_size <= max_itopk, "itopk_size cannot be larger than %u", max_itopk);
 
     RAFT_LOG_DEBUG("# num_itopk_candidates: %u", num_itopk_candidates);
-    RAFT_LOG_DEBUG("# num_itopk: %u", itopk_size);
+    RAFT_LOG_DEBUG("# num_itopk: %lu", itopk_size);
     //
     // Determine the thread block size
     //
@@ -129,11 +131,9 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       // Tentatively calculate the required share memory size when radix
       // sort based topk is used, assuming the block size is the maximum.
       if (itopk_size <= 256) {
-        smem_size +=
-          topk_by_radix_sort<256, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
+        smem_size += topk_by_radix_sort<256, INDEX_T>::smem_size * sizeof(std::uint32_t);
       } else {
-        smem_size +=
-          topk_by_radix_sort<512, max_block_size, INDEX_T>::smem_size * sizeof(std::uint32_t);
+        smem_size += topk_by_radix_sort<512, INDEX_T>::smem_size * sizeof(std::uint32_t);
       }
     }
 
@@ -186,34 +186,10 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       smem_size = base_smem_size;
       if (itopk_size <= 256) {
         constexpr unsigned MAX_ITOPK = 256;
-        if (block_size == 256) {
-          constexpr unsigned BLOCK_SIZE = 256;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else if (block_size == 512) {
-          constexpr unsigned BLOCK_SIZE = 512;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else {
-          constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        }
+        smem_size += topk_by_radix_sort<MAX_ITOPK, INDEX_T>::smem_size * sizeof(std::uint32_t);
       } else {
         constexpr unsigned MAX_ITOPK = 512;
-        if (block_size == 256) {
-          constexpr unsigned BLOCK_SIZE = 256;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else if (block_size == 512) {
-          constexpr unsigned BLOCK_SIZE = 512;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        } else {
-          constexpr unsigned BLOCK_SIZE = 1024;
-          smem_size +=
-            topk_by_radix_sort<MAX_ITOPK, BLOCK_SIZE, INDEX_T>::smem_size * sizeof(std::uint32_t);
-        }
+        smem_size += topk_by_radix_sort<MAX_ITOPK, INDEX_T>::smem_size * sizeof(std::uint32_t);
       }
     }
     RAFT_LOG_DEBUG("# smem_size: %u", smem_size);
@@ -234,7 +210,8 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
                   const std::uint32_t num_queries,
                   const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                   std::uint32_t* const num_executed_iterations,  // [num_queries]
-                  uint32_t topk)
+                  uint32_t topk,
+                  SAMPLE_FILTER_T sample_filter)
   {
     cudaStream_t stream = resource::get_cuda_stream(res);
     select_and_run<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>(
@@ -261,6 +238,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T> {
       search_width,
       min_iterations,
       max_iterations,
+      sample_filter,
       stream);
   }
 };

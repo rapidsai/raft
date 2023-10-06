@@ -1,3 +1,26 @@
+diff --git a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
+index 890420e..d792903 100644
+--- a/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
++++ b/include/ggnn/cache/cuda_simple_knn_sym_cache.cuh
+@@ -62,7 +62,7 @@ struct SimpleKNNSymCache {
+                                                 const ValueT dist_half)
+         : dist_query(dist_query), dist_half(dist_half) {}
+ 
+-    __device__ __forceinline__ DistQueryAndHalf() {}
++    DistQueryAndHalf() = default;
+   };
+ 
+   struct DistanceAndNorm {
+@@ -98,8 +98,7 @@ struct SimpleKNNSymCache {
+     KeyT cache;
+     DistQueryAndHalf dist;
+     bool flag;
+-
+-    __device__ __forceinline__ SyncTempStorage() {}
++    SyncTempStorage() = default;
+   };
+ 
+  public:
 diff --git a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh b/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh
 index 8cbaf0d..6eb72ac 100644
 --- a/include/ggnn/cuda_knn_ggnn_gpu_instance.cuh

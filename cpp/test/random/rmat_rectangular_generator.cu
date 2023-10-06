@@ -178,7 +178,7 @@ class RmatGenTest : public ::testing::TestWithParam<RmatInputs> {
       max_scale{std::max(params.r_scale, params.c_scale)}
   {
     theta.resize(4 * max_scale, stream);
-    uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
+    uniform<float>(handle, state, theta.data(), theta.size(), 0.0f, 1.0f);
     normalize<float, float>(theta.data(),
                             theta.data(),
                             max_scale,
@@ -271,7 +271,7 @@ class RmatGenMdspanTest : public ::testing::TestWithParam<RmatInputs> {
       max_scale{std::max(params.r_scale, params.c_scale)}
   {
     theta.resize(4 * max_scale, stream);
-    uniform<float>(state, theta.data(), theta.size(), 0.0f, 1.0f, stream);
+    uniform<float>(handle, state, theta.data(), theta.size(), 0.0f, 1.0f);
     normalize<float, float>(theta.data(),
                             theta.data(),
                             max_scale,

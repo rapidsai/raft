@@ -21,7 +21,7 @@ rapids_test_init()
 
 function(ConfigureTest)
 
-  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY)
+  set(options OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY NOCUDA)
   set(oneValueArgs NAME GPUS PERCENT)
   set(multiValueArgs PATH TARGETS CONFIGURATIONS)
 
@@ -37,7 +37,11 @@ function(ConfigureTest)
     set(_RAFT_TEST_PERCENT 100)
   endif()
 
-  set(TEST_NAME ${_RAFT_TEST_NAME})
+  if(_RAFT_TEST_NOCUDA)
+    set(TEST_NAME "${_RAFT_TEST_NAME}_NOCUDA")
+  else()
+    set(TEST_NAME ${_RAFT_TEST_NAME})
+  endif()
 
   add_executable(${TEST_NAME} ${_RAFT_TEST_PATH})
   target_link_libraries(
@@ -67,6 +71,9 @@ function(ConfigureTest)
   )
   if(_RAFT_TEST_EXPLICIT_INSTANTIATE_ONLY)
     target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  endif()
+  if(_RAFT_TEST_NOCUDA)
+    target_compile_definitions(${TEST_NAME} PRIVATE "RAFT_DISABLE_CUDA")
   endif()
 
   target_include_directories(${TEST_NAME} PUBLIC "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/test>")
@@ -105,6 +112,7 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    test/core/bitset.cu
     test/core/device_resources_manager.cpp
     test/core/device_setter.cpp
     test/core/logger.cpp
@@ -116,6 +124,8 @@ if(BUILD_TESTS)
     test/core/interruptible.cu
     test/core/nvtx.cpp
     test/core/mdarray.cu
+    test/core/mdspan_copy.cpp
+    test/core/mdspan_copy.cu
     test/core/mdspan_utils.cu
     test/core/numpy_serializer.cu
     test/core/memory_type.cpp
@@ -123,10 +133,16 @@ if(BUILD_TESTS)
     test/core/sparse_matrix.cpp
     test/core/span.cpp
     test/core/span.cu
+    test/core/stream_view.cpp
     test/core/temporary_device_buffer.cu
     test/test.cpp
     LIB
     EXPLICIT_INSTANTIATE_ONLY
+  )
+
+  ConfigureTest(
+    NAME CORE_TEST PATH test/core/stream_view.cpp test/core/mdspan_copy.cpp LIB
+    EXPLICIT_INSTANTIATE_ONLY NOCUDA
   )
 
   ConfigureTest(
@@ -371,6 +387,21 @@ if(BUILD_TESTS)
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_NN_DESCENT_TEST
+    PATH
+    test/neighbors/ann_nn_descent/test_float_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS

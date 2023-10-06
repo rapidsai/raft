@@ -32,6 +32,7 @@ function(ConfigureBench)
     PRIVATE raft::raft
             raft_internal
             $<$<BOOL:${ConfigureBench_LIB}>:raft::compiled>
+            ${RAFT_CTK_MATH_DEPENDENCIES}
             benchmark::benchmark
             Threads::Threads
             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
@@ -73,6 +74,10 @@ function(ConfigureBench)
 endfunction()
 
 if(BUILD_PRIMS_BENCH)
+  ConfigureBench(
+    NAME CORE_BENCH PATH bench/prims/core/bitset.cu bench/prims/core/copy.cu bench/prims/main.cpp
+  )
+
   ConfigureBench(
     NAME CLUSTER_BENCH PATH bench/prims/cluster/kmeans_balanced.cu bench/prims/cluster/kmeans.cu
     bench/prims/main.cpp OPTIONAL LIB EXPLICIT_INSTANTIATE_ONLY
@@ -155,4 +160,5 @@ if(BUILD_PRIMS_BENCH)
     LIB
     EXPLICIT_INSTANTIATE_ONLY
   )
+
 endif()
