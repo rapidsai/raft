@@ -48,8 +48,8 @@ __global__ void neighborhood_recall(
   DistanceValueType const eps)
 {
   auto constexpr kThreadsPerBlock = 32;
-  IndexType const row_idx = blockIdx.x;
-  auto const lane_idx     = threadIdx.x % kThreadsPerBlock;
+  IndexType const row_idx         = blockIdx.x;
+  auto const lane_idx             = threadIdx.x % kThreadsPerBlock;
 
   // Each warp stores a recall score computed across the columns per row
   IndexType thread_recall_score = 0;
@@ -106,7 +106,7 @@ void neighborhood_recall(
 {
   // One warp per row, launch a warp-width block per-row kernel
   auto constexpr kThreadsPerBlock = 32;
-  auto const num_blocks      = indices.extent(0);
+  auto const num_blocks           = indices.extent(0);
 
   neighborhood_recall<<<num_blocks, kThreadsPerBlock>>>(
     indices, ref_indices, distances, ref_distances, recall_score, eps);

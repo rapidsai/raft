@@ -60,10 +60,10 @@ namespace raft::stats {
  * auto recall_score = raft::make_device_scalar(res, scalar);
  *
  * raft::stats::neighborhood_recall(res,
-                                    raft::make_const_mdspan(indices.view()), 
-                                    raft::make_const_mdspan(ref_indices.view()), 
+                                    raft::make_const_mdspan(indices.view()),
+                                    raft::make_const_mdspan(ref_indices.view()),
                                     recall_score.view(),
-                                    raft::make_const_mdspan(distances.view()), 
+                                    raft::make_const_mdspan(distances.view()),
                                     raft::make_const_mdspan(ref_distances.view()));
  * @endcode
  *
@@ -145,10 +145,10 @@ void neighborhood_recall(
  * auto recall_score = raft::make_host_scalar(scalar);
  *
  * raft::stats::neighborhood_recall(res,
-                                    raft::make_const_mdspan(indices.view()), 
-                                    raft::make_const_mdspan(ref_indices.view()), 
+                                    raft::make_const_mdspan(indices.view()),
+                                    raft::make_const_mdspan(ref_indices.view()),
                                     recall_score.view(),
-                                    raft::make_const_mdspan(distances.view()), 
+                                    raft::make_const_mdspan(distances.view()),
                                     raft::make_const_mdspan(ref_distances.view()));
  * @endcode
  *
