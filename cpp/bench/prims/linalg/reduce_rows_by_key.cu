@@ -37,7 +37,7 @@ struct reduce_rows_by_key : public fixture {
       workspace(p.rows, stream)
   {
     raft::random::RngState rng{42};
-    raft::random::uniformInt(rng, keys.data(), p.rows, (KeyT)0, (KeyT)p.keys, stream);
+    raft::random::uniformInt(handle, rng, keys.data(), p.rows, (KeyT)0, (KeyT)p.keys);
   }
 
   void run_benchmark(::benchmark::State& state) override
