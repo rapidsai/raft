@@ -29,6 +29,7 @@ files:
       - develop
       - cudatoolkit
       - nn_bench
+      - nn_bench_python
   test_cpp:
     output: none
     includes:
@@ -228,6 +229,7 @@ dependencies:
           - libfaiss>=1.7.1
           - benchmark>=1.8.2
           - faiss-proc=*=cuda
+          - *rmm_conda
   nn_bench_python:
     common:
       - output_types: [conda]

@@ -362,28 +362,28 @@ class GNND {
   GnndGraph<Index_t> graph_;
   std::atomic<int64_t> update_counter_;
 
-  Index_t nrow_;
-  const int ndim_;
+  size_t nrow_;
+  size_t ndim_;
 
-  raft::device_matrix<__half, Index_t, raft::row_major> d_data_;
-  raft::device_vector<DistData_t, Index_t> l2_norms_;
+  raft::device_matrix<__half, size_t, raft::row_major> d_data_;
+  raft::device_vector<DistData_t, size_t> l2_norms_;
 
-  raft::device_matrix<ID_t, Index_t, raft::row_major> graph_buffer_;
-  raft::device_matrix<DistData_t, Index_t, raft::row_major> dists_buffer_;
+  raft::device_matrix<ID_t, size_t, raft::row_major> graph_buffer_;
+  raft::device_matrix<DistData_t, size_t, raft::row_major> dists_buffer_;
 
   // TODO: Investigate using RMM/RAFT types https://github.com/rapidsai/raft/issues/1827
   thrust::host_vector<ID_t, pinned_memory_allocator<ID_t>> graph_host_buffer_;
   thrust::host_vector<DistData_t, pinned_memory_allocator<DistData_t>> dists_host_buffer_;
 
-  raft::device_vector<int, Index_t> d_locks_;
+  raft::device_vector<int, size_t> d_locks_;
 
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_new_;
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_graph_old_;
   thrust::host_vector<Index_t, pinned_memory_allocator<Index_t>> h_rev_graph_old_;
   // int2.x is the number of forward edges, int2.y is the number of reverse edges
 
-  raft::device_vector<int2, Index_t> d_list_sizes_new_;
-  raft::device_vector<int2, Index_t> d_list_sizes_old_;
+  raft::device_vector<int2, size_t> d_list_sizes_new_;
+  raft::device_vector<int2, size_t> d_list_sizes_old_;
 };
 
 constexpr int TILE_ROW_WIDTH = 64;
@@ -1143,21 +1143,21 @@ GNND<Data_t, Index_t>::GNND(raft::resources const& res, const BuildConfig& build
            NUM_SAMPLES),
     nrow_(build_config.max_dataset_size),
     ndim_(build_config.dataset_dim),
-    d_data_{raft::make_device_matrix<__half, Index_t, raft::row_major>(
+    d_data_{raft::make_device_matrix<__half, size_t, raft::row_major>(
       res, nrow_, build_config.dataset_dim)},
-    l2_norms_{raft::make_device_vector<DistData_t, Index_t>(res, nrow_)},
+    l2_norms_{raft::make_device_vector<DistData_t, size_t>(res, nrow_)},
     graph_buffer_{
-      raft::make_device_matrix<ID_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+      raft::make_device_matrix<ID_t, size_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
     dists_buffer_{
-      raft::make_device_matrix<DistData_t, Index_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
+      raft::make_device_matrix<DistData_t, size_t, raft::row_major>(res, nrow_, DEGREE_ON_DEVICE)},
     graph_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
     dists_host_buffer_(nrow_ * DEGREE_ON_DEVICE),
-    d_locks_{raft::make_device_vector<int, Index_t>(res, nrow_)},
+    d_locks_{raft::make_device_vector<int, size_t>(res, nrow_)},
     h_rev_graph_new_(nrow_ * NUM_SAMPLES),
     h_graph_old_(nrow_ * NUM_SAMPLES),
     h_rev_graph_old_(nrow_ * NUM_SAMPLES),
-    d_list_sizes_new_{raft::make_device_vector<int2, Index_t>(res, nrow_)},
-    d_list_sizes_old_{raft::make_device_vector<int2, Index_t>(res, nrow_)}
+    d_list_sizes_new_{raft::make_device_vector<int2, size_t>(res, nrow_)},
+    d_list_sizes_old_{raft::make_device_vector<int2, size_t>(res, nrow_)}
 {
   static_assert(NUM_SAMPLES <= 32);
 
@@ -1342,8 +1342,8 @@ void GNND<Data_t, Index_t>::build(Data_t* data, const Index_t nrow, Index_t* out
   for (size_t i = 0; i < (size_t)nrow_; i++) {
     for (size_t j = 0; j < build_config_.node_degree; j++) {
       size_t idx = i * graph_.node_degree + j;
-      Index_t id = graph_.h_graph[idx].id();
-      if (id < nrow_) {
+      int id     = graph_.h_graph[idx].id();
+      if (id < static_cast<int>(nrow_)) {
         graph_shrink_buffer[i * build_config_.node_degree + j] = id;
       } else {
         graph_shrink_buffer[i * build_config_.node_degree + j] =
