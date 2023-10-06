@@ -18,6 +18,7 @@
 
 #include <raft/core/bitset.cuh>
 #include <raft/core/device_mdarray.hpp>
+#include <raft/linalg/init.cuh>
 #include <raft/random/rng.cuh>
 
 #include <gtest/gtest.h>
@@ -43,7 +44,7 @@ auto operator<<(std::ostream& os, const test_spec_bitset& ss) -> std::ostream&
 template <typename bitset_t, typename index_t>
 void add_cpu_bitset(std::vector<bitset_t>& bitset, const std::vector<index_t>& mask_idx)
 {
-  static size_t constexpr const bitset_element_size = sizeof(bitset_t) * 8;
+  constexpr size_t bitset_element_size = sizeof(bitset_t) * 8;
   for (size_t i = 0; i < mask_idx.size(); i++) {
     auto idx = mask_idx[i];
     bitset[idx / bitset_element_size] &= ~(bitset_t{1} << (idx % bitset_element_size));
@@ -64,7 +65,7 @@ void test_cpu_bitset(const std::vector<bitset_t>& bitset,
                      const std::vector<index_t>& queries,
                      std::vector<uint8_t>& result)
 {
-  static size_t constexpr const bitset_element_size = sizeof(bitset_t) * 8;
+  constexpr size_t bitset_element_size = sizeof(bitset_t) * 8;
   for (size_t i = 0; i < queries.size(); i++) {
     result[i] = uint8_t((bitset[queries[i] / bitset_element_size] &
                          (bitset_t{1} << (queries[i] % bitset_element_size))) != 0);
@@ -145,10 +146,24 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
 
     // Flip the bitset and re-test
+    auto bitset_count = my_bitset.count(res);
     my_bitset.flip(res);
+    ASSERT_EQ(my_bitset.count(res), spec.bitset_len - bitset_count);
     update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
     flip_cpu_bitset(bitset_ref);
     resource::sync_stream(res, stream);
+    ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
+
+    my_bitset.reset(res, false);
+    ASSERT_EQ(my_bitset.any(res), false);
+    ASSERT_EQ(my_bitset.none(res), true);
+    raft::linalg::range(query_device.data_handle(), query_device.size(), stream);
+    my_bitset.set(res, raft::make_const_mdspan(query_device.view()), true);
+    bitset_count = my_bitset.count(res);
+    ASSERT_EQ(bitset_count, query_device.size());
+    ASSERT_EQ(my_bitset.any(res), true);
+    ASSERT_EQ(my_bitset.none(res), false);
+
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
   }
 };
