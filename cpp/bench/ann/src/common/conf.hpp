@@ -113,9 +113,11 @@ class Configuration {
       index.name        = conf.at("name");
       index.algo        = conf.at("algo");
       index.build_param = conf.at("build_param");
-      index.file        = conf.at("file");
-      index.batch_size  = batch_size;
-      index.k           = k;
+      std::cout << "reading conf file" << std::endl;
+      index.file = conf.at("file");
+      std::cout << "read conf file" << std::endl;
+      index.batch_size = batch_size;
+      index.k          = k;
 
       if (conf.contains("multigpu")) {
         for (auto it : conf.at("multigpu")) {

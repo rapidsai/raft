@@ -33,6 +33,12 @@
 #include <thrust/fill.h>
 #include <type_traits>
 
+#include "cuda_huge_page_resource.hpp"
+#include "cuda_pinned_resource.hpp"
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
 #include <raft/core/logger.hpp>
 namespace raft::neighbors::cagra {
 /**
@@ -183,9 +189,13 @@ struct index : ann::index {
   index(raft::resources const& res,
         raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded)
     : ann::index(),
-      metric_(metric),
+      mr_(new rmm::mr::cuda_pinned_resource()),
+      mr_huge_(new rmm::mr::cuda_huge_page_resource()),
+      metric_(raft::distance::DistanceType::L2Expanded),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
   {
   }
 
@@ -247,16 +257,64 @@ struct index : ann::index {
   index(raft::resources const& res,
         raft::distance::DistanceType metric,
         mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset,
-        mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph)
+        mdspan<const IdxT, matrix_extent<int64_t>, row_major, graph_accessor> knn_graph,
+        bool graph_pinned = true,
+        bool data_pinned  = true)
     : ann::index(),
+      mr_(new rmm::mr::cuda_pinned_resource()),
+      mr_huge_(new rmm::mr::cuda_huge_page_resource()),
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0))
+      dataset_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get()),
+      // dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
+      graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
+      graph_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get())
+  // graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
-    update_dataset(res, dataset);
-    update_graph(res, knn_graph);
+    if (data_pinned) {
+      // copy with padding
+      int64_t aligned_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
+      dataset_pinned_.resize(dataset.extent(0) * aligned_dim, resource::get_cuda_stream(res));
+      resource::sync_stream(res);
+
+      RAFT_LOG_INFO("Allocated pinned dataset");
+
+      memset(dataset_pinned_.data(), 0, dataset_pinned_.size() * sizeof(T));
+      RAFT_CUDA_TRY(cudaMemcpy2DAsync(dataset_pinned_.data(),
+                                      sizeof(T) * aligned_dim,
+                                      dataset.data_handle(),
+                                      sizeof(T) * dataset.extent(1),
+                                      sizeof(T) * dataset.extent(1),
+                                      dataset.extent(0),
+                                      cudaMemcpyDefault,
+                                      resource::get_cuda_stream(res)));
+
+      dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
+        dataset_pinned_.data(), dataset.extent(0), dataset.extent(1), aligned_dim);
+      RAFT_LOG_INFO("CAGRA dataset strided matrix view %zux%zu, stride %zu",
+                    static_cast<size_t>(dataset_view_.extent(0)),
+                    static_cast<size_t>(dataset_view_.extent(1)),
+                    static_cast<size_t>(dataset_view_.stride(0)));
+    } else {
+      update_dataset(res, dataset);
+    }
+    if (graph_pinned) {
+      graph_pinned_.resize(knn_graph.size(), resource::get_cuda_stream(res));
+      resource::sync_stream(res);
+      RAFT_LOG_INFO("Allocated pinned graph");
+
+      memset(graph_pinned_.data(), 0, sizeof(IdxT) * graph_pinned_.size());
+      graph_view_ = make_device_matrix_view<IdxT, int64_t, row_major>(
+        graph_pinned_.data(), knn_graph.extent(0), knn_graph.extent(1));
+      raft::copy(graph_pinned_.data(),
+                 knn_graph.data_handle(),
+                 knn_graph.size(),
+                 resource::get_cuda_stream(res));
+    } else {
+      update_graph(res, knn_graph);
+    }
     resource::sync_stream(res);
   }
 
@@ -364,9 +422,14 @@ struct index : ann::index {
                    static_cast<size_t>(dataset_view_.stride(0)));
   }
 
+ private:
+  std::unique_ptr<rmm ::mr::cuda_pinned_resource> mr_;
+  std::unique_ptr<rmm ::mr::cuda_huge_page_resource> mr_huge_;
   raft::distance::DistanceType metric_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
+  rmm::device_uvector<T> dataset_pinned_;
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
+  rmm::device_uvector<IdxT> graph_pinned_;
   raft::device_matrix_view<const T, int64_t, layout_stride> dataset_view_;
   raft::device_matrix_view<const IdxT, int64_t, row_major> graph_view_;
 };

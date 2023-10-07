@@ -1,9 +1,9 @@
 {
   "dataset": {
     "name": "deep-100M",
-    "base_file": "deep-100M/base.1B.fbin",
+    "base_file": "deep-1B/base.1B.fbin",
     "subset_size": 100000000,
-    "query_file": "deep-100M/query.public.10K.fbin",
+    "query_file": "deep-1B/query.public.10K.fbin",
     "groundtruth_neighbors_file": "deep-100M/groundtruth.neighbors.ibin",
     "distance": "euclidean"
   },
@@ -375,10 +375,10 @@
       "search_result_file": "result/deep-image-96-angular/raft_ivf_pq/dimpq512-cluster1024-float-float"
     },    
     {
-      "name": "raft_cagra.dim32",
+      "name": "raft_cagra.dim32.single_cta",
       "algo": "raft_cagra",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
-      "file": "deep-100M/raft_cagra/dim32",
+      "file": "/workspace1/index/cagra/deep100m_n48_fp32.opt32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "single_cta"},
         {"itopk": 32, "search_width": 1, "max_iterations": 32, "algo": "single_cta"},
@@ -398,7 +398,7 @@
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
-      "file": "deep-100M/raft_cagra/dim32",
+      "file": "/workspace1/index/cagra/deep100m_n48_fp32.opt32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_cta"},
         {"itopk": 32, "search_width": 1, "max_iterations": 32, "algo": "multi_cta"},
@@ -416,9 +416,9 @@
     },
     {
       "name": "raft_cagra.dim32.multi_kernel",
-      "algo": "raft_cagra",
+      "algo": "cagra",
       "build_param": {"graph_degree": 32, "intermediate_graph_degree": 48},
-      "file": "deep-100M/raft_cagra/dim32",
+      "file": "/workspace1/index/cagra/deep100m_n48_fp32.opt32",
       "search_params": [
         {"itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_kernel"},
         {"itopk": 32, "search_width": 1, "max_iterations": 32, "algo": "multi_kernel"},
