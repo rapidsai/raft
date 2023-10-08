@@ -40,7 +40,7 @@ struct Argmin : public fixture {
 
     raft::random::RngState rng{1234};
     raft::random::uniform(
-      rng, matrix.data_handle(), params.rows * params.cols, T(-1), T(1), stream);
+      handle, rng, matrix.data_handle(), params.rows * params.cols, T(-1), T(1));
     resource::sync_stream(handle, stream);
   }
 
