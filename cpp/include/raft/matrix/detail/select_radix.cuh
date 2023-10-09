@@ -907,6 +907,20 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
       atomicAdd(histogram + bucket, static_cast<IdxT>(1));
     };
     vectorized_process(threadIdx.x, blockDim.x, in_buf, previous_len, f);
+  } else if (!out_buf) {
+    // not use vectorized_process here because it increases #registers a lot
+    const auto kth_value_bits    = counter->kth_value_bits;
+    const int previous_start_bit = calc_start_bit<T, BitsPerPass>(pass - 1);
+
+    for (IdxT i = threadIdx.x; i < previous_len; i += blockDim.x) {
+      const T value            = in_buf[i];
+      const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
+                                 << previous_start_bit;
+      if (previous_bits == kth_value_bits) {
+        int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
+        atomicAdd(histogram + bucket, static_cast<IdxT>(1));
+      }
+    }
   } else {
     // not use vectorized_process here because it increases #registers a lot
     IdxT* p_out_cnt              = &counter->out_cnt;
@@ -918,19 +932,17 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
       const auto previous_bits = (twiddle_in(value, select_min) >> previous_start_bit)
                                  << previous_start_bit;
       if (previous_bits == kth_value_bits) {
-        if (out_buf) {
 #if CUDART_VERSION < 12000
-          // Avoiding potential compiler bug in CUDA 11
-          volatile
+        // Avoiding potential compiler bug in CUDA 11
+        volatile
 #endif
-            IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
-          out_buf[pos]     = value;
-          out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
-        }
+          IdxT pos       = atomicAdd(p_filter_cnt, static_cast<IdxT>(1));
+        out_buf[pos]     = value;
+        out_idx_buf[pos] = in_idx_buf ? in_idx_buf[i] : i;
 
         int bucket = calc_bucket<T, BitsPerPass>(value, start_bit, mask, select_min);
         atomicAdd(histogram + bucket, static_cast<IdxT>(1));
-      } else if (out_buf && previous_bits < kth_value_bits) {
+      } else if (previous_bits < kth_value_bits) {
         IdxT pos     = atomicAdd(p_out_cnt, static_cast<IdxT>(1));
         out[pos]     = value;
         out_idx[pos] = in_idx_buf ? in_idx_buf[i] : i;
