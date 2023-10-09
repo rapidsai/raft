@@ -112,7 +112,7 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
   constexpr float ratio = 2 + sizeof(IdxT) * 2.0 / sizeof(T);
   // Even such estimation is too conservative, so decrease it by 1/8
-  return len / ratio / 8;
+  return len / ratio / 8.0;
 }
 
 /**
@@ -213,7 +213,7 @@ struct alignas(128) Counter {
  * This function is more complicated than the one-block counterpart because this function handles
  * the case of early stopping. When early stopping is triggered, it's desirable to do the final
  * filtering in this function rather than in last_filter(), because this function is run by multiple
- * blocks while last_filter is run by single block.
+ * blocks while last_filter is run by a single block.
  */
 template <typename T, typename IdxT, int BitsPerPass>
 _RAFT_DEVICE void filter_and_histogram(const T* in_buf,
@@ -663,28 +663,21 @@ __global__ void radix_kernel(const T* in,
 }
 
 template <typename T, typename IdxT, int BlockSize, typename Kernel>
-int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
-{
-  int active_blocks;
-  RAFT_CUDA_TRY(
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
-
-  constexpr int items_per_thread = 32;
-  constexpr int num_waves        = 10;
-  int chunk_size =
-    std::max<int>(1, num_waves * sm_cnt * active_blocks * BlockSize * items_per_thread / len);
-  return std::min(chunk_size, batch_size);
-}
-
-template <typename T, typename IdxT, int BlockSize, typename Kernel>
-int calc_chunk_size_for_one_block(int batch_size, IdxT len, int sm_cnt, Kernel kernel)
+int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel, bool one_block)
 {
   int active_blocks;
   RAFT_CUDA_TRY(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
 
   constexpr int num_waves = 10;
-  int chunk_size          = num_waves * sm_cnt * active_blocks;
+  int chunk_size;
+  if (one_block) {
+    chunk_size = num_waves * sm_cnt * active_blocks;
+  } else {
+    constexpr int items_per_thread = 32;
+    chunk_size =
+      std::max<int>(1, num_waves * sm_cnt * active_blocks * BlockSize * items_per_thread / len);
+  }
   return std::min(chunk_size, batch_size);
 }
 
@@ -783,7 +776,7 @@ void radix_topk(const T* in,
 
   auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
   const size_t max_chunk_size =
-    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, false);
   if (max_chunk_size != static_cast<size_t>(batch_size)) {
     grid_dim = calc_grid_dim<T, IdxT, BitsPerPass, BlockSize>(max_chunk_size, len, sm_cnt);
   }
@@ -1007,7 +1000,7 @@ __global__ void radix_topk_one_block_kernel(const T* in,
       previous_len = len;
     }
     if (current_len > buf_len) {
-      // so "out_buf==nullptr" denotes that writing to buffer is skipped in current pass
+      // so "out_buf==nullptr" denotes skipping writing buffer in current pass
       out_buf     = nullptr;
       out_idx_buf = nullptr;
     }
@@ -1070,7 +1063,7 @@ void radix_topk_one_block(const T* in,
   auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
   const IdxT buf_len = calc_buf_len<T>(len);
   const size_t max_chunk_size =
-    calc_chunk_size_for_one_block<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel);
+    calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
   auto pool_guard =
     raft::get_pool_memory_resource(mr,
