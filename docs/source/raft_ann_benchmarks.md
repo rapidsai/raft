@@ -162,7 +162,7 @@ docker run  all --rm -it -u $(id -u) \
      ""
 ```
 
-**Note:** The user inside the containers is `root`, to workaround this the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the datasets/results produced by the container will be wrong, and can be fixed by the user.
+**Note:** The user inside the containers is `root`. To workaround this, the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the `datasets/results` produced by the container will be wrong, and will need to be manually fixed by the user.
 
 2. **Using the preinstalled `raft_ann_benchmarks` python package (advanced mode)**: The docker containers are built using the conda packages described in the following section, so they can be used directly as if they were installed manually following the instructions in the next section. This is recommended for advanced users, and is the option that allows the full flexibility of the benchmarking scripts. To use the python scripts directly, use the following command:
 
