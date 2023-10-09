@@ -6,8 +6,8 @@ This project provides a benchmark program for various ANN search implementations
 
 - [Installing and Running the Benchmarks](#installing--and-running-the-benchmarks)
     - [Using conda](#conda)
-      - [End-to-end example: Million-scale](end-to-end-example-million-scale)
     - [Using Docker](#docker)
+- [End-to-end example: Million-scale](end-to-end-example-million-scale)
 - [End-to-end example: Billion-scale](#end-to-end-example-billion-scale)
 - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
 - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
@@ -99,8 +99,14 @@ docker pull rapidsai/raft-ann-bench:23.10a-cuda12.0-py3.10 #substitute raft-ann-
 
 The CUDA and python versions can be changed for the supported values:
 
-Supported CUDA versions: 11.8 and 12.0
+Supported CUDA versions: 11.2 and 12.0
 Supported Python versions: 3.9 and 3.10.
+
+You can see the exact versions as well in the dockerhub site:
+
+- [RAFT ANN Benchmark images](https://hub.docker.com/r/rapidsai/raft-ann-bench/tags)
+- [RAFT ANN Benchmark with datasets preloaded images](https://hub.docker.com/r/rapidsai/raft-ann-bench-cpu/tags)
+- [RAFT ANN Benchmark CPU only images](https://hub.docker.com/r/rapidsai/raft-ann-bench-datasets/tags)
 
 **Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver.
 
