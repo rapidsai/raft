@@ -50,10 +50,10 @@ struct KMeansBalanced : public fixture {
     constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
       raft::random::uniformInt(
-        rng, X.data_handle(), params.data.rows * params.data.cols, kRangeMin, kRangeMax, stream);
+        handle, rng, X.data_handle(), params.data.rows * params.data.cols, kRangeMin, kRangeMax);
     } else {
       raft::random::uniform(
-        rng, X.data_handle(), params.data.rows * params.data.cols, kRangeMin, kRangeMax, stream);
+        handle, rng, X.data_handle(), params.data.rows * params.data.cols, kRangeMin, kRangeMax);
     }
     resource::sync_stream(handle, stream);
   }
