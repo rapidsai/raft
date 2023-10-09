@@ -266,10 +266,10 @@ struct index : ann::index {
       metric_(metric),
       dataset_(make_device_matrix<T, int64_t>(res, 0, 0)),
       dataset_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get()),
-      // dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
+      //dataset_pinned_(0, resource::get_cuda_stream(res), mr_.get()),
       graph_(make_device_matrix<IdxT, int64_t>(res, 0, 0)),
       graph_pinned_(0, resource::get_cuda_stream(res), mr_huge_.get())
-  // graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
+      //graph_pinned_(0, resource::get_cuda_stream(res), mr_.get())
   {
     RAFT_EXPECTS(dataset.extent(0) == knn_graph.extent(0),
                  "Dataset and knn_graph must have equal number of rows");
