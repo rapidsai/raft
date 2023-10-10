@@ -28,7 +28,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pylibraft"
-version = "23.12.00"
+dynamic = ["version"]
 description = "RAFT: Reusable Algorithms Functions and other Tools"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [

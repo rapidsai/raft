@@ -25,7 +25,7 @@ requires = [
 
 [project]
 name = "raft-dask"
-version = "23.12.00"
+version = ["dynamic"]
 description = "Reusable Accelerated Functions & Tools Dask Infrastructure"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [

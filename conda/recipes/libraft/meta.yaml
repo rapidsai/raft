@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c conda-forge -c nvidia -c rapidsai
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set version = environ.get('RAPIDS_PACKAGE_VERSION', '0.0.0.dev').strip('"').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
@@ -13,7 +13,7 @@ package:
   name: libraft-split
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 outputs:
   - name: libraft-headers-only
