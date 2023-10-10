@@ -24,7 +24,7 @@
 
 #include "../common/ann_types.hpp"
 #undef WARP_SIZE
-#include "faiss_wrapper.h"
+#include "faiss_gpu_wrapper.h"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 

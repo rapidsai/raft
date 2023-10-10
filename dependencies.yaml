@@ -226,9 +226,8 @@ dependencies:
           - nlohmann_json>=3.11.2
           - glog>=0.6.0
           - h5py>=3.8.0
-          - libfaiss>=1.7.1
           - benchmark>=1.8.2
-          - faiss-proc=*=cuda
+          - openblas
           - *rmm_conda
   nn_bench_python:
     common:

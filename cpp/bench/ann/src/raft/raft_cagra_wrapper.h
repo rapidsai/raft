@@ -23,13 +23,11 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
 #include <raft/core/operators.hpp>
-#include <raft/distance/detail/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
-#include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -54,7 +52,7 @@ class RaftCagra : public ANN<T> {
 
   using BuildParam = raft::neighbors::cagra::index_params;
 
-  RaftCagra(Metric metric, int dim, const BuildParam& param)
+  RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
@@ -107,19 +105,16 @@ class RaftCagra : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  switch (raft::spatial::knn::detail::utils::check_pointer_residency(dataset)) {
-    case raft::spatial::knn::detail::utils::pointer_residency::host_only: {
-      auto dataset_view =
-        raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-      return;
-    }
-    default: {
-      auto dataset_view =
-        raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-      index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-      return;
-    }
+  if (raft::get_device_for_address(dataset) == -1) {
+    auto dataset_view =
+      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+    return;
+  } else {
+    auto dataset_view =
+      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
+    return;
   }
 }
 

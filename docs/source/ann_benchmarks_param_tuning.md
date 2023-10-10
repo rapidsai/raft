@@ -5,6 +5,10 @@ This guide outlines the various parameter settings that can be specified in [RAF
 
 ## RAFT Indexes
 
+### `raft_brute_force`
+
+Use RAFT brute-force index for exact search. Brute-force has no further build or search parameters.
+
 ### `raft_ivf_flat`
 
 IVF-flat uses an inverted-file index, which partitions the vectors into a series of clusters, or lists, storing them in an interleaved format which is optimized for fast distance computation. The searching of an IVF-flat index reduces the total vectors in the index to those within some user-specified nearest clusters called probes.
@@ -60,6 +64,10 @@ CAGRA uses a graph-based index, which creates an intermediate, approximate kNN g
 
 ## FAISS Indexes
 
+### `faiss_gpu_flat`
+
+Use FAISS flat index on the GPU, which performs an exact search using brute-force and doesn't have any further build or search parameters. 
+
 ### `faiss_gpu_ivf_flat`
 
 IVF-flat uses an inverted-file index, which partitions the vectors into a series of clusters, or lists, storing them in an interleaved format which is optimized for fast distance computation. The searching of an IVF-flat index reduces the total vectors in the index to those within some user-specified nearest clusters called probes.
@@ -86,7 +94,40 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `numProbes`      | `search_params` | Y        | Positive Integer >0              |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                       |
 | `refine_ratio`   | `search_params` | N| Positive Number >=0          | 0       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
 
+### `faiss_cpu_flat`
 
+Use FAISS flat index on the CPU, which performs an exact search using brute-force and doesn't have any further build or search parameters.
+
+
+| Parameter | Type           | Required | Data Type           | Default | Description                                                                                                                                                                       |
+|-----------|----------------|----------|---------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
+
+### `faiss_cpu_ivf_flat`
+
+Use FAISS IVF-Flat index on CPU
+
+| Parameter | Type           | Required | Data Type           | Default | Description                                                                                                                                                                       |
+|-----------|----------------|----------|---------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `nlists`  | `build_param`  | Y        | Positive Integer >0 |         | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
+| `ratio`   | `build_param`  | N        | Positive Integer >0 | 2       | `1/ratio` is the number of training points which should be used to train the clusters.                                                                                            |
+| `nprobe`  | `search_params` | Y        | Positive Integer >0 | | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                       |
+| `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
+
+### `faiss_cpu_ivf_pq`
+
+Use FAISS IVF-PQ index on CPU
+
+| Parameter        | Type           | Required | Data Type                          | Default | Description                                                                                                                                                                   |
+|------------------|----------------|----------|------------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `nlists`         | `build_param`  | Y        | Positive Integer >0                |         | Number of clusters to partition the vectors into. Larger values will put less points into each cluster but this will impact index build time as more clusters need to be trained. |
+| `ratio`          | `build_param`  | N        | Positive Integer >0                | 2       | `1/ratio` is the number of training points which should be used to train the clusters.                                                                                        |
+| `M`              | `build_param`  | Y        | Positive Integer Power of 2 [8-64] |         | Number of chunks or subquantizers for each vector.                                                                                                                            |
+| `usePrecomputed` | `build_param`  | N        | Boolean. Default=`false`           | `false` | Use pre-computed lookup tables to speed up search at the cost of increased memory usage.                                                                                      |
+| `bitsPerCode`    | `build_param`  | N        | Positive Integer [4-8]             | 8       | Number of bits to use for each code.                                                                                                                                          |
+| `numProbes`      | `search_params` | Y        | Positive Integer >0                |         | The closest number of clusters to search for each query vector. Larger values will improve recall but will search more points in the index.                                   |
+| `refine_ratio`   | `search_params` | N| Positive Number >=0                | 0       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.         |
+| `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
 
 
 ## HNSW

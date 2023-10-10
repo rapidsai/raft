@@ -14,10 +14,10 @@
 
   "index": [
     {
-      "name": "faiss_ivf_pq.M48-nlist50K",
+      "name": "faiss_gpu_ivf_pq.M48-nlist50K",
       "algo": "faiss_gpu_ivf_pq",
       "build_param": {"nlist":50000, "M":48},
-      "file": "deep-1B/faiss_ivf_pq/M48-nlist50K",
+      "file": "deep-1B/faiss_gpu_ivf_pq/M48-nlist50K",
       "search_params": [
         {"nprobe":1},
         {"nprobe":5},

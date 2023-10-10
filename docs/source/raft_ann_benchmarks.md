@@ -384,12 +384,13 @@ The `index` section will contain a list of index objects, each of which will hav
 
 The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
-| Library   | Algorithms                                   |
-|-----------|----------------------------------------------|
-| FAISS | `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`     |
-| GGNN | `ggnn` |
-| HNSWlib | `hnswlib` |
-| RAFT    | `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
+| Library   | Algorithms                                                      |
+|-----------|-----------------------------------------------------------------|
+| FAISS GPU | `faiss_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`          |
+| FAISS CPU | `faiss_flat`, `faiss_ivf_flat`, `faiss_ivf_pq`                  |
+| GGNN      | `ggnn`                                                          |
+| HNSWlib   | `hnswlib`                                                       |
+| RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
 
 
 
