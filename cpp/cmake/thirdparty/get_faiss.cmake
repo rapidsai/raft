@@ -63,7 +63,8 @@ function(find_and_configure_faiss)
 
     # Tell cmake where it can find the generated faiss-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=] raft-ann-bench-exports)
+    rapids_export_find_package_root(BUILD faiss [=[${CMAKE_CURRENT_LIST_DIR}]=]
+                                    EXPORT_SET raft-ann-bench-exports)
 endfunction()
 
 if(NOT RAFT_FAISS_GIT_TAG)
