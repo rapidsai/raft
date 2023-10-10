@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include "../common/ann_types.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -24,26 +22,60 @@
 #include <type_traits>
 #include <utility>
 
-#include "hnswlib_wrapper.h"
+#include "../common/ann_types.hpp"
+#include "faiss_cpu_wrapper.h"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
 
 template <typename T>
-void parse_build_param(const nlohmann::json& conf,
-                       typename raft::bench::ann::HnswLib<T>::BuildParam& param)
+void parse_base_build_param(const nlohmann::json& conf,
+                            typename raft::bench::ann::FaissCpu<T>::BuildParam& param)
 {
-  param.ef_construction = conf.at("efConstruction");
-  param.M               = conf.at("M");
-  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+  param.nlist = conf.at("nlist");
+  if (conf.contains("ratio")) { param.ratio = conf.at("ratio"); }
+}
+
+template <typename T>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::FaissCpuIVFFlat<T>::BuildParam& param)
+{
+  parse_base_build_param<T>(conf, param);
+}
+
+template <typename T>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::FaissCpuIVFPQ<T>::BuildParam& param)
+{
+  parse_base_build_param<T>(conf, param);
+  param.M = conf.at("M");
+  if (conf.contains("usePrecomputed")) {
+    param.usePrecomputed = conf.at("usePrecomputed");
+  } else {
+    param.usePrecomputed = false;
+  }
+  if (conf.contains("bitsPerCode")) {
+    param.bitsPerCode = conf.at("bitsPerCode");
+  } else {
+    param.bitsPerCode = 8;
+  }
+}
+
+template <typename T>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::FaissCpuIVFSQ<T>::BuildParam& param)
+{
+  parse_base_build_param<T>(conf, param);
+  param.quantizer_type = conf.at("quantizer_type");
 }
 
 template <typename T>
 void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::HnswLib<T>::SearchParam& param)
+                        typename raft::bench::ann::FaissCpu<T>::SearchParam& param)
 {
-  param.ef = conf.at("ef");
+  param.nprobe = conf.at("nprobe");
+  if (conf.contains("refine_ratio")) { param.refine_ratio = conf.at("refine_ratio"); }
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
 }
 
@@ -80,18 +112,25 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   // stop compiler warning; not all algorithms support multi-GPU so it may not be used
   (void)dev_list;
 
-  raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
   if constexpr (std::is_same_v<T, float>) {
-    if (algo == "hnswlib") { ann = make_algo<T, raft::bench::ann::HnswLib>(metric, dim, conf); }
+    raft::bench::ann::Metric metric = parse_metric(distance);
+    if (algo == "faiss_cpu_ivf_flat") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFFlat>(metric, dim, conf, dev_list);
+    } else if (algo == "faiss_cpu_ivf_pq") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFPQ>(metric, dim, conf);
+    } else if (algo == "faiss_cpu_ivf_sq") {
+      ann = make_algo<T, raft::bench::ann::FaissCpuIVFSQ>(metric, dim, conf);
+    } else if (algo == "faiss_cpu_flat") {
+      ann = std::make_unique<raft::bench::ann::FaissCpuFlat<T>>(metric, dim);
+    }
   }
 
-  if constexpr (std::is_same_v<T, uint8_t>) {
-    if (algo == "hnswlib") { ann = make_algo<T, raft::bench::ann::HnswLib>(metric, dim, conf); }
-  }
+  if constexpr (std::is_same_v<T, uint8_t>) {}
 
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
+
   return ann;
 }
 
@@ -99,16 +138,19 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  if (algo == "hnswlib") {
-    auto param = std::make_unique<typename raft::bench::ann::HnswLib<T>::SearchParam>();
+  if (algo == "faiss_cpu_ivf_flat" || algo == "faiss_cpu_ivf_pq" || algo == "faiss_cpu_ivf_sq") {
+    auto param = std::make_unique<typename raft::bench::ann::FaissCpu<T>::SearchParam>();
     parse_search_param<T>(conf, *param);
+    return param;
+  } else if (algo == "faiss_cpu_flat") {
+    auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;
   }
   // else
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 
-};  // namespace raft::bench::ann
+}  // namespace raft::bench::ann
 
 REGISTER_ALGO_INSTANCE(float);
 REGISTER_ALGO_INSTANCE(std::int8_t);
