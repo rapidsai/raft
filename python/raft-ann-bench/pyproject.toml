@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name = "raft-ann-bench"
-dynamic = ["version"]
+dynamic = ["version", "entry-points"]
 description = "RAFT ANN benchmarks"
 authors = [
     { name = "NVIDIA Corporation" },
@@ -27,7 +27,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
-dynamic = ["entry-points"]
 
 [project.urls]
 Homepage = "https://github.com/rapidsai/raft"
