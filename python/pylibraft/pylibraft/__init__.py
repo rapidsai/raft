@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-from pylibraft._version import __version__, __git_commit__\
+from pylibraft._version import __git_commit__, __version__
