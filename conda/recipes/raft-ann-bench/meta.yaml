@@ -72,8 +72,8 @@ requirements:
     - nlohmann_json {{ nlohmann_json_version }}
     # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
     {% if cuda_major == "11" %}
-    - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }}
+    - faiss-proc=*=cuda # [linux64]
+    - libfaiss {{ faiss_version }} # [linux64]
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
@@ -94,8 +94,8 @@ requirements:
     - glog {{ glog_version }}
     # Temporarily ignore faiss benchmarks on CUDA 12 because packages do not exist yet
     {% if cuda_major == "11" %}
-    - faiss-proc=*=cuda
-    - libfaiss {{ faiss_version }}
+    - faiss-proc=*=cuda # [linux64]
+    - libfaiss {{ faiss_version }} # [linux64]
     {% endif %}
     - h5py {{ h5py_version }}
     - benchmark
