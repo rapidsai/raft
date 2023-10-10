@@ -99,9 +99,9 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     gram_host.resize(gram.size());
     std::fill(gram_host.begin(), gram_host.end(), 0);
 
-    raft::random::Rng r(42137ULL);
-    r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
-    r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
+    raft::random::RngState rng(42137ULL);
+    raft::random::uniform(handle, rng, x1.data(), x1.size(), math_t(0), math_t(1));
+    raft::random::uniform(handle, rng, x2.data(), x2.size(), math_t(0), math_t(1));
   }
 
   ~GramMatrixTest() override {}

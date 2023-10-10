@@ -170,13 +170,17 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
     search_queries.resize(size_t{ps.num_queries} * size_t{ps.dim}, stream_);
 
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.uniform(database.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0), stream_);
-      r.uniform(search_queries.data(), ps.num_queries * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      raft::random::uniform(
+        handle_, r, database.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0));
+      raft::random::uniform(
+        handle_, r, search_queries.data(), ps.num_queries * ps.dim, DataT(0.1), DataT(2.0));
     } else {
-      r.uniformInt(database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20), stream_);
-      r.uniformInt(search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20), stream_);
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle_, r, search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20));
     }
     resource::sync_stream(handle_);
   }
