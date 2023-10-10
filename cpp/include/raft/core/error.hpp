@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,6 +96,16 @@ class exception : public std::exception {
 struct logic_error : public raft::exception {
   explicit logic_error(char const* const message) : raft::exception(message) {}
   explicit logic_error(std::string const& message) : raft::exception(message) {}
+};
+
+/**
+ * @brief Exception thrown when attempting to use CUDA features from a non-CUDA
+ * build
+ *
+ */
+struct non_cuda_build_error : public raft::exception {
+  explicit non_cuda_build_error(char const* const message) : raft::exception(message) {}
+  explicit non_cuda_build_error(std::string const& message) : raft::exception(message) {}
 };
 
 /**

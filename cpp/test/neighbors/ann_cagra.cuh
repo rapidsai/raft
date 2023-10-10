@@ -125,18 +125,19 @@ __global__ void GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
   ptr[tid]        = u32 / resolution;
 }
 
-void GenerateRoundingErrorFreeDataset(float* const ptr,
+void GenerateRoundingErrorFreeDataset(const raft::resources& handle,
+                                      float* const ptr,
                                       const uint32_t n_row,
                                       const uint32_t dim,
-                                      raft::random::Rng& rng,
-                                      cudaStream_t cuda_stream)
+                                      raft::random::RngState& rng)
 {
+  auto cuda_stream          = resource::get_cuda_stream(handle);
   const uint32_t size       = n_row * dim;
   const uint32_t block_size = 256;
   const uint32_t grid_size  = (size + block_size - 1) / block_size;
 
   const uint32_t resolution = 1u << static_cast<unsigned>(std::floor((24 - std::log2(dim)) / 2));
-  rng.uniformInt(reinterpret_cast<uint32_t*>(ptr), size, 0u, resolution - 1, cuda_stream);
+  raft::random::uniformInt(handle, rng, reinterpret_cast<uint32_t*>(ptr), size, 0u, resolution - 1);
 
   GenerateRoundingErrorFreeDataset_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
     ptr, size, resolution);
@@ -293,13 +294,16 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
-      r.normal(search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
+      raft::random::normal(
+        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
     } else {
-      r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
-      r.uniformInt(search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20), stream_);
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
     }
     resource::sync_stream(handle_);
   }
@@ -379,11 +383,12 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
   void SetUp() override
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      GenerateRoundingErrorFreeDataset(database.data(), ps.n_rows, ps.dim, r, handle_.get_stream());
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r);
     } else {
-      r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), handle_.get_stream());
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
     }
     handle_.sync_stream();
   }
@@ -643,13 +648,16 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
   {
     database.resize(((size_t)ps.n_rows) * ps.dim, stream_);
     search_queries.resize(ps.n_queries * ps.dim, stream_);
-    raft::random::Rng r(1234ULL);
+    raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      r.normal(database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0), stream_);
-      r.normal(search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0), stream_);
+      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
+      raft::random::normal(
+        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
     } else {
-      r.uniformInt(database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20), stream_);
-      r.uniformInt(search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20), stream_);
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(1), DataT(20));
     }
     resource::sync_stream(handle_);
   }

@@ -42,7 +42,7 @@ struct reduce_cols_by_key : public fixture {
     : params(p), in(p.rows * p.cols, stream), out(p.rows * p.keys, stream), keys(p.cols, stream)
   {
     raft::random::RngState rng{42};
-    raft::random::uniformInt(rng, keys.data(), p.cols, (KeyT)0, (KeyT)p.keys, stream);
+    raft::random::uniformInt(handle, rng, keys.data(), p.cols, (KeyT)0, (KeyT)p.keys);
   }
 
   void run_benchmark(::benchmark::State& state) override

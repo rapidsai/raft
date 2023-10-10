@@ -260,9 +260,9 @@ struct knn : public fixture {
     constexpr T kRangeMax = std::is_integral_v<T> ? std::numeric_limits<T>::max() : T(1);
     constexpr T kRangeMin = std::is_integral_v<T> ? std::numeric_limits<T>::min() : T(-1);
     if constexpr (std::is_integral_v<T>) {
-      raft::random::uniformInt(state, vec.data(), n, kRangeMin, kRangeMax, stream);
+      raft::random::uniformInt(handle, state, vec.data(), n, kRangeMin, kRangeMax);
     } else {
-      raft::random::uniform(state, vec.data(), n, kRangeMin, kRangeMax, stream);
+      raft::random::uniform(handle, state, vec.data(), n, kRangeMin, kRangeMax);
     }
   }
 
