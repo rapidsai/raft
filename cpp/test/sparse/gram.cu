@@ -125,7 +125,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
  protected:
   GramMatrixTest()
     : params(GetParam()),
-      stream(0),
+      stream(resource::get_cuda_stream(handle)),
       x1(0, stream),
       x2(0, stream),
       x1_csr_indptr(0, stream),
@@ -137,8 +137,6 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
       gram(0, stream),
       gram_host(0)
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
-
     if (params.ld1 == 0) { params.ld1 = params.is_row_major ? params.n_cols : params.n1; }
     if (params.ld2 == 0) { params.ld2 = params.is_row_major ? params.n_cols : params.n2; }
     if (params.ld_out == 0) { params.ld_out = params.is_row_major ? params.n2 : params.n1; }
@@ -154,14 +152,14 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     gram_host.resize(gram.size());
     std::fill(gram_host.begin(), gram_host.end(), 0);
 
-    raft::random::Rng r(42137ULL);
-    r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
-    r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
+    raft::random::RngState r(42137ULL);
+    raft::random::uniform(handle, r, x1.data(), x1.size(), math_t(0), math_t(1));
+    raft::random::uniform(handle, r, x2.data(), x2.size(), math_t(0), math_t(1));
 
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
   }
 
-  ~GramMatrixTest() override { RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(stream)); }
+  ~GramMatrixTest() override {}
 
   int prepareCsr(math_t* dense, int n_rows, int ld, int* indptr, int* indices, math_t* data)
   {

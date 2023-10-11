@@ -318,6 +318,7 @@ index<T, IdxT> build(raft::resources const& res,
     auto nn_descent_params                      = experimental::nn_descent::index_params();
     nn_descent_params.graph_degree              = intermediate_degree;
     nn_descent_params.intermediate_graph_degree = 1.5 * intermediate_degree;
+    nn_descent_params.max_iterations            = params.nn_descent_niter;
     build_knn_graph<T, IdxT>(res, dataset, knn_graph->view(), nn_descent_params);
   }
 
@@ -391,7 +392,25 @@ void search(raft::resources const& res,
 /**
  * @brief Search ANN using the constructed index with the given sample filter.
  *
- * See the [cagra::build](#cagra::build) documentation for a usage example.
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   cagra::index_params index_params;
+ *   // create and fill the index from a [N, D] dataset
+ *   auto index = cagra::build(res, index_params, dataset);
+ *   // use default search parameters
+ *   cagra::search_params search_params;
+ *   // create a bitset to filter the search
+ *   auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+ *   raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+ *     res, removed_indices.view(), dataset.extent(0));
+ *   // search K nearest neighbours according to a bitset
+ *   auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+ *   auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+ *   cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+ *     filtering::bitset_filter(removed_indices_bitset.view()));
+ * @endcode
  *
  * @tparam T data element type
  * @tparam IdxT type of the indices
