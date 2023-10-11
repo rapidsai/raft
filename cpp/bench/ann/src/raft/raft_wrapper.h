@@ -134,6 +134,8 @@ void RaftGpu<T>::search(const T* queries,
                         float* distances,
                         cudaStream_t stream) const
 {
+  // TODO: Integrate new `raft::brute_force::index` (from
+  // https://github.com/rapidsai/raft/pull/1817)
   raft::spatial::knn::detail::fusedL2Knn(this->dim_,
                                          reinterpret_cast<int64_t*>(neighbors),
                                          distances,

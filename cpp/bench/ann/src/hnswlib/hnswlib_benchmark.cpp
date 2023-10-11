@@ -24,7 +24,6 @@
 #include <type_traits>
 #include <utility>
 
-#undef WARP_SIZE
 #include "hnswlib_wrapper.h"
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
