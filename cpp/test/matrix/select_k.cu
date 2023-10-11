@@ -70,6 +70,28 @@ auto inputs_random_largek = testing::Values(select::params{100, 100000, 1000, tr
                                             select::params{100, 100000, 2048, false},
                                             select::params{100, 100000, 1237, true});
 
+auto inputs_random_many_infs =
+  testing::Values(select::params{10, 100000, 1, true, false, false, true, 0.9},
+                  select::params{10, 100000, 16, true, false, false, true, 0.9},
+                  select::params{10, 100000, 64, true, false, false, true, 0.9},
+                  select::params{10, 100000, 128, true, false, false, true, 0.9},
+                  select::params{10, 100000, 256, true, false, false, true, 0.9},
+                  select::params{1000, 10000, 1, true, false, false, true, 0.9},
+                  select::params{1000, 10000, 16, true, false, false, true, 0.9},
+                  select::params{1000, 10000, 64, true, false, false, true, 0.9},
+                  select::params{1000, 10000, 128, true, false, false, true, 0.9},
+                  select::params{1000, 10000, 256, true, false, false, true, 0.9},
+                  select::params{10, 100000, 1, true, false, false, true, 0.999},
+                  select::params{10, 100000, 16, true, false, false, true, 0.999},
+                  select::params{10, 100000, 64, true, false, false, true, 0.999},
+                  select::params{10, 100000, 128, true, false, false, true, 0.999},
+                  select::params{10, 100000, 256, true, false, false, true, 0.999},
+                  select::params{1000, 10000, 1, true, false, false, true, 0.999},
+                  select::params{1000, 10000, 16, true, false, false, true, 0.999},
+                  select::params{1000, 10000, 64, true, false, false, true, 0.999},
+                  select::params{1000, 10000, 128, true, false, false, true, 0.999},
+                  select::params{1000, 10000, 256, true, false, false, true, 0.999});
+
 using ReferencedRandomFloatInt =
   SelectK<float, uint32_t, with_ref<select::Algo::kPublicApi>::params_random>;
 TEST_P(ReferencedRandomFloatInt, Run) { run(); }  // NOLINT
@@ -111,4 +133,16 @@ INSTANTIATE_TEST_CASE_P(                                 // NOLINT
                                    select::Algo::kRadix8bits,
                                    select::Algo::kRadix11bits,
                                    select::Algo::kRadix11bitsExtraPass)));
+
+using ReferencedRandomFloatIntkWarpsortAsGT =
+  SelectK<float, uint32_t, with_ref<select::Algo::kWarpImmediate>::params_random>;
+TEST_P(ReferencedRandomFloatIntkWarpsortAsGT, Run) { run(); }  // NOLINT
+INSTANTIATE_TEST_CASE_P(                                       // NOLINT
+  SelectK,
+  ReferencedRandomFloatIntkWarpsortAsGT,
+  testing::Combine(inputs_random_many_infs,
+                   testing::Values(select::Algo::kRadix8bits,
+                                   select::Algo::kRadix11bits,
+                                   select::Algo::kRadix11bitsExtraPass)));
+
 }  // namespace raft::matrix

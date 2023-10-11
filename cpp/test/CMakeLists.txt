@@ -105,6 +105,9 @@ if(BUILD_TESTS)
     NAME
     CORE_TEST
     PATH
+    test/core/bitset.cu
+    test/core/device_resources_manager.cpp
+    test/core/device_setter.cpp
     test/core/logger.cpp
     test/core/math_device.cu
     test/core/math_host.cpp
@@ -267,6 +270,7 @@ if(BUILD_TESTS)
     test/random/make_blobs.cu
     test/random/make_regression.cu
     test/random/multi_variable_gaussian.cu
+    test/random/rng_pcg_host_api.cu
     test/random/permute.cu
     test/random/rng.cu
     test/random/rng_discrete.cu
@@ -377,6 +381,21 @@ if(BUILD_TESTS)
   )
 
   ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_NN_DESCENT_TEST
+    PATH
+    test/neighbors/ann_nn_descent/test_float_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
     NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
     GPUS 1 PERCENT 50
   )
@@ -423,6 +442,7 @@ if(BUILD_TESTS)
     test/util/cudart_utils.cpp
     test/util/device_atomics.cu
     test/util/integer_utils.cpp
+    test/util/integer_utils.cu
     test/util/pow2_utils.cu
     test/util/reduction.cu
   )

@@ -30,6 +30,12 @@ from pylibraft.common.cpp.mdspan cimport (
 from pylibraft.common.handle cimport device_resources
 from pylibraft.common.optional cimport make_optional, optional
 
+# Cython doesn't like `const float` inside template parameters
+# hack around this with using typedefs
+ctypedef const float const_float
+ctypedef const int8_t const_int8_t
+ctypedef const uint8_t const_uint8_t
+
 
 cdef device_matrix_view[float, int64_t, row_major] get_dmv_float(
     array, check_shape) except *
@@ -49,6 +55,15 @@ cdef optional[device_matrix_view[int64_t, int64_t, row_major]] make_optional_vie
 cdef device_matrix_view[uint32_t, int64_t, row_major] get_dmv_uint32(
     array, check_shape) except *
 
+cdef device_matrix_view[const_float, int64_t, row_major] get_const_dmv_float(
+    array, check_shape) except *
+
+cdef device_matrix_view[const_uint8_t, int64_t, row_major] get_const_dmv_uint8(
+    array, check_shape) except *
+
+cdef device_matrix_view[const_int8_t, int64_t, row_major] get_const_dmv_int8(
+    array, check_shape) except *
+
 cdef host_matrix_view[float, int64_t, row_major] get_hmv_float(
     array, check_shape) except *
 
@@ -62,4 +77,13 @@ cdef host_matrix_view[int64_t, int64_t, row_major] get_hmv_int64(
     array, check_shape) except *
 
 cdef host_matrix_view[uint32_t, int64_t, row_major] get_hmv_uint32(
+    array, check_shape) except *
+
+cdef host_matrix_view[const_float, int64_t, row_major] get_const_hmv_float(
+    array, check_shape) except *
+
+cdef host_matrix_view[const_uint8_t, int64_t, row_major] get_const_hmv_uint8(
+    array, check_shape) except *
+
+cdef host_matrix_view[const_int8_t, int64_t, row_major] get_const_hmv_int8(
     array, check_shape) except *

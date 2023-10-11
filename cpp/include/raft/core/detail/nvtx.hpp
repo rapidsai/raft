@@ -193,7 +193,7 @@ inline void pop_range()
 
 }  // namespace raft::common::nvtx::detail
 
-#else   // NVTX_ENABLED
+#else  // NVTX_ENABLED
 
 namespace raft::common::nvtx::detail {
 

@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 
+#include <omp.h>
+
 #include "../common/ann_types.hpp"
 #include <hnswlib.h>
 
@@ -164,13 +166,13 @@ class HnswLib : public ANN<T> {
   struct BuildParam {
     int M;
     int ef_construction;
-    int num_threads{1};
+    int num_threads = omp_get_num_procs();
   };
 
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int ef;
-    int num_threads{1};
+    int num_threads = omp_get_num_procs();
   };
 
   HnswLib(Metric metric, int dim, const BuildParam& param);
@@ -188,12 +190,11 @@ class HnswLib : public ANN<T> {
   void save(const std::string& path_to_index) const override;
   void load(const std::string& path_to_index) override;
 
-  AlgoProperty get_property() const override
+  AlgoProperty get_preference() const override
   {
     AlgoProperty property;
-    property.dataset_memory_type      = MemoryType::Host;
-    property.query_memory_type        = MemoryType::Host;
-    property.need_dataset_when_search = false;
+    property.dataset_memory_type = MemoryType::Host;
+    property.query_memory_type   = MemoryType::Host;
     return property;
   }
 

@@ -56,14 +56,16 @@ namespace raft::runtime::neighbors::cagra {
               raft::device_matrix_view<float, int64_t, row_major> distances);      \
   void serialize_file(raft::resources const& handle,                               \
                       const std::string& filename,                                 \
-                      const raft::neighbors::cagra::index<T, IdxT>& index);        \
+                      const raft::neighbors::cagra::index<T, IdxT>& index,         \
+                      bool include_dataset = true);                                \
                                                                                    \
   void deserialize_file(raft::resources const& handle,                             \
                         const std::string& filename,                               \
                         raft::neighbors::cagra::index<T, IdxT>* index);            \
   void serialize(raft::resources const& handle,                                    \
                  std::string& str,                                                 \
-                 const raft::neighbors::cagra::index<T, IdxT>& index);             \
+                 const raft::neighbors::cagra::index<T, IdxT>& index,              \
+                 bool include_dataset = true);                                     \
                                                                                    \
   void deserialize(raft::resources const& handle,                                  \
                    const std::string& str,                                         \

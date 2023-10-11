@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/mdarray.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/core/serialize.hpp>
 #include <raft/neighbors/cagra_types.hpp>
 
@@ -24,8 +25,7 @@
 
 namespace raft::neighbors::cagra::detail {
 
-// Serialization version 1.
-constexpr int serialization_version = 2;
+constexpr int serialization_version = 3;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -50,41 +50,55 @@ template struct check_index_layout<sizeof(index<double, std::uint64_t>), expecte
  *
  */
 template <typename T, typename IdxT>
-void serialize(raft::resources const& res, std::ostream& os, const index<T, IdxT>& index_)
+void serialize(raft::resources const& res,
+               std::ostream& os,
+               const index<T, IdxT>& index_,
+               bool include_dataset)
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize");
+
   RAFT_LOG_DEBUG(
     "Saving CAGRA index, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
+
+  std::string dtype_string = raft::detail::numpy_serializer::get_numpy_dtype<T>().to_string();
+  dtype_string.resize(4);
+  os << dtype_string;
 
   serialize_scalar(res, os, serialization_version);
   serialize_scalar(res, os, index_.size());
   serialize_scalar(res, os, index_.dim());
   serialize_scalar(res, os, index_.graph_degree());
   serialize_scalar(res, os, index_.metric());
-  auto dataset = index_.dataset();
-  // Remove padding before saving the dataset
-  auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
-  RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
-                                  sizeof(T) * host_dataset.extent(1),
-                                  dataset.data_handle(),
-                                  sizeof(T) * dataset.stride(0),
-                                  sizeof(T) * host_dataset.extent(1),
-                                  dataset.extent(0),
-                                  cudaMemcpyDefault,
-                                  resource::get_cuda_stream(res)));
-  resource::sync_stream(res);
-  serialize_mdspan(res, os, host_dataset.view());
   serialize_mdspan(res, os, index_.graph());
+
+  serialize_scalar(res, os, include_dataset);
+  if (include_dataset) {
+    auto dataset = index_.dataset();
+    // Remove padding before saving the dataset
+    auto host_dataset = make_host_matrix<T, int64_t>(dataset.extent(0), dataset.extent(1));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(host_dataset.data_handle(),
+                                    sizeof(T) * host_dataset.extent(1),
+                                    dataset.data_handle(),
+                                    sizeof(T) * dataset.stride(0),
+                                    sizeof(T) * host_dataset.extent(1),
+                                    dataset.extent(0),
+                                    cudaMemcpyDefault,
+                                    resource::get_cuda_stream(res)));
+    resource::sync_stream(res);
+    serialize_mdspan(res, os, host_dataset.view());
+  }
 }
 
 template <typename T, typename IdxT>
 void serialize(raft::resources const& res,
                const std::string& filename,
-               const index<T, IdxT>& index_)
+               const index<T, IdxT>& index_,
+               bool include_dataset)
 {
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 
-  detail::serialize(res, of, index_);
+  detail::serialize(res, of, index_, include_dataset);
 
   of.close();
   if (!of) { RAFT_FAIL("Error writing output %s", filename.c_str()); }
@@ -102,6 +116,11 @@ void serialize(raft::resources const& res,
 template <typename T, typename IdxT>
 auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
 {
+  common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::deserialize");
+
+  char dtype_string[4];
+  is.read(dtype_string, 4);
+
   auto ver = deserialize_scalar<int>(res, is);
   if (ver != serialization_version) {
     RAFT_FAIL("serialization version mismatch, expected %d, got %d ", serialization_version, ver);
@@ -111,13 +130,22 @@ auto deserialize(raft::resources const& res, std::istream& is) -> index<T, IdxT>
   auto graph_degree = deserialize_scalar<std::uint32_t>(res, is);
   auto metric       = deserialize_scalar<raft::distance::DistanceType>(res, is);
 
-  auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
-  auto graph   = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
-  deserialize_mdspan(res, is, dataset.view());
+  auto graph = raft::make_host_matrix<IdxT, int64_t>(n_rows, graph_degree);
   deserialize_mdspan(res, is, graph.view());
 
-  return index<T, IdxT>(
-    res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
+  bool has_dataset = deserialize_scalar<bool>(res, is);
+  if (has_dataset) {
+    auto dataset = raft::make_host_matrix<T, int64_t>(n_rows, dim);
+    deserialize_mdspan(res, is, dataset.view());
+    return index<T, IdxT>(
+      res, metric, raft::make_const_mdspan(dataset.view()), raft::make_const_mdspan(graph.view()));
+  } else {
+    // create a new index with no dataset - the user must supply via update_dataset themselves
+    // later (this avoids allocating GPU memory in the meantime)
+    index<T, IdxT> idx(res, metric);
+    idx.update_graph(res, raft::make_const_mdspan(graph.view()));
+    return idx;
+  }
 }
 
 template <typename T, typename IdxT>

@@ -5,19 +5,19 @@ RAPIDS RAFT: Reusable Accelerated Functions and Tools for Vector Search and More
   :width: 800
   :alt: RAFT Tech Stack
 
-Resources
-#########
+Useful Resources
+################
 
 .. _raft_reference: https://docs.rapids.ai/api/raft/stable/
 
-- `Example Notebooks <https://github.com/rapidsai/raft/tree/HEAD/notebooks>`_: Example jupyer notebooks
+- `Example Notebooks <https://github.com/rapidsai/raft/tree/HEAD/notebooks>`_: Example Jupyter notebooks
 - `RAPIDS Community <https://rapids.ai/community.html>`_: Get help, contribute, and collaborate.
 - `GitHub repository <https://github.com/rapidsai/raft>`_: Download the RAFT source code.
 - `Issue tracker <https://github.com/rapidsai/raft/issues>`_: Report issues or request features.
 
 
-Overview
-########
+What is RAFT?
+#############
 
 RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
@@ -41,8 +41,8 @@ While not exhaustive, the following general categories help summarize the accele
      - linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems
    * - Sparse Operations
      - linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling
-   * - Spatial
-     - pairwise distances, nearest neighbors and vector search, neighborhood graph construction
+   * - Nearest Neighbors
+     - pairwise distances, vector search, epsilon neighborhoods, neighborhood graph construction
    * - Basic Clustering
      - spectral clustering, hierarchical clustering, k-means
    * - Solvers

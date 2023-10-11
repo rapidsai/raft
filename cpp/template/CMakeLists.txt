@@ -11,7 +11,7 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 # ------------- configure rapids-cmake --------------#
 
@@ -34,5 +34,8 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_raft.cmake)
 
 # -------------- compile tasks ----------------- #
-add_executable(TEST_RAFT src/test_distance.cu)
-target_link_libraries(TEST_RAFT PRIVATE raft::raft raft::compiled)
+add_executable(CAGRA_EXAMPLE src/cagra_example.cu)
+target_link_libraries(CAGRA_EXAMPLE PRIVATE raft::raft raft::compiled)
+
+add_executable(IVF_FLAT_EXAMPLE src/ivf_flat_example.cu)
+target_link_libraries(IVF_FLAT_EXAMPLE PRIVATE raft::raft raft::compiled)

@@ -1,3 +1,94 @@
+# raft 23.10.00 (11 Oct 2023)
+
+## 🚨 Breaking Changes
+
+- Change CAGRA auto mode selection ([#1830](https://github.com/rapidsai/raft/pull/1830)) [@enp1s0](https://github.com/enp1s0)
+- Update CAGRA serialization ([#1755](https://github.com/rapidsai/raft/pull/1755)) [@benfred](https://github.com/benfred)
+- Improvements to ANN Benchmark Python scripts and docs ([#1734](https://github.com/rapidsai/raft/pull/1734)) [@divyegala](https://github.com/divyegala)
+- Update to Cython 3.0.0 ([#1688](https://github.com/rapidsai/raft/pull/1688)) [@vyasr](https://github.com/vyasr)
+- ANN-benchmarks: switch to use gbench ([#1661](https://github.com/rapidsai/raft/pull/1661)) [@achirkin](https://github.com/achirkin)
+
+## 🐛 Bug Fixes
+
+- [BUG] Fix a bug in the filtering operation in CAGRA multi-kernel ([#1862](https://github.com/rapidsai/raft/pull/1862)) [@enp1s0](https://github.com/enp1s0)
+- Fix conf file for benchmarking glove datasets ([#1846](https://github.com/rapidsai/raft/pull/1846)) [@dantegd](https://github.com/dantegd)
+- raft-ann-bench package fixes for plotting and conf files ([#1844](https://github.com/rapidsai/raft/pull/1844)) [@dantegd](https://github.com/dantegd)
+- Fix update-version.sh for all pyproject.toml files ([#1839](https://github.com/rapidsai/raft/pull/1839)) [@raydouglass](https://github.com/raydouglass)
+- Make RMM a run dependency of the raft-ann-bench conda package ([#1838](https://github.com/rapidsai/raft/pull/1838)) [@dantegd](https://github.com/dantegd)
+- Printing actual exception in `require base set` ([#1816](https://github.com/rapidsai/raft/pull/1816)) [@cjnolet](https://github.com/cjnolet)
+- Adding rmm to `raft-ann-bench` dependencies ([#1815](https://github.com/rapidsai/raft/pull/1815)) [@cjnolet](https://github.com/cjnolet)
+- Use `conda mambabuild` not `mamba mambabuild` ([#1812](https://github.com/rapidsai/raft/pull/1812)) [@bdice](https://github.com/bdice)
+- Fix `raft-dask` naming in wheel builds ([#1805](https://github.com/rapidsai/raft/pull/1805)) [@divyegala](https://github.com/divyegala)
+- neighbors::refine_host: check the dataset bounds ([#1793](https://github.com/rapidsai/raft/pull/1793)) [@achirkin](https://github.com/achirkin)
+- [BUG] Fix search parameter check in CAGRA ([#1784](https://github.com/rapidsai/raft/pull/1784)) [@enp1s0](https://github.com/enp1s0)
+- IVF-Flat: fix search batching ([#1764](https://github.com/rapidsai/raft/pull/1764)) [@achirkin](https://github.com/achirkin)
+- Using expanded distance computations in `pylibraft` ([#1759](https://github.com/rapidsai/raft/pull/1759)) [@cjnolet](https://github.com/cjnolet)
+- Fix ann-bench Documentation ([#1754](https://github.com/rapidsai/raft/pull/1754)) [@divyegala](https://github.com/divyegala)
+- Make get_cache_idx a weak symbol with dummy template ([#1733](https://github.com/rapidsai/raft/pull/1733)) [@ahendriksen](https://github.com/ahendriksen)
+- Fix IVF-PQ fused kernel performance problems ([#1726](https://github.com/rapidsai/raft/pull/1726)) [@achirkin](https://github.com/achirkin)
+- Fix build.sh to enable NEIGHBORS_ANN_CAGRA_TEST ([#1724](https://github.com/rapidsai/raft/pull/1724)) [@enp1s0](https://github.com/enp1s0)
+- Fix template types for create_descriptor function. ([#1680](https://github.com/rapidsai/raft/pull/1680)) [@csadorf](https://github.com/csadorf)
+
+## 📖 Documentation
+
+- Fix the CAGRA paper citation ([#1788](https://github.com/rapidsai/raft/pull/1788)) [@enp1s0](https://github.com/enp1s0)
+- Add citation info for the CAGRA paper preprint ([#1787](https://github.com/rapidsai/raft/pull/1787)) [@enp1s0](https://github.com/enp1s0)
+- [DOC] Fix grouping for ANN in C++ doxygen ([#1782](https://github.com/rapidsai/raft/pull/1782)) [@lowener](https://github.com/lowener)
+- Update RAFT documentation ([#1717](https://github.com/rapidsai/raft/pull/1717)) [@lowener](https://github.com/lowener)
+- Additional polishing of README and docs ([#1713](https://github.com/rapidsai/raft/pull/1713)) [@cjnolet](https://github.com/cjnolet)
+
+## 🚀 New Features
+
+- [FEA] Add `bitset_filter` for CAGRA indices removal ([#1837](https://github.com/rapidsai/raft/pull/1837)) [@lowener](https://github.com/lowener)
+- ann-bench: miscellaneous improvements ([#1808](https://github.com/rapidsai/raft/pull/1808)) [@achirkin](https://github.com/achirkin)
+- [FEA] Add bitset for ANN pre-filtering and deletion ([#1803](https://github.com/rapidsai/raft/pull/1803)) [@lowener](https://github.com/lowener)
+- Adding config files for remaining (relevant) ann-benchmarks million-scale datasets ([#1761](https://github.com/rapidsai/raft/pull/1761)) [@cjnolet](https://github.com/cjnolet)
+- Port NN-descent algorithm to use in `cagra::build()` ([#1748](https://github.com/rapidsai/raft/pull/1748)) [@divyegala](https://github.com/divyegala)
+- Adding conda build for libraft static ([#1746](https://github.com/rapidsai/raft/pull/1746)) [@cjnolet](https://github.com/cjnolet)
+- [FEA] Provide device_resources_manager for easy generation of device_resources ([#1716](https://github.com/rapidsai/raft/pull/1716)) [@wphicks](https://github.com/wphicks)
+
+## 🛠️ Improvements
+
+- Add option to brute_force index to store non-owning reference to norms ([#1865](https://github.com/rapidsai/raft/pull/1865)) [@benfred](https://github.com/benfred)
+- Pin `dask` and `distributed` for `23.10` release ([#1864](https://github.com/rapidsai/raft/pull/1864)) [@galipremsagar](https://github.com/galipremsagar)
+- Update image names ([#1835](https://github.com/rapidsai/raft/pull/1835)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Fixes for OOM during CAGRA benchmarks ([#1832](https://github.com/rapidsai/raft/pull/1832)) [@benfred](https://github.com/benfred)
+- Change CAGRA auto mode selection ([#1830](https://github.com/rapidsai/raft/pull/1830)) [@enp1s0](https://github.com/enp1s0)
+- Update to clang 16.0.6. ([#1829](https://github.com/rapidsai/raft/pull/1829)) [@bdice](https://github.com/bdice)
+- Add IVF-Flat C++ example ([#1828](https://github.com/rapidsai/raft/pull/1828)) [@tfeher](https://github.com/tfeher)
+- matrix::select_k: extra tests and benchmarks ([#1821](https://github.com/rapidsai/raft/pull/1821)) [@achirkin](https://github.com/achirkin)
+- Add index class for brute_force knn ([#1817](https://github.com/rapidsai/raft/pull/1817)) [@benfred](https://github.com/benfred)
+- [FEA] Add pre-filtering to CAGRA ([#1811](https://github.com/rapidsai/raft/pull/1811)) [@enp1s0](https://github.com/enp1s0)
+- More updates to ann-bench docs ([#1810](https://github.com/rapidsai/raft/pull/1810)) [@cjnolet](https://github.com/cjnolet)
+- Add best deep-100M configs for IVF-PQ to ANN benchmarks ([#1807](https://github.com/rapidsai/raft/pull/1807)) [@tfeher](https://github.com/tfeher)
+- A few fixes to `raft-ann-bench` recipe and docs ([#1806](https://github.com/rapidsai/raft/pull/1806)) [@cjnolet](https://github.com/cjnolet)
+- Simplify wheel build scripts and allow alphas of RAPIDS dependencies ([#1804](https://github.com/rapidsai/raft/pull/1804)) [@divyegala](https://github.com/divyegala)
+- Various fixes to reproducible benchmarks ([#1800](https://github.com/rapidsai/raft/pull/1800)) [@cjnolet](https://github.com/cjnolet)
+- ANN-bench: more flexible cuda_stub.hpp ([#1792](https://github.com/rapidsai/raft/pull/1792)) [@achirkin](https://github.com/achirkin)
+- Add RAFT devcontainers ([#1791](https://github.com/rapidsai/raft/pull/1791)) [@trxcllnt](https://github.com/trxcllnt)
+- Cagra memory optimizations ([#1790](https://github.com/rapidsai/raft/pull/1790)) [@benfred](https://github.com/benfred)
+- Fixing a couple security concerns in `raft-dask` nccl unique id generation ([#1785](https://github.com/rapidsai/raft/pull/1785)) [@cjnolet](https://github.com/cjnolet)
+- Don&#39;t serialize dataset with CAGRA bench ([#1781](https://github.com/rapidsai/raft/pull/1781)) [@benfred](https://github.com/benfred)
+- Use `copy-pr-bot` ([#1774](https://github.com/rapidsai/raft/pull/1774)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Add GPU and CPU packages for ANN benchmarks ([#1773](https://github.com/rapidsai/raft/pull/1773)) [@dantegd](https://github.com/dantegd)
+- Improvements to raft-ann-bench scripts, docs, and benchmarking implementations. ([#1769](https://github.com/rapidsai/raft/pull/1769)) [@cjnolet](https://github.com/cjnolet)
+- [REVIEW] Introducing host API for PCG ([#1767](https://github.com/rapidsai/raft/pull/1767)) [@vinaydes](https://github.com/vinaydes)
+- Unpin `dask` and `distributed` for `23.10` development ([#1760](https://github.com/rapidsai/raft/pull/1760)) [@galipremsagar](https://github.com/galipremsagar)
+- Add ivf-flat notebook ([#1758](https://github.com/rapidsai/raft/pull/1758)) [@tfeher](https://github.com/tfeher)
+- Update CAGRA serialization ([#1755](https://github.com/rapidsai/raft/pull/1755)) [@benfred](https://github.com/benfred)
+- Remove block size template parameter from CAGRA search ([#1740](https://github.com/rapidsai/raft/pull/1740)) [@enp1s0](https://github.com/enp1s0)
+- Add NVTX ranges for cagra search/serialize functions ([#1737](https://github.com/rapidsai/raft/pull/1737)) [@benfred](https://github.com/benfred)
+- Improvements to ANN Benchmark Python scripts and docs ([#1734](https://github.com/rapidsai/raft/pull/1734)) [@divyegala](https://github.com/divyegala)
+- Fixing forward merger for 23.08 -&gt; 23.10 ([#1731](https://github.com/rapidsai/raft/pull/1731)) [@cjnolet](https://github.com/cjnolet)
+- [FEA] Use CAGRA in C++ template ([#1730](https://github.com/rapidsai/raft/pull/1730)) [@lowener](https://github.com/lowener)
+- fixed box around raft image ([#1710](https://github.com/rapidsai/raft/pull/1710)) [@nwstephens](https://github.com/nwstephens)
+- Enable CUTLASS-based distance kernels on CTK 12 ([#1702](https://github.com/rapidsai/raft/pull/1702)) [@ahendriksen](https://github.com/ahendriksen)
+- Update bench-ann configuration ([#1696](https://github.com/rapidsai/raft/pull/1696)) [@lowener](https://github.com/lowener)
+- Update to Cython 3.0.0 ([#1688](https://github.com/rapidsai/raft/pull/1688)) [@vyasr](https://github.com/vyasr)
+- Update CMake version ([#1677](https://github.com/rapidsai/raft/pull/1677)) [@vyasr](https://github.com/vyasr)
+- Branch 23.10 merge 23.08 ([#1672](https://github.com/rapidsai/raft/pull/1672)) [@vyasr](https://github.com/vyasr)
+- ANN-benchmarks: switch to use gbench ([#1661](https://github.com/rapidsai/raft/pull/1661)) [@achirkin](https://github.com/achirkin)
+
 # raft 23.08.00 (9 Aug 2023)
 
 ## 🚨 Breaking Changes

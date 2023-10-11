@@ -38,7 +38,7 @@ PROJECT_NAME           = "RAFT C++ API"
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
 
-PROJECT_NUMBER         = "23.08"
+PROJECT_NUMBER         = "23.10"
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewer a
@@ -893,7 +893,7 @@ EXCLUDE                = ../include/raft/sparse/linalg/symmetrize.hpp \
                          ../include/raft/util/device_utils.cuh \
                          ../include/raft/core/error.hpp \
                          ../include/raft/core/handle.hpp \
-                         ../include/raft/util/integer_utils.hpp
+                         ../include/raft/util/integer_utils.hpp \
                          ../include/raft/util/pow2_utils.cuh \
                          ../include/raft/util/vectorized.cuh \
                          ../include/raft/raft.hpp \

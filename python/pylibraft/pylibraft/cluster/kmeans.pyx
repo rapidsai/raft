@@ -85,33 +85,26 @@ def compute_new_centroids(X,
     --------
 
     >>> import cupy as cp
-
     >>> from pylibraft.common import Handle
     >>> from pylibraft.cluster.kmeans import compute_new_centroids
-
     >>> # A single RAFT handle can optionally be reused across
     >>> # pylibraft functions.
     >>> handle = Handle()
-
     >>> n_samples = 5000
     >>> n_features = 50
     >>> n_clusters = 3
-
     >>> X = cp.random.random_sample((n_samples, n_features),
     ...                               dtype=cp.float32)
-
     >>> centroids = cp.random.random_sample((n_clusters, n_features),
     ...                                         dtype=cp.float32)
     ...
     >>> labels = cp.random.randint(0, high=n_clusters, size=n_samples,
     ...                            dtype=cp.int32)
-
-    >>> new_centroids = cp.empty((n_clusters, n_features), dtype=cp.float32)
-
+    >>> new_centroids = cp.empty((n_clusters, n_features),
+    ...                          dtype=cp.float32)
     >>> compute_new_centroids(
     ...     X, centroids, labels, new_centroids, handle=handle
     ... )
-
     >>> # pylibraft functions are often asynchronous so the
     >>> # handle needs to be explicitly synchronized
     >>> handle.sync()
@@ -221,11 +214,9 @@ def init_plus_plus(X, n_clusters=None, seed=None, handle=None, centroids=None):
 
     >>> import cupy as cp
     >>> from pylibraft.cluster.kmeans import init_plus_plus
-
     >>> n_samples = 5000
     >>> n_features = 50
     >>> n_clusters = 3
-
     >>> X = cp.random.random_sample((n_samples, n_features),
     ...                               dtype=cp.float32)
 
@@ -301,19 +292,14 @@ def cluster_cost(X, centroids, handle=None):
     --------
 
     >>> import cupy as cp
-    >>>
     >>> from pylibraft.cluster.kmeans import cluster_cost
-    >>>
     >>> n_samples = 5000
     >>> n_features = 50
     >>> n_clusters = 3
-    >>>
     >>> X = cp.random.random_sample((n_samples, n_features),
     ...                             dtype=cp.float32)
-
     >>> centroids = cp.random.random_sample((n_clusters, n_features),
     ...                                      dtype=cp.float32)
-
     >>> inertia = cluster_cost(X, centroids)
     """
     x_cai = X.__cuda_array_interface__
@@ -524,13 +510,10 @@ def fit(
     --------
 
     >>> import cupy as cp
-    >>>
     >>> from pylibraft.cluster.kmeans import fit, KMeansParams
-    >>>
     >>> n_samples = 5000
     >>> n_features = 50
     >>> n_clusters = 3
-    >>>
     >>> X = cp.random.random_sample((n_samples, n_features),
     ...                             dtype=cp.float32)
 

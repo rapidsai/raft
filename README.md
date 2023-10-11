@@ -2,7 +2,23 @@
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
 
-## Resources
+
+## Contents
+<hr>
+
+1. [Useful Resources](#useful-resources)
+2. [What is RAFT?](#what-is-raft)
+2. [Use cases](#use-cases)
+3. [Is RAFT right for me?](#is-raft-right-for-me)
+4. [Getting Started](#getting-started)
+5. [Installing RAFT](#installing)
+6. [Codebase structure and contents](#folder-structure-and-contents)
+7. [Contributing](#contributing)
+8. [References](#references)
+
+<hr>
+
+## Useful Resources
 
 - [RAFT Reference Documentation](https://docs.rapids.ai/api/raft/stable/): API Documentation.
 - [RAFT Getting Started](./docs/source/quick_start.md): Getting started with RAFT.
@@ -12,7 +28,9 @@
 - [GitHub repository](https://github.com/rapidsai/raft): Download the RAFT source code.
 - [Issue tracker](https://github.com/rapidsai/raft/issues): Report issues or request features.
 
-## Overview
+
+
+## What is RAFT?
 
 RAFT contains fundamental widely-used algorithms and primitives for machine learning and information retrieval. The algorithms are CUDA-accelerated and form building blocks for more easily writing high performance applications.
 
@@ -23,16 +41,16 @@ By taking a primitives-based approach to algorithm development, RAFT
 
 While not exhaustive, the following general categories help summarize the accelerated functions in RAFT:
 #####
-| Category | Examples                                                                                                                          |
-| --- |-----------------------------------------------------------------------------------------------------------------------------------|
-| **Data Formats** | sparse & dense, conversions, data generation                                                                                      |
-| **Dense Operations** | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
+| Category              | Accelerated Functions in RAFT                                                                                                     |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| **Nearest Neighbors** | vector search, neighborhood graph construction, epsilon neighborhoods, pairwise distances                                         |
+| **Basic Clustering**  | spectral clustering, hierarchical clustering, k-means                                                                             |
+| **Solvers**           | combinatorial optimization, iterative solvers                                                                                     |
+| **Data Formats**      | sparse & dense, conversions, data generation                                                                                      |
+| **Dense Operations**  | linear algebra, matrix and vector operations, reductions, slicing, norms, factorization, least squares, svd & eigenvalue problems |
 | **Sparse Operations** | linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling             |
-| **Spatial** | pairwise distances, nearest neighbors and vector search, neighborhood graph construction                                          |
-| **Basic Clustering** | spectral clustering, hierarchical clustering, k-means                                                                             |
-| **Solvers** | combinatorial optimization, iterative solvers                                                                                     |
-| **Statistics** | sampling, moments and summary statistics, metrics                                                                                 |
-| **Tools & Utilities** | common utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                            |
+| **Statistics**        | sampling, moments and summary statistics, metrics, model evaluation                                                               |
+| **Tools & Utilities** | common tools and utilities for developing CUDA applications, multi-node multi-gpu infrastructure                                  |
 
 
 RAFT is a C++ header-only template library with an optional shared library that
@@ -49,24 +67,40 @@ In addition being a C++ library, RAFT also provides 2 Python libraries:
 
 ### Vector Similarity Search
 
-RAFT contains state-of-the-art implementations of approximate nearest neighbors algorithms on the GPU that enable vector similarity search. Vector similarity search applications often require fast online queries done one-at-a-time and RAFT's graph-based [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) algorithm outperforms the state-of-the art on the CPU (hierarchical navigable small-world graph or HNSW).
+RAFT contains state-of-the-art implementations of approximate nearest neighbors search (ANNS) algorithms on the GPU, such as:
 
-In addition to CAGRA, RAFT contains other state-of-the-art GPU-accelerated implementations of popular algorithms for vector similarity search, such as [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq) algorithms originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
+* [Brute force](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#brute-force). Performs a brute force nearest neighbors search without an index.
+* [IVF-Flat](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-flat) and [IVF-PQ](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#ivf-pq). Use an inverted file index structure to map contents to their locations. IVF-PQ additionally uses product quantization to reduce the memory usage of vectors. These methods were originally popularized by the [FAISS](https://github.com/facebookresearch/faiss) library.
+* [CAGRA](https://docs.rapids.ai/api/raft/nightly/pylibraft_api/neighbors/#cagra) (Cuda Anns GRAph-based). Uses a fast ANNS graph construction and search implementation optimized for the GPU. CAGRA outperforms state-of-the art CPU methods (i.e. HNSW) for large batch queries, single queries, and graph construction time. 
+
+Projects that use the RAFT ANNS algorithms for accelerating vector search include: [Milvus](https://milvus.io/), [Redis](https://redis.io/), and [Faiss](https://github.com/facebookresearch/faiss). 
+
+Please see the example [Jupyter notebook](https://github.com/rapidsai/raft/blob/HEAD/notebooks/VectorSearch_QuestionRetrieval.ipynb) to get started RAFT for vector search in Python.
 
 ### Information Retrieval
 
-RAFT also contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
+RAFT contains a catalog of reusable primitives for composing algorithms that require fast neighborhood computations, such as
 
 1. Computing distances between vectors and computing kernel gramm matrices
 2. Performing ball radius queries for constructing epsilon neighborhoods
 3. Clustering points to partition a space for smaller and faster searches
 4. Constructing neighborhood "connectivities" graphs from dense vectors
 
-As an example, computations such as the above list are critical for information retrieval, data mining, and machine learning applications such as clustering, manifold learning, and dimensionality reduction.
+### Machine Learning
+
+RAFT's primitives are used in several RAPIDS libraries, including [cuML](https://github.com/rapidsai/cuml), [cuGraph](https://github.com/rapidsai/cugraph), and [cuOpt](https://github.com/rapidsai/cuopt) to build many end-to-end machine learning algorithms that span a large spectrum of different applications, including 
+- data generation 
+- model evaluation
+- classification and regression
+- clustering
+- manifold learning
+- dimensionality reduction.
+
+RAFT is also used by the popular collaborative filtering library [implicit](https://github.com/benfred/implicit) for recommender systems.
 
 ## Is RAFT right for me?
 
-RAFT contains low level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
+RAFT contains low-level primitives for accelerating applications and workflows. Data source providers and application developers may find specific tools -- like ANN algorithms -- very useful. RAFT is not intended to be used directly by data scientists for discovery and experimentation. For data science tools, please see the [RAPIDS website](https://rapids.ai/).
 
 ## Getting started
 
@@ -284,6 +318,7 @@ The [build](docs/source/build.md) instructions contain more details on building 
 
 The folder structure mirrors other RAPIDS repos, with the following folders:
 
+- `bench/ann`: Python scripts for running ANN benchmarks
 - `ci`: Scripts for running CI in PRs
 - `conda`: Conda recipes and development conda environments
 - `cpp`: Source code for C++ libraries.
@@ -351,10 +386,23 @@ If citing the sparse pairwise distances API, please consider using the following
 If citing the single-linkage agglomerative clustering APIs, please consider the following bibtex:
 ```bibtex
 @misc{nolet2023cuslink,
-      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU}, 
+      title={cuSLINK: Single-linkage Agglomerative Clustering on the GPU},
       author={Corey J. Nolet and Divye Gala and Alex Fender and Mahesh Doijade and Joe Eaton and Edward Raff and John Zedlewski and Brad Rees and Tim Oates},
       year={2023},
       eprint={2306.16354},
       archivePrefix={arXiv},
       primaryClass={cs.LG}
 }
+```
+
+If citing CAGRA, please consider the following bibtex:
+```bibtex
+@misc{ootomo2023cagra,
+      title={CAGRA: Highly Parallel Graph Construction and Approximate Nearest Neighbor Search for GPUs},
+      author={Hiroyuki Ootomo and Akira Naruse and Corey Nolet and Ray Wang and Tamas Feher and Yong Wang},
+      year={2023},
+      eprint={2308.15136},
+      archivePrefix={arXiv},
+      primaryClass={cs.DS}
+}
+```

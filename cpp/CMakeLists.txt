@@ -10,23 +10,32 @@
 # is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
-set(RAPIDS_VERSION "23.08")
-set(RAFT_VERSION "23.08.00")
+set(RAPIDS_VERSION "23.10")
+set(RAFT_VERSION "23.10.00")
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 include(../fetch_rapids.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
-include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-rapids_cuda_init_architectures(RAFT)
+option(BUILD_CPU_ONLY "Build CPU only components. Applies to RAFT ANN benchmarks currently" OFF)
+
+# workaround for rapids_cuda_init_architectures not working for arch detection with
+# enable_language(CUDA)
+set(lang_list "CXX")
+
+if(NOT BUILD_CPU_ONLY)
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(RAFT)
+  list(APPEND lang_list "CUDA")
+endif()
 
 project(
   RAFT
   VERSION ${RAFT_VERSION}
-  LANGUAGES CXX CUDA
+  LANGUAGES ${lang_list}
 )
 
 # Write the version header
@@ -60,15 +69,22 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(RAFT_NVTX "Enable nvtx markers" OFF)
 
 set(RAFT_COMPILE_LIBRARY_DEFAULT OFF)
-if(BUILD_TESTS
-   OR BUILD_PRIMS_BENCH
-   OR BUILD_ANN_BENCH
+if((BUILD_TESTS
+    OR BUILD_PRIMS_BENCH
+    OR BUILD_ANN_BENCH
+   )
+   AND NOT BUILD_CPU_ONLY
 )
   set(RAFT_COMPILE_LIBRARY_DEFAULT ON)
 endif()
 option(RAFT_COMPILE_LIBRARY "Enable building raft shared library instantiations"
        ${RAFT_COMPILE_LIBRARY_DEFAULT}
 )
+
+if(BUILD_CPU_ONLY)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_TESTS OFF)
+endif()
 
 # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
 # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -82,6 +98,8 @@ include(CMakeDependentOption)
 message(VERBOSE "RAFT: Building optional components: ${raft_FIND_COMPONENTS}")
 message(VERBOSE "RAFT: Build RAFT unit-tests: ${BUILD_TESTS}")
 message(VERBOSE "RAFT: Building raft C++ benchmarks: ${BUILD_PRIMS_BENCH}")
+message(VERBOSE "RAFT: Building ANN benchmarks: ${BUILD_ANN_BENCH}")
+message(VERBOSE "RAFT: Build CPU only components: ${BUILD_CPU_ONLY}")
 message(VERBOSE "RAFT: Enable detection of conda environment for dependencies: ${DETECT_CONDA_ENV}")
 message(VERBOSE "RAFT: Disable depreaction warnings " ${DISABLE_DEPRECATION_WARNINGS})
 message(VERBOSE "RAFT: Disable OpenMP: ${DISABLE_OPENMP}")
@@ -116,32 +134,40 @@ if(DETECT_CONDA_ENV)
 endif()
 
 # ##################################################################################################
-# * compiler options ---------------------------------------------------------
+# * compiler options ----------------------------------------------------------
 
 set(_ctk_static_suffix "")
 if(CUDA_STATIC_RUNTIME)
   set(_ctk_static_suffix "_static")
 endif()
 
-# CUDA runtime
-rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+if(NOT BUILD_CPU_ONLY)
+  # CUDA runtime
+  rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+  # * find CUDAToolkit package
+  # * determine GPU architectures
+  # * enable the CMake CUDA language
+  # * set other CUDA compilation flags
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+  )
+else()
+  add_compile_definitions(BUILD_CPU_ONLY)
+endif()
 
 if(NOT DISABLE_OPENMP)
-  find_package(OpenMP)
+  rapids_find_package(
+    OpenMP REQUIRED
+    BUILD_EXPORT_SET raft-exports
+    INSTALL_EXPORT_SET raft-exports
+  )
   if(OPENMP_FOUND)
     message(VERBOSE "RAFT: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
   endif()
 endif()
 
-# * find CUDAToolkit package
-# * determine GPU architectures
-# * enable the CMake CUDA language
-# * set other CUDA compilation flags
-rapids_find_package(
-  CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET raft-exports
-  INSTALL_EXPORT_SET raft-exports
-)
 include(cmake/modules/ConfigureCUDA.cmake)
 
 # ##################################################################################################
@@ -150,19 +176,21 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-# thrust before rmm/cuco so we get the right version of thrust/cub
-include(cmake/thirdparty/get_thrust.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_cutlass.cmake)
+if(NOT BUILD_CPU_ONLY)
+  # thrust before rmm/cuco so we get the right version of thrust/cub
+  include(cmake/thirdparty/get_thrust.cmake)
+  include(cmake/thirdparty/get_rmm.cmake)
+  include(cmake/thirdparty/get_cutlass.cmake)
 
-include(${rapids-cmake-dir}/cpm/cuco.cmake)
-rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
+  include(${rapids-cmake-dir}/cpm/cuco.cmake)
+  rapids_cpm_cuco(BUILD_EXPORT_SET raft-exports INSTALL_EXPORT_SET raft-exports)
+endif()
 
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-if(BUILD_PRIMS_BENCH)
+if(BUILD_PRIMS_BENCH OR BUILD_ANN_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
   rapids_cpm_gbench()
 endif()
@@ -176,8 +204,10 @@ target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
 )
 
-# Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+if(NOT BUILD_CPU_ONLY)
+  # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
 target_compile_options(
@@ -247,11 +277,7 @@ target_compile_definitions(raft::raft INTERFACE $<$<BOOL:${RAFT_NVTX}>:NVTX_ENAB
 endif()
 
 # ##################################################################################################
-# * raft_compiled ------------------------------------------------------------ TODO: Currently, this
-#   package also contains the 'random' namespace (for rmat logic) We couldn't get this to work
-#   properly due to strange CI failures as noticed in the PR#778. In the long term, we should rename
-#   this package to `raft_compiled` in order to have a single pre-compiled raft package for those
-#   who need it.
+# * raft_compiled ------------------------------------------------------------
 add_library(raft_compiled INTERFACE)
 
 if(TARGET raft_compiled AND (NOT TARGET raft::compiled))
@@ -262,7 +288,7 @@ set_target_properties(raft_compiled PROPERTIES EXPORT_NAME compiled)
 
 if(RAFT_COMPILE_LIBRARY)
   add_library(
-    raft_lib
+    raft_objs OBJECT
     src/core/logger.cpp
     src/distance/detail/pairwise_matrix/dispatch_canberra_double_double_double_int.cu
     src/distance/detail/pairwise_matrix/dispatch_canberra_float_float_float_int.cu
@@ -307,6 +333,7 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/brute_force_knn_int64_t_float_uint32_t.cu
     src/neighbors/brute_force_knn_int_float_int.cu
     src/neighbors/brute_force_knn_uint32_t_float_uint32_t.cu
+    src/neighbors/brute_force_knn_index_float.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim128_t8.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim256_t16.cu
     src/neighbors/detail/cagra/search_multi_cta_float_uint32_dim512_t32.cu
@@ -430,40 +457,45 @@ if(RAFT_COMPILE_LIBRARY)
     src/util/memory_pool.cpp
   )
   set_target_properties(
-    raft_lib
-    PROPERTIES OUTPUT_NAME raft
-               BUILD_RPATH "\$ORIGIN"
-               INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+    raft_objs
+    PROPERTIES CXX_STANDARD 17
                CXX_STANDARD_REQUIRED ON
                CUDA_STANDARD 17
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
+  )
+
+  target_compile_definitions(raft_objs PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
+  target_compile_options(
+    raft_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
+                      "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
+  )
+
+  add_library(raft_lib SHARED $<TARGET_OBJECTS:raft_objs>)
+  add_library(raft_lib_static STATIC $<TARGET_OBJECTS:raft_objs>)
+
+  set_target_properties(
+    raft_lib raft_lib_static
+    PROPERTIES OUTPUT_NAME raft
+               BUILD_RPATH "\$ORIGIN"
+               INSTALL_RPATH "\$ORIGIN"
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_link_libraries(
-    raft_lib
-    PUBLIC raft::raft
-           ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
-                                         # will just be cublas
-           $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
-  )
-  target_compile_options(
-    raft_lib PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${RAFT_CXX_FLAGS}>"
-                     "$<$<COMPILE_LANGUAGE:CUDA>:${RAFT_CUDA_FLAGS}>"
-  )
+  foreach(target raft_lib raft_lib_static raft_objs)
+    target_link_libraries(
+      ${target}
+      PUBLIC raft::raft
+             ${RAFT_CTK_MATH_DEPENDENCIES} # TODO: Once `raft::resources` is used everywhere, this
+                                           # will just be cublas
+             $<TARGET_NAME_IF_EXISTS:OpenMP::OpenMP_CXX>
+    )
 
-  # RAFT_COMPILED is set during compilation of libraft.so as well as downstream libraries (due to
-  # "PUBLIC")
-  target_compile_definitions(raft_lib PUBLIC "RAFT_COMPILED")
-
-  # RAFT_EXPLICIT_INSTANTIATE_ONLY is set during compilation of libraft.so (due to "PRIVATE")
-  target_compile_definitions(raft_lib PRIVATE "RAFT_EXPLICIT_INSTANTIATE_ONLY")
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(raft_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
+    # So consumers know when using libraft.so/libraft.a
+    target_compile_definitions(${target} PUBLIC "RAFT_COMPILED")
+    # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+    target_link_options(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+  endforeach()
 endif()
 
 if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
@@ -471,6 +503,24 @@ if(TARGET raft_lib AND (NOT TARGET raft::raft_lib))
 endif()
 
 target_link_libraries(raft_compiled INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib>)
+
+# ##################################################################################################
+# * raft_compiled_static----------------------------------------------------------------------------
+
+add_library(raft_compiled_static INTERFACE)
+
+if(TARGET raft_compiled_static AND (NOT TARGET raft::compiled_static))
+  add_library(raft::compiled_static ALIAS raft_compiled_static)
+endif()
+set_target_properties(raft_compiled_static PROPERTIES EXPORT_NAME compiled_static)
+
+if(TARGET raft_lib_static AND (NOT TARGET raft::raft_lib_static))
+  add_library(raft::raft_lib_static ALIAS raft_lib_static)
+endif()
+
+target_link_libraries(
+  raft_compiled_static INTERFACE raft::raft $<TARGET_NAME_IF_EXISTS:raft::raft_lib_static>
+)
 
 # ##################################################################################################
 # * raft_distributed -------------------------------------------------------------------------------
@@ -511,7 +561,7 @@ install(
 )
 
 install(
-  TARGETS raft_compiled
+  TARGETS raft_compiled raft_compiled_static
   DESTINATION ${lib_dir}
   COMPONENT raft
   EXPORT raft-compiled-exports
@@ -523,6 +573,12 @@ if(TARGET raft_lib)
     DESTINATION ${lib_dir}
     COMPONENT compiled
     EXPORT raft-compiled-lib-exports
+  )
+  install(
+    TARGETS raft_lib_static
+    DESTINATION ${lib_dir}
+    COMPONENT compiled-static
+    EXPORT raft-compiled-static-lib-exports
   )
   install(
     DIRECTORY include/raft_runtime
@@ -568,11 +624,13 @@ for data science and machine learning.
 
 Optional Components:
   - compiled
+  - compiled_static
   - distributed
 
 Imported Targets:
   - raft::raft
   - raft::compiled brought in by the `compiled` optional component
+  - raft::compiled_static brought in by the `compiled_static` optional component
   - raft::distributed brought in by the `distributed` optional component
 
 ]=]
@@ -602,8 +660,8 @@ endif()
 set(raft_components compiled distributed)
 set(raft_export_sets raft-compiled-exports raft-distributed-exports)
 if(TARGET raft_lib)
-  list(APPEND raft_components compiled)
-  list(APPEND raft_export_sets raft-compiled-lib-exports)
+  list(APPEND raft_components compiled compiled-static)
+  list(APPEND raft_export_sets raft-compiled-lib-exports raft-compiled-static-lib-exports)
 endif()
 
 string(
