@@ -2,7 +2,7 @@
 
 RAFT has several important algorithms for performing vector search on the GPU and this tutorial walks through the primary vector search APIs from start to finish to provide a reference for quick setup and C++ API usage.
 
-This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for a ready-to-go example that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
+This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
 
 
 ## Step 1: Starting off with RAFT
@@ -60,8 +60,8 @@ provides a `raft::device_resources_manager` to handle this for downstream
 applications. On startup, the application can specify certain limits on the
 total resource consumption of the `raft::device_resources` objects that will be
 generated:
-```
-#include <raft/core/device_resources_manager>
+```c++
+#include <raft/core/device_resources_manager.hpp>
 
 void initialize_application() {
   // Set the total number of CUDA streams to use on each GPU across all CPU
@@ -85,8 +85,8 @@ resource options and constraints, including options to initialize entire
 stream pools that can be used by an individual `raft::device_resources` object. After
 this initialization method is called, the following function could be called
 from any CPU thread:
-```
-#include <raft/core/device_resources_manager>
+```c++
+#include <raft/core/device_resources_manager.hpp>
 void foo() {
   raft::device_resources const& res = raft::device_resources_manager::get_device_resources();
   // Submit some work with res
@@ -136,7 +136,6 @@ The following example demonstrates how to create `mdarray` matrices in both devi
 ```c++
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 
 raft::device_resources res;
 
@@ -160,7 +159,6 @@ Let's build upon the fundamentals from the prior section and actually invoke som
 
 ```c++
 #include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/random/make_blobs.cuh>
 
 raft::device_resources res;
@@ -178,13 +176,9 @@ That's it. We've now generated a random 10kx10k matrix with points that cleanly 
 
 Since the `make_blobs` code generates the random dataset on the GPU device, we didn't need to do any host to device copies in this one. `make_blobs` is also asynchronous, so if we don't need to copy and use the data in host memory right away, we can continue calling RAFT functions with the `device_resources` instance and the data transformations will all be scheduled on the same stream.
 
-
-
 ## Step 3: Calculate exact nearest neighbors
-Consider the 10kx10k random matrix we generated in the previous step. We want to be able to find the k-nearest neighbors for all points of the matrix, or what we refer to as the all-neighbors graph which means finding the neighbors of a data point within the same matrix.
+Consider the `(10k, 10k)` shaped random matrix we generated in the previous step. We want to be able to find the k-nearest neighbors for all points of the matrix, or what we refer to as the all-neighbors graph, which means finding the neighbors of all data points within the same matrix.
 ```c++
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/device_resources.hpp>
 #include <raft/neighbors/brute_force.cuh>
 
 raft::device_resources res;
@@ -198,14 +192,14 @@ auto search = raft::make_const_mdspan(dataset.view());
 
 // Indices and Distances are of dimensions (n, k)
 // where n is number of rows in the search matrix
-auto indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
-auto distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
+auto reference_indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
+auto reference_distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
 
 // Compute exact-neighbors using Euclidean distance
 raft::neighbors::brute_force::knn(index,
                                   search,
-                                  indices,
-                                  distances,
+                                  reference_indices.view(),
+                                  reference_distances.view(),
                                   raft::distance::DistanceType::L2Unexpanded);
 ```
 
@@ -216,21 +210,43 @@ We have established several things here by building a flat index. Now we know th
 
 ## Step 4: Train an ANN index
 
-Now comes the fun part of training
+Next we'll train an ANN index. We'll use our graph-based CAGRA algorithm for this example but the other index types use a very similar pattern.
 
+```c++
+#include <raft/neighbors/cagra.cuh>
 
+raft::device_resources res;
 
-## Step 5: Add vectors to index
+// use default index parameters
+cagra::index_params index_params;
+
+auto index = cagra::build<float, uint32_t>(res, index_params, dataset);
+```
 
 ## Step 6: Query the index
 
-## Step 7: Additional features
-### Comparing exact and approximate neighbor quality
+Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function. 
+
+```c++
+// create output arrays
+auto indices = raft::make_device_matrix<uint32_t>(res, n_rows, k);
+auto distances = raft::make_device_matrix<float>(res, n_rows, k);
+
+// use default search parameters
+cagra::search_params search_params;
+
+// search K nearest neighbors
+cagra::search<float, uint32_t>(
+res, search_params, index, search, indices.view(), distances.view());
+```
+
+
+
+## Step 7: Comparing neighborhood quality
+
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
 ```c++
-#include <raft/core/device_resources.hpp>
-#include <raft/core/host_mdarray.hpp>
 #include <raft/stats/neighborhood_recall.cuh>
 
 raft::device_resources res;
@@ -246,9 +262,9 @@ float const recall_scalar = 0.0;
 auto recall_value = raft::make_host_scalar(recall_scalar);
 
 raft::stats::neighborhood_recall(res,
-                                 indices,
-                                 reference_indices,
+                                 raft::make_const_mdspan(indices.view()),
+                                 raft::make_const_mdspan(reference_indices.view()),
                                  recall_value.view(),
-                                 distances,
-                                 reference_distances);
+                                 raft::make_const_mdspan(distances),
+                                 raft::make_const_mdspan(reference_distances));
 ```
