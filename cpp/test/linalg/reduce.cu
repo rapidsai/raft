@@ -124,7 +124,7 @@ class ReduceTest : public ::testing::TestWithParam<ReduceInputs<InType, OutType,
     raft::random::RngState r(params.seed);
     IdxType rows = params.rows, cols = params.cols;
     IdxType len = rows * cols;
-    gen_uniform(data.data(), r, len, stream);
+    gen_uniform(handle, data.data(), r, len);
 
     MainLambda main_op;
     ReduceLambda reduce_op;

@@ -36,7 +36,7 @@ struct KeyValuePair {
   Value value;  ///< Item value
 
   /// Constructor
-  RAFT_INLINE_FUNCTION KeyValuePair() {}
+  KeyValuePair() = default;
 
 #ifdef _RAFT_HAS_CUDA
   /// Conversion Constructor to allow integration w/ cub
