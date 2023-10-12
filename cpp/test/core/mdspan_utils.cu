@@ -249,14 +249,14 @@ TEST(MDSpan, ConstMDSpan) { test_const_mdspan(); }
 
 void test_contiguous_predicates()
 {
-  extents<std::int64_t, dynamic_extent, dynamic_extent, dynamic_extent> exts{10, 10, 10};
+  extents<std::int64_t, dynamic_extent, dynamic_extent, dynamic_extent> exts{4, 4, 4};
   {
-    std::array<std::size_t, 3> strides{128, 32, 8};
+    std::array<std::int64_t, 3> strides{16, 4, 1};
     ASSERT_TRUE(is_c_contiguous(exts, strides));
     ASSERT_FALSE(is_f_contiguous(exts, strides));
   }
   {
-    std::array<std::size_t, 3> strides{8, 32, 128};
+    std::array<std::int64_t, 3> strides{1, 4, 16};
     ASSERT_FALSE(is_c_contiguous(exts, strides));
     ASSERT_TRUE(is_f_contiguous(exts, strides));
   }

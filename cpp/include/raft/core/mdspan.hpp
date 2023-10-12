@@ -323,7 +323,7 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
 template <typename Extents, typename Strides>
 [[nodiscard]] auto is_c_contiguous(Extents const& extents, Strides const& strides) -> bool
 {
-  std::uint64_t stride = 1;
+  typename Extents::index_type stride = 1;
   for (auto r = extents.rank(); r > 0; r--) {
     if (stride != strides[r - 1]) { return false; }
     stride *= extents.extent(r - 1);
@@ -337,7 +337,7 @@ template <typename Extents, typename Strides>
 template <typename Extents, typename Strides>
 [[nodiscard]] auto is_f_contiguous(Extents const& extents, Strides const& strides) -> bool
 {
-  std::uint64_t stride = 1;
+  typename Extents::index_type stride = 1;
   for (typename Extents::rank_type r = 0; r < extents.rank(); r++) {
     if (stride != strides[r]) { return false; }
     stride *= extents.extent(r);
