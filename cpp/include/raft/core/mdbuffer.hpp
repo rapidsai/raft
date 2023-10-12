@@ -518,6 +518,58 @@ struct mdbuffer {
     {
     }
 
+    template <typename... SizeTypes>
+    explicit constexpr mdbuffer(element_type * ptr, SizeTypes... dynamic_extents) : data_
+    {
+      [ptr, dynamic_extents...]() {
+        auto result = view_type_variant{};
+        switch (memory_type_from_pointer(ptr)) {
+          case memory_type::host:
+            result = view_type_variant{view_type<memory_type::host>{ptr, dynamic_extents...}};
+            break;
+          case memory_type::device:
+            result = view_type_variant{view_type<memory_type::device>{ptr, dynamic_extents...}};
+            break;
+          case memory_type::managed:
+            result = view_type_variant{view_type<memory_type::managed>{ptr, dynamic_extents...}};
+            break;
+          case memory_type::pinned:
+            result = view_type_variant{view_type<memory_type::pinned>{ptr, dynamic_extents...}};
+            break;
+        }
+        return result;
+      }()
+    }
+
+    template <typename... SizeTypes>
+    explicit constexpr mdbuffer(
+      raft::resources const& res, memory_type mem_type, SizeTypes... dynamic_extents)
+      : data_
+    {
+      [&res, dynamic_extents...]() {
+        auto result = owning_type_variant{};
+        switch (mem_type) {
+          case memory_type::host:
+            result = owing_type_variant{
+              owning_type<memory_type::host>{res, make_extents(dynamic_extents...)}};
+            break;
+          case memory_type::device:
+            result = owing_type_variant{
+              owning_type<memory_type::device>{res, make_extents(dynamic_extents...)}};
+            break;
+          case memory_type::managed:
+            result = owning_type_variant{
+              owning_type<memory_type::managed>{res, make_extents(dynamic_extents...)}};
+            break;
+          case memory_type::pinned:
+            result = owning_type_variant{
+              owning_type<memory_type::pinned>{res, make_extents(dynamic_extents...)}};
+            break;
+        }
+        return result;
+      }()
+    }
+
     [[nodiscard]] auto constexpr mem_type() const
     {
       return static_cast<memory_type>(data_.index() % std::variant_size_v<owning_type_variant>);
@@ -527,34 +579,6 @@ struct mdbuffer {
     {
       return data_.index() >= std::variant_size_v<view_type_variant>;
     };
-
-    // TODO(wphicks): Add optional memory_type parameter to directly access
-    // pointer type from corresponding view
-    [[nodiscard]] auto constexpr data_handle()
-    {
-      return fast_visit(
-        [](auto&& inner) {
-          if constexpr (std::is_convertible_v<decltype(inner.data_handle()), pointer>) {
-            return pointer{inner.data_handle()};
-          } else {
-            return pointer{inner.data_handle().get()};
-          }
-        },
-        data_);
-    };
-
-    [[nodiscard]] auto constexpr data_handle() const
-    {
-      return fast_visit(
-        [](auto&& inner) {
-          if constexpr (std::is_convertible_v<decltype(inner.data_handle()), const_pointer>) {
-            return const_pointer{inner.data_handle()};
-          } else {
-            return const_pointer{inner.data_handle().get()};
-          }
-        },
-        data_);
-    }
 
    private:
     static auto constexpr get_view_from_data(view_type_variant const& data) { return data; }

@@ -15,6 +15,13 @@
  */
 #pragma once
 #include <cstdint>
+#ifndef RAFT_DISABLE_CUDA
+#include <cuda_runtime.h>
+#include <raft/util/cuda_rt_essentials.hpp>
+#include <type_traits>
+#else
+#include <raft/core/logger.hpp>
+#endif
 
 namespace raft {
 enum class memory_type : std::uint8_t {
@@ -55,4 +62,29 @@ auto constexpr memory_type_from_access()
 }
 
 }  // end namespace detail
+
+template <typename T>
+auto memory_type_from_pointer(T* ptr)
+{
+  auto result = memory_type::host;
+#ifndef RAFT_DISABLE_CUDA
+  auto* void_ptr = static_cast<void*>(nullptr);
+  if constexpr (std::is_const_v<T>) {
+    void_ptr = const_cast<void*>(static_cast<void const*>(ptr));
+  } else {
+    void_ptr = static_cast<void*>(ptr);
+  }
+  auto attrs = cudaPointerAttributes{};
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attrs, void_ptr));
+  switch (attrs.type) {
+    case cudaMemoryTypeDevice: result = memory_type::device; break;
+    case cudaMemoryTypeHost: result = memory_type::host; break;
+    case cudaMemoryTypeManaged: result = memory_type::managed; break;
+    default: result = memory_type::host;
+  }
+#else
+  RAFT_LOG_DEBUG("RAFT compiled without CUDA support, assuming pointer is host pointer");
+#endif
+  return result;
+}
 }  // end namespace raft
