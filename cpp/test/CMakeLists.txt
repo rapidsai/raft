@@ -435,6 +435,7 @@ if(BUILD_TESTS)
     test/stats/mean_center.cu
     test/stats/minmax.cu
     test/stats/mutual_info_score.cu
+    test/stats/neighborhood_recall.cu
     test/stats/r2_score.cu
     test/stats/rand_index.cu
     test/stats/regression_metrics.cu

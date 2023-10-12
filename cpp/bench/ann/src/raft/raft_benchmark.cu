@@ -233,7 +233,7 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   const std::string& algo, const nlohmann::json& conf)
 {
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-  if (algo == "raft_bfknn") {
+  if (algo == "raft_brute_force") {
     auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
     return param;
   }
