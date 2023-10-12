@@ -463,31 +463,31 @@ template <unsigned TEAM_SIZE,
           class DISTANCE_T,
           class INDEX_T,
           class SAMPLE_FILTER_T>
-__launch_bounds__(1024, 1) __global__
-  void search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
-                     DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
-                     const std::uint32_t top_k,
-                     const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
-                     const std::size_t dataset_dim,
-                     const std::size_t dataset_size,
-                     const std::size_t dataset_ld,     // stride of dataset
-                     const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
-                     const INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
-                     const std::uint32_t graph_degree,
-                     const unsigned num_distilation,
-                     const uint64_t rand_xor_mask,
-                     const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
-                     const uint32_t num_seeds,
-                     INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
-                     const std::uint32_t internal_topk,
-                     const std::uint32_t search_width,
-                     const std::uint32_t min_iteration,
-                     const std::uint32_t max_iteration,
-                     std::uint32_t* const num_executed_iterations,  // [num_queries]
-                     const std::uint32_t hash_bitlen,
-                     const std::uint32_t small_hash_bitlen,
-                     const std::uint32_t small_hash_reset_interval,
-                     SAMPLE_FILTER_T sample_filter)
+__launch_bounds__(1024, 1) RAFT_KERNEL
+  search_kernel(INDEX_T* const result_indices_ptr,       // [num_queries, top_k]
+                DISTANCE_T* const result_distances_ptr,  // [num_queries, top_k]
+                const std::uint32_t top_k,
+                const DATA_T* const dataset_ptr,  // [dataset_size, dataset_dim]
+                const std::size_t dataset_dim,
+                const std::size_t dataset_size,
+                const std::size_t dataset_ld,     // stride of dataset
+                const DATA_T* const queries_ptr,  // [num_queries, dataset_dim]
+                const INDEX_T* const knn_graph,   // [dataset_size, graph_degree]
+                const std::uint32_t graph_degree,
+                const unsigned num_distilation,
+                const uint64_t rand_xor_mask,
+                const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
+                const uint32_t num_seeds,
+                INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
+                const std::uint32_t internal_topk,
+                const std::uint32_t search_width,
+                const std::uint32_t min_iteration,
+                const std::uint32_t max_iteration,
+                std::uint32_t* const num_executed_iterations,  // [num_queries]
+                const std::uint32_t hash_bitlen,
+                const std::uint32_t small_hash_bitlen,
+                const std::uint32_t small_hash_reset_interval,
+                SAMPLE_FILTER_T sample_filter)
 {
   using LOAD_T        = device::LOAD_128BIT_T;
   const auto query_id = blockIdx.y;

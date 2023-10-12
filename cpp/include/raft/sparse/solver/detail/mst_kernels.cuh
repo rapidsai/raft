@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@
 namespace raft::sparse::solver::detail {
 
 template <typename vertex_t, typename edge_t, typename alteration_t>
-__global__ void kernel_min_edge_per_vertex(const edge_t* offsets,
-                                           const vertex_t* indices,
-                                           const alteration_t* weights,
-                                           const vertex_t* color,
-                                           const vertex_t* color_index,
-                                           edge_t* new_mst_edge,
-                                           const bool* mst_edge,
-                                           alteration_t* min_edge_color,
-                                           const vertex_t v)
+RAFT_KERNEL kernel_min_edge_per_vertex(const edge_t* offsets,
+                                       const vertex_t* indices,
+                                       const alteration_t* weights,
+                                       const vertex_t* color,
+                                       const vertex_t* color_index,
+                                       edge_t* new_mst_edge,
+                                       const bool* mst_edge,
+                                       alteration_t* min_edge_color,
+                                       const vertex_t v)
 {
   edge_t tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -107,19 +107,19 @@ __global__ void kernel_min_edge_per_vertex(const edge_t* offsets,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-__global__ void min_edge_per_supervertex(const vertex_t* color,
-                                         const vertex_t* color_index,
-                                         edge_t* new_mst_edge,
-                                         bool* mst_edge,
-                                         const vertex_t* indices,
-                                         const weight_t* weights,
-                                         const alteration_t* altered_weights,
-                                         vertex_t* temp_src,
-                                         vertex_t* temp_dst,
-                                         weight_t* temp_weights,
-                                         const alteration_t* min_edge_color,
-                                         const vertex_t v,
-                                         bool symmetrize_output)
+RAFT_KERNEL min_edge_per_supervertex(const vertex_t* color,
+                                     const vertex_t* color_index,
+                                     edge_t* new_mst_edge,
+                                     bool* mst_edge,
+                                     const vertex_t* indices,
+                                     const weight_t* weights,
+                                     const alteration_t* altered_weights,
+                                     vertex_t* temp_src,
+                                     vertex_t* temp_dst,
+                                     weight_t* temp_weights,
+                                     const alteration_t* min_edge_color,
+                                     const vertex_t v,
+                                     bool symmetrize_output)
 {
   auto tid = get_1D_idx<vertex_t>();
   if (tid < v) {
@@ -166,14 +166,14 @@ __global__ void min_edge_per_supervertex(const vertex_t* color,
 }
 
 template <typename vertex_t, typename edge_t, typename weight_t>
-__global__ void add_reverse_edge(const edge_t* new_mst_edge,
-                                 const vertex_t* indices,
-                                 const weight_t* weights,
-                                 vertex_t* temp_src,
-                                 vertex_t* temp_dst,
-                                 weight_t* temp_weights,
-                                 const vertex_t v,
-                                 bool symmetrize_output)
+RAFT_KERNEL add_reverse_edge(const edge_t* new_mst_edge,
+                             const vertex_t* indices,
+                             const weight_t* weights,
+                             vertex_t* temp_src,
+                             vertex_t* temp_dst,
+                             weight_t* temp_weights,
+                             const vertex_t v,
+                             bool symmetrize_output)
 {
   auto tid = get_1D_idx<vertex_t>();
 
@@ -215,12 +215,12 @@ __global__ void add_reverse_edge(const edge_t* new_mst_edge,
 
 // executes for newly added mst edges and updates the colors of both vertices to the lower color
 template <typename vertex_t, typename edge_t>
-__global__ void min_pair_colors(const vertex_t v,
-                                const vertex_t* indices,
-                                const edge_t* new_mst_edge,
-                                const vertex_t* color,
-                                const vertex_t* color_index,
-                                vertex_t* next_color)
+RAFT_KERNEL min_pair_colors(const vertex_t v,
+                            const vertex_t* indices,
+                            const edge_t* new_mst_edge,
+                            const vertex_t* color,
+                            const vertex_t* color_index,
+                            vertex_t* next_color)
 {
   auto i = get_1D_idx<vertex_t>();
 
@@ -248,11 +248,11 @@ __global__ void min_pair_colors(const vertex_t v,
 
 // for each vertex, update color if it was changed in min_pair_colors kernel
 template <typename vertex_t>
-__global__ void update_colors(const vertex_t v,
-                              vertex_t* color,
-                              const vertex_t* color_index,
-                              const vertex_t* next_color,
-                              bool* done)
+RAFT_KERNEL update_colors(const vertex_t v,
+                          vertex_t* color,
+                          const vertex_t* color_index,
+                          const vertex_t* next_color,
+                          bool* done)
 {
   auto i = get_1D_idx<vertex_t>();
 
@@ -271,7 +271,7 @@ __global__ void update_colors(const vertex_t v,
 
 // point vertices to their final color index
 template <typename vertex_t>
-__global__ void final_color_indices(const vertex_t v, const vertex_t* color, vertex_t* color_index)
+RAFT_KERNEL final_color_indices(const vertex_t v, const vertex_t* color, vertex_t* color_index)
 {
   auto i = get_1D_idx<vertex_t>();
 
@@ -296,14 +296,14 @@ __global__ void final_color_indices(const vertex_t v, const vertex_t* color, ver
 // Alterate the weights, make all undirected edge weight unique while keeping Wuv == Wvu
 // Consider using curand device API instead of precomputed random_values array
 template <typename vertex_t, typename edge_t, typename weight_t, typename alteration_t>
-__global__ void alteration_kernel(const vertex_t v,
-                                  const edge_t e,
-                                  const edge_t* offsets,
-                                  const vertex_t* indices,
-                                  const weight_t* weights,
-                                  alteration_t max,
-                                  alteration_t* random_values,
-                                  alteration_t* altered_weights)
+RAFT_KERNEL alteration_kernel(const vertex_t v,
+                              const edge_t e,
+                              const edge_t* offsets,
+                              const vertex_t* indices,
+                              const weight_t* weights,
+                              alteration_t max,
+                              alteration_t* random_values,
+                              alteration_t* altered_weights)
 {
   auto row = get_1D_idx<vertex_t>();
   if (row < v) {
@@ -317,9 +317,9 @@ __global__ void alteration_kernel(const vertex_t v,
 }
 
 template <typename vertex_t, typename edge_t>
-__global__ void kernel_count_new_mst_edges(const vertex_t* mst_src,
-                                           edge_t* mst_edge_count,
-                                           const vertex_t v)
+RAFT_KERNEL kernel_count_new_mst_edges(const vertex_t* mst_src,
+                                       edge_t* mst_edge_count,
+                                       const vertex_t v)
 {
   auto tid = get_1D_idx<vertex_t>();
 

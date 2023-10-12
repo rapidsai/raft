@@ -25,7 +25,7 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naivePowerElemKernel(Type* out, const Type* in1, const Type* in2, int len)
+RAFT_KERNEL naivePowerElemKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = raft::pow(in1[idx], in2[idx]); }
@@ -41,7 +41,7 @@ void naivePowerElem(Type* out, const Type* in1, const Type* in2, int len, cudaSt
 }
 
 template <typename Type>
-__global__ void naivePowerScalarKernel(Type* out, const Type* in1, const Type in2, int len)
+RAFT_KERNEL naivePowerScalarKernel(Type* out, const Type* in1, const Type in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = raft::pow(in1[idx], in2); }

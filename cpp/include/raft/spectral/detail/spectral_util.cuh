@@ -40,7 +40,7 @@ namespace raft {
 namespace spectral {
 
 template <typename index_type_t, typename value_type_t>
-static __global__ void scale_obs_kernel(index_type_t m, index_type_t n, value_type_t* obs)
+RAFT_KERNEL scale_obs_kernel(index_type_t m, index_type_t n, value_type_t* obs)
 {
   index_type_t i, j, k, index, mm;
   value_type_t alpha, v, last;

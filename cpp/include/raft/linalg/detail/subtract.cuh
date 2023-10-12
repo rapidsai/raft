@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,10 @@ void subtract(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream
 }
 
 template <class math_t, typename IdxType>
-__global__ void subtract_dev_scalar_kernel(math_t* outDev,
-                                           const math_t* inDev,
-                                           const math_t* singleScalarDev,
-                                           IdxType len)
+RAFT_KERNEL subtract_dev_scalar_kernel(math_t* outDev,
+                                       const math_t* inDev,
+                                       const math_t* singleScalarDev,
+                                       IdxType len)
 {
   // TODO: kernel do not use shared memory in current implementation
   int i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;

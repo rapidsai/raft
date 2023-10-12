@@ -42,8 +42,7 @@ namespace cache {
  * @param [out] out vectors collected from the cache, size [n_vec * n]
  */
 template <typename math_t, typename idx_t, typename int_t>
-__global__ void get_vecs(
-  const math_t* cache, int_t n_vec, const idx_t* cache_idx, int_t n, math_t* out)
+RAFT_KERNEL get_vecs(const math_t* cache, int_t n_vec, const idx_t* cache_idx, int_t n, math_t* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
@@ -83,14 +82,14 @@ __global__ void get_vecs(
  * @param [in] n_cache_vecs
  */
 template <typename math_t>
-__global__ void store_vecs(const math_t* tile,
-                           int n_tile,
-                           int n_vec,
-                           const int* tile_idx,
-                           int n,
-                           const int* cache_idx,
-                           math_t* cache,
-                           int n_cache_vecs)
+RAFT_KERNEL store_vecs(const math_t* tile,
+                       int n_tile,
+                       int n_vec,
+                       const int* tile_idx,
+                       int n,
+                       const int* cache_idx,
+                       math_t* cache,
+                       int n_cache_vecs)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
@@ -256,14 +255,14 @@ DI void rank_set_entries(const int* cache_time, int n_cache_sets, int* rank)
  *   not be cached, size [n]
  */
 template <int nthreads, int associativity>
-__global__ void assign_cache_idx(const int* keys,
-                                 int n,
-                                 const int* cache_set,
-                                 int* cached_keys,
-                                 int n_cache_sets,
-                                 int* cache_time,
-                                 int time,
-                                 int* cache_idx)
+RAFT_KERNEL assign_cache_idx(const int* keys,
+                             int n,
+                             const int* cache_set,
+                             int* cached_keys,
+                             int n_cache_sets,
+                             int* cache_time,
+                             int time,
+                             int* cache_idx)
 {
   int block_offset = blockIdx.x * associativity;
 
@@ -329,15 +328,15 @@ __global__ void assign_cache_idx(const int* keys,
  * @param [in] time iteration counter (used for time stamping)
  */
 template <typename = void>
-__global__ void get_cache_idx(int* keys,
-                              int n,
-                              int* cached_keys,
-                              int n_cache_sets,
-                              int associativity,
-                              int* cache_time,
-                              int* cache_idx,
-                              bool* is_cached,
-                              int time)
+RAFT_KERNEL get_cache_idx(int* keys,
+                          int n,
+                          int* cached_keys,
+                          int n_cache_sets,
+                          int associativity,
+                          int* cache_time,
+                          int* cache_idx,
+                          bool* is_cached,
+                          int time)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {

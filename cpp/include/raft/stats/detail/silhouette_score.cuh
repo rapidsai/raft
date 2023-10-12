@@ -55,13 +55,13 @@ namespace detail {
  * @param MAX_VAL: DataT specific upper limit
  */
 template <typename DataT, typename LabelT>
-__global__ void populateAKernel(DataT* sampleToClusterSumOfDistances,
-                                DataT* binCountArray,
-                                DataT* d_aArray,
-                                const LabelT* labels,
-                                int nRows,
-                                int nLabels,
-                                const DataT MAX_VAL)
+RAFT_KERNEL populateAKernel(DataT* sampleToClusterSumOfDistances,
+                            DataT* binCountArray,
+                            DataT* d_aArray,
+                            const LabelT* labels,
+                            int nRows,
+                            int nLabels,
+                            const DataT MAX_VAL)
 {
   // getting the current index
   int sampleIndex = threadIdx.x + blockIdx.x * blockDim.x;

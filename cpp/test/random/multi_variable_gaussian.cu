@@ -37,7 +37,7 @@ namespace raft::random {
 /// @todo Duplicate called vctwiseAccumulate in utils.h (Kalman Filters,
 // i think that is much better to use., more general)
 template <typename T>
-__global__ void En_KF_accumulate(const int nPoints, const int dim, const T* X, T* x)
+RAFT_KERNEL En_KF_accumulate(const int nPoints, const int dim, const T* X, T* x)
 {
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
@@ -46,14 +46,14 @@ __global__ void En_KF_accumulate(const int nPoints, const int dim, const T* X, T
 }
 
 template <typename T>
-__global__ void En_KF_normalize(const int divider, const int dim, T* x)
+RAFT_KERNEL En_KF_normalize(const int divider, const int dim, T* x)
 {
   int xi = threadIdx.x + blockDim.x * blockIdx.x;
   if (xi < dim) x[xi] = x[xi] / divider;
 }
 
 template <typename T>
-__global__ void En_KF_dif(const int nPoints, const int dim, const T* X, const T* x, T* X_diff)
+RAFT_KERNEL En_KF_dif(const int nPoints, const int dim, const T* X, const T* x, T* X_diff)
 {
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;

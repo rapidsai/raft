@@ -36,7 +36,7 @@ namespace raft::distance::kernels::detail {
  * @param offset
  */
 template <typename math_t, typename exp_t>
-__global__ void polynomial_kernel_nopad(
+RAFT_KERNEL polynomial_kernel_nopad(
   math_t* inout, size_t len, exp_t exponent, math_t gain, math_t offset)
 {
   for (size_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
@@ -56,7 +56,7 @@ __global__ void polynomial_kernel_nopad(
  * @param offset
  */
 template <typename math_t, typename exp_t>
-__global__ void polynomial_kernel(
+RAFT_KERNEL polynomial_kernel(
   math_t* inout, int ld, int rows, int cols, exp_t exponent, math_t gain, math_t offset)
 {
   for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
@@ -75,7 +75,7 @@ __global__ void polynomial_kernel(
  * @param offset
  */
 template <typename math_t>
-__global__ void tanh_kernel_nopad(math_t* inout, size_t len, math_t gain, math_t offset)
+RAFT_KERNEL tanh_kernel_nopad(math_t* inout, size_t len, math_t gain, math_t offset)
 {
   for (size_t tid = threadIdx.x + blockIdx.x * blockDim.x; tid < len;
        tid += blockDim.x * gridDim.x) {
@@ -93,7 +93,7 @@ __global__ void tanh_kernel_nopad(math_t* inout, size_t len, math_t gain, math_t
  * @param offset
  */
 template <typename math_t>
-__global__ void tanh_kernel(math_t* inout, int ld, int rows, int cols, math_t gain, math_t offset)
+RAFT_KERNEL tanh_kernel(math_t* inout, int ld, int rows, int cols, math_t gain, math_t offset)
 {
   for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
        tidy += blockDim.y * gridDim.y)
@@ -121,7 +121,7 @@ __global__ void tanh_kernel(math_t* inout, int ld, int rows, int cols, math_t ga
  * @param gain
  */
 template <typename math_t>
-__global__ void rbf_kernel_expanded(
+RAFT_KERNEL rbf_kernel_expanded(
   math_t* inout, int ld, int rows, int cols, math_t* norm_x, math_t* norm_y, math_t gain)
 {
   for (size_t tidy = threadIdx.y + blockIdx.y * blockDim.y; tidy < cols;
