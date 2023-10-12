@@ -63,6 +63,9 @@ else()
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
     set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ OFF)
+    set(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT OFF)
   else()
     set(RAFT_FAISS_ENABLE_GPU ON)
   endif()
@@ -70,11 +73,11 @@ endif()
 
 set(RAFT_ANN_BENCH_USE_FAISS OFF)
 if(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVFPQ
-   OR RAFT_ANN_BENCH_USE_FAISS_IFFLAT
+   OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ
+   OR RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT
    OR RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVFPQ
-   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IFFLAT
+   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ
+   OR RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT
 )
   set(RAFT_ANN_BENCH_USE_FAISS ON)
   set(RAFT_USE_FAISS_STATIC ON)
@@ -103,8 +106,10 @@ if(RAFT_ANN_BENCH_USE_GGNN)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  # We need to ensure that faiss has all the conda information. So we currently use the very ugly
-  # hammer of `link_libraries` to ensure that all targets in this directory and the faiss directory
+  # We need to ensure that faiss has all the conda
+  # information. So we currently use the very ugly
+  # hammer of `link_libraries` to ensure that all
+  # targets in this directory and the faiss directory
   # will have the conda includes/link dirs
   link_libraries($<TARGET_NAME_IF_EXISTS:conda_env>)
   include(cmake/thirdparty/get_faiss.cmake)

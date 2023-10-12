@@ -313,6 +313,41 @@ RAFT_INLINE_FUNCTION auto unravel_index(Idx idx,
 /** @} */
 
 /**
+ * @defgroup mdspan_contiguous Whether the strides imply a contiguous layout.
+ * @{
+ */
+
+/**
+ * @brief Whether the strides imply a c-contiguous layout.
+ */
+template <typename Extents, typename Strides>
+[[nodiscard]] auto is_c_contiguous(Extents const& extents, Strides const& strides) -> bool
+{
+  typename Extents::index_type stride = 1;
+  for (auto r = extents.rank(); r > 0; r--) {
+    if (stride != strides[r - 1]) { return false; }
+    stride *= extents.extent(r - 1);
+  }
+  return true;
+}
+
+/**
+ * @brief Whether the strides imply a f-contiguous layout.
+ */
+template <typename Extents, typename Strides>
+[[nodiscard]] auto is_f_contiguous(Extents const& extents, Strides const& strides) -> bool
+{
+  typename Extents::index_type stride = 1;
+  for (typename Extents::rank_type r = 0; r < extents.rank(); r++) {
+    if (stride != strides[r]) { return false; }
+    stride *= extents.extent(r);
+  }
+  return true;
+}
+
+/** @} */
+
+/**
  * @brief Const accessor specialization for default_accessor
  *
  * @tparam ElementType

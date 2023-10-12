@@ -227,8 +227,8 @@ dependencies:
           - glog>=0.6.0
           - h5py>=3.8.0
           - benchmark>=1.8.2
-          - rmm=23.12.*
           - openblas
+          - *rmm_conda
   nn_bench_python:
     common:
       - output_types: [conda]

@@ -250,27 +250,79 @@ if(BUILD_TESTS)
     100
   )
 
-  # ConfigureTest( NAME NEIGHBORS_ANN_IVF_TEST PATH
-  # test/neighbors/ann_ivf_flat/test_float_int64_t.cu
-  # test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
-  # test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
-  # test/neighbors/ann_ivf_pq/test_float_int64_t.cu test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
-  # test/neighbors/ann_ivf_pq/test_float_int64_t.cu test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
-  # test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu LIB EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT
-  # 100 )
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_IVF_TEST
+    PATH
+    test/neighbors/ann_ivf_flat/test_float_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
+    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
 
-  # ConfigureTest( NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB
-  # EXPLICIT_INSTANTIATE_ONLY GPUS 1 PERCENT 50 )
+  ConfigureTest(
+    NAME
+    NEIGHBORS_ANN_NN_DESCENT_TEST
+    PATH
+    test/neighbors/ann_nn_descent/test_float_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_int8_t_uint32_t.cu
+    test/neighbors/ann_nn_descent/test_uint8_t_uint32_t.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
 
-  # ConfigureTest( NAME STATS_TEST PATH test/stats/accuracy.cu test/stats/adjusted_rand_index.cu
-  # test/stats/completeness_score.cu test/stats/contingencyMatrix.cu test/stats/cov.cu
-  # test/stats/dispersion.cu test/stats/entropy.cu test/stats/histogram.cu
-  # test/stats/homogeneity_score.cu test/stats/information_criterion.cu test/stats/kl_divergence.cu
-  # test/stats/mean.cu test/stats/meanvar.cu test/stats/mean_center.cu test/stats/minmax.cu
-  # test/stats/mutual_info_score.cu test/stats/r2_score.cu test/stats/rand_index.cu
-  # test/stats/regression_metrics.cu test/stats/silhouette_score.cu test/stats/stddev.cu
-  # test/stats/sum.cu test/stats/trustworthiness.cu test/stats/weighted_mean.cu
-  # test/stats/v_measure.cu LIB EXPLICIT_INSTANTIATE_ONLY )
+  ConfigureTest(
+    NAME NEIGHBORS_SELECTION_TEST PATH test/neighbors/selection.cu LIB EXPLICIT_INSTANTIATE_ONLY
+    GPUS 1 PERCENT 50
+  )
+
+  ConfigureTest(
+    NAME
+    STATS_TEST
+    PATH
+    test/stats/accuracy.cu
+    test/stats/adjusted_rand_index.cu
+    test/stats/completeness_score.cu
+    test/stats/contingencyMatrix.cu
+    test/stats/cov.cu
+    test/stats/dispersion.cu
+    test/stats/entropy.cu
+    test/stats/histogram.cu
+    test/stats/homogeneity_score.cu
+    test/stats/information_criterion.cu
+    test/stats/kl_divergence.cu
+    test/stats/mean.cu
+    test/stats/meanvar.cu
+    test/stats/mean_center.cu
+    test/stats/minmax.cu
+    test/stats/mutual_info_score.cu
+    test/stats/neighborhood_recall.cu
+    test/stats/r2_score.cu
+    test/stats/rand_index.cu
+    test/stats/regression_metrics.cu
+    test/stats/silhouette_score.cu
+    test/stats/stddev.cu
+    test/stats/sum.cu
+    test/stats/trustworthiness.cu
+    test/stats/weighted_mean.cu
+    test/stats/v_measure.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+  )
 
   ConfigureTest(
     NAME
