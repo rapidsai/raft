@@ -408,9 +408,6 @@ struct mdbuffer {
       is_copyable_memory_combination<memory_type::managed, from_mdspan_type<SrcMemType>> ||
       is_copyable_memory_combination<memory_type::pinned, from_mdspan_type<SrcMemType>>;
 
-    // Note: This is the most generic possible test for constructibility, but
-    // in practice, we may be satisfied with a check solely for
-    // constructibility from matching memory types.
     auto static constexpr const value = is_copyable_to_any_memory_type<memory_type::host> ||
                                         is_copyable_to_any_memory_type<memory_type::device> ||
                                         is_copyable_to_any_memory_type<memory_type::managed> ||
@@ -451,75 +448,150 @@ struct mdbuffer {
         if constexpr (std::is_convertible_v<std::forward<FromT>, storage_type_variant>) {
           return storage_type_variant{std::move(other)};
         } else {
-          auto result = storage_type_variant{[res, mem_type]() {
+          return storage_type_variant{[res, mem_type]() {
+            auto result = owning_type_variant{};
             switch (mem_type) {
-              case memory_type::host: return owning_type<memory_type::host>{};
-              case memory_type::device: return owning_type<memory_type::device>{};
+              case memory_type::host:
+                auto tmp_result = owning_type<memory_type::host>{};
+                raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+                result = std::move(tmp_result);
+                break;
+              case memory_type::device:
+                auto tmp_result = owning_type<memory_type::device>{};
+                raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+                result = std::move(tmp_result);
+                break;
+              case memory_type::managed:
+                auto tmp_result = owning_type<memory_type::managed>{};
+                raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+                result = std::move(tmp_result);
+                break;
+              case memory_type::pinned:
+                auto tmp_result = owning_type<memory_type::pinned>{};
+                raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+                result = std::move(tmp_result);
+                break;
             }
+            return result;
           }()};
-          // TODO(wphicks): Construct owning variant of correct memory type. Copy
-          // from other's view (remembering that it may be a variant of views).
-          // Logic should be same for copy constructor.
         }
       }()}
   {
   }
 
-  [[nodiscard]] auto constexpr mem_type()
+  template <typename FromT, constructible_from_t<FromT>* = nullptr>
+  constexpr mdbuffer(raft::resources const& res,
+                     FromT const& other,
+                     memory_type mem_type =
+                       constructible_from<true, FromT, memory_type>::default_mem_type_destination)
+    : data_
   {
-    return static_cast<memory_type>(data_.index() % std::variant_size_v<owning_type_variant>);
-  };
-  [[nodiscard]] auto constexpr is_owning()
-  {
-    return data_.index() >= std::variant_size_v<view_type_variant>;
-  };
-  [[nodiscard]] auto constexpr data_handle()
-  {
-    return fast_visit(
-      [](auto&& inner) {
-        if constexpr (std::is_convertible_v<decltype(inner.data_handle()), pointer>) {
-          return pointer{inner.data_handle()};
-        } else {
-          return pointer{inner.data_handle().get()};
+    [res, &other, mem_type]() {
+      using config = constructible_from<true, FromT, void>;
+      return storage_type_variant{[res, mem_type]() {
+        auto result = owning_type_variant{};
+        switch (mem_type) {
+          case memory_type::host:
+            auto tmp_result = owning_type<memory_type::host>{};
+            raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+            result = std::move(tmp_result);
+            break;
+          case memory_type::device:
+            auto tmp_result = owning_type<memory_type::device>{};
+            raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+            result = std::move(tmp_result);
+            break;
+          case memory_type::managed:
+            auto tmp_result = owning_type<memory_type::managed>{};
+            raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+            result = std::move(tmp_result);
+            break;
+          case memory_type::pinned:
+            auto tmp_result = owning_type<memory_type::pinned>{};
+            raft::copy(res, tmp_result.view(), config::get_mdspan(std::forward<FromT>(other)));
+            result = std::move(tmp_result);
+            break;
         }
-      },
-      data_);
+        return result;
+      }()};
+    }
+    {
+    }
+
+    [[nodiscard]] auto constexpr mem_type() const
+    {
+      return static_cast<memory_type>(data_.index() % std::variant_size_v<owning_type_variant>);
+    };
+
+    [[nodiscard]] auto constexpr is_owning() const
+    {
+      return data_.index() >= std::variant_size_v<view_type_variant>;
+    };
+
+    // TODO(wphicks): Add optional memory_type parameter to directly access
+    // pointer type from corresponding view
+    [[nodiscard]] auto constexpr data_handle()
+    {
+      return fast_visit(
+        [](auto&& inner) {
+          if constexpr (std::is_convertible_v<decltype(inner.data_handle()), pointer>) {
+            return pointer{inner.data_handle()};
+          } else {
+            return pointer{inner.data_handle().get()};
+          }
+        },
+        data_);
+    };
+
+    [[nodiscard]] auto constexpr data_handle() const
+    {
+      return fast_visit(
+        [](auto&& inner) {
+          if constexpr (std::is_convertible_v<decltype(inner.data_handle()), const_pointer>) {
+            return const_pointer{inner.data_handle()};
+          } else {
+            return const_pointer{inner.data_handle().get()};
+          }
+        },
+        data_);
+    }
+
+   private:
+    static auto constexpr get_view_from_data(view_type_variant const& data) { return data; }
+    static auto constexpr get_view_from_data(const_view_type_variant const& data) { return data; }
+    static auto constexpr get_view_from_data(owning_type_variant & data)
+    {
+      return view_type_variant{data.view()};
+    }
+    static auto constexpr get_view_from_data(owning_type_variant const& data)
+    {
+      return const_view_type_variant{data.view()};
+    }
+
+   public:
+    template <std::optional<memory_type> mem_type = std::nullopt>
+    [[nodiscard]] auto view()
+    {
+      auto variant_view = fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
+      if constexpr (mem_type.has_value()) {
+        return std::get<variant_index_from_memory_type(mem_type.value())>(variant_view);
+      } else {
+        return variant_view;
+      }
+    }
+    template <std::optional<memory_type> mem_type = std::nullopt>
+    [[nodiscard]] auto view() const
+    {
+      auto variant_view = fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
+      if constexpr (mem_type.has_value()) {
+        return std::get<variant_index_from_memory_type(mem_type.value())>(variant_view);
+      } else {
+        return variant_view;
+      }
+    }
+
+   private:
+    storage_type_variant data_{};
   };
-  [[nodiscard]] auto constexpr data_handle() const
-  {
-    return fast_visit(
-      [](auto&& inner) {
-        if constexpr (std::is_convertible_v<decltype(inner.data_handle()), const_pointer>) {
-          return const_pointer{inner.data_handle()};
-        } else {
-          return const_pointer{inner.data_handle().get()};
-        }
-      },
-      data_);
-  }
-
- private:
-  static auto constexpr get_view_from_data(view_type_variant const& data) { return data; }
-  static auto constexpr get_view_from_data(const_view_type_variant const& data) { return data; }
-  static auto constexpr get_view_from_data(owning_type_variant& data)
-  {
-    return view_type_variant{data.view()};
-  }
-  static auto constexpr get_view_from_data(owning_type_variant const& data)
-  {
-    return const_view_type_variant{data.view()};
-  }
-
- public:
-  // TODO(wphicks): Allow this to take an optional memory type template
-  // parameter and return non-variant view if available for that memory type.
-  [[nodiscard]] auto view()
-  {
-    return fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
-  }
-
- private:
-  storage_type_variant data_{};
-};
 
 }  // namespace raft
