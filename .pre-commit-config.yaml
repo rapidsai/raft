@@ -106,7 +106,7 @@ repos:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
       - repo: https://github.com/pre-commit/pre-commit-hooks
-        rev: v2.4.0
+        rev: v4.5.0
         hooks:
               - id: check-json
 
