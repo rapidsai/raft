@@ -4,6 +4,7 @@ RAFT has several important algorithms for performing vector search on the GPU an
 
 This tutorial assumes RAFT has been installed and/or added to your build so that you are able to compile and run RAFT code. If not done already, please follow the [build and install instructions](build.md) and consider taking a look at the [example c++ template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) for ready-to-go examples that you can immediately build and start playing with. Also take a look at RAFT's library of [reproducible vector search benchmarks](raft_ann_benchmarks.md) to run benchmarks that compare RAFT against other state-of-the-art nearest neighbors algorithms at scale.
 
+For more information about the various APIs demonstrated in this tutorial, along with comprehensive usage examples of all the APIs offered by RAFT, please refer to the [RAFT's C++ API Documentation](https://docs.rapids.ai/api/raft/nightly/cpp_api/). 
 
 ## Step 1: Starting off with RAFT
 
@@ -86,7 +87,6 @@ stream pools that can be used by an individual `raft::device_resources` object. 
 this initialization method is called, the following function could be called
 from any CPU thread:
 ```c++
-#include <raft/core/device_resources_manager.hpp>
 void foo() {
   raft::device_resources const& res = raft::device_resources_manager::get_device_resources();
   // Submit some work with res
@@ -136,6 +136,7 @@ The following example demonstrates how to create `mdarray` matrices in both devi
 ```c++
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/copy.hpp>
 
 raft::device_resources res;
 
@@ -150,7 +151,7 @@ for(int i = 0; i < n_rows; i++) {
     host_matrix(i, i) = 1;
 }
 
-raft::copy(device_matrix.data_handle(), host_matrix.data_handle(), host_matrix.size(), res.get_stream());
+raft::copy(res, device_matrix.view(), host_matrix.view());
 ```
 
 ## Step 2: Generate some data
@@ -176,7 +177,10 @@ That's it. We've now generated a random 10kx10k matrix with points that cleanly 
 
 Since the `make_blobs` code generates the random dataset on the GPU device, we didn't need to do any host to device copies in this one. `make_blobs` is also asynchronous, so if we don't need to copy and use the data in host memory right away, we can continue calling RAFT functions with the `device_resources` instance and the data transformations will all be scheduled on the same stream.
 
-## Step 3: Calculate exact nearest neighbors
+## Step 3: Using brute-force indexes
+
+### Build brute-force index
+
 Consider the `(10k, 10k)` shaped random matrix we generated in the previous step. We want to be able to find the k-nearest neighbors for all points of the matrix, or what we refer to as the all-neighbors graph, which means finding the neighbors of all data points within the same matrix.
 ```c++
 #include <raft/neighbors/brute_force.cuh>
@@ -186,8 +190,15 @@ raft::device_resources res;
 // set number of neighbors to search for
 int const k = 64;
 
+auto bfknn_index = raft::neighbors::brute_force::build(res,
+                                                       raft::make_const_mdspan(dataset.view()));
+```
+
+### Query brute-force index
+
+```c++
+
 // using matrix `dataset` from previous example
-std::vector<raft::device_matrix_view<const float, int>> index(raft::make_const_mdspan(dataset.view()));
 auto search = raft::make_const_mdspan(dataset.view());
 
 // Indices and Distances are of dimensions (n, k)
@@ -195,12 +206,11 @@ auto search = raft::make_const_mdspan(dataset.view());
 auto reference_indices = raft::make_device_matrix<int, int>(search.extent(0), k); // stores index of neighbors
 auto reference_distances = raft::make_device_matrix<float, int>(search.extent(0), k); // stores distance to neighbors
 
-// Compute exact-neighbors using Euclidean distance
-raft::neighbors::brute_force::knn(index,
-                                  search,
-                                  reference_indices.view(),
-                                  reference_distances.view(),
-                                  raft::distance::DistanceType::L2Unexpanded);
+raft::neighbors::brute_force::search(res,
+                                     bfknn_index,
+                                     search,
+                                     raft::make_const_mdspan(indices.view()),
+                                     raft::make_const_mdspan(distances.view()));
 ```
 
 We have established several things here by building a flat index. Now we know the exact 64 neighbors of all points in the matrix, and this algorithm can be generally useful in several ways:
@@ -208,7 +218,9 @@ We have established several things here by building a flat index. Now we know th
 2. Directly using the brute force algorithm when accuracy is more important than speed of computation. Don't worry, our implementation is still the best in-class and will provide not only significant speedups over other brute force methods, but also be quick relatively when the matrices are small!
 
 
-## Step 4: Train an ANN index
+## Step 4: Using the ANN indexes
+
+### Build a CAGRA index
 
 Next we'll train an ANN index. We'll use our graph-based CAGRA algorithm for this example but the other index types use a very similar pattern.
 
@@ -223,7 +235,7 @@ cagra::index_params index_params;
 auto index = cagra::build<float, uint32_t>(res, index_params, dataset);
 ```
 
-## Step 6: Query the index
+### Query the CAGRA index
 
 Now that we've trained a CAGRA index, we can query it by first allocating our output `mdarray` objects and passing the trained index model into the search function. 
 
@@ -240,9 +252,9 @@ cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
+## Step 7: Additional features
 
-
-## Step 7: Comparing neighborhood quality
+### Evaluating neighborhood quality
 
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
