@@ -182,7 +182,7 @@ void bench_search(::benchmark::State& state,
   }
   // algo is static to cache it between close search runs to save time on index loading
   static std::string index_file = "";
-  bool created_new_algo = false;
+  bool created_new_algo         = false;
   if (index.file != index_file) {
     current_algo.reset();
     index_file = index.file;
@@ -194,7 +194,7 @@ void bench_search(::benchmark::State& state,
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
       std::cout << "Loading algo" << std::endl;
       created_new_algo = true;
-      auto ualgo = ann::create_algo<T>(
+      auto ualgo       = ann::create_algo<T>(
         index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
       algo = ualgo.get();
       algo->load(index_file);
