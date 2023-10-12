@@ -17,7 +17,6 @@ dependencies:
 - cudatoolkit
 - cxx-compiler
 - cython>=3.0.0
-- faiss-proc=*=cuda
 - gcc_linux-64=11.*
 - glog>=0.6.0
 - h5py>=3.8.0
@@ -30,12 +29,12 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
-- libfaiss>=1.7.1
 - matplotlib
 - nccl>=2.9.9
 - ninja
 - nlohmann_json>=3.11.2
 - nvcc_linux-64=11.8
+- openblas
 - pandas
 - pyyaml
 - rmm==23.12.*

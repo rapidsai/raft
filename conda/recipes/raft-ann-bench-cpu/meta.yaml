@@ -60,8 +60,7 @@ requirements:
     - pyyaml
     - pandas
     - benchmark
-
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  summary: libraft ann bench
+  summary: RAFT ANN CPU benchmarks
