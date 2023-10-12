@@ -24,6 +24,11 @@ mdspan: Multi-dimensional Non-owning View
     :members:
     :content-only:
 
+.. doxygengroup:: mdspan_contiguous
+    :project: RAFT
+    :members:
+    :content-only:
+
 .. doxygengroup:: mdspan_make_const
     :project: RAFT
     :members:
