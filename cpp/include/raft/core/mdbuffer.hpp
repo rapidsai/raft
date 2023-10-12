@@ -56,74 +56,12 @@ using default_container_policy_variant = std::variant<host_vector_policy<T>,
                                                       pinned_vector_policy<T>>;
 
 template <typename T, typename ContainerPolicyVariant = default_container_policy_variant<T>>
-struct universal_buffer_reference {
-  using value_type    = typename std::remove_cv_t<T>;
-  using pointer       = value_type*;
-  using const_pointer = value_type const*;
-
-  universal_buffer_reference(pointer ptr,
-                             memory_type mem_type,
-                             stream_view stream = stream_view_per_thread)
-    : ptr_{ptr}, mem_type_{mem_type}, stream_{stream}
-  {
-  }
-
-#ifndef RAFT_DISABLE_CUDA
-  explicit universal_buffer_reference(thrust::device_ptr<T> ptr,
-                                      memory_type mem_type = memory_type::device,
-                                      stream_view stream   = stream_view_per_thread)
-    : universal_buffer_reference{ptr.get(), mem_type, stream}
-  {
-    RAFT_EXPECTS(is_device_accessible(mem_type),
-                 "Attempted to create host-only reference from Thrust device pointer");
-  }
-#endif
-
-  operator value_type() const  // NOLINT
-  {
-    auto result = value_type{};
-    if (is_host_accessible(mem_type_)) {
-      result = *ptr_;
-    } else {
-#ifdef RAFT_DISABLE_CUDA
-      throw non_cuda_build_error{"Attempted to access device reference in non-CUDA build"};
-#else
-      update_host(&result, ptr_, 1, stream_);
-#endif
-    }
-    return result;
-  }
-
-  auto operator=(value_type const& other) -> universal_buffer_reference<T, ContainerPolicyVariant>&
-  {
-    if (is_host_accessible(mem_type_)) {
-      *ptr_ = other;
-    } else {
-#ifdef RAFT_DISABLE_CUDA
-      throw non_cuda_build_error{"Attempted to assign to device reference in non-CUDA build"};
-#else
-      update_device(ptr_, &other, 1, stream_);
-#endif
-    }
-    return *this;
-  }
-
- private:
-  pointer ptr_;
-  raft::memory_type mem_type_;
-  raft::stream_view stream_;
-};
 
 template <typename ElementType,
           typename ContainerPolicyVariant = default_container_policy_variant<ElementType>>
 struct default_buffer_container_policy {
   using element_type = ElementType;
   using value_type   = std::remove_cv_t<element_type>;
-
-  using reference       = universal_buffer_reference<element_type, ContainerPolicyVariant>;
-  using const_reference = universal_buffer_reference<element_type const, ContainerPolicyVariant>;
-  using pointer         = element_type*;
-  using const_pointer   = element_type const*;
 
   using container_policy_variant = ContainerPolicyVariant;
 
@@ -190,36 +128,6 @@ struct default_buffer_container_policy {
   auto static constexpr has_stream(...) -> bool { return false; };
 
  public:
-  template <raft::memory_type MemType,
-            std::enable_if_t<has_stream<container_type<MemType>>()>* = nullptr>
-  [[nodiscard]] auto constexpr access(container_type<MemType>& c, std::size_t n) const noexcept
-  {
-    return reference{c.data() + n, MemType, c.stream()};
-  }
-
-  template <raft::memory_type MemType,
-            std::enable_if_t<!has_stream<container_type<MemType>>()>* = nullptr>
-  [[nodiscard]] auto constexpr access(container_type<MemType>& c, std::size_t n) const noexcept
-  {
-    return reference{c.data() + n, MemType};
-  }
-
-  template <raft::memory_type MemType,
-            std::enable_if_t<has_stream<container_type<MemType>>()>* = nullptr>
-  [[nodiscard]] auto constexpr access(container_type<MemType> const& c,
-                                      std::size_t n) const noexcept
-  {
-    return const_reference{c.data() + n, MemType, c.stream()};
-  }
-
-  template <raft::memory_type MemType,
-            std::enable_if_t<!has_stream<container_type<MemType>>()>* = nullptr>
-  [[nodiscard]] auto constexpr access(container_type<MemType> const& c,
-                                      std::size_t n) const noexcept
-  {
-    return const_reference{c.data() + n, MemType};
-  }
-
   template <memory_type MemType>
   [[nodiscard]] auto make_accessor_policy() noexcept
   {
@@ -290,11 +198,6 @@ struct mdbuffer {
 
   template <raft::memory_type MemType>
   using container_type = typename container_policy_type::template container_type<MemType>;
-
-  using pointer         = typename container_policy_type::pointer;
-  using const_pointer   = typename container_policy_type::const_pointer;
-  using reference       = typename container_policy_type::reference;
-  using const_reference = typename container_policy_type::const_reference;
 
   template <memory_type MemType>
   using owning_type = mdarray<element_type,
@@ -542,7 +445,7 @@ struct mdbuffer {
     }
 
     template <typename... SizeTypes>
-    explicit constexpr mdbuffer(
+    constexpr mdbuffer(
       raft::resources const& res, memory_type mem_type, SizeTypes... dynamic_extents)
       : data_
     {
