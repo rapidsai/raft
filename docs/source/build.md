@@ -23,6 +23,7 @@ Both the C++ and Python APIs require cmake to build from source.
 - [Using Cmake directly](#using-cmake-directly)
 - [Build documentation](#build-documentation)
 - [Using RAFT in downstream projects](#using-raft-c-in-downstream-projects)
+  - [Cmake targets](#cmake-targets)
 
 ------
 
@@ -291,3 +292,13 @@ PROPERTIES CXX_STANDARD                        17
 ```
 
 The [C++ example template project](https://github.com/rapidsai/raft/tree/HEAD/cpp/template) provides an end-to-end buildable example of what a `CMakeLists.txt` that uses RAFT should look like. The items below point out some of the needed details.
+
+#### CMake Targets
+
+The `raft::raft` Cmake target is made available when including RAFT into your Cmake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in Cmake's `find_package(raft)` (refer to [Cmake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
+
+| Component   | Target              | Description                                              | Base Dependencies                      |
+|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
+| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
+| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
+| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL         
