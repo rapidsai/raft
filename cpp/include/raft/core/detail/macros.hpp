@@ -95,7 +95,6 @@
 // without issue
 #define RAFT_HIDDEN_FUNCTION __attribute__((visibility("hidden")))
 
-
 // The RAFT_KERNEL specificies that a kernel has hidden visibility
 //
 // Raft needs to ensure that the visibility of its __global__ function
