@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#ifndef RAFT_DISABLE_CUDA
-#pragma message(__FILE__                                               \
-                  " should only be used in CUDA-disabled RAFT builds." \
-                  " Please use equivalent .cuh header instead.")
-#else
-// It is safe to include this cuh file in an hpp header because all CUDA code
-// is ifdef'd out for CUDA-disabled builds.
+#include "../test_utils.h"
+#include <cstdint>
+#include <gtest/gtest.h>
+#include <raft/core/device_mdarray.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/host_mdarray.hpp>
 #include <raft/core/mdbuffer.cuh>
-#endif
+
+namespace raft {
+}  // namespace raft
