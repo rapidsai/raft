@@ -23,10 +23,10 @@ def split_groundtruth(groundtruth_filepath):
     pwd = os.getcwd()
     os.chdir("/".join(groundtruth_filepath.split("/")[:-1]))
     groundtruth_filename = groundtruth_filepath.split("/")[-1]
-    p = subprocess.Popen(
-        [ann_bench_scripts_path, groundtruth_filename, "groundtruth"]
+    subprocess.run(
+        [ann_bench_scripts_path, groundtruth_filename, "groundtruth"],
+        check=True,
     )
-    p.wait()
     os.chdir(pwd)
 
 
