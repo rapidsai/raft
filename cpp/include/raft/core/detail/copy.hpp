@@ -329,8 +329,8 @@ __device__ auto increment_indices(IdxType* indices,
  * parameters.
  */
 template <typename DstType, typename SrcType>
-mdspan_copyable_with_kernel_t<DstType, SrcType> RAFT_KERNEL mdspan_copy_kernel(DstType dst,
-                                                                               SrcType src)
+
+RAFT_KERNEL mdspan_copy_kernel(DstType dst, SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 
