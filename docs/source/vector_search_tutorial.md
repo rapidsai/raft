@@ -24,84 +24,6 @@ raft::device_resources res;
 res.sync_stream()
 ```
 
-Within each CPU thread, CUDA uses `streams` to submit asynchronous work. You can think of a stream as a queue. Each stream can submit work to the GPU independently of other streams but work submitted within each stream is queued and executed in the order in which it was submitted. Similar to how we can use thread pools to bound the parallelism of CPU threads, we can use CUDA stream pools to bound the amount of concurrent asynchronous work that can be scheduled on a GPU. Each instance of `device_resources` has a main stream, but can also create a stream pool. For a single CPU thread, multiple different instances of `device_resources` can be created with different main streams and used to invoke a series of RAFT functions concurrently on the same or different GPU devices, so long as the target devices have available resources to perform the work. Once a device is saturated, queued work on streams will be scheduled and wait for a chance to do more work. During this time the streams are waiting, the CPU thread will still continue its own execution asynchronously unless `sync_stream_pool()` is called, causing the thread to block and wait for the thread pools to complete. 
-
-Also, beware that before splitting GPU work onto multiple different concurrent streams, it can often be important to wait for the main stream in the `device_resources`. This can be done with `wait_stream_pool_on_stream()`. 
-
-To summarize, if wanting to execute multiple different streams in parallel, we would often use a stream pool like this:
-```c++
-#include <raft/core/device_resources.hpp>
-
-#include <rmm/cuda_stream_pool.hpp>
-#include <rmm/cuda_stream.hpp>
-
-int n_streams = 5;
-
-rmm::cuda_stream stream;
-std::shared_ptr<rmm::cuda_stream_pool> stream_pool(5)
-raft::device_resources res(stream.view(), stream_pool);
-
-// Submit some work on the main stream...
-
-res.wait_stream_pool_on_stream()
-for(int i = 0; i < n_streams; ++i) {
-    rmm::cuda_stream_view stream_from_pool = res.get_next_usable_stream();
-    raft::device_resources pool_res(stream_from_pool);
-    // Submit some work with pool_res...
-}
-
-res.sync_stream_pool();
-```
-
-In multi-threaded applications, it is often useful to create a set of
-`raft::device_resources` objects on startup to avoid the overhead of
-re-initializing underlying resources every time a `raft::device_resources` object
-is needed. To help simplify this common initialization logic, RAFT
-provides a `raft::device_resources_manager` to handle this for downstream
-applications. On startup, the application can specify certain limits on the
-total resource consumption of the `raft::device_resources` objects that will be
-generated:
-```c++
-#include <raft/core/device_resources_manager.hpp>
-
-void initialize_application() {
-  // Set the total number of CUDA streams to use on each GPU across all CPU
-  // threads. If this method is not called, the default stream per thread
-  // will be used.
-  raft::device_resources_manager::set_streams_per_device(16);
-
-  // Create a memory pool with given max size in bytes. Passing std::nullopt will allow
-  // the pool to grow to the available memory of the device.
-  raft::device_resources_manager::set_max_mem_pool_size(std::nullopt);
-
-  // Set the initial size of the memory pool in bytes.
-  raft::device_resources_manager::set_init_mem_pool_size(16000000);
-
-  // If neither of the above methods are called, no memory pool will be used
-}
-```
-While this example shows some commonly used settings,
-`raft::device_resources_manager` provides support for several other
-resource options and constraints, including options to initialize entire
-stream pools that can be used by an individual `raft::device_resources` object. After
-this initialization method is called, the following function could be called
-from any CPU thread:
-```c++
-void foo() {
-  raft::device_resources const& res = raft::device_resources_manager::get_device_resources();
-  // Submit some work with res
-  res.sync_stream();
-}
-```
-
-If any `raft::device_resources_manager` setters are called _after_ the first
-call to `raft::device_resources_manager::get_device_resources()`, these new
-settings are ignored, and a warning will be logged. If a thread calls
-`raft::device_resources_manager::get_device_resources()` multiple times, it is
-guaranteed to access the same underlying `raft::device_resources` object every
-time. This can be useful for chaining work in different calls on the same
-thread without keeping a persistent reference to the resources object.
-
 ### Host vs Device Memory
 
 We differentiate between two different types of memory. `host` memory is your traditional RAM memory that is primarily accessible by applications on the CPU. `device` memory, on the other hand, is what we call the special memory on the GPU, which is not accessible from the CPU. In order to access host memory from the GPU, it needs to be explicitly copied to the GPU and in order to access device memory by the CPU, it needs to be explicitly copied there. We have several mechanisms available for allocating and managing the lifetime of device memory on the stack so that we don't need to explicitly allocate and free pointers on the heap. For example, instead of a `std::vector` for host memory, we can use `rmm::device_uvector` on the device. The following function will copy an array from host memory to device memory:
@@ -214,8 +136,8 @@ raft::neighbors::brute_force::search(res,
 ```
 
 We have established several things here by building a flat index. Now we know the exact 64 neighbors of all points in the matrix, and this algorithm can be generally useful in several ways:
-1. Creating a baseline to compare against when building an Approximate Nearest Neighbors index.
-2. Directly using the brute force algorithm when accuracy is more important than speed of computation. Don't worry, our implementation is still the best in-class and will provide not only significant speedups over other brute force methods, but also be quick relatively when the matrices are small!
+1. Creating a baseline to compare against when building an approximate nearest neighbors index.
+2. Directly using the brute-force algorithm when accuracy is more important than speed of computation. Don't worry, our implementation is still the best in-class and will provide not only significant speedups over other brute force methods, but also be quick relatively when the matrices are small!
 
 
 ## Step 4: Using the ANN indexes
@@ -252,9 +174,7 @@ cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
-## Step 7: Additional features
-
-### Evaluating neighborhood quality
+## Step 7: Evaluate neighborhood quality
 
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
@@ -279,4 +199,145 @@ raft::stats::neighborhood_recall(res,
                                  recall_value.view(),
                                  raft::make_const_mdspan(distances),
                                  raft::make_const_mdspan(reference_distances));
+
+res.sync_stream();
+```
+
+Notice we can run invoke the functions for index build and search for both algorithms, one right after the other, because we don't need to access any outputs from the algorithms in host memory. We will need to synchronize the stream on the `raft::device_resources` instance before we can read the result of the `neighborhood_recall` computation, though. 
+
+Similar to a Numpy array, when we use a `host_scalar`, we are really using a multi-dimensional structure that contains only a single dimension, and further a single element. We can use element indexing to access the resulting element directly.
+```c++
+std::cout << recall_value(0) << std::endl;
+```
+
+While it may seem like unnecessary additional work to wrap the result in a `host_scalar` mdspan, this API choice is made intentionally to support the possibility of also receiving the result as a `device_scalar` so that it can be used directly on the device for follow-on computations without having to incur the synchronization or transfer cost of bringing the result to host. This pattern becomes even more important when the result is being computed in a loop, such as an iterative solver, and the cost of synchronization and device-to-host (d2h) transfer becomes very expensive. 
+
+## Advanced features
+
+The following sections present some advanced features that we have found can be useful for squeezing more utilization out of GPU hardware. As you've seen in this tutorial, RAFT provides several very useful tools and building blocks for developing accelerated applications beyond vector search capabilities.
+
+### Stream pools
+
+Within each CPU thread, CUDA uses `streams` to submit asynchronous work. You can think of a stream as a queue. Each stream can submit work to the GPU independently of other streams but work submitted within each stream is queued and executed in the order in which it was submitted. Similar to how we can use thread pools to bound the parallelism of CPU threads, we can use CUDA stream pools to bound the amount of concurrent asynchronous work that can be scheduled on a GPU. Each instance of `device_resources` has a main stream, but can also create a stream pool. For a single CPU thread, multiple different instances of `device_resources` can be created with different main streams and used to invoke a series of RAFT functions concurrently on the same or different GPU devices, so long as the target devices have available resources to perform the work. Once a device is saturated, queued work on streams will be scheduled and wait for a chance to do more work. During this time the streams are waiting, the CPU thread will still continue its own execution asynchronously unless `sync_stream_pool()` is called, causing the thread to block and wait for the thread pools to complete.
+
+Also, beware that before splitting GPU work onto multiple different concurrent streams, it can often be important to wait for the main stream in the `device_resources`. This can be done with `wait_stream_pool_on_stream()`.
+
+To summarize, if wanting to execute multiple different streams in parallel, we would often use a stream pool like this:
+```c++
+#include <raft/core/device_resources.hpp>
+
+#include <rmm/cuda_stream_pool.hpp>
+#include <rmm/cuda_stream.hpp>
+
+int n_streams = 5;
+
+rmm::cuda_stream stream;
+std::shared_ptr<rmm::cuda_stream_pool> stream_pool(5)
+raft::device_resources res(stream.view(), stream_pool);
+
+// Submit some work on the main stream...
+
+res.wait_stream_pool_on_stream()
+for(int i = 0; i < n_streams; ++i) {
+    rmm::cuda_stream_view stream_from_pool = res.get_next_usable_stream();
+    raft::device_resources pool_res(stream_from_pool);
+    // Submit some work with pool_res...
+}
+
+res.sync_stream_pool();
+```
+
+### Device resources manager
+
+In multi-threaded applications, it is often useful to create a set of
+`raft::device_resources` objects on startup to avoid the overhead of
+re-initializing underlying resources every time a `raft::device_resources` object
+is needed. To help simplify this common initialization logic, RAFT
+provides a `raft::device_resources_manager` to handle this for downstream
+applications. On startup, the application can specify certain limits on the
+total resource consumption of the `raft::device_resources` objects that will be
+generated:
+```c++
+#include <raft/core/device_resources_manager.hpp>
+
+void initialize_application() {
+  // Set the total number of CUDA streams to use on each GPU across all CPU
+  // threads. If this method is not called, the default stream per thread
+  // will be used.
+  raft::device_resources_manager::set_streams_per_device(16);
+
+  // Create a memory pool with given max size in bytes. Passing std::nullopt will allow
+  // the pool to grow to the available memory of the device.
+  raft::device_resources_manager::set_max_mem_pool_size(std::nullopt);
+
+  // Set the initial size of the memory pool in bytes.
+  raft::device_resources_manager::set_init_mem_pool_size(16000000);
+
+  // If neither of the above methods are called, no memory pool will be used
+}
+```
+While this example shows some commonly used settings,
+`raft::device_resources_manager` provides support for several other
+resource options and constraints, including options to initialize entire
+stream pools that can be used by an individual `raft::device_resources` object. After
+this initialization method is called, the following function could be called
+from any CPU thread:
+```c++
+void foo() {
+  raft::device_resources const& res = raft::device_resources_manager::get_device_resources();
+  // Submit some work with res
+  res.sync_stream();
+}
+```
+
+If any `raft::device_resources_manager` setters are called _after_ the first
+call to `raft::device_resources_manager::get_device_resources()`, these new
+settings are ignored, and a warning will be logged. If a thread calls
+`raft::device_resources_manager::get_device_resources()` multiple times, it is
+guaranteed to access the same underlying `raft::device_resources` object every
+time. This can be useful for chaining work in different calls on the same
+thread without keeping a persistent reference to the resources object.
+
+### Device memory resources
+
+The RAPIDS software ecosystem makes heavy use of the [RAPIDS Memory Manager](https://github.com/rapidsai/rmm) (RMM) to enable zero-copy sharing of device memory across various GPU-enabled libraries such as PyTorch, Jax, Tensorflow, and FAISS. A really powerful feature of RMM is the ability to set a memory resource, such as a pooled memory resource that allocates a block of memory up front to speed up subsequent smaller allocations, and have all the libraries in the GPU ecosystem recognize and use that same memory resource for all of their memory allocations.
+
+As an example, the following code snippet creates a `pool_memory_resource` and sets it as the default memory resource, which means all other libraries that use RMM will now allocate their device memory from this same pool:
+```c++
+#include <rmm/mr/device/pool_memory_resource.hpp>
+
+rmm::mr::cuda_memory_resource cuda_mr;
+// Construct a resource that uses a coalescing best-fit pool allocator
+rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{&cuda_mr};
+rmm::mr::set_current_device_resource(&pool_mr); // Updates the current device resource pointer to `pool_mr`
+```
+
+The `raft::device_resources` object will now also use the `rmm::current_device_resource`.  This isn't limited to C++, however. Often a user will be interacting with PyTorch, RAPIDS, or Tensorflow through Python and so they can set and use RMM's `current_device_resource` [right in Python](https://github.com/rapidsai/rmm#using-rmm-in-python-code).
+
+### Workspace memory resource
+
+As mentioned above, `raft::device_resources` will use `rmm::current_device_resource` by default for all memory allocations. However, there are times when a particular algorithm might benefit from using a different memory resource such as a `managed_memory_resource`, which creates a unified memory space between device and host memory, paging memory in and out of device as needed. Most of RAFT's algorithms allocate temporary memory as needed to perform their computations and we can control the memory resource used for these temporary allocations through the `workspace_resource` in the `raft::device_resources` instance. 
+
+For some applications, the `managed_memory_resource`, can enable a memory space that is larger than the GPU, thus allowing a natural spilling to host memory when needed. This isn't always the best way to use managed memory, though, as it can quickly lead to thrashing and severely impact performance. Still, when it can be used, it provides a very powerful tool that can also avoid out of memory errors when enough host memory is available. 
+
+The following creates a managed memory allocator and set it as the `workspace_resource` of the `raft::device_resources` instance:
+```c++
+#include <raft/core/device_resources.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+
+std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
+raft::device_resource res(managed_resource);
+```
+
+The `workspace_resource` uses an `rmm::mr::limiting_resource_adaptor`, which limits the total amount of allocation possible. This allows RAFT algorithms to work within the confines of the memory constraints imposed by the user so that things like batch sizes can be automatically set to reasonable values without exceeding the allotted memory. By default, this limit restricts the memory allocation space for temporary workspace buffers to the memory available on the device. 
+
+The below example specifies the total number of bytes that RAFT can use for temporary workspace allocations to 3GB:
+```c++
+#include <raft/core/device_resources.hpp>
+#include <rmm/mr/device/managed_memory_resource.hpp>
+
+#include <optional>
+
+std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
+raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
 ```
