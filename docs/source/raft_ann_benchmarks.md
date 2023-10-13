@@ -127,7 +127,7 @@ For GPU systems, where `$DATA_FOLDER` is a local folder where you want datasets 
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks/datasets/ \
+    -v $DATA_FOLDER:/data/benchmarks/ \
     rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \
     "--dataset deep-image-96-angular" \
     "--normalize" \
