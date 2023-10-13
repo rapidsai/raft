@@ -252,7 +252,6 @@ struct bitset {
    * @brief Test a list of indices in a bitset.
    *
    * @tparam output_t Output type of the test. Default is bool.
-   * @param res RAFT resources
    * @param queries List of indices to test
    * @param output List of outputs
    */
@@ -271,7 +270,6 @@ struct bitset {
   /**
    * @brief Set a list of indices in a bitset to set_value.
    *
-   * @param res RAFT resources
    * @param mask_index indices to remove from the bitset
    * @param set_value Value to set the bits to (true or false)
    */
