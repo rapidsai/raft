@@ -27,7 +27,7 @@ namespace raft {
 namespace linalg {
 // Reference axpy implementation.
 template <typename T>
-__global__ void naiveAxpy(const int n, const T alpha, const T* x, T* y, int incx, int incy)
+RAFT_KERNEL naiveAxpy(const int n, const T alpha, const T* x, T* y, int incx, int incy)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < n) { y[idx * incy] += alpha * x[idx * incx]; }

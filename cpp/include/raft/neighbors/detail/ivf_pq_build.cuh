@@ -65,7 +65,7 @@ namespace raft::neighbors::ivf_pq::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <uint32_t BlockDim, typename T, typename S>
-__launch_bounds__(BlockDim) __global__ void copy_warped_kernel(
+__launch_bounds__(BlockDim) RAFT_KERNEL copy_warped_kernel(
   T* out, uint32_t ld_out, const S* in, uint32_t ld_in, uint32_t n_cols, size_t n_rows)
 {
   using warp    = Pow2<WarpSize>;
@@ -262,10 +262,8 @@ void flat_compute_residuals(
 }
 
 template <uint32_t BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__ void fill_indices_kernel(IdxT n_rows,
-                                                                IdxT* data_indices,
-                                                                IdxT* data_offsets,
-                                                                const uint32_t* labels)
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  fill_indices_kernel(IdxT n_rows, IdxT* data_indices, IdxT* data_offsets, const uint32_t* labels)
 {
   const auto i = IdxT(BlockDim) * IdxT(blockIdx.x) + IdxT(threadIdx.x);
   if (i >= n_rows) { return; }
@@ -554,7 +552,7 @@ struct unpack_codes {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void unpack_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_list_data_kernel(
   device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
@@ -672,7 +670,7 @@ struct reconstruct_vectors {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL reconstruct_list_data_kernel(
   device_matrix_view<float, uint32_t, row_major> out_vectors,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
@@ -791,7 +789,7 @@ struct pass_codes {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void pack_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_list_data_kernel(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   device_matrix_view<const uint8_t, uint32_t, row_major> codes,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
@@ -943,7 +941,7 @@ struct encode_vectors {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
-__launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL process_and_fill_codes_kernel(
   device_matrix_view<const float, IdxT, row_major> new_vectors,
   std::variant<IdxT, const IdxT*> src_offset_or_indices,
   const uint32_t* new_labels,
@@ -988,7 +986,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
 }
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void encode_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL encode_list_data_kernel(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   device_matrix_view<const float, uint32_t, row_major> new_vectors,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,

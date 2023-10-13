@@ -35,7 +35,7 @@ namespace raft::distance::detail {
  *                          Note: the division (`/`) is a ceilDiv.
  */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
-__global__ void compress_to_bits_kernel(
+RAFT_KERNEL compress_to_bits_kernel(
   raft::device_matrix_view<const bool, int, raft::layout_c_contiguous> in,
   raft::device_matrix_view<T, int, raft::layout_c_contiguous> out)
 {

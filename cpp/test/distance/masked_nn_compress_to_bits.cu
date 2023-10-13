@@ -47,7 +47,7 @@ namespace raft::distance::masked_nn::compress_to_bits {
  * @parameter[out] out      An `(m * bits_per_elem) x n` boolean matrix.
  */
 template <typename T = uint64_t, typename = std::enable_if_t<std::is_integral<T>::value>>
-__global__ void decompress_bits_kernel(const T* in, int in_rows, int in_cols, bool* out)
+RAFT_KERNEL decompress_bits_kernel(const T* in, int in_rows, int in_cols, bool* out)
 {
   constexpr int bits_per_element = 8 * sizeof(T);
 
