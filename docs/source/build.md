@@ -20,10 +20,10 @@ Both the C++ and Python APIs require CMake to build from source.
   - [C++ tests](#c-tests)
   - [C++ primitives microbenchmarks](#c-primitives-microbenchmarks)
   - [Python libraries](#python-libraries)
-- [Using Cmake directly](#using-cmake-directly)
+- [Using CMake directly](#using-cmake-directly)
 - [Build documentation](#build-documentation)
 - [Using RAFT in downstream projects](#using-raft-c-in-downstream-projects)
-  - [Cmake targets](#cmake-targets)
+  - [CMake targets](#cmake-targets)
 
 ------
 
@@ -242,7 +242,7 @@ The Python packages can also be uninstalled using the `build.sh` script:
 
 ### Using CMake directly
 
-When building RAFT from source, the `build.sh` script offers a nice wrapper around the `cmake` commands to ease the burdens of manually configuring the various available cmake options. When more fine-grained control over the Cmake configuration is desired, the `cmake` command can be invoked directly as the below example demonstrates. 
+When building RAFT from source, the `build.sh` script offers a nice wrapper around the `cmake` commands to ease the burdens of manually configuring the various available cmake options. When more fine-grained control over the CMake configuration is desired, the `cmake` command can be invoked directly as the below example demonstrates. 
 
 The `CMAKE_INSTALL_PREFIX` installs RAFT into a specific location. The example below installs RAFT into the current Conda environment:
 ```bash
@@ -253,7 +253,7 @@ cmake -D BUILD_TESTS=ON -DRAFT_COMPILE_LIBRARY=ON -DCMAKE_INSTALL_PREFIX=$CONDA_
 make -j<parallel_level> install
 ```
 
-RAFT's Cmake has the following configurable flags available:
+RAFT's CMake has the following configurable flags available:
 
 | Flag                            | Possible Values      | Default Value | Behavior                                                                     |
 |---------------------------------|----------------------| --- |------------------------------------------------------------------------------|
@@ -284,12 +284,12 @@ The documentation requires that the C++ and Python libraries have been built and
 
 There are a few different strategies for including RAFT in downstream projects, depending on whether the [required build dependencies](#build-dependencies) have already been installed and are available on the `lib` and `include` search paths.
 
-When using the GPU parts of RAFT, you will need to enable CUDA support in your Cmake project declaration:
+When using the GPU parts of RAFT, you will need to enable CUDA support in your CMake project declaration:
 ```cmake
 project(YOUR_PROJECT VERSION 0.1 LANGUAGES CXX CUDA)
 ```
 
-Note that some additional compiler flags might need to be added when building against RAFT. For example, if you see an error like this `The experimental flag '--expt-relaxed-constexpr' can be used to allow this.`. The necessary flags can be set with Cmake:
+Note that some additional compiler flags might need to be added when building against RAFT. For example, if you see an error like this `The experimental flag '--expt-relaxed-constexpr' can be used to allow this.`. The necessary flags can be set with CMake:
 ```cmake
 target_compile_options(your_target_name PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda --expt-relaxed-constexpr>)
 ```
@@ -309,7 +309,7 @@ The [C++ example template project](https://github.com/rapidsai/raft/tree/HEAD/cp
 
 #### CMake Targets
 
-The `raft::raft` Cmake target is made available when including RAFT into your Cmake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in Cmake's `find_package(raft)` (refer to [Cmake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
+The `raft::raft` CMake target is made available when including RAFT into your CMake project but additional CMake targets can be made available by adding to the `COMPONENTS` option in CMake's `find_package(raft)` (refer to [CMake docs](https://cmake.org/cmake/help/latest/command/find_package.html#basic-signature) to learn more). The components should be separated by spaces. The `raft::raft` target will always be available. Note that the `distributed` component also exports additional dependencies.
 
 | Component   | Target              | Description                                              | Base Dependencies                      |
 |-------------|---------------------|----------------------------------------------------------|----------------------------------------|
