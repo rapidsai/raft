@@ -35,14 +35,14 @@ While not exhaustive, the following general categories help summarize the accele
 
    * - Category
      - Examples
+   * - Nearest Neighbors
+     - pairwise distances, vector search, epsilon neighborhoods, neighborhood graph construction
    * - Data Formats
      - sparse & dense, conversions, data generation
    * - Dense Operations
      - linear algebra, matrix and vector operations, slicing, norms, factorization, least squares, svd & eigenvalue problems
    * - Sparse Operations
      - linear algebra, eigenvalue problems, slicing, norms, reductions, factorization, symmetrization, components & labeling
-   * - Nearest Neighbors
-     - pairwise distances, vector search, epsilon neighborhoods, neighborhood graph construction
    * - Basic Clustering
      - spectral clustering, hierarchical clustering, k-means
    * - Solvers
@@ -61,9 +61,10 @@ While not exhaustive, the following general categories help summarize the accele
    cpp_api.rst
    pylibraft_api.rst
    using_libraft.md
+   vector_search_tutorial.md
    raft_ann_benchmarks.md
    raft_dask_api.rst
-   using_comms.rst
+   using_raft_comms.rst
    developer_guide.md
    contributing.md
 
