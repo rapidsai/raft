@@ -127,7 +127,7 @@ For GPU systems, where `$DATA_FOLDER` is a local folder where you want datasets 
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks/ \
+    -v $DATA_FOLDER:/data/benchmarks \
     rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \
     "--dataset deep-image-96-angular" \
     "--normalize" \
@@ -140,7 +140,7 @@ Where:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results # <- local folder to store datasets and results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks/  \
+    -v $DATA_FOLDER:/data/benchmarks  \
     rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`, can choose RAPIDS, cuda and python versions.
     "--dataset deep-image-96-angular" \ # <- dataset name
     "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
@@ -154,7 +154,7 @@ For CPU systems the same interface applies, except for not needing the gpus argu
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks/  \
+    -v $DATA_FOLDER:/data/benchmarks  \
     rapidsai/raft-ann-bench-cpu:23.12a-py3.10 \
      "--dataset deep-image-96-angular" \
      "--normalize" \
