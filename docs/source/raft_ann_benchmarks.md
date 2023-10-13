@@ -148,17 +148,17 @@ docker run --gpus all --rm -it -u $(id -u) \
     "" # optional arguments to pass to `raft_ann_benchmarks.plot`
 ```
 
-*** Note about user and file permissions: *** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by $DATA_FOLDER.
+*** Note about user and file permissions: *** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by the `$DATA_FOLDER` variable.
 
-For CPU systems the same interface applies, except for not needing the gpus argument and using the cpu images:
+The same interface applies to systems that don't have a GPU installed, except we use the `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
-docker run  all --rm -it -u $(id -u) \
+docker run  --rm -it -u $(id -u) \
     -v $DATA_FOLDER:/data/benchmarks  \
     rapidsai/raft-ann-bench-cpu:23.12a-py3.10 \
      "--dataset deep-image-96-angular" \
      "--normalize" \
-     "--algorithms raft_cagra"
+     "--algorithms hnswlib"
 ```
 
 **Note:** The user inside the containers is `root`. To workaround this, the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the `datasets/results` produced by the container will be wrong, and will need to be manually fixed by the user.
@@ -174,7 +174,7 @@ docker run --gpus all --rm -it -u $(id -u) \
     rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
 ```
 
-This will drop you into a command line in the container, with the `raft_ann_benchmarks` python package ready to use, as was described in the prior [conda section](#conda):
+This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [conda section](#conda) above:
 
 ```
 (base) root@00b068fbb862:/home/rapids#
