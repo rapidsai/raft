@@ -2,7 +2,7 @@
 
 RAFT currently provides libraries for C++ and Python. The C++ libraries, including the header-only and optional shared library, can be installed with Conda. 
 
-Both the C++ and Python APIs require cmake to build from source.
+Both the C++ and Python APIs require CMake to build from source.
 
 ## Table of Contents
 
@@ -56,17 +56,17 @@ You can also install the conda packages individually using the `mamba` command a
 mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
 ```
 
-If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-23.12/cpp/template) for a ready-to-go Cmake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+If installing the C++ APIs Please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-23.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
 
 ## Installing Python through Pip
 
-`pylibraft` and `raft-dask` both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+`pylibraft` and `raft-dask` both have packages that can be [installed through pip](https://rapids.ai/pip.html#install):
 ```bash
 pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
-These packages statically build RAFT's pre-compiled instantiations and so the C++ headers and pre-compiled shared library won't be readily available to use in your code. 
+These packages statically build RAFT's pre-compiled instantiations, so the C++ headers and pre-compiled shared library won't be readily available to use in your code. 
 
 ## Building C++ and Python from source
 
@@ -104,7 +104,7 @@ mamba activate rapids_raft
 
 All of RAFT's C++ APIs can be used header-only and optional pre-compiled shared libraries provide some host-accessible runtime APIs and template instantiations to accelerate compile times.
 
-The recommended way to build and install RAFT from source is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides Cmake options for building and installing the headers, tests, benchmarks, and the pre-compiled shared library.
+The recommended way to build and install RAFT from source is to use the `build.sh` script in the root of the repository. This script can build both the C++ and Python artifacts and provides CMake options for building and installing the headers, tests, benchmarks, and the pre-compiled shared library.
 
 ### Header-only C++
 
@@ -212,7 +212,7 @@ python setup.py build_ext --inplace
 python setup.py install
 ```
 
-The python tests are automatically installed with the Python libraries. To run the Python tests:
+Python tests are automatically installed with the corresponding libraries. To run Python tests:
 ```bash
 cd python/raft-dask
 py.test -s -v
@@ -226,7 +226,7 @@ The Python packages can also be uninstalled using the `build.sh` script:
 ./build.sh pylibraft raft-dask --uninstall
 ```
 
-### Using Cmake directly
+### Using CMake directly
 
 When building RAFT from source, the `build.sh` script offers a nice wrapper around the `cmake` commands to ease the burdens of manually configuring the various available cmake options. When more fine-grained control over the Cmake configuration is desired, the `cmake` command can be invoked directly as the below example demonstrates. 
 
@@ -260,7 +260,7 @@ RAFT's Cmake has the following configurable flags available:
 
 ### Build documentation
 
-The documentation requires that the C++ and python libraries have been built and installed. The following will build the docs along with the C++ and Python packages:
+The documentation requires that the C++ and Python libraries have been built and installed. The following will build the docs along with the C++ and Python packages:
 
 ```
 ./build.sh libraft pylibraft raft-dask docs --compile-lib
