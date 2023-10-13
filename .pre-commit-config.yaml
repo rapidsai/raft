@@ -105,7 +105,10 @@ repos:
         hooks:
             - id: rapids-dependency-file-generator
               args: ["--clean"]
-
+      - repo: https://github.com/pre-commit/pre-commit-hooks
+        rev: v4.5.0
+        hooks:
+              - id: check-json
 
 default_language_version:
       python: python3

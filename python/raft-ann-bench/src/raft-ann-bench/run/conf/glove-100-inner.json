@@ -207,7 +207,6 @@
       "algo": "faiss_gpu_ivf_flat",
       "build_param": {"nlist":8192},
       "file": "glove-100-inner/faiss_gpu_ivf_flat/nlist8192",
-      "file": "index/glove-100-inner/faiss_ivf_flat/nlist8192",
       "search_params": [
         {
           "nprobe": 1
@@ -682,7 +681,7 @@
       "algo": "faiss_gpu_flat",
       "build_param": {},
       "file": "glove-100-inner/faiss_gpu_flat/flat",
-      "search_params": [{}]
+      "search_params": [{}],
       "search_result_file": "result/glove-100-inner/faiss_gpu_flat/flat"
     },
 
