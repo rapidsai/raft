@@ -403,8 +403,8 @@ struct mdbuffer {
   {
   }
 
-  template <typename... SizeTypes>
-  explicit constexpr mdbuffer(element_type* ptr, SizeTypes... dynamic_extents)
+  template <typename LayoutType = layout_type, typename T = element_type, typename... SizeTypes>
+  explicit constexpr mdbuffer(T* ptr, SizeTypes... dynamic_extents)
     : data_{[ptr, dynamic_extents...]() {
         auto result = view_type_variant{};
         switch (memory_type_from_pointer(ptr)) {
@@ -426,32 +426,11 @@ struct mdbuffer {
   {
   }
 
-  template <typename... SizeTypes>
-  constexpr mdbuffer(raft::resources const& res, memory_type mem_type, SizeTypes... dynamic_extents)
-    : data_{[&res, mem_type, dynamic_extents...]() {
-        auto result = owning_type_variant{};
-        switch (mem_type) {
-          case memory_type::host:
-            result = owning_type_variant{
-              owning_type<memory_type::host>{res, make_extents(dynamic_extents...)}};
-            break;
-          case memory_type::device:
-            result = owning_type_variant{
-              owning_type<memory_type::device>{res, make_extents(dynamic_extents...)}};
-            break;
-          case memory_type::managed:
-            result = owning_type_variant{
-              owning_type<memory_type::managed>{res, make_extents(dynamic_extents...)}};
-            break;
-          case memory_type::pinned:
-            result = owning_type_variant{
-              owning_type<memory_type::pinned>{res, make_extents(dynamic_extents...)}};
-            break;
-        }
-        return result;
-      }()}
+  /* template <typename T, typename... SizeTypes>
+  explicit constexpr mdbuffer(T* ptr, SizeTypes... dynamic_extents)
+    : mdbuffer<layout_c_contiguous, T, SizeTypes...>{ptr, dynamic_extents...}
   {
-  }
+  } */
 
   [[nodiscard]] auto constexpr mem_type() const
   {
@@ -509,5 +488,21 @@ struct mdbuffer {
     return view<memory_type_constant<mem_type>>();
   }
 };
+
+template <typename FromT>
+mdbuffer(raft::resources const& res, FromT&& other, memory_type mem_type)
+  -> mdbuffer<typename std::decay_t<FromT>::element_type,
+              typename std::decay_t<FromT>::extents_type,
+              typename std::decay_t<FromT>::layout_type>;
+
+template <typename FromT>
+mdbuffer(raft::resources const& res, FromT const& other, memory_type mem_type)
+  -> mdbuffer<typename std::decay_t<FromT>::element_type,
+              typename std::decay_t<FromT>::extents_type,
+              typename std::decay_t<FromT>::layout_type>;
+
+template <typename LayoutType, typename T, typename... SizeTypes>
+mdbuffer(T* ptr, SizeTypes... dynamic_extents)
+  -> mdbuffer<T, decltype(make_extents(dynamic_extents...)), LayoutType>;
 
 }  // namespace raft
