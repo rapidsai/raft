@@ -89,12 +89,12 @@ We provide images for GPU enabled systems, as well as systems without a GPU. The
 - `raft-ann-bench-datasets`: Contains the GPU and CPU benchmarks with million-scale datasets already included in the container. Best suited for users that want to run multiple million scale datasets already included in the image.
 - `raft-ann-bench-cpu`: Contains only CPU benchmarks with minimal size. Best suited for users that want the smallest containers to reproduce benchmarks on systems without a GPU.
 
-Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft-ann-bench), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft-ann-bench), starting with release 23.10.
+Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft-ann-bench/tags), meanwhile release (stable) versions are located in [NGC](https://hub.docker.com/r/rapidsai/raft-ann-bench), starting with release 23.12.
 
 - The following command pulls the nightly container for python version 10, cuda version 12, and RAFT version 23.10:
 
 ```bash
-docker pull rapidsai/raft-ann-bench:23.10a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull rapidsai/raft-ann-bench:23.12a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
 ```
 
 The CUDA and python versions can be changed for the supported values:
@@ -113,7 +113,7 @@ You can see the exact versions as well in the dockerhub site:
 -  The following command (only available after RAPIDS 23.10 release) pulls the container:
 
 ```bash
-docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.08-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.
 ```
 
 ### Container Usage
@@ -127,8 +127,8 @@ For GPU systems, where `$DATA_FOLDER` is a local folder where you want datasets 
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/home/rapids/benchmarks  \
-    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \
+    -v $DATA_FOLDER:/data/benchmarks \
+    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \
     "--dataset deep-image-96-angular" \
     "--normalize" \
     "--algorithms raft_cagra,raft_ivf_pq" \
@@ -140,26 +140,25 @@ Where:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results # <- local folder to store datasets and results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/home/rapids/benchmarks  \
-    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`, can choose RAPIDS, cuda and python versions.
+    -v $DATA_FOLDER:/data/benchmarks  \
+    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`, can choose RAPIDS, cuda and python versions.
     "--dataset deep-image-96-angular" \ # <- dataset name
     "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
     "--algorithms raft_cagra" \ # <- what algorithm(s) to use as a ; separated list, as well as any other argument to pass to `raft_ann_benchmarks.run`
     "" # optional arguments to pass to `raft_ann_benchmarks.plot`
 ```
 
-*** Note about user and file permissions: *** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by $DATA_FOLDER.
+*** Note about user and file permissions: *** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by the `$DATA_FOLDER` variable.
 
-For CPU systems the same interface applies, except for not needing the gpus argument and using the cpu images:
+The same interface applies to systems that don't have a GPU installed, except we use the `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
-docker run  all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/home/rapids/benchmarks  \
-    rapidsai/raft-ann-bench-cpu:23.10a-py3.10 \
+docker run  --rm -it -u $(id -u) \
+    -v $DATA_FOLDER:/data/benchmarks  \
+    rapidsai/raft-ann-bench-cpu:23.12a-py3.10 \
      "--dataset deep-image-96-angular" \
      "--normalize" \
-     "--algorithms raft_cagra" \
-     ""
+     "--algorithms hnswlib"
 ```
 
 **Note:** The user inside the containers is `root`. To workaround this, the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the `datasets/results` produced by the container will be wrong, and will need to be manually fixed by the user.
@@ -169,12 +168,13 @@ docker run  all --rm -it -u $(id -u) \
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/home/rapids/benchmarks  \
-    rapidsai/raft-ann-bench:23.10a-cuda11.8-py3.10 \
-    --entrypoint /bin/bash
+    --entrypoint /bin/bash \
+    --workdir /data/benchmarks \
+    -v $DATA_FOLDER:/data/benchmarks  \
+    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
 ```
 
-This will drop you into a command line in the container, with the `raft_ann_benchmarks` python package ready to use, as was described in the prior [conda section](#conda):
+This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [conda section](#conda) above:
 
 ```
 (base) root@00b068fbb862:/home/rapids#
