@@ -110,9 +110,14 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
   // When writing is not skipped, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T)
   // and `out_idx_buf`(IdxT).
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
-  constexpr float ratio = 2 + sizeof(IdxT) * 2.0 / sizeof(T);
+  constexpr unsigned ratio = 2 + sizeof(IdxT) * 2 / sizeof(T);
   // Even such estimation is too conservative, so decrease it by 1/8
-  return len / ratio / 8.0;
+  IdxT buf_len = len / (ratio * 8);
+
+  static_assert(std::max(sizeof(T), sizeof(IdxT)) % std::min(sizeof(T), sizeof(IdxT)) == 0);
+  constexpr IdxT aligned = 256 / std::min(sizeof(T), sizeof(IdxT));
+  buf_len                = raft::alignDown(buf_len, aligned);
+  return buf_len;
 }
 
 /**
@@ -720,17 +725,17 @@ unsigned calc_grid_dim(int batch_size, IdxT len, int sm_cnt)
 }
 
 template <typename T, typename IdxT>
-_RAFT_HOST_DEVICE void set_buf_pointers(const T* in,
-                                        const IdxT* in_idx,
-                                        T* buf1,
-                                        IdxT* idx_buf1,
-                                        T* buf2,
-                                        IdxT* idx_buf2,
-                                        int pass,
-                                        const T*& in_buf,
-                                        const IdxT*& in_idx_buf,
-                                        T*& out_buf,
-                                        IdxT*& out_idx_buf)
+_RAFT_HOST void set_buf_pointers(const T* in,
+                                 const IdxT* in_idx,
+                                 T* buf1,
+                                 IdxT* idx_buf1,
+                                 T* buf2,
+                                 IdxT* idx_buf2,
+                                 int pass,
+                                 const T*& in_buf,
+                                 const IdxT*& in_idx_buf,
+                                 T*& out_buf,
+                                 IdxT*& out_idx_buf)
 {
   if (pass == 0) {
     in_buf      = in;
@@ -752,6 +757,41 @@ _RAFT_HOST_DEVICE void set_buf_pointers(const T* in,
     in_idx_buf  = idx_buf2;
     out_buf     = buf1;
     out_idx_buf = idx_buf1;
+  }
+}
+
+template <typename T, typename IdxT>
+_RAFT_DEVICE void set_buf_pointers(const T* in,
+                                   const IdxT* in_idx,
+                                   char* bufs,
+                                   IdxT buf_len,
+                                   int pass,
+                                   const T*& in_buf,
+                                   const IdxT*& in_idx_buf,
+                                   T*& out_buf,
+                                   IdxT*& out_idx_buf)
+{
+  // buf: in, out, in_idx, out_idx
+  if (pass == 0) {
+    in_buf      = in;
+    in_idx_buf  = nullptr;
+    out_buf     = nullptr;
+    out_idx_buf = nullptr;
+  } else if (pass == 1) {
+    in_buf      = in;
+    in_idx_buf  = in_idx;
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+  } else if (pass % 2 == 0) {
+    in_buf      = reinterpret_cast<T*>(bufs);
+    in_idx_buf  = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+    out_buf     = const_cast<T*>(in_buf + buf_len);
+    out_idx_buf = const_cast<IdxT*>(in_idx_buf + buf_len);
+  } else {
+    out_buf     = reinterpret_cast<T*>(bufs);
+    out_idx_buf = reinterpret_cast<IdxT*>(bufs + sizeof(T) * 2 * buf_len);
+    in_buf      = out_buf + buf_len;
+    in_idx_buf  = out_idx_buf + buf_len;
   }
 }
 
@@ -952,10 +992,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
                                         T* out,
                                         IdxT* out_idx,
                                         const bool select_min,
-                                        T* buf1,
-                                        IdxT* idx_buf1,
-                                        T* buf2,
-                                        IdxT* idx_buf2)
+                                        char* bufs)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ Counter<T, IdxT> counter;
@@ -977,19 +1014,15 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
   out += batch_id * k;
   out_idx += batch_id * k;
   const IdxT buf_len = calc_buf_len<T>(len);
-  buf1 += batch_id * buf_len;
-  idx_buf1 += batch_id * buf_len;
-  buf2 += batch_id * buf_len;
-  idx_buf2 += batch_id * buf_len;
-  const T* in_buf        = nullptr;
-  const IdxT* in_idx_buf = nullptr;
-  T* out_buf             = nullptr;
-  IdxT* out_idx_buf      = nullptr;
+  bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
   for (int pass = 0; pass < num_passes; ++pass) {
-    set_buf_pointers(
-      in, in_idx, buf1, idx_buf1, buf2, idx_buf2, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
+    const T* in_buf        = nullptr;
+    const IdxT* in_idx_buf = nullptr;
+    T* out_buf             = nullptr;
+    IdxT* out_idx_buf      = nullptr;
+    set_buf_pointers(in, in_idx, bufs, buf_len, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
 
     const IdxT current_len = counter.len;
     const IdxT current_k   = counter.k;
@@ -1066,16 +1099,11 @@ void radix_topk_one_block(const T* in,
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
   auto pool_guard =
-    raft::get_pool_memory_resource(mr,
-                                   max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)) +
-                                     256 * 4  // might need extra memory for alignment
-    );
+    raft::get_pool_memory_resource(mr, max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)));
   if (pool_guard) { RAFT_LOG_DEBUG("radix::select_k: using pool memory resource"); }
 
-  rmm::device_uvector<T> buf1(buf_len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf1(buf_len * max_chunk_size, stream, mr);
-  rmm::device_uvector<T> buf2(buf_len * max_chunk_size, stream, mr);
-  rmm::device_uvector<IdxT> idx_buf2(buf_len * max_chunk_size, stream, mr);
+  rmm::device_uvector<char> bufs(
+    max_chunk_size * buf_len * 2 * (sizeof(T) + sizeof(IdxT)), stream, mr);
 
   for (size_t offset = 0; offset < static_cast<size_t>(batch_size); offset += max_chunk_size) {
     int chunk_size = std::min(max_chunk_size, batch_size - offset);
@@ -1086,10 +1114,7 @@ void radix_topk_one_block(const T* in,
                                                  out + offset * k,
                                                  out_idx + offset * k,
                                                  select_min,
-                                                 buf1.data(),
-                                                 idx_buf1.data(),
-                                                 buf2.data(),
-                                                 idx_buf2.data());
+                                                 bufs.data());
   }
 }
 
