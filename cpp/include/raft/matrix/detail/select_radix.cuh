@@ -103,14 +103,14 @@ _RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
   return (twiddle_in(x, select_min) >> start_bit) & mask;
 }
 
-template <typename T, typename IdxT>
+template <typename T, typename IdxT, typename RATIO_T = float>
 _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
 {
   // When writing is skipped, only read `in`(type T).
   // When writing is not skipped, read `in_buf`(T) and `in_idx_buf`(IdxT), and write `out_buf`(T)
   // and `out_idx_buf`(IdxT).
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
-  constexpr unsigned ratio = 2 + sizeof(IdxT) * 2 / sizeof(T);
+  constexpr RATIO_T ratio = 2 + sizeof(IdxT) * 2 / sizeof(T);
   // Even such estimation is too conservative, so decrease it by 1/8
   IdxT buf_len = len / (ratio * 8);
 
@@ -1013,7 +1013,7 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
   if (in_idx) { in_idx += batch_id * len; }
   out += batch_id * k;
   out_idx += batch_id * k;
-  const IdxT buf_len = calc_buf_len<T>(len);
+  const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   bufs += batch_id * buf_len * 2 * (sizeof(T) + sizeof(IdxT));
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
@@ -1094,7 +1094,7 @@ void radix_topk_one_block(const T* in,
   static_assert(calc_num_passes<T, BitsPerPass>() > 1);
 
   auto kernel        = radix_topk_one_block_kernel<T, IdxT, BitsPerPass, BlockSize>;
-  const IdxT buf_len = calc_buf_len<T>(len);
+  const IdxT buf_len = calc_buf_len<T, IdxT, unsigned>(len);
   const size_t max_chunk_size =
     calc_chunk_size<T, IdxT, BlockSize>(batch_size, len, sm_cnt, kernel, true);
 
