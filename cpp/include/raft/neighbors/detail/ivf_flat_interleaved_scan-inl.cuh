@@ -740,7 +740,7 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
         const bool valid      = vec_id < list_length;
 
         // Process first shm_assisted_dim dimensions (always using shared memory)
-        if (valid && sample_filter(queries_offset + blockIdx.y, probe_id, vec_id)) {
+        if (valid && sample_filter(queries_offset + blockIdx.y, list_id, vec_id)) {
           loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
                                                                                   compute_dist);
           for (int pos = 0; pos < shm_assisted_dim;

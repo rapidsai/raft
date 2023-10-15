@@ -25,6 +25,7 @@ TEST_P(AnnIVFFlatTestF, AnnIVFFlat)
 {
   this->testIVFFlat();
   this->testPacker();
+  this->testFilter();
 }
 
 INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));

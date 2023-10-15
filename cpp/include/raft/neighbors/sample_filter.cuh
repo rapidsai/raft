@@ -45,4 +45,34 @@ struct bitset_filter {
     return bitset_view_.test(sample_ix);
   }
 };
+
+/**
+ * @brief Filter used to convert the cluster index and sample index
+ * of an IVF search into a sample index. This can be used as an
+ * intermediate filter.
+ *
+ * @tparam index_t Indexing type
+ * @tparam filter_t
+ */
+template <typename index_t, typename filter_t>
+struct ivf_to_sample_filter {
+  index_t** const inds_ptrs_;
+  const filter_t next_filter_;
+
+  ivf_to_sample_filter(index_t** const inds_ptrs, const filter_t next_filter)
+    : inds_ptrs_{inds_ptrs}, next_filter_{next_filter}
+  {
+  }
+
+  inline _RAFT_HOST_DEVICE bool operator()(
+    // query index
+    const uint32_t query_ix,
+    // the current inverted list index
+    const uint32_t cluster_ix,
+    // the index of the current sample inside the current inverted list
+    const uint32_t sample_ix) const
+  {
+    return next_filter_(query_ix, inds_ptrs_[cluster_ix][sample_ix]);
+  }
+};
 }  // namespace raft::neighbors::filtering
