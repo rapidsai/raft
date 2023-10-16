@@ -7,13 +7,12 @@ This project provides a benchmark program for various ANN search implementations
 - [Installing the benchmarks](#installing-the-benchmarks)
     - [Conda](#conda)
     - [Docker](#docker)
-        - [Container usage](#container-usage)
+- [How to run the benchmarks](#running-the-benchmarks)
+  - [Step 1: prepare dataset](#step-1-prepare-dataset)
+  - [Step 2: build and search index](#step-2-build-and-search-index)
+  - [Step 3: data export](#step-3-data-export)
+  - [Step 4: plot results](#step-4-plot-results)
 - [Running the benchmarks](#running-the-benchmarks)
-  - [Python package usage](#python-package-usage) 
-    - [Step 1: prepare dataset](#step-1-prepare-dataseta-idprep-dataseta)
-    - [Step 2: build and search index](#step-2-build-and-search-index)
-    - [Step 3: data export](#step-3-data-export)
-    - [Step 4: plot results](#step-4-plot-results)
   - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
   - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
   - [Running with Docker containers](#running-with-docker-containers)
@@ -87,7 +86,7 @@ You can see the exact versions as well in the dockerhub site:
 
 
 
-## Running the benchmarks
+## How to run the benchmarks
 
 We provide a collection of lightweight Python scripts to run the benchmarks. There are 4 general steps to running the benchmarks and visualizing the results. 
 1. Prepare Dataset
@@ -95,7 +94,7 @@ We provide a collection of lightweight Python scripts to run the benchmarks. The
 3. Data Export
 4. Plot Results
 
-### Step 1: Prepare Dataset<a id='prep-dataset'></a>
+### Step 1: Prepare Dataset
 The script `raft-ann-bench.get_dataset` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
 script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
@@ -223,6 +222,7 @@ The figure below is the resulting plot of running our benchmarks as of August 20
 
 ![Throughput vs recall plot comparing popular ANN algorithms with RAFT's at batch size 10](../../img/raft-vector-search-batch-10.png)
 
+## Running the benchmarks
 
 ### End to end: small-scale benchmarks (<1M to 10M)
 
@@ -402,12 +402,12 @@ The `index` section will contain a list of index objects, each of which will hav
 
 The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
-| Library   | Algorithms                                                      |
-|-----------|-----------------------------------------------------------------|
-| FAISS GPU | `faiss_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`          |
-| FAISS CPU | `faiss_flat`, `faiss_ivf_flat`, `faiss_ivf_pq`                  |
-| GGNN      | `ggnn`                                                          |
-| HNSWlib   | `hnswlib`                                                       |
+| Library   | Algorithms                                                       |
+|-----------|------------------------------------------------------------------|
+| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`       |
+| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`       |
+| GGNN      | `ggnn`                                                           |
+| HNSWlib   | `hnswlib`                                                        |
 | RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
 
 
