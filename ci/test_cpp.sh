@@ -36,11 +36,8 @@ trap "EXITCODE=1" ERR
 set +e
 
 # Run libraft gtests from libraft-tests package
-for gt in "$CONDA_PREFIX"/bin/gtests/libraft/* ; do
-    test_name=$(basename ${gt})
-    echo "Running gtest $test_name"
-    ${gt} --gtest_output=xml:${RAPIDS_TESTS_DIR}
-done
+cd "$CONDA_PREFIX"/bin/gtests/libraft 
+ctest -j8 --output-on-failure
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
