@@ -737,10 +737,11 @@ RAFT_KERNEL __launch_bounds__(kThreadsPerBlock)
 
         // This is the vector a given lane/thread handles
         const uint32_t vec_id = group_id * WarpSize + lane_id;
-        const bool valid      = vec_id < list_length;
+        const bool valid =
+          vec_id < list_length && sample_filter(queries_offset + blockIdx.y, list_id, vec_id);
 
         // Process first shm_assisted_dim dimensions (always using shared memory)
-        if (valid && sample_filter(queries_offset + blockIdx.y, list_id, vec_id)) {
+        if (valid) {
           loadAndComputeDist<kUnroll, decltype(compute_dist), Veclen, T, AccT> lc(dist,
                                                                                   compute_dist);
           for (int pos = 0; pos < shm_assisted_dim;
