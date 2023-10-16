@@ -5,11 +5,12 @@ This project provides a benchmark program for various ANN search implementations
 ## Table of Contents
 
 - [Installing and Running the Benchmarks](#installing--and-running-the-benchmarks)
-    - [Using conda](#conda)
+    - [Using Conda](#conda)
     - [Using Docker](#docker)
-- [End-to-end example: Million-scale](end-to-end-example-million-scale)
-- [End-to-end example: Billion-scale](#end-to-end-example-billion-scale)
-- [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
+        - [Container usage](#container-usage)
+- [End-to-end example: Small-scale (<1M to 10M)](end-to-end-example-million-scale)
+- [End-to-end example: Large-scale (>10M)](#end-to-end-example-billion-scale)
+- [Customizing datasets](#creating-and-customizing-dataset-configurations)
 - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
 
 ## Installing and Running the Benchmarks
@@ -53,7 +54,7 @@ lower level scripts and executables to run our benchmarks. Either Python scripts
 [low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
 however plots are only provided through our Python scripts.
 
-### End-to-end example: Million-scale
+### End-to-end example: Small-scale (<1M to 10M)
 
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the `RAPIDS_DATASET_ROOT_DIR` environment variable if defined, otherwise a datasets sub-folder from where the script is being called:
 
@@ -108,13 +109,16 @@ You can see the exact versions as well in the dockerhub site:
 - [RAFT ANN Benchmark with datasets preloaded images](https://hub.docker.com/r/rapidsai/raft-ann-bench-cpu/tags)
 - [RAFT ANN Benchmark CPU only images](https://hub.docker.com/r/rapidsai/raft-ann-bench-datasets/tags)
 
-**Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver.
+**Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver. Please also note that the Nvidia-Docker runtime from the [Nvidia Container Toolkit](https://github.com/NVIDIA/nvidia-docker) is required to use GPUs inside docker containers. 
 
--  The following command (only available after RAPIDS 23.10 release) pulls the container:
+[//]: # (-  The following command &#40;only available after RAPIDS 23.10 release&#41; pulls the container:)
 
-```bash
-docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.
-```
+[//]: # ()
+[//]: # (```bash)
+
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
+
+[//]: # (```)
 
 ### Container Usage
 
@@ -182,7 +186,7 @@ This will drop you into a command line in the container, with the `raft-ann-benc
 
 Additionally, the containers could be run in dettached mode without any issue.
 
-## End-to-end example: Billion-scale
+## End-to-end example: Large-scale (>10M vectors)
 `raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
 because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python  mentioned below work as intended once the
