@@ -7,7 +7,7 @@ This project provides a benchmark program for various ANN search implementations
 - [Installing the benchmarks](#installing-the-benchmarks)
     - [Conda](#conda)
     - [Docker](#docker)
-- [How to run the benchmarks](#running-the-benchmarks)
+- [How to run the benchmarks](#how-to-run-the-benchmarks)
   - [Step 1: prepare dataset](#step-1-prepare-dataset)
   - [Step 2: build and search index](#step-2-build-and-search-index)
   - [Step 3: data export](#step-3-data-export)
