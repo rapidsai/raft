@@ -46,17 +46,14 @@ auto constexpr is_host_device_accessible(memory_type mem_type)
   return is_device_accessible(mem_type) && is_host_accessible(mem_type);
 }
 
-template <memory_type mem_type = memory_type::host, bool B = true>
-struct memory_type_constant;
-
-template <memory_type mem_type>
-struct memory_type_constant<mem_type, true> {
-  auto static constexpr value = std::make_optional(mem_type);
-};
-
-template <>
-struct memory_type_constant<memory_type::host, false> {
-  auto static constexpr value = std::optional<memory_type>{};
+template <memory_type... mem_types>
+struct memory_type_constant {
+  static_assert(sizeof...(mem_types) < 2, "At most one memory type can be specified");
+  auto static constexpr value = []() {
+    auto result = std::optional<memory_type>{};
+    if constexpr (sizeof...(mem_types) == 1) { result = std::make_optional(mem_types...); }
+    return result;
+  }();
 };
 
 namespace detail {

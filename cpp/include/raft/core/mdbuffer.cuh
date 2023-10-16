@@ -245,7 +245,7 @@ struct mdbuffer {
     auto static constexpr has_mdspan_view() -> decltype(std::declval<U>().view(), bool())
     {
       return is_variant_of_mdspans_v<decltype(std::declval<U>().view())> ||
-             raft::is_mdspan_v<decltype(std::declval<U>().view())>;
+             is_mdspan_v<decltype(std::declval<U>().view())>;
     };
     auto static constexpr has_mdspan_view(...) -> bool { return false; };
 
@@ -443,36 +443,48 @@ struct mdbuffer {
   };
 
  private:
-  static auto constexpr get_view_from_data(view_type_variant const& data) { return data; }
-  static auto constexpr get_view_from_data(const_view_type_variant const& data) { return data; }
-  static auto constexpr get_view_from_data(owning_type_variant& data)
-  {
-    return view_type_variant{data.view()};
-  }
-  static auto constexpr get_view_from_data(owning_type_variant const& data)
-  {
-    return const_view_type_variant{data.view()};
-  }
-
   template <typename MemTypeConstant>
   [[nodiscard]] auto view()
   {
-    auto variant_view = fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
     if constexpr (MemTypeConstant::value.has_value()) {
-      return std::get<variant_index_from_memory_type(MemTypeConstant::value.value())>(variant_view);
+      if (is_owning()) {
+        return std::get<owning_type<MemTypeConstant::value.value()>>(data_).view();
+      } else {
+        return std::get<view_type<MemTypeConstant::value.value()>>(data_);
+      }
     } else {
-      return variant_view;
+      return std::visit(
+        [](auto&& inner) {
+          if constexpr (is_mdspan_v<std::remove_reference_t<decltype(inner)>>) {
+            return view_type_variant{inner};
+          } else {
+            return view_type_variant{inner.view()};
+          }
+        },
+        data_);
     }
   }
 
   template <typename MemTypeConstant>
   [[nodiscard]] auto view() const
   {
-    auto variant_view = fast_visit([](auto&& inner) { return get_view_from_data(inner); }, data_);
     if constexpr (MemTypeConstant::value.has_value()) {
-      return std::get<variant_index_from_memory_type(MemTypeConstant::value.value())>(variant_view);
+      if (is_owning()) {
+        return make_const_mdspan(
+          std::get<owning_type<MemTypeConstant::value.value()>>(data_).view());
+      } else {
+        return make_const_mdspan(std::get<view_type<MemTypeConstant::value.value()>>(data_));
+      }
     } else {
-      return variant_view;
+      return std::visit(
+        [](auto&& inner) {
+          if constexpr (is_mdspan_v<std::remove_reference_t<decltype(inner)>>) {
+            return const_view_type_variant{inner};
+          } else {
+            return const_view_type_variant{inner.view()};
+          }
+        },
+        data_);
     }
   }
 
@@ -487,6 +499,8 @@ struct mdbuffer {
   {
     return view<memory_type_constant<mem_type>>();
   }
+  [[nodiscard]] auto view() { return view<memory_type_constant<>>(); }
+  [[nodiscard]] auto view() const { return view<memory_type_constant<>>(); }
 };
 
 template <typename FromT>
