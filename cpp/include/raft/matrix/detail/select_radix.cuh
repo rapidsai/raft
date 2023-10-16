@@ -103,6 +103,9 @@ _RAFT_DEVICE int calc_bucket(T x, int start_bit, unsigned mask, bool select_min)
   return (twiddle_in(x, select_min) >> start_bit) & mask;
 }
 
+// Strangely, RATIO_T has a strong impact on register usage and occupancy for sm80, e.g.
+// using RATIO_T=unsigned for radix_kernel decreases occupancy (with CUDA 12).
+// In the meanwhile, RATIO_T has no impact for sm90.
 template <typename T, typename IdxT, typename RATIO_T = float>
 _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
 {
@@ -111,9 +114,11 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
   // and `out_idx_buf`(IdxT).
   // The ratio between these cases determines whether to skip writing and hence the buffer size.
   constexpr RATIO_T ratio = 2 + sizeof(IdxT) * 2 / sizeof(T);
-  // Even such estimation is too conservative, so decrease it by 1/8
+  // Even such estimation is too conservative, so further decrease buf_len by 1/8
   IdxT buf_len = len / (ratio * 8);
 
+  // one-block kernel splits one large buffer into smaller ones, so round buf size to 256 bytes to
+  // avoid alignment issues
   static_assert(std::max(sizeof(T), sizeof(IdxT)) % std::min(sizeof(T), sizeof(IdxT)) == 0);
   constexpr IdxT aligned = 256 / std::min(sizeof(T), sizeof(IdxT));
   buf_len                = raft::alignDown(buf_len, aligned);
@@ -771,7 +776,7 @@ _RAFT_DEVICE void set_buf_pointers(const T* in,
                                    T*& out_buf,
                                    IdxT*& out_idx_buf)
 {
-  // buf: in, out, in_idx, out_idx
+  // bufs consists of 4 pieces in order: buf1, buf2, idx_buf1, idx_buf2
   if (pass == 0) {
     in_buf      = in;
     in_idx_buf  = nullptr;
@@ -844,6 +849,7 @@ void radix_topk(const T* in,
     RAFT_CUDA_TRY(
       cudaMemsetAsync(counters.data(), 0, counters.size() * sizeof(Counter<T, IdxT>), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms.data(), 0, histograms.size() * sizeof(IdxT), stream));
+    auto kernel = radix_kernel<T, IdxT, BitsPerPass, BlockSize, false>;
 
     const T* chunk_in        = in + offset * len;
     const IdxT* chunk_in_idx = in_idx ? (in_idx + offset * len) : nullptr;
@@ -1018,10 +1024,10 @@ RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
 
   constexpr int num_passes = calc_num_passes<T, BitsPerPass>();
   for (int pass = 0; pass < num_passes; ++pass) {
-    const T* in_buf        = nullptr;
-    const IdxT* in_idx_buf = nullptr;
-    T* out_buf             = nullptr;
-    IdxT* out_idx_buf      = nullptr;
+    const T* in_buf;
+    const IdxT* in_idx_buf;
+    T* out_buf;
+    IdxT* out_idx_buf;
     set_buf_pointers(in, in_idx, bufs, buf_len, pass, in_buf, in_idx_buf, out_buf, out_idx_buf);
 
     const IdxT current_len = counter.len;
