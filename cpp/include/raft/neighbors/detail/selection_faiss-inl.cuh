@@ -25,15 +25,15 @@
 namespace raft::neighbors::detail {
 
 template <typename payload_t, typename key_t, bool select_min, int warp_q, int thread_q, int tpb>
-__global__ void select_k_kernel(const key_t* inK,
-                                const payload_t* inV,
-                                size_t n_rows,
-                                size_t n_cols,
-                                key_t* outK,
-                                payload_t* outV,
-                                key_t initK,
-                                payload_t initV,
-                                int k)
+RAFT_KERNEL select_k_kernel(const key_t* inK,
+                            const payload_t* inV,
+                            size_t n_rows,
+                            size_t n_cols,
+                            key_t* outK,
+                            payload_t* outV,
+                            key_t initK,
+                            payload_t initV,
+                            int k)
 {
   using align_warp        = Pow2<WarpSize>;
   constexpr int kNumWarps = align_warp::div(tpb);

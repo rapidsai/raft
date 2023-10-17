@@ -47,7 +47,7 @@ template <typename T, typename IdxT>
 
 ///// Row-wise norm test definitions
 template <typename Type, typename IdxT>
-__global__ void naiveRowNormKernel(
+RAFT_KERNEL naiveRowNormKernel(
   Type* dots, const Type* data, IdxT D, IdxT N, NormType type, bool do_sqrt)
 {
   Type acc      = (Type)0;
@@ -123,7 +123,7 @@ class RowNormTest : public ::testing::TestWithParam<NormInputs<T, IdxT>> {
 
 ///// Column-wise norm test definitisons
 template <typename Type, typename IdxT>
-__global__ void naiveColNormKernel(
+RAFT_KERNEL naiveColNormKernel(
   Type* dots, const Type* data, IdxT D, IdxT N, NormType type, bool do_sqrt)
 {
   IdxT colID = threadIdx.x + static_cast<IdxT>(blockIdx.x) * blockDim.x;

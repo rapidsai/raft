@@ -46,7 +46,7 @@ enum RandomType {
 };
 
 template <typename T, int TPB>
-__global__ void meanKernel(T* out, const T* data, int len)
+RAFT_KERNEL meanKernel(T* out, const T* data, int len)
 {
   typedef cub::BlockReduce<T, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;

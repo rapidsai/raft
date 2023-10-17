@@ -49,16 +49,16 @@ namespace detail {
 // TODO: value_idx param needs to be used for this once FAISS is updated to use float32
 // for indices so that the index types can be uniform
 template <int TPB_X = 128, typename T, typename Lambda>
-__global__ void coo_symmetrize_kernel(int* row_ind,
-                                      int* rows,
-                                      int* cols,
-                                      T* vals,
-                                      int* orows,
-                                      int* ocols,
-                                      T* ovals,
-                                      int n,
-                                      int cnnz,
-                                      Lambda reduction_op)
+RAFT_KERNEL coo_symmetrize_kernel(int* row_ind,
+                                  int* rows,
+                                  int* cols,
+                                  T* vals,
+                                  int* orows,
+                                  int* ocols,
+                                  T* ovals,
+                                  int n,
+                                  int cnnz,
+                                  Lambda reduction_op)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
@@ -174,12 +174,12 @@ void coo_symmetrize(COO<T>* in,
  * @param row_sizes2: Input empty row sum 2 array(n) for faster reduction
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_find_size(const value_t* __restrict__ data,
-                                           const value_idx* __restrict__ indices,
-                                           const value_idx n,
-                                           const int k,
-                                           value_idx* __restrict__ row_sizes,
-                                           value_idx* __restrict__ row_sizes2)
+RAFT_KERNEL symmetric_find_size(const value_t* __restrict__ data,
+                                const value_idx* __restrict__ indices,
+                                const value_idx n,
+                                const int k,
+                                value_idx* __restrict__ row_sizes,
+                                value_idx* __restrict__ row_sizes2)
 {
   const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
   const auto j   = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row
@@ -202,10 +202,10 @@ __global__ static void symmetric_find_size(const value_t* __restrict__ data,
  * @param row_sizes2: Input row sum 2 array(n) for faster reduction
  */
 template <typename value_idx>
-__global__ static void reduce_find_size(const value_idx n,
-                                        const int k,
-                                        value_idx* __restrict__ row_sizes,
-                                        const value_idx* __restrict__ row_sizes2)
+RAFT_KERNEL reduce_find_size(const value_idx n,
+                             const int k,
+                             value_idx* __restrict__ row_sizes,
+                             const value_idx* __restrict__ row_sizes2)
 {
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (i >= n) return;
@@ -227,14 +227,14 @@ __global__ static void reduce_find_size(const value_idx n,
  * @param k: Number of n_neighbors
  */
 template <typename value_idx = int64_t, typename value_t = float>
-__global__ static void symmetric_sum(value_idx* __restrict__ edges,
-                                     const value_t* __restrict__ data,
-                                     const value_idx* __restrict__ indices,
-                                     value_t* __restrict__ VAL,
-                                     value_idx* __restrict__ COL,
-                                     value_idx* __restrict__ ROW,
-                                     const value_idx n,
-                                     const int k)
+RAFT_KERNEL symmetric_sum(value_idx* __restrict__ edges,
+                          const value_t* __restrict__ data,
+                          const value_idx* __restrict__ indices,
+                          value_t* __restrict__ VAL,
+                          value_idx* __restrict__ COL,
+                          value_idx* __restrict__ ROW,
+                          const value_idx n,
+                          const int k)
 {
   const auto row = blockIdx.x * blockDim.x + threadIdx.x;  // for every row
   const auto j   = blockIdx.y * blockDim.y + threadIdx.y;  // for every item in row

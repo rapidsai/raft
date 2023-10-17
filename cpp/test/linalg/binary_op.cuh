@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename IdxType>
-__global__ void naiveAddKernel(OutType* out, const InType* in1, const InType* in2, IdxType len)
+RAFT_KERNEL naiveAddKernel(OutType* out, const InType* in1, const InType* in2, IdxType len)
 {
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) { out[idx] = static_cast<OutType>(in1[idx] + in2[idx]); }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ struct SmemPerBlock {
 };
 
 template <typename InType>
-__global__ void devLayoutIdx(InType* in, int n_cols, int totalElements)
+RAFT_KERNEL devLayoutIdx(InType* in, int n_cols, int totalElements)
 {
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int n   = n_cols;
@@ -63,7 +63,7 @@ __global__ void devLayoutIdx(InType* in, int n_cols, int totalElements)
 }
 
 template <typename T>
-__global__ void devOffsetKernel(T* in, T value, int n_times)
+RAFT_KERNEL devOffsetKernel(T* in, T value, int n_times)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < n_times) in[idx] = idx * value;
@@ -76,12 +76,12 @@ template <
   int BLOCK_SIZE,
   int ITEMS_PER_THREAD,
   typename std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid, InType>::type* = nullptr>
-__global__ void __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
-                                                                     InType* outputKeys,
-                                                                     OutType* inputVals,
-                                                                     int n_rows,
-                                                                     int n_cols,
-                                                                     InType MAX_VALUE)
+RAFT_KERNEL __launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType* inputKeys,
+                                                                 InType* outputKeys,
+                                                                 OutType* inputVals,
+                                                                 int n_rows,
+                                                                 int n_cols,
+                                                                 InType MAX_VALUE)
 {
   typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD, cub::BLOCK_LOAD_WARP_TRANSPOSE>
     BlockLoadTypeKey;
@@ -124,12 +124,12 @@ template <
   int BLOCK_SIZE,
   int ITEMS_PER_THREAD,
   typename std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid), InType>::type* = nullptr>
-__global__ void devKeyValSortColumnPerRow(const InType* inputKeys,
-                                          InType* outputKeys,
-                                          OutType* inputVals,
-                                          int n_rows,
-                                          int n_cols,
-                                          InType MAX_VALUE)
+RAFT_KERNEL devKeyValSortColumnPerRow(const InType* inputKeys,
+                                      InType* outputKeys,
+                                      OutType* inputVals,
+                                      int n_rows,
+                                      int n_cols,
+                                      InType MAX_VALUE)
 {
   // place holder function
   // so that compiler unrolls for all template types successfully

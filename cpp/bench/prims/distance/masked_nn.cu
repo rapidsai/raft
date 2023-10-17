@@ -46,10 +46,10 @@ struct Params {
   AdjacencyPattern pattern;
 };  // struct Params
 
-__global__ void init_adj(AdjacencyPattern pattern,
-                         int n,
-                         raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
-                         raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
+RAFT_KERNEL init_adj(AdjacencyPattern pattern,
+                     int n,
+                     raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
+                     raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
 {
   int m          = adj.extent(0);
   int num_groups = adj.extent(1);

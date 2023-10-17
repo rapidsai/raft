@@ -41,14 +41,14 @@ namespace raft::neighbors::ball_cover {
 using namespace std;
 
 template <typename value_idx, typename value_t>
-__global__ void count_discrepancies_kernel(value_idx* actual_idx,
-                                           value_idx* expected_idx,
-                                           value_t* actual,
-                                           value_t* expected,
-                                           uint32_t m,
-                                           uint32_t n,
-                                           uint32_t* out,
-                                           float thres = 1e-3)
+RAFT_KERNEL count_discrepancies_kernel(value_idx* actual_idx,
+                                       value_idx* expected_idx,
+                                       value_t* actual,
+                                       value_t* expected,
+                                       uint32_t m,
+                                       uint32_t n,
+                                       uint32_t* out,
+                                       float thres = 1e-3)
 {
   uint32_t row = blockDim.x * blockIdx.x + threadIdx.x;
 

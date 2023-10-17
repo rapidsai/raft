@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ namespace detail {
  * as well as triple chevron kernel calls, see the following code example
  * @code
  * template <int C1, int C2, typename GenType>
- * __global__ void my_kernel(DeviceState<GenType> state, int arg1) { ... }
+ * RAFT_KERNEL my_kernel(DeviceState<GenType> state, int arg1) { ... }
  *
  * template <int C1, typename GenType, int C2 = 2>
  * void foo(DeviceState<GenType> state, int arg1) {
