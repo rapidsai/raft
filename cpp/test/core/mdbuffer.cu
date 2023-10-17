@@ -27,10 +27,10 @@ namespace raft {
 
 TEST(MDBuffer, FromDevice)
 {
-  /* auto res                   = device_resources{};
-  auto constexpr const depth = std::uint32_t{5};
-  auto constexpr const rows  = std::uint32_t{3};
-  auto constexpr const cols  = std::uint32_t{2};
+  auto res             = device_resources{};
+  auto constexpr depth = std::uint32_t{5};
+  auto constexpr rows  = std::uint32_t{3};
+  auto constexpr cols  = std::uint32_t{2};
   auto data = make_device_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
     res, extents<std::uint32_t, depth, rows, cols>{});
   auto gen_unique_entry = [](auto&& x, auto&& y, auto&& z) { return x * 7 + y * 11 + z * 13; };
@@ -43,10 +43,9 @@ TEST(MDBuffer, FromDevice)
     }
   }
 
-  std::cout << "array\n";
-  auto buffer = mdbuffer(res, data, memory_type::device);
-  EXPECT_TRUE(buffer.is_owning());
-  EXPECT_EQ(buffer.mem_type(), memory_type::device);
+  auto buffer = mdbuffer(data);
+  EXPECT_FALSE(buffer.is_owning());
+  /* EXPECT_EQ(buffer.mem_type(), memory_type::device);
   EXPECT_NE(buffer.view<memory_type::device>().data_handle(), data.data_handle());
   EXPECT_NE(std::as_const(buffer).view<memory_type::device>().data_handle(), data.data_handle());
   EXPECT_EQ(buffer.view<memory_type::device>().data_handle(),

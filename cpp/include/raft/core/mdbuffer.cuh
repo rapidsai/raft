@@ -83,8 +83,14 @@ struct default_buffer_container_policy {
   using container_type = alternate_from_mem_type<MemType, container_type_variant>;
 
   using accessor_policy_variant =
-    std::
-      variant<host_device_accessor<typename container_policy_at_index<0>::accessor_policy, static_cast<memory_type>(0)>, host_device_accessor<typename container_policy_at_index<1>::accessor_policy, static_cast<memory_type>(1)>, host_device_accessor<typename container_policy_at_index<2>::accessor_policy, static_cast<memory_type>(2)>, host_device_accessor<typename container_policy_at_index<3>::accessor_policy, static_cast<memory_type>(3)>, >;
+    std::variant<host_device_accessor<typename container_policy_at_index<0>::accessor_policy,
+                                      static_cast<memory_type>(0)>,
+                 host_device_accessor<typename container_policy_at_index<1>::accessor_policy,
+                                      static_cast<memory_type>(1)>,
+                 host_device_accessor<typename container_policy_at_index<2>::accessor_policy,
+                                      static_cast<memory_type>(2)>,
+                 host_device_accessor<typename container_policy_at_index<3>::accessor_policy,
+                                      static_cast<memory_type>(3)>>;
 
   template <raft::memory_type MemType>
   using accessor_policy = alternate_from_mem_type<MemType, accessor_policy_variant>;
@@ -354,18 +360,22 @@ struct mdbuffer {
   {
   }
 
-  template <
-    typename OtherContainerPolicy,
-    std::enable_if_t<is_type_in_variant_v<OtherContainerPolicy, container_type_variant>>* = nullptr>
+  template <typename OtherContainerPolicy,
+            std::enable_if_t<is_type_in_variant_v<
+              host_device_accessor<typename OtherContainerPolicy::accessor_type,
+                                   OtherContainerPolicy::mem_type>,
+              typename container_policy_type::container_policy_variant>>* = nullptr>
   mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>&& other)
     : data_{std::move(other)}
   {
   }
 
   template <typename OtherContainerPolicy,
-            std::enable_if_t<is_type_in_variant_v<typename OtherContainerPolicy::accessor_policy,
-                                                  accessor_policy_variant>>* = nullptr>
-  mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy> const& other)
+            std::enable_if_t<is_type_in_variant_v<
+              host_device_accessor<typename OtherContainerPolicy::accessor_type,
+                                   OtherContainerPolicy::mem_type>,
+              typename container_policy_type::container_policy_variant>>* = nullptr>
+  mdbuffer(mdarray<ElementType, Extents, LayoutPolicy, OtherContainerPolicy>& other)
     : mdbuffer{other.view()}
   {
   }
