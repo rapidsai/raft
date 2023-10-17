@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Enable instantiation of search with filter
-
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
 #include <raft/core/device_mdarray.hpp>

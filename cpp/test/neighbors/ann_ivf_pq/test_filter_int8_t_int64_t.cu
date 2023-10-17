@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY  // Enable instantiation of search with filter
+#include "../ann_ivf_pq.cuh"
 
-#include "../ann_ivf_flat.cuh"
+namespace raft::neighbors::ivf_pq {
 
-namespace raft::neighbors::ivf_flat {
+using f32_i08_i64_filter = ivf_pq_filter_test<float, int8_t, int64_t>;
 
-typedef AnnIVFFlatTest<float, float, std::int64_t> AnnIVFFlatTestF;
-TEST_P(AnnIVFFlatTestF, AnnIVFFlat)
-{
-  this->testIVFFlat();
-  this->testPacker();
-}
+TEST_BUILD_SEARCH(f32_i08_i64_filter)
+INSTANTIATE(f32_i08_i64_filter, big_dims());
 
-INSTANTIATE_TEST_CASE_P(AnnIVFFlatTest, AnnIVFFlatTestF, ::testing::ValuesIn(inputs));
-
-}  // namespace raft::neighbors::ivf_flat
+}  // namespace raft::neighbors::ivf_pq
