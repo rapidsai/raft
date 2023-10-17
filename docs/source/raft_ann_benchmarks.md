@@ -259,10 +259,10 @@ All of the datasets above contain ground test datasets with 100 neighbors. Thus 
 
 ### End to end: large-scale benchmarks (>10M vectors)
 `raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
-because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
-All other python  mentioned below work as intended once the
+due to their size. You should instead use our billion-scale datasets guide to download and prepare them.
+All other python commands mentioned below work as intended once the
 billion-scale dataset has been downloaded.
-To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
+To download billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
 ```bash
@@ -332,7 +332,7 @@ Usage of the above command is as follows:
 
 The container arguments in the above section also be used for the CPU-only container, which can be used on systems that don't have a GPU installed. 
 
-Note the image changes to `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
+***Note:*** the image changes to `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
 ```bash
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  --rm -it -u $(id -u)                  \
@@ -357,13 +357,13 @@ docker run --gpus all --rm -it -u $(id -u)          \
     rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
 ```
 
-This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) above:
+This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
 
 ```
 (base) root@00b068fbb862:/data/benchmarks# python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
 ```
 
-Additionally, the containers could be run in detached mode without any issue.
+Additionally, the containers can be run in detached mode without any issue.
 
 ## Creating and customizing dataset configurations
 
