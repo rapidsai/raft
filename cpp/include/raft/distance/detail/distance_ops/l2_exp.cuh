@@ -32,14 +32,6 @@ struct l2_exp_cutlass_op {
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
 
-    if (aNorm == bNorm) {
-      printf("aNorm: %f, bNorm:%f, acc: %f, outVal: %f\n",
-             aNorm,
-             bNorm,
-             accVal,
-             outVal * (outVal >= 1e-6));
-    }
-
     /**
      * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
      * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
