@@ -4,20 +4,27 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Table of Contents
 
-- [Installing and Running the Benchmarks](#installing--and-running-the-benchmarks)
-    - [Using conda](#conda)
-    - [Using Docker](#docker)
-- [End-to-end example: Million-scale](end-to-end-example-million-scale)
-- [End-to-end example: Billion-scale](#end-to-end-example-billion-scale)
+- [Installing the benchmarks](#installing-the-benchmarks)
+    - [Conda](#conda)
+    - [Docker](#docker)
+- [How to run the benchmarks](#how-to-run-the-benchmarks)
+  - [Step 1: prepare dataset](#step-1-prepare-dataset)
+  - [Step 2: build and search index](#step-2-build-and-search-index)
+  - [Step 3: data export](#step-3-data-export)
+  - [Step 4: plot results](#step-4-plot-results)
+- [Running the benchmarks](#running-the-benchmarks)
+  - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
+  - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
+  - [Running with Docker containers](#running-with-docker-containers)
 - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
 - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
 
-## Installing and Running the Benchmarks
+## Installing the benchmarks
 
 There are two main ways pre-compiled benchmarks are distributed:
 
-- [Conda](#Conda): Great solution for users not using containers but want an easy to install and use Python package. Pip wheels are planned to be added as an alternative for users that cannot use conda and prefer to not use containers.
-- [Docker](#Docker): Great solution that only needs docker and NVIDIA docker to use. Provides a single docker run command for basic dataset benchmarking, as well as all the functionality of the conda solution inside the containers.
+- [Conda](#Conda): For users not using containers but want an easy to install and use Python package. Pip wheels are planned to be added as an alternative for users that cannot use conda and prefer to not use containers.
+- [Docker](#Docker): Only needs docker and [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker) to use. Provides a single docker run command for basic dataset benchmarking, as well as all the functionality of the conda solution inside the containers.
 
 ## Conda
 
@@ -38,48 +45,6 @@ mamba install -c rapidsai -c conda-forge  raft-ann-bench-cpu
 The channel `rapidsai` can easily be substituted `rapidsai-nightly` if nightly benchmarks are desired. The CPU package currently allows to run the HNSW benchmarks.
 
 Please see the [build instructions](ann_benchmarks_build.md) to build the benchmarks from source.
-
-## Running the benchmarks
-
-### Python Package Usage
-There are 4 general steps to running the benchmarks and visualizing the results:
-1. Prepare Dataset
-2. Build Index and Search Index
-3. Data Export
-4. Plot Results
-
-We provide a collection of lightweight Python scripts that are wrappers over
-lower level scripts and executables to run our benchmarks. Either Python scripts or
-[low-level scripts and executables](ann_benchmarks_low_level.md) are valid methods to run benchmarks,
-however plots are only provided through our Python scripts.
-
-### End-to-end example: Million-scale
-
-The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the `RAPIDS_DATASET_ROOT_DIR` environment variable if defined, otherwise a datasets sub-folder from where the script is being called:
-
-```bash
-
-# (1) prepare dataset.
-python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
-
-# (2) build and search index
-python -m raft-ann-bench.run --dataset deep-image-96-inner
-
-# (3) export data
-python -m raft-ann-bench.data_export --dataset deep-image-96-inner
-
-# (4) plot results
-python -m raft-ann-bench.plot --dataset deep-image-96-inner
-```
-
-Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft-ann-bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
-- `deep-image-96-angular`
-- `fashion-mnist-784-euclidean`
-- `glove-50-angular`
-- `glove-100-angular`
-- `mnist-784-euclidean`
-- `nytimes-256-angular`
-- `sift-128-euclidean`
 
 ## Docker
 
@@ -108,118 +73,28 @@ You can see the exact versions as well in the dockerhub site:
 - [RAFT ANN Benchmark with datasets preloaded images](https://hub.docker.com/r/rapidsai/raft-ann-bench-cpu/tags)
 - [RAFT ANN Benchmark CPU only images](https://hub.docker.com/r/rapidsai/raft-ann-bench-datasets/tags)
 
-**Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver.
+**Note:** GPU containers use the CUDA toolkit from inside the container, the only requirement is a driver installed on the host machine that supports that version. So, for example, CUDA 11.8 containers can run in systems with a CUDA 12.x capable driver. Please also note that the Nvidia-Docker runtime from the [Nvidia Container Toolkit](https://github.com/NVIDIA/nvidia-docker) is required to use GPUs inside docker containers.
 
--  The following command (only available after RAPIDS 23.10 release) pulls the container:
+[//]: # (-  The following command &#40;only available after RAPIDS 23.10 release&#41; pulls the container:)
 
-```bash
-docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.
-```
+[//]: # ()
+[//]: # (```bash)
 
-### Container Usage
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
 
-The container can be used in two different ways:
+[//]: # (```)
 
-1. **Automated benchmark with single `docker run` (ease mode)**: Helper scripts are included to ease the procedure of running benchmarks end-to-end:
 
-For GPU systems, where `$DATA_FOLDER` is a local folder where you want datasets stored in `$DATA_FOLDER/datasets` and results in `$DATA_FOLDER/result` (we highly recommend `$DATA_FOLDER` to be a dedicated folder for the datasets and results of the containers):
 
-```bash
-export DATA_FOLDER=path/to/store/datasets/and/results
-docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks \
-    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \
-    "--dataset deep-image-96-angular" \
-    "--normalize" \
-    "--algorithms raft_cagra,raft_ivf_pq" \
-    ""
-```
+## How to run the benchmarks
 
-Where:
+We provide a collection of lightweight Python scripts to run the benchmarks. There are 4 general steps to running the benchmarks and visualizing the results. 
+1. Prepare Dataset
+2. Build Index and Search Index
+3. Data Export
+4. Plot Results
 
-```bash
-export DATA_FOLDER=path/to/store/datasets/and/results # <- local folder to store datasets and results
-docker run --gpus all --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks  \
-    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 \ # <- image to use, either `raft-ann-bench` or `raft-ann-bench-datasets`, can choose RAPIDS, cuda and python versions.
-    "--dataset deep-image-96-angular" \ # <- dataset name
-    "--normalize" \ # <- whether to normalize the dataset, leave string empty ("") to not normalize.
-    "--algorithms raft_cagra" \ # <- what algorithm(s) to use as a ; separated list, as well as any other argument to pass to `raft_ann_benchmarks.run`
-    "" # optional arguments to pass to `raft_ann_benchmarks.plot`
-```
-
-*** Note about user and file permissions: *** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by the `$DATA_FOLDER` variable.
-
-The same interface applies to systems that don't have a GPU installed, except we use the `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
-```bash
-export DATA_FOLDER=path/to/store/datasets/and/results
-docker run  --rm -it -u $(id -u) \
-    -v $DATA_FOLDER:/data/benchmarks  \
-    rapidsai/raft-ann-bench-cpu:23.12a-py3.10 \
-     "--dataset deep-image-96-angular" \
-     "--normalize" \
-     "--algorithms hnswlib"
-```
-
-**Note:** The user inside the containers is `root`. To workaround this, the scripts in the containers fix the user of the output files after the benchmarks are run. If the benchmarks are interrupted, the owner of the `datasets/results` produced by the container will be wrong, and will need to be manually fixed by the user.
-
-2. **Using the preinstalled `raft_ann_benchmarks` python package (advanced mode)**: The docker containers are built using the conda packages described in the following section, so they can be used directly as if they were installed manually following the instructions in the next section. This is recommended for advanced users, and is the option that allows the full flexibility of the benchmarking scripts. To use the python scripts directly, use the following command:
-
-```bash
-export DATA_FOLDER=path/to/store/datasets/and/results
-docker run --gpus all --rm -it -u $(id -u) \
-    --entrypoint /bin/bash \
-    --workdir /data/benchmarks \
-    -v $DATA_FOLDER:/data/benchmarks  \
-    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
-```
-
-This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [conda section](#conda) above:
-
-```
-(base) root@00b068fbb862:/home/rapids#
-```
-
-Additionally, the containers could be run in dettached mode without any issue.
-
-## End-to-end example: Billion-scale
-`raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
-because they are so large. You should instead use our billion-scale datasets guide to download and prepare them.
-All other python  mentioned below work as intended once the
-billion-scale dataset has been downloaded.
-To download Billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
-
-The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
-```bash
-
-mkdir -p datasets/deep-1B
-# (1) prepare dataset
-# download manually "Ground Truth" file of "Yandex DEEP"
-# suppose the file name is deep_new_groundtruth.public.10K.bin
-python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
-# two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
-
-# (2) build and search index
-python -m raft-ann-bench.run --dataset deep-1B
-
-# (3) export data
-python -m raft-ann-bench.data_export --dataset deep-1B
-
-# (4) plot results
-python -m raft-ann-bench.plot --dataset deep-1B
-```
-
-The usage of `python -m raft-ann-bench.split_groundtruth` is:
-```bash
-usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
-
-options:
-  -h, --help            show this help message and exit
-  --groundtruth GROUNDTRUTH
-                        Path to billion-scale dataset groundtruth file (default: None)
-```
-
-#### Step 1: Prepare Dataset<a id='prep-dataset'></a>
+### Step 1: Prepare Dataset
 The script `raft-ann-bench.get_dataset` will download and unpack the dataset in directory
 that the user provides. As of now, only million-scale datasets are supported by this
 script. For more information on [datasets and formats](ann_benchmarks_dataset.md).
@@ -237,7 +112,7 @@ options:
 ```
 
 When option `normalize` is provided to the script, any dataset that has cosine distances
-will be normalized to inner product. So, for example, the dataset `glove-100-angular` 
+will be normalized to inner product. So, for example, the dataset `glove-100-angular`
 will be written at location `datasets/glove-100-inner/`.
 
 ### Step 2: Build and Search Index
@@ -286,7 +161,7 @@ a configuration file will be searched for as `python/raft-ann-bench/src/raft-ann
 For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.json>`
 and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.json>`.
 
-`dataset-path` : 
+`dataset-path` :
 1. data is read from `<dataset-path>/<dataset>`
 2. indices are built in `<dataset-path>/<dataset>/index`
 3. build/search results are stored in `<dataset-path>/<dataset>/result`
@@ -294,7 +169,7 @@ and an index search statistics JSON file in `<dataset-path/<dataset>/result/sear
 `build` and `search` : if both parameters are not supplied to the script then
 it is assumed both are `True`.
 
-`indices` and `algorithms` : these parameters ensure that the algorithm specified for an index 
+`indices` and `algorithms` : these parameters ensure that the algorithm specified for an index
 is available in `algos.yaml` and not disabled, as well as having an associated executable.
 
 ### Step 3: Data Export
@@ -313,7 +188,7 @@ options:
 Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.csv>`
 and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
 
-#### Step 4: Plot Results
+### Step 4: Plot Results
 The script `raft-ann-bench.plot` will plot results for all algorithms found in index search statistics
 CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}>.csv`.
 
@@ -346,6 +221,149 @@ options:
 The figure below is the resulting plot of running our benchmarks as of August 2023 for a batch size of 10, on an NVIDIA H100 GPU and an Intel Xeon Platinum 8480CL CPU. It presents the throughput (in Queries-Per-Second) performance for every level of recall.
 
 ![Throughput vs recall plot comparing popular ANN algorithms with RAFT's at batch size 10](../../img/raft-vector-search-batch-10.png)
+
+## Running the benchmarks
+
+### End to end: small-scale benchmarks (<1M to 10M)
+
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 10M vectors from the Yandex Deep-1B dataset By default the datasets will be stored and used from the folder indicated by the `RAPIDS_DATASET_ROOT_DIR` environment variable if defined, otherwise a datasets sub-folder from where the script is being called:
+
+```bash
+
+# (1) prepare dataset.
+python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+
+# (2) build and search index
+python -m raft-ann-bench.run --dataset deep-image-96-inner
+
+# (3) export data
+python -m raft-ann-bench.data_export --dataset deep-image-96-inner
+
+# (4) plot results
+python -m raft-ann-bench.plot --dataset deep-image-96-inner
+```
+
+Configuration files already exist for the following list of the million-scale datasets. Please refer to [ann-benchmarks datasets](https://github.com/erikbern/ann-benchmarks/#data-sets) for more information, including actual train and sizes. These all work out-of-the-box with the `--dataset` argument. Other million-scale datasets from `ann-benchmarks.com` will work, but will require a json configuration file to be created in `$CONDA_PREFIX/lib/python3.xx/site-packages/raft-ann-bench/run/conf`, or you can specify the `--configuration` option to use a specific file.
+
+| Dataset Name | Train Rows | Columns | Test Rows      | Distance   | 
+|-----|------------|----|----------------|------------|
+| `deep-image-96-angular` | 10M        | 96 | 10K            | Angular    |
+| `fashion-mnist-784-euclidean` | 60K        | 784 | 10K |  Euclidean |
+| `glove-50-angular` | 1.1M       | 50 | 10K | Angular |
+| `glove-100-angular` | 1.1M | 100 | 10K | Angular |
+| `mnist-784-euclidean` | 60K | 784 | 10K | Euclidean |
+| `nytimes-256-angular` | 290K | 256 | 10K | Angular |
+| `sift-128-euclidean` | 1M | 128 | 10K | Euclidean|
+
+All of the datasets above contain ground test datasets with 100 neighbors. Thus `k` for these datasets must be  less than or equal to 100. 
+
+### End to end: large-scale benchmarks (>10M vectors)
+`raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
+due to their size. You should instead use our billion-scale datasets guide to download and prepare them.
+All other python commands mentioned below work as intended once the
+billion-scale dataset has been downloaded.
+To download billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
+
+The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
+```bash
+
+mkdir -p datasets/deep-1B
+# (1) prepare dataset
+# download manually "Ground Truth" file of "Yandex DEEP"
+# suppose the file name is deep_new_groundtruth.public.10K.bin
+python -m raft-ann-bench.split_groundtruth --groundtruth datasets/deep-1B/deep_new_groundtruth.public.10K.bin
+# two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
+
+# (2) build and search index
+python -m raft-ann-bench.run --dataset deep-1B
+
+# (3) export data
+python -m raft-ann-bench.data_export --dataset deep-1B
+
+# (4) plot results
+python -m raft-ann-bench.plot --dataset deep-1B
+```
+
+The usage of `python -m raft-ann-bench.split_groundtruth` is:
+```bash
+usage: split_groundtruth.py [-h] --groundtruth GROUNDTRUTH
+
+options:
+  -h, --help            show this help message and exit
+  --groundtruth GROUNDTRUTH
+                        Path to billion-scale dataset groundtruth file (default: None)
+```
+
+
+
+### Running with Docker containers
+
+Two methods are provided for running the benchmarks with the Docker containers. 
+
+#### End-to-end run on GPU
+
+When no other entrypoint is provided, an end-to-end script will run through all the steps in [Running the benchmarks](#running-the-benchmarks) above. 
+
+For GPU-enabled systems, the `DATA_FOLDER` variable should be a local folder where you want datasets stored in `$DATA_FOLDER/datasets` and results in `$DATA_FOLDER/result` (we highly recommend `$DATA_FOLDER` to be a dedicated folder for the datasets and results of the containers):
+```bash
+export DATA_FOLDER=path/to/store/datasets/and/results
+docker run --gpus all --rm -it -u $(id -u)                      \
+    -v $DATA_FOLDER:/data/benchmarks                            \
+    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10              \
+    "--dataset deep-image-96-angular"                           \
+    "--normalize"                                               \
+    "--algorithms raft_cagra,raft_ivf_pq --batch-size 10 -k 10" \
+    ""
+```
+
+Usage of the above command is as follows:
+
+| Argument                                                  | Description                                                                                        |
+|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| `rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
+| `"--dataset deep-image-96-angular"`                       | Dataset name                                                                                       |
+| `"--normalize"`                                           | Whether to normalize the dataset                                                                   |
+| `"--algorithms raft_cagra,hnswlib --batch-size 10 -k 10"` | Arguments passed to the `run` script, such as the algorithms to benchmark, the batch size, and `k` |
+| `""`                                                      | Additional (optional) arguments that will be passed to the `plot` script.                          |
+
+***Note about user and file permissions:*** The flag `-u $(id -u)` allows the user inside the container to match the `uid` of the user outside the container, allowing the container to read and write to the mounted volume indicated by the `$DATA_FOLDER` variable.
+
+#### End-to-end run on CPU
+
+The container arguments in the above section also be used for the CPU-only container, which can be used on systems that don't have a GPU installed. 
+
+***Note:*** the image changes to `raft-ann-bench-cpu` container and the `--gpus all` argument is no longer used:
+```bash
+export DATA_FOLDER=path/to/store/datasets/and/results
+docker run  --rm -it -u $(id -u)                  \
+    -v $DATA_FOLDER:/data/benchmarks              \
+    rapidsai/raft-ann-bench-cpu:23.12a-py3.10     \
+     "--dataset deep-image-96-angular"            \
+     "--normalize"                                \
+     "--algorithms hnswlib --batch-size 10 -k 10" \
+     ""
+```
+
+#### Manually run the scripts inside the container
+
+All of the `raft-ann-bench` images contain the Conda packages, so they can be used directly by logging directly into the container itself:
+
+```bash
+export DATA_FOLDER=path/to/store/datasets/and/results
+docker run --gpus all --rm -it -u $(id -u)          \
+    --entrypoint /bin/bash                          \
+    --workdir /data/benchmarks                      \
+    -v $DATA_FOLDER:/data/benchmarks                \
+    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
+```
+
+This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
+
+```
+(base) root@00b068fbb862:/data/benchmarks# python -m raft-ann-bench.get_dataset --dataset deep-image-96-angular --normalize
+```
+
+Additionally, the containers can be run in detached mode without any issue.
 
 ## Creating and customizing dataset configurations
 
@@ -384,18 +402,20 @@ The `index` section will contain a list of index objects, each of which will hav
 
 The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
-| Library   | Algorithms                                                      |
-|-----------|-----------------------------------------------------------------|
-| FAISS GPU | `faiss_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`          |
-| FAISS CPU | `faiss_flat`, `faiss_ivf_flat`, `faiss_ivf_pq`                  |
-| GGNN      | `ggnn`                                                          |
-| HNSWlib   | `hnswlib`                                                       |
+| Library   | Algorithms                                                       |
+|-----------|------------------------------------------------------------------|
+| FAISS GPU | `faiss_gpu_flat`, `faiss_gpu_ivf_flat`, `faiss_gpu_ivf_pq`       |
+| FAISS CPU | `faiss_cpu_flat`, `faiss_cpu_ivf_flat`, `faiss_cpu_ivf_pq`       |
+| GGNN      | `ggnn`                                                           |
+| HNSWlib   | `hnswlib`                                                        |
 | RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
 
 
 
 
 By default, the index will be placed in `bench/ann/data/<dataset_name>/index/<name>`. Using `sift-128-euclidean` for the dataset with the `algo` example above, the indexes would be placed in `bench/ann/data/sift-128-euclidean/index/algo_name/param1_val1-param2_val2`.
+
+
 
 
 ## Adding a new ANN algorithm
