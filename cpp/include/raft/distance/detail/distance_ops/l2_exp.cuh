@@ -34,7 +34,7 @@ struct l2_exp_cutlass_op {
     // outVal could be negative due to numerical instability, especially when
     // calculating self distance.
     // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (raft::abs(outVal) >= DataT(1e-6));
+    outVal = outVal * (outVal >= DataT(1e-6));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
