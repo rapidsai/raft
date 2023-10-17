@@ -31,10 +31,20 @@ struct l2_exp_cutlass_op {
   __device__ AccT operator()(DataT& aNorm, const DataT& bNorm, DataT& accVal) const noexcept
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
-    // outVal could be negative due to numerical instability, especially when
-    // calculating self distance.
-    // clamp to 0 to avoid potential NaN in sqrt
-    outVal = outVal * (outVal >= DataT(1e-6));
+
+    if (aNorm == bNorm) {
+      printf("aNorm: %f, bNorm:%f, acc: %f, outVal: %f\n",
+             aNorm,
+             bNorm,
+             accVal,
+             outVal * (outVal >= 1e-6));
+    }
+
+    /**
+     * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
+     * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
+     */
+    outVal = outVal * (outVal > 1e-4 && !(aNorm == bNorm && accVal > 0.0));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
@@ -86,10 +96,15 @@ struct l2_exp_distance_op {
     for (int i = 0; i < Policy::AccRowsPerTh; ++i) {
 #pragma unroll
       for (int j = 0; j < Policy::AccColsPerTh; ++j) {
-        DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
-        // val could be negative due to numerical instability, especially when
-        // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
-        acc[i][j] = val * (val >= DataT(1e-6));
+        DataT accVal = acc[i][j];
+        DataT val    = regxn[i] + regyn[j] - (DataT)2.0 * accVal;
+
+        /**
+         * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product
+         * (accVal) can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal
+         * instead.
+         */
+        acc[i][j] = val * (val >= 1e-4 && !(regxn[i] == regyn[j] && accVal > 0.0));
       }
     }
     if (sqrt) {
