@@ -89,7 +89,7 @@ struct l2_exp_distance_op {
         DataT val = regxn[i] + regyn[j] - (DataT)2.0 * acc[i][j];
         // val could be negative due to numerical instability, especially when
         // calculating self distance. Clamp to 0 to avoid potential NaN in sqrt
-        acc[i][j] = val * (raft::abs(val) >= DataT(0.0001));
+        acc[i][j] = val * (val >= DataT(1e-6));
       }
     }
     if (sqrt) {
