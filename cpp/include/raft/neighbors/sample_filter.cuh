@@ -56,10 +56,10 @@ struct bitset_filter {
  */
 template <typename index_t, typename filter_t>
 struct ivf_to_sample_filter {
-  index_t** const inds_ptrs_;
+  const index_t* const* inds_ptrs_;
   const filter_t next_filter_;
 
-  ivf_to_sample_filter(index_t** const inds_ptrs, const filter_t next_filter)
+  ivf_to_sample_filter(const index_t* const* inds_ptrs, const filter_t next_filter)
     : inds_ptrs_{inds_ptrs}, next_filter_{next_filter}
   {
   }
