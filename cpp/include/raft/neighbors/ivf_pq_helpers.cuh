@@ -407,5 +407,23 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
   ivf_pq::detail::erase_list(res, index, label);
 }
 
+template <typename IdxT>
+void make_rotation_matrix(raft::resources const& res,
+                          index<IdxT>* index,
+                          bool force_random_rotation)
+{
+  raft::neighbors::ivf_pq::detail::make_rotation_matrix(res,
+                                                        force_random_rotation,
+                                                        index->rot_dim(),
+                                                        index->dim(),
+                                                        index->rotation_matrix().data_handle());
+}
+
+template <typename IdxT>
+void set_centers(raft::resources const& res, index<IdxT>* index, float* cluster_centers)
+{
+  ivf_pq::detail::set_centers(res, index, cluster_centers);
+}
+
 /** @} */
 }  // namespace raft::neighbors::ivf_pq::helpers

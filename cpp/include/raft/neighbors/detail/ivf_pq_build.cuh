@@ -316,6 +316,59 @@ auto calculate_offsets_and_indices(IdxT n_rows,
 }
 
 template <typename IdxT>
+void set_centers(raft::resources const& handle, index<IdxT>* index, const float* cluster_centers)
+{
+  auto stream         = resource::get_cuda_stream(handle);
+  auto* device_memory = resource::get_workspace_resource(handle);
+
+  // combine cluster_centers and their norms
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle(),
+                                  sizeof(float) * index->dim_ext(),
+                                  cluster_centers,
+                                  sizeof(float) * index->dim(),
+                                  sizeof(float) * index->dim(),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  rmm::device_uvector<float> center_norms(index->n_lists(), stream, device_memory);
+  raft::linalg::rowNorm(center_norms.data(),
+                        cluster_centers,
+                        index->dim(),
+                        index->n_lists(),
+                        raft::linalg::L2Norm,
+                        true,
+                        stream);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle() + index->dim(),
+                                  sizeof(float) * index->dim_ext(),
+                                  center_norms.data(),
+                                  sizeof(float),
+                                  sizeof(float),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  //     Rotate cluster_centers
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(handle,
+               true,
+               false,
+               index->rot_dim(),
+               index->n_lists(),
+               index->dim(),
+               &alpha,
+               index->rotation_matrix().data_handle(),
+               index->dim(),
+               cluster_centers,
+               index->dim(),
+               &beta,
+               index->centers_rot().data_handle(),
+               index->rot_dim(),
+               resource::get_cuda_stream(handle));
+}
+
+template <typename IdxT>
 void transpose_pq_centers(const resources& handle,
                           index<IdxT>& index,
                           const float* pq_centers_source)
@@ -1634,36 +1687,7 @@ auto build(raft::resources const& handle,
                                             centers_const_view,
                                             labels_view,
                                             utils::mapping<float>());
-
-    {
-      // combine cluster_centers and their norms
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
-                                      sizeof(float) * index.dim_ext(),
-                                      cluster_centers,
-                                      sizeof(float) * index.dim(),
-                                      sizeof(float) * index.dim(),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-
-      rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
-      raft::linalg::rowNorm(center_norms.data(),
-                            cluster_centers,
-                            index.dim(),
-                            index.n_lists(),
-                            raft::linalg::L2Norm,
-                            true,
-                            stream);
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
-                                      sizeof(float) * index.dim_ext(),
-                                      center_norms.data(),
-                                      sizeof(float),
-                                      sizeof(float),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-    }
-
+    
     // Make rotation matrix
     make_rotation_matrix(handle,
                          params.force_random_rotation,
@@ -1671,24 +1695,7 @@ auto build(raft::resources const& handle,
                          index.dim(),
                          index.rotation_matrix().data_handle());
 
-    // Rotate cluster_centers
-    float alpha = 1.0;
-    float beta  = 0.0;
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 index.rot_dim(),
-                 index.n_lists(),
-                 index.dim(),
-                 &alpha,
-                 index.rotation_matrix().data_handle(),
-                 index.dim(),
-                 cluster_centers,
-                 index.dim(),
-                 &beta,
-                 index.centers_rot().data_handle(),
-                 index.rot_dim(),
-                 stream);
+    set_centers(handle, &index, cluster_centers);
 
     // Train PQ codebooks
     switch (index.codebook_kind()) {
