@@ -46,6 +46,12 @@ auto constexpr is_host_device_accessible(memory_type mem_type)
   return is_device_accessible(mem_type) && is_host_accessible(mem_type);
 }
 
+auto constexpr has_compatible_accessibility(memory_type old_mem_type, memory_type new_mem_type)
+{
+  return ((!is_device_accessible(new_mem_type) || is_device_accessible(old_mem_type)) &&
+          (!is_host_accessible(new_mem_type) || is_host_accessible(old_mem_type)));
+}
+
 template <memory_type... mem_types>
 struct memory_type_constant {
   static_assert(sizeof...(mem_types) < 2, "At most one memory type can be specified");

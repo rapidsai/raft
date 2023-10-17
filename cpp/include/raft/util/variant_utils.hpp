@@ -50,4 +50,15 @@ auto fast_visit(visitor_t&& visitor, variant_t&& variant)
   return result;
 }
 
+template <typename T, typename VariantType>
+struct is_type_in_variant;
+
+template <typename T, typename... Vs>
+struct is_type_in_variant<T, std::variant<Vs...>> {
+  static constexpr bool value = (std::is_same_v<T, Vs> || ...);
+};
+
+template <typename T, typename VariantType>
+auto static constexpr is_type_in_variant_v = is_type_in_variant<T, VariantType>::value;
+
 }  // namespace raft
