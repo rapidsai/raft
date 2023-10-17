@@ -114,7 +114,7 @@ struct pinned_vector {
   /**
    * @brief Ctor that accepts a size.
    */
-  explicit pinned_vector(std::size_t size) : data_{size} {}
+  explicit pinned_vector(std::size_t size, allocator_type const& alloc) : data_{size, alloc} {}
   /**
    * @brief Index operator that returns a reference to the actual data.
    */
@@ -159,7 +159,7 @@ struct pinned_vector_policy {
   }
 
   constexpr pinned_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>)
-    : mr_{}, allocator_{&mr_}
+    : mr_{}, allocator_{}
   {
   }
 

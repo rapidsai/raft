@@ -45,16 +45,6 @@ TEST(MDBuffer, FromDevice)
 
   auto buffer = mdbuffer(data);
   EXPECT_FALSE(buffer.is_owning());
-  /* EXPECT_EQ(buffer.mem_type(), memory_type::device);
-  EXPECT_NE(buffer.view<memory_type::device>().data_handle(), data.data_handle());
-  EXPECT_NE(std::as_const(buffer).view<memory_type::device>().data_handle(), data.data_handle());
-  EXPECT_EQ(buffer.view<memory_type::device>().data_handle(),
-            std::as_const(buffer).view<memory_type::device>().data_handle());
-  EXPECT_EQ(buffer.view().index(), variant_index_from_memory_type(memory_type::device));
-
-  std::cout << "VIEW&&\n";
-  buffer = mdbuffer(res, data.view(), memory_type::device);
-  EXPECT_FALSE(buffer.is_owning());
   EXPECT_EQ(buffer.mem_type(), memory_type::device);
   EXPECT_EQ(buffer.view<memory_type::device>().data_handle(), data.data_handle());
   EXPECT_EQ(std::as_const(buffer).view<memory_type::device>().data_handle(), data.data_handle());
@@ -62,17 +52,49 @@ TEST(MDBuffer, FromDevice)
             std::as_const(buffer).view<memory_type::device>().data_handle());
   EXPECT_EQ(buffer.view().index(), variant_index_from_memory_type(memory_type::device));
 
-  std::cout << "VIEW\n";
-  auto view = data.view();
-  buffer    = mdbuffer(res, view, memory_type::device);
+  buffer = mdbuffer(data.view());
   EXPECT_FALSE(buffer.is_owning());
   EXPECT_EQ(buffer.mem_type(), memory_type::device);
-  EXPECT_NE(buffer.view<memory_type::device>().data_handle(), data.data_handle());
-  EXPECT_NE(std::as_const(buffer).view<memory_type::device>().data_handle(), data.data_handle());
+  EXPECT_EQ(buffer.view<memory_type::device>().data_handle(), data.data_handle());
+  EXPECT_EQ(std::as_const(buffer).view<memory_type::device>().data_handle(), data.data_handle());
   EXPECT_EQ(buffer.view<memory_type::device>().data_handle(),
             std::as_const(buffer).view<memory_type::device>().data_handle());
-  EXPECT_EQ(buffer.view().index(),
-  variant_index_from_memory_type(memory_type::device)); */
+
+  auto original_data_handle = data.data_handle();
+  buffer                    = mdbuffer(std::move(data));
+  EXPECT_TRUE(buffer.is_owning());
+  EXPECT_EQ(buffer.mem_type(), memory_type::device);
+  EXPECT_EQ(buffer.view<memory_type::device>().data_handle(), original_data_handle);
+
+  auto buffer2 = mdbuffer(res, buffer);
+  EXPECT_FALSE(buffer2.is_owning());
+  EXPECT_EQ(buffer2.mem_type(), memory_type::device);
+  EXPECT_EQ(buffer2.view<memory_type::device>().data_handle(),
+            buffer.view<memory_type::device>().data_handle());
+
+  buffer2 = mdbuffer(res, buffer, memory_type::host);
+  EXPECT_TRUE(buffer2.is_owning());
+  EXPECT_EQ(buffer2.mem_type(), memory_type::host);
+  EXPECT_NE(buffer2.view<memory_type::host>().data_handle(),
+            buffer.view<memory_type::device>().data_handle());
+
+  buffer2 = mdbuffer(res, buffer, memory_type::device);
+  EXPECT_FALSE(buffer2.is_owning());
+  EXPECT_EQ(buffer2.mem_type(), memory_type::device);
+  EXPECT_EQ(buffer2.view<memory_type::device>().data_handle(),
+            buffer.view<memory_type::device>().data_handle());
+
+  buffer2 = mdbuffer(res, buffer, memory_type::managed);
+  EXPECT_TRUE(buffer2.is_owning());
+  EXPECT_EQ(buffer2.mem_type(), memory_type::managed);
+  EXPECT_NE(buffer2.view<memory_type::managed>().data_handle(),
+            buffer.view<memory_type::device>().data_handle());
+
+  buffer2 = mdbuffer(res, buffer, memory_type::pinned);
+  /* EXPECT_TRUE(buffer2.is_owning());
+  EXPECT_EQ(buffer2.mem_type(), memory_type::pinned);
+  EXPECT_NE(buffer2.view<memory_type::pinned>().data_handle(),
+  buffer.view<memory_type::device>().data_handle()); */
 }
 
 }  // namespace raft

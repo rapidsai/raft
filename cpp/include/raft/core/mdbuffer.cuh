@@ -257,7 +257,7 @@ struct mdbuffer {
   template <typename FromT>
   auto static constexpr get_copyable_combinations()
   {
-    return get_copyable_combinations(
+    return get_copyable_combinations<FromT>(
       true,
       std::make_index_sequence<std::variant_size_v<decltype(std::declval<FromT>().view())>>());
   }
@@ -301,7 +301,7 @@ struct mdbuffer {
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::host>{
               res,
-              layout_type{other_view.extents()},
+              mapping_type{other_view.extents()},
               typename container_policy_type::template container_policy<memory_type::host>{}};
             raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
@@ -314,7 +314,7 @@ struct mdbuffer {
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::device>{
               res,
-              layout_type{other_view.extents()},
+              mapping_type{other_view.extents()},
               typename container_policy_type::template container_policy<memory_type::device>{}};
             raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
@@ -327,7 +327,7 @@ struct mdbuffer {
           [&res](auto&& other_view) {
             auto tmp_result = owning_type<memory_type::managed>{
               res,
-              layout_type{other_view.extents()},
+              mapping_type{other_view.extents()},
               typename container_policy_type::template container_policy<memory_type::managed>{}};
             raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
@@ -338,10 +338,10 @@ struct mdbuffer {
       case memory_type::pinned: {
         result = std::visit(
           [&res](auto&& other_view) {
-            auto tmp_result = owning_type<memory_type::host>{
+            auto tmp_result = owning_type<memory_type::pinned>{
               res,
-              layout_type{other_view.extents()},
-              typename container_policy_type::template container_policy<memory_type::host>{}};
+              mapping_type{other_view.extents()},
+              typename container_policy_type::template container_policy<memory_type::pinned>{}};
             raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
           },
@@ -389,7 +389,8 @@ struct mdbuffer {
         auto result         = storage_type_variant{};
         if (mem_type == other.mem_type()) {
           result = std::move(other.data_);
-        } else if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type)) {
+        } else if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type) &&
+                   other_mem_type != memory_type::pinned) {
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
@@ -445,15 +446,16 @@ struct mdbuffer {
   }
 
   mdbuffer(raft::resources const& res,
-           mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy> const& other,
+           mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& other,
            std::optional<memory_type> specified_mem_type = std::nullopt)
     : data_{[&res, &other, specified_mem_type, this]() {
         auto mem_type       = specified_mem_type.value_or(other.mem_type());
         auto result         = storage_type_variant{};
         auto other_mem_type = other.mem_type();
         if (mem_type == other_mem_type) {
-          result = std::visit([&result](auto&& other_view) { return other_view; }, other.view());
-        } else if (has_compatible_accessibility(other_mem_type, mem_type)) {
+          std::visit([&result](auto&& other_view) { result = other_view; }, other.view());
+        } else if (has_compatible_accessibility(other_mem_type, mem_type) &&
+                   other_mem_type != memory_type::pinned) {
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
@@ -503,6 +505,7 @@ struct mdbuffer {
         } else {
           result = copy_from(res, other, mem_type);
         }
+        return result;
       }()}
   {
   }
@@ -580,9 +583,9 @@ struct mdbuffer {
       return std::visit(
         [](auto&& inner) {
           if constexpr (is_mdspan_v<std::remove_reference_t<decltype(inner)>>) {
-            return const_view_type_variant{inner};
+            return const_view_type_variant{make_const_mdspan(inner)};
           } else {
-            return const_view_type_variant{inner.view()};
+            return const_view_type_variant{make_const_mdspan(inner.view())};
           }
         },
         data_);
