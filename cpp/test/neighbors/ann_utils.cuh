@@ -123,13 +123,13 @@ struct idx_dist_pair {
   idx_dist_pair(IdxT x, DistT y, CompareDist op) : idx(x), dist(y), eq_compare(op) {}
 };
 
+/** Calculate recall value using only neighbor indices
+ */
 template <typename T>
-auto eval_recall(const std::vector<T>& expected_idx,
+auto calc_recall(const std::vector<T>& expected_idx,
                  const std::vector<T>& actual_idx,
                  size_t rows,
-                 size_t cols,
-                 double eps,
-                 double min_recall) -> testing::AssertionResult
+                 size_t cols)
 {
   size_t match_count = 0;
   size_t total_count = static_cast<size_t>(rows) * static_cast<size_t>(cols);
@@ -147,8 +147,21 @@ auto eval_recall(const std::vector<T>& expected_idx,
       }
     }
   }
-  double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-  double error_margin  = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
+  return std::make_tuple(
+    static_cast<double>(match_count) / static_cast<double>(total_count), match_count, total_count);
+}
+
+template <typename T>
+auto eval_recall(const std::vector<T>& expected_idx,
+                 const std::vector<T>& actual_idx,
+                 size_t rows,
+                 size_t cols,
+                 double eps,
+                 double min_recall) -> testing::AssertionResult
+{
+  auto [actual_recall, match_count, total_count] =
+    calc_recall(expected_idx, actual_idx, rows, cols);
+  double error_margin = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
   RAFT_LOG_INFO("Recall = %f (%zu/%zu), the error is %2.1f%% %s the threshold (eps = %f).",
                 actual_recall,
                 match_count,
@@ -164,17 +177,16 @@ auto eval_recall(const std::vector<T>& expected_idx,
   return testing::AssertionSuccess();
 }
 
-/** same as eval_recall, but in case indices do not match,
- * then check distances as well, and accept match if actual dist is equal to expected_dist */
+/** Overload of calc_recall to account for distances
+ */
 template <typename T, typename DistT>
-auto eval_neighbours(const std::vector<T>& expected_idx,
-                     const std::vector<T>& actual_idx,
-                     const std::vector<DistT>& expected_dist,
-                     const std::vector<DistT>& actual_dist,
-                     size_t rows,
-                     size_t cols,
-                     double eps,
-                     double min_recall) -> testing::AssertionResult
+auto calc_recall(const std::vector<T>& expected_idx,
+                 const std::vector<T>& actual_idx,
+                 const std::vector<DistT>& expected_dist,
+                 const std::vector<DistT>& actual_dist,
+                 size_t rows,
+                 size_t cols,
+                 double eps)
 {
   size_t match_count = 0;
   size_t total_count = static_cast<size_t>(rows) * static_cast<size_t>(cols);
@@ -196,8 +208,25 @@ auto eval_neighbours(const std::vector<T>& expected_idx,
       }
     }
   }
-  double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-  double error_margin  = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
+  return std::make_tuple(
+    static_cast<double>(match_count) / static_cast<double>(total_count), match_count, total_count);
+}
+
+/** same as eval_recall, but in case indices do not match,
+ * then check distances as well, and accept match if actual dist is equal to expected_dist */
+template <typename T, typename DistT>
+auto eval_neighbours(const std::vector<T>& expected_idx,
+                     const std::vector<T>& actual_idx,
+                     const std::vector<DistT>& expected_dist,
+                     const std::vector<DistT>& actual_dist,
+                     size_t rows,
+                     size_t cols,
+                     double eps,
+                     double min_recall) -> testing::AssertionResult
+{
+  auto [actual_recall, match_count, total_count] =
+    calc_recall(expected_idx, actual_idx, expected_dist, actual_dist, rows, cols, eps);
+  double error_margin = (actual_recall - min_recall) / std::max(1.0 - min_recall, eps);
   RAFT_LOG_INFO("Recall = %f (%zu/%zu), the error is %2.1f%% %s the threshold (eps = %f).",
                 actual_recall,
                 match_count,

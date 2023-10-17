@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,12 +40,12 @@ typedef enum {
 } ContingencyMatrixImplType;
 
 template <typename T, typename OutT = int>
-__global__ void devConstructContingencyMatrix(const T* groundTruth,
-                                              const T* predicted,
-                                              int nSamples,
-                                              OutT* outMat,
-                                              int outIdxOffset,
-                                              int outMatWidth)
+RAFT_KERNEL devConstructContingencyMatrix(const T* groundTruth,
+                                          const T* predicted,
+                                          int nSamples,
+                                          OutT* outMat,
+                                          int outIdxOffset,
+                                          int outMatWidth)
 {
   int elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
@@ -75,12 +75,12 @@ void computeCMatWAtomics(const T* groundTruth,
 }
 
 template <typename T, typename OutT = int>
-__global__ void devConstructContingencyMatrixSmem(const T* groundTruth,
-                                                  const T* predicted,
-                                                  int nSamples,
-                                                  OutT* outMat,
-                                                  int outIdxOffset,
-                                                  int outMatWidth)
+RAFT_KERNEL devConstructContingencyMatrixSmem(const T* groundTruth,
+                                              const T* predicted,
+                                              int nSamples,
+                                              OutT* outMat,
+                                              int outIdxOffset,
+                                              int outMatWidth)
 {
   extern __shared__ char smem[];
   auto* sMemMatrix = reinterpret_cast<OutT*>(smem);

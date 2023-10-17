@@ -114,9 +114,9 @@ testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_
 // When testing the CAGRA index sorting function, rounding errors can affect the norm and alter the
 // order of the index. To ensure the accuracy of the test, we utilize the dataset. The generation
 // method is based on the error-free transformation (EFT) method.
-__global__ void GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
-                                                        const uint32_t size,
-                                                        const uint32_t resolution)
+RAFT_KERNEL GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
+                                                    const uint32_t size,
+                                                    const uint32_t resolution)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= size) { return; }

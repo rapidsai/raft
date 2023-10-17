@@ -40,7 +40,7 @@ namespace detail {
 
 /* Internal auxiliary function to help build the singular profile */
 template <typename DataT, typename IdxT>
-static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_strength, IdxT rank)
+RAFT_KERNEL _singular_profile_kernel(DataT* out, IdxT n, DataT tail_strength, IdxT rank)
 {
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
@@ -130,7 +130,7 @@ static void _make_low_rank_matrix(raft::resources const& handle,
 /* Internal auxiliary function to permute rows in the given matrix according
  * to a given permutation vector */
 template <typename DataT, typename IdxT>
-static __global__ void _gather2d_kernel(
+RAFT_KERNEL _gather2d_kernel(
   DataT* out, const DataT* in, const IdxT* perms, IdxT n_rows, IdxT n_cols)
 {
   IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;

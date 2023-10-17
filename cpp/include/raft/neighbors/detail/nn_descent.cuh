@@ -448,11 +448,11 @@ __device__ __forceinline__ void load_vec(Data_t* vec_buffer,
 // TODO: Replace with RAFT utilities https://github.com/rapidsai/raft/issues/1827
 /** Calculate L2 norm, and cast data to __half */
 template <typename Data_t>
-__global__ void preprocess_data_kernel(const Data_t* input_data,
-                                       __half* output_data,
-                                       int dim,
-                                       DistData_t* l2_norms,
-                                       size_t list_offset = 0)
+RAFT_KERNEL preprocess_data_kernel(const Data_t* input_data,
+                                   __half* output_data,
+                                   int dim,
+                                   DistData_t* l2_norms,
+                                   size_t list_offset = 0)
 {
   extern __shared__ char buffer[];
   __shared__ float l2_norm;
@@ -493,10 +493,10 @@ __global__ void preprocess_data_kernel(const Data_t* input_data,
 }
 
 template <typename Index_t>
-__global__ void add_rev_edges_kernel(const Index_t* graph,
-                                     Index_t* rev_graph,
-                                     int num_samples,
-                                     int2* list_sizes)
+RAFT_KERNEL add_rev_edges_kernel(const Index_t* graph,
+                                 Index_t* rev_graph,
+                                 int num_samples,
+                                 int2* list_sizes)
 {
   size_t list_id = blockIdx.x;
   int2 list_size = list_sizes[list_id];
@@ -688,7 +688,7 @@ __device__ __forceinline__ void remove_duplicates(
 // For architectures 750 and 860, the values for MAX_RESIDENT_THREAD_PER_SM
 // is 1024 and 1536 respectively, which means the bounds don't work anymore
 template <typename Index_t, typename ID_t = InternalID_t<Index_t>>
-__global__ void
+RAFT_KERNEL
 #ifdef __CUDA_ARCH__
 #if (__CUDA_ARCH__) == 750 || (__CUDA_ARCH__) == 860
 __launch_bounds__(BLOCK_SIZE)

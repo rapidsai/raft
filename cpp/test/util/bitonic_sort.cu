@@ -48,7 +48,7 @@ auto operator<<(std::ostream& os, const test_spec& ss) -> std::ostream&
 }
 
 template <int Capacity, typename T>
-__global__ void bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inputs)
+RAFT_KERNEL bitonic_kernel(T* arr, bool ascending, int warp_width, int n_inputs)
 {
   const int tid          = blockDim.x * blockIdx.x + threadIdx.x;
   const int subwarp_id   = tid / warp_width;

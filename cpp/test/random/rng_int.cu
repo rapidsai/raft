@@ -31,7 +31,7 @@ using namespace raft::random;
 enum RandomType { RNG_Uniform };
 
 template <typename T, int TPB>
-__global__ void meanKernel(float* out, const T* data, int len)
+RAFT_KERNEL meanKernel(float* out, const T* data, int len)
 {
   typedef cub::BlockReduce<float, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;

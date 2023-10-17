@@ -29,7 +29,7 @@
 #endif
 
 template <typename OutT, typename OpT, typename... Args>
-__global__ void math_eval_kernel(OutT* out, OpT op, Args... args)
+RAFT_KERNEL math_eval_kernel(OutT* out, OpT op, Args... args)
 {
   out[0] = op(std::forward<Args>(args)...);
 }
