@@ -26,7 +26,7 @@ def split_groundtruth(groundtruth_filepath):
     path_to_groundtruth = os.path.normpath(groundtruth_filepath).split(os.sep)
     if len(path_to_groundtruth) > 1:
         os.chdir(os.path.join(*path_to_groundtruth[:-1]))
-    groundtruth_filename = groundtruth_filepath.split("/")[-1]
+    groundtruth_filename = path_to_groundtruth[-1]
     subprocess.run(
         [ann_bench_scripts_path, groundtruth_filename, "groundtruth"],
         check=True,
