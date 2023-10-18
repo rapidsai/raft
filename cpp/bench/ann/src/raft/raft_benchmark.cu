@@ -163,8 +163,6 @@ void parse_build_param(const nlohmann::json& conf,
     raft::neighbors::ivf_pq::index_params bparam;
     parse_build_param<T, IdxT>(conf.at("ivf_pq_build_params"), bparam);
     param.ivf_pq_build_params = bparam;
-    std::cout << "Parsed ivf_pq build params, pq_dim=" << param.ivf_pq_build_params->pq_dim
-              << std::endl;
   }
   if (conf.contains("ivf_pq_search_params")) {
     typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam sparam;
