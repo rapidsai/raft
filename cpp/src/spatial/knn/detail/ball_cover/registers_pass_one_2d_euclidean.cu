@@ -56,7 +56,6 @@ instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(
     const Mvalue_t* query,                                                                   \
     const Mvalue_int n_query_rows,                                                           \
     Mvalue_t eps,                                                                            \
-    const Mvalue_idx* R_inds,                                                                \
     const Mvalue_t* R_dists,                                                                 \
     Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                                 \
     bool* adj)

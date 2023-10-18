@@ -463,7 +463,6 @@ template <typename value_idx = std::int64_t,
 RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
                                            const value_t* X,
                                            const value_int n_cols,  // n_cols should be 2 or 3 dims
-                                           const value_idx* R_inds,
                                            const value_t* R_dists,
                                            const value_int m,
                                            const value_t eps,
@@ -484,15 +483,14 @@ RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
 
   for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
     // TODO: this might also be worth computing in-place here
-    value_t cur_R_dist  = R_dists[blockIdx.x * n_landmarks + cur_k];
-    value_idx cur_R_ind = R_inds[blockIdx.x * n_landmarks + cur_k];
+    value_t cur_R_dist = R_dists[blockIdx.x * n_landmarks + cur_k];
 
     // prune all R's that can't be within eps
-    if (cur_R_dist - R_radius[cur_R_ind] > eps) continue;
+    if (cur_R_dist - R_radius[cur_k] > eps) continue;
 
     // The whole warp should iterate through the elements in the current R
-    value_idx R_start_offset = R_indptr[cur_R_ind];
-    value_idx R_stop_offset  = R_indptr[cur_R_ind + 1];
+    value_idx R_start_offset = R_indptr[cur_k];
+    value_idx R_stop_offset  = R_indptr[cur_k + 1];
 
     value_idx R_size = R_stop_offset - R_start_offset;
 
@@ -875,7 +873,6 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
                           const value_t* query,
                           const value_int n_query_rows,
                           value_t eps,
-                          const value_idx* R_inds,
                           const value_t* R_dists,
                           dist_func& dfunc,
                           bool* adj)
@@ -885,7 +882,6 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
       index.get_X().data_handle(),
       query,
       index.n,
-      R_inds,
       R_dists,
       index.m,
       eps,

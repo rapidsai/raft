@@ -59,7 +59,6 @@
     const Mvalue_t* query,                                                                   \
     const Mvalue_int n_query_rows,                                                           \
     Mvalue_t eps,                                                                            \
-    const Mvalue_idx* R_inds,                                                                \
     const Mvalue_t* R_dists,                                                                 \
     raft::spatial::knn::detail::DistFunc<Mvalue_t, Mvalue_int>& dfunc,                       \
     bool* adj)

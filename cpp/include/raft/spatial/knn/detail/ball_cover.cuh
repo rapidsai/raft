@@ -344,7 +344,6 @@ void perform_rbc_query(raft::resources const& handle,
                        const value_t* query,
                        value_int n_query_pts,
                        value_t eps,
-                       const value_idx* landmark_inds,
                        const value_t* landmark_dists,
                        dist_func dfunc,
                        bool* adj)
@@ -358,12 +357,12 @@ void perform_rbc_query(raft::resources const& handle,
   if (index.n == 2) {
     // Compute nearest k for each neighborhood in each closest R
     rbc_low_dim_eps_pass<value_idx, value_t, value_int, 2>(
-      handle, index, query, n_query_pts, eps, landmark_inds, landmark_dists, dfunc, adj);
+      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj);
 
   } else if (index.n == 3) {
     // Compute nearest k for each neighborhood in each closest R
     rbc_low_dim_eps_pass<value_idx, value_t, value_int, 3>(
-      handle, index, query, n_query_pts, eps, landmark_inds, landmark_dists, dfunc, adj);
+      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj);
   }
 
   resource::sync_stream(handle);
@@ -596,11 +595,11 @@ void compute_landmark_dists(raft::resources const& handle,
   // query_pts     -- query points in row order (n_query_pts x index.k)
   raft::distance::pairwise_distance(handle,
                                     query_pts,
-                                    index.get_R(),
+                                    index.get_R().data_handle(),
                                     R_dists,
                                     n_query_pts,
                                     index.n_landmarks,
-                                    index.k,
+                                    index.n,
                                     index.get_metric());
 }
 
@@ -625,32 +624,18 @@ void rbc_knn_query(raft::resources const& handle,
   ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
-  rmm::device_uvector<value_idx> R_inds(index.n_landmarks * n_query_pts,
-                                        resource::get_cuda_stream(handle));
   rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
                                        resource::get_cuda_stream(handle));
-
-  // Initialize the uvectors
-  thrust::fill(resource::get_thrust_policy(handle),
-               R_inds.begin(),
-               R_inds.end(),
-               std::numeric_limits<value_idx>::max());
-  thrust::fill(resource::get_thrust_policy(handle),
-               R_dists.begin(),
-               R_dists.end(),
-               std::numeric_limits<value_t>::max());
 
   resource::sync_stream(handle);
 
   // find all landmarks that might have points in range
-  k_closest_landmarks(
-    handle, index, query, n_query_pts, index.n_landmarks, R_inds.data(), R_dists.data());
+  compute_landmark_dists(handle, index, query, n_query_pts, R_dists.data());
 
   resource::sync_stream(handle);
 
   // query all points and write to adj
-  perform_rbc_query(
-    handle, index, query, n_query_pts, eps, R_inds.data(), R_dists.data(), dfunc, adj);
+  perform_rbc_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj);
 }
 
 };  // namespace detail
