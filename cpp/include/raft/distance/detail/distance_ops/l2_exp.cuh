@@ -21,6 +21,16 @@
 
 namespace raft::distance::detail::ops {
 
+template <typename DataT>
+__device__ DataT get_clamp_precision()
+{
+  switch (sizeof(DataT)) {
+    case 4: return 1e-5;
+    case 8: return 1e-14;
+    default: return 0;
+  }
+}
+
 // Epilogue operator for CUTLASS based kernel
 template <typename DataT, typename AccT>
 struct l2_exp_cutlass_op {
@@ -32,15 +42,12 @@ struct l2_exp_cutlass_op {
   {
     AccT outVal = aNorm + bNorm - DataT(2.0) * accVal;
 
-    if (raft::sqrt(outVal) == 0.002918735) {
-      printf("aNorm: %lf, bNorm:%lf, acc: %lf, outVal: %lf\n", aNorm, bNorm, accVal, outVal);
-    }
-
     /**
      * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
      * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
      */
-    outVal = outVal * (raft::abs(outVal) >= sizeof(DataT) == 4 ? 1e-5 : 1e-14);
+    outVal = outVal * (raft::abs(outVal) >= get_clamp_precision<DataT>() &&
+                       !(aNorm == bNorm && accVal != 0.0));
     return sqrt ? raft::sqrt(outVal) : outVal;
   }
 
@@ -95,16 +102,12 @@ struct l2_exp_distance_op {
         DataT accVal = acc[i][j];
         DataT val    = regxn[i] + regyn[j] - (DataT)2.0 * accVal;
 
-        if (regxn[i] == regyn[j]) {
-          printf("aNorm: %lf, bNorm:%lf, acc: %lf, outVal: %lf\n", regxn[i], regyn[j], accVal, val);
-        }
-
         /**
          * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product
          * (accVal) can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal
          * instead.
          */
-        acc[i][j] = val * (raft::abs(val) >= sizeof(DataT) == 4 ? 1e-5 : 1e-14);
+        acc[i][j] = val * (raft::abs(val) >= get_clamp_precision<DataT>());
       }
     }
     if (sqrt) {
