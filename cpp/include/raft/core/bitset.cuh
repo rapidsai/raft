@@ -104,8 +104,8 @@ struct bitset_view {
   /**
    * @brief Get the device pointer to the bitset.
    */
-  inline _RAFT_HOST_DEVICE auto data_handle() -> bitset_t* { return bitset_ptr_; }
-  inline _RAFT_HOST_DEVICE auto data_handle() const -> const bitset_t* { return bitset_ptr_; }
+  inline _RAFT_HOST_DEVICE auto data() -> bitset_t* { return bitset_ptr_; }
+  inline _RAFT_HOST_DEVICE auto data() const -> const bitset_t* { return bitset_ptr_; }
   /**
    * @brief Get the number of bits of the bitset representation.
    */
@@ -206,8 +206,8 @@ struct bitset {
   /**
    * @brief Get the device pointer to the bitset.
    */
-  inline auto data_handle() -> bitset_t* { return bitset_.data(); }
-  inline auto data_handle() const -> const bitset_t* { return bitset_.data(); }
+  inline auto data() -> bitset_t* { return bitset_.data(); }
+  inline auto data() const -> const bitset_t* { return bitset_.data(); }
   /**
    * @brief Get the number of bits of the bitset representation.
    */
@@ -241,10 +241,11 @@ struct bitset {
     bitset_len_ = new_bitset_len;
     if (old_size < new_size) {
       // If the new size is larger, set the new bits to the default value
-      RAFT_CUDA_TRY(cudaMemsetAsync(bitset_.data() + old_size,
-                                    default_value ? 0xff : 0x00,
-                                    (new_size - old_size) * sizeof(bitset_t),
-                                    resource::get_cuda_stream(res_)));
+
+      thrust::fill_n(resource::get_thrust_policy(res_),
+                     bitset_.data() + old_size,
+                     new_size - old_size,
+                     default_value ? ~bitset_t{0} : bitset_t{0});
     }
   }
 
@@ -302,10 +303,10 @@ struct bitset {
    */
   void reset(bool default_value = true)
   {
-    RAFT_CUDA_TRY(cudaMemsetAsync(bitset_.data(),
-                                  default_value ? 0xff : 0x00,
-                                  n_elements() * sizeof(bitset_t),
-                                  resource::get_cuda_stream(res_)));
+    thrust::fill_n(resource::get_thrust_policy(res_),
+                   bitset_.data(),
+                   n_elements(),
+                   default_value ? ~bitset_t{0} : bitset_t{0});
   }
   /**
    * @brief Returns the number of bits set to true in count_gpu_scalar.
@@ -331,16 +332,16 @@ struct bitset {
       false,
       [last_element_mask, n_elements_] __device__(bitset_t element, index_t index) {
         index_t result = 0;
-        if constexpr (bitset_element_size == 64) {  // Needed because __popc doesn't support 64bit
+        if constexpr (bitset_element_size == 64) {
           if (index == n_elements_ - 1)
-            result = index_t(raft::detail::native_popc<uint64_t>(element & last_element_mask));
+            result = index_t(raft::detail::popc(element & last_element_mask));
           else
-            result = index_t(raft::detail::native_popc<uint64_t>(element));
-        } else {
+            result = index_t(raft::detail::popc(element));
+        } else {  // Needed because popc is not overloaded for 16 and 8 bit elements
           if (index == n_elements_ - 1)
-            result = index_t(__popc(element & last_element_mask));
+            result = index_t(raft::detail::popc(uint32_t{element} & last_element_mask));
           else
-            result = index_t(__popc(element));
+            result = index_t(raft::detail::popc(uint32_t{element}));
         }
 
         return result;

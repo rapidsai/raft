@@ -112,7 +112,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     // calculate the results
     auto my_bitset = raft::core::bitset<bitset_t, index_t>(
       res, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len));
-    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
+    update_host(bitset_result.data(), my_bitset.data(), bitset_result.size(), stream);
 
     // calculate the reference
     create_cpu_bitset(bitset_ref, mask_cpu);
@@ -139,7 +139,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     update_host(mask_cpu.data(), mask_device.data_handle(), mask_device.extent(0), stream);
     resource::sync_stream(res, stream);
     my_bitset.set(mask_device.view());
-    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
+    update_host(bitset_result.data(), my_bitset.data(), bitset_result.size(), stream);
 
     add_cpu_bitset(bitset_ref, mask_cpu);
     resource::sync_stream(res, stream);
@@ -149,7 +149,7 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     auto bitset_count = my_bitset.count();
     my_bitset.flip();
     ASSERT_EQ(my_bitset.count(), spec.bitset_len - bitset_count);
-    update_host(bitset_result.data(), my_bitset.data_handle(), bitset_result.size(), stream);
+    update_host(bitset_result.data(), my_bitset.data(), bitset_result.size(), stream);
     flip_cpu_bitset(bitset_ref);
     resource::sync_stream(res, stream);
     ASSERT_TRUE(hostVecMatch(bitset_ref, bitset_result, raft::Compare<bitset_t>()));
@@ -171,15 +171,11 @@ class BitsetTest : public testing::TestWithParam<test_spec_bitset> {
     auto my_bitset_3 = raft::core::bitset<bitset_t, index_t>(
       res, raft::make_const_mdspan(mask_device.view()), index_t(spec.bitset_len), false);
     my_bitset_2 ^= my_bitset;
-    ASSERT_FALSE(devArrMatch(my_bitset_2.data_handle(),
-                             my_bitset_3.data_handle(),
-                             my_bitset.n_elements(),
-                             raft::Compare<bitset_t>()));
+    ASSERT_FALSE(devArrMatch(
+      my_bitset_2.data(), my_bitset_3.data(), my_bitset.n_elements(), raft::Compare<bitset_t>()));
     my_bitset_2 ^= my_bitset;
-    ASSERT_TRUE(devArrMatch(my_bitset_2.data_handle(),
-                            my_bitset_3.data_handle(),
-                            my_bitset.n_elements(),
-                            raft::Compare<bitset_t>()));
+    ASSERT_TRUE(devArrMatch(
+      my_bitset_2.data(), my_bitset_3.data(), my_bitset.n_elements(), raft::Compare<bitset_t>()));
   }
 };
 
