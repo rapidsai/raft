@@ -34,8 +34,10 @@ extern template class raft::bench::ann::RaftIvfFlatGpu<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfFlatGpu<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfFlatGpu<int8_t, int64_t>;
 #endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
+#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
 #include "raft_ivf_pq_wrapper.h"
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
 extern template class raft::bench::ann::RaftIvfPQ<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
@@ -69,7 +71,7 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
+#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::RaftIvfPQ<T, IdxT>::BuildParam& param)
@@ -141,20 +143,34 @@ void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::RaftCagra<T, IdxT>::BuildParam& param)
 {
   if (conf.contains("graph_degree")) {
-    param.graph_degree              = conf.at("graph_degree");
-    param.intermediate_graph_degree = param.graph_degree * 2;
+    param.cagra_params.graph_degree              = conf.at("graph_degree");
+    param.cagra_params.intermediate_graph_degree = param.cagra_params.graph_degree * 2;
   }
   if (conf.contains("intermediate_graph_degree")) {
-    param.intermediate_graph_degree = conf.at("intermediate_graph_degree");
+    param.cagra_params.intermediate_graph_degree = conf.at("intermediate_graph_degree");
   }
   if (conf.contains("graph_build_algo")) {
     if (conf.at("graph_build_algo") == "IVF_PQ") {
-      param.build_algo = raft::neighbors::cagra::graph_build_algo::IVF_PQ;
+      param.cagra_params.build_algo = raft::neighbors::cagra::graph_build_algo::IVF_PQ;
     } else if (conf.at("graph_build_algo") == "NN_DESCENT") {
-      param.build_algo = raft::neighbors::cagra::graph_build_algo::NN_DESCENT;
+      param.cagra_params.build_algo = raft::neighbors::cagra::graph_build_algo::NN_DESCENT;
     }
   }
-  if (conf.contains("nn_descent_niter")) { param.nn_descent_niter = conf.at("nn_descent_niter"); }
+  if (conf.contains("nn_descent_niter")) {
+    param.cagra_params.nn_descent_niter = conf.at("nn_descent_niter");
+  }
+  if (conf.contains("ivf_pq_build_params")) {
+    raft::neighbors::ivf_pq::index_params bparam;
+    parse_build_param<T, IdxT>(conf.at("ivf_pq_build_params"), bparam);
+    param.ivf_pq_build_params = bparam;
+    std::cout << "Parsed ivf_pq build params, pq_dim=" << param.ivf_pq_build_params->pq_dim
+              << std::endl;
+  }
+  if (conf.contains("ivf_pq_search_params")) {
+    typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam sparam;
+    parse_search_param<T, IdxT>(conf.at("ivf_pq_search_params"), sparam);
+    param.ivf_pq_search_params = sparam.pq_param;
+  }
 }
 
 template <typename T, typename IdxT>

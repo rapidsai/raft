@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -28,6 +29,7 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/ivf_pq_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -50,7 +52,12 @@ class RaftCagra : public ANN<T> {
     auto needs_dataset() const -> bool override { return true; }
   };
 
-  using BuildParam = raft::neighbors::cagra::index_params;
+  struct BuildParam {
+    raft::neighbors::cagra::index_params cagra_params;
+    std::optional<float> ivf_pq_refine_rate                                    = std::nullopt;
+    std::optional<raft::neighbors::ivf_pq::index_params> ivf_pq_build_params   = std::nullopt;
+    std::optional<raft::neighbors::ivf_pq::search_params> ivf_pq_search_params = std::nullopt;
+  };
 
   RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
     : ANN<T>(metric, dim),
@@ -59,7 +66,8 @@ class RaftCagra : public ANN<T> {
       mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
   {
     rmm::mr::set_current_device_resource(&mr_);
-    index_params_.metric = parse_metric_type(metric);
+    index_params_.cagra_params.metric         = parse_metric_type(metric);
+    index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
@@ -105,17 +113,59 @@ class RaftCagra : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  if (raft::get_device_for_address(dataset) == -1) {
-    auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
-  } else {
-    auto dataset_view =
-      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
+  auto dataset_view =
+    raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+
+  auto& params = index_params_.cagra_params;
+
+  // Copied from cagra.cuh
+  size_t intermediate_degree = params.intermediate_graph_degree;
+  size_t graph_degree        = params.graph_degree;
+  if (intermediate_degree >= static_cast<size_t>(nrow)) {
+    RAFT_LOG_WARN(
+      "Intermediate graph degree cannot be larger than dataset size, reducing it to %lu", nrow);
+    intermediate_degree = nrow - 1;
   }
+  if (intermediate_degree < graph_degree) {
+    RAFT_LOG_WARN(
+      "Graph degree (%lu) cannot be larger than intermediate graph degree (%lu), reducing "
+      "graph_degree.",
+      graph_degree,
+      intermediate_degree);
+    graph_degree = intermediate_degree;
+  }
+
+  std::optional<raft::host_matrix<IdxT, int64_t>> knn_graph(
+    raft::make_host_matrix<IdxT, int64_t>(nrow, intermediate_degree));
+
+  if (params.build_algo == raft::neighbors::cagra::graph_build_algo::IVF_PQ) {
+    raft::neighbors::cagra::build_knn_graph(handle_,
+                                            dataset_view,
+                                            knn_graph->view(),
+                                            index_params_.ivf_pq_refine_rate,
+                                            index_params_.ivf_pq_build_params,
+                                            index_params_.ivf_pq_search_params);
+
+  } else {
+    // Use nn-descent to build CAGRA knn graph
+    auto nn_descent_params         = raft::neighbors::experimental::nn_descent::index_params();
+    nn_descent_params.graph_degree = intermediate_degree;
+    nn_descent_params.intermediate_graph_degree = 1.5 * intermediate_degree;
+    nn_descent_params.max_iterations            = params.nn_descent_niter;
+    raft::neighbors::cagra::build_knn_graph<T, IdxT>(
+      handle_, dataset_view, knn_graph->view(), nn_descent_params);
+  }
+
+  auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(nrow, graph_degree);
+
+  raft::neighbors::cagra::optimize<IdxT>(handle_, knn_graph->view(), cagra_graph.view());
+
+  // free intermediate graph before trying to create the index
+  knn_graph.reset();
+
+  index_.emplace(raft::neighbors::cagra::index<T, IdxT>(
+    handle_, params.metric, dataset_view, raft::make_const_mdspan(cagra_graph.view())));
+  return;
 }
 
 template <typename T, typename IdxT>
