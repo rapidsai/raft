@@ -21,13 +21,18 @@
 
 namespace raft::distance::detail::ops {
 
+/**
+ * Reserve 1 digit of precision from each floating-point type
+ * for round-off error tolerance.
+ * @tparam DataT
+ */
 template <typename DataT>
 __device__ constexpr DataT get_clamp_precision()
 {
   switch (sizeof(DataT)) {
     case 2: return 1e-3;
-    case 4: return 1e-4;
-    case 8: return 1e-14;
+    case 4: return 1e-6;
+    case 8: return 1e-15;
     default: return 0;
   }
 }
@@ -47,7 +52,7 @@ struct l2_exp_cutlass_op {
      * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
      * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
      */
-    outVal = outVal * !((outVal < get_clamp_precision<DataT>()) * (aNorm == bNorm));
+    outVal = outVal * !((outVal * outVal < get_clamp_precision<DataT>()) * (aNorm == bNorm));
     return sqrt ? raft::sqrt(outVal * (outVal > 0)) : outVal;
   }
 
@@ -108,7 +113,7 @@ struct l2_exp_distance_op {
          * instead.
          */
         acc[i][j] =
-          val * (val > 0) * !((val < get_clamp_precision<DataT>()) * (regxn[i] == regyn[j]));
+          val * (val > 0) * !((val * val < get_clamp_precision<DataT>()) * (regxn[i] == regyn[j]));
       }
     }
     if (sqrt) {
