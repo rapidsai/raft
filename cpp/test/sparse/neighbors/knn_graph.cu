@@ -30,7 +30,7 @@ namespace raft {
 namespace sparse {
 
 template <typename value_idx, typename value_t>
-__global__ void assert_symmetry(
+RAFT_KERNEL assert_symmetry(
   value_idx* rows, value_idx* cols, value_t* vals, value_idx nnz, value_idx* sum)
 {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;

@@ -87,7 +87,7 @@ struct MinReduceOpImpl {
 };
 
 template <typename DataT, typename OutT, typename IdxT, typename ReduceOpT>
-__global__ void initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
+RAFT_KERNEL initKernel(OutT* min, IdxT m, DataT maxVal, ReduceOpT redOp)
 {
   auto tid = IdxT(blockIdx.x) * blockDim.x + threadIdx.x;
   if (tid < m) { redOp.init(min + tid, maxVal); }
@@ -139,20 +139,20 @@ template <typename DataT,
           typename KVPReduceOpT,
           typename OpT,
           typename FinalLambda>
-__global__ __launch_bounds__(P::Nthreads, 2) void fusedL2NNkernel(OutT* min,
-                                                                  const DataT* x,
-                                                                  const DataT* y,
-                                                                  const DataT* xn,
-                                                                  const DataT* yn,
-                                                                  IdxT m,
-                                                                  IdxT n,
-                                                                  IdxT k,
-                                                                  DataT maxVal,
-                                                                  int* mutex,
-                                                                  ReduceOpT redOp,
-                                                                  KVPReduceOpT pairRedOp,
-                                                                  OpT distance_op,
-                                                                  FinalLambda fin_op)
+__launch_bounds__(P::Nthreads, 2) RAFT_KERNEL fusedL2NNkernel(OutT* min,
+                                                              const DataT* x,
+                                                              const DataT* y,
+                                                              const DataT* xn,
+                                                              const DataT* yn,
+                                                              IdxT m,
+                                                              IdxT n,
+                                                              IdxT k,
+                                                              DataT maxVal,
+                                                              int* mutex,
+                                                              ReduceOpT redOp,
+                                                              KVPReduceOpT pairRedOp,
+                                                              OpT distance_op,
+                                                              FinalLambda fin_op)
 {
 // compile only if below non-ampere arch.
 #if __CUDA_ARCH__ < 800

@@ -69,12 +69,12 @@ __device__ inline bool swap_if_needed(K& key1, K& key2, V& val1, V& val2, bool a
 }
 
 template <class DATA_T, class IdxT, int numElementsPerThread>
-__global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
-                          const IdxT dataset_size,
-                          const uint32_t dataset_dim,
-                          IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
-                          const uint32_t graph_size,
-                          const uint32_t graph_degree)
+RAFT_KERNEL kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, dataset_dim]
+                      const IdxT dataset_size,
+                      const uint32_t dataset_dim,
+                      IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
+                      const uint32_t graph_size,
+                      const uint32_t graph_degree)
 {
   const IdxT srcNode = (blockDim.x * blockIdx.x + threadIdx.x) / raft::WarpSize;
   if (srcNode >= graph_size) { return; }
@@ -125,15 +125,15 @@ __global__ void kern_sort(const DATA_T* const dataset,  // [dataset_chunk_size, 
 }
 
 template <int MAX_DEGREE, class IdxT>
-__global__ void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
-                           const uint32_t graph_size,
-                           const uint32_t graph_degree,
-                           const uint32_t degree,
-                           const uint32_t batch_size,
-                           const uint32_t batch_id,
-                           uint8_t* const detour_count,          // [graph_chunk_size, graph_degree]
-                           uint32_t* const num_no_detour_edges,  // [graph_size]
-                           uint64_t* const stats)
+RAFT_KERNEL kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, graph_degree]
+                       const uint32_t graph_size,
+                       const uint32_t graph_degree,
+                       const uint32_t degree,
+                       const uint32_t batch_size,
+                       const uint32_t batch_id,
+                       uint8_t* const detour_count,          // [graph_chunk_size, graph_degree]
+                       uint32_t* const num_no_detour_edges,  // [graph_size]
+                       uint64_t* const stats)
 {
   __shared__ uint32_t smem_num_detour[MAX_DEGREE];
   uint64_t* const num_retain = stats;
@@ -188,11 +188,11 @@ __global__ void kern_prune(const IdxT* const knn_graph,  // [graph_chunk_size, g
 }
 
 template <class IdxT>
-__global__ void kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
-                                    IdxT* const rev_graph,            // [size, degree]
-                                    uint32_t* const rev_graph_count,  // [graph_size]
-                                    const uint32_t graph_size,
-                                    const uint32_t degree)
+RAFT_KERNEL kern_make_rev_graph(const IdxT* const dest_nodes,     // [graph_size]
+                                IdxT* const rev_graph,            // [size, degree]
+                                uint32_t* const rev_graph_count,  // [graph_size]
+                                const uint32_t graph_size,
+                                const uint32_t degree)
 {
   const uint32_t tid  = threadIdx.x + (blockDim.x * blockIdx.x);
   const uint32_t tnum = blockDim.x * gridDim.x;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,16 +41,16 @@ namespace linalg {
 namespace detail {
 
 template <typename T, int TPB_X = 128>
-__global__ void csr_add_calc_row_counts_kernel(const int* a_ind,
-                                               const int* a_indptr,
-                                               const T* a_val,
-                                               int nnz1,
-                                               const int* b_ind,
-                                               const int* b_indptr,
-                                               const T* b_val,
-                                               int nnz2,
-                                               int m,
-                                               int* out_rowcounts)
+RAFT_KERNEL csr_add_calc_row_counts_kernel(const int* a_ind,
+                                           const int* a_indptr,
+                                           const T* a_val,
+                                           int nnz1,
+                                           const int* b_ind,
+                                           const int* b_indptr,
+                                           const T* b_val,
+                                           int nnz2,
+                                           int m,
+                                           int* out_rowcounts)
 {
   // loop through columns in each set of rows and
   // calculate number of unique cols across both rows
@@ -100,18 +100,18 @@ __global__ void csr_add_calc_row_counts_kernel(const int* a_ind,
 }
 
 template <typename T, int TPB_X = 128>
-__global__ void csr_add_kernel(const int* a_ind,
-                               const int* a_indptr,
-                               const T* a_val,
-                               int nnz1,
-                               const int* b_ind,
-                               const int* b_indptr,
-                               const T* b_val,
-                               int nnz2,
-                               int m,
-                               int* out_ind,
-                               int* out_indptr,
-                               T* out_val)
+RAFT_KERNEL csr_add_kernel(const int* a_ind,
+                           const int* a_indptr,
+                           const T* a_val,
+                           int nnz1,
+                           const int* b_ind,
+                           const int* b_indptr,
+                           const T* b_val,
+                           int nnz2,
+                           int m,
+                           int* out_ind,
+                           int* out_indptr,
+                           T* out_val)
 {
   // 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;

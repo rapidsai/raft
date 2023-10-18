@@ -26,7 +26,7 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveDivideKernel(Type* out, const Type* in, Type scalar, int len)
+RAFT_KERNEL naiveDivideKernel(Type* out, const Type* in, Type scalar, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in[idx] / scalar; }

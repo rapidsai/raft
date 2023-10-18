@@ -171,12 +171,12 @@ void select_clusters(raft::resources const& handle,
  * number of samples per query (sum of the cluster sizes that we probe) is returned in n_samples.
  */
 template <int BlockDim>
-__launch_bounds__(BlockDim) __global__
-  void calc_chunk_indices_kernel(uint32_t n_probes,
-                                 const uint32_t* cluster_sizes,      // [n_clusters]
-                                 const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
-                                 uint32_t* chunk_indices,            // [n_queries, n_probes]
-                                 uint32_t* n_samples                 // [n_queries]
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  calc_chunk_indices_kernel(uint32_t n_probes,
+                            const uint32_t* cluster_sizes,      // [n_clusters]
+                            const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                            uint32_t* chunk_indices,            // [n_queries, n_probes]
+                            uint32_t* n_samples                 // [n_queries]
   )
 {
   using block_scan = cub::BlockScan<uint32_t, BlockDim>;
@@ -274,15 +274,15 @@ __device__ inline auto find_chunk_ix(uint32_t& sample_ix,  // NOLINT
 }
 
 template <int BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__
-  void postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
-                                    const uint32_t* neighbors_in,       // [n_queries, topk]
-                                    const IdxT* const* db_indices,      // [n_clusters][..]
-                                    const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
-                                    const uint32_t* chunk_indices,      // [n_queries, n_probes]
-                                    uint32_t n_queries,
-                                    uint32_t n_probes,
-                                    uint32_t topk)
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  postprocess_neighbors_kernel(IdxT* neighbors_out,                // [n_queries, topk]
+                               const uint32_t* neighbors_in,       // [n_queries, topk]
+                               const IdxT* const* db_indices,      // [n_clusters][..]
+                               const uint32_t* clusters_to_probe,  // [n_queries, n_probes]
+                               const uint32_t* chunk_indices,      // [n_queries, n_probes]
+                               uint32_t n_queries,
+                               uint32_t n_probes,
+                               uint32_t topk)
 {
   const uint64_t i        = threadIdx.x + BlockDim * uint64_t(blockIdx.x);
   const uint32_t query_ix = i / uint64_t(topk);

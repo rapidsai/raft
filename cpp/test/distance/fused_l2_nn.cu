@@ -39,14 +39,14 @@ struct RaftKVPMinReduce {
 };  // KVPMinReduce
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-__global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
-                            DataT* x,
-                            DataT* y,
-                            int m,
-                            int n,
-                            int k,
-                            int* workspace,
-                            DataT maxVal)
+RAFT_KERNEL naiveKernel(raft::KeyValuePair<int, DataT>* min,
+                        DataT* x,
+                        DataT* y,
+                        int m,
+                        int n,
+                        int k,
+                        int* workspace,
+                        DataT maxVal)
 {
   int midx  = threadIdx.y + blockIdx.y * blockDim.y;
   int nidx  = threadIdx.x + blockIdx.x * blockDim.x;

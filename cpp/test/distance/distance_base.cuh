@@ -31,14 +31,14 @@ namespace raft {
 namespace distance {
 
 template <typename DataType>
-__global__ void naiveDistanceKernel(DataType* dist,
-                                    const DataType* x,
-                                    const DataType* y,
-                                    int m,
-                                    int n,
-                                    int k,
-                                    raft::distance::DistanceType type,
-                                    bool isRowMajor)
+RAFT_KERNEL naiveDistanceKernel(DataType* dist,
+                                const DataType* x,
+                                const DataType* y,
+                                int m,
+                                int n,
+                                int k,
+                                raft::distance::DistanceType type,
+                                bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -58,14 +58,14 @@ __global__ void naiveDistanceKernel(DataType* dist,
 }
 
 template <typename DataType>
-__global__ void naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
-                                                    const DataType* x,
-                                                    const DataType* y,
-                                                    int m,
-                                                    int n,
-                                                    int k,
-                                                    raft::distance::DistanceType type,
-                                                    bool isRowMajor)
+RAFT_KERNEL naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
+                                                const DataType* x,
+                                                const DataType* y,
+                                                int m,
+                                                int n,
+                                                int k,
+                                                raft::distance::DistanceType type,
+                                                bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -95,7 +95,7 @@ __global__ void naiveL1_Linf_CanberraDistanceKernel(DataType* dist,
 }
 
 template <typename DataType>
-__global__ void naiveCosineDistanceKernel(
+RAFT_KERNEL naiveCosineDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -123,7 +123,7 @@ __global__ void naiveCosineDistanceKernel(
 }
 
 template <typename DataType>
-__global__ void naiveInnerProductKernel(
+RAFT_KERNEL naiveInnerProductKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -145,7 +145,7 @@ __global__ void naiveInnerProductKernel(
 }
 
 template <typename DataType>
-__global__ void naiveHellingerDistanceKernel(
+RAFT_KERNEL naiveHellingerDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -171,14 +171,14 @@ __global__ void naiveHellingerDistanceKernel(
 }
 
 template <typename DataType>
-__global__ void naiveLpUnexpDistanceKernel(DataType* dist,
-                                           const DataType* x,
-                                           const DataType* y,
-                                           int m,
-                                           int n,
-                                           int k,
-                                           bool isRowMajor,
-                                           DataType p)
+RAFT_KERNEL naiveLpUnexpDistanceKernel(DataType* dist,
+                                       const DataType* x,
+                                       const DataType* y,
+                                       int m,
+                                       int n,
+                                       int k,
+                                       bool isRowMajor,
+                                       DataType p)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -199,7 +199,7 @@ __global__ void naiveLpUnexpDistanceKernel(DataType* dist,
 }
 
 template <typename DataType>
-__global__ void naiveHammingDistanceKernel(
+RAFT_KERNEL naiveHammingDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -219,7 +219,7 @@ __global__ void naiveHammingDistanceKernel(
 }
 
 template <typename DataType>
-__global__ void naiveJensenShannonDistanceKernel(
+RAFT_KERNEL naiveJensenShannonDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -250,7 +250,7 @@ __global__ void naiveJensenShannonDistanceKernel(
 }
 
 template <typename DataType, typename OutType>
-__global__ void naiveRussellRaoDistanceKernel(
+RAFT_KERNEL naiveRussellRaoDistanceKernel(
   OutType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -270,7 +270,7 @@ __global__ void naiveRussellRaoDistanceKernel(
 }
 
 template <typename DataType, typename OutType>
-__global__ void naiveKLDivergenceDistanceKernel(
+RAFT_KERNEL naiveKLDivergenceDistanceKernel(
   OutType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -292,7 +292,7 @@ __global__ void naiveKLDivergenceDistanceKernel(
 }
 
 template <typename DataType, typename OutType>
-__global__ void naiveCorrelationDistanceKernel(
+RAFT_KERNEL naiveCorrelationDistanceKernel(
   OutType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
