@@ -255,9 +255,9 @@ void all_knn_query(raft::resources const& handle,
  *               looking in the closest landmark.
  * @param[in] n_query_pts number of query points
  */
-template <typename idx_t, typename value_t, typename int_t>
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
 void knn_query(raft::resources const& handle,
-               const BallCoverIndex<idx_t, value_t, int_t>& index,
+               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
                int_t k,
                const value_t* query,
                int_t n_query_pts,
@@ -293,6 +293,41 @@ void knn_query(raft::resources const& handle,
   } else {
     RAFT_FAIL("Metric not supported");
   }
+}
+
+/**
+ * @brief Computes epsilon neighborhood for the L2 distance metric using rbc
+ *
+ * @tparam value_t   IO and math type
+ * @tparam idx_t    Index type
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has been built
+ * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  m      number of rows in x
+ * @param[in]  k      number of columns in x and index
+ * @param[in]  eps    defines epsilon neighborhood radius
+ */
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
+void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
+                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
+                               bool* adj,
+                               const value_t* x,
+                               int_t m,
+                               int_t k,
+                               value_t eps)
+{
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.n == k, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+           index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
+         "Metric not supported");
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  // run query
+  raft::spatial::knn::detail::rbc_knn_query(
+    handle, index, eps, x, m, adj, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
 /**
@@ -377,7 +412,7 @@ void knn_query(raft::resources const& handle,
             index,
             k,
             query.data_handle(),
-            query.extent(0),
+            (int_t)query.extent(0),
             inds.data_handle(),
             dists.data_handle(),
             perform_post_filtering,

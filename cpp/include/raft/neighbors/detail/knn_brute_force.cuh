@@ -438,13 +438,13 @@ void brute_force_knn_impl(
       if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
           metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
           metric == raft::distance::DistanceType::LpUnexpanded) {
-        float p = 0.5;  // standard l2
+        value_t p = 0.5;  // standard l2
         if (metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / metricArg;
-        raft::linalg::unaryOp<float>(
+        raft::linalg::unaryOp<value_t>(
           res_D,
           res_D,
           n * k,
-          [p] __device__(float input) { return powf(fabsf(input), p); },
+          [p] __device__(value_t input) { return powf(fabsf(input), p); },
           stream);
       }
     } else {

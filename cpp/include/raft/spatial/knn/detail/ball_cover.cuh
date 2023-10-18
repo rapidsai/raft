@@ -32,6 +32,7 @@
 
 #include <raft/neighbors/detail/faiss_select/key_value_block_select.cuh>
 
+#include <raft/distance/distance.cuh>
 #include <raft/matrix/copy.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/random/rng.cuh>
@@ -325,6 +326,50 @@ void perform_rbc_query(raft::resources const& handle,
 }
 
 /**
+ * Perform eps-select
+ *
+ * a. Map 1 row to each warp/block
+ * b. Add closest k R points to heap
+ * c. Iterate through batches of R, having each thread in the warp load a set
+ * of distances y from R (only if d(q, r) < 3 * distance to closest r) and
+ * marking the distance to be computed between x, y only
+ * if knn[k].distance >= d(x_i, R_k) + d(R_k, y)
+ */
+template <typename value_idx,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          typename dist_func>
+void perform_rbc_query(raft::resources const& handle,
+                       const BallCoverIndex<value_idx, value_t, value_int>& index,
+                       const value_t* query,
+                       value_int n_query_pts,
+                       value_t eps,
+                       const value_idx* landmark_inds,
+                       const value_t* landmark_dists,
+                       dist_func dfunc,
+                       bool* adj)
+{
+  // initialize output
+  RAFT_CUDA_TRY(cudaMemsetAsync(
+    adj, 0, index.m * n_query_pts * sizeof(bool), resource::get_cuda_stream(handle)));
+
+  resource::sync_stream(handle);
+
+  if (index.n == 2) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 2>(
+      handle, index, query, n_query_pts, eps, landmark_inds, landmark_dists, dfunc, adj);
+
+  } else if (index.n == 3) {
+    // Compute nearest k for each neighborhood in each closest R
+    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 3>(
+      handle, index, query, n_query_pts, eps, landmark_inds, landmark_dists, dfunc, adj);
+  }
+
+  resource::sync_stream(handle);
+}
+
+/**
  * Similar to a ball tree, the random ball cover algorithm
  * uses the triangle inequality to prune distance computations
  * in any metric space with a guarantee of sqrt(n) * c^{3/2}
@@ -537,6 +582,75 @@ void rbc_knn_query(raft::resources const& handle,
                     post_dists_counter.data(),
                     weight,
                     perform_post_filtering);
+}
+
+template <typename value_idx, typename value_t, typename value_int = std::uint32_t>
+void compute_landmark_dists(raft::resources const& handle,
+                            const BallCoverIndex<value_idx, value_t, value_int>& index,
+                            const value_t* query_pts,
+                            value_int n_query_pts,
+                            value_t* R_dists)
+{
+  // compute distances for all queries against all landmarks
+  // index.get_R() -- landmark points in row order (index.n_landmarks x index.k)
+  // query_pts     -- query points in row order (n_query_pts x index.k)
+  raft::distance::pairwise_distance(handle,
+                                    query_pts,
+                                    index.get_R(),
+                                    R_dists,
+                                    n_query_pts,
+                                    index.n_landmarks,
+                                    index.k,
+                                    index.get_metric());
+}
+
+/**
+ * Performs a knn query against an index. This assumes the index has
+ * already been built.
+ * Modified version that takes an eps as threshold and outputs to a dense adj matrix (row-major)
+ * we are assuming that there are sufficiently many landmarks
+ */
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          typename distance_func>
+void rbc_knn_query(raft::resources const& handle,
+                   const BallCoverIndex<value_idx, value_t, value_int>& index,
+                   const value_t eps,
+                   const value_t* query,
+                   value_int n_query_pts,
+                   bool* adj,
+                   distance_func dfunc)
+{
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  rmm::device_uvector<value_idx> R_inds(index.n_landmarks * n_query_pts,
+                                        resource::get_cuda_stream(handle));
+  rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
+                                       resource::get_cuda_stream(handle));
+
+  // Initialize the uvectors
+  thrust::fill(resource::get_thrust_policy(handle),
+               R_inds.begin(),
+               R_inds.end(),
+               std::numeric_limits<value_idx>::max());
+  thrust::fill(resource::get_thrust_policy(handle),
+               R_dists.begin(),
+               R_dists.end(),
+               std::numeric_limits<value_t>::max());
+
+  resource::sync_stream(handle);
+
+  // find all landmarks that might have points in range
+  k_closest_landmarks(
+    handle, index, query, n_query_pts, index.n_landmarks, R_inds.data(), R_dists.data());
+
+  resource::sync_stream(handle);
+
+  // query all points and write to adj
+  perform_rbc_query(
+    handle, index, query, n_query_pts, eps, R_inds.data(), R_dists.data(), dfunc, adj);
 }
 
 };  // namespace detail

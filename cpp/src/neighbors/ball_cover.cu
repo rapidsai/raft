@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include <cstdint>
 #include <raft/neighbors/ball_cover-inl.cuh>
 
@@ -21,6 +23,16 @@
   template void raft::neighbors::ball_cover::build_index<idx_t, value_t, int_t, matrix_idx_t>(     \
     raft::resources const& handle,                                                                 \
     raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index);      \
+                                                                                                   \
+  template void                                                                                    \
+  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    bool* adj,                                                                                     \
+    const value_t* x,                                                                              \
+    int_t m,                                                                                       \
+    int_t k,                                                                                       \
+    value_t eps);                                                                                  \
                                                                                                    \
   template void raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(   \
     raft::resources const& handle,                                                                 \
@@ -64,3 +76,25 @@
 instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
 
 #undef instantiate_raft_neighbors_ball_cover
+
+#define instantiate_raft_neighbors_ball_cover_eps(idx_t, value_t, int_t, matrix_idx_t)             \
+  template void raft::neighbors::ball_cover::build_index<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index);      \
+                                                                                                   \
+  template void                                                                                    \
+  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    bool* adj,                                                                                     \
+    const value_t* x,                                                                              \
+    int_t m,                                                                                       \
+    int_t k,                                                                                       \
+    value_t eps);
+
+instantiate_raft_neighbors_ball_cover_eps(int64_t, float, int64_t, uint32_t);
+instantiate_raft_neighbors_ball_cover_eps(int64_t, double, int64_t, uint32_t);
+instantiate_raft_neighbors_ball_cover_eps(int32_t, float, int32_t, uint32_t);
+instantiate_raft_neighbors_ball_cover_eps(int32_t, double, int32_t, uint32_t);
+
+#undef instantiate_raft_neighbors_ball_cover_eps

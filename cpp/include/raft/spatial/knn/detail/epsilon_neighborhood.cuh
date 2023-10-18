@@ -191,6 +191,8 @@ void epsUnexpL2SqNeighImpl(bool* adj,
                            cudaStream_t stream)
 {
   typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
+  // typedef typename raft::linalg::Policy4x4Skinny<DataT, VecLen>::Policy Policy;
+  // typedef typename raft::linalg::KernelPolicy<DataT, 1, 4, 4, 4, 16, 16> Policy;
   dim3 grid(raft::ceildiv<int>(m, Policy::Mblk), raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);
   epsUnexpL2SqNeighKernel<DataT, IdxT, Policy>

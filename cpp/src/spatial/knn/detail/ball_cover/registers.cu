@@ -50,11 +50,37 @@
     float weight,                                                                            \
     Mvalue_int* dists_counter)
 
+#define instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(                            \
+  Mvalue_idx, Mvalue_t, Mvalue_int, Mdims)                                                   \
+  template void                                                                              \
+  raft::spatial::knn::detail::rbc_low_dim_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \
+    raft::resources const& handle,                                                           \
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \
+    const Mvalue_t* query,                                                                   \
+    const Mvalue_int n_query_rows,                                                           \
+    Mvalue_t eps,                                                                            \
+    const Mvalue_idx* R_inds,                                                                \
+    const Mvalue_t* R_dists,                                                                 \
+    raft::spatial::knn::detail::DistFunc<Mvalue_t, Mvalue_int>& dfunc,                       \
+    bool* adj)
+
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(std::int64_t, float, std::uint32_t, 2);
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(std::int64_t, float, std::uint32_t, 3);
 
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(std::int64_t, float, std::uint32_t, 2);
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two(std::int64_t, float, std::uint32_t, 3);
 
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, float, std::uint32_t, 2);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, float, std::uint32_t, 3);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, float, std::int64_t, 2);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, float, std::int64_t, 3);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, double, std::int64_t, 2);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int64_t, double, std::int64_t, 3);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int32_t, float, std::int32_t, 2);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int32_t, float, std::int32_t, 3);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int32_t, double, std::int32_t, 2);
+instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass(std::int32_t, double, std::int32_t, 3);
+
+#undef instantiate_raft_spatial_knn_detail_rbc_low_dim_eps_pass
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_two
 #undef instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one
