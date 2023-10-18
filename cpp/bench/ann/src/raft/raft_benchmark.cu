@@ -168,6 +168,7 @@ void parse_build_param(const nlohmann::json& conf,
     typename raft::bench::ann::RaftIvfPQ<T, IdxT>::SearchParam sparam;
     parse_search_param<T, IdxT>(conf.at("ivf_pq_search_params"), sparam);
     param.ivf_pq_search_params = sparam.pq_param;
+    param.ivf_pq_refine_rate   = sparam.refine_ratio;
   }
 }
 
