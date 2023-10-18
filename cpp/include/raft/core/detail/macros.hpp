@@ -86,6 +86,38 @@
 // as a weak symbol rather than a global."
 #define RAFT_WEAK_FUNCTION __attribute__((weak))
 
+// The RAFT_HIDDEN_FUNCTION specificies that the function will be hidden
+// and therefore not callable by consumers of raft when compiled as
+// a shared library.
+//
+// Hidden visibility also ensures that the linker doesn't de-duplicate the
+// symbol across multiple `.so`. This allows multiple libraries to embed raft
+// without issue
+#define RAFT_HIDDEN_FUNCTION __attribute__((visibility("hidden")))
+
+// The RAFT_KERNEL specificies that a kernel has hidden visibility
+//
+// Raft needs to ensure that the visibility of its __global__ function
+// templates have hidden visibility ( default is weak visibility).
+//
+// When kernls have weak visibility it means that if two dynamic libraries
+// both contain identical instantiations of a RAFT template, then the linker
+// will discard one of the two instantiations and use only one of them.
+//
+// Do to unique requirements of how the CUDA works this de-deduplication
+// can lead to the wrong kernels being called ( SM version being wrong ),
+// silently no kernel being called at all, or cuda runtime errors being
+// thrown.
+//
+// https://github.com/rapidsai/raft/issues/1722
+#if defined(__CUDACC_RDC__)
+#define RAFT_KERNEL RAFT_HIDDEN_FUNCTION __global__ void
+#elif defined(_RAFT_HAS_CUDA)
+#define RAFT_KERNEL static __global__ void
+#else
+#define RAFT_KERNEL static void
+#endif
+
 /**
  * Some macro magic to remove optional parentheses of a macro argument.
  * See https://stackoverflow.com/a/62984543

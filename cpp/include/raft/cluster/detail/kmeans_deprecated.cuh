@@ -92,12 +92,12 @@ constexpr unsigned int BSIZE_DIV_WSIZE = (BLOCK_SIZE / WARP_SIZE);
  *    initialized to zero.
  */
 template <typename index_type_t, typename value_type_t>
-static __global__ void computeDistances(index_type_t n,
-                                        index_type_t d,
-                                        index_type_t k,
-                                        const value_type_t* __restrict__ obs,
-                                        const value_type_t* __restrict__ centroids,
-                                        value_type_t* __restrict__ dists)
+RAFT_KERNEL computeDistances(index_type_t n,
+                             index_type_t d,
+                             index_type_t k,
+                             const value_type_t* __restrict__ obs,
+                             const value_type_t* __restrict__ centroids,
+                             value_type_t* __restrict__ dists)
 {
   // Loop index
   index_type_t i;
@@ -173,11 +173,11 @@ static __global__ void computeDistances(index_type_t n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename index_type_t, typename value_type_t>
-static __global__ void minDistances(index_type_t n,
-                                    index_type_t k,
-                                    value_type_t* __restrict__ dists,
-                                    index_type_t* __restrict__ codes,
-                                    index_type_t* __restrict__ clusterSizes)
+RAFT_KERNEL minDistances(index_type_t n,
+                         index_type_t k,
+                         value_type_t* __restrict__ dists,
+                         index_type_t* __restrict__ codes,
+                         index_type_t* __restrict__ clusterSizes)
 {
   // Loop index
   index_type_t i, j;
@@ -233,11 +233,11 @@ static __global__ void minDistances(index_type_t n,
  *  @param code_new Index associated with new centroid.
  */
 template <typename index_type_t, typename value_type_t>
-static __global__ void minDistances2(index_type_t n,
-                                     value_type_t* __restrict__ dists_old,
-                                     const value_type_t* __restrict__ dists_new,
-                                     index_type_t* __restrict__ codes_old,
-                                     index_type_t code_new)
+RAFT_KERNEL minDistances2(index_type_t n,
+                          value_type_t* __restrict__ dists_old,
+                          const value_type_t* __restrict__ dists_new,
+                          index_type_t* __restrict__ codes_old,
+                          index_type_t code_new)
 {
   // Loop index
   index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -275,9 +275,9 @@ static __global__ void minDistances2(index_type_t n,
  *    cluster. Entries must be initialized to zero.
  */
 template <typename index_type_t>
-static __global__ void computeClusterSizes(index_type_t n,
-                                           const index_type_t* __restrict__ codes,
-                                           index_type_t* __restrict__ clusterSizes)
+RAFT_KERNEL computeClusterSizes(index_type_t n,
+                                const index_type_t* __restrict__ codes,
+                                index_type_t* __restrict__ clusterSizes)
 {
   index_type_t i = threadIdx.x + blockIdx.x * blockDim.x;
   while (i < n) {
@@ -308,10 +308,10 @@ static __global__ void computeClusterSizes(index_type_t n,
  *    column is the mean position of a cluster).
  */
 template <typename index_type_t, typename value_type_t>
-static __global__ void divideCentroids(index_type_t d,
-                                       index_type_t k,
-                                       const index_type_t* __restrict__ clusterSizes,
-                                       value_type_t* __restrict__ centroids)
+RAFT_KERNEL divideCentroids(index_type_t d,
+                            index_type_t k,
+                            const index_type_t* __restrict__ clusterSizes,
+                            value_type_t* __restrict__ centroids)
 {
   // Global indices
   index_type_t gidx, gidy;

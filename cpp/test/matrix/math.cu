@@ -33,7 +33,7 @@ namespace raft {
 namespace matrix {
 
 template <typename Type>
-__global__ void naivePowerKernel(Type* in, Type* out, int len)
+RAFT_KERNEL naivePowerKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in[idx] * in[idx]; }
@@ -49,7 +49,7 @@ void naivePower(Type* in, Type* out, int len, cudaStream_t stream)
 }
 
 template <typename Type>
-__global__ void naiveSqrtKernel(Type* in, Type* out, int len)
+RAFT_KERNEL naiveSqrtKernel(Type* in, Type* out, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = raft::sqrt(in[idx]); }
@@ -65,7 +65,7 @@ void naiveSqrt(Type* in, Type* out, int len, cudaStream_t stream)
 }
 
 template <typename Type>
-__global__ void naiveSignFlipKernel(Type* in, Type* out, int rowCount, int colCount)
+RAFT_KERNEL naiveSignFlipKernel(Type* in, Type* out, int rowCount, int colCount)
 {
   int d_i = blockIdx.x * rowCount;
   int end = d_i + rowCount;

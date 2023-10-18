@@ -52,7 +52,7 @@ struct TestStatus {
   int* Data() { return status_; }
 };
 
-__global__ void TestFromOtherKernel(device_span<float> span)
+RAFT_KERNEL TestFromOtherKernel(device_span<float> span)
 {
   // don't get optimized out
   size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -60,7 +60,7 @@ __global__ void TestFromOtherKernel(device_span<float> span)
   if (idx >= span.size()) { return; }
 }
 // Test converting different T
-__global__ void TestFromOtherKernelConst(device_span<float const, 16> span)
+RAFT_KERNEL TestFromOtherKernelConst(device_span<float const, 16> span)
 {
   // don't get optimized out
   size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -177,7 +177,7 @@ TEST(GPUSpan, RBeginREnd)
   ASSERT_EQ(status.Get(), 1);
 }
 
-__global__ void TestModifyKernel(device_span<float> span)
+RAFT_KERNEL TestModifyKernel(device_span<float> span)
 {
   size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
 

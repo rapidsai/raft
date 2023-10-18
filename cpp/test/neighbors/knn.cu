@@ -38,7 +38,7 @@ struct KNNInputs {
 };
 
 template <typename IdxT>
-__global__ void build_actual_output(
+RAFT_KERNEL build_actual_output(
   int* output, int n_rows, int k, const int* idx_labels, const IdxT* indices)
 {
   int element = threadIdx.x + blockDim.x * blockIdx.x;
@@ -47,7 +47,7 @@ __global__ void build_actual_output(
   output[element] = idx_labels[indices[element]];
 }
 
-__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
+RAFT_KERNEL build_expected_output(int* output, int n_rows, int k, const int* labels)
 {
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;

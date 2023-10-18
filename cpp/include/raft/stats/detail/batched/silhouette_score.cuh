@@ -40,11 +40,11 @@ namespace detail {
  * Only if the there are > 1 samples in the label, row is initialized to max
  */
 template <typename value_t, typename value_idx, typename label_idx>
-__global__ void fill_b_kernel(value_t* b,
-                              const label_idx* y,
-                              value_idx n_rows,
-                              label_idx n_labels,
-                              const value_idx* cluster_counts)
+RAFT_KERNEL fill_b_kernel(value_t* b,
+                          const label_idx* y,
+                          value_idx n_rows,
+                          label_idx n_labels,
+                          const value_idx* cluster_counts)
 {
   value_idx idx = threadIdx.x + blockIdx.x * blockDim.x;
   label_idx idy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -78,16 +78,16 @@ __global__ void fill_b_kernel(value_t* b,
  * current chunked pairwise distance matrix.
  */
 template <typename value_t, typename value_idx, typename label_idx>
-__global__ void compute_chunked_a_b_kernel(value_t* a,
-                                           value_t* b,
-                                           value_idx row_offset,
-                                           value_idx col_offset,
-                                           const label_idx* y,
-                                           label_idx n_labels,
-                                           const value_idx* cluster_counts,
-                                           const value_t* distances,
-                                           value_idx dist_rows,
-                                           value_idx dist_cols)
+RAFT_KERNEL compute_chunked_a_b_kernel(value_t* a,
+                                       value_t* b,
+                                       value_idx row_offset,
+                                       value_idx col_offset,
+                                       const label_idx* y,
+                                       label_idx n_labels,
+                                       const value_idx* cluster_counts,
+                                       const value_t* distances,
+                                       value_idx dist_rows,
+                                       value_idx dist_cols)
 {
   value_idx row_id = threadIdx.x + blockIdx.x * blockDim.x;
   value_idx col_id = threadIdx.y + blockIdx.y * blockDim.y;

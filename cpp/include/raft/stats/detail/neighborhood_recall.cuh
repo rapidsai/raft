@@ -37,7 +37,7 @@ template <typename IndicesValueType,
           typename DistanceValueType,
           typename IndexType,
           typename ScalarType>
-__global__ void neighborhood_recall(
+RAFT_KERNEL neighborhood_recall(
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> indices,
   raft::device_matrix_view<const IndicesValueType, IndexType, raft::row_major> ref_indices,
   std::optional<raft::device_matrix_view<const DistanceValueType, IndexType, raft::row_major>>
