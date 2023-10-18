@@ -69,11 +69,11 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-pylibraft:
     secrets: inherit
+<<<<<<< HEAD
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-23.12
+=======
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.12
     with:
-      build_type: ${{ inputs.build_type || 'branch' }}
-      branch: ${{ inputs.branch }}
-      sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       script: ci/build_wheel_pylibraft.sh
   wheel-publish-pylibraft:
