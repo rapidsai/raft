@@ -29,14 +29,14 @@ namespace raft {
 namespace random {
 
 template <typename T>
-__global__ void meanKernel(T* out,
-                           int* lens,
-                           const T* data,
-                           const int* labels,
-                           int nrows,
-                           int ncols,
-                           int nclusters,
-                           bool row_major)
+RAFT_KERNEL meanKernel(T* out,
+                       int* lens,
+                       const T* data,
+                       const int* labels,
+                       int nrows,
+                       int ncols,
+                       int nclusters,
+                       bool row_major)
 {
   int tid   = threadIdx.x + blockIdx.x * blockDim.x;
   int rowid = row_major ? tid / ncols : tid % nrows;
@@ -52,7 +52,7 @@ __global__ void meanKernel(T* out,
 }
 
 template <typename T>
-__global__ void compute_mean_var(
+RAFT_KERNEL compute_mean_var(
   T* out, const T* stats, int* lens, int nrows, int ncols, bool row_major)
 {
   int tid    = threadIdx.x + blockIdx.x * blockDim.x;

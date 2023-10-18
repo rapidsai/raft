@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,13 +32,12 @@ namespace detail {
  *  For an additional cost we can build the graph with edges
  *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
 template <typename value_idx, int TPB_X = 256>
-__global__ void __launch_bounds__(TPB_X)
-  propagate_label_kernel(const value_idx* __restrict__ labels_a,
-                         const value_idx* __restrict__ labels_b,
-                         value_idx* __restrict__ R,
-                         const bool* __restrict__ mask,
-                         bool* __restrict__ m,
-                         value_idx N)
+RAFT_KERNEL __launch_bounds__(TPB_X) propagate_label_kernel(const value_idx* __restrict__ labels_a,
+                                                            const value_idx* __restrict__ labels_b,
+                                                            value_idx* __restrict__ R,
+                                                            const bool* __restrict__ mask,
+                                                            bool* __restrict__ m,
+                                                            value_idx N)
 {
   value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
@@ -65,12 +64,11 @@ __global__ void __launch_bounds__(TPB_X)
 }
 
 template <typename value_idx, int TPB_X = 256>
-__global__ void __launch_bounds__(TPB_X)
-  reassign_label_kernel(value_idx* __restrict__ labels_a,
-                        const value_idx* __restrict__ labels_b,
-                        const value_idx* __restrict__ R,
-                        value_idx N,
-                        value_idx MAX_LABEL)
+RAFT_KERNEL __launch_bounds__(TPB_X) reassign_label_kernel(value_idx* __restrict__ labels_a,
+                                                           const value_idx* __restrict__ labels_b,
+                                                           const value_idx* __restrict__ R,
+                                                           value_idx N,
+                                                           value_idx MAX_LABEL)
 {
   value_idx tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {

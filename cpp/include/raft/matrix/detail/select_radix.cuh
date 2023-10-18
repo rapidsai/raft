@@ -422,16 +422,16 @@ _RAFT_DEVICE void last_filter(const T* in_buf,
 }
 
 template <typename T, typename IdxT, int BitsPerPass>
-__global__ void last_filter_kernel(const T* in,
-                                   const IdxT* in_idx,
-                                   const T* in_buf,
-                                   const IdxT* in_idx_buf,
-                                   T* out,
-                                   IdxT* out_idx,
-                                   IdxT len,
-                                   IdxT k,
-                                   Counter<T, IdxT>* counters,
-                                   const bool select_min)
+RAFT_KERNEL last_filter_kernel(const T* in,
+                               const IdxT* in_idx,
+                               const T* in_buf,
+                               const IdxT* in_idx_buf,
+                               T* out,
+                               IdxT* out_idx,
+                               IdxT len,
+                               IdxT k,
+                               Counter<T, IdxT>* counters,
+                               const bool select_min)
 {
   const size_t batch_id = blockIdx.y;  // size_t to avoid multiplication overflow
 
@@ -525,20 +525,20 @@ __global__ void last_filter_kernel(const T* in,
  * their indices.
  */
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize, bool fused_last_filter>
-__global__ void radix_kernel(const T* in,
-                             const IdxT* in_idx,
-                             const T* in_buf,
-                             const IdxT* in_idx_buf,
-                             T* out_buf,
-                             IdxT* out_idx_buf,
-                             T* out,
-                             IdxT* out_idx,
-                             Counter<T, IdxT>* counters,
-                             IdxT* histograms,
-                             const IdxT len,
-                             const IdxT k,
-                             const bool select_min,
-                             const int pass)
+RAFT_KERNEL radix_kernel(const T* in,
+                         const IdxT* in_idx,
+                         const T* in_buf,
+                         const IdxT* in_idx_buf,
+                         T* out_buf,
+                         IdxT* out_idx_buf,
+                         T* out,
+                         IdxT* out_idx,
+                         Counter<T, IdxT>* counters,
+                         IdxT* histograms,
+                         const IdxT len,
+                         const IdxT k,
+                         const bool select_min,
+                         const int pass)
 {
   const size_t batch_id = blockIdx.y;
   auto counter          = counters + batch_id;
@@ -920,17 +920,17 @@ _RAFT_DEVICE void filter_and_histogram_for_one_block(const T* in_buf,
 }
 
 template <typename T, typename IdxT, int BitsPerPass, int BlockSize>
-__global__ void radix_topk_one_block_kernel(const T* in,
-                                            const IdxT* in_idx,
-                                            const IdxT len,
-                                            const IdxT k,
-                                            T* out,
-                                            IdxT* out_idx,
-                                            const bool select_min,
-                                            T* buf1,
-                                            IdxT* idx_buf1,
-                                            T* buf2,
-                                            IdxT* idx_buf2)
+RAFT_KERNEL radix_topk_one_block_kernel(const T* in,
+                                        const IdxT* in_idx,
+                                        const IdxT len,
+                                        const IdxT k,
+                                        T* out,
+                                        IdxT* out_idx,
+                                        const bool select_min,
+                                        T* buf1,
+                                        IdxT* idx_buf1,
+                                        T* buf2,
+                                        IdxT* idx_buf2)
 {
   constexpr int num_buckets = calc_num_buckets<BitsPerPass>();
   __shared__ Counter<T, IdxT> counter;

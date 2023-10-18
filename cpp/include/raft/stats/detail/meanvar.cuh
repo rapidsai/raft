@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ NB: current implementation here is not optimal, especially the rowmajor version;
  * @param D number of columns in the input data.
  */
 template <typename T, typename I, int BlockSize>
-__global__ void __launch_bounds__(BlockSize)
+RAFT_KERNEL __launch_bounds__(BlockSize)
   meanvar_kernel_rowmajor(const T* data, volatile mean_var<T>* mvs, int* locks, I len, I D)
 {
   // read the data
@@ -164,7 +164,7 @@ __global__ void __launch_bounds__(BlockSize)
 }
 
 template <typename T, typename I, int BlockSize>
-__global__ void __launch_bounds__(BlockSize)
+RAFT_KERNEL __launch_bounds__(BlockSize)
   meanvar_kernel_colmajor(T* mean, T* var, const T* data, I D, I N, bool sample)
 {
   using BlockReduce = cub::BlockReduce<mean_var<T>, BlockSize>;
@@ -183,7 +183,7 @@ __global__ void __launch_bounds__(BlockSize)
 }
 
 template <typename T, typename I>
-__global__ void meanvar_kernel_fill(T* mean, T* var, const mean_var<T>* aggr, I D, bool sample)
+RAFT_KERNEL meanvar_kernel_fill(T* mean, T* var, const mean_var<T>* aggr, I D, bool sample)
 {
   I i = threadIdx.x + blockDim.x * blockIdx.x;
   if (i >= D) return;

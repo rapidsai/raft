@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 #include <rmm/device_scalar.hpp>
 
 template <typename OutT, typename OpT, typename... Args>
-__global__ void eval_op_on_device_kernel(OutT* out, OpT op, Args... args)
+RAFT_KERNEL eval_op_on_device_kernel(OutT* out, OpT op, Args... args)
 {
   out[0] = op(std::forward<Args>(args)...);
 }

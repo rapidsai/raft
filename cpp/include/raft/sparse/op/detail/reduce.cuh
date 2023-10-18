@@ -46,10 +46,10 @@ namespace op {
 namespace detail {
 
 template <typename value_idx>
-__global__ void compute_duplicates_diffs_kernel(const value_idx* rows,
-                                                const value_idx* cols,
-                                                value_idx* diff,
-                                                size_t nnz)
+RAFT_KERNEL compute_duplicates_diffs_kernel(const value_idx* rows,
+                                            const value_idx* cols,
+                                            value_idx* diff,
+                                            size_t nnz)
 {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   if (tid >= nnz) return;
@@ -60,14 +60,14 @@ __global__ void compute_duplicates_diffs_kernel(const value_idx* rows,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void max_duplicates_kernel(const value_idx* src_rows,
-                                      const value_idx* src_cols,
-                                      const value_t* src_vals,
-                                      const value_idx* index,
-                                      value_idx* out_rows,
-                                      value_idx* out_cols,
-                                      value_t* out_vals,
-                                      size_t nnz)
+RAFT_KERNEL max_duplicates_kernel(const value_idx* src_rows,
+                                  const value_idx* src_cols,
+                                  const value_t* src_vals,
+                                  const value_idx* index,
+                                  value_idx* out_rows,
+                                  value_idx* out_cols,
+                                  value_t* out_vals,
+                                  size_t nnz)
 {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 

@@ -132,7 +132,7 @@ template <unsigned TEAM_SIZE,
           class INDEX_T,
           class LOAD_T,
           class SAMPLE_FILTER_T>
-__launch_bounds__(1024, 1) __global__ void search_kernel(
+__launch_bounds__(1024, 1) RAFT_KERNEL search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
@@ -372,11 +372,11 @@ __launch_bounds__(1024, 1) __global__ void search_kernel(
 }
 
 template <class T>
-__global__ void set_value_batch_kernel(T* const dev_ptr,
-                                       const std::size_t ld,
-                                       const T val,
-                                       const std::size_t count,
-                                       const std::size_t batch_size)
+RAFT_KERNEL set_value_batch_kernel(T* const dev_ptr,
+                                   const std::size_t ld,
+                                   const T val,
+                                   const std::size_t count,
+                                   const std::size_t batch_size)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= count * batch_size) { return; }

@@ -56,7 +56,7 @@
     the top-k result.
 
     Example:
-      __global__ void kernel() {
+      RAFT_KERNEL kernel() {
         block_sort<warp_sort_immediate, ...> queue(...);
 
         for (IdxT i = threadIdx.x; i < len, i += blockDim.x) {
@@ -80,7 +80,7 @@
     (see the usage of LaunchThreshold<warp_sort_immediate>::len_factor_for_choosing).
 
     Example:
-      __global__ void kernel() {
+      RAFT_KERNEL kernel() {
         warp_sort_immediate<...> queue(...);
         int warp_id = threadIdx.x / WarpSize;
         int lane_id = threadIdx.x % WarpSize;
@@ -750,8 +750,8 @@ template <template <int, bool, typename, typename> class WarpSortClass,
           bool Ascending,
           typename T,
           typename IdxT>
-__launch_bounds__(256) __global__
-  void block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
+__launch_bounds__(256) RAFT_KERNEL
+  block_kernel(const T* in, const IdxT* in_idx, IdxT len, int k, T* out, IdxT* out_idx)
 {
   extern __shared__ __align__(256) uint8_t smem_buf_bytes[];
   using bq_t         = block_sort<WarpSortClass, Capacity, Ascending, T, IdxT>;
