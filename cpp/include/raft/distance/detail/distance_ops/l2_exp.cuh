@@ -22,10 +22,11 @@
 namespace raft::distance::detail::ops {
 
 template <typename DataT>
-__device__ DataT get_clamp_precision()
+__device__ constexpr DataT get_clamp_precision()
 {
   switch (sizeof(DataT)) {
-    case 4: return 1e-5;
+    case 2: return 1e-3;
+    case 4: return 1e-4;
     case 8: return 1e-14;
     default: return 0;
   }
@@ -46,9 +47,8 @@ struct l2_exp_cutlass_op {
      * Self-neighboring points should have (aNorm == bNorm) == accVal and the dot product (accVal)
      * can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal instead.
      */
-    outVal = outVal * (raft::abs(outVal) >= get_clamp_precision<DataT>() &&
-                       !(aNorm == bNorm && accVal != 0.0));
-    return sqrt ? raft::sqrt(outVal) : outVal;
+    outVal = outVal * !((outVal < get_clamp_precision<DataT>()) * (aNorm == bNorm));
+    return sqrt ? raft::sqrt(outVal * (outVal > 0)) : outVal;
   }
 
   __device__ AccT operator()(DataT aData) const noexcept { return aData; }
@@ -107,8 +107,8 @@ struct l2_exp_distance_op {
          * (accVal) can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal
          * instead.
          */
-        acc[i][j] = val * (raft::abs(val) >= get_clamp_precision<DataT>() &&
-                           !(regxn[i] == regyn[j] && accVal != 0.0));
+        acc[i][j] =
+          val * (val > 0) * !((val < get_clamp_precision<DataT>()) * (regxn[i] == regyn[j]));
       }
     }
     if (sqrt) {
