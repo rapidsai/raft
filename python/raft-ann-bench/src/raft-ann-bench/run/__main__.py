@@ -243,8 +243,6 @@ def main():
     dataset_path = args.dataset_path
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
-    if not os.path.exists(os.path.join(args.dataset_path, dataset_name)):
-        raise FileNotFoundError(os.path.join(args.dataset_path, dataset_name))
 
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
