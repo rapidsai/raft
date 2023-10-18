@@ -107,7 +107,8 @@ struct l2_exp_distance_op {
          * (accVal) can sometimes have round-off errors, which will cause (aNorm == bNorm) ~ accVal
          * instead.
          */
-        acc[i][j] = val * (raft::abs(val) >= get_clamp_precision<DataT>());
+        acc[i][j] = val * (raft::abs(val) >= get_clamp_precision<DataT>() &&
+                           !(regxn[i] == regyn[j] && accVal != 0.0));
       }
     }
     if (sqrt) {
