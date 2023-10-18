@@ -2,57 +2,53 @@
 #### End-to-end Example
 An end-to-end example (run from the RAFT source code root directory):
 ```bash
+# (0) get raft sources
+git clone https://github.com/rapidsai/raft.git
+cd raft
+
 # (1) prepare a dataset
-pushd
+export PYTHONPATH=python/raft-ann-bench/src:$PYTHONPATH
+python -m raft-ann-bench.get_dataset --dataset glove-100-angular --normalize
 
-cd cpp/bench/ann
-mkdir data && cd data
-wget http://ann-benchmarks.com/glove-100-angular.hdf5
-
-# option -n is used here to normalize vectors so cosine distance is converted
+# option --normalize is used here to normalize vectors so cosine distance is converted
 # to inner product; don't use -n for l2 distance
-python scripts/hdf5_to_fbin.py -n glove-100-angular.hdf5
-
-mkdir glove-100-inner
-mv glove-100-angular.base.fbin glove-100-inner/base.fbin
-mv glove-100-angular.query.fbin glove-100-inner/query.fbin
-mv glove-100-angular.groundtruth.neighbors.ibin glove-100-inner/groundtruth.neighbors.ibin
-mv glove-100-angular.groundtruth.distances.fbin glove-100-inner/groundtruth.distances.fbin
-popd
 
 # (2) build index
-./cpp/build/RAFT_IVF_FLAT_ANN_BENCH \
-  --data_prefix=cpp/bench/ann/data \
+$CONDA_PREFIX/bin/ann/RAFT_IVF_FLAT_ANN_BENCH \
+  --data_prefix=datasets \
   --build \
   --benchmark_filter="raft_ivf_flat\..*" \
-  cpp/bench/ann/conf/glove-100-inner.json
+  python/raft-ann-bench/src/raft-ann-bench/run/conf/glove-100-inner.json 
 
 # (3) search
-./cpp/build/RAFT_IVF_FLAT_ANN_BENCH \
-  --data_prefix=cpp/bench/ann/data \
+$CONDA_PREFIX/bin/ann/RAFT_IVF_FLAT_ANN_BENCH\
+  --data_prefix=datasets \
   --benchmark_min_time=2s \
   --benchmark_out=ivf_flat_search.csv \
   --benchmark_out_format=csv \
   --benchmark_counters_tabular \
   --search \
-  --benchmark_filter="raft_ivf_flat\..*"
-  cpp/bench/ann/conf/glove-100-inner.json
+  --benchmark_filter="raft_ivf_flat\..*" \
+    python/raft-ann-bench/src/raft-ann-bench/run/conf/glove-100-inner.json 
+
 
 # optional step: plot QPS-Recall figure using data in ivf_flat_search.csv with your favorite tool
 ```
 
 ##### Step 1: Prepare Dataset
+Note: the preferred way to download and process smaller (million scale) datasets is to use the `get_dataset` script as demonstrated in the example above.
+
 A dataset usually has 4 binary files containing database vectors, query vectors, ground truth neighbors and their corresponding distances. For example, Glove-100 dataset has files `base.fbin` (database vectors), `query.fbin` (query vectors), `groundtruth.neighbors.ibin` (ground truth neighbors), and `groundtruth.distances.fbin` (ground truth distances). The first two files are for index building and searching, while the other two are associated with a particular distance and are used for evaluation.
 
 The file suffixes `.fbin`, `.f16bin`, `.ibin`, `.u8bin`, and `.i8bin` denote that the data type of vectors stored in the file are `float32`, `float16`(a.k.a `half`), `int`, `uint8`, and `int8`, respectively.
 These binary files are little-endian and the format is: the first 8 bytes are `num_vectors` (`uint32_t`) and `num_dimensions` (`uint32_t`), and the following `num_vectors * num_dimensions * sizeof(type)` bytes are vectors stored in row-major order.
 
-Some implementation can take `float16` database and query vectors as inputs and will have better performance. Use `script/fbin_to_f16bin.py` to transform dataset from `float32` to `float16` type.
+Some implementation can take `float16` database and query vectors as inputs and will have better performance. Use `python/raft-ann-bench/src/raft-ann-bench/get_dataset/fbin_to_f16bin.py` to transform dataset from `float32` to `float16` type.
 
 Commonly used datasets can be downloaded from two websites:
 1. Million-scale datasets can be found at the [Data sets](https://github.com/erikbern/ann-benchmarks#data-sets) section of [`ann-benchmarks`](https://github.com/erikbern/ann-benchmarks).
 
-    However, these datasets are in HDF5 format. Use `cpp/bench/ann/scripts/hdf5_to_fbin.py` to transform the format. A few Python packages are required to run it:
+    However, these datasets are in HDF5 format. Use `python/raft-ann-bench/src/raft-ann-bench/get_dataset/fbin_to_f16bin.py/hdf5_to_fbin.py` to transform the format. A few Python packages are required to run it:
     ```bash
     pip3 install numpy h5py
     ```
@@ -72,8 +68,8 @@ Commonly used datasets can be downloaded from two websites:
 
 2. Billion-scale datasets can be found at [`big-ann-benchmarks`](http://big-ann-benchmarks.com). The ground truth file contains both neighbors and distances, thus should be split. A script is provided for this:
     ```bash
-    $ cpp/bench/ann/scripts/split_groundtruth.pl
-    usage: script/split_groundtruth.pl input output_prefix
+    $ python/raft-ann-bench/src/raft-ann-bench/split_groundtruth/split_groundtruth.pl
+    usage: split_groundtruth.pl input output_prefix
     ```
     Take Deep-1B dataset as an example:
     ```bash
@@ -82,7 +78,7 @@ Commonly used datasets can be downloaded from two websites:
     mkdir -p data/deep-1B && cd data/deep-1B
     # download manually "Ground Truth" file of "Yandex DEEP"
     # suppose the file name is deep_new_groundtruth.public.10K.bin
-    ../../scripts/split_groundtruth.pl deep_new_groundtruth.public.10K.bin groundtruth
+    /path/to/raft/python/raft-ann-bench/src/raft-ann-bench/split_groundtruth/split_groundtruth.pl deep_new_groundtruth.public.10K.bin groundtruth
     # two files 'groundtruth.neighbors.ibin' and 'groundtruth.distances.fbin' should be produced
     popd
     ```
