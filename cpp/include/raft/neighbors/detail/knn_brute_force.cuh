@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <iostream>
 #include <raft/core/resources.hpp>
+#include <raft/distance/detail/distance_ops/l2_exp.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
@@ -186,6 +187,7 @@ void tiled_brute_force_knn(const raft::resources& handle,
         auto row_norms = search_norms.data();
         auto col_norms = precomputed_index_norms ? precomputed_index_norms : index_norms.data();
         auto dist      = temp_distances.data();
+        bool sqrt      = metric == raft::distance::DistanceType::L2SqrtExpanded;
 
         raft::linalg::map_offset(
           handle,
@@ -194,15 +196,9 @@ void tiled_brute_force_knn(const raft::resources& handle,
             IndexType row = i + (idx / current_centroid_size);
             IndexType col = j + (idx % current_centroid_size);
 
-            auto val = row_norms[row] + col_norms[col] - 2.0 * dist[idx];
-
-            // due to numerical instability (especially around self-distance)
-            // the distances here could be slightly negative, which will
-            // cause NaN values in the subsequent sqrt. Clamp to 0
-            val = val * (val >= 0.0001);
-            if (metric == raft::distance::DistanceType::L2SqrtExpanded) { val = sqrt(val); }
-            val = distance_epilogue(val, row, col);
-            return val;
+            raft::distance::detail::ops::l2_exp_cutlass_op<ElementType, ElementType> l2_op(sqrt);
+            auto val = l2_op(row_norms[row], col_norms[col], dist[idx]);
+            return distance_epilogue(val, row, col);
           });
       } else if (metric == raft::distance::DistanceType::CosineExpanded) {
         auto row_norms = search_norms.data();
