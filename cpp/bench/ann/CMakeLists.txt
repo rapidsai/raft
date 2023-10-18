@@ -106,8 +106,10 @@ if(RAFT_ANN_BENCH_USE_GGNN)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  # We need to ensure that faiss has all the conda information. So we currently use the very ugly
-  # hammer of `link_libraries` to ensure that all targets in this directory and the faiss directory
+  # We need to ensure that faiss has all the conda
+  # information. So we currently use the very ugly
+  # hammer of `link_libraries` to ensure that all
+  # targets in this directory and the faiss directory
   # will have the conda includes/link dirs
   link_libraries($<TARGET_NAME_IF_EXISTS:conda_env>)
   include(cmake/thirdparty/get_faiss.cmake)
@@ -245,14 +247,9 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA)
     PATH
     bench/ann/src/raft/raft_benchmark.cu
     $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra.cu>
-    # $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/orig_cagra.cu>
     LINKS
     raft::compiled
   )
-  # target_compile_options(RAFT_CAGRA_ANN_BENCH PUBLIC -I/workspace/rapids/knn/cagra/include)
-  # target_link_options(RAFT_CAGRA_ANN_BENCH PUBLIC -L/workspace/rapids/knn/cagra/lib)
-
-  # target_link_libraries(RAFT_CAGRA_ANN_BENCH PUBLIC cagra)
 endif()
 
 set(RAFT_FAISS_TARGETS faiss::faiss)

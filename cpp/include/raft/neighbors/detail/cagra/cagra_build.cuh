@@ -59,13 +59,12 @@ void build_knn_graph(raft::resources const& res,
                                                             node_degree);
 
   if (!build_params) {
-    build_params = ivf_pq::index_params{};
-    build_params->n_lists =
-      16384;  // dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
-    build_params->pq_dim                   = 32;  // raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
-    build_params->pq_bits                  = 8;
+    build_params          = ivf_pq::index_params{};
+    build_params->n_lists = dataset.extent(0) < 4 * 2500 ? 4 : (uint32_t)(dataset.extent(0) / 2500);
+    build_params->pq_dim  = raft::Pow2<8>::roundUp(dataset.extent(1) / 2);
+    build_params->pq_bits = 8;
     build_params->kmeans_trainset_fraction = dataset.extent(0) < 10000 ? 1 : 10;
-    build_params->kmeans_n_iters           = 10;  // 25;
+    build_params->kmeans_n_iters           = 25;
     build_params->add_data_on_build        = true;
   }
 
@@ -95,12 +94,12 @@ void build_knn_graph(raft::resources const& res,
   //
   if (!search_params) {
     search_params            = ivf_pq::search_params{};
-    search_params->n_probes  = 50;  // std::min<IdxT>(dataset.extent(1) * 2, build_params->n_lists);
-    search_params->lut_dtype = CUDA_R_16F;
-    search_params->internal_distance_dtype = CUDA_R_16F;
+    search_params->n_probes  = std::min<IdxT>(dataset.extent(1) * 2, build_params->n_lists);
+    search_params->lut_dtype = CUDA_R_8U;
+    search_params->internal_distance_dtype = CUDA_R_32F;
   }
   const auto top_k          = node_degree + 1;
-  uint32_t gpu_top_k        = node_degree * 4;  // refine_rate.value_or(2.0f);
+  uint32_t gpu_top_k        = node_degree * refine_rate.value_or(2.0f);
   gpu_top_k                 = std::min<IdxT>(std::max(gpu_top_k, top_k), dataset.extent(0));
   const auto num_queries    = dataset.extent(0);
   const auto max_batch_size = 1024;

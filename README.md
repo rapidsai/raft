@@ -1,25 +1,3 @@
-# RAFT CAGRA vs ORIGINAL CAGRA Benchmarks
-
-This branch adds a wrapper to ANN bench to call the original (standalone) cagra code.
-
-## Compile
-
-1. Set CAGRA path in [CMakeLists.txt](https://gitlab-master.nvidia.com/tfeher/raft-fork/-/blob/cagra_pin_dataset_head/cpp/bench/ann/CMakeLists.txt#L215-L216)
-2. Compile with RAFT_CARA benchmarks enabled
-
-## Benchmark
-
-1. Set optimized [graph path here](https://gitlab-master.nvidia.com/tfeher/raft-fork/-/blob/cagra_pin_dataset_head/python/raft-ann-bench/src/raft-ann-bench/run/conf/deep-100M.json#L381). This has to be generated with the original CAGAR code.
-2. To run original CAGRA, set algorithm parameter to "cagra" [here](https://gitlab-master.nvidia.com/tfeher/raft-fork/-/blob/cagra_pin_dataset_head/python/raft-ann-bench/src/raft-ann-bench/run/conf/deep-100M.json#L379). To run RAFT CAGRA, use "raft_cagra" as the "algo" param.
-
-3. `export LD_LIBRARY_PATH=/path/to/cagra/lib:$LD_LIBRARY_PATH`
-
-4. run benchmark
-```
-./RAFT_CAGRA_ANN_BENCH --search --overwrite --data_prefix=/data/ --benchmark_filter=cagra.dim32.*cta --benchmark_out_format=csv --benchmark_out=res_cagra.csv --override_kv=n_queries:1 /workspace1/raft/python/raft-ann-bench//src/raft-ann-bench/run/conf/deep-100M.json 
-```
-
-# ORIGINAL RAFT README BELOW
 # <div align="left"><img src="https://rapids.ai/assets/images/rapids_logo.png" width="90px"/>&nbsp;RAFT: Reusable Accelerated Functions and Tools for Vector Search and More</div>
 
 ![RAFT tech stack](img/raft-tech-stack-vss.png)
