@@ -63,8 +63,6 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     else:
         expected = cdist(input1, input1, metric)
 
-    # expected[expected <= 1e-5] = 0.0
-
     input1_device = device_ndarray(input1)
     output_device = device_ndarray(output) if inplace else None
 
@@ -78,9 +76,5 @@ def test_distance(n_rows, n_cols, inplace, metric, order, dtype):
     output_device = ret_output if not inplace else output_device
 
     actual = output_device.copy_to_host()
-
-    # actual[actual <= 1e-5] = 0.0
-    # if metric == "euclidean":
-    #     np.fill_diagonal(actual, 0.0)
 
     assert np.allclose(expected, actual, atol=1e-3, rtol=1e-3)
