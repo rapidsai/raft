@@ -33,7 +33,6 @@
 #include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
-#include <rmm/mr/device/managed_memory_resource.hpp>
 
 #include <thrust/device_ptr.h>
 
@@ -195,48 +194,6 @@ class device_uvector_policy {
 
  private:
   rmm::mr::device_memory_resource* mr_{nullptr};
-};
-
-/**
- * @brief A container policy for managed mdarray.
- */
-template <typename ElementType>
-class managed_uvector_policy {
- public:
-  using element_type   = ElementType;
-  using container_type = device_uvector<element_type>;
-  // FIXME(jiamingy): allocator type is not supported by rmm::device_uvector
-  using pointer         = typename container_type::pointer;
-  using const_pointer   = typename container_type::const_pointer;
-  using reference       = device_reference<element_type>;
-  using const_reference = device_reference<element_type const>;
-
-  using accessor_policy       = std::experimental::default_accessor<element_type>;
-  using const_accessor_policy = std::experimental::default_accessor<element_type const>;
-
- public:
-  auto create(raft::resources const& res, size_t n) -> container_type
-  {
-    return container_type(n, resource::get_cuda_stream(res), &mr_);
-  }
-
-  managed_uvector_policy() = default;
-
-  [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
-  {
-    return c[n];
-  }
-  [[nodiscard]] constexpr auto access(container_type const& c, size_t n) const noexcept
-    -> const_reference
-  {
-    return c[n];
-  }
-
-  [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
-  [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
-
- private:
-  rmm::mr::managed_memory_resource mr_{};
 };
 
 }  // namespace raft
