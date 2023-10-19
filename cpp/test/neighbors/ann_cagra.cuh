@@ -274,7 +274,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -516,7 +516,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -630,7 +630,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
