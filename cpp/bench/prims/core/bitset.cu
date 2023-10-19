@@ -44,7 +44,7 @@ struct bitset_bench : public fixture {
     loop_on_state(state, [this]() {
       auto my_bitset = raft::core::bitset<bitset_t, index_t>(
         this->res, raft::make_const_mdspan(mask.view()), params.bitset_len);
-      my_bitset.test(raft::make_const_mdspan(queries.view()), outputs.view());
+      my_bitset.test(this->res, raft::make_const_mdspan(queries.view()), outputs.view());
     });
   }
 
