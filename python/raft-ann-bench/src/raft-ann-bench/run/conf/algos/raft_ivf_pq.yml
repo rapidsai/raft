@@ -14,4 +14,4 @@ name: raft_ivf_pq
         # Custom validator with a `validate()` function that accepts a parameter combination
         # and returns false if it's not valid (for example,
         # internalDistanceDtype should never be lower than smemLutDtype)
-        validators: raft_ivf_pq_validator
+        validators: raft-ann-bench.validators.raft_ivf_pq_validator
