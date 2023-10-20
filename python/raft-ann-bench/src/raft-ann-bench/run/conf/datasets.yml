@@ -1,0 +1,85 @@
+- "name": "bigann-100M",
+  "base_file": "bigann-1B/base.1B.u8bin",
+  "subset_size": 100000000,
+  "query_file": "bigann-1B/query.public.10K.u8bin",
+  "groundtruth_neighbors_file": "bigann-100M/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "deep-1B",
+  "base_file": "deep-1B/base.1B.fbin",
+  "query_file": "deep-1B/query.public.10K.fbin",
+  "groundtruth_neighbors_file": "deep-1B/groundtruth.neighbors.ibin",
+  "distance": "inner_product"
+
+- "name": "bigann-100M",
+  "base_file": "bigann-1B/base.1B.u8bin",
+  "subset_size": 100000000,
+  "query_file": "bigann-1B/query.public.10K.u8bin",
+  "groundtruth_neighbors_file": "bigann-100M/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "deep-image-96-inner",
+  "base_file": "deep-image-96-inner/base.fbin",
+  "query_file": "deep-image-96-inner/query.fbin",
+  "groundtruth_neighbors_file": "deep-image-96-inner/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "fashion-mnist-784-euclidean",
+  "base_file": "fashion-mnist-784-euclidean/base.fbin",
+  "query_file": "fashion-mnist-784-euclidean/query.fbin",
+  "groundtruth_neighbors_file": "fashion-mnist-784-euclidean/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "gist-960-euclidean",
+  "base_file": "gist-960-euclidean/base.fbin",
+  "query_file": "gist-960-euclidean/query.fbin",
+  "distance": "euclidean"
+
+- "name": "glove-50-angular",
+  "base_file": "glove-50-angular/base.fbin",
+  "query_file": "glove-50-angular/query.fbin",
+  "distance": "euclidean"
+
+- "name": "glove-50-inner",
+  "base_file": "glove-50-inner/base.fbin",
+  "query_file": "glove-50-inner/query.fbin",
+  "distance": "euclidean"
+
+- "name": "glove-100-angular",
+  "base_file": "glove-100-angular/base.fbin",
+  "query_file": "glove-100-angular/query.fbin",
+  "distance": "euclidean"
+
+- "name": "glove-100-inner",
+  "base_file": "glove-100-inner/base.fbin",
+  "query_file": "glove-100-inner/query.fbin",
+  "distance": "euclidean"
+
+- "name": "lastfm-65-angular",
+  "base_file": "lastfm-65-angular/base.fbin",
+  "query_file": "lastfm-65-angular/query.fbin",
+  "distance": "euclidean"
+
+- "name": "mnist-784-euclidean",
+  "base_file": "mnist-784-euclidean/base.fbin",
+  "query_file": "mnist-784-euclidean/query.fbin",
+  "groundtruth_neighbors_file": "mnist-784-euclidean/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "nytimes-256-angular",
+  "base_file": "nytimes-256-angular/base.fbin",
+  "query_file": "nytimes-256-angular/query.fbin",
+  "groundtruth_neighbors_file": "nytimes-256-angular/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "nytimes-256-inner",
+  "base_file": "nytimes-256-inner/base.fbin",
+  "query_file": "nytimes-256-inner/query.fbin",
+  "groundtruth_neighbors_file": "nytimes-256-inner/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
+
+- "name": "sift-128-euclidean",
+  "base_file": "sift-128-euclidean/base.fbin",
+  "query_file": "sift-128-euclidean/query.fbin",
+  "groundtruth_neighbors_file": "sift-128-euclidean/groundtruth.neighbors.ibin",
+  "distance": "euclidean"
