@@ -239,13 +239,14 @@ def main():
         )
     conf_filename = conf_filepath.split("/")[-1]
     conf_filedir = "/".join(conf_filepath.split("/")[:-1])
-    dataset_name = conf_filename.replace(".json", "")
     dataset_path = args.dataset_path
     if not os.path.exists(conf_filepath):
         raise FileNotFoundError(conf_filename)
 
     with open(conf_filepath, "r") as f:
         conf_file = json.load(f)
+
+    dataset_name = conf_file["dataset"]["name"]
 
     executables_to_run = dict()
     # At least one named index should exist in config file
