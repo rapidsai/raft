@@ -354,7 +354,7 @@ def load_all_results(
         for result_filename in result_files
         if "csv" in result_filename
         and f"{k}-{batch_size}"
-        == '-'.join(result_filename.replace(".csv", "").split("-")[1:])
+        == "-".join(result_filename.replace(".csv", "").split("-")[1:])
     ]
     if len(algorithms) > 0:
         result_files = [
