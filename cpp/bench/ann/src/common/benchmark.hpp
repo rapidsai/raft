@@ -22,6 +22,9 @@
 
 #include <benchmark/benchmark.h>
 
+#include <rmm/cuda_stream_pool.hpp>
+
+#include "thread_pool.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -164,7 +167,8 @@ template <typename T>
 void bench_search(::benchmark::State& state,
                   std::shared_ptr<const Dataset<T>> dataset,
                   Configuration::Index index,
-                  std::size_t search_param_ix)
+                  std::size_t search_param_ix,
+                  Objective metric_objective)
 {
   const auto& sp_json = index.search_params[search_param_ix];
   dump_parameters(state, sp_json);
@@ -221,21 +225,52 @@ void bench_search(::benchmark::State& state,
 
   std::ptrdiff_t batch_offset   = 0;
   std::size_t queries_processed = 0;
+
   cuda_timer gpu_timer;
+
   {
+    /**
+     * When the objective is throughput, we want to overlap batches
+     * as much as possible and measure the end-to-end time from start
+     * to finish.
+     *
+     * When the objective is latency, we want to measure each batch
+     * individually. Latency is better measured in single-query batches
+     * but larger batches are still allowed in this mode in order to
+     * compare against the resulting batch sizes in throughput mode.
+     */
+    bool overlap_queries = metric_objective == Objective::THROUGHPUT;
+    ThreadPool thread_pool(overlap_queries ? std::thread::hardware_concurrency() : 0);
+
+    // TODO: Make this configurable
+    rmm::cuda_stream_pool stream_pool(overlap_queries ? std::thread::hardware_concurrency() : 0);
+
     nvtx_case nvtx{state.name()};
+
     for (auto _ : state) {
-      // measure the GPU time using the RAII helper
-      [[maybe_unused]] auto ntx_lap = nvtx.lap();
-      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+      if (metric_objective == Objective::LATENCY) {
+        // measure the GPU time using the RAII helper
+        [[maybe_unused]] auto ntx_lap = nvtx.lap();
+        [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+      }
       // run the search
       try {
-        algo->search(query_set + batch_offset * dataset->dim(),
-                     n_queries,
-                     k,
-                     neighbors.data + batch_offset * k,
-                     distances.data + batch_offset * k,
-                     gpu_timer.stream());
+        cudaStream_t stream =
+          overlap_queries ? stream_pool.get_stream().value() : gpu_timer.stream();
+        auto f = [=]() {
+          algo->search(query_set + batch_offset * dataset->dim(),
+                       n_queries,
+                       k,
+                       neighbors.data + batch_offset * k,
+                       distances.data + batch_offset * k,
+                       stream);
+        };
+
+        if (overlap_queries) {
+          thread_pool.run(f);
+        } else {
+          f();
+        }
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
@@ -243,7 +278,23 @@ void bench_search(::benchmark::State& state,
       batch_offset = (batch_offset + n_queries) % query_set_size;
       queries_processed += n_queries;
     }
+
+    /**
+     * If in throughput mode, wait for all results
+     */
+    if (metric_objective == Objective::THROUGHPUT) {
+      for (std::size_t i = 0; i < stream_pool.get_pool_size(); i++) {
+        cudaStreamSynchronize(stream_pool.get_stream(i));
+      }
+
+      thread_pool.synchronize();
+
+      // measure the GPU time using the RAII helper
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+    }
   }
+
   state.SetItemsProcessed(queries_processed);
   state.counters.insert({{"k", k}, {"n_queries", n_queries}});
   if (cudart.found()) {
@@ -325,14 +376,15 @@ void register_build(std::shared_ptr<const Dataset<T>> dataset,
 
 template <typename T>
 void register_search(std::shared_ptr<const Dataset<T>> dataset,
-                     std::vector<Configuration::Index> indices)
+                     std::vector<Configuration::Index> indices,
+                     Objective metric_objective)
 {
   for (auto index : indices) {
     for (std::size_t i = 0; i < index.search_params.size(); i++) {
       auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
       index.search_params[i].erase("override_suffix");
-      auto* b =
-        ::benchmark::RegisterBenchmark(index.name + suf, bench_search<T>, dataset, index, i);
+      auto* b = ::benchmark::RegisterBenchmark(
+        index.name + suf, bench_search<T>, dataset, index, i, metric_objective);
       b->Unit(benchmark::kMillisecond);
       b->UseRealTime();
     }
@@ -346,7 +398,8 @@ void dispatch_benchmark(const Configuration& conf,
                         bool search_mode,
                         std::string data_prefix,
                         std::string index_prefix,
-                        kv_series override_kv)
+                        kv_series override_kv,
+                        Objective metric_objective)
 {
   if (cudart.found()) {
     for (auto [key, value] : cuda_info()) {
@@ -414,7 +467,7 @@ void dispatch_benchmark(const Configuration& conf,
       index.search_params = apply_overrides(index.search_params, override_kv);
       index.file          = combine_path(index_prefix, index.file);
     }
-    register_search<T>(dataset, indices);
+    register_search<T>(dataset, indices, metric_objective);
   }
 }
 
@@ -445,6 +498,7 @@ inline auto run_main(int argc, char** argv) -> int
   std::string data_prefix     = "data";
   std::string index_prefix    = "index";
   std::string new_override_kv = "";
+  std::string mode            = "latency";
   kv_series override_kv{};
 
   char arg0_default[] = "benchmark";  // NOLINT
@@ -467,6 +521,7 @@ inline auto run_main(int argc, char** argv) -> int
         parse_bool_flag(argv[i], "--search", search_mode) ||
         parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
         parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
+        parse_string_flag(argv[i], "--mode", mode) ||
         parse_string_flag(argv[i], "--override_kv", new_override_kv)) {
       if (!new_override_kv.empty()) {
         auto kvv = split(new_override_kv, ':');
@@ -485,6 +540,9 @@ inline auto run_main(int argc, char** argv) -> int
       i--;
     }
   }
+
+  Objective metric_objective = Objective::LATENCY;
+  if (mode == "throughput") { metric_objective = Objective::THROUGHPUT; }
 
   if (build_mode == search_mode) {
     log_error("One and only one of --build and --search should be specified");
@@ -505,14 +563,32 @@ inline auto run_main(int argc, char** argv) -> int
   std::string dtype = conf.get_dataset_conf().dtype;
 
   if (dtype == "float") {
-    dispatch_benchmark<float>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<float>(conf,
+                              force_overwrite,
+                              build_mode,
+                              search_mode,
+                              data_prefix,
+                              index_prefix,
+                              override_kv,
+                              metric_objective);
   } else if (dtype == "uint8") {
-    dispatch_benchmark<std::uint8_t>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<std::uint8_t>(conf,
+                                     force_overwrite,
+                                     build_mode,
+                                     search_mode,
+                                     data_prefix,
+                                     index_prefix,
+                                     override_kv,
+                                     metric_objective);
   } else if (dtype == "int8") {
-    dispatch_benchmark<std::int8_t>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<std::int8_t>(conf,
+                                    force_overwrite,
+                                    build_mode,
+                                    search_mode,
+                                    data_prefix,
+                                    index_prefix,
+                                    override_kv,
+                                    metric_objective);
   } else {
     log_error("datatype '%s' is not supported", dtype.c_str());
     return -1;

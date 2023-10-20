@@ -16,10 +16,12 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <omp.h>
+#include <queue>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -72,6 +74,7 @@ class FixedThreadPool {
   template <typename Func, typename IdxT>
   void submit(Func f, IdxT len)
   {
+    // Run functions in main thread if thread pool has no threads
     if (threads_.empty()) {
       for (IdxT i = 0; i < len; ++i) {
         f(i);
@@ -84,6 +87,7 @@ class FixedThreadPool {
     const IdxT items_per_thread = len / (num_threads + 1);
     std::atomic<IdxT> cnt(items_per_thread * num_threads);
 
+    // Wrap function
     auto wrapped_f = [&](IdxT start, IdxT end) {
       for (IdxT i = start; i < end; ++i) {
         f(i);
@@ -128,4 +132,73 @@ class FixedThreadPool {
   Task_* tasks_;
   std::vector<std::thread> threads_;
   std::atomic<bool> finished_{false};
+};
+
+class ThreadPool {
+ public:
+  ThreadPool(unsigned num_threads = std::thread::hardware_concurrency())
+  {
+    while (num_threads--) {
+      threads.emplace_back([this] {
+        while (true) {
+          std::unique_lock<std::mutex> lock(mutex);
+          condvar.wait(lock, [this] { return !queue.empty(); });
+          auto task = std::move(queue.front());
+          if (task.valid()) {
+            queue.pop();
+            lock.unlock();
+            // run the task - this cannot throw; any exception
+            // will be stored in the corresponding future
+            task();
+          } else {
+            // an empty task is used to signal end of stream
+            // don't pop it off the top; all threads need to see it
+            break;
+          }
+        }
+      });
+    }
+  }
+
+  template <typename F, typename R = std::result_of_t<F && ()>>
+  std::future<R> run(F&& f) const
+  {
+    auto task   = std::packaged_task<R()>(std::forward<F>(f));
+    auto future = task.get_future();
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      // conversion to packaged_task<void()> erases the return type
+      // so it can be stored in the queue. the future will still
+      // contain the correct type
+      queue.push(std::packaged_task<void()>(std::move(task)));
+    }
+    condvar.notify_one();
+    return future;
+  }
+
+  void synchronize()
+  {
+    condvar.notify_all();
+    for (auto& thread : threads) {
+      thread.join();
+    }
+  }
+
+  ~ThreadPool()
+  {
+    // push a single empty task onto the queue and notify all threads,
+    // then wait for them to terminate
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      queue.push({});
+    }
+
+    synchronize();
+  }
+
+ private:
+  std::vector<std::thread> threads;
+  mutable std::queue<std::packaged_task<void()>> queue;
+  mutable std::mutex mutex;
+  mutable std::condition_variable condvar;
 };

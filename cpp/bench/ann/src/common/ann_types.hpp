@@ -24,6 +24,11 @@
 
 namespace raft::bench::ann {
 
+enum Objective {
+  THROUGHPUT,  // See how many vectors we can push through
+  LATENCY      // See how many
+};
+
 enum class MemoryType {
   Host,
   HostMmap,
