@@ -188,6 +188,7 @@ class ThreadPool {
   {
     // push a single empty task onto the queue and notify all threads,
     // then wait for them to terminate
+
     {
       std::lock_guard<std::mutex> lock(mutex);
       queue.push({});

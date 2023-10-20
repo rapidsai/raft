@@ -127,7 +127,7 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
-                "--mode=" % str(mode),
+                "--mode=%s" % mode,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]

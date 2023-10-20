@@ -339,6 +339,7 @@ inline void printf_usage()
     "          [--data_prefix=<prefix>]\n"
     "          [--index_prefix=<prefix>]\n"
     "          [--override_kv=<key:value1:value2:...:valueN>]\n"
+    "          [--mode=<latency|throughput>\n"
     "          <conf>.json\n"
     "\n"
     "Note the non-standard benchmark parameters:\n"
@@ -353,7 +354,10 @@ inline void printf_usage()
     "  --override_kv=<key:value1:value2:...:valueN>:"
     " override a build/search key one or more times multiplying the number of configurations;"
     " you can use this parameter multiple times to get the Cartesian product of benchmark"
-    " configs.\n");
+    " configs.\n"
+    "  --mode=<latency|throughput>"
+    "     run the benchmarks in latency (accumulate times spent in each batch) or "
+    "     throughput (pipeline batches and measure end-to-end) mode\n");
 }
 
 template <typename T>
