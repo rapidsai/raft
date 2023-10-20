@@ -38,8 +38,15 @@
 #include "raft_ann_bench_utils.h"
 #include <raft/util/cudart_utils.hpp>
 
+#include "../common/cuda_huge_page_resource.hpp"
+#include "../common/cuda_pinned_resource.hpp"
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
+
 namespace raft::bench::ann {
 
+enum class AllocatorType { HostPinned, HostHugePage, Device };
 template <typename T, typename IdxT>
 class RaftCagra : public ANN<T> {
  public:
@@ -47,6 +54,8 @@ class RaftCagra : public ANN<T> {
 
   struct SearchParam : public AnnSearchParam {
     raft::neighbors::experimental::cagra::search_params p;
+    AllocatorType graph_mem   = AllocatorType::Device;
+    AllocatorType dataset_mem = AllocatorType::Device;
     auto needs_dataset() const -> bool override { return true; }
   };
 
@@ -56,7 +65,11 @@ class RaftCagra : public ANN<T> {
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull),
+      need_dataset_update_(true),
+      dataset_(make_device_matrix<T, int64_t>(handle_, 0, 0)),
+      graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
+      graph_mem_(AllocatorType::Device)
   {
     rmm::mr::set_current_device_resource(&mr_);
     index_params_.metric = parse_metric_type(metric);
@@ -92,14 +105,29 @@ class RaftCagra : public ANN<T> {
   void load(const std::string&) override;
 
  private:
+  inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
+  {
+    switch (mem_type) {
+      case (AllocatorType::HostPinned): return &mr_pinned_;
+      case (AllocatorType::HostHugePage): return &mr_huge_page_;
+      default: return rmm::mr::get_current_device_resource();
+    }
+  }
   // `mr_` must go first to make sure it dies last
   rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
+  rmm ::mr::cuda_pinned_resource mr_pinned_;
+  rmm ::mr::cuda_huge_page_resource mr_huge_page_;
   raft::device_resources handle_;
+  AllocatorType graph_mem_;
+  AllocatorType dataset_mem_;
   BuildParam index_params_;
+  bool need_dataset_update_;
   raft::neighbors::cagra::search_params search_params_;
   std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
   int device_;
   int dimension_;
+  raft::device_matrix<IdxT, int64_t, row_major> graph_;
+  raft::device_matrix<T, int64_t, row_major> dataset_;
 };
 
 template <typename T, typename IdxT>
@@ -118,18 +146,77 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
   }
 }
 
+inline std::string allocator_to_string(AllocatorType mem_type)
+{
+  if (mem_type == AllocatorType::Device) {
+    return "device";
+  } else if (mem_type == AllocatorType::HostPinned) {
+    return "host_pinned";
+  } else if (mem_type == AllocatorType::HostHugePage) {
+    return "host_huge_page";
+  }
+  return "<invalid allocator type>";
+}
+
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 {
   auto search_param = dynamic_cast<const SearchParam&>(param);
   search_params_    = search_param.p;
+  if (search_param.graph_mem != graph_mem_) {
+    // Move graph to correct memory space
+    graph_mem_ = search_param.graph_mem;
+    std::cout << "Moving graph to new memory space " << allocator_to_string(graph_mem_)
+              << std::endl;
+    // We create a new graph and copy to it from existing graph
+    auto mr        = get_mr(graph_mem_);
+    auto new_graph = make_device_mdarray<IdxT, int64_t>(
+      handle_, mr, make_extents<int64_t>(index_->graph().extent(0), index_->graph_degree()));
+
+    std::cout << "new_grap " << new_graph.extent(0) << "x" << new_graph.extent(1) << std::endl;
+    std::cout << "graph size " << index_->graph().size() << std::endl;
+    raft::copy(new_graph.data_handle(),
+               index_->graph().data_handle(),
+               index_->graph().size(),
+               resource::get_cuda_stream(handle_));
+
+    index_->update_graph(handle_, make_const_mdspan(new_graph.view()));
+    // update_graph() only stores a view in the index. We need to keep the graph object alive.
+    graph_ = std::move(new_graph);
+  }
+
+  if (search_param.dataset_mem != dataset_mem_) {
+    need_dataset_update_ = true;
+    dataset_mem_         = search_param.dataset_mem;
+  }
 }
 
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
 {
-  index_->update_dataset(handle_,
-                         raft::make_host_matrix_view<const T, int64_t>(dataset, nrow, this->dim_));
+  // It can happen that we are re-using a previous algo object which already has
+  // the dataset set. Check if we need update.
+  if (index_->size() != nrow || need_dataset_update_) {
+    // First free up existing memory
+    dataset_ = make_device_matrix<T, int64_t>(handle_, 0, 0);
+    index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
+
+    // Allocate space using the correcct memory resource
+    auto mr = get_mr(dataset_mem_);
+
+    std::cout << "Moving dataset to new memory space " << allocator_to_string(dataset_mem_)
+              << std::endl;
+    auto input_dataset_view = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
+    raft::neighbors::cagra::detail::copy_with_padding(handle_, dataset_, input_dataset_view, mr);
+
+    index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
+
+    // Ideally, instead of dataset_.view(), we should pass a strided matrix view to update.
+    // auto dataset_view = make_device_strided_matrix_view<const T, int64_t>(
+    //   dataset_.data_handle(), dataset_.extent(0), this->dim_, dataset_.extent(1));
+    // index_->update_dataset(handle_, dataset_view);
+    need_dataset_update_ = false;
+  }
 }
 
 template <typename T, typename IdxT>

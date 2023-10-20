@@ -36,7 +36,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-constexpr size_t expected_size = 296;
+constexpr size_t expected_size = 200;
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), expected_size>;
 
 /**

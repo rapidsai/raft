@@ -157,6 +157,21 @@ void parse_build_param(const nlohmann::json& conf,
   if (conf.contains("nn_descent_niter")) { param.nn_descent_niter = conf.at("nn_descent_niter"); }
 }
 
+AllocatorType parse_allocator(std::string mem_type)
+{
+  if (mem_type == "device") {
+    return AllocatorType::Device;
+  } else if (mem_type == "host_pinned") {
+    return AllocatorType::HostPinned;
+  } else if (mem_type == "host_huge_page") {
+    return AllocatorType::HostHugePage;
+  }
+  THROW(
+    "Invalid value for memory type %s, must be one of [\"device\", \"host_pinned\", "
+    "\"host_huge_page\"",
+    mem_type.c_str());
+}
+
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
@@ -178,6 +193,8 @@ void parse_search_param(const nlohmann::json& conf,
       THROW("Invalid value for algo: %s", tmp.c_str());
     }
   }
+  if (conf.contains("graph_mem")) { param.graph_mem = parse_allocator(conf.at("graph_mem")); }
+  if (conf.contains("dataset_mem")) { param.dataset_mem = parse_allocator(conf.at("dataset_mem")); }
 }
 #endif
 
