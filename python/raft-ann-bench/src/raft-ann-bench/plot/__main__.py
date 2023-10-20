@@ -352,8 +352,9 @@ def load_all_results(
     result_files = [
         result_filename
         for result_filename in result_files
-        if "csv" in result_filename and f"{k}-{batch_size}" == '-'.join(
-            result_filename.replace(".csv", "").split("-")[1:])
+        if "csv" in result_filename
+        and f"{k}-{batch_size}"
+        == '-'.join(result_filename.replace(".csv", "").split("-")[1:])
     ]
     if len(algorithms) > 0:
         result_files = [
