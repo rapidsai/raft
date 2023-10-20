@@ -1,0 +1,12 @@
+name: raft_cagra
+  - base:
+      build:
+        graph_degree: [32, 64]
+      search:
+        itopk: [32, 64, 128]
+
+  - large:
+      build:
+        graph_degree: [32, 64]
+      search:
+        itopk: [32, 64, 128]

@@ -1,0 +1,4 @@
+name: faiss_gpu_ivf_pq
+  - base:
+    build:
+    search:
