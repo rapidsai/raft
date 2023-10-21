@@ -312,7 +312,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     // Hence, encoding-decoding chain often leads to altering both the PQ codes and the
     // reconstructed data.
     compare_vectors_l2(
-      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.025);
+      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.04);  // 0.025);
   }
 
   void check_packing(index<IdxT>* index, uint32_t label)

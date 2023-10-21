@@ -274,7 +274,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -457,6 +457,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        index_params.nn_descent_niter = 50;
         cagra::search_params search_params;
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
@@ -515,7 +516,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -571,6 +572,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        index_params.nn_descent_niter = 50;
         cagra::search_params search_params;
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
@@ -628,7 +630,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),

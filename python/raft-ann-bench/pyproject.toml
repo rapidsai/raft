@@ -27,7 +27,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
-dynamic = ["entry-points"]
 
 [project.urls]
 Homepage = "https://github.com/rapidsai/raft"
