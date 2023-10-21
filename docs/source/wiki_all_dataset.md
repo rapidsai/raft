@@ -6,7 +6,8 @@ The `wiki-all` dataset was created to stress vector search algorithms at scale w
 
 The dataset is composed of all the available languages of in the [Cohere Wikipedia dataset](https://huggingface.co/datasets/Cohere/wikipedia-22-12). An [English version]( https://www.kaggle.com/datasets/jjinho/wikipedia-20230701) is also available. 
 
-TODO: Brief summary of how the dataset was created
+
+We download the English wiki texts from https://www.kaggle.com/datasets/jjinho/wikipedia-20230701 and multi-lingual wiki texts from Cohere https://huggingface.co/datasets/Cohere/wikipedia-22-12. We notice that the English texts from Cohere is an older and smaller version 2022-12 than the kaggle English wiki texts 2023-07  so we remove the English texts from Cohere completely. In other words, the final wiki texts include English wiki from kaggle and other languages from Cohere. It should be noted that English texts constitute 50% of the total text size. Then, the wiki texts are chunked into 85 million 128-token pieces. For reference, Cohere chunks wiki texts into 104-token pieces. Finally, we compute the embedding of each chunk using paraphrase-multilingual-mpnet-base-v2 embedding model. In the end, we get an embedding matrix of size 85 million by 768.
 
 A version of the dataset is available in the format that can be used directly by the [raft-ann-bench]() tool. It's ~251GB, and has been split into multiple parts.
 
