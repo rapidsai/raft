@@ -138,6 +138,7 @@ class ThreadPool {
  public:
   ThreadPool(unsigned num_threads = std::thread::hardware_concurrency())
   {
+    if (num_threads <= 0) { return; }
     while (num_threads--) {
       threads.emplace_back([this] {
         while (true) {
@@ -176,14 +177,6 @@ class ThreadPool {
     return future;
   }
 
-  void synchronize()
-  {
-    condvar.notify_all();
-    for (auto& thread : threads) {
-      thread.join();
-    }
-  }
-
   ~ThreadPool()
   {
     // push a single empty task onto the queue and notify all threads,
@@ -193,8 +186,10 @@ class ThreadPool {
       std::lock_guard<std::mutex> lock(mutex);
       queue.push({});
     }
-
-    synchronize();
+    condvar.notify_all();
+    for (auto& thread : threads) {
+      thread.join();
+    }
   }
 
  private:

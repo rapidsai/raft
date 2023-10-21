@@ -103,6 +103,7 @@ class HnswLib : public ANN<T> {
   int m_;
   int num_threads_;
   std::unique_ptr<FixedThreadPool> thread_pool_;
+  Objective metric_objective_;
 };
 
 template <typename T>
@@ -159,10 +160,12 @@ void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
 template <typename T>
 void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
 {
-  auto param     = dynamic_cast<const SearchParam&>(param_);
-  appr_alg_->ef_ = param.ef;
+  auto param        = dynamic_cast<const SearchParam&>(param_);
+  appr_alg_->ef_    = param.ef;
+  metric_objective_ = param.metric_objective;
 
-  if (!thread_pool_ || num_threads_ != param.num_threads) {
+  if (metric_objective_ != Objective::LATENCY &&
+      (!thread_pool_ || num_threads_ != param.num_threads)) {
     num_threads_ = param.num_threads;
     thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
   }
@@ -172,12 +175,17 @@ template <typename T>
 void HnswLib<T>::search(
   const T* query, int batch_size, int k, size_t* indices, float* distances, cudaStream_t) const
 {
-  thread_pool_->submit(
-    [&](int i) {
-      // hnsw can only handle a single vector at a time.
-      get_search_knn_results_(query + i * dim_, k, indices + i * k, distances + i * k);
-    },
-    batch_size);
+  auto f = [&](int i) {
+    // hnsw can only handle a single vector at a time.
+    get_search_knn_results_(query + i * dim_, k, indices + i * k, distances + i * k);
+  };
+  if (metric_objective_ == Objective::LATENCY) {
+    thread_pool_->submit(f, batch_size);
+  } else {
+    for (int i = 0; i < batch_size; i++) {
+      f(i);
+    }
+  }
 }
 
 template <typename T>

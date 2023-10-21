@@ -84,7 +84,8 @@ template <typename T>
 class ANN : public AnnBase {
  public:
   struct AnnSearchParam {
-    virtual ~AnnSearchParam() = default;
+    Objective metric_objective = Objective::LATENCY;
+    virtual ~AnnSearchParam()  = default;
     [[nodiscard]] virtual auto needs_dataset() const -> bool { return false; };
   };
 

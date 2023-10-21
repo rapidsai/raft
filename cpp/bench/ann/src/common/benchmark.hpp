@@ -20,6 +20,8 @@
 #include "dataset.hpp"
 #include "util.hpp"
 
+#include <raft/util/cudart_utils.hpp>
+
 #include <benchmark/benchmark.h>
 
 #include <rmm/cuda_stream_pool.hpp>
@@ -29,6 +31,7 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
+#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -200,7 +203,8 @@ void bench_search(::benchmark::State& state,
       algo->load(index_file);
       current_algo = std::move(ualgo);
     }
-    search_param = ann::create_search_param<T>(index.algo, sp_json);
+    search_param                   = ann::create_search_param<T>(index.algo, sp_json);
+    search_param->metric_objective = metric_objective;
   } catch (const std::exception& e) {
     return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
   }
@@ -228,7 +232,10 @@ void bench_search(::benchmark::State& state,
 
   cuda_timer gpu_timer;
 
+  uint32_t start = raft::curTimeMillis();
+
   {
+    std::vector<std::future<void>> futures;
     /**
      * When the objective is throughput, we want to overlap batches
      * as much as possible and measure the end-to-end time from start
@@ -243,10 +250,11 @@ void bench_search(::benchmark::State& state,
     ThreadPool thread_pool(overlap_queries ? std::thread::hardware_concurrency() : 0);
 
     // TODO: Make this configurable
-    rmm::cuda_stream_pool stream_pool(overlap_queries ? std::thread::hardware_concurrency() : 0);
+    rmm::cuda_stream_pool stream_pool(overlap_queries ? std::thread::hardware_concurrency() : 1);
 
     nvtx_case nvtx{state.name()};
 
+    printf("Running state...\n");
     for (auto _ : state) {
       if (metric_objective == Objective::LATENCY) {
         // measure the GPU time using the RAII helper
@@ -257,7 +265,7 @@ void bench_search(::benchmark::State& state,
       try {
         cudaStream_t stream =
           overlap_queries ? stream_pool.get_stream().value() : gpu_timer.stream();
-        auto f = [=]() {
+        auto f = [&]() {
           algo->search(query_set + batch_offset * dataset->dim(),
                        n_queries,
                        k,
@@ -267,7 +275,7 @@ void bench_search(::benchmark::State& state,
         };
 
         if (overlap_queries) {
-          thread_pool.run(f);
+          futures.emplace_back(thread_pool.run(f));
         } else {
           f();
         }
@@ -279,21 +287,34 @@ void bench_search(::benchmark::State& state,
       queries_processed += n_queries;
     }
 
+    printf("Done running state\n");
+
     /**
      * If in throughput mode, wait for all results
      */
     if (metric_objective == Objective::THROUGHPUT) {
+      // Synchronize all the threads.
+      for (auto& f : futures) {
+        f.wait();
+      }
+
+      std::cout << "Futures size: " << futures.size() << std::endl;
+      futures.clear();
+
       for (std::size_t i = 0; i < stream_pool.get_pool_size(); i++) {
         cudaStreamSynchronize(stream_pool.get_stream(i));
       }
 
-      thread_pool.synchronize();
-
+      printf("collecting metrics\n");
       // measure the GPU time using the RAII helper
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
     }
   }
+
+  uint32_t stop = raft::curTimeMillis();
+
+  std::cout << "Took: " << (stop - start) << std::endl;
 
   state.SetItemsProcessed(queries_processed);
   state.counters.insert({{"k", k}, {"n_queries", n_queries}});

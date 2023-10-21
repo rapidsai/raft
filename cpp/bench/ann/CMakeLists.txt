@@ -15,18 +15,22 @@
 # ##################################################################################################
 # * benchmark options ------------------------------------------------------------------------------
 
-option(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT "Include faiss' brute-force knn algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
-       "Include faiss' cpu brute-force knn algorithm in benchmark" ON
+option(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT "Include faiss' brute-force knn algorithm in benchmark"
+       OFF
 )
-option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT "Include faiss' ivf flat algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_PQ "Include faiss' ivf pq algorithm in benchmark" OFF)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT
+       "Include faiss' cpu brute-force knn algorithm in benchmark" OFF
+)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_FLAT "Include faiss' cpu brute-force algorithm in benchmark"
+       OFF
+)
 
 option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_FLAT "Include faiss' cpu ivf flat algorithm in benchmark"
-       ON
+       OFF
 )
-option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ "Include faiss' cpu ivf pq algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_FAISS_CPU_IVF_PQ "Include faiss' cpu ivf pq algorithm in benchmark" OFF)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
@@ -106,10 +110,8 @@ if(RAFT_ANN_BENCH_USE_GGNN)
 endif()
 
 if(RAFT_ANN_BENCH_USE_FAISS)
-  # We need to ensure that faiss has all the conda
-  # information. So we currently use the very ugly
-  # hammer of `link_libraries` to ensure that all
-  # targets in this directory and the faiss directory
+  # We need to ensure that faiss has all the conda information. So we currently use the very ugly
+  # hammer of `link_libraries` to ensure that all targets in this directory and the faiss directory
   # will have the conda includes/link dirs
   link_libraries($<TARGET_NAME_IF_EXISTS:conda_env>)
   include(cmake/thirdparty/get_faiss.cmake)
