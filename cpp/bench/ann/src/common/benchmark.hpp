@@ -168,13 +168,16 @@ void bench_build(::benchmark::State& state,
 
 template <typename T>
 void bench_search(::benchmark::State& state,
-                  std::shared_ptr<const Dataset<T>> dataset,
                   Configuration::Index index,
                   std::size_t search_param_ix,
-                  Objective metric_objective)
+                  std::shared_ptr<const Dataset<T>> dataset)
 {
+  std::ptrdiff_t batch_offset = 0;
+  std::atomic<std::size_t> queries_processed(0);
+
   const auto& sp_json = index.search_params[search_param_ix];
-  dump_parameters(state, sp_json);
+
+  if (state.thread_index() == 0) { dump_parameters(state, sp_json); }
 
   // NB: `k` and `n_queries` are guaranteed to be populated in conf.cpp
   const std::uint32_t k = sp_json["k"];
@@ -184,7 +187,7 @@ void bench_search(::benchmark::State& state,
   const std::size_t query_set_size = (dataset->query_set_size() / n_queries) * n_queries;
 
   if (!file_exists(index.file)) {
-    state.SkipWithError("Index file is missing. Run the benchmark in the build mode first.");
+    throw std::runtime_error("Index file is missing. Run the benchmark in the build mode first.");
     return;
   }
   // algo is static to cache it between close search runs to save time on index loading
@@ -193,7 +196,8 @@ void bench_search(::benchmark::State& state,
     current_algo.reset();
     index_file = index.file;
   }
-  ANN<T>* algo;
+
+  ANN<T>* algo;  // TODO: Just have one thread load this.
   std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
   try {
     if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
@@ -203,15 +207,17 @@ void bench_search(::benchmark::State& state,
       algo->load(index_file);
       current_algo = std::move(ualgo);
     }
-    search_param                   = ann::create_search_param<T>(index.algo, sp_json);
-    search_param->metric_objective = metric_objective;
+    search_param = ann::create_search_param<T>(index.algo, sp_json);
+    //        search_param->metric_objective = metric_objective;
   } catch (const std::exception& e) {
-    return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
+    throw std::runtime_error("Failed to create an algo: " + std::string(e.what()));
   }
   algo->set_search_param(*search_param);
 
   const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
   const T* query_set       = dataset->query_set(algo_property.query_memory_type);
+
+  // TODO: Have 1 thread create and load these.
   buf<float> distances{algo_property.query_memory_type, k * query_set_size};
   buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};
 
@@ -220,22 +226,15 @@ void bench_search(::benchmark::State& state,
       algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
                                dataset->base_set_size());
     } catch (const std::exception& ex) {
-      state.SkipWithError("The algorithm '" + index.name +
-                          "' requires the base set, but it's not available. " +
-                          "Exception: " + std::string(ex.what()));
+      throw std::runtime_error("The algorithm '" + index.name +
+                               "' requires the base set, but it's not available. " +
+                               "Exception: " + std::string(ex.what()));
       return;
     }
   }
 
-  std::ptrdiff_t batch_offset   = 0;
-  std::size_t queries_processed = 0;
-
   cuda_timer gpu_timer;
-
-  uint32_t start = raft::curTimeMillis();
-
   {
-    std::vector<std::future<void>> futures;
     /**
      * When the objective is throughput, we want to overlap batches
      * as much as possible and measure the end-to-end time from start
@@ -246,39 +245,21 @@ void bench_search(::benchmark::State& state,
      * but larger batches are still allowed in this mode in order to
      * compare against the resulting batch sizes in throughput mode.
      */
-    bool overlap_queries = metric_objective == Objective::THROUGHPUT;
-    ThreadPool thread_pool(overlap_queries ? std::thread::hardware_concurrency() : 0);
-
-    // TODO: Make this configurable
-    rmm::cuda_stream_pool stream_pool(overlap_queries ? std::thread::hardware_concurrency() : 1);
 
     nvtx_case nvtx{state.name()};
 
-    printf("Running state...\n");
+    // Multithreading starts in the benchmark loop
     for (auto _ : state) {
-      if (metric_objective == Objective::LATENCY) {
-        // measure the GPU time using the RAII helper
-        [[maybe_unused]] auto ntx_lap = nvtx.lap();
-        [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
-      }
+      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
       // run the search
       try {
-        cudaStream_t stream =
-          overlap_queries ? stream_pool.get_stream().value() : gpu_timer.stream();
-        auto f = [&]() {
-          algo->search(query_set + batch_offset * dataset->dim(),
-                       n_queries,
-                       k,
-                       neighbors.data + batch_offset * k,
-                       distances.data + batch_offset * k,
-                       stream);
-        };
-
-        if (overlap_queries) {
-          futures.emplace_back(thread_pool.run(f));
-        } else {
-          f();
-        }
+        algo->search(query_set + batch_offset * dataset->dim(),
+                     n_queries,
+                     k,
+                     neighbors.data + batch_offset * k,
+                     distances.data + batch_offset * k,
+                     gpu_timer.stream());
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
@@ -286,67 +267,42 @@ void bench_search(::benchmark::State& state,
       batch_offset = (batch_offset + n_queries) % query_set_size;
       queries_processed += n_queries;
     }
-
-    printf("Done running state\n");
-
-    /**
-     * If in throughput mode, wait for all results
-     */
-    if (metric_objective == Objective::THROUGHPUT) {
-      // Synchronize all the threads.
-      for (auto& f : futures) {
-        f.wait();
-      }
-
-      std::cout << "Futures size: " << futures.size() << std::endl;
-      futures.clear();
-
-      for (std::size_t i = 0; i < stream_pool.get_pool_size(); i++) {
-        cudaStreamSynchronize(stream_pool.get_stream(i));
-      }
-
-      printf("collecting metrics\n");
-      // measure the GPU time using the RAII helper
-      [[maybe_unused]] auto ntx_lap = nvtx.lap();
-      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
-    }
   }
 
-  uint32_t stop = raft::curTimeMillis();
-
-  std::cout << "Took: " << (stop - start) << std::endl;
-
+  state.counters.insert({{"total_queries", queries_processed.load()}});
   state.SetItemsProcessed(queries_processed);
-  state.counters.insert({{"k", k}, {"n_queries", n_queries}});
   if (cudart.found()) {
     state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
-                           {"GPU QPS", queries_processed / gpu_timer.total_time()}});
+                           {"GPU QPS", queries_processed.load() / gpu_timer.total_time()}});
   }
   if (state.skipped()) { return; }
 
-  // evaluate recall
-  if (dataset->max_k() >= k) {
-    const std::int32_t* gt          = dataset->gt_set();
-    const std::uint32_t max_k       = dataset->max_k();
-    buf<std::size_t> neighbors_host = neighbors.move(MemoryType::Host);
+  if (state.thread_index() == 0) {
+    state.counters.insert({{"k", k}, {"batch_size", n_queries}});
+    // evaluate recall
+    if (dataset->max_k() >= k) {
+      const std::int32_t* gt          = dataset->gt_set();
+      const std::uint32_t max_k       = dataset->max_k();
+      buf<std::size_t> neighbors_host = neighbors.move(MemoryType::Host);
 
-    std::size_t rows        = std::min(queries_processed, query_set_size);
-    std::size_t match_count = 0;
-    std::size_t total_count = rows * static_cast<size_t>(k);
-    for (std::size_t i = 0; i < rows; i++) {
-      for (std::uint32_t j = 0; j < k; j++) {
-        auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
-        for (std::uint32_t l = 0; l < k; l++) {
-          auto exp_idx = gt[i * max_k + l];
-          if (act_idx == exp_idx) {
-            match_count++;
-            break;
+      std::size_t rows        = std::min(queries_processed.load(), query_set_size);
+      std::size_t match_count = 0;
+      std::size_t total_count = rows * static_cast<size_t>(k);
+      for (std::size_t i = 0; i < rows; i++) {
+        for (std::uint32_t j = 0; j < k; j++) {
+          auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
+          for (std::uint32_t l = 0; l < k; l++) {
+            auto exp_idx = gt[i * max_k + l];
+            if (act_idx == exp_idx) {
+              match_count++;
+              break;
+            }
           }
         }
       }
+      double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
+      state.counters.insert({{"Recall", actual_recall}});
     }
-    double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-    state.counters.insert({{"Recall", actual_recall}});
   }
 }
 
@@ -408,10 +364,12 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
     for (std::size_t i = 0; i < index.search_params.size(); i++) {
       auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
       index.search_params[i].erase("override_suffix");
-      auto* b = ::benchmark::RegisterBenchmark(
-        index.name + suf, bench_search<T>, dataset, index, i, metric_objective);
-      b->Unit(benchmark::kMillisecond);
-      b->UseRealTime();
+
+      auto* b = ::benchmark::RegisterBenchmark(index.name + suf, bench_search<T>, index, i, dataset)
+                  ->Unit(benchmark::kMillisecond)
+                  ->ThreadRange(1, 16)
+                  ->UseRealTime();
+      std::cout << "Done registering index " << i << std::endl;
     }
   }
 }

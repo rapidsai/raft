@@ -56,7 +56,8 @@ class RaftCagra : public ANN<T> {
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull),
+      handle_(cudaStreamPerThread)
   {
     rmm::mr::set_current_device_resource(&mr_);
     index_params_.metric = parse_metric_type(metric);
@@ -170,7 +171,7 @@ void RaftCagra<T, IdxT>::search(
                           neighbors_IdxT,
                           batch_size * k,
                           raft::cast_op<size_t>(),
-                          resource::get_cuda_stream(handle_));
+                          raft::resource::get_cuda_stream(handle_));
   }
 
   handle_.sync_stream();
