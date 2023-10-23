@@ -22,9 +22,6 @@
 
 #include <benchmark/benchmark.h>
 
-#include <rmm/cuda_stream_pool.hpp>
-
-#include "thread_pool.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -382,11 +379,14 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
       auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
       index.search_params[i].erase("override_suffix");
 
+      int max_threads =
+        metric_objective == Objective::THROUGHPUT ? std::thread::hardware_concurrency() : 1;
+
       auto* b = ::benchmark::RegisterBenchmark(
                   index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
                   ->Unit(benchmark::kMillisecond)
-                  ->ThreadRange(1, 32)
-                  ->UseManualTime();
+                  ->UseManualTime()
+                  ->ThreadRange(1, max_threads);
     }
   }
 }
