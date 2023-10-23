@@ -246,15 +246,15 @@ void bench_search(::benchmark::State& state,
     std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
 
   auto start = std::chrono::high_resolution_clock::now();
-  cuda_timer gpu_timer;
+  //  cuda_timer gpu_timer;
   {
-    nvtx_case nvtx{state.name()};
+    //    nvtx_case nvtx{state.name()};
 
     // TODO: Have the odd threads load the queries backwards just to rule out caching.
     ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
     for (auto _ : state) {
-      [[maybe_unused]] auto ntx_lap = nvtx.lap();
-      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+      //      [[maybe_unused]] auto ntx_lap = nvtx.lap();
+      //      [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
 
       auto start = std::chrono::high_resolution_clock::now();
       // run the search
@@ -264,7 +264,7 @@ void bench_search(::benchmark::State& state,
                      k,
                      neighbors->data + batch_offset * k,
                      distances->data + batch_offset * k,
-                     gpu_timer.stream());
+                     cudaStreamPerThread);
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
@@ -285,9 +285,9 @@ void bench_search(::benchmark::State& state,
     state.counters.insert({{"end_to_end", duration}});
   }
   state.SetItemsProcessed(queries_processed);
-  if (cudart.found()) {
-    state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
-  }
+  //  if (cudart.found()) {
+  //    state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
+  //  }
 
   // This will be the total number of queries across all threads
   state.counters.insert({{"total_queries", queries_processed}});
@@ -395,12 +395,12 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
                   /**
                    * The following are important for getting accuracy QPS measurements on both CPU
                    * and GPU These make sure that
-                   *   - `items_per_second` ~ (`total_queries` / `end_to_end`)
                    *   - `end_to_end` ~ (`Time` * `Iterations`)
-                   *   -
+                   *   - `items_per_second` ~ (`total_queries` / `end_to_end`)
+                   *   - `Time` = `end_to_end` / `Iterations`
                    */
                   ->MeasureProcessCPUTime()
-                  ->UseRealTime()
+                  ->UseRealTime();
     }
   }
 }
