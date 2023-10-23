@@ -245,6 +245,7 @@ void bench_search(::benchmark::State& state,
   std::shared_ptr<buf<std::size_t>> neighbors =
     std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
 
+  auto start = std::chrono::high_resolution_clock::now();
   cuda_timer gpu_timer;
   {
     nvtx_case nvtx{state.name()};
@@ -278,7 +279,11 @@ void bench_search(::benchmark::State& state,
       total_time += elapsed_seconds.count();
     }
   }
-
+  auto end = std::chrono::high_resolution_clock::now();
+  if (state.thread_index() == 0) {
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+    state.counters.insert({{"end_to_end", duration}});
+  }
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
     state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
@@ -291,7 +296,7 @@ void bench_search(::benchmark::State& state,
 
   // Use the last thread as a sanity check that all the threads are working.
   if (state.thread_index() == state.threads() - 1) {
-    state.counters.insert({{"k", k}, {"n_queries", n_queries}});
+    //    state.counters.insert({{"k", k}, {"n_queries", n_queries}});
 
     // evaluate recall
     if (dataset->max_k() >= k) {
@@ -385,8 +390,17 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
       auto* b = ::benchmark::RegisterBenchmark(
                   index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
                   ->Unit(benchmark::kMillisecond)
-                  ->UseManualTime()
-                  ->ThreadRange(1, max_threads);
+                  ->ThreadRange(1, max_threads)
+
+                  /**
+                   * The following are important for getting accuracy QPS measurements on both CPU
+                   * and GPU These make sure that
+                   *   - `items_per_second` ~ (`total_queries` / `end_to_end`)
+                   *   - `end_to_end` ~ (`Time` * `Iterations`)
+                   *   -
+                   */
+                  ->MeasureProcessCPUTime()
+                  ->UseRealTime()
     }
   }
 }
