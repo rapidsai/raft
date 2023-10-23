@@ -20,8 +20,6 @@
 #include "dataset.hpp"
 #include "util.hpp"
 
-#include <raft/util/cudart_utils.hpp>
-
 #include <benchmark/benchmark.h>
 
 #include <rmm/cuda_stream_pool.hpp>
