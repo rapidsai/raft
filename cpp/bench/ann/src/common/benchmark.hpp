@@ -254,12 +254,13 @@ void bench_search(::benchmark::State& state,
   {
     nvtx_case nvtx{state.name()};
 
+    // TODO: Have the odd threads load the queries backwards just to rule out caching.
+    ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
 
-      ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
-      auto start   = std::chrono::high_resolution_clock::now();
+      auto start = std::chrono::high_resolution_clock::now();
       // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
@@ -272,7 +273,8 @@ void bench_search(::benchmark::State& state,
         state.SkipWithError(std::string(e.what()));
       }
 
-      auto end             = std::chrono::high_resolution_clock::now();
+      auto end = std::chrono::high_resolution_clock::now();
+
       auto elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
       // advance to the next batch
       batch_offset = (batch_offset + n_queries) % query_set_size;
@@ -292,7 +294,8 @@ void bench_search(::benchmark::State& state,
 
   if (state.skipped()) { return; }
 
-  if (state.thread_index() == 0) {
+  // Use the last thread as a sanity check that all the threads are working.
+  if (state.thread_index() == state.threads() - 1) {
     state.counters.insert({{"k", k}, {"n_queries", n_queries}});
 
     // evaluate recall
