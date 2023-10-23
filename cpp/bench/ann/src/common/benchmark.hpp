@@ -284,52 +284,47 @@ void bench_search(::benchmark::State& state,
 
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
-        state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())},
+    state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
+  }
 
-//                               // Using gpu_timer.total_time() isn't really the most fair comparison.
-//                               {"GPU QPS", queries_processed / total_time }});
-    }
+  // This will be the total number of queries across all threads
+  state.counters.insert({{"total_queries", queries_processed}});
 
-    // This will be the total number of queries across all threads
-    state.counters.insert({{"total_queries", queries_processed}});
+  if (state.skipped()) { return; }
 
-    if (state.skipped()) {
-      return; }
+  if (state.thread_index() == 0) {
+    state.counters.insert({{"k", k}, {"n_queries", n_queries}});
 
-    if (state.thread_index() == 0) {
-      state.counters.insert({{"k", k}, {"n_queries", n_queries}});
-
-      // evaluate recall
-      if (dataset->max_k() >= k) {
-        const std::int32_t* gt          = dataset->gt_set();
-        const std::uint32_t max_k       = dataset->max_k();
-        buf<std::size_t> neighbors_host = neighbors->move(MemoryType::Host);
-        std::size_t rows                = std::min(queries_processed, query_set_size);
-        std::size_t match_count         = 0;
-        std::size_t total_count         = rows * static_cast<size_t>(k);
-        for (std::size_t i = 0; i < rows; i++) {
-          for (std::uint32_t j = 0; j < k; j++) {
-            auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
-            for (std::uint32_t l = 0; l < k; l++) {
-              auto exp_idx = gt[i * max_k + l];
-              if (act_idx == exp_idx) {
-                match_count++;
-                break;
-              }
+    // evaluate recall
+    if (dataset->max_k() >= k) {
+      const std::int32_t* gt          = dataset->gt_set();
+      const std::uint32_t max_k       = dataset->max_k();
+      buf<std::size_t> neighbors_host = neighbors->move(MemoryType::Host);
+      std::size_t rows                = std::min(queries_processed, query_set_size);
+      std::size_t match_count         = 0;
+      std::size_t total_count         = rows * static_cast<size_t>(k);
+      for (std::size_t i = 0; i < rows; i++) {
+        for (std::uint32_t j = 0; j < k; j++) {
+          auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
+          for (std::uint32_t l = 0; l < k; l++) {
+            auto exp_idx = gt[i * max_k + l];
+            if (act_idx == exp_idx) {
+              match_count++;
+              break;
             }
           }
         }
-        double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-        state.counters.insert({{"Recall", actual_recall}});
       }
+      double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
+      state.counters.insert({{"Recall", actual_recall}});
     }
   }
+}
 
-  inline void printf_usage()
-  {
-        ::benchmark::PrintDefaultHelp();
-        fprintf(
-          stdout,
+inline void printf_usage()
+{
+  ::benchmark::PrintDefaultHelp();
+  fprintf(stdout,
           "          [--build|--search] \n"
           "          [--overwrite]\n"
           "          [--data_prefix=<prefix>]\n"
@@ -356,220 +351,237 @@ void bench_search(::benchmark::State& state,
           "  --mode=<latency|throughput>"
           "     run the benchmarks in latency (accumulate times spent in each batch) or "
           "     throughput (pipeline batches and measure end-to-end) mode\n");
+}
+
+template <typename T>
+void register_build(std::shared_ptr<const Dataset<T>> dataset,
+                    std::vector<Configuration::Index> indices,
+                    bool force_overwrite)
+{
+  for (auto index : indices) {
+    auto suf      = static_cast<std::string>(index.build_param["override_suffix"]);
+    auto file_suf = suf;
+    index.build_param.erase("override_suffix");
+    std::replace(file_suf.begin(), file_suf.end(), '/', '-');
+    index.file += file_suf;
+    auto* b = ::benchmark::RegisterBenchmark(
+      index.name + suf, bench_build<T>, dataset, index, force_overwrite);
+    b->Unit(benchmark::kSecond);
+    b->UseRealTime();
+  }
+}
+
+template <typename T>
+void register_search(std::shared_ptr<const Dataset<T>> dataset,
+                     std::vector<Configuration::Index> indices,
+                     Objective metric_objective)
+{
+  for (auto index : indices) {
+    for (std::size_t i = 0; i < index.search_params.size(); i++) {
+      auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
+      index.search_params[i].erase("override_suffix");
+
+      auto* b = ::benchmark::RegisterBenchmark(
+                  index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
+                  ->Unit(benchmark::kMillisecond)
+                  ->ThreadRange(1, 32)
+                  ->UseManualTime();
+    }
+  }
+}
+
+template <typename T>
+void dispatch_benchmark(const Configuration& conf,
+                        bool force_overwrite,
+                        bool build_mode,
+                        bool search_mode,
+                        std::string data_prefix,
+                        std::string index_prefix,
+                        kv_series override_kv,
+                        Objective metric_objective)
+{
+  if (cudart.found()) {
+    for (auto [key, value] : cuda_info()) {
+      ::benchmark::AddCustomContext(key, value);
+    }
+  }
+  const auto dataset_conf = conf.get_dataset_conf();
+  auto base_file          = combine_path(data_prefix, dataset_conf.base_file);
+  auto query_file         = combine_path(data_prefix, dataset_conf.query_file);
+  auto gt_file            = dataset_conf.groundtruth_neighbors_file;
+  if (gt_file.has_value()) { gt_file.emplace(combine_path(data_prefix, gt_file.value())); }
+  auto dataset = std::make_shared<BinDataset<T>>(dataset_conf.name,
+                                                 base_file,
+                                                 dataset_conf.subset_first_row,
+                                                 dataset_conf.subset_size,
+                                                 query_file,
+                                                 dataset_conf.distance,
+                                                 gt_file);
+  ::benchmark::AddCustomContext("dataset", dataset_conf.name);
+  ::benchmark::AddCustomContext("distance", dataset_conf.distance);
+  std::vector<Configuration::Index> indices = conf.get_indices();
+  if (build_mode) {
+    if (file_exists(base_file)) {
+      log_info("Using the dataset file '%s'", base_file.c_str());
+      ::benchmark::AddCustomContext("n_records", std::to_string(dataset->base_set_size()));
+      ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
+    } else {
+      log_warn("Dataset file '%s' does not exist; benchmarking index building is impossible.",
+               base_file.c_str());
+    }
+    std::vector<Configuration::Index> more_indices{};
+    for (auto& index : indices) {
+      for (auto param : apply_overrides(index.build_param, override_kv)) {
+        auto modified_index        = index;
+        modified_index.build_param = param;
+        modified_index.file        = combine_path(index_prefix, modified_index.file);
+        more_indices.push_back(modified_index);
+      }
+    }
+    register_build<T>(dataset, more_indices, force_overwrite);
+  } else if (search_mode) {
+    if (file_exists(query_file)) {
+      log_info("Using the query file '%s'", query_file.c_str());
+      ::benchmark::AddCustomContext("max_n_queries", std::to_string(dataset->query_set_size()));
+      ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
+      if (gt_file.has_value()) {
+        if (file_exists(*gt_file)) {
+          log_info("Using the ground truth file '%s'", gt_file->c_str());
+          ::benchmark::AddCustomContext("max_k", std::to_string(dataset->max_k()));
+        } else {
+          log_warn("Ground truth file '%s' does not exist; the recall won't be reported.",
+                   gt_file->c_str());
+        }
+      } else {
+        log_warn(
+          "Ground truth file is not provided; the recall won't be reported. NB: use "
+          "the 'groundtruth_neighbors_file' alongside the 'query_file' key to specify the "
+          "path to "
+          "the ground truth in your conf.json.");
+      }
+    } else {
+      log_warn("Query file '%s' does not exist; benchmarking search is impossible.",
+               query_file.c_str());
+    }
+    for (auto& index : indices) {
+      index.search_params = apply_overrides(index.search_params, override_kv);
+      index.file          = combine_path(index_prefix, index.file);
+    }
+    register_search<T>(dataset, indices, metric_objective);
+  }
+}
+
+inline auto parse_bool_flag(const char* arg, const char* pat, bool& result) -> bool
+{
+  if (strcmp(arg, pat) == 0) {
+    result = true;
+    return true;
+  }
+  return false;
+}
+
+inline auto parse_string_flag(const char* arg, const char* pat, std::string& result) -> bool
+{
+  auto n = strlen(pat);
+  if (strncmp(pat, arg, strlen(pat)) == 0) {
+    result = arg + n + 1;
+    return true;
+  }
+  return false;
+}
+
+inline auto run_main(int argc, char** argv) -> int
+{
+  bool force_overwrite        = false;
+  bool build_mode             = false;
+  bool search_mode            = false;
+  std::string data_prefix     = "data";
+  std::string index_prefix    = "index";
+  std::string new_override_kv = "";
+  std::string mode            = "latency";
+  kv_series override_kv{};
+
+  char arg0_default[] = "benchmark";  // NOLINT
+  char* args_default  = arg0_default;
+  if (!argv) {
+    argc = 1;
+    argv = &args_default;
+  }
+  if (argc == 1) {
+    printf_usage();
+    return -1;
   }
 
-  template <typename T>
-  void register_build(std::shared_ptr<const Dataset<T>> dataset,
-                      std::vector<Configuration::Index> indices,
-                      bool force_overwrite)
-  {
-        for (auto index : indices) {
-          auto suf      = static_cast<std::string>(index.build_param["override_suffix"]);
-          auto file_suf = suf;
-          index.build_param.erase("override_suffix");
-          std::replace(file_suf.begin(), file_suf.end(), '/', '-');
-          index.file += file_suf;
-          auto* b = ::benchmark::RegisterBenchmark(
-            index.name + suf, bench_build<T>, dataset, index, force_overwrite);
-          b->Unit(benchmark::kSecond);
-          b->UseRealTime();
+  char* conf_path = argv[--argc];
+  std::ifstream conf_stream(conf_path);
+
+  for (int i = 1; i < argc; i++) {
+    if (parse_bool_flag(argv[i], "--overwrite", force_overwrite) ||
+        parse_bool_flag(argv[i], "--build", build_mode) ||
+        parse_bool_flag(argv[i], "--search", search_mode) ||
+        parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
+        parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
+        parse_string_flag(argv[i], "--mode", mode) ||
+        parse_string_flag(argv[i], "--override_kv", new_override_kv)) {
+      if (!new_override_kv.empty()) {
+        auto kvv = split(new_override_kv, ':');
+        auto key = kvv[0];
+        std::vector<nlohmann::json> vals{};
+        for (std::size_t j = 1; j < kvv.size(); j++) {
+          vals.push_back(nlohmann::json::parse(kvv[j]));
         }
+        override_kv.emplace_back(key, vals);
+        new_override_kv = "";
+      }
+      for (int j = i; j < argc - 1; j++) {
+        argv[j] = argv[j + 1];
+      }
+      argc--;
+      i--;
+    }
   }
 
-  template <typename T>
-  void register_search(std::shared_ptr<const Dataset<T>> dataset,
-                       std::vector<Configuration::Index> indices,
-                       Objective metric_objective)
-  {
-        for (auto index : indices) {
-          for (std::size_t i = 0; i < index.search_params.size(); i++) {
-            auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
-            index.search_params[i].erase("override_suffix");
+  Objective metric_objective = Objective::LATENCY;
+  if (mode == "throughput") { metric_objective = Objective::THROUGHPUT; }
 
-            auto* b = ::benchmark::RegisterBenchmark(
-                        index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
-                        ->Unit(benchmark::kMillisecond)
-                        ->ThreadRange(1, 32)
-                        ->UseManualTime();
-          }
-        }
+  if (build_mode == search_mode) {
+    log_error("One and only one of --build and --search should be specified");
+    printf_usage();
+    return -1;
   }
 
-  template <typename T>
-  void dispatch_benchmark(const Configuration& conf,
-                          bool force_overwrite,
-                          bool build_mode,
-                          bool search_mode,
-                          std::string data_prefix,
-                          std::string index_prefix,
-                          kv_series override_kv,
-                          Objective metric_objective)
-  {
-        if (cudart.found()) {
-          for (auto [key, value] : cuda_info()) {
-            ::benchmark::AddCustomContext(key, value);
-          }
-        }
-        const auto dataset_conf = conf.get_dataset_conf();
-        auto base_file          = combine_path(data_prefix, dataset_conf.base_file);
-        auto query_file         = combine_path(data_prefix, dataset_conf.query_file);
-        auto gt_file            = dataset_conf.groundtruth_neighbors_file;
-        if (gt_file.has_value()) { gt_file.emplace(combine_path(data_prefix, gt_file.value())); }
-        auto dataset = std::make_shared<BinDataset<T>>(dataset_conf.name,
-                                                       base_file,
-                                                       dataset_conf.subset_first_row,
-                                                       dataset_conf.subset_size,
-                                                       query_file,
-                                                       dataset_conf.distance,
-                                                       gt_file);
-        ::benchmark::AddCustomContext("dataset", dataset_conf.name);
-        ::benchmark::AddCustomContext("distance", dataset_conf.distance);
-        std::vector<Configuration::Index> indices = conf.get_indices();
-        if (build_mode) {
-          if (file_exists(base_file)) {
-            log_info("Using the dataset file '%s'", base_file.c_str());
-            ::benchmark::AddCustomContext("n_records", std::to_string(dataset->base_set_size()));
-            ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
-          } else {
-            log_warn("Dataset file '%s' does not exist; benchmarking index building is impossible.",
-                     base_file.c_str());
-          }
-          std::vector<Configuration::Index> more_indices{};
-          for (auto& index : indices) {
-            for (auto param : apply_overrides(index.build_param, override_kv)) {
-              auto modified_index        = index;
-              modified_index.build_param = param;
-              modified_index.file        = combine_path(index_prefix, modified_index.file);
-              more_indices.push_back(modified_index);
-            }
-          }
-          register_build<T>(dataset, more_indices, force_overwrite);
-        } else if (search_mode) {
-          if (file_exists(query_file)) {
-            log_info("Using the query file '%s'", query_file.c_str());
-            ::benchmark::AddCustomContext("max_n_queries",
-                                          std::to_string(dataset->query_set_size()));
-            ::benchmark::AddCustomContext("dim", std::to_string(dataset->dim()));
-            if (gt_file.has_value()) {
-              if (file_exists(*gt_file)) {
-                log_info("Using the ground truth file '%s'", gt_file->c_str());
-                ::benchmark::AddCustomContext("max_k", std::to_string(dataset->max_k()));
-              } else {
-                log_warn("Ground truth file '%s' does not exist; the recall won't be reported.",
-                         gt_file->c_str());
-              }
-            } else {
-              log_warn(
-                "Ground truth file is not provided; the recall won't be reported. NB: use "
-                "the 'groundtruth_neighbors_file' alongside the 'query_file' key to specify the "
-                "path to "
-                "the ground truth in your conf.json.");
-            }
-          } else {
-            log_warn("Query file '%s' does not exist; benchmarking search is impossible.",
-                     query_file.c_str());
-          }
-          for (auto& index : indices) {
-            index.search_params = apply_overrides(index.search_params, override_kv);
-            index.file          = combine_path(index_prefix, index.file);
-          }
-          register_search<T>(dataset, indices, metric_objective);
-        }
+  if (!conf_stream) {
+    log_error("Can't open configuration file: %s", conf_path);
+    return -1;
   }
 
-  inline auto parse_bool_flag(const char* arg, const char* pat, bool& result)->bool
-  {
-        if (strcmp(arg, pat) == 0) {
-          result = true;
-          return true;
-        }
-        return false;
+  if (cudart.needed() && !cudart.found()) {
+    log_warn("cudart library is not found, GPU-based indices won't work.");
   }
 
-  inline auto parse_string_flag(const char* arg, const char* pat, std::string& result)->bool
-  {
-        auto n = strlen(pat);
-        if (strncmp(pat, arg, strlen(pat)) == 0) {
-          result = arg + n + 1;
-          return true;
-        }
-        return false;
-  }
+  Configuration conf(conf_stream);
+  std::string dtype = conf.get_dataset_conf().dtype;
 
-  inline auto run_main(int argc, char** argv)->int
-  {
-        bool force_overwrite        = false;
-        bool build_mode             = false;
-        bool search_mode            = false;
-        std::string data_prefix     = "data";
-        std::string index_prefix    = "index";
-        std::string new_override_kv = "";
-        std::string mode            = "latency";
-        kv_series override_kv{};
-
-        char arg0_default[] = "benchmark";  // NOLINT
-        char* args_default  = arg0_default;
-        if (!argv) {
-          argc = 1;
-          argv = &args_default;
-        }
-        if (argc == 1) {
-          printf_usage();
-          return -1;
-        }
-
-        char* conf_path = argv[--argc];
-        std::ifstream conf_stream(conf_path);
-
-        for (int i = 1; i < argc; i++) {
-          if (parse_bool_flag(argv[i], "--overwrite", force_overwrite) ||
-              parse_bool_flag(argv[i], "--build", build_mode) ||
-              parse_bool_flag(argv[i], "--search", search_mode) ||
-              parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
-              parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
-              parse_string_flag(argv[i], "--mode", mode) ||
-              parse_string_flag(argv[i], "--override_kv", new_override_kv)) {
-            if (!new_override_kv.empty()) {
-              auto kvv = split(new_override_kv, ':');
-              auto key = kvv[0];
-              std::vector<nlohmann::json> vals{};
-              for (std::size_t j = 1; j < kvv.size(); j++) {
-                vals.push_back(nlohmann::json::parse(kvv[j]));
-              }
-              override_kv.emplace_back(key, vals);
-              new_override_kv = "";
-            }
-            for (int j = i; j < argc - 1; j++) {
-              argv[j] = argv[j + 1];
-            }
-            argc--;
-            i--;
-          }
-        }
-
-        Objective metric_objective = Objective::LATENCY;
-        if (mode == "throughput") { metric_objective = Objective::THROUGHPUT; }
-
-        if (build_mode == search_mode) {
-          log_error("One and only one of --build and --search should be specified");
-          printf_usage();
-          return -1;
-        }
-
-        if (!conf_stream) {
-          log_error("Can't open configuration file: %s", conf_path);
-          return -1;
-        }
-
-        if (cudart.needed() && !cudart.found()) {
-          log_warn("cudart library is not found, GPU-based indices won't work.");
-        }
-
-        Configuration conf(conf_stream);
-        std::string dtype = conf.get_dataset_conf().dtype;
-
-        if (dtype == "float") {
-          dispatch_benchmark<float>(conf,
+  if (dtype == "float") {
+    dispatch_benchmark<float>(conf,
+                              force_overwrite,
+                              build_mode,
+                              search_mode,
+                              data_prefix,
+                              index_prefix,
+                              override_kv,
+                              metric_objective);
+  } else if (dtype == "uint8") {
+    dispatch_benchmark<std::uint8_t>(conf,
+                                     force_overwrite,
+                                     build_mode,
+                                     search_mode,
+                                     data_prefix,
+                                     index_prefix,
+                                     override_kv,
+                                     metric_objective);
+  } else if (dtype == "int8") {
+    dispatch_benchmark<std::int8_t>(conf,
                                     force_overwrite,
                                     build_mode,
                                     search_mode,
@@ -577,37 +589,19 @@ void bench_search(::benchmark::State& state,
                                     index_prefix,
                                     override_kv,
                                     metric_objective);
-        } else if (dtype == "uint8") {
-          dispatch_benchmark<std::uint8_t>(conf,
-                                           force_overwrite,
-                                           build_mode,
-                                           search_mode,
-                                           data_prefix,
-                                           index_prefix,
-                                           override_kv,
-                                           metric_objective);
-        } else if (dtype == "int8") {
-          dispatch_benchmark<std::int8_t>(conf,
-                                          force_overwrite,
-                                          build_mode,
-                                          search_mode,
-                                          data_prefix,
-                                          index_prefix,
-                                          override_kv,
-                                          metric_objective);
-        } else {
-          log_error("datatype '%s' is not supported", dtype.c_str());
-          return -1;
-        }
-
-        ::benchmark::Initialize(&argc, argv, printf_usage);
-        if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return -1;
-        ::benchmark::RunSpecifiedBenchmarks();
-        ::benchmark::Shutdown();
-        // Release a possibly cached ANN object, so that it cannot be alive longer than the handle
-        // to a shared library it depends on (dynamic benchmark executable).
-        current_algo.reset();
-        return 0;
+  } else {
+    log_error("datatype '%s' is not supported", dtype.c_str());
+    return -1;
   }
+
+  ::benchmark::Initialize(&argc, argv, printf_usage);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return -1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+  // Release a possibly cached ANN object, so that it cannot be alive longer than the handle
+  // to a shared library it depends on (dynamic benchmark executable).
+  current_algo.reset();
+  return 0;
+}
 
 };  // namespace raft::bench::ann
