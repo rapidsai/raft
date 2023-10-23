@@ -64,10 +64,17 @@ inline auto parse_memory_type(const std::string& memory_type) -> MemoryType
   }
 }
 
-struct AlgoProperty {
+class AlgoProperty {
+ public:
+  inline AlgoProperty() {}
+  inline AlgoProperty(MemoryType dataset_memory_type_, MemoryType query_memory_type_)
+    : dataset_memory_type(dataset_memory_type_), query_memory_type(query_memory_type_)
+  {
+  }
   MemoryType dataset_memory_type;
   // neighbors/distances should have same memory type as queries
   MemoryType query_memory_type;
+  virtual ~AlgoProperty() = default;
 };
 
 class AnnBase {

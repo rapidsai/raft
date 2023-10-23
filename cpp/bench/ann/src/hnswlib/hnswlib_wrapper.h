@@ -65,7 +65,7 @@ class HnswLib : public ANN<T> {
   using typename ANN<T>::AnnSearchParam;
   struct SearchParam : public AnnSearchParam {
     int ef;
-    int num_threads = omp_get_num_procs();
+    int num_threads = 1;
   };
 
   HnswLib(Metric metric, int dim, const BuildParam& param);
