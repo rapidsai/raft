@@ -158,7 +158,7 @@ class Comms:
         Builds a dictionary of { (worker_address, worker_port) :
                                 (worker_rank, worker_port ) }
         """
-        ranks = _func_worker_ranks(self.client)
+        ranks = _func_worker_ranks(self.client, workers)
         ports = (
             _func_ucp_ports(self.client, workers) if self.comms_p2p else None
         )
@@ -689,7 +689,7 @@ def _func_ucp_ports(client, workers):
     return client.run(_func_ucp_listener_port, workers=workers)
 
 
-def _func_worker_ranks(client):
+def _func_worker_ranks(client, workers):
     """
     For each worker connected to the client,
     compute a global rank which is the sum
@@ -698,8 +698,11 @@ def _func_worker_ranks(client):
     Parameters
     ----------
         client (object): Dask client object.
+        workers (list): List of worker addresses.
     """
-    nvml_device_index_d = client.run(_get_nvml_device_index)
+    # TODO: Add Test this function
+    # Running into build issues preventing testing
+    nvml_device_index_d = client.run(_get_nvml_device_index, workers=workers)
     worker_ips = [
         _get_worker_ip(worker_address)
         for worker_address in nvml_device_index_d
