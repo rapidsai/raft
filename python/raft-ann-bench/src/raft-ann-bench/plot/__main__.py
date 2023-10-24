@@ -305,7 +305,7 @@ def create_plot_build(
     fig = ax.get_figure()
     print(f"writing build output to {fn_out}")
     plt.title("Build Time for Highest QPS")
-    plt.suptitle(f"{dataset} k={k} batch_size={batch_size}")
+    plt.suptitle(f"{dataset}")
     plt.ylabel("Build Time (s)")
     fig.savefig(fn_out)
 
@@ -349,17 +349,26 @@ def load_all_results(
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
-    result_files = [
-        result_filename
-        for result_filename in result_files
-        if f"{k}-{batch_size}" in result_filename
-    ]
-    if len(algorithms) > 0:
+    print(result_files)
+    if method == "search":
         result_files = [
             result_filename
             for result_filename in result_files
-            if result_filename.split("-")[0] in algorithms
+            if f"{k}-{batch_size}" in result_filename
         ]
+        if len(algorithms) > 0:
+            result_files = [
+                result_filename
+                for result_filename in result_files
+                if result_filename.split("-")[0] in algorithms
+            ]
+    elif method == "build":
+        if len(algorithms) > 0:
+            result_files = [
+                result_filename
+                for result_filename in result_files
+                if result_filename.split("-")[0] in algorithms
+            ]
 
     results = load_lines(results_path, result_files, method, index_key)
 
@@ -450,7 +459,7 @@ def main():
     )
     build_output_filepath = os.path.join(
         args.output_filepath,
-        f"build-{args.dataset}-k{k}-batch_size{batch_size}.png",
+        f"build-{args.dataset}.png",
     )
 
     search_results = load_all_results(
