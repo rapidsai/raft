@@ -45,15 +45,20 @@ def validate_algorithm(algos_conf, algo, gpu_present):
         )
 
 
-def find_executable(algos_conf, algo, k, batch_size):
+def find_executable(algos_conf, algo, group, k, batch_size):
     executable = algos_conf[algo]["executable"]
+
+    if group != "base":
+        return_str = f"{algo}_{group}-{k}-{batch_size}"
+    else:
+        return_str = f"{algo}-{k}-{batch_size}"
 
     build_path = os.getenv("RAFT_HOME")
     if build_path is not None:
         build_path = os.path.join(build_path, "cpp", "build", executable)
         if os.path.exists(build_path):
             print(f"-- Using RAFT bench from repository in {build_path}. ")
-            return (executable, build_path, f"{algo}-{k}-{batch_size}")
+            return (executable, build_path, return_str)
 
     # if there is no build folder present, we look in the conda environment
     conda_path = os.getenv("CONDA_PREFIX")
@@ -61,7 +66,7 @@ def find_executable(algos_conf, algo, k, batch_size):
         conda_path = os.path.join(conda_path, "bin", "ann", executable)
         if os.path.exists(conda_path):
             print("-- Using RAFT bench found in conda environment. ")
-            return (executable, conda_path, f"{algo}-{k}-{batch_size}")
+            return (executable, conda_path, return_str)
 
     else:
         raise FileNotFoundError(executable)
@@ -214,8 +219,12 @@ def main():
     # )
     parser.add_argument(
         "--groups",
-        help="comma separated groups of parameters to run the benchmarks for",
+        help="run only comma separated groups of parameters",
         default="base"
+    )
+    parser.add_argument(
+        "--algo-groups",
+        help="add comma separated algorithm+groups to run",
     )
     parser.add_argument(
         "-f",
@@ -280,30 +289,44 @@ def main():
     if filter_algos:
         allowed_algos = args.algorithms.split(",")
     named_groups = args.groups.split(",")
+    filter_algo_groups = True if args.algo_groups else False
+    allowed_algo_groups = None
+    if filter_algo_groups:
+        allowed_algo_groups = [algo_group.split(".") for algo_group in args.algo_groups.split(",")]
+        allowed_algo_groups = list(zip(*allowed_algo_groups))
     algos_conf = dict()
     for algo_f in algos_conf_fs:
         with open(algo_f, "r") as f:
             if algo_f.split("/")[-1] == "raft_cagra.yaml":
                 algo = yaml.safe_load(f)
                 insert_algo = True
+                insert_algo_group = False
                 if filter_algos:
                     if algo["name"] not in allowed_algos:
                         insert_algo = False
-                if insert_algo:
+                if filter_algo_groups:
+                    if algo["name"] in allowed_algo_groups[0]:
+                        insert_algo_group = True
+                def add_algo_group(group_list):
                     if algo["name"] not in algos_conf:
                         algos_conf[algo["name"]] = dict()
                     for group in algo.keys():
                         if group != "name":
-                            if group in named_groups:
+                            if group in group_list:
                                 algos_conf[algo["name"]][group] = algo[group]
+                if insert_algo:
+                    add_algo_group(named_groups)
+                if insert_algo_group:
+                    add_algo_group(allowed_algo_groups[1])
 
+    print(algos_conf)
     executables_to_run = dict()
     for algo in algos_conf.keys():
         validate_algorithm(algos_yaml, algo, gpu_present)
-        executable = find_executable(algos_yaml, algo, k, batch_size)
-        if executable not in executables_to_run:
-            executables_to_run[executable] = {"index": []}
         for group in algos_conf[algo].keys():
+            executable = find_executable(algos_yaml, algo, group, k, batch_size)
+            if executable not in executables_to_run:
+                executables_to_run[executable] = {"index": []}
             build_params = algos_conf[algo][group]["build"]
             search_params = algos_conf[algo][group]["search"]
 
@@ -323,7 +346,10 @@ def main():
                         
             for params in all_build_params:
                 index = {"algo": algo, "build_param": {}}
-                index_name = f"{algo}"
+                if group != "base":
+                    index_name = f"{algo}_{group}"
+                else:
+                    index_name = f"{algo}"
                 for i in range(len(params)):
                     index["build_param"][param_names[i]] = params[i]
                     index_name += "." + f"{param_names[i]}{params[i]}"
@@ -408,7 +434,6 @@ def main():
     #         )
     #         executables_to_run[executable_path]["index"][pos] = index
 
-    print(conf_filedir)
     run_build_and_search(
         conf_file,
         f"{args.dataset}.json",
