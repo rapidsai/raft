@@ -4,7 +4,7 @@ files:
     output: conda
     matrix:
       cuda: ["11.8", "12.0"]
-      arch: [x86_64]
+      arch: [x86_64, aarch64]
     includes:
       - build
       - build_pylibraft
@@ -23,7 +23,7 @@ files:
     output: conda
     matrix:
       cuda: ["11.8"]
-      arch: [x86_64]
+      arch: [x86_64, aarch64]
     includes:
       - build
       - develop

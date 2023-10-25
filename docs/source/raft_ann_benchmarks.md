@@ -84,8 +84,6 @@ You can see the exact versions as well in the dockerhub site:
 
 [//]: # (```)
 
-
-
 ## How to run the benchmarks
 
 We provide a collection of lightweight Python scripts to run the benchmarks. There are 4 general steps to running the benchmarks and visualizing the results. 
@@ -118,17 +116,6 @@ will be written at location `datasets/glove-100-inner/`.
 ### Step 2: Build and Search Index
 The script `raft-ann-bench.run` will build and search indices for a given dataset and its
 specified configuration.
-To confirgure which algorithms are available, we use `algos.yaml`.
-To configure building/searching indices for a dataset, look at [index configuration](#json-index-config).
-An entry in `algos.yaml` looks like:
-```yaml
-raft_ivf_pq:
-  executable: RAFT_IVF_PQ_ANN_BENCH
-  requires_gpu: true
-```
-`executable` : specifies the name of the binary that will build/search the index. It is assumed to be
-available in `raft/cpp/build/`.
-`requires_gpu` : denotes whether an algorithm requires GPU to run.
 
 The usage of the script `raft-ann-bench.run` is:
 ```bash
@@ -294,8 +281,6 @@ options:
                         Path to billion-scale dataset groundtruth file (default: None)
 ```
 
-
-
 ### Running with Docker containers
 
 Two methods are provided for running the benchmarks with the Docker containers. 
@@ -410,13 +395,7 @@ The table below contains the possible settings for the `algo` field. Each unique
 | HNSWlib   | `hnswlib`                                                        |
 | RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
 
-
-
-
 By default, the index will be placed in `bench/ann/data/<dataset_name>/index/<name>`. Using `sift-128-euclidean` for the dataset with the `algo` example above, the indexes would be placed in `bench/ann/data/sift-128-euclidean/index/algo_name/param1_val1-param2_val2`.
-
-
-
 
 ## Adding a new ANN algorithm
 
@@ -490,6 +469,7 @@ How to interpret these JSON objects is totally left to the implementation and sh
       }
     ```
 
+
 ### Adding a CMake Target
 In `raft/cpp/bench/ann/CMakeLists.txt`, we provide a `CMake` function to configure a new Benchmark target with the following signature:
 ```
@@ -511,3 +491,14 @@ ConfigureAnnBench(
 ```
 
 This will create an executable called `HNSWLIB_ANN_BENCH`, which can then be used to run `HNSWLIB` benchmarks.
+
+Add a new entry to `algos.yaml` to map the name of the algorithm to its binary executable and specify whether the algorithm requires GPU support.
+```yaml
+raft_ivf_pq:
+  executable: RAFT_IVF_PQ_ANN_BENCH
+  requires_gpu: true
+```
+
+`executable` : specifies the name of the binary that will build/search the index. It is assumed to be
+available in `raft/cpp/build/`.
+`requires_gpu` : denotes whether an algorithm requires GPU to run.
