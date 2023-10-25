@@ -254,7 +254,7 @@ All other python commands mentioned below work as intended once the
 billion-scale dataset has been downloaded.
 To download billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
 
-We also provide a new dataset called `wiki-all` containing 88 million 768-dimensional vectors. This dataset is meant for benchmarking a realistic RAG/LLM embedding size at scale. It also contains 1M and 10M vector subsets for smaller-scale experiments. See our [Wiki-all Dataset Guide](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/) for more information and to download the dataset.
+We also provide a new dataset called `wiki-all` containing 88 million 768-dimensional vectors. This dataset is meant for benchmarking a realistic retrieval-augmented generation (RAG)/LLM embedding size at scale. It also contains 1M and 10M vector subsets for smaller-scale experiments. See our [Wiki-all Dataset Guide](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/) for more information and to download the dataset.
 
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
 ```bash

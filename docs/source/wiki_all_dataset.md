@@ -22,7 +22,7 @@ The following will download all 10 the parts and untar them to a `wiki_all_88M` 
 curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.{00..9} | tar -xf - -C /datasets/wiki_all_88M/
 ```
 
-The above has the unfortunate drawback that if the command should fail for any reason, it cannot be restarted. The files can also be downloaded individually and then untarred to the directory. Each file is ~27GB and there are 10 of them.
+The above has the unfortunate drawback that if the command should fail for any reason, all the parts need to be re-downloaded. The files can also be downloaded individually and then untarred to the directory. Each file is ~27GB and there are 10 of them.
 
 ```bash
 curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.00
