@@ -1,4 +1,6 @@
 name: raft_cagra
+validators:
+  search: raft-ann-bench.validators.raft_cagra_build_validator
 base:
   build:
     graph_degree: [32, 64]
