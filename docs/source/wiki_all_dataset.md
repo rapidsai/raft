@@ -7,13 +7,19 @@ The `wiki-all` dataset was created to stress vector search algorithms at scale w
 The dataset is composed of all the available languages of in the [Cohere Wikipedia dataset](https://huggingface.co/datasets/Cohere/wikipedia-22-12). An [English version]( https://www.kaggle.com/datasets/jjinho/wikipedia-20230701) is also available. 
 
 
-We download the English wiki texts from https://www.kaggle.com/datasets/jjinho/wikipedia-20230701 and multi-lingual wiki texts from Cohere https://huggingface.co/datasets/Cohere/wikipedia-22-12. We notice that the English texts from Cohere is an older and smaller version 2022-12 than the kaggle English wiki texts 2023-07  so we remove the English texts from Cohere completely. In other words, the final wiki texts include English wiki from kaggle and other languages from Cohere. It should be noted that English texts constitute 50% of the total text size. Then, the wiki texts are chunked into 85 million 128-token pieces. For reference, Cohere chunks wiki texts into 104-token pieces. Finally, we compute the embedding of each chunk using paraphrase-multilingual-mpnet-base-v2 embedding model. In the end, we get an embedding matrix of size 85 million by 768.
+The dataset is composed of English wiki texts from [Kaggle](https://www.kaggle.com/datasets/jjinho/wikipedia-20230701) and multi-lingual wiki texts from [Cohere Wikipedia](https://huggingface.co/datasets/Cohere/wikipedia-22-12). 
 
-A version of the dataset is available in the format that can be used directly by the [raft-ann-bench]() tool. It's ~251GB, and has been split into multiple parts.
+Cohere's English Texts are older (2022) and smaller than the Kaggle English Wiki texts (2023) so the English texts have been removed from Cohere completely. The final Wiki texts include English Wiki from Kaggle and the other languages from Cohere. The English texts constitute 50% of the total text size. 
 
-The following will download all 10 the parts and untar them to a `wiki_all` directory:
+To form the final dataset, the Wiki texts were chunked into 85 million 128-token pieces. For reference, Cohere chunks Wiki texts into 104-token pieces. Finally, the embeddings of each chunk were computed using the [paraphrase-multilingual-mpnet-base-v2](https://huggingface.co/sentence-transformers/paraphrase-multilingual-mpnet-base-v2) embedding model. The resulting dataset is an embedding matrix of size 88 million by 768. Also included with the dataset is a query file containing 10k query vectors and a groundtruth file to evaluate nearest neighbors algorithms. 
+
+### Full dataset
+
+A version of the dataset is made available in the binary format that can be used directly by the [raft-ann-bench](https://docs.rapids.ai/api/raft/nightly/raft_ann_benchmarks/) tool. The full 88M dataset is ~251GB and the download link below contains tarballs that have been split into multiple parts.
+
+The following will download all 10 the parts and untar them to a `wiki_all_88M` directory:
 ```bash
-curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.{00..9} | tar -xf - -C /datasets/wiki_all/
+curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.{00..9} | tar -xf - -C /datasets/wiki_all_88M/
 ```
 
 The above has the unfortunate drawback that if the command should fail for any reason, it cannot be restarted. The files can also be downloaded individually and then untarred to the directory. Each file is ~27GB and there are 10 of them.
@@ -23,9 +29,18 @@ curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.00
 ...
 curl -s https://data.rapids.ai/raft/datasets/wiki_all/wiki_all.tar.09
 
-cat wiki_all.tar.* | tar -xf - -C /datasets/wiki_all/
-```zsx
+cat wiki_all.tar.* | tar -xf - -C /datasets/wiki_all_88M/
+```
+
+### 1M and 10M subsets
+
+Also available are 1M and 10M subsets of the full dataset which are 2.9GB and 29GB, respectively. These subsets also include query sets of 10k vectors and corresponding groundtruth files. 
+
+```bash
+curl -s https://data.rapids.ai/raft/datasets/wiki_all_1M/wiki_all_1M.tar
+curl -s https://data.rapids.ai/raft/datasets/wiki_all_10M/wiki_all_10M.tar
+```
 
 ## Using the dataset
 
-After the dataset is downloaded and extracted to the `wiki_all` directory, the files can be used in the benchmarking tool. The dataset name is `wiki_all`, and the benchmarking tool can be used by specifying `--dataset wiki_all` in the scripts. 
+After the dataset is downloaded and extracted to the `wiki_all_88M` directory (or `wiki_all_1M`/`wiki_all_10M` depending on whether the subsets are used), the files can be used in the benchmarking tool. The dataset name is `wiki_all` (or `wiki_all_1M`/`wiki_all_10M`), and the benchmarking tool can be used by specifying the appropriate name `--dataset wiki_all_88M` in the scripts. 

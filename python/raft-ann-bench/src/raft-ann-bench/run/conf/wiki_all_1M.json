@@ -1,9 +1,9 @@
 {
   "dataset": {
-    "name": "wiki_all",
-    "base_file": "wiki_all/base.88M.fbin",
-    "query_file": "wiki_all/queries.fbin",
-    "groundtruth_neighbors_file": "wiki_all/groundtruth.88M.neighbors.ibin",
+    "name": "wiki_all_1M",
+    "base_file": "wiki_all_1M/base.88M.fbin",
+    "query_file": "wiki_all_1M/queries.fbin",
+    "groundtruth_neighbors_file": "wiki_all_1M/groundtruth.88M.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {
@@ -15,7 +15,7 @@
       "name": "hnswlib.M16.ef50",
       "algo": "hnswlib",
       "build_param": { "M": 16, "efConstruction": 50, "numThreads": 56 },
-      "file": "wiki_all/hnswlib/M16.ef50",
+      "file": "wiki_all_1M/hnswlib/M16.ef50",
       "search_params": [
         { "ef": 10, "numThreads": 56 },
         { "ef": 20, "numThreads": 56 },
@@ -37,7 +37,7 @@
         "nlist": 16384,
         "ratio": 2
       },
-      "file": "wiki_all/faiss_ivf_pq/M32-nlist16K_ratio2",
+      "file": "wiki_all_1M/faiss_ivf_pq/M32-nlist16K_ratio2",
       "search_params": [
         { "nprobe": 10 },
         { "nprobe": 20 },
@@ -57,7 +57,7 @@
         "nlist": 16384,
         "ratio": 2
       },
-      "file": "wiki_all/faiss_ivf_pq/M64-nlist16K_ratio2",
+      "file": "wiki_all_1M/faiss_ivf_pq/M64-nlist16K_ratio2",
       "search_params": [
         { "nprobe": 10 },
         { "nprobe": 20 },
@@ -79,7 +79,7 @@
         "niter": 10,
         "ratio": 10
       },
-      "file": "wiki_all/raft_ivf_pq/d128-nlist16K",
+      "file": "wiki_all_1M/raft_ivf_pq/d128-nlist16K",
       "search_params": [
         { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 1 },
         { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 1 },
@@ -100,7 +100,7 @@
         "niter": 10,
         "ratio": 10
       },
-      "file": "wiki_all/raft_ivf_pq/d64-nlist16K",
+      "file": "wiki_all_1M/raft_ivf_pq/d64-nlist16K",
       "search_params": [
         { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 4 },
         { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 4 },
@@ -121,7 +121,7 @@
         "niter": 10,
         "ratio": 10
       },
-      "file": "wiki_all/raft_ivf_pq/d32-nlist16K",
+      "file": "wiki_all_1M/raft_ivf_pq/d32-nlist16K",
       "search_params": [
         { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 32 },
         { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 32 },
@@ -142,7 +142,7 @@
         "niter": 10,
         "ratio": 10
       },
-      "file": "wiki_all/raft_ivf_pq/d32-nlist16K",
+      "file": "wiki_all_1M/raft_ivf_pq/d32-nlist16K",
       "search_params": [
         { "nprobe": 20, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 16 },
         { "nprobe": 30, "internalDistanceDtype": "half", "smemLutDtype": "half", "refine_ratio": 16 },
@@ -170,7 +170,7 @@
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
       "build_param": { "graph_degree": 32, "intermediate_graph_degree": 48 },
-      "file": "wiki_all/raft_cagra/dim32.ibin",
+      "file": "wiki_all_1M/raft_cagra/dim32.ibin",
       "search_params": [
         { "itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_cta" },
         { "itopk": 32, "search_width": 1, "max_iterations": 32, "algo": "multi_cta" },
