@@ -51,7 +51,7 @@
 namespace raft::neighbors::ivf_pq {
 
 struct test_ivf_sample_filter {
-  static constexpr unsigned offset = 3000;
+  static constexpr unsigned offset = 1500;
 };
 
 struct ivf_pq_inputs {
