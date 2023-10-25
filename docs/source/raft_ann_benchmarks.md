@@ -18,6 +18,8 @@ This project provides a benchmark program for various ANN search implementations
   - [Running with Docker containers](#running-with-docker-containers)
 - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
 - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
+- [Parameter tuning guide](https://docs.rapids.ai/api/raft/nightly/ann_benchmarks_param_tuning/)
+- [Wiki-all RAG/LLM Dataset](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/)
 
 ## Installing the benchmarks
 
@@ -242,14 +244,17 @@ Configuration files already exist for the following list of the million-scale da
 | `nytimes-256-angular` | 290K | 256 | 10K | Angular |
 | `sift-128-euclidean` | 1M | 128 | 10K | Euclidean|
 
-All of the datasets above contain ground test datasets with 100 neighbors. Thus `k` for these datasets must be  less than or equal to 100. 
+All of the datasets above contain ground test datasets with 100 neighbors. Thus `k` for these datasets must be  less than or equal to 100.
 
 ### End to end: large-scale benchmarks (>10M vectors)
+
 `raft-ann-bench.get_dataset` cannot be used to download the [billion-scale datasets](ann_benchmarks_dataset.md#billion-scale)
 due to their size. You should instead use our billion-scale datasets guide to download and prepare them.
 All other python commands mentioned below work as intended once the
 billion-scale dataset has been downloaded.
 To download billion-scale datasets, visit [big-ann-benchmarks](http://big-ann-benchmarks.com/neurips21.html)
+
+We also provide a new dataset called `wiki-all` containing 88 million 768-dimensional vectors. This dataset is meant for benchmarking a realistic RAG/LLM embedding size at scale. It also contains 1M and 10M vector subsets for smaller-scale experiments. See our [Wiki-all Dataset Guide](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/) for more information and to download the dataset.
 
 The steps below demonstrate how to download, install, and run benchmarks on a subset of 100M vectors from the Yandex Deep-1B dataset. Please note that datasets of this scale are recommended for GPUs with larger amounts of memory, such as the A100 or H100. 
 ```bash
