@@ -31,6 +31,7 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <thrust/fill.h>
+#include <thrust/scan.h>
 
 namespace raft {
 namespace spatial {
@@ -529,6 +530,175 @@ RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
   }
 }
 
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          int tpb            = 128,
+          int col_q          = 2,
+          typename value_int = std::uint32_t,
+          typename distance_func>
+RAFT_KERNEL block_rbc_kernel_registers_eps_pass1(
+  const value_t* X_index,
+  const value_t* X,
+  const value_int n_cols,  // n_cols should be 2 or 3 dims
+  const value_t* R_dists,
+  const value_int m,
+  const value_t eps,
+  const value_int n_landmarks,
+  const value_idx* R_indptr,
+  const value_idx* R_1nn_cols,
+  const value_t* R_1nn_dists,
+  const value_t* R_radius,
+  distance_func dfunc,
+  value_idx* adj_ia)
+{
+  const value_t* x_ptr = X + (n_cols * blockIdx.x);
+
+  __shared__ int column_count_smem;
+
+  // initialize
+  if (threadIdx.x == 0) { column_count_smem = 0; }
+
+  __syncthreads();
+
+  value_t local_x_ptr[col_q];
+  for (value_int i = 0; i < n_cols; ++i) {
+    local_x_ptr[i] = x_ptr[i];
+  }
+
+  int column_count = 0;
+
+  for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
+    // TODO: this might also be worth computing in-place here
+    value_t cur_R_dist = R_dists[blockIdx.x * n_landmarks + cur_k];
+
+    // prune all R's that can't be within eps
+    if (cur_R_dist - R_radius[cur_k] > eps) continue;
+
+    // The whole warp should iterate through the elements in the current R
+    value_idx R_start_offset = R_indptr[cur_k];
+    value_idx R_stop_offset  = R_indptr[cur_k + 1];
+
+    value_idx R_size = R_stop_offset - R_start_offset;
+
+    value_int limit = Pow2<WarpSize>::roundDown(R_size);
+    value_int i     = threadIdx.x;
+    for (; i < limit; i += tpb) {
+      // Index and distance of current candidate's nearest landmark
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
+
+      const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
+      value_t local_y_ptr[col_q];
+      for (value_int j = 0; j < n_cols; ++j) {
+        local_y_ptr[j] = y_ptr[j];
+      }
+
+      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) { column_count++; }
+    }
+
+    if (i < R_size) {
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
+
+      const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
+      value_t local_y_ptr[col_q];
+      for (value_int j = 0; j < n_cols; ++j) {
+        local_y_ptr[j] = y_ptr[j];
+      }
+
+      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) { column_count++; }
+    }
+  }
+
+  if (column_count > 0) atomicAdd(&column_count_smem, column_count);
+  __syncthreads();
+  if (threadIdx.x == 0) { adj_ia[blockIdx.x] = column_count_smem; }
+}
+
+template <typename value_idx = std::int64_t,
+          typename value_t,
+          int tpb            = 128,
+          int col_q          = 2,
+          typename value_int = std::uint32_t,
+          typename distance_func>
+RAFT_KERNEL block_rbc_kernel_registers_eps_pass2(
+  const value_t* X_index,
+  const value_t* X,
+  const value_int n_cols,  // n_cols should be 2 or 3 dims
+  const value_t* R_dists,
+  const value_int m,
+  const value_t eps,
+  const value_int n_landmarks,
+  const value_idx* R_indptr,
+  const value_idx* R_1nn_cols,
+  const value_t* R_1nn_dists,
+  const value_t* R_radius,
+  distance_func dfunc,
+  value_idx* adj_ia,
+  value_idx* adj_ja)
+{
+  const value_t* x_ptr = X + (n_cols * blockIdx.x);
+
+  __shared__ int column_index_smem;
+
+  // initialize
+  if (threadIdx.x == 0) { column_index_smem = adj_ia[blockIdx.x]; }
+
+  __syncthreads();
+
+  value_t local_x_ptr[col_q];
+  for (value_int i = 0; i < n_cols; ++i) {
+    local_x_ptr[i] = x_ptr[i];
+  }
+
+  for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
+    // TODO: this might also be worth computing in-place here
+    value_t cur_R_dist = R_dists[blockIdx.x * n_landmarks + cur_k];
+
+    // prune all R's that can't be within eps
+    if (cur_R_dist - R_radius[cur_k] > eps) continue;
+
+    // The whole warp should iterate through the elements in the current R
+    value_idx R_start_offset = R_indptr[cur_k];
+    value_idx R_stop_offset  = R_indptr[cur_k + 1];
+
+    value_idx R_size = R_stop_offset - R_start_offset;
+
+    value_int limit = Pow2<WarpSize>::roundDown(R_size);
+    value_int i     = threadIdx.x;
+    for (; i < limit; i += tpb) {
+      // Index and distance of current candidate's nearest landmark
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
+
+      const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
+      value_t local_y_ptr[col_q];
+      for (value_int j = 0; j < n_cols; ++j) {
+        local_y_ptr[j] = y_ptr[j];
+      }
+
+      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+        adj_ja[atomicAdd(&column_index_smem, 1)] = cur_candidate_ind;
+      }
+    }
+
+    if (i < R_size) {
+      value_idx cur_candidate_ind = R_1nn_cols[R_start_offset + i];
+      value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
+
+      const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
+      value_t local_y_ptr[col_q];
+      for (value_int j = 0; j < n_cols; ++j) {
+        local_y_ptr[j] = y_ptr[j];
+      }
+
+      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+        adj_ja[atomicAdd(&column_index_smem, 1)] = cur_candidate_ind;
+      }
+    }
+  }
+}
+
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
@@ -892,6 +1062,58 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
       index.get_R_radius().data_handle(),
       dfunc,
       adj);
+}
+
+template <typename value_idx,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          int dims           = 2,
+          typename dist_func>
+void rbc_low_dim_eps_pass(raft::resources const& handle,
+                          const BallCoverIndex<value_idx, value_t, value_int>& index,
+                          const value_t* query,
+                          const value_int n_query_rows,
+                          value_t eps,
+                          const value_t* R_dists,
+                          dist_func& dfunc,
+                          value_idx* adj_ia,
+                          value_idx* adj_ja)
+{
+  block_rbc_kernel_registers_eps_pass1<value_idx, value_t, 64, dims, value_int>
+    <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      R_dists,
+      index.m,
+      eps,
+      index.n_landmarks,
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      index.get_R_radius().data_handle(),
+      dfunc,
+      adj_ia);
+
+  thrust::exclusive_scan(
+    resource::get_thrust_policy(handle), adj_ia, adj_ia + n_query_rows + 1, adj_ia, 0);
+
+  block_rbc_kernel_registers_eps_pass2<value_idx, value_t, 64, dims, value_int>
+    <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+      index.get_X().data_handle(),
+      query,
+      index.n,
+      R_dists,
+      index.m,
+      eps,
+      index.n_landmarks,
+      index.get_R_indptr().data_handle(),
+      index.get_R_1nn_cols().data_handle(),
+      index.get_R_1nn_dists().data_handle(),
+      index.get_R_radius().data_handle(),
+      dfunc,
+      adj_ia,
+      adj_ja);
 }
 
 };  // namespace detail

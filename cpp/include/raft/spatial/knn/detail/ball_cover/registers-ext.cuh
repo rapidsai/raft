@@ -75,6 +75,21 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
                           dist_func& dfunc,
                           bool* adj) RAFT_EXPLICIT;
 
+template <typename value_idx,
+          typename value_t,
+          typename value_int = std::uint32_t,
+          int dims           = 2,
+          typename dist_func>
+void rbc_low_dim_eps_pass(raft::resources const& handle,
+                          const BallCoverIndex<value_idx, value_t, value_int>& index,
+                          const value_t* query,
+                          const value_int n_query_rows,
+                          value_t eps,
+                          const value_t* R_dists,
+                          dist_func& dfunc,
+                          value_idx* adj_ia,
+                          value_idx* adj_ja) RAFT_EXPLICIT;
+
 };  // namespace raft::spatial::knn::detail
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -124,7 +139,19 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
     Mvalue_t eps,                                                                            \
     const Mvalue_t* R_dists,                                                                 \
     Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                                 \
-    bool* adj)
+    bool* adj);                                                                              \
+                                                                                             \
+  extern template void                                                                       \
+  raft::spatial::knn::detail::rbc_low_dim_eps_pass<Mvalue_idx, Mvalue_t, Mvalue_int, Mdims>( \
+    raft::resources const& handle,                                                           \
+    const BallCoverIndex<Mvalue_idx, Mvalue_t, Mvalue_int>& index,                           \
+    const Mvalue_t* query,                                                                   \
+    const Mvalue_int n_query_rows,                                                           \
+    Mvalue_t eps,                                                                            \
+    const Mvalue_t* R_dists,                                                                 \
+    Mdist_func<Mvalue_t, Mvalue_int>& dfunc,                                                 \
+    Mvalue_idx* adj_ia,                                                                      \
+    Mvalue_idx* adj_ja)
 
 instantiate_raft_spatial_knn_detail_rbc_low_dim_pass_one(
   std::int64_t, float, std::uint32_t, 2, raft::spatial::knn::detail::HaversineFunc);

@@ -330,6 +330,34 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     handle, index, eps, x, m, adj, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
+void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
+                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
+                               idx_t* adj_ia,
+                               idx_t* adj_ja,
+                               const value_t* x,
+                               int_t m,
+                               int_t k,
+                               value_t eps)
+{
+  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
+  ASSERT(index.n == k, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
+           index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
+         "Metric not supported");
+  ASSERT(index.is_index_trained(), "index must be previously trained");
+
+  // run query
+  raft::spatial::knn::detail::rbc_knn_query(handle,
+                                            index,
+                                            eps,
+                                            x,
+                                            m,
+                                            adj_ia,
+                                            adj_ja,
+                                            spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+}
+
 /**
  * @ingroup random_ball_cover
  * @{

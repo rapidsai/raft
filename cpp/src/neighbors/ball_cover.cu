@@ -34,6 +34,17 @@
     int_t k,                                                                                       \
     value_t eps);                                                                                  \
                                                                                                    \
+  template void                                                                                    \
+  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    idx_t* ia,                                                                                     \
+    idx_t* ja,                                                                                     \
+    const value_t* x,                                                                              \
+    int_t m,                                                                                       \
+    int_t k,                                                                                       \
+    value_t eps);                                                                                  \
+                                                                                                   \
   template void raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(   \
     raft::resources const& handle,                                                                 \
     raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,       \
@@ -87,6 +98,17 @@ instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     bool* adj,                                                                                     \
+    const value_t* x,                                                                              \
+    int_t m,                                                                                       \
+    int_t k,                                                                                       \
+    value_t eps);                                                                                  \
+                                                                                                   \
+  template void                                                                                    \
+  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    idx_t* ia,                                                                                     \
+    idx_t* ja,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
     int_t k,                                                                                       \

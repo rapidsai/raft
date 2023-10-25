@@ -76,6 +76,16 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
                                int_t k,
                                value_t eps) RAFT_EXPLICIT;
 
+template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
+void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
+                               const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
+                               idx_t* adj_ia,
+                               idx_t* adj_ja,
+                               const value_t* x,
+                               int_t m,
+                               int_t k,
+                               value_t eps) RAFT_EXPLICIT;
+
 }  // namespace raft::neighbors::ball_cover
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
@@ -101,6 +111,17 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     bool* adj,                                                                                     \
+    const value_t* x,                                                                              \
+    int_t m,                                                                                       \
+    int_t k,                                                                                       \
+    value_t eps);                                                                                  \
+                                                                                                   \
+  extern template void                                                                             \
+  raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<idx_t, value_t, int_t, matrix_idx_t>(     \
+    raft::resources const& handle,                                                                 \
+    const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
+    idx_t* adj_ia,                                                                                 \
+    idx_t* adj_ja,                                                                                 \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
     int_t k,                                                                                       \
