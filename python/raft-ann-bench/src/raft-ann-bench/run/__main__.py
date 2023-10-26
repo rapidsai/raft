@@ -310,7 +310,7 @@ def main():
                 if algo["name"] not in algos_conf:
                     algos_conf[algo["name"]] = dict()
                 for group in algo.keys():
-                    if group != "name":
+                    if group != "name" or group != "validators":
                         if group in group_list:
                             algos_conf[algo["name"]][group] = algo[group]
             if insert_algo:
