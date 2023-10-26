@@ -487,11 +487,6 @@ struct index : ann::index {
     return centers_rot_.view();
   }
 
-  // void recompute_internal_state(const raft::resources& res)
-  // {
-  //   raft::neighbors::ivf_pq::detail::recompute_internal_state(res, this);
-  // }
-
  private:
   raft::distance::DistanceType metric_;
   codebook_gen codebook_kind_;

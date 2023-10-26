@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "raft/core/error.hpp"
+#include <cstdio>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/neighbors/detail/ivf_pq_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
@@ -425,5 +427,30 @@ void set_centers(raft::resources const& res, index<IdxT>* index, float* cluster_
   ivf_pq::detail::set_centers(res, index, cluster_centers);
 }
 
+template <typename IdxT>
+void set_pq_centers(raft::resources const& res, index<IdxT>* index, float* pq_centers)
+{
+  ivf_pq::detail::transpose_pq_centers(res,
+                                       *index,
+                                       pq_centers);
+}
+
+template <typename IdxT>
+auto get_list_size_in_bytes(const index<IdxT>* index, uint32_t label)  -> uint32_t {
+  RAFT_EXPECTS(label < index->n_lists(), "Expected label to be less than number of lists in the index");
+    auto list_data = index->lists()[label]->data;
+    RAFT_LOG_INFO("inside Raft's get_list_size_in_bytes");
+    // uint32_t list_size;
+    // raft::update_host(&list_size, index->lists_sizes() + label, 1, );
+    RAFT_LOG_INFO("%u %u %u %u", index->pq_bits(), index->pq_dim(), list_data.extent(0), list_data.extent(1), list_data.extent(2));
+    // return list_data.extent(0) * list_data.extent(1) * list_data.extent(2) * list_data.extent(3);
+    return list_data.size();
+}
+
+template <typename IdxT>
+void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
+{
+  ivf_pq::detail::recompute_internal_state(res, *index);
+}
 /** @} */
 }  // namespace raft::neighbors::ivf_pq::helpers

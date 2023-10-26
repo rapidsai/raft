@@ -218,6 +218,7 @@ __host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list
   pq_vec_t code_chunk;
   bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
+  uint32_t kchunksPerCode = ceil((double)pq_dim / (double)kChunkSize);
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // clear the chunk
     if (lane_id == 0) { code_chunk = pq_vec_t{}; }
@@ -236,9 +237,9 @@ __host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list
         *reinterpret_cast<pq_vec_t*>(
           &(std::get<list_view>(out_list_data))(group_ix, i, ingroup_ix, 0)) = code_chunk;
       } else {
-        *reinterpret_cast<pq_vec_t*>(std::get<uint8_t*>(out_list_data) +
-                                     group_ix * kIndexGroupSize * pq_dim +
-                                     ingroup_ix * kIndexGroupVecLen + i * pq_dim) = code_chunk;
+        *reinterpret_cast<pq_vec_t*>(std::get<uint8_t*>(out_list_data)[
+                                     group_ix * kIndexGroupSize * kchunksPerCode * kIndexGroupVecLen +
+                                     i * kIndexGroupSize * kIndexGroupVecLen + ingroup_ix * kIndexGroupVecLen]) = code_chunk;
       }
     }
   }

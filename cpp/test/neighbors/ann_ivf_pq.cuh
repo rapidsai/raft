@@ -17,6 +17,8 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
+#include "raft/util/cudart_utils.hpp"
+#include <faiss/utils/random.h>
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
@@ -46,8 +48,60 @@
 #include <optional>
 #include <vector>
 
+#include <stdint.h>
+#include <random>
+
 namespace raft::neighbors::ivf_pq {
 
+struct RandomGenerator {
+  std::mt19937 mt;
+  RandomGenerator(int64_t seed) : mt((unsigned int)seed) {}
+
+int rand_int() {
+    return mt() & 0x7fffffff;
+}
+
+int rand_int(int max) {
+    return mt() % max;
+}
+
+float rand_float() {
+    return mt() / float(mt.max());
+}
+};
+
+void float_rand(float* x, size_t n, int64_t seed) {
+    // only try to parallelize on large enough arrays
+    const int64_t nblock = n < 1024 ? 1 : 1024;
+
+    RandomGenerator rng0(seed);
+    int a0 = rng0.rand_int(), b0 = rng0.rand_int();
+
+#pragma omp parallel for
+    for (int64_t j = 0; j < nblock; j++) {
+        RandomGenerator rng(a0 + j * b0);
+
+        const size_t istart = j * n / nblock;
+        const size_t iend = (j + 1) * n / nblock;
+
+        for (size_t i = istart; i < iend; i++)
+            x[i] = rng.rand_float();
+    }
+}
+
+long s_seed = 106;
+std::vector<float> randVecs(size_t num, size_t dim) {
+    std::vector<float> v(num * dim);
+
+    float_rand(v.data(), v.size(), s_seed);
+
+    raft::print_host_vector("randVecs", v.data(), 100, std::cout);
+    // unfortunately we generate separate sets of vectors, and don't
+    // want the same values
+    ++s_seed;
+
+    return v;
+}
 struct ivf_pq_inputs {
   uint32_t num_db_vecs             = 4096;
   uint32_t num_queries             = 1024;
@@ -167,11 +221,16 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
   void gen_data()
   {
+    s_seed = 106;
     database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
     search_queries.resize(size_t{ps.num_queries} * size_t{ps.dim}, stream_);
 
     raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
+      // std::vector<float> db_vecs = randVecs(ps.num_db_vecs, ps.dim);
+      // std::vector<float> query_vecs = randVecs(ps.num_queries, ps.dim);
+      // raft::update_device(database.data(), db_vecs.data(), ps.num_db_vecs * ps.dim, stream_);
+      // raft::update_device(search_queries.data(), query_vecs.data(), ps.num_queries * ps.dim, stream_);
       raft::random::uniform(
         handle_, r, database.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0));
       raft::random::uniform(
@@ -380,6 +439,8 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
   {
     index<IdxT> index = build_index();
 
+    RAFT_LOG_INFO("list_size_in_bytes", raft::neighbors::ivf_pq::helpers::get_list_size_in_bytes(&index, 0));
+
     double compression_ratio =
       static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
 
@@ -422,6 +483,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
     resource::sync_stream(handle_);
 
+    raft::print_host_vector("distances_ivf_pq.data()", distances_ivf_pq.data(), 100, std::cout);
     // A very conservative lower bound on recall
     double min_recall =
       static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
@@ -773,6 +835,18 @@ inline auto special_cases() -> test_cases_t
     x.index_params.pq_bits       = 8;
     x.index_params.n_lists       = 1024;
     x.search_params.n_probes     = 50;
+  });
+
+  ADD_CASE({
+    x.num_db_vecs                = 4335;
+    x.dim                        = 4;
+    x.num_queries                = 4095;
+    x.k                          = 12;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_SUBSPACE;
+    x.index_params.pq_dim        = 2;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 69;
+    x.search_params.n_probes     = 69;
   });
 
   ADD_CASE({

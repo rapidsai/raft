@@ -83,7 +83,7 @@ void unpack_1(const uint8_t* block, uint8_t* flat_code, uint32_t pq_dim, uint32_
 template <uint32_t PqBits>
 void pack_1(const uint8_t* flat_code, uint8_t* block, uint32_t pq_dim, uint32_t offset)
 {
-  ivf_pq::detail::write_vector<PqBits>(block, 0, offset, pq_dim, pass_1_action{flat_code});
+  ivf_pq::detail::write_vector<PqBits>(block, offset, 0, pq_dim, pass_1_action{flat_code});
 }
 
 
