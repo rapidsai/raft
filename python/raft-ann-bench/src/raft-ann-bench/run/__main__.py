@@ -297,27 +297,26 @@ def main():
     algos_conf = dict()
     for algo_f in algos_conf_fs:
         with open(algo_f, "r") as f:
-            if algo_f.split("/")[-1] == "raft_cagra.yaml":
-                algo = yaml.safe_load(f)
-                insert_algo = True
-                insert_algo_group = False
-                if filter_algos:
-                    if algo["name"] not in allowed_algos:
-                        insert_algo = False
-                if filter_algo_groups:
-                    if algo["name"] in allowed_algo_groups[0]:
-                        insert_algo_group = True
-                def add_algo_group(group_list):
-                    if algo["name"] not in algos_conf:
-                        algos_conf[algo["name"]] = dict()
-                    for group in algo.keys():
-                        if group != "name":
-                            if group in group_list:
-                                algos_conf[algo["name"]][group] = algo[group]
-                if insert_algo:
-                    add_algo_group(named_groups)
-                if insert_algo_group:
-                    add_algo_group(allowed_algo_groups[1])
+            algo = yaml.safe_load(f)
+            insert_algo = True
+            insert_algo_group = False
+            if filter_algos:
+                if algo["name"] not in allowed_algos:
+                    insert_algo = False
+            if filter_algo_groups:
+                if algo["name"] in allowed_algo_groups[0]:
+                    insert_algo_group = True
+            def add_algo_group(group_list):
+                if algo["name"] not in algos_conf:
+                    algos_conf[algo["name"]] = dict()
+                for group in algo.keys():
+                    if group != "name":
+                        if group in group_list:
+                            algos_conf[algo["name"]][group] = algo[group]
+            if insert_algo:
+                add_algo_group(named_groups)
+            if insert_algo_group:
+                add_algo_group(allowed_algo_groups[1])
 
     print(algos_conf)
     executables_to_run = dict()
