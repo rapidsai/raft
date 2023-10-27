@@ -141,7 +141,7 @@ options:
                         run only comma separated list of named algorithms (default: None)
   --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
   -f, --force           re-run algorithms even if their results already exist (default: False)
-  -m MODE, --search_mode MODE
+  -m MODE, --search-mode MODE
                         run search in 'latency' (measure individual batches) or 
                         'throughput' (pipeline batches and measure end-to-end) mode.
                         (default: 'latency')

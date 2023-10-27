@@ -216,7 +216,7 @@ def main():
 
     parser.add_argument(
         "-m",
-        "--search_mode",
+        "--search-mode",
         help="run search in 'latency' (measure individual batches) or "
         "'throughput' (pipeline batches and measure end-to-end) mode",
         default="throughput",
