@@ -375,12 +375,7 @@ def load_all_results(
         else:
             algo_group_files[i] = ("_".join(algo_group[:-1]), algo_group[-1])
     algo_group_files = list(zip(*algo_group_files))
-    # final_groups = [result_files[i] for i in range(len(result_files)) if \
-    #                 algo_group_files[i][1] in groups]
-    # if len(algorithms) > 0:
-    #     final_algos = [final_groups[i] for i in range(len(result_files)) if \
-    #                          ("_".join(result_files[i].split("_")[:-1]) in algorithms)]
-    # final_results = []
+
     if len(algorithms) > 0:
         final_results = [result_files[i] for i in range(len(result_files)) if \
                          (algo_group_files[0][i] in algorithms) and \
@@ -397,20 +392,6 @@ def load_all_results(
                              (algo_group_files[1][i] in split_algo_groups[1])]
         final_results = final_results + final_algo_groups
         final_results = set(final_results)
-
-    #     if len(algorithms) > 0:
-    #         result_files = [
-    #             result_filename
-    #             for result_filename in result_files
-    #             if result_filename.split("-")[0] in algorithms
-    #         ]
-    # elif method == "build":
-    #     if len(algorithms) > 0:
-    #         result_files = [
-    #             result_filename
-    #             for result_filename in result_files
-    #             if result_filename.split("-")[0] in algorithms
-    #         ]
 
     results = load_lines(results_path, final_results, method, index_key)
 

@@ -1,15 +1,16 @@
 name: raft_cagra
 validators:
-  search: raft-ann-bench.validators.raft_cagra_build_validator
-base:
-  build:
-    graph_degree: [32, 64]
-    intermediate_graph_degree: [64, 96]
-  search:
-    itopk: [32, 64, 128]
+  search: raft-ann-bench.validators.raft_cagra_search_validator
+groups:
+  base:
+    build:
+      graph_degree: [32, 64]
+      intermediate_graph_degree: [64, 96]
+    search:
+      itopk: [32, 64, 128]
 
-large:
-  build:
-    graph_degree: [32, 64]
-  search:
-    itopk: [32, 64, 128]
+  large:
+    build:
+      graph_degree: [32, 64]
+    search:
+      itopk: [32, 64, 128]

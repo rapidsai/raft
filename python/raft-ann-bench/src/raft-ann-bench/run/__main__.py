@@ -14,12 +14,12 @@
 # limitations under the License.
 
 import argparse
+from importlib import import_module
 import itertools
 import json
 import os
 import subprocess
 import yaml
-
 
 def positive_int(input_str: str) -> int:
     try:
@@ -137,7 +137,7 @@ def run_build_and_search(
             cmd = cmd + [temp_conf_filepath]
             subprocess.run(cmd, check=True)
 
-        # os.remove(temp_conf_filepath)
+        os.remove(temp_conf_filepath)
 
 
 def main():
@@ -211,12 +211,6 @@ def main():
                               algorithms",
         default=None,
     )
-    # parser.add_argument(
-    #     "--indices",
-    #     help="run only comma separated list of named indices. \
-    #                           parameter `algorithms` is ignored",
-    #     default=None,
-    # )
     parser.add_argument(
         "--groups",
         help="run only comma separated groups of parameters",
@@ -258,9 +252,13 @@ def main():
     with open(dataset_conf_f, "r") as f:
         dataset_conf_all = yaml.safe_load(f)
 
+    dataset_conf = None
     for dataset in dataset_conf_all:
         if args.dataset == dataset["name"]:
             dataset_conf = dataset
+            break
+    if not dataset_conf:
+        raise ValueError("Could not find a dataset configuration")
     
     conf_file = dict()
     conf_file["dataset"] = dataset_conf
@@ -308,11 +306,14 @@ def main():
                     insert_algo_group = True
             def add_algo_group(group_list):
                 if algo["name"] not in algos_conf:
-                    algos_conf[algo["name"]] = dict()
-                for group in algo.keys():
-                    if group != "name" or group != "validators":
-                        if group in group_list:
-                            algos_conf[algo["name"]][group] = algo[group]
+                    algos_conf[algo["name"]] = {"groups" : {}}
+                for group in algo["groups"].keys():
+                    if group in group_list:
+                        algos_conf[algo["name"]]["groups"][group] = \
+                            algo["groups"][group]
+                if "validators" in algo:
+                    algos_conf[algo["name"]]["validators"] = \
+                        algo["validators"]
             if insert_algo:
                 add_algo_group(named_groups)
             if insert_algo_group:
@@ -322,12 +323,12 @@ def main():
     executables_to_run = dict()
     for algo in algos_conf.keys():
         validate_algorithm(algos_yaml, algo, gpu_present)
-        for group in algos_conf[algo].keys():
+        for group in algos_conf[algo]["groups"].keys():
             executable = find_executable(algos_yaml, algo, group, k, batch_size)
             if executable not in executables_to_run:
                 executables_to_run[executable] = {"index": []}
-            build_params = algos_conf[algo][group]["build"]
-            search_params = algos_conf[algo][group]["search"]
+            build_params = algos_conf[algo]["groups"][group]["build"]
+            search_params = algos_conf[algo]["groups"][group]["search"]
 
             param_names = []
             param_lists = []
@@ -352,6 +353,18 @@ def main():
                 for i in range(len(params)):
                     index["build_param"][param_names[i]] = params[i]
                     index_name += "." + f"{param_names[i]}{params[i]}"
+
+                if "validators" in algos_conf[algo]:
+                    if "build" in algos_conf[algo]["validators"]:
+                        importable = \
+                            algos_conf[algo]["validators"]["build"].split(".")
+                        module = ".".join(importable[:-1])
+                        func = importable[-1]
+                        validator = import_module(module)
+                        build_validator = getattr(validator, func)
+                        if not build_validator(index["build_param"]):
+                            continue
+
                 index["name"] = index_name
                 index["file"] = os.path.join(args.dataset_path, args.dataset, 
                                              "index", index_name)
@@ -361,77 +374,17 @@ def main():
                     search_dict = dict()
                     for i in range(len(search_params)):
                         search_dict[search_param_names[i]] = search_params[i]
-                    index["search_params"].append(search_dict)
+                    if "validators" in algos_conf[algo]:
+                        if "search" in algos_conf[algo]["validators"]:
+                            importable = \
+                                algos_conf[algo]["validators"]["search"].split(".")
+                            module = ".".join(importable[:-1])
+                            func = importable[-1]
+                            validator = import_module(module)
+                            search_validator = getattr(validator, func)
+                            if search_validator(search_dict, k, batch_size):
+                                index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
-
-    print(executables_to_run)
-    # conf_filename = conf_filepath.split("/")[-1]
-    # conf_filedir = "/".join(conf_filepath.split("/")[:-1])
-    # dataset_path = args.dataset_path
-    # if not os.path.exists(conf_filepath):
-    #     raise FileNotFoundError(conf_filename)
-
-    # with open(conf_filepath, "r") as f:
-    #     conf_file = json.load(f)
-
-    # dataset_name = conf_file["dataset"]["name"]
-
-    # executables_to_run = dict()
-    # # At least one named index should exist in config file
-    # if args.indices:
-    #     indices = set(args.indices.split(","))
-    #     # algo associated with index should still be present in algos.yaml
-    #     # and enabled
-    #     for index in conf_file["index"]:
-    #         curr_algo = index["algo"]
-    #         if index["name"] in indices and validate_algorithm(
-    #             algos_conf, curr_algo, gpu_present
-    #         ):
-    #             executable_path = find_executable(
-    #                 algos_conf, curr_algo, k, batch_size
-    #             )
-    #             if executable_path not in executables_to_run:
-    #                 executables_to_run[executable_path] = {"index": []}
-    #             executables_to_run[executable_path]["index"].append(index)
-
-    # # switch to named algorithms if indices parameter is not supplied
-    # elif args.algorithms:
-    #     algorithms = set(args.algorithms.split(","))
-    #     # pick out algorithms from conf file that exist
-    #     # and are enabled in algos.yaml
-    #     for index in conf_file["index"]:
-    #         curr_algo = index["algo"]
-    #         if curr_algo in algorithms and validate_algorithm(
-    #             algos_conf, curr_algo, gpu_present
-    #         ):
-    #             executable_path = find_executable(
-    #                 algos_conf, curr_algo, k, batch_size
-    #             )
-    #             if executable_path not in executables_to_run:
-    #                 executables_to_run[executable_path] = {"index": []}
-    #             executables_to_run[executable_path]["index"].append(index)
-
-    # # default, try to run all available algorithms
-    # else:
-    #     for index in conf_file["index"]:
-    #         curr_algo = index["algo"]
-    #         if validate_algorithm(algos_conf, curr_algo, gpu_present):
-    #             executable_path = find_executable(
-    #                 algos_conf, curr_algo, k, batch_size
-    #             )
-    #             if executable_path not in executables_to_run:
-    #                 executables_to_run[executable_path] = {"index": []}
-    #             executables_to_run[executable_path]["index"].append(index)
-
-    # # Replace index to dataset path
-    # for executable_path in executables_to_run:
-    #     for pos, index in enumerate(
-    #         executables_to_run[executable_path]["index"]
-    #     ):
-    #         index["file"] = os.path.join(
-    #             dataset_path, dataset_name, "index", index["name"]
-    #         )
-    #         executables_to_run[executable_path]["index"][pos] = index
 
     run_build_and_search(
         conf_file,

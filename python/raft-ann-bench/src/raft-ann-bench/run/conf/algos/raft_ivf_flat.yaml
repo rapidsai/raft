@@ -1,8 +1,9 @@
 name: raft_ivf_flat
-base:
-  build:
-    nlist: [1024, 16384]
-    ratio: [1, 2]
-    niter: [20, 25]
-  search:
-    nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
+groups:
+  base:
+    build:
+      nlist: [1024, 16384]
+      ratio: [1, 2]
+      niter: [20, 25]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
