@@ -121,7 +121,6 @@ def run_build_and_search(
                 "--search",
                 "--data_prefix=" + dataset_path,
                 "--benchmark_counters_tabular",
-                # "--benchmark_min_time=1x",
                 "--override_kv=k:%s" % k,
                 "--override_kv=n_queries:%s" % batch_size,
                 "--benchmark_min_warmup_time=0.01",
