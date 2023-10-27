@@ -164,8 +164,9 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
   appr_alg_->ef_    = param.ef;
   metric_objective_ = param.metric_objective;
 
-  if (metric_objective_ != Objective::LATENCY &&
-      (!thread_pool_ || num_threads_ != param.num_threads)) {
+  bool use_pool = (metric_objective_ == Objective::LATENCY && param.num_threads > 1) &&
+                  (!thread_pool_ || num_threads_ != param.num_threads);
+  if (use_pool) {
     num_threads_ = param.num_threads;
     thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
   }
