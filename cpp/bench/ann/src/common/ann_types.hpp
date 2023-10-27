@@ -26,7 +26,7 @@ namespace raft::bench::ann {
 
 enum Objective {
   THROUGHPUT,  // See how many vectors we can push through
-  LATENCY      // See how many
+  LATENCY      // See how fast we can push a vector through
 };
 
 enum class MemoryType {
