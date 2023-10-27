@@ -155,7 +155,7 @@ void bench_build(::benchmark::State& state,
     }
   }
   state.counters.insert(
-    {{"GPU Time", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
+    {{"GPU", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
 
   if (state.skipped()) { return; }
   make_sure_parent_dir_exists(index.file);
@@ -367,6 +367,7 @@ void register_build(std::shared_ptr<const Dataset<T>> dataset,
     auto* b = ::benchmark::RegisterBenchmark(
       index.name + suf, bench_build<T>, dataset, index, force_overwrite);
     b->Unit(benchmark::kSecond);
+    b->MeasureProcessCPUTime();
     b->UseRealTime();
   }
 }
