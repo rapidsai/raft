@@ -18,17 +18,21 @@ git_commit=$(git rev-parse HEAD)
 export RAPIDS_PACKAGE_VERSION=${version} 
 echo "${version}" | tr -d '"' > VERSION
 
+package_dir="python"
+for package_name in pylibraft raft-dask; do 
+  underscore_package_name=$(echo "${package_name}" | tr "-" "_")
+  sed -i "/^__git_commit__/ s/= .*/= \"${commit}\"/g" "${package_dir}/${package_name}/${underscore_package_name}/_version.py"
+done
+
 # TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
 version_file_pylibraft="python/pylibraft/pylibraft/_version.py"
-sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" ${version_file_pylibraft}
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/pylibraft
 
 version_file_raft_dask="python/raft-dask/raft_dask/_version.py"
-sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" ${version_file_raft_dask}
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
