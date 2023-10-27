@@ -26,13 +26,11 @@ done
 
 # TODO: Remove `--no-test` flags once importing on a CPU
 # node works correctly
-version_file_pylibraft="python/pylibraft/pylibraft/_version.py"
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/pylibraft
 
-version_file_raft_dask="python/raft-dask/raft_dask/_version.py"
 rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
