@@ -17,7 +17,7 @@
 import importlib.resources
 
 __version__ = (
-    importlib.resources.files("raft-dask")
+    importlib.resources.files("raft_dask")
     .joinpath("VERSION")
     .read_text()
     .strip()
