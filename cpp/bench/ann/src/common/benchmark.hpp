@@ -27,7 +27,6 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
-#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
