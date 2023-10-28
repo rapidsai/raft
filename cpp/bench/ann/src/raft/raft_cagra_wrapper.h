@@ -53,17 +53,13 @@ class RaftCagra : public ANN<T> {
   using BuildParam = raft::neighbors::cagra::index_params;
 
   RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
-    : ANN<T>(metric, dim),
-      index_params_(param),
-      dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull)
+    : ANN<T>(metric, dim), index_params_(param), dimension_(dim), handle_(cudaStreamPerThread)
   {
-    rmm::mr::set_current_device_resource(&mr_);
     index_params_.metric = parse_metric_type(metric);
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
+  ~RaftCagra() noexcept {}
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -92,8 +88,6 @@ class RaftCagra : public ANN<T> {
   void load(const std::string&) override;
 
  private:
-  // `mr_` must go first to make sure it dies last
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   raft::device_resources handle_;
   BuildParam index_params_;
   raft::neighbors::cagra::search_params search_params_;
@@ -170,7 +164,7 @@ void RaftCagra<T, IdxT>::search(
                           neighbors_IdxT,
                           batch_size * k,
                           raft::cast_op<size_t>(),
-                          resource::get_cuda_stream(handle_));
+                          raft::resource::get_cuda_stream(handle_));
   }
 
   handle_.sync_stream();
