@@ -345,12 +345,12 @@ def load_lines(results_path, result_files, method, index_key):
 
 
 def load_all_results(
-    dataset_path, algorithms, groups, algo_groups, k, batch_size, method, 
+    dataset_path, algorithms, groups, algo_groups, k, batch_size, method,
     index_key
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
-    result_files = [result_file for result_file in result_files \
+    result_files = [result_file for result_file in result_files
                     if ".csv" in result_file]
     # print(result_files)
     if method == "search":
@@ -377,19 +377,22 @@ def load_all_results(
     algo_group_files = list(zip(*algo_group_files))
 
     if len(algorithms) > 0:
-        final_results = [result_files[i] for i in range(len(result_files)) if \
-                         (algo_group_files[0][i] in algorithms) and \
-                         (algo_group_files[1][i] in groups)]
+        final_results = [result_files[i] for i in range(len(result_files)) if
+                         (algo_group_files[0][i] in algorithms)
+                         and (algo_group_files[1][i] in groups)]
     else:
-        final_results = [result_files[i] for i in range(len(result_files)) if \
+        final_results = [result_files[i] for i in range(len(result_files)) if
                          (algo_group_files[1][i] in groups)]
-        
+
     if len(algo_groups) > 0:
-        split_algo_groups = [algo_group.split(".") for algo_group in algo_groups]
+        split_algo_groups = \
+            [algo_group.split(".") for algo_group in algo_groups]
         split_algo_groups = list(zip(*split_algo_groups))
-        final_algo_groups = [result_files[i] for i in range(len(result_files)) if \
-                             (algo_group_files[0][i] in split_algo_groups[0]) and \
-                             (algo_group_files[1][i] in split_algo_groups[1])]
+        final_algo_groups = [result_files[i] for i in range(len(result_files))
+                             if (algo_group_files[0][i]
+                                 in split_algo_groups[0])
+                             and (algo_group_files[1][i]
+                                  in split_algo_groups[1])]
         final_results = final_results + final_algo_groups
         final_results = set(final_results)
 

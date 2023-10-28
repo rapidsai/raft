@@ -21,6 +21,7 @@ import os
 import subprocess
 import yaml
 
+
 def positive_int(input_str: str) -> int:
     try:
         i = int(input_str)
@@ -259,7 +260,7 @@ def main():
             break
     if not dataset_conf:
         raise ValueError("Could not find a dataset configuration")
-    
+
     conf_file = dict()
     conf_file["dataset"] = dataset_conf
     if args.subset_size:
@@ -270,15 +271,15 @@ def main():
     conf_file["search_basic_param"]["batch_size"] = batch_size
 
     algos_conf_fs = os.listdir(os.path.join(scripts_path, "conf", "algos"))
-    algos_conf_fs = [os.path.join(scripts_path, "conf", "algos", f) \
-                        for f in algos_conf_fs]
+    algos_conf_fs = [os.path.join(scripts_path, "conf", "algos", f)
+                     for f in algos_conf_fs]
     conf_filedir = os.path.join(scripts_path, "conf", "algos")
     if args.configuration:
         if os.path.isdir(args.configuration):
             conf_filedir = args.configuration
             algos_conf_fs = algos_conf_fs + \
-                            [os.path.join(args.configuration, f) \
-                            for f in os.listdir(args.configuration)]
+                [os.path.join(args.configuration, f)
+                 for f in os.listdir(args.configuration)]
         elif os.path.isfile(args.configuration):
             conf_filedir = os.path.normpath(args.configuration).split(os.sep)
             algos_conf_fs = algos_conf_fs + [args.configuration]
@@ -290,7 +291,8 @@ def main():
     filter_algo_groups = True if args.algo_groups else False
     allowed_algo_groups = None
     if filter_algo_groups:
-        allowed_algo_groups = [algo_group.split(".") for algo_group in args.algo_groups.split(",")]
+        allowed_algo_groups = [algo_group.split(".") for algo_group
+                               in args.algo_groups.split(",")]
         allowed_algo_groups = list(zip(*allowed_algo_groups))
     algos_conf = dict()
     for algo_f in algos_conf_fs:
@@ -304,6 +306,7 @@ def main():
             if filter_algo_groups:
                 if algo["name"] in allowed_algo_groups[0]:
                     insert_algo_group = True
+
             def add_algo_group(group_list):
                 if algo["name"] not in algos_conf:
                     algos_conf[algo["name"]] = {"groups" : {}}
@@ -314,6 +317,7 @@ def main():
                 if "validators" in algo:
                     algos_conf[algo["name"]]["validators"] = \
                         algo["validators"]
+
             if insert_algo:
                 add_algo_group(named_groups)
             if insert_algo_group:
@@ -324,7 +328,8 @@ def main():
     for algo in algos_conf.keys():
         validate_algorithm(algos_yaml, algo, gpu_present)
         for group in algos_conf[algo]["groups"].keys():
-            executable = find_executable(algos_yaml, algo, group, k, batch_size)
+            executable = find_executable(algos_yaml, algo, group, k,
+                                         batch_size)
             if executable not in executables_to_run:
                 executables_to_run[executable] = {"index": []}
             build_params = algos_conf[algo]["groups"][group]["build"]
@@ -343,7 +348,7 @@ def main():
             for search_param in search_params.keys():
                 search_param_names.append(search_param)
                 search_param_lists.append(search_params[search_param])
-                        
+
             for params in all_build_params:
                 index = {"algo": algo, "build_param": {}}
                 if group != "base":
@@ -366,7 +371,7 @@ def main():
                             continue
 
                 index["name"] = index_name
-                index["file"] = os.path.join(args.dataset_path, args.dataset, 
+                index["file"] = os.path.join(args.dataset_path, args.dataset,
                                              "index", index_name)
                 index["search_params"] = []
                 all_search_params = itertools.product(*search_param_lists)
@@ -377,7 +382,8 @@ def main():
                     if "validators" in algos_conf[algo]:
                         if "search" in algos_conf[algo]["validators"]:
                             importable = \
-                                algos_conf[algo]["validators"]["search"].split(".")
+                                algos_conf[algo]["validators"]["search"]
+                            importable = importable.split(".")
                             module = ".".join(importable[:-1])
                             func = importable[-1]
                             validator = import_module(module)
