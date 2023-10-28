@@ -323,7 +323,6 @@ def main():
             if insert_algo_group:
                 add_algo_group(allowed_algo_groups[1])
 
-    print(algos_conf)
     executables_to_run = dict()
     for algo in algos_conf.keys():
         validate_algorithm(algos_yaml, algo, gpu_present)
