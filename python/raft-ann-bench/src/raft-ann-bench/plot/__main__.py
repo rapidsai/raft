@@ -409,7 +409,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--dataset", help="dataset to download", default="glove-100-inner"
+        "--dataset", help="dataset to plots", default="glove-100-inner"
     )
     parser.add_argument(
         "--dataset-path",

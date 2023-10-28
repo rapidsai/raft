@@ -4,20 +4,27 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Table of Contents
 
-- [Installing the benchmarks](#installing-the-benchmarks)
-    - [Conda](#conda)
-    - [Docker](#docker)
-- [How to run the benchmarks](#how-to-run-the-benchmarks)
-  - [Step 1: prepare dataset](#step-1-prepare-dataset)
-  - [Step 2: build and search index](#step-2-build-and-search-index)
-  - [Step 3: data export](#step-3-data-export)
-  - [Step 4: plot results](#step-4-plot-results)
-- [Running the benchmarks](#running-the-benchmarks)
-  - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
-  - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
-  - [Running with Docker containers](#running-with-docker-containers)
-- [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
-- [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
+- [RAFT ANN Benchmarks](#raft-ann-benchmarks)
+  - [Table of Contents](#table-of-contents)
+  - [Installing the benchmarks](#installing-the-benchmarks)
+  - [Conda](#conda)
+  - [Docker](#docker)
+  - [How to run the benchmarks](#how-to-run-the-benchmarks)
+    - [Step 1: Prepare Dataset](#step-1-prepare-dataset)
+    - [Step 2: Build and Search Index](#step-2-build-and-search-index)
+    - [Step 3: Data Export](#step-3-data-export)
+    - [Step 4: Plot Results](#step-4-plot-results)
+  - [Running the benchmarks](#running-the-benchmarks)
+    - [End to end: small-scale benchmarks (\<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
+    - [End to end: large-scale benchmarks (\>10M vectors)](#end-to-end-large-scale-benchmarks-10m-vectors)
+    - [Running with Docker containers](#running-with-docker-containers)
+      - [End-to-end run on GPU](#end-to-end-run-on-gpu)
+      - [End-to-end run on CPU](#end-to-end-run-on-cpu)
+      - [Manually run the scripts inside the container](#manually-run-the-scripts-inside-the-container)
+  - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
+  - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
+    - [Implementation and Configuration](#implementation-and-configuration)
+    - [Adding a CMake Target](#adding-a-cmake-target)
 
 ## Installing the benchmarks
 
@@ -119,32 +126,47 @@ specified configuration.
 
 The usage of the script `raft-ann-bench.run` is:
 ```bash
-usage: run.py [-h] [-k COUNT] [-bs BATCH_SIZE] [--configuration CONFIGURATION] [--dataset DATASET] [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--indices INDICES]
-              [-f]
+usage:  [-h] [--subset-size SUBSET_SIZE] [-k COUNT] [-bs BATCH_SIZE] [--dataset-configuration DATASET_CONFIGURATION] [--configuration CONFIGURATION] [--dataset DATASET]
+        [--dataset-path DATASET_PATH] [--build] [--search] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS] [-f]
 
 options:
   -h, --help            show this help message and exit
+  --subset-size SUBSET_SIZE
+                        the number of subset rows of the dataset to build the index (default: None)
   -k COUNT, --count COUNT
                         the number of nearest neighbors to search for (default: 10)
   -bs BATCH_SIZE, --batch-size BATCH_SIZE
                         number of query vectors to use in each query trial (default: 10000)
+  --dataset-configuration DATASET_CONFIGURATION
+                        path to configuration file for datasets (default: None)
   --configuration CONFIGURATION
-                        path to configuration file for a dataset (default: None)
-  --dataset DATASET     dataset whose configuration file will be used (default: glove-100-inner)
+                        path to configuration file or directory for algorithms (default: None)
+  --dataset DATASET     name of dataset (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
+                        path to dataset folder, by default will look in RAPIDS_DATASET_ROOT_DIR if defined, otherwise a datasets subdirectory from the calling directory (default:
+                        /raid/dgala/raft/datasets/)
   --build
   --search
   --algorithms ALGORITHMS
                         run only comma separated list of named algorithms (default: None)
-  --indices INDICES     run only comma separated list of named indices. parameter `algorithms` is ignored (default: None)
+  --groups GROUPS       run only comma separated groups of parameters (default: base)
+  --algo-groups ALGO_GROUPS
+                        add comma separated algorithm+groups to run (default: None)
   -f, --force           re-run algorithms even if their results already exist (default: False)
 ```
 
-`configuration` and `dataset` : `configuration` is a path to a configuration file for a given dataset.
-The configuration file should be name as `<dataset>.json`. It is optional if the name of the dataset is
-provided with the `dataset` argument, in which case
-a configuration file will be searched for as `python/raft-ann-bench/src/raft-ann-bench/run/conf/<dataset>.json`.
+`dataset`: name of the dataset to be searched in [datasets.yaml](#yaml-dataset-config)
+
+`dataset-configuration`: optional filepath to custom dataset YAML config which has an entry for arg `dataset`
+
+`configuration`: optional filepath to YAML configuration for an algorithm or to directory that contains YAML configurations for several algorithms. [Here's how to configure an algorithm.](#yaml-algo-config)
+
+`algorithms`: runs all algorithms that it can find in YAML configs found by `configuration`
+
+`groups`: run only specific groups of parameters configurations for an algorithm. Groups are defined in YAML configs (see `configuration`), and by default run `base` group
+
+`algo-groups`: this parameter is helpful to append any specific algorithm+group combination to run the benchmark for in addition to all the arguments from `algorithms` and `groups`. It is of the format `<algorithm>.<group>`, or for example, `raft_cagra.large`
+
 For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.json>`
 and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.json>`.
 
@@ -181,18 +203,21 @@ CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}
 
 The usage of this script is:
 ```bash
-usage: plot.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [-k COUNT] [-bs BATCH_SIZE] [--build] [--search]
-               [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS] [-k COUNT]
+        [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
-  --dataset DATASET     dataset to download (default: glove-100-inner)
+  --dataset DATASET     dataset to plot (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
+                        path to dataset folder (default: /raid/dgala/raft/datasets/)
   --output-filepath OUTPUT_FILEPATH
-                        directory for PNG to be saved (default: os.getcwd())
+                        directory for PNG to be saved (default: /raid/dgala/raft)
   --algorithms ALGORITHMS
                         plot only comma separated list of named algorithms (default: None)
+  --groups GROUPS       plot only comma separated groups of parameters (default: base)
+  --algo-groups ALGO_GROUPS
+                        add comma separated algorithm+groups to the plot (default: None)
   -k COUNT, --count COUNT
                         the number of nearest neighbors to search for (default: 10)
   -bs BATCH_SIZE, --batch-size BATCH_SIZE
@@ -204,6 +229,11 @@ options:
                         Scale to use when drawing the Y-axis (default: linear)
   --raw                 Show raw results (not just Pareto frontier) in faded colours (default: False)
 ```
+`algorithms`: plots all algorithms that it can find results for the specified `dataset`
+
+`groups`: plot only specific groups of parameters configurations for an algorithm. Groups are defined in YAML configs (see `configuration`), and by default run `base` group
+
+`algo-groups`: this parameter is helpful to append any specific algorithm+group combination to plot results for in addition to all the arguments from `algorithms` and `groups`. It is of the format `<algorithm>.<group>`, or for example, `raft_cagra.large`
 
 The figure below is the resulting plot of running our benchmarks as of August 2023 for a batch size of 10, on an NVIDIA H100 GPU and an Intel Xeon Platinum 8480CL CPU. It presents the throughput (in Queries-Per-Second) performance for every level of recall.
 
@@ -352,40 +382,44 @@ Additionally, the containers can be run in detached mode without any issue.
 
 ## Creating and customizing dataset configurations
 
-A single configuration file will often define a set of algorithms, with associated index and search parameters, for a specific dataset. A configuration file uses json format with 4 major parts:
-1. Dataset information
-2. Algorithm information
-3. Index parameters
-4. Search parameters
+A single configuration will often define a set of algorithms, with associated index and search parameters, that can be generalize across datasets. We use YAML to define dataset specific and algorithm specific configurations.
 
-Below is a simple example configuration file for the 1M-scale `sift-128-euclidean` dataset:
+<a id='yaml-dataset-config'></a>A default `datasets.yaml` is provided by RAFT in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf` with configurations available for several datasets. Here's a simple example entry for the `sift-128-euclidean` dataset:
 
-```json
-{
-  "dataset": {
-    "name": "sift-128-euclidean",
-    "base_file": "sift-128-euclidean/base.fbin",
-    "query_file": "sift-128-euclidean/query.fbin", 
-    "subset_size": 1000000,
-    "groundtruth_neighbors_file": "sift-128-euclidean/groundtruth.neighbors.ibin",
-    "distance": "euclidean"
-  },
-  "index": []
-}
+```yaml
+- name: sift-128-euclidean
+  base_file: sift-128-euclidean/base.fbin
+  query_file: sift-128-euclidean/query.fbin
+  groundtruth_neighbors_file: sift-128-euclidean/groundtruth.neighbors.ibin
+  distance: euclidean
 ```
 
-The `index` section will contain a list of index objects, each of which will have the following form:
-```json
-{
-   "name": "algo_name.unique_index_name",
-   "algo": "algo_name",
-   "file": "sift-128-euclidean/algo_name/param1_val1-param2_val2",
-   "build_param": { "param1": "val1", "param2": "val2" },
-   "search_params": [{ "search_param1": "search_val1" }]
-}
-```
+<a id='yaml-algo-config'></a>Configuration files for ANN algorithms supported by `raft-ann-bench` are provided in `${RAFT_HOME}/python/raft-ann-bench/src/raft-ann-bench/run/conf`. `raft_cagra` algorithm configuration looks like:
+```yaml
+name: raft_cagra
+validators:
+  search: raft-ann-bench.validators.raft_cagra_search_validator
+groups:
+  base:
+    build:
+      graph_degree: [32, 64]
+      intermediate_graph_degree: [64, 96]
+    search:
+      itopk: [32, 64, 128]
 
-The table below contains the possible settings for the `algo` field. Each unique algorithm will have its own set of `build_param` and `search_params` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
+  large:
+    build:
+      graph_degree: [32, 64]
+    search:
+      itopk: [32, 64, 128]
+```
+It is mandatory that every algorithm have a `base` group.
+
+There's several things going on here:
+1. `groups` - define a run group which has a particular set of parameters. Each group has `build` parameters wherein a cross-product of all parameters will be used to build a unique index. Each group also has `search` parameters, and a cross-product of all search parameters will be used to search all unique indices that we create.
+2. `validators` - This has two entries `build` and `search`. It's a string denoting a Python importable function of a module that will be used to verify whether there are any bogus parameters in any `groups` that do not make sense. If such parameters exist, they will be silently ignored.
+
+The table below contains all algorithms supported by RAFT. Each unique algorithm will have its own set of `build` and `search` settings. The [ANN Algorithm Parameter Tuning Guide](ann_benchmarks_param_tuning.md) contains detailed instructions on choosing build and search parameters for each supported algorithm.
 
 | Library   | Algorithms                                                       |
 |-----------|------------------------------------------------------------------|
@@ -394,8 +428,6 @@ The table below contains the possible settings for the `algo` field. Each unique
 | GGNN      | `ggnn`                                                           |
 | HNSWlib   | `hnswlib`                                                        |
 | RAFT      | `raft_brute_force`, `raft_cagra`, `raft_ivf_flat`, `raft_ivf_pq` |
-
-By default, the index will be placed in `bench/ann/data/<dataset_name>/index/<name>`. Using `sift-128-euclidean` for the dataset with the `algo` example above, the indexes would be placed in `bench/ann/data/sift-128-euclidean/index/algo_name/param1_val1-param2_val2`.
 
 ## Adding a new ANN algorithm
 
