@@ -352,7 +352,6 @@ def load_all_results(
     result_files = os.listdir(results_path)
     result_files = [result_file for result_file in result_files
                     if ".csv" in result_file]
-    # print(result_files)
     if method == "search":
         result_files = [
             result_filename
