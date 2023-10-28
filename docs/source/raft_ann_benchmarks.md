@@ -167,8 +167,8 @@ options:
 
 `algo-groups`: this parameter is helpful to append any specific algorithm+group combination to run the benchmark for in addition to all the arguments from `algorithms` and `groups`. It is of the format `<algorithm>.<group>`, or for example, `raft_cagra.large`
 
-For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.json>`
-and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.json>`.
+For every algorithm run by this script, it outputs an index build statistics JSON file in `<dataset-path/<dataset>/result/build/<algo-{k}-{batch_size}.json>`
+and an index search statistics JSON file in `<dataset-path/<dataset>/result/search/<algo-{k}-{batch_size}.json>`.
 
 `dataset-path` :
 1. data is read from `<dataset-path>/<dataset>`
