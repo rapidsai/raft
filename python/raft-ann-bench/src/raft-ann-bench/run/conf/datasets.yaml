@@ -83,3 +83,21 @@
   query_file: sift-128-euclidean/query.fbin
   groundtruth_neighbors_file: sift-128-euclidean/groundtruth.neighbors.ibin
   distance: euclidean
+
+- name: wiki_all_1M,
+  base_file: wiki_all_1M/base.88M.fbin,
+  query_file: wiki_all_1M/queries.fbin,
+  groundtruth_neighbors_file: wiki_all_1M/groundtruth.88M.neighbors.ibin,
+  distance: euclidean
+
+- name: wiki_all_10M,
+  base_file: wiki_all_10M/base.88M.fbin,
+  query_file: wiki_all_10M/queries.fbin,
+  groundtruth_neighbors_file: wiki_all_10M/groundtruth.88M.neighbors.ibin,
+  distance: euclidean
+
+- name: wiki_all_88M,
+  base_file: wiki_all_88M/base.88M.fbin,
+  query_file: wiki_all_88M/queries.fbin,
+  groundtruth_neighbors_file: wiki_all_88M/groundtruth.88M.neighbors.ibin,
+  distance: euclidean
