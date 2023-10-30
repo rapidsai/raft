@@ -74,15 +74,6 @@ namespace raft {
 // compile in non-CUDA mode but which will throw exceptions at runtime on any
 // attempt to touch device data
 
-template <typename T>
-using device_reference = detail::fail_reference<T>;
-
-template <typename T>
-using device_uvector = detail::fail_container<T>;
-
-template <typename ElementType>
-using device_uvector_policy = detail::fail_container_policy<ElementType>;
-
 template <typename ElementType>
 using managed_uvector_policy = detail::fail_container_policy<ElementType>;
 

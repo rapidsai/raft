@@ -214,8 +214,5 @@ using device_uvector = detail::fail_container<T>;
 template <typename ElementType>
 using device_uvector_policy = detail::fail_container_policy<ElementType>;
 
-template <typename ElementType>
-using managed_uvector_policy = detail::fail_container_policy<ElementType>;
-
 }  // namespace raft
 #endif
