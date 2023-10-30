@@ -332,7 +332,7 @@ def main():
                 for group in algo["groups"].keys():
                     if group in group_list:
                         algos_conf[algo["name"]]["groups"][group] = algo[
-                                   "groups"
+                            "groups"
                         ][group]
                 if "validators" in algo:
                     algos_conf[algo["name"]]["validators"] = algo["validators"]
@@ -380,9 +380,7 @@ def main():
 
                 if "validators" in algos_conf[algo]:
                     if "build" in algos_conf[algo]["validators"]:
-                        importable = algos_conf[algo]["validators"][
-                            "build"
-                        ]
+                        importable = algos_conf[algo]["validators"]["build"]
                         importable = importable.split(".")
                         module = ".".join(importable[:-1])
                         func = importable[-1]

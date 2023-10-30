@@ -352,7 +352,7 @@ def load_all_results(
     k,
     batch_size,
     method,
-    index_key
+    index_key,
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)

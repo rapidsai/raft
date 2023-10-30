@@ -45,7 +45,7 @@ def convert_json_to_csv_build(dataset, dataset_path):
         filename = filepath[-1].split("-")[0] + ".csv"
         write.to_csv(
             os.path.join(f"{os.sep}".join(filepath[:-1]), filename),
-            index=False
+            index=False,
         )
 
 
