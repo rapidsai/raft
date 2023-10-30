@@ -23,6 +23,7 @@
 #include <benchmark/benchmark.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
@@ -36,6 +37,7 @@
 namespace raft::bench::ann {
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
+static inline std::shared_ptr<AlgoProperty> current_algo_props{nullptr};
 
 using kv_series = std::vector<std::tuple<std::string, std::vector<nlohmann::json>>>;
 
@@ -153,7 +155,7 @@ void bench_build(::benchmark::State& state,
     }
   }
   state.counters.insert(
-    {{"GPU Time", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
+    {{"GPU", gpu_timer.total_time() / state.iterations()}, {"index_size", index_size}});
 
   if (state.skipped()) { return; }
   make_sure_parent_dir_exists(index.file);
@@ -162,12 +164,19 @@ void bench_build(::benchmark::State& state,
 
 template <typename T>
 void bench_search(::benchmark::State& state,
-                  std::shared_ptr<const Dataset<T>> dataset,
                   Configuration::Index index,
-                  std::size_t search_param_ix)
+                  std::size_t search_param_ix,
+                  std::shared_ptr<const Dataset<T>> dataset,
+                  Objective metric_objective)
 {
+  std::ptrdiff_t batch_offset   = 0;
+  std::size_t queries_processed = 0;
+
+  double total_time = 0;
+
   const auto& sp_json = index.search_params[search_param_ix];
-  dump_parameters(state, sp_json);
+
+  if (state.thread_index() == 0) { dump_parameters(state, sp_json); }
 
   // NB: `k` and `n_queries` are guaranteed to be populated in conf.cpp
   const std::uint32_t k = sp_json["k"];
@@ -180,129 +189,168 @@ void bench_search(::benchmark::State& state,
     state.SkipWithError("Index file is missing. Run the benchmark in the build mode first.");
     return;
   }
-  // algo is static to cache it between close search runs to save time on index loading
-  static std::string index_file = "";
-  if (index.file != index_file) {
-    current_algo.reset();
-    index_file = index.file;
-  }
-  ANN<T>* algo;
-  std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
-  try {
-    if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
-      auto ualgo = ann::create_algo<T>(
-        index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
-      algo = ualgo.get();
-      algo->load(index_file);
-      current_algo = std::move(ualgo);
+
+  /**
+   * Make sure the first thread loads the algo and dataset
+   */
+  if (state.thread_index() == 0) {
+    // algo is static to cache it between close search runs to save time on index loading
+    static std::string index_file = "";
+    if (index.file != index_file) {
+      current_algo.reset();
+      index_file = index.file;
     }
-    search_param = ann::create_search_param<T>(index.algo, sp_json);
-  } catch (const std::exception& e) {
-    return state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
-  }
-  algo->set_search_param(*search_param);
 
-  const auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
-  const T* query_set       = dataset->query_set(algo_property.query_memory_type);
-  buf<float> distances{algo_property.query_memory_type, k * query_set_size};
-  buf<std::size_t> neighbors{algo_property.query_memory_type, k * query_set_size};
-
-  if (search_param->needs_dataset()) {
+    std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
+    ANN<T>* algo;
     try {
-      algo->set_search_dataset(dataset->base_set(algo_property.dataset_memory_type),
-                               dataset->base_set_size());
-    } catch (const std::exception& ex) {
-      state.SkipWithError("The algorithm '" + index.name +
-                          "' requires the base set, but it's not available. " +
-                          "Exception: " + std::string(ex.what()));
-      return;
+      if (!current_algo || (algo = dynamic_cast<ANN<T>*>(current_algo.get())) == nullptr) {
+        auto ualgo = ann::create_algo<T>(
+          index.algo, dataset->distance(), dataset->dim(), index.build_param, index.dev_list);
+        algo = ualgo.get();
+        algo->load(index_file);
+        current_algo = std::move(ualgo);
+      }
+      search_param                   = ann::create_search_param<T>(index.algo, sp_json);
+      search_param->metric_objective = metric_objective;
+    } catch (const std::exception& e) {
+      state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
+    }
+    algo->set_search_param(*search_param);
+    auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
+    current_algo_props = std::make_shared<AlgoProperty>(algo_property.dataset_memory_type,
+                                                        algo_property.query_memory_type);
+    if (search_param->needs_dataset()) {
+      try {
+        algo->set_search_dataset(dataset->base_set(current_algo_props->dataset_memory_type),
+                                 dataset->base_set_size());
+      } catch (const std::exception& ex) {
+        state.SkipWithError("The algorithm '" + index.name +
+                            "' requires the base set, but it's not available. " +
+                            "Exception: " + std::string(ex.what()));
+        return;
+      }
     }
   }
 
-  std::ptrdiff_t batch_offset   = 0;
-  std::size_t queries_processed = 0;
+  const auto algo_property = *current_algo_props;
+  const T* query_set       = dataset->query_set(algo_property.query_memory_type);
+
+  /**
+   * Each thread will manage its own outputs
+   */
+  std::shared_ptr<buf<float>> distances =
+    std::make_shared<buf<float>>(algo_property.query_memory_type, k * query_set_size);
+  std::shared_ptr<buf<std::size_t>> neighbors =
+    std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
+
+  auto start = std::chrono::high_resolution_clock::now();
   cuda_timer gpu_timer;
   {
     nvtx_case nvtx{state.name()};
+
+    // TODO: Have the odd threads load the queries backwards just to rule out caching.
+    ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
     for (auto _ : state) {
-      // measure the GPU time using the RAII helper
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
+
+      auto start = std::chrono::high_resolution_clock::now();
       // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
                      n_queries,
                      k,
-                     neighbors.data + batch_offset * k,
-                     distances.data + batch_offset * k,
+                     neighbors->data + batch_offset * k,
+                     distances->data + batch_offset * k,
                      gpu_timer.stream());
       } catch (const std::exception& e) {
         state.SkipWithError(std::string(e.what()));
       }
+
+      auto end = std::chrono::high_resolution_clock::now();
+
+      auto elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
       // advance to the next batch
       batch_offset = (batch_offset + n_queries) % query_set_size;
       queries_processed += n_queries;
+      state.SetIterationTime(elapsed_seconds.count());
+      total_time += elapsed_seconds.count();
     }
   }
-  state.SetItemsProcessed(queries_processed);
-  state.counters.insert({{"k", k}, {"n_queries", n_queries}});
-  if (cudart.found()) {
-    state.counters.insert({{"GPU Time", gpu_timer.total_time() / state.iterations()},
-                           {"GPU QPS", queries_processed / gpu_timer.total_time()}});
+  auto end = std::chrono::high_resolution_clock::now();
+  if (state.thread_index() == 0) {
+    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+    state.counters.insert({{"end_to_end", duration}});
   }
+  state.SetItemsProcessed(queries_processed);
+  if (cudart.found()) {
+    state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
+  }
+
+  // This will be the total number of queries across all threads
+  state.counters.insert({{"total_queries", queries_processed}});
+
   if (state.skipped()) { return; }
 
-  // evaluate recall
-  if (dataset->max_k() >= k) {
-    const std::int32_t* gt          = dataset->gt_set();
-    const std::uint32_t max_k       = dataset->max_k();
-    buf<std::size_t> neighbors_host = neighbors.move(MemoryType::Host);
-
-    std::size_t rows        = std::min(queries_processed, query_set_size);
-    std::size_t match_count = 0;
-    std::size_t total_count = rows * static_cast<size_t>(k);
-    for (std::size_t i = 0; i < rows; i++) {
-      for (std::uint32_t j = 0; j < k; j++) {
-        auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
-        for (std::uint32_t l = 0; l < k; l++) {
-          auto exp_idx = gt[i * max_k + l];
-          if (act_idx == exp_idx) {
-            match_count++;
-            break;
+  // Use the last thread as a sanity check that all the threads are working.
+  if (state.thread_index() == state.threads() - 1) {
+    // evaluate recall
+    if (dataset->max_k() >= k) {
+      const std::int32_t* gt          = dataset->gt_set();
+      const std::uint32_t max_k       = dataset->max_k();
+      buf<std::size_t> neighbors_host = neighbors->move(MemoryType::Host);
+      std::size_t rows                = std::min(queries_processed, query_set_size);
+      std::size_t match_count         = 0;
+      std::size_t total_count         = rows * static_cast<size_t>(k);
+      for (std::size_t i = 0; i < rows; i++) {
+        for (std::uint32_t j = 0; j < k; j++) {
+          auto act_idx = std::int32_t(neighbors_host.data[i * k + j]);
+          for (std::uint32_t l = 0; l < k; l++) {
+            auto exp_idx = gt[i * max_k + l];
+            if (act_idx == exp_idx) {
+              match_count++;
+              break;
+            }
           }
         }
       }
+      double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
+      state.counters.insert({{"Recall", actual_recall}});
     }
-    double actual_recall = static_cast<double>(match_count) / static_cast<double>(total_count);
-    state.counters.insert({{"Recall", actual_recall}});
   }
 }
 
 inline void printf_usage()
 {
   ::benchmark::PrintDefaultHelp();
-  fprintf(
-    stdout,
-    "          [--build|--search] \n"
-    "          [--overwrite]\n"
-    "          [--data_prefix=<prefix>]\n"
-    "          [--index_prefix=<prefix>]\n"
-    "          [--override_kv=<key:value1:value2:...:valueN>]\n"
-    "          <conf>.json\n"
-    "\n"
-    "Note the non-standard benchmark parameters:\n"
-    "  --build: build mode, will build index\n"
-    "  --search: search mode, will search using the built index\n"
-    "            one and only one of --build and --search should be specified\n"
-    "  --overwrite: force overwriting existing index files\n"
-    "  --data_prefix=<prefix>:"
-    " prepend <prefix> to dataset file paths specified in the <conf>.json (default = 'data/').\n"
-    "  --index_prefix=<prefix>:"
-    " prepend <prefix> to index file paths specified in the <conf>.json (default = 'index/').\n"
-    "  --override_kv=<key:value1:value2:...:valueN>:"
-    " override a build/search key one or more times multiplying the number of configurations;"
-    " you can use this parameter multiple times to get the Cartesian product of benchmark"
-    " configs.\n");
+  fprintf(stdout,
+          "          [--build|--search] \n"
+          "          [--overwrite]\n"
+          "          [--data_prefix=<prefix>]\n"
+          "          [--index_prefix=<prefix>]\n"
+          "          [--override_kv=<key:value1:value2:...:valueN>]\n"
+          "          [--mode=<latency|throughput>\n"
+          "          <conf>.json\n"
+          "\n"
+          "Note the non-standard benchmark parameters:\n"
+          "  --build: build mode, will build index\n"
+          "  --search: search mode, will search using the built index\n"
+          "            one and only one of --build and --search should be specified\n"
+          "  --overwrite: force overwriting existing index files\n"
+          "  --data_prefix=<prefix>:"
+          " prepend <prefix> to dataset file paths specified in the <conf>.json (default = "
+          "'data/').\n"
+          "  --index_prefix=<prefix>:"
+          " prepend <prefix> to index file paths specified in the <conf>.json (default = "
+          "'index/').\n"
+          "  --override_kv=<key:value1:value2:...:valueN>:"
+          " override a build/search key one or more times multiplying the number of configurations;"
+          " you can use this parameter multiple times to get the Cartesian product of benchmark"
+          " configs.\n"
+          "  --mode=<latency|throughput>"
+          "     run the benchmarks in latency (accumulate times spent in each batch) or "
+          "     throughput (pipeline batches and measure end-to-end) mode\n");
 }
 
 template <typename T>
@@ -319,22 +367,41 @@ void register_build(std::shared_ptr<const Dataset<T>> dataset,
     auto* b = ::benchmark::RegisterBenchmark(
       index.name + suf, bench_build<T>, dataset, index, force_overwrite);
     b->Unit(benchmark::kSecond);
+    b->MeasureProcessCPUTime();
     b->UseRealTime();
   }
 }
 
 template <typename T>
 void register_search(std::shared_ptr<const Dataset<T>> dataset,
-                     std::vector<Configuration::Index> indices)
+                     std::vector<Configuration::Index> indices,
+                     Objective metric_objective)
 {
   for (auto index : indices) {
     for (std::size_t i = 0; i < index.search_params.size(); i++) {
       auto suf = static_cast<std::string>(index.search_params[i]["override_suffix"]);
       index.search_params[i].erase("override_suffix");
-      auto* b =
-        ::benchmark::RegisterBenchmark(index.name + suf, bench_search<T>, dataset, index, i);
-      b->Unit(benchmark::kMillisecond);
-      b->UseRealTime();
+
+      int max_threads =
+        metric_objective == Objective::THROUGHPUT ? std::thread::hardware_concurrency() : 1;
+
+      auto* b = ::benchmark::RegisterBenchmark(
+                  index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
+                  ->Unit(benchmark::kMillisecond)
+                  ->ThreadRange(1, max_threads)
+
+                  /**
+                   * The following are important for getting accuracy QPS measurements on both CPU
+                   * and GPU These make sure that
+                   *   - `end_to_end` ~ (`Time` * `Iterations`)
+                   *   - `items_per_second` ~ (`total_queries` / `end_to_end`)
+                   *   - `Time` = `end_to_end` / `Iterations`
+                   *
+                   *   - Latency = `Time`
+                   *   - Throughput = `items_per_second`
+                   */
+                  ->MeasureProcessCPUTime()
+                  ->UseRealTime();
     }
   }
 }
@@ -346,7 +413,8 @@ void dispatch_benchmark(const Configuration& conf,
                         bool search_mode,
                         std::string data_prefix,
                         std::string index_prefix,
-                        kv_series override_kv)
+                        kv_series override_kv,
+                        Objective metric_objective)
 {
   if (cudart.found()) {
     for (auto [key, value] : cuda_info()) {
@@ -403,7 +471,8 @@ void dispatch_benchmark(const Configuration& conf,
       } else {
         log_warn(
           "Ground truth file is not provided; the recall won't be reported. NB: use "
-          "the 'groundtruth_neighbors_file' alongside the 'query_file' key to specify the path to "
+          "the 'groundtruth_neighbors_file' alongside the 'query_file' key to specify the "
+          "path to "
           "the ground truth in your conf.json.");
       }
     } else {
@@ -414,7 +483,7 @@ void dispatch_benchmark(const Configuration& conf,
       index.search_params = apply_overrides(index.search_params, override_kv);
       index.file          = combine_path(index_prefix, index.file);
     }
-    register_search<T>(dataset, indices);
+    register_search<T>(dataset, indices, metric_objective);
   }
 }
 
@@ -445,6 +514,7 @@ inline auto run_main(int argc, char** argv) -> int
   std::string data_prefix     = "data";
   std::string index_prefix    = "index";
   std::string new_override_kv = "";
+  std::string mode            = "latency";
   kv_series override_kv{};
 
   char arg0_default[] = "benchmark";  // NOLINT
@@ -467,6 +537,7 @@ inline auto run_main(int argc, char** argv) -> int
         parse_bool_flag(argv[i], "--search", search_mode) ||
         parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
         parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
+        parse_string_flag(argv[i], "--mode", mode) ||
         parse_string_flag(argv[i], "--override_kv", new_override_kv)) {
       if (!new_override_kv.empty()) {
         auto kvv = split(new_override_kv, ':');
@@ -485,6 +556,9 @@ inline auto run_main(int argc, char** argv) -> int
       i--;
     }
   }
+
+  Objective metric_objective = Objective::LATENCY;
+  if (mode == "throughput") { metric_objective = Objective::THROUGHPUT; }
 
   if (build_mode == search_mode) {
     log_error("One and only one of --build and --search should be specified");
@@ -505,14 +579,32 @@ inline auto run_main(int argc, char** argv) -> int
   std::string dtype = conf.get_dataset_conf().dtype;
 
   if (dtype == "float") {
-    dispatch_benchmark<float>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<float>(conf,
+                              force_overwrite,
+                              build_mode,
+                              search_mode,
+                              data_prefix,
+                              index_prefix,
+                              override_kv,
+                              metric_objective);
   } else if (dtype == "uint8") {
-    dispatch_benchmark<std::uint8_t>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<std::uint8_t>(conf,
+                                     force_overwrite,
+                                     build_mode,
+                                     search_mode,
+                                     data_prefix,
+                                     index_prefix,
+                                     override_kv,
+                                     metric_objective);
   } else if (dtype == "int8") {
-    dispatch_benchmark<std::int8_t>(
-      conf, force_overwrite, build_mode, search_mode, data_prefix, index_prefix, override_kv);
+    dispatch_benchmark<std::int8_t>(conf,
+                                    force_overwrite,
+                                    build_mode,
+                                    search_mode,
+                                    data_prefix,
+                                    index_prefix,
+                                    override_kv,
+                                    metric_objective);
   } else {
     log_error("datatype '%s' is not supported", dtype.c_str());
     return -1;
@@ -522,8 +614,8 @@ inline auto run_main(int argc, char** argv) -> int
   if (::benchmark::ReportUnrecognizedArguments(argc, argv)) return -1;
   ::benchmark::RunSpecifiedBenchmarks();
   ::benchmark::Shutdown();
-  // Release a possibly cached ANN object, so that it cannot be alive longer than the handle to a
-  // shared library it depends on (dynamic benchmark executable).
+  // Release a possibly cached ANN object, so that it cannot be alive longer than the handle
+  // to a shared library it depends on (dynamic benchmark executable).
   current_algo.reset();
   return 0;
 }

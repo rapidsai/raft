@@ -16,6 +16,7 @@ This project provides a benchmark program for various ANN search implementations
   - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
   - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
   - [Running with Docker containers](#running-with-docker-containers)
+  - [Evaluating the results](#evaluating-the-results)
 - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
 - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
 - [Parameter tuning guide](https://docs.rapids.ai/api/raft/nightly/ann_benchmarks_param_tuning/)
@@ -148,6 +149,10 @@ options:
   --algo-groups ALGO_GROUPS
                         add comma separated algorithm+groups to run (default: None)
   -f, --force           re-run algorithms even if their results already exist (default: False)
+  -m MODE, --search-mode MODE
+                        run search in 'latency' (measure individual batches) or 
+                        'throughput' (pipeline batches and measure end-to-end) mode.
+                        (default: 'latency')
 ```
 
 `dataset`: name of the dataset to be searched in [datasets.yaml](#yaml-dataset-config)
@@ -377,6 +382,38 @@ This will drop you into a command line in the container, with the `raft-ann-benc
 ```
 
 Additionally, the containers can be run in detached mode without any issue.
+
+
+### Evaluating the results
+
+The benchmarks capture several different measurements. The table below describes each of the measurements for index build benchmarks:
+
+| Name       | Description                                            | 
+|------------|--------------------------------------------------------|
+| Benchmark  | A name that uniquely identifies the benchmark instance | 
+| Time       | Wall-time spent training the index                     | 
+| CPU        | CPU time spent training the index                      |
+| Iterations | Number of iterations (this is usually 1)               |
+| GPU        | GPU time spent building                                |
+| index_size | Number of vectors used to train index |
+
+
+The table below describes each of the measurements for the index search benchmarks:
+
+| Name | Description                                                                                                                                           |
+|------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Benchmark | A name that uniquely identifies the benchmark instance                                                                                                |
+| Time | The average runtime for each batch. This is approximately `end_to_end` / `Iterations`                                                                 |
+| CPU | The average `wall-time`. In `throughput` mode, this is the average `wall-time` spent in each thread.                                                  |
+| Iterations | Total number of batches. This is going to be `total_queres` / `n_queries`                                                                             | 
+| Recall | Proportion of correct neighbors to ground truth neighbors. Note this column is only present if groundtruth file is specified in dataset configuration |
+| items_per_second | Total throughput. This is approximately `total_queries` / `end_to_end`.                                                                               |
+| k | Number of neighbors being queried in each iteration                                                                                                   |
+| end_to_end | Total time taken to run all batches for all iterations                                                                                                | 
+| n_queries | Total number of query vectors in each batch                                                                                                           |
+| total_queries | Total number of vectors queries across all iterations                                                                                                 |
+
+Note that the actual table displayed on the screen may differ slightly as the hyper-parameters will also be displayed for each different combination being benchmarked.
 
 ## Creating and customizing dataset configurations
 

@@ -84,6 +84,7 @@ def run_build_and_search(
     search,
     k,
     batch_size,
+    mode="throughput",
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
@@ -110,6 +111,7 @@ def run_build_and_search(
                 "--build",
                 "--data_prefix=" + dataset_path,
                 "--benchmark_out_format=json",
+                "--benchmark_counters_tabular=true",
                 "--benchmark_out="
                 + f"{os.path.join(build_folder, f'{algo}.json')}",
             ]
@@ -132,6 +134,7 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
+                "--mode=%s" % mode,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -229,6 +232,14 @@ def main():
         action="store_true",
     )
 
+    parser.add_argument(
+        "-m",
+        "--search-mode",
+        help="run search in 'latency' (measure individual batches) or "
+        "'throughput' (pipeline batches and measure end-to-end) mode",
+        default="throughput",
+    )
+
     args = parser.parse_args()
 
     # If both build and search are not provided,
@@ -240,6 +251,7 @@ def main():
         build = args.build
         search = args.search
 
+    mode = args.search_mode
     k = args.count
     batch_size = args.batch_size
 
@@ -402,6 +414,7 @@ def main():
         search,
         k,
         batch_size,
+        mode,
     )
 
 
