@@ -189,11 +189,14 @@ def main():
     )
     parser.add_argument(
         "--dataset-configuration",
-        help="path to configuration file for datasets",
+        help="path to YAML configuration file for datasets",
     )
     parser.add_argument(
         "--configuration",
-        help="path to configuration file or directory for algorithms",
+        help="path to YAML configuration file or directory for algorithms\
+              Any run groups found in the specified file/directory will \
+              automatically override groups of the same name present in the \
+              default configurations, including `base`",
     )
     parser.add_argument(
         "--dataset",
@@ -212,7 +215,8 @@ def main():
     parser.add_argument(
         "--algorithms",
         help="run only comma separated list of named \
-                              algorithms",
+              algorithms. If parameters `groups` and `algo-groups \
+              are both undefined, then group `base` is run by default",
         default=None,
     )
     parser.add_argument(
@@ -222,7 +226,8 @@ def main():
     )
     parser.add_argument(
         "--algo-groups",
-        help="add comma separated algorithm+groups to run",
+        help="add comma separated <algorithm>.<group> to run. \
+              Example usage: \"--algo-groups=raft_cagra.large,hnswlib.large\"",
     )
     parser.add_argument(
         "-f",

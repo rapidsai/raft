@@ -411,7 +411,7 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
-        "--dataset", help="dataset to plots", default="glove-100-inner"
+        "--dataset", help="dataset to plot", default="glove-100-inner"
     )
     parser.add_argument(
         "--dataset-path",
@@ -426,7 +426,8 @@ def main():
     parser.add_argument(
         "--algorithms",
         help="plot only comma separated list of named \
-                              algorithms",
+              algorithms. If parameters `groups` and `algo-groups \
+              are both undefined, then group `base` is plot by default",
         default=None,
     )
     parser.add_argument(
@@ -436,7 +437,9 @@ def main():
     )
     parser.add_argument(
         "--algo-groups",
-        help="add comma separated algorithm+groups to the plot",
+        "--algo-groups",
+        help="add comma separated <algorithm>.<group> to plot. \
+              Example usage: \"--algo-groups=raft_cagra.large,hnswlib.large\"",
     )
     parser.add_argument(
         "-k",
