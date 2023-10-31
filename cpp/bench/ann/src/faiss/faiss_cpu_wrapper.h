@@ -229,7 +229,7 @@ template <typename T>
 class FaissCpuIVFPQ : public FaissCpu<T> {
  public:
   struct BuildParam : public FaissCpu<T>::BuildParam {
-    int M_ratio;
+    int M;
     int bitsPerCode;
     bool usePrecomputed;
   };
@@ -237,12 +237,8 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
-    this->index_ = std::make_unique<faiss::IndexIVFPQ>(this->quantizer_.get(),
-                                                       dim,
-                                                       param.nlist,
-                                                       dim / param.M_ratio,
-                                                       param.bitsPerCode,
-                                                       this->metric_type_);
+    this->index_ = std::make_unique<faiss::IndexIVFPQ>(
+      this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);
   }
 
   void save(const std::string& file) const override

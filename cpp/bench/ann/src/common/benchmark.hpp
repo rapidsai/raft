@@ -172,6 +172,7 @@ void bench_search(::benchmark::State& state,
   std::ptrdiff_t batch_offset   = 0;
   std::size_t queries_processed = 0;
 
+  printf("Starting benchmark search\n");
   double total_time = 0;
 
   const auto& sp_json = index.search_params[search_param_ix];
@@ -201,6 +202,7 @@ void bench_search(::benchmark::State& state,
       index_file = index.file;
     }
 
+    printf("Loading index from file\n");
     std::unique_ptr<typename ANN<T>::AnnSearchParam> search_param;
     ANN<T>* algo;
     try {
@@ -217,28 +219,29 @@ void bench_search(::benchmark::State& state,
       state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
     }
 
-    /**
-     * It's important that we guarantee search dataset will always be set before search params.
-     */
+    printf("Set search params\n");
+    try {
+      algo->set_search_param(*search_param);
+    } catch (const std::exception& ex) {
+      state.SkipWithError("An error occurred setting search parameters: " + std::string(ex.what()));
+      return;
+    }
+
+    printf("Setting search dataset\n");
     auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
     current_algo_props = std::make_shared<AlgoProperty>(algo_property.dataset_memory_type,
                                                         algo_property.query_memory_type);
+
+    printf("AFTER!\n");
     if (search_param->needs_dataset()) {
       try {
+        printf("About to set search datast\n");
         algo->set_search_dataset(dataset->base_set(current_algo_props->dataset_memory_type),
                                  dataset->base_set_size());
       } catch (const std::exception& ex) {
         state.SkipWithError("The algorithm '" + index.name +
                             "' requires the base set, but it's not available. " +
                             "Exception: " + std::string(ex.what()));
-        return;
-      }
-
-      try {
-        algo->set_search_param(*search_param);
-      } catch (const std::exception& ex) {
-        state.SkipWithError("An error occurred setting search parameters: " +
-                            std::string(ex.what()));
         return;
       }
     }

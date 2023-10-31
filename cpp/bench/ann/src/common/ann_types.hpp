@@ -124,7 +124,7 @@ class ANN : public AnnBase {
   // and set_search_dataset() should save the passed-in pointer somewhere.
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
-  virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
+  virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/) { printf("Setting \n"); };
 };
 
 }  // namespace raft::bench::ann

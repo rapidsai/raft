@@ -50,7 +50,7 @@ void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFPQ<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
-  param.M_ratio = conf.at("M_ratio");
+  param.M = conf.at("M");
   if (conf.contains("usePrecomputed")) {
     param.usePrecomputed = conf.at("usePrecomputed");
   } else {
