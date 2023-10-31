@@ -32,6 +32,6 @@ setup(
     # Don't want libcxx getting pulled into wheel builds.
     cmake_process_manifest_hook=exclude_libcxx_symlink,
     packages=packages,
-    package_data={key: ["*.pxd"] for key in packages},
+    package_data={key: ["VERSION", "*.pxd"] for key in packages},
     zip_safe=False,
 )

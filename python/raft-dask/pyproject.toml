@@ -25,7 +25,7 @@ requires = [
 
 [project]
 name = "raft-dask"
-version = "23.12.00"
+dynamic = ["version"]
 description = "Reusable Accelerated Functions & Tools Dask Infrastructure"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -62,6 +62,9 @@ Documentation = "https://docs.rapids.ai/api/raft/stable/"
 
 [tool.setuptools]
 license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {file = "raft_dask/VERSION"}
 
 [tool.isort]
 line_length = 79
