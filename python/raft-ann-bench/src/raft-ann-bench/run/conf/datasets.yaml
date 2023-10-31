@@ -100,16 +100,16 @@
 
 - name: wiki_all_1M,
   dims: 784
-  base_file: wiki_all_1M/base.88M.fbin,
+  base_file: wiki_all_1M/base.1MM.fbin,
   query_file: wiki_all_1M/queries.fbin,
-  groundtruth_neighbors_file: wiki_all_1M/groundtruth.88M.neighbors.ibin,
+  groundtruth_neighbors_file: wiki_all_1M/groundtruth.1M.neighbors.ibin,
   distance: euclidean
 
 - name: wiki_all_10M,
   dims: 784
-  base_file: wiki_all_10M/base.88M.fbin,
+  base_file: wiki_all_10M/base.10M.fbin,
   query_file: wiki_all_10M/queries.fbin,
-  groundtruth_neighbors_file: wiki_all_10M/groundtruth.88M.neighbors.ibin,
+  groundtruth_neighbors_file: wiki_all_10M/groundtruth.10M.neighbors.ibin,
   distance: euclidean
 
 - name: wiki_all_88M,
