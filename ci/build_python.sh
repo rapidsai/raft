@@ -38,8 +38,6 @@ rapids-conda-retry mambabuild \
   conda/recipes/raft-dask
 
 # Build ann-bench for each cuda and python version
-version_file_raft_ann_bench="python/raft-ann-bench/src/raft-ann-bench/_version.py"
-sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" ${version_file_raft_dask}
 rapids-conda-retry mambabuild \
 --no-test \
 --channel "${CPP_CHANNEL}" \
