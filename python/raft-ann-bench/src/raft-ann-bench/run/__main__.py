@@ -416,7 +416,9 @@ def main():
                             func = importable[-1]
                             validator = import_module(module)
                             search_validator = getattr(validator, func)
-                            if search_validator(search_dict, k, batch_size):
+                            if search_validator(
+                                search_dict, build_params, k, batch_size
+                            ):
                                 index["search_params"].append(search_dict)
                     else:
                         index["search_params"].append(search_dict)
