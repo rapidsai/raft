@@ -16,6 +16,11 @@
 DTYPE_SIZES = {"float": 4, "half": 2, "fp8": 1}
 
 
+def raft_ivf_pq_build_validator(params, dims):
+    if "pq_dim" in params:
+        return params["pq_dim"] <= dims
+
+
 def raft_ivf_pq_search_validator(params, k, batch_size):
     if "internalDistanceDtype" in params and "smemLutDtype" in params:
         return (

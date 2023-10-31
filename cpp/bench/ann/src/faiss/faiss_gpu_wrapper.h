@@ -263,7 +263,7 @@ template <typename T>
 class FaissGpuIVFPQ : public FaissGpu<T> {
  public:
   struct BuildParam : public FaissGpu<T>::BuildParam {
-    int M;
+    int M_ratio;
     bool useFloat16;
     bool usePrecomputed;
   };
@@ -274,11 +274,12 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     config.useFloat16LookupTables = param.useFloat16;
     config.usePrecomputedTables   = param.usePrecomputed;
     config.device                 = this->device_;
+
     this->index_ =
       std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
                                                   dim,
                                                   param.nlist,
-                                                  param.M,
+                                                  dim / param.M_ratio,
                                                   8,  // FAISS only supports bitsPerCode=8
                                                   this->metric_type_,
                                                   config);

@@ -288,7 +288,8 @@ def main():
 
     algos_conf_fs = os.listdir(os.path.join(scripts_path, "conf", "algos"))
     algos_conf_fs = [
-        os.path.join(scripts_path, "conf", "algos", f) for f in algos_conf_fs
+        os.path.join(scripts_path, "conf", "algos", f)
+        for f in algos_conf_fs
         if ".json" not in f
     ]
     conf_filedir = os.path.join(scripts_path, "conf", "algos")
@@ -389,7 +390,9 @@ def main():
                         func = importable[-1]
                         validator = import_module(module)
                         build_validator = getattr(validator, func)
-                        if not build_validator(index["build_param"]):
+                        if not build_validator(
+                            index["build_param"], conf_file["dataset"]["dims"]
+                        ):
                             continue
 
                 index["name"] = index_name
