@@ -278,14 +278,17 @@ void bench_search(::benchmark::State& state,
       total_time += elapsed_seconds.count();
     }
   }
-  auto end = std::chrono::high_resolution_clock::now();
-  if (state.thread_index() == 0) {
-    auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
-    state.counters.insert({{"end_to_end", duration}});
-  }
+  cudaDeviceSynchronize();
+  auto end      = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+  if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
+  state.counters.insert(
+    {"Latency", {duration / double(state.iterations()), benchmark::Counter::kAvgThreads}});
+
   state.SetItemsProcessed(queries_processed);
   if (cudart.found()) {
-    state.counters.insert({{"GPU", gpu_timer.total_time() / double(state.iterations())}});
+    double gpu_time_per_iteration = gpu_timer.total_time() / (double)state.iterations();
+    state.counters.insert({"GPU", {gpu_time_per_iteration, benchmark::Counter::kAvgThreads}});
   }
 
   // This will be the total number of queries across all threads
@@ -619,5 +622,4 @@ inline auto run_main(int argc, char** argv) -> int
   current_algo.reset();
   return 0;
 }
-
 };  // namespace raft::bench::ann

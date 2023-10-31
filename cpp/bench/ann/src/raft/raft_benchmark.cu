@@ -47,9 +47,18 @@ extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
 #define JSON_DIAGNOSTICS 1
+#include "fix_latency_workload.h"
 #include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
+
+inline void parse_search_param(const nlohmann::json& conf,
+                               typename raft::bench::ann::FixLatencyWorkload::SearchParam& param)
+{
+  if (conf.contains("use_gpu")) param.use_gpu = conf.at("use_gpu");
+  if (conf.contains("sync_stream")) param.sync_stream = conf.at("sync_stream");
+  if (conf.contains("sleep_ms")) param.sleep_ms = conf.at("sleep_ms");
+}
 
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
 template <typename T, typename IdxT>
@@ -198,6 +207,11 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
     if (algo == "raft_bfknn") { ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim); }
 #endif
+    if (algo == "fix_latency") {
+      typename raft::bench::ann::FixLatencyWorkload::BuildParam param;
+      parse_search_param(conf, param);  // Note build and search params are the same.
+      ann = std::make_unique<raft::bench::ann::FixLatencyWorkload>(metric, dim, param);
+    }
   }
 
   if constexpr (std::is_same_v<T, uint8_t>) {}
@@ -238,6 +252,14 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
     return param;
   }
 #endif
+
+  if constexpr (std::is_same_v<T, float>) {
+    if (algo == "fix_latency") {
+      auto param = std::make_unique<typename raft::bench::ann::FixLatencyWorkload::SearchParam>();
+      parse_search_param(conf, *param);
+      return param;
+    }
+  }
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
   if (algo == "raft_ivf_flat") {
     auto param =
@@ -263,7 +285,6 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
   // else
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
-
 };  // namespace raft::bench::ann
 
 REGISTER_ALGO_INSTANCE(float);
