@@ -172,8 +172,6 @@ void bench_search(::benchmark::State& state,
   std::ptrdiff_t batch_offset   = 0;
   std::size_t queries_processed = 0;
 
-  double total_time = 0;
-
   const auto& sp_json = index.search_params[search_param_ix];
 
   if (state.thread_index() == 0) { dump_parameters(state, sp_json); }
@@ -249,13 +247,14 @@ void bench_search(::benchmark::State& state,
   {
     nvtx_case nvtx{state.name()};
 
+    // gbench ensures that all threads are synchronized at the start of the benchmark loop.
+
     // TODO: Have the odd threads load the queries backwards just to rule out caching.
     ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();
 
-      auto start = std::chrono::high_resolution_clock::now();
       // run the search
       try {
         algo->search(query_set + batch_offset * dataset->dim(),
@@ -268,14 +267,9 @@ void bench_search(::benchmark::State& state,
         state.SkipWithError(std::string(e.what()));
       }
 
-      auto end = std::chrono::high_resolution_clock::now();
-
-      auto elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
       // advance to the next batch
       batch_offset = (batch_offset + n_queries) % query_set_size;
       queries_processed += n_queries;
-      state.SetIterationTime(elapsed_seconds.count());
-      total_time += elapsed_seconds.count();
     }
   }
   cudaDeviceSynchronize();
