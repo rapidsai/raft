@@ -142,7 +142,7 @@ class FaissGpu : public ANN<T> {
 
   mutable faiss::gpu::StandardGpuResources gpu_resource_;
   std::unique_ptr<faiss::gpu::GpuIndex> index_;
-  std::unique_ptr<faiss::IndexRefineFlat> index_refine_;
+  std::unique_ptr<faiss::IndexRefineFlat> index_refine_{nullptr};
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
@@ -217,7 +217,13 @@ void FaissGpu<T>::load_(const std::string& file)
 
   std::unique_ptr<CpuIndex> cpu_index(dynamic_cast<CpuIndex*>(faiss::read_index(file.c_str())));
   assert(cpu_index);
-  dynamic_cast<GpuIndex*>(index_.get())->copyFrom(cpu_index.get());
+
+  try {
+    dynamic_cast<GpuIndex*>(index_.get())->copyFrom(cpu_index.get());
+
+  } catch (const std::exception& e) {
+    std::cout << "Error loading index file: " << std::string(e.what()) << std::endl;
+  }
 }
 
 template <typename T>
@@ -242,11 +248,6 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
     this->search_params_       = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
-
-    if (search_param.refine_ratio > 1.0) {
-      this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
-      this->index_refine_.get()->k_factor = search_param.refine_ratio;
-    }
   }
 
   void save(const std::string& file) const override
@@ -268,6 +269,12 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     bool usePrecomputed;
   };
 
+  struct SearchParam : public FaissGpu<T>::SearchParam {
+    int nprobe;
+    float refine_ratio = 1.0;
+    auto needs_dataset() const -> bool override { return true; }
+  };
+
   FaissGpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::gpu::GpuIndexIVFPQConfig config;
@@ -285,6 +292,11 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
                                                   config);
   }
 
+  void set_search_dataset(const T* dataset, size_t nrow)
+  {
+    this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset);
+  }
+
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
@@ -297,7 +309,6 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     this->search_params_ = std::make_unique<faiss::IVFPQSearchParameters>(faiss_search_params);
 
     if (search_param.refine_ratio > 1.0) {
-      this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
     }
   }
@@ -321,6 +332,12 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     std::string quantizer_type;
   };
 
+  struct SearchParam : public FaissGpu<T>::SearchParam {
+    int nprobe;
+    float refine_ratio = 1.0;
+    auto needs_dataset() const -> bool override { return true; }
+  };
+
   FaissGpuIVFSQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::ScalarQuantizer::QuantizerType qtype;
@@ -339,6 +356,10 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
       &(this->gpu_resource_), dim, param.nlist, qtype, this->metric_type_, true, config);
   }
 
+  void set_search_dataset(const T* dataset, size_t nrow)
+  {
+    this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset);
+  }
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
@@ -351,7 +372,6 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     this->search_params_ = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
 
     if (search_param.refine_ratio > 1.0) {
-      this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
     }
   }

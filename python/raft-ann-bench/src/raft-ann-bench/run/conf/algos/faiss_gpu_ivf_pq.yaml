@@ -2,11 +2,21 @@ name: faiss_gpu_ivf_pq
 groups:
   base:
     build:
-      nlist: [1024, 2048, 4096, 8192, 16000, 32000, 64000, 100000]
+      nlist: [1024, 2048, 4096, 8192]
       M_ratio: [2, 4]
-      ratio: [1, 10, 25]
+      ratio: [10, 25]
       usePrecomputed: [True, False]
       useFloat16: [True, False]
     search:
-      numProbes: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
-      refine_ratio: [1, 2, 4, 10]
+      nprobe: [1, 5, 10, 50, 100, 200]
+      refine_ratio: [1, 2, 4]
+  test:
+    build: 
+      nlist: [1024]
+      M_ratio: [2]
+      ratio: [10]
+      useFloat16: [False]
+    search:
+      nprobe: [1, 5, 10, 50, 100, 200]
+      refine_ratio: [1]
+   

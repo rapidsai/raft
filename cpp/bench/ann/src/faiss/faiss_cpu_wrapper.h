@@ -152,6 +152,7 @@ void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::IndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
+  index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset);
 }
 
 template <typename T>
@@ -163,7 +164,6 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
   dynamic_cast<faiss::IndexIVF*>(index_.get())->nprobe = nprobe;
 
   if (search_param.refine_ratio > 1.0) {
-    this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
     this->index_refine_.get()->k_factor = search_param.refine_ratio;
   }
 

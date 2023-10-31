@@ -128,14 +128,14 @@ def run_build_and_search(
                 ann_executable_path,
                 "--search",
                 "--data_prefix=" + dataset_path,
-                "--benchmark_counters_tabular",
+                "--benchmark_counters_tabular=true",
                 "--override_kv=k:%s" % k,
                 "--override_kv=n_queries:%s" % batch_size,
                 "--benchmark_min_warmup_time=0.01",
                 "--benchmark_out_format=json",
+                "--mode=%s" % mode,
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
-                "--mode=%s" % mode,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -401,6 +401,7 @@ def main():
                 )
                 index["search_params"] = []
                 all_search_params = itertools.product(*search_param_lists)
+
                 for search_params in all_search_params:
                     search_dict = dict()
                     for i in range(len(search_params)):
@@ -415,14 +416,14 @@ def main():
                             func = importable[-1]
                             validator = import_module(module)
                             search_validator = getattr(validator, func)
-                            if search_validator(
-                                search_dict,
-                                index["build_param"],
-                                k,
-                                batch_size,
-                            ):
+                            if search_validator(search_dict, k, batch_size):
                                 index["search_params"].append(search_dict)
+                    else:
+                        index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
+
+            if len(index["search_params"]) == 0:
+                print("No search parameters were added to configuration")
 
     run_build_and_search(
         conf_file,

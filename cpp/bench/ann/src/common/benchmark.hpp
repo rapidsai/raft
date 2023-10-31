@@ -216,7 +216,10 @@ void bench_search(::benchmark::State& state,
     } catch (const std::exception& e) {
       state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
     }
-    algo->set_search_param(*search_param);
+
+    /**
+     * It's important that we guarantee search dataset will always be set before search params.
+     */
     auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
     current_algo_props = std::make_shared<AlgoProperty>(algo_property.dataset_memory_type,
                                                         algo_property.query_memory_type);
@@ -228,6 +231,14 @@ void bench_search(::benchmark::State& state,
         state.SkipWithError("The algorithm '" + index.name +
                             "' requires the base set, but it's not available. " +
                             "Exception: " + std::string(ex.what()));
+        return;
+      }
+
+      try {
+        algo->set_search_param(*search_param);
+      } catch (const std::exception& ex) {
+        state.SkipWithError("An error occurred setting search parameters: " +
+                            std::string(ex.what()));
         return;
       }
     }
