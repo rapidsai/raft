@@ -4,28 +4,46 @@ This project provides a benchmark program for various ANN search implementations
 
 ## Table of Contents
 
-- [RAFT ANN Benchmarks](#raft-ann-benchmarks)
-  - [Table of Contents](#table-of-contents)
-  - [Installing the benchmarks](#installing-the-benchmarks)
-  - [Conda](#conda)
-  - [Docker](#docker)
-  - [How to run the benchmarks](#how-to-run-the-benchmarks)
-    - [Step 1: Prepare Dataset](#step-1-prepare-dataset)
-    - [Step 2: Build and Search Index](#step-2-build-and-search-index)
-    - [Step 3: Data Export](#step-3-data-export)
-    - [Step 4: Plot Results](#step-4-plot-results)
-  - [Running the benchmarks](#running-the-benchmarks)
-    - [End to end: small-scale benchmarks (\<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
-    - [End to end: large-scale benchmarks (\>10M vectors)](#end-to-end-large-scale-benchmarks-10m-vectors)
-    - [Running with Docker containers](#running-with-docker-containers)
-      - [End-to-end run on GPU](#end-to-end-run-on-gpu)
-      - [End-to-end run on CPU](#end-to-end-run-on-cpu)
-      - [Manually run the scripts inside the container](#manually-run-the-scripts-inside-the-container)
-    - [Evaluating the results](#evaluating-the-results)
-  - [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
-  - [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
-    - [Implementation and Configuration](#implementation-and-configuration)
-    - [Adding a CMake Target](#adding-a-cmake-target)
+- [Installing the benchmarks](#installing-the-benchmarks)
+    - [Conda](#conda)
+    - [Docker](#docker)
+- [How to run the benchmarks](#how-to-run-the-benchmarks)
+  - [Step 1: prepare dataset](#step-1-prepare-dataset)
+  - [Step 2: build and search index](#step-2-build-and-search-index)
+  - [Step 3: data export](#step-3-data-export)
+  - [Step 4: plot results](#step-4-plot-results)
+- [Running the benchmarks](#running-the-benchmarks)
+  - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
+  - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
+  - [Running with Docker containers](#running-with-docker-containers)
+  - [Evaluating the results](#evaluating-the-results)
+- [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
+- [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
+- [Parameter tuning guide](https://docs.rapids.ai/api/raft/nightly/ann_benchmarks_param_tuning/)
+- [Wiki-all RAG/LLM Dataset](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/)
+## Installing the benchmarks# RAFT ANN Benchmarks
+
+This project provides a benchmark program for various ANN search implementations. It's especially suitable for comparing GPU implementations as well as comparing GPU against CPU.
+
+## Table of Contents
+
+- [Installing the benchmarks](#installing-the-benchmarks)
+    - [Conda](#conda)
+    - [Docker](#docker)
+- [How to run the benchmarks](#how-to-run-the-benchmarks)
+  - [Step 1: prepare dataset](#step-1-prepare-dataset)
+  - [Step 2: build and search index](#step-2-build-and-search-index)
+  - [Step 3: data export](#step-3-data-export)
+  - [Step 4: plot results](#step-4-plot-results)
+- [Running the benchmarks](#running-the-benchmarks)
+  - [End to end: small-scale (<1M to 10M)](#end-to-end-small-scale-benchmarks-1m-to-10m)
+  - [End to end: large-scale (>10M)](#end-to-end-large-scale-benchmarks-10m-vectors)
+  - [Running with Docker containers](#running-with-docker-containers)
+  - [Evaluating the results](#evaluating-the-results)
+- [Creating and customizing dataset configurations](#creating-and-customizing-dataset-configurations)
+- [Adding a new ANN algorithm](#adding-a-new-ann-algorithm)
+- [Parameter tuning guide](https://docs.rapids.ai/api/raft/nightly/ann_benchmarks_param_tuning/)
+- [Wiki-all RAG/LLM Dataset](https://docs.rapids.ai/api/raft/nightly/wiki_all_dataset/)
 
 ## Installing the benchmarks
 
