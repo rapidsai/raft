@@ -401,7 +401,6 @@ def main():
                 )
                 index["search_params"] = []
                 all_search_params = itertools.product(*search_param_lists)
-
                 for search_params in all_search_params:
                     search_dict = dict()
                     for i in range(len(search_params)):
