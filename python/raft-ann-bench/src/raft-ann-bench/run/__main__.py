@@ -300,6 +300,7 @@ def main():
             ]
         elif os.path.isfile(args.configuration):
             conf_filedir = os.path.normpath(args.configuration).split(os.sep)
+            conf_filedir = os.path.join(*conf_filedir[:-1])
             algos_conf_fs = algos_conf_fs + [args.configuration]
 
     filter_algos = True if args.algorithms else False
