@@ -288,7 +288,8 @@ def main():
 
     algos_conf_fs = os.listdir(os.path.join(scripts_path, "conf", "algos"))
     algos_conf_fs = [
-        os.path.join(scripts_path, "conf", "algos", f) for f in algos_conf_fs
+        os.path.join(scripts_path, "conf", "algos", f)
+        for f in algos_conf_fs
         if ".json" not in f
     ]
     conf_filedir = os.path.join(scripts_path, "conf", "algos")
