@@ -243,7 +243,7 @@ def main():
         "--search-mode",
         help="run search in 'latency' (measure individual batches) or "
         "'throughput' (pipeline batches and measure end-to-end) mode",
-        default="throughput",
+        default="latency",
     )
 
     args = parser.parse_args()
@@ -415,7 +415,12 @@ def main():
                             func = importable[-1]
                             validator = import_module(module)
                             search_validator = getattr(validator, func)
-                            if search_validator(search_dict, k, batch_size):
+                            if search_validator(
+                                search_dict,
+                                index["build_param"],
+                                k,
+                                batch_size,
+                            ):
                                 index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
 

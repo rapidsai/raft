@@ -29,6 +29,7 @@
   distance: euclidean
 
 - name: fashion-mnist-784-euclidean
+  dims: 784
   base_file: fashion-mnist-784-euclidean/base.fbin
   query_file: fashion-mnist-784-euclidean/query.fbin
   groundtruth_neighbors_file: fashion-mnist-784-euclidean/groundtruth.neighbors.ibin
