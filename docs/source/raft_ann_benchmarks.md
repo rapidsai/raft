@@ -425,6 +425,7 @@ A single configuration will often define a set of algorithms, with associated in
   base_file: sift-128-euclidean/base.fbin
   query_file: sift-128-euclidean/query.fbin
   groundtruth_neighbors_file: sift-128-euclidean/groundtruth.neighbors.ibin
+  dims: 128
   distance: euclidean
 ```
 
