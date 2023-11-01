@@ -50,10 +50,7 @@ def validate_algorithm(algos_conf, algo, gpu_present):
 def find_executable(algos_conf, algo, group, k, batch_size):
     executable = algos_conf[algo]["executable"]
 
-    if group != "base":
-        return_str = f"{algo}_{group}-{k}-{batch_size}"
-    else:
-        return_str = f"{algo}-{k}-{batch_size}"
+    return_str = f"{algo}_{group}-{k}-{batch_size}"
 
     build_path = os.getenv("RAFT_HOME")
     if build_path is not None:
