@@ -339,7 +339,7 @@ index<T> build(raft::resources const& res,
  * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
  * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
- * k]
+ * @param[in] query_norms Optional device_vector_view of precomputed query norms
  */
 template <typename T, typename IdxT>
 void search(raft::resources const& res,
