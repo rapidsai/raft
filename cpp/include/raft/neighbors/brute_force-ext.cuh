@@ -50,7 +50,9 @@ void search(raft::resources const& res,
             const index<T>& idx,
             raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
-            raft::device_matrix_view<float, int64_t, row_major> distances) RAFT_EXPLICIT;
+            raft::device_matrix_view<T, int64_t, row_major> distances,
+            std::optional<raft::device_vector_view<const T, int64_t>> query_norms = std::nullopt)
+  RAFT_EXPLICIT;
 
 template <typename idx_t,
           typename value_t,
@@ -114,14 +116,16 @@ extern template void search<float, int>(
   const raft::neighbors::brute_force::index<float>& idx,
   raft::device_matrix_view<const float, int64_t, row_major> queries,
   raft::device_matrix_view<int, int64_t, row_major> neighbors,
-  raft::device_matrix_view<float, int64_t, row_major> distances);
+  raft::device_matrix_view<float, int64_t, row_major> distances,
+  std::optional<raft::device_vector_view<const float, int64_t>> query_norms);
 
 extern template void search<float, int64_t>(
   raft::resources const& res,
   const raft::neighbors::brute_force::index<float>& idx,
   raft::device_matrix_view<const float, int64_t, row_major> queries,
   raft::device_matrix_view<int64_t, int64_t, row_major> neighbors,
-  raft::device_matrix_view<float, int64_t, row_major> distances);
+  raft::device_matrix_view<float, int64_t, row_major> distances,
+  std::optional<raft::device_vector_view<const float, int64_t>> query_norms);
 
 extern template raft::neighbors::brute_force::index<float> build<float>(
   raft::resources const& res,

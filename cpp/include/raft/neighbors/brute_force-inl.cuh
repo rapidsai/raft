@@ -346,7 +346,8 @@ void search(raft::resources const& res,
             const index<T>& idx,
             raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
-            raft::device_matrix_view<float, int64_t, row_major> distances)
+            raft::device_matrix_view<T, int64_t, row_major> distances,
+            std::optional<raft::device_vector_view<const T, int64_t>> query_norms = std::nullopt)
 {
   RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1), "Value of k must match for outputs");
   RAFT_EXPECTS(idx.dataset().extent(1) == queries.extent(1),
@@ -360,22 +361,24 @@ void search(raft::resources const& res,
   std::vector<T*> norms;
   if (idx.has_norms()) { norms.push_back(const_cast<T*>(idx.norms().data_handle())); }
 
-  detail::brute_force_knn_impl<int64_t, IdxT, T>(res,
-                                                 dataset,
-                                                 sizes,
-                                                 d,
-                                                 const_cast<T*>(queries.data_handle()),
-                                                 queries.extent(0),
-                                                 neighbors.data_handle(),
-                                                 distances.data_handle(),
-                                                 k,
-                                                 true,
-                                                 true,
-                                                 nullptr,
-                                                 idx.metric(),
-                                                 idx.metric_arg(),
-                                                 raft::identity_op(),
-                                                 norms.size() ? &norms : nullptr);
+  detail::brute_force_knn_impl<int64_t, IdxT, T>(
+    res,
+    dataset,
+    sizes,
+    d,
+    const_cast<T*>(queries.data_handle()),
+    queries.extent(0),
+    neighbors.data_handle(),
+    distances.data_handle(),
+    k,
+    true,
+    true,
+    nullptr,
+    idx.metric(),
+    idx.metric_arg(),
+    raft::identity_op(),
+    norms.size() ? &norms : nullptr,
+    query_norms ? query_norms->data_handle() : nullptr);
 }
 /** @} */  // end group brute_force_knn
 }  // namespace raft::neighbors::brute_force

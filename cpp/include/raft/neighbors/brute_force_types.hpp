@@ -69,7 +69,7 @@ struct index : ann::index {
     return norms_view_.value();
   }
 
-  /** Whether ot not this index has dataset norms */
+  /** Whether or not this index has dataset norms */
   [[nodiscard]] inline bool has_norms() const noexcept { return norms_view_.has_value(); }
 
   [[nodiscard]] inline T metric_arg() const noexcept { return metric_arg_; }

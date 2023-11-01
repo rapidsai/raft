@@ -65,11 +65,12 @@ void tiled_brute_force_knn(const raft::resources& handle,
                            ElementType* distances,  // size (m, k)
                            IndexType* indices,      // size (m, k)
                            raft::distance::DistanceType metric,
-                           float metric_arg                           = 2.0,
-                           size_t max_row_tile_size                   = 0,
-                           size_t max_col_tile_size                   = 0,
-                           DistanceEpilogue distance_epilogue         = raft::identity_op(),
-                           const ElementType* precomputed_index_norms = nullptr)
+                           float metric_arg                            = 2.0,
+                           size_t max_row_tile_size                    = 0,
+                           size_t max_col_tile_size                    = 0,
+                           DistanceEpilogue distance_epilogue          = raft::identity_op(),
+                           const ElementType* precomputed_index_norms  = nullptr,
+                           const ElementType* precomputed_search_norms = nullptr)
 {
   // Figure out the number of rows/cols to tile for
   size_t tile_rows   = 0;
@@ -98,18 +99,20 @@ void tiled_brute_force_knn(const raft::resources& handle,
   if (metric == raft::distance::DistanceType::L2Expanded ||
       metric == raft::distance::DistanceType::L2SqrtExpanded ||
       metric == raft::distance::DistanceType::CosineExpanded) {
-    search_norms.resize(m, stream);
+    if (!precomputed_search_norms) { search_norms.resize(m, stream); }
     if (!precomputed_index_norms) { index_norms.resize(n, stream); }
     // cosine needs the l2norm, where as l2 distances needs the squared norm
     if (metric == raft::distance::DistanceType::CosineExpanded) {
-      raft::linalg::rowNorm(search_norms.data(),
-                            search,
-                            d,
-                            m,
-                            raft::linalg::NormType::L2Norm,
-                            true,
-                            stream,
-                            raft::sqrt_op{});
+      if (!precomputed_search_norms) {
+        raft::linalg::rowNorm(search_norms.data(),
+                              search,
+                              d,
+                              m,
+                              raft::linalg::NormType::L2Norm,
+                              true,
+                              stream,
+                              raft::sqrt_op{});
+      }
       if (!precomputed_index_norms) {
         raft::linalg::rowNorm(index_norms.data(),
                               index,
@@ -121,9 +124,10 @@ void tiled_brute_force_knn(const raft::resources& handle,
                               raft::sqrt_op{});
       }
     } else {
-      raft::linalg::rowNorm(
-        search_norms.data(), search, d, m, raft::linalg::NormType::L2Norm, true, stream);
-
+      if (!precomputed_search_norms) {
+        raft::linalg::rowNorm(
+          search_norms.data(), search, d, m, raft::linalg::NormType::L2Norm, true, stream);
+      }
       if (!precomputed_index_norms) {
         raft::linalg::rowNorm(
           index_norms.data(), index, d, n, raft::linalg::NormType::L2Norm, true, stream);
@@ -184,7 +188,7 @@ void tiled_brute_force_knn(const raft::resources& handle,
                                                     metric_arg);
       if (metric == raft::distance::DistanceType::L2Expanded ||
           metric == raft::distance::DistanceType::L2SqrtExpanded) {
-        auto row_norms = search_norms.data();
+        auto row_norms = precomputed_search_norms ? precomputed_search_norms : search_norms.data();
         auto col_norms = precomputed_index_norms ? precomputed_index_norms : index_norms.data();
         auto dist      = temp_distances.data();
         bool sqrt      = metric == raft::distance::DistanceType::L2SqrtExpanded;
@@ -201,7 +205,7 @@ void tiled_brute_force_knn(const raft::resources& handle,
             return distance_epilogue(val, row, col);
           });
       } else if (metric == raft::distance::DistanceType::CosineExpanded) {
-        auto row_norms = search_norms.data();
+        auto row_norms = precomputed_search_norms ? precomputed_search_norms : search_norms.data();
         auto col_norms = precomputed_index_norms ? precomputed_index_norms : index_norms.data();
         auto dist      = temp_distances.data();
 
@@ -333,7 +337,8 @@ void brute_force_knn_impl(
   raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
   float metricArg                     = 0,
   DistanceEpilogue distance_epilogue  = raft::identity_op(),
-  std::vector<value_t*>* input_norms  = nullptr)
+  std::vector<value_t*>* input_norms  = nullptr,
+  const value_t* search_norms         = nullptr)
 {
   auto userStream = resource::get_cuda_stream(handle);
 
@@ -376,7 +381,7 @@ void brute_force_knn_impl(
   }
 
   // currently we don't support col_major inside tiled_brute_force_knn, because
-  // of limitattions of the pairwise_distance API:
+  // of limitations of the pairwise_distance API:
   // 1) paiwise_distance takes a single 'isRowMajor' parameter - and we have
   // multiple options here (like rowMajorQuery/rowMajorIndex)
   // 2) because of tiling, we need to be able to set a custom stride in the PW
@@ -428,7 +433,8 @@ void brute_force_knn_impl(
                  rowMajorQuery,
                  stream,
                  metric,
-                 input_norms ? (*input_norms)[i] : nullptr);
+                 input_norms ? (*input_norms)[i] : nullptr,
+                 search_norms);
 
       // Perform necessary post-processing
       if (metric == raft::distance::DistanceType::L2SqrtExpanded ||
@@ -478,7 +484,8 @@ void brute_force_knn_impl(
                                                   0,
                                                   0,
                                                   distance_epilogue,
-                                                  input_norms ? (*input_norms)[i] : nullptr);
+                                                  input_norms ? (*input_norms)[i] : nullptr,
+                                                  search_norms);
           break;
       }
     }
