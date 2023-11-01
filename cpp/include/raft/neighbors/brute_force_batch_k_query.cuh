@@ -145,8 +145,8 @@ class batch_k_query {
     iterator(const batch_k_query<T, IdxT>* query, int64_t offset = 0)
       : current(query->res, 0, 0), batches(query->res, 0, 0), query(query), offset(offset)
     {
-      load_batches();
-      slice_current_batch();
+      load_batches(query->batch_size);
+      slice_current_batch(offset, query->batch_size);
     }
 
     reference operator*() const { return current; }
@@ -155,9 +155,7 @@ class batch_k_query {
 
     iterator& operator++()
     {
-      offset = std::min(offset + query->batch_size, query->index.size());
-      if (offset + query->batch_size > current_batch_size) { load_batches(); }
-      slice_current_batch();
+      advance(query->batch_size);
       return *this;
     }
 
@@ -168,6 +166,13 @@ class batch_k_query {
       return previous;
     }
 
+    void advance(int64_t next_batch_size)
+    {
+      offset = std::min(offset + current.indices().extent(1), query->index.size());
+      if (offset + next_batch_size > current_batch_size) { load_batches(next_batch_size); }
+      slice_current_batch(offset, next_batch_size);
+    }
+
     friend bool operator==(const iterator& lhs, const iterator& rhs)
     {
       return (lhs.query == rhs.query) && (lhs.offset == rhs.offset);
@@ -175,23 +180,22 @@ class batch_k_query {
     friend bool operator!=(const iterator& lhs, const iterator& rhs) { return !(lhs == rhs); };
 
    protected:
-    void load_batches()
+    void load_batches(int64_t next_batch_size)
     {
       if (offset >= query->index.size()) { return; }
 
       // we're aiming to load multiple batches here - since we don't know the max iteration
       // grow the size we're loading exponentially
-      int64_t batch_size =
-        std::min(std::max(offset * 2, query->batch_size * 2), query->index.size());
-      batches = batch(query->res, query->query.extent(0), batch_size);
+      int64_t batch_size = std::min(std::max(offset * 2, next_batch_size * 2), query->index.size());
+      batches            = batch(query->res, query->query.extent(0), batch_size);
       query->load_batch(batches);
       current_batch_size = batch_size;
     }
 
-    void slice_current_batch()
+    void slice_current_batch(int64_t offset, int64_t batch_size)
     {
       auto num_queries = batches.indices_.extent(0);
-      auto batch_size  = std::min(query->batch_size, query->index.size() - offset);
+      batch_size       = std::min(batch_size, query->index.size() - offset);
       current          = batch(query->res, num_queries, batch_size);
 
       if (!num_queries || !batch_size) { return; }

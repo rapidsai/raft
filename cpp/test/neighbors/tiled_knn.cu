@@ -238,13 +238,46 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
                                                            distances.data_handle(),
                                                            batch.distances().data_handle(),
                                                            num_queries,
-                                                           batch.indices().extent(1),
+                                                           batch_size,
                                                            float(0.001),
                                                            stream_,
                                                            true));
 
         offset += batch_size;
         if (offset + batch_size > all_size) break;
+      }
+
+      // also test out with variable batch sizes
+      offset             = 0;
+      int64_t batch_size = k_;
+      batch_k_query<T, int> query(handle_, idx, query_view, batch_size);
+      for (auto it = query.begin(); it != query.end(); it.advance(batch_size)) {
+        // batch_size could be less than requested (in the case of final batch). handle.
+        ASSERT_TRUE(it->indices().extent(1) <= batch_size);
+        batch_size = it->indices().extent(1);
+
+        auto indices   = raft::make_device_matrix<int, int64_t>(handle_, num_queries, batch_size);
+        auto distances = raft::make_device_matrix<T, int64_t>(handle_, num_queries, batch_size);
+
+        matrix::slice_coordinates<int64_t> coords{0, offset, num_queries, offset + batch_size};
+        matrix::slice(handle_, raft::make_const_mdspan(all_indices.view()), indices.view(), coords);
+        matrix::slice(
+          handle_, raft::make_const_mdspan(all_distances.view()), distances.view(), coords);
+
+        ASSERT_TRUE(raft::spatial::knn::devArrMatchKnnPair(indices.data_handle(),
+                                                           it->indices().data_handle(),
+                                                           distances.data_handle(),
+                                                           it->distances().data_handle(),
+                                                           num_queries,
+                                                           batch_size,
+                                                           float(0.001),
+                                                           stream_,
+                                                           true));
+
+        offset += batch_size;
+        if (offset + batch_size > all_size) break;
+
+        batch_size += 2;
       }
     }
   }
