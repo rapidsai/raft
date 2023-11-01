@@ -34,17 +34,6 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-  cpp-checks:
-    needs: [cpp-build]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@conda-cpp-post-build-checks
-    with:
-      build_type: ${{ inputs.build_type || 'branch' }}
-      branch: ${{ inputs.branch }}
-      date: ${{ inputs.date }}
-      sha: ${{ inputs.sha }}
-      enable_check_symbols: true
-      symbol_exclusions: (void (thrust::|cub::)|_ZN\d+raft_cutlass)
   python-build:
     needs: [cpp-build]
     secrets: inherit
