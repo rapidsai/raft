@@ -88,7 +88,6 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-  printf("INside create_search_param\n");
   static auto fname = get_fun_name(reinterpret_cast<void*>(&create_search_param<T>));
   auto handle       = load_lib(algo);
   auto fun_addr     = dlsym(handle, fname.c_str());
