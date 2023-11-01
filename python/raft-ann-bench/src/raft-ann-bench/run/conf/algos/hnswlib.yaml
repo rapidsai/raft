@@ -1,4 +1,6 @@
 name: hnswlib
+constraints:
+  search: raft-ann-bench.constraints.hnswlib_search_constraints
 groups:
   base:
     build:
