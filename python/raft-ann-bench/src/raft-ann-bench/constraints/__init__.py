@@ -27,11 +27,11 @@ def raft_ivf_pq_search_constraints(params, build_params, k, batch_size):
     if "internalDistanceDtype" in params and "smemLutDtype" in params:
         ret = (
             DTYPE_SIZES[params["smemLutDtype"]]
-            >= DTYPE_SIZES[params["internalDistanceDtype"]]
+            <= DTYPE_SIZES[params["internalDistanceDtype"]]
         )
 
     if "nlist" in build_params and "nprobe" in params:
-        ret = build_params["nlist"] >= params["nprobe"]
+        ret = ret and build_params["nlist"] >= params["nprobe"]
     return ret
 
 

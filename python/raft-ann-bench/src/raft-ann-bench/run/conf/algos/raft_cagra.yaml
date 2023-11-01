@@ -1,6 +1,6 @@
 name: raft_cagra
-validators:
-  search: raft-ann-bench.validators.raft_cagra_search_validator
+constraints:
+  search: raft-ann-bench.constraints.raft_cagra_search_constraints
 groups:
   base:
     build:
