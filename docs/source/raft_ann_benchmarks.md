@@ -375,25 +375,27 @@ The benchmarks capture several different measurements. The table below describes
 | index_size | Number of vectors used to train index |
 
 
-The table below describes each of the measurements for the index search benchmarks:
+The table below describes each of the measurements for the index search benchmarks. The most important measurements `Latency`, `items_per_second`, `end_to_end`.
 
 | Name       | Description                                                                                                                                           |
 |------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Benchmark  | A name that uniquely identifies the benchmark instance                                                                                                |
-| Time       | The wall clock time divided by the number of threads.                                                                                                 |
+| Time       | The wall-clock time of a single iteration (batch) divided by the number of threads.                                                                   |
 | CPU        | The average CPU time (user + sys time). This does not include idle time (which can also happen while waiting for GPU sync).                           |
-| Iterations | Total number of batches. This is going to be `total_queries` / `n_queries`                                                                            | 
+| Iterations | Total number of batches. This is going to be `total_queries` / `n_queries`.                                                                            | 
 | GPU        | GPU latency of a single batch (seconds). In throughput mode this is averaged over multiple threads.                                                   |
-| Latency    | Latency of a single batch (second), calculated from wall-clock time. In throughput mode this is averaged over multiple threads.                       |
-| Recall     | Proportion of correct neighbors to ground truth neighbors. Note this column is only present if groundtruth file is specified in dataset configuration. |
-| items_per_second | Total throughput. This is approximately `total_queries` / `end_to_end`.                                                                         |
+| Latency    | Latency of a single batch (seconds), calculated from wall-clock time. In throughput mode this is averaged over multiple threads.                       |
+| Recall     | Proportion of correct neighbors to ground truth neighbors. Note this column is only present if groundtruth file is specified in dataset configuration.|
+| items_per_second | Total throughput, a.k.a Queries per second (QPS). This is approximately `total_queries` / `end_to_end`.                                         |
 | k          | Number of neighbors being queried in each iteration                                                                                                   |
 | end_to_end | Total time taken to run all batches for all iterations                                                                                                | 
 | n_queries  | Total number of query vectors in each batch                                                                                                           |
-| total_queries | Total number of vectors queries across all iterations                                                                                              |
+| total_queries | Total number of vectors queries across all iterations ( = `iterations` * `n_queries`)                                                                 |
 
-Note that the actual table displayed on the screen may differ slightly as the hyper-parameters will also be displayed for each different combination being benchmarked.
-Note for recall calculation: the number of queries processed per test depends on the number of iterations. Because of this, recall can show slight fluctuations if less neighbors are processed then it is available for the benchmark. 
+Note the following:
+- A slightly different method is used to measure `Time` and `end_to_end`. That is why `end_to_end` = `Time` * `Iterations` holds only approximately.
+- The actual table displayed on the screen may differ slightly as the hyper-parameters will also be displayed for each different combination being benchmarked.
+- Recall calculation: the number of queries processed per test depends on the number of iterations. Because of this, recall can show slight fluctuations if less neighbors are processed then it is available for the benchmark. 
 
 ## Creating and customizing dataset configurations
 
