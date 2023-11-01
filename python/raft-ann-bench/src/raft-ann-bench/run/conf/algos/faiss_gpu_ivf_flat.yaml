@@ -2,9 +2,9 @@ name: faiss_gpu_ivf_flat
 groups:
   base:
     build:
-      nlists: [1024, 2048, 4096, 8192, 16000, 32000]
-      ratio: [1, 10, 25]
-      useFloat16: [True, False]
+      nlist: [2048]
+      ratio: [1, 4, 10]
+      useFloat16: [False]
     search:
-      numProbes: [1, 5, 10, 50, 100, 200, 500, 1000, 2000]
-      refine_ratio: [1, 2, 4, 10]
+      nprobe: [2048]
+      refine_ratio: [1]

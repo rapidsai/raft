@@ -9,7 +9,7 @@ groups:
       useFloat16: [False]
     search:
       nprobe: [1, 5, 10, 50, 100, 200]
-      refine_ratio: [1, 2, 4]
+      refine_ratio: [1]
   test:
     build:
       nlist: [1024]

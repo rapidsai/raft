@@ -35,6 +35,9 @@
 #include <faiss/index_io.h>
 #include <omp.h>
 
+#include <raft/core/device_resources.hpp>
+#include <raft/core/resource/stream_view.hpp>
+
 #include <cassert>
 #include <memory>
 #include <stdexcept>
@@ -102,6 +105,7 @@ class FaissGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
     RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
     faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
+    raft::resource::set_cuda_stream(handle_, faiss_default_stream_);
   }
 
   virtual ~FaissGpu() noexcept { RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_)); }
@@ -110,7 +114,7 @@ class FaissGpu : public ANN<T> {
 
   virtual void set_search_param(const FaissGpu<T>::AnnSearchParam& param) {}
 
-  virtual void set_search_dataset(const T* dataset, size_t nrow) {}
+  void set_search_dataset(const T* dataset, size_t nrow) override { dataset_ = dataset; }
 
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
@@ -126,7 +130,7 @@ class FaissGpu : public ANN<T> {
     AlgoProperty property;
     // to enable building big dataset which is larger than GPU memory
     property.dataset_memory_type = MemoryType::Host;
-    property.query_memory_type   = MemoryType::Device;
+    property.query_memory_type   = MemoryType::Host;
     return property;
   }
 
@@ -145,7 +149,7 @@ class FaissGpu : public ANN<T> {
 
   mutable faiss::gpu::StandardGpuResources gpu_resource_;
   std::unique_ptr<faiss::gpu::GpuIndex> index_;
-  std::unique_ptr<faiss::IndexRefineFlat> index_refine_;
+  std::unique_ptr<faiss::IndexRefineFlat> index_refine_{nullptr};
   faiss::MetricType metric_type_;
   int nlist_;
   int device_;
@@ -153,6 +157,9 @@ class FaissGpu : public ANN<T> {
   cudaStream_t faiss_default_stream_{nullptr};
   double training_sample_fraction_;
   std::unique_ptr<faiss::SearchParameters> search_params_;
+  const T* dataset_;
+  raft::device_resources handle_;
+  float refine_ratio_ = 1.0;
 };
 
 template <typename T>
@@ -198,12 +205,23 @@ void FaissGpu<T>::search(const T* queries,
   static_assert(sizeof(size_t) == sizeof(faiss::idx_t),
                 "sizes of size_t and faiss::idx_t are different");
 
-  if (index_refine_->k_factor > 1) {
-    printf("Using refine!\n");
-    index_refine_->search(
-      batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
+  if (this->refine_ratio_ > 1.0) {
+    // TODO: FAISS changed their search APIs to accept the search parameters as a struct object
+    // but their refine API doesn't allow the struct to be passed in. Once this is fixed, we
+    // need to re-enable refinement below
+    // index_refine_->search(batch_size, queries, k, distances,
+    // reinterpret_cast<faiss::idx_t*>(neighbors), this->search_params_.get()); Related FAISS issue:
+    // https://github.com/facebookresearch/faiss/issues/3118
+    throw std::runtime_error(
+      "FAISS doesn't support refinement in their new APIs so this feature is disabled in the "
+      "benchmarks for the time being.");
   } else {
-    index_->search(batch_size, queries, k, distances, reinterpret_cast<faiss::idx_t*>(neighbors));
+    index_->search(batch_size,
+                   queries,
+                   k,
+                   distances,
+                   reinterpret_cast<faiss::idx_t*>(neighbors),
+                   this->search_params_.get());
   }
   stream_wait(stream);
 }
@@ -258,6 +276,7 @@ class FaissGpuIVFFlat : public FaissGpu<T> {
     faiss::IVFSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
     this->search_params_       = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
+    this->refine_ratio_        = search_param.refine_ratio;
   }
 
   void save(const std::string& file) const override
@@ -296,19 +315,12 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
                                                   config);
   }
 
-  void set_search_dataset(const T* dataset, size_t nrow) override
-  {
-    printf("Setting search ataset for refine\n");
-    dataset_ = dataset;
-  }
-
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
-    printf("Setting ivfpq search params\n");
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
     int nprobe        = search_param.nprobe;
     assert(nprobe <= nlist_);
-
+    this->refine_ratio_ = search_param.refine_ratio;
     faiss::IVFPQSearchParameters faiss_search_params;
     faiss_search_params.nprobe = nprobe;
 
@@ -329,8 +341,6 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
   {
     this->template load_<faiss::gpu::GpuIndexIVFPQ, faiss::IndexIVFPQ>(file);
   }
-
-  const T* dataset_;
 };
 
 // TODO: Enable this in cmake
@@ -340,12 +350,6 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
  public:
   struct BuildParam : public FaissGpu<T>::BuildParam {
     std::string quantizer_type;
-  };
-
-  struct SearchParam : public FaissGpu<T>::SearchParam {
-    int nprobe;
-    float refine_ratio = 1.0;
-    auto needs_dataset() const -> bool override { return true; }
   };
 
   FaissGpuIVFSQ(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
@@ -366,7 +370,6 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
       &(this->gpu_resource_), dim, param.nlist, qtype, this->metric_type_, true, config);
   }
 
-  void set_search_dataset(const T* dataset, size_t nrow) override { this->dataset_ = dataset; }
   void set_search_param(const typename FaissGpu<T>::AnnSearchParam& param) override
   {
     auto search_param = dynamic_cast<const typename FaissGpu<T>::SearchParam&>(param);
@@ -377,9 +380,10 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     faiss_search_params.nprobe = nprobe;
 
     this->search_params_ = std::make_unique<faiss::IVFSearchParameters>(faiss_search_params);
-
+    this->refine_ratio_  = search_param.refine_ratio;
     if (search_param.refine_ratio > 1.0) {
-      this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset_);
+      this->index_refine_ =
+        std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), this->dataset_);
       this->index_refine_.get()->k_factor = search_param.refine_ratio;
     }
   }
@@ -394,8 +398,6 @@ class FaissGpuIVFSQ : public FaissGpu<T> {
     this->template load_<faiss::gpu::GpuIndexIVFScalarQuantizer, faiss::IndexIVFScalarQuantizer>(
       file);
   }
-
-  const T* dataset_;
 };
 
 template <typename T>
