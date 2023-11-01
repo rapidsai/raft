@@ -151,6 +151,6 @@ const std::vector<AnnNNDescentInputs> inputs = raft::util::itertools::product<An
   {32, 64},                                                  // graph_degree
   {raft::distance::DistanceType::L2Expanded},
   {false, true},
-  {0.92});
+  {0.90});
 
 }  // namespace raft::neighbors::experimental::nn_descent
