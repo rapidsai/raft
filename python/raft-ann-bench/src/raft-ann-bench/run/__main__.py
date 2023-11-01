@@ -338,8 +338,10 @@ def main():
                         algos_conf[algo["name"]]["groups"][group] = algo[
                             "groups"
                         ][group]
-                if "validators" in algo:
-                    algos_conf[algo["name"]]["validators"] = algo["validators"]
+                if "constraints" in algo:
+                    algos_conf[algo["name"]]["constraints"] = algo[
+                        "constraints"
+                    ]
 
             if insert_algo:
                 add_algo_group(named_groups)
@@ -382,15 +384,15 @@ def main():
                     index["build_param"][param_names[i]] = params[i]
                     index_name += "." + f"{param_names[i]}{params[i]}"
 
-                if "validators" in algos_conf[algo]:
-                    if "build" in algos_conf[algo]["validators"]:
-                        importable = algos_conf[algo]["validators"]["build"]
+                if "constraints" in algos_conf[algo]:
+                    if "build" in algos_conf[algo]["constraints"]:
+                        importable = algos_conf[algo]["constraints"]["build"]
                         importable = importable.split(".")
                         module = ".".join(importable[:-1])
                         func = importable[-1]
                         validator = import_module(module)
-                        build_validator = getattr(validator, func)
-                        if not build_validator(
+                        build_constraints = getattr(validator, func)
+                        if not build_constraints(
                             index["build_param"], conf_file["dataset"]["dims"]
                         ):
                             continue
@@ -405,17 +407,17 @@ def main():
                     search_dict = dict()
                     for i in range(len(search_params)):
                         search_dict[search_param_names[i]] = search_params[i]
-                    if "validators" in algos_conf[algo]:
-                        if "search" in algos_conf[algo]["validators"]:
-                            importable = algos_conf[algo]["validators"][
+                    if "constraints" in algos_conf[algo]:
+                        if "search" in algos_conf[algo]["constraints"]:
+                            importable = algos_conf[algo]["constraints"][
                                 "search"
                             ]
                             importable = importable.split(".")
                             module = ".".join(importable[:-1])
                             func = importable[-1]
                             validator = import_module(module)
-                            search_validator = getattr(validator, func)
-                            if search_validator(
+                            search_constraints = getattr(validator, func)
+                            if search_constraints(
                                 search_dict,
                                 index["build_param"],
                                 k,

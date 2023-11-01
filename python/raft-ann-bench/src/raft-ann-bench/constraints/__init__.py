@@ -16,13 +16,13 @@
 DTYPE_SIZES = {"float": 4, "half": 2, "fp8": 1}
 
 
-def raft_ivf_pq_build_validator(params, dims):
+def raft_ivf_pq_build_constraints(params, dims):
     if "pq_dim" in params:
         return params["pq_dim"] <= dims
     return True
 
 
-def raft_ivf_pq_search_validator(params, build_params, k, batch_size):
+def raft_ivf_pq_search_constraints(params, build_params, k, batch_size):
     ret = True
     if "internalDistanceDtype" in params and "smemLutDtype" in params:
         ret = (
@@ -35,6 +35,6 @@ def raft_ivf_pq_search_validator(params, build_params, k, batch_size):
     return ret
 
 
-def raft_cagra_search_validator(params, build_params, k, batch_size):
+def raft_cagra_search_constraints(params, build_params, k, batch_size):
     if "itopk" in params:
         return params["itopk"] >= k
