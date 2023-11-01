@@ -152,6 +152,7 @@ void FaissCpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
   index_->train(nrow, dataset);  // faiss::IndexFlat::train() will do nothing
   assert(index_->is_trained);
   index_->add(nrow, dataset);
+  index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get(), dataset);
 }
 
 template <typename T>
@@ -163,7 +164,6 @@ void FaissCpu<T>::set_search_param(const AnnSearchParam& param)
   dynamic_cast<faiss::IndexIVF*>(index_.get())->nprobe = nprobe;
 
   if (search_param.refine_ratio > 1.0) {
-    this->index_refine_ = std::make_unique<faiss::IndexRefineFlat>(this->index_.get());
     this->index_refine_.get()->k_factor = search_param.refine_ratio;
   }
 
@@ -229,7 +229,7 @@ template <typename T>
 class FaissCpuIVFPQ : public FaissCpu<T> {
  public:
   struct BuildParam : public FaissCpu<T>::BuildParam {
-    int M_ratio;
+    int M;
     int bitsPerCode;
     bool usePrecomputed;
   };
@@ -237,12 +237,8 @@ class FaissCpuIVFPQ : public FaissCpu<T> {
   FaissCpuIVFPQ(Metric metric, int dim, const BuildParam& param) : FaissCpu<T>(metric, dim, param)
   {
     this->init_quantizer(dim);
-    this->index_ = std::make_unique<faiss::IndexIVFPQ>(this->quantizer_.get(),
-                                                       dim,
-                                                       param.nlist,
-                                                       dim / param.M_ratio,
-                                                       param.bitsPerCode,
-                                                       this->metric_type_);
+    this->index_ = std::make_unique<faiss::IndexIVFPQ>(
+      this->quantizer_.get(), dim, param.nlist, param.M, param.bitsPerCode, this->metric_type_);
   }
 
   void save(const std::string& file) const override

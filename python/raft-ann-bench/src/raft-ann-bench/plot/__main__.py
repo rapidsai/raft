@@ -372,12 +372,10 @@ def load_all_results(
         algo_group_files = [
             result_filename for result_filename in result_files
         ]
+
     for i in range(len(algo_group_files)):
         algo_group = algo_group_files[i].replace(".csv", "").split("_")
-        if len(algo_group) == 2:
-            algo_group_files[i] = ("_".join(algo_group), "base")
-        else:
-            algo_group_files[i] = ("_".join(algo_group[:-1]), algo_group[-1])
+        algo_group_files[i] = ("_".join(algo_group[:-1]), algo_group[-1])
     algo_group_files = list(zip(*algo_group_files))
 
     if len(algorithms) > 0:

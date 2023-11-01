@@ -50,10 +50,7 @@ def validate_algorithm(algos_conf, algo, gpu_present):
 def find_executable(algos_conf, algo, group, k, batch_size):
     executable = algos_conf[algo]["executable"]
 
-    if group != "base":
-        return_str = f"{algo}_{group}-{k}-{batch_size}"
-    else:
-        return_str = f"{algo}-{k}-{batch_size}"
+    return_str = f"{algo}_{group}-{k}-{batch_size}"
 
     build_path = os.getenv("RAFT_HOME")
     if build_path is not None:
@@ -128,14 +125,14 @@ def run_build_and_search(
                 ann_executable_path,
                 "--search",
                 "--data_prefix=" + dataset_path,
-                "--benchmark_counters_tabular",
+                "--benchmark_counters_tabular=true",
                 "--override_kv=k:%s" % k,
                 "--override_kv=n_queries:%s" % batch_size,
                 "--benchmark_min_warmup_time=0.01",
                 "--benchmark_out_format=json",
+                "--mode=%s" % mode,
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
-                "--mode=%s" % mode,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -338,8 +335,10 @@ def main():
                         algos_conf[algo["name"]]["groups"][group] = algo[
                             "groups"
                         ][group]
-                if "validators" in algo:
-                    algos_conf[algo["name"]]["validators"] = algo["validators"]
+                if "constraints" in algo:
+                    algos_conf[algo["name"]]["constraints"] = algo[
+                        "constraints"
+                    ]
 
             if insert_algo:
                 add_algo_group(named_groups)
@@ -382,15 +381,20 @@ def main():
                     index["build_param"][param_names[i]] = params[i]
                     index_name += "." + f"{param_names[i]}{params[i]}"
 
-                if "validators" in algos_conf[algo]:
-                    if "build" in algos_conf[algo]["validators"]:
-                        importable = algos_conf[algo]["validators"]["build"]
+                if "constraints" in algos_conf[algo]:
+                    if "build" in algos_conf[algo]["constraints"]:
+                        importable = algos_conf[algo]["constraints"]["build"]
                         importable = importable.split(".")
                         module = ".".join(importable[:-1])
                         func = importable[-1]
                         validator = import_module(module)
-                        build_validator = getattr(validator, func)
-                        if not build_validator(
+                        build_constraints = getattr(validator, func)
+                        if "dims" not in conf_file["dataset"]:
+                            raise ValueError(
+                                "`dims` needed for build constraints but not "
+                                "specified in datasets.yaml"
+                            )
+                        if not build_constraints(
                             index["build_param"], conf_file["dataset"]["dims"]
                         ):
                             continue
@@ -405,24 +409,29 @@ def main():
                     search_dict = dict()
                     for i in range(len(search_params)):
                         search_dict[search_param_names[i]] = search_params[i]
-                    if "validators" in algos_conf[algo]:
-                        if "search" in algos_conf[algo]["validators"]:
-                            importable = algos_conf[algo]["validators"][
+                    if "constraints" in algos_conf[algo]:
+                        if "search" in algos_conf[algo]["constraints"]:
+                            importable = algos_conf[algo]["constraints"][
                                 "search"
                             ]
                             importable = importable.split(".")
                             module = ".".join(importable[:-1])
                             func = importable[-1]
                             validator = import_module(module)
-                            search_validator = getattr(validator, func)
-                            if search_validator(
+                            search_constraints = getattr(validator, func)
+                            if search_constraints(
                                 search_dict,
                                 index["build_param"],
                                 k,
                                 batch_size,
                             ):
                                 index["search_params"].append(search_dict)
+                    else:
+                        index["search_params"].append(search_dict)
                 executables_to_run[executable]["index"].append(index)
+
+            if len(index["search_params"]) == 0:
+                print("No search parameters were added to configuration")
 
     run_build_and_search(
         conf_file,
