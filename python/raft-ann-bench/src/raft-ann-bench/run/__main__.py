@@ -392,6 +392,11 @@ def main():
                         func = importable[-1]
                         validator = import_module(module)
                         build_constraints = getattr(validator, func)
+                        if "dims" not in conf_file["dataset"]:
+                            raise ValueError(
+                                "`dims` needed for build constraints but not "
+                                "specified in datasets.yaml"
+                            )
                         if not build_constraints(
                             index["build_param"], conf_file["dataset"]["dims"]
                         ):
