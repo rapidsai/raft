@@ -22,7 +22,7 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
-
+#include <raft/linalg/norm.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/neighbors/brute_force.cuh>
 
@@ -211,6 +211,9 @@ class batch_k_query {
     const batch_k_query<T, IdxT>* query;
     int64_t offset, current_batch_size;
   };
+
+  iterator begin() const { return iterator(this); }
+  iterator end() const { return iterator(this, index.size()); }
 
  protected:
   void load_batch(batch& output) const
