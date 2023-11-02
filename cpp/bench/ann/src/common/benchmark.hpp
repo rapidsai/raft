@@ -257,6 +257,7 @@ void bench_search(::benchmark::State& state,
     // benchmark loop, therefore the synchronization here is necessary.
   }
   const auto algo_property = *current_algo_props;
+  query_set                = dataset->query_set(algo_property.query_memory_type);
 
   /**
    * Each thread will manage its own outputs
