@@ -1,0 +1,11 @@
+name: raft_cagra_hnswlib
+constraints:
+  search: raft-ann-bench.constraints.hnswlib_search_constraints
+groups:
+  base:
+    build:
+      graph_degree: [32]
+      intermediate_graph_degree: [64]
+      graph_build_algo: ["NN_DESCENT"]
+    search:
+      ef: [10, 20, 40, 60, 80, 120, 200, 400, 600, 800]

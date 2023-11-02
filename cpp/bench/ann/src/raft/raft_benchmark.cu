@@ -47,6 +47,12 @@ extern template class raft::bench::ann::RaftCagra<float, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<uint8_t, uint32_t>;
 extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+#include "raft_cagra_hnswlib_wrapper.h"
+extern template class raft::bench::ann::RaftCagraHnswlib<float, uint32_t>;
+extern template class raft::bench::ann::RaftCagraHnswlib<uint8_t, uint32_t>;
+extern template class raft::bench::ann::RaftCagraHnswlib<int8_t, uint32_t>;
+#endif
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
@@ -182,6 +188,37 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+template <typename T, typename IdxT>
+void parse_build_param(const nlohmann::json& conf,
+                       typename raft::bench::ann::RaftCagraHnswlib<T, IdxT>::BuildParam& param)
+{
+  if (conf.contains("graph_degree")) {
+    param.graph_degree              = conf.at("graph_degree");
+    param.intermediate_graph_degree = param.graph_degree * 2;
+  }
+  if (conf.contains("intermediate_graph_degree")) {
+    param.intermediate_graph_degree = conf.at("intermediate_graph_degree");
+  }
+  if (conf.contains("graph_build_algo")) {
+    if (conf.at("graph_build_algo") == "IVF_PQ") {
+      param.build_algo = raft::neighbors::cagra::graph_build_algo::IVF_PQ;
+    } else if (conf.at("graph_build_algo") == "NN_DESCENT") {
+      param.build_algo = raft::neighbors::cagra::graph_build_algo::NN_DESCENT;
+    }
+  }
+  if (conf.contains("nn_descent_niter")) { param.nn_descent_niter = conf.at("nn_descent_niter"); }
+}
+
+template <typename T>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::RaftCagraHnswlib<T>::SearchParam& param)
+{
+  param.ef = conf.at("ef");
+  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+}
+#endif
+
 template <typename T>
 std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
                                                       const std::string& distance,
@@ -224,6 +261,13 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
     ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
   }
 #endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+  if (algo == "raft_cagra_hnswlib") {
+    typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::BuildParam param;
+    parse_build_param<T, uint32_t>(conf, param);
+    ann = std::make_unique<raft::bench::ann::RaftCagraHnswlib<T, uint32_t>>(metric, dim, param);
+  }
+#endif
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
   return ann;
@@ -257,6 +301,13 @@ std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
   if (algo == "raft_cagra") {
     auto param = std::make_unique<typename raft::bench::ann::RaftCagra<T, uint32_t>::SearchParam>();
+    parse_search_param<T, uint32_t>(conf, *param);
+    return param;
+  }
+#endif
+#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
+  if (algo == "raft_cagra_hnswlib") {
+    auto param = std::make_unique<typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::SearchParam>();
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
