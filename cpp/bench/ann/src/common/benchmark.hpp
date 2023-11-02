@@ -252,6 +252,9 @@ void bench_search(::benchmark::State& state,
     // All other threads will wait for the first thread to initialize the algo.
     std::unique_lock lk(init_mutex);
     cond_var.wait(lk, [] { return current_algo_props.get() != nullptr; });
+    // gbench ensures that all threads are synchronized at the start of the benchmark loop.
+    // We are accessing shared variables (like current_algo, current_algo_probs) before the
+    // benchmark loop, therefore the synchronization here is necessary.
   }
   const auto algo_property = *current_algo_props;
 
@@ -267,8 +270,6 @@ void bench_search(::benchmark::State& state,
   cuda_timer gpu_timer;
   {
     nvtx_case nvtx{state.name()};
-
-    // gbench ensures that all threads are synchronized at the start of the benchmark loop.
 
     // TODO: Have the odd threads load the queries backwards just to rule out caching.
     ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
