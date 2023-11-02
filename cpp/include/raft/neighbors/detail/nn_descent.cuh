@@ -24,6 +24,7 @@
 #include <limits>
 #include <queue>
 
+#include <random>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -1025,7 +1026,8 @@ void GnndGraph<Index_t>::init_random_graph()
     // segment_x stores neighbors which id % num_segments == x
     std::vector<Index_t> rand_seq(nrow / num_segments);
     std::iota(rand_seq.begin(), rand_seq.end(), 0);
-    std::random_shuffle(rand_seq.begin(), rand_seq.end());
+    auto gen = std::default_random_engine{seg_idx};
+    std::shuffle(rand_seq.begin(), rand_seq.end(), gen);
 
 #pragma omp parallel for
     for (size_t i = 0; i < nrow; i++) {
