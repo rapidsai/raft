@@ -21,6 +21,7 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 #include <raft/spatial/knn/detail/ann_utils.cuh>
 #include <raft/util/cuda_rt_essentials.hpp>  // RAFT_CUDA_TRY
 #include <raft/util/device_loads_stores.cuh>
@@ -1097,22 +1098,25 @@ void ivfflat_interleaved_scan(const index<T, IdxT>& index,
                               rmm::cuda_stream_view stream)
 {
   const int capacity = bound_by_power_of_two(k);
-  select_interleaved_scan_kernel<T, AccT, IdxT, IvfSampleFilterT>::run(capacity,
-                                                                       index.veclen(),
-                                                                       select_min,
-                                                                       metric,
-                                                                       index,
-                                                                       queries,
-                                                                       coarse_query_results,
-                                                                       n_queries,
-                                                                       queries_offset,
-                                                                       n_probes,
-                                                                       k,
-                                                                       sample_filter,
-                                                                       neighbors,
-                                                                       distances,
-                                                                       grid_dim_x,
-                                                                       stream);
+
+  auto filter_adapter = raft::neighbors::filtering::ivf_to_sample_filter(
+    index.inds_ptrs().data_handle(), sample_filter);
+  select_interleaved_scan_kernel<T, AccT, IdxT, decltype(filter_adapter)>::run(capacity,
+                                                                               index.veclen(),
+                                                                               select_min,
+                                                                               metric,
+                                                                               index,
+                                                                               queries,
+                                                                               coarse_query_results,
+                                                                               n_queries,
+                                                                               queries_offset,
+                                                                               n_probes,
+                                                                               k,
+                                                                               filter_adapter,
+                                                                               neighbors,
+                                                                               distances,
+                                                                               grid_dim_x,
+                                                                               stream);
 }
 
 }  // namespace raft::neighbors::ivf_flat::detail

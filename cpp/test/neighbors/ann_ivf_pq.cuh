@@ -612,9 +612,7 @@ class ivf_pq_filter_test : public ::testing::TestWithParam<ivf_pq_inputs> {
       query_view,
       inds_view,
       dists_view,
-      raft::neighbors::filtering::ivf_to_sample_filter(
-        index.inds_ptrs().data_handle(),
-        raft::neighbors::filtering::bitset_filter(removed_indices_bitset.view())));
+      raft::neighbors::filtering::bitset_filter(removed_indices_bitset.view()));
 
     update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
     update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
