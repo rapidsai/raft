@@ -339,6 +339,7 @@ inline void printf_usage()
           "          [--index_prefix=<prefix>]\n"
           "          [--override_kv=<key:value1:value2:...:valueN>]\n"
           "          [--mode=<latency|throughput>\n"
+          "          [--threads=min[:max]]\n"
           "          <conf>.json\n"
           "\n"
           "Note the non-standard benchmark parameters:\n"
@@ -357,8 +358,12 @@ inline void printf_usage()
           " you can use this parameter multiple times to get the Cartesian product of benchmark"
           " configs.\n"
           "  --mode=<latency|throughput>"
-          "     run the benchmarks in latency (accumulate times spent in each batch) or "
-          "     throughput (pipeline batches and measure end-to-end) mode\n");
+          " run the benchmarks in latency (accumulate times spent in each batch) or "
+          " throughput (pipeline batches and measure end-to-end) mode\n"
+          "  --threads=min[:max] specify the number threads to use for throughput benchmark."
+          " Power of 2 values between 'min' and 'max' will be used. If only 'min' is specified,"
+          " then a single test is run with 'min' threads. By default min=1, max=<num hyper"
+          " threads>.\n");
 }
 
 template <typename T>
