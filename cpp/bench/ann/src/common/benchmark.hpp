@@ -220,11 +220,13 @@ void bench_search(::benchmark::State& state,
       search_param->metric_objective = metric_objective;
     } catch (const std::exception& e) {
       state.SkipWithError("Failed to create an algo: " + std::string(e.what()));
+      return;
     }
-    algo->set_search_param(*search_param);
+
     auto algo_property = parse_algo_property(algo->get_preference(), sp_json);
     current_algo_props = std::make_shared<AlgoProperty>(algo_property.dataset_memory_type,
                                                         algo_property.query_memory_type);
+
     if (search_param->needs_dataset()) {
       try {
         algo->set_search_dataset(dataset->base_set(current_algo_props->dataset_memory_type),
@@ -236,6 +238,14 @@ void bench_search(::benchmark::State& state,
         return;
       }
     }
+    try {
+      algo->set_search_param(*search_param);
+
+    } catch (const std::exception& ex) {
+      state.SkipWithError("An error occurred setting search parameters: " + std::string(ex.what()));
+      return;
+    }
+
     query_set = dataset->query_set(current_algo_props->query_memory_type);
     cond_var.notify_all();
   } else {

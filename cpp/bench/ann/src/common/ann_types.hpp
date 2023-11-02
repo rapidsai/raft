@@ -120,7 +120,7 @@ class ANN : public AnnBase {
   // The advantage of this way is that index has smaller size
   // and many indices can share one dataset.
   //
-  // AlgoProperty::need_dataset_when_search of such algorithm should be true,
+  // SearchParam::needs_dataset() of such algorithm should be true,
   // and set_search_dataset() should save the passed-in pointer somewhere.
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
