@@ -17,8 +17,6 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include "raft/util/cudart_utils.hpp"
-#include <faiss/utils/random.h>
 #include <raft/core/resource/cuda_stream.hpp>
 
 #include <raft_internal/neighbors/naive_knn.cuh>
@@ -47,9 +45,6 @@
 #include <iostream>
 #include <optional>
 #include <vector>
-
-#include <stdint.h>
-#include <random>
 
 namespace raft::neighbors::ivf_pq {
 
@@ -172,7 +167,6 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
   void gen_data()
   {
-    s_seed = 106;
     database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
     search_queries.resize(size_t{ps.num_queries} * size_t{ps.dim}, stream_);
 

@@ -22,7 +22,10 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
 
+#include <raft/spatial/knn/detail/ann_utils.cuh>
+
 namespace raft::neighbors::ivf_flat::helpers {
+using namespace raft::spatial::knn::detail;  // NOLINT
 /**
  * @defgroup ivf_flat_helpers Helper functions for manipulationg IVF Flat Index
  * @{
@@ -106,5 +109,15 @@ void unpack(
     res, list_data, veclen, offset, codes);
 }
 }  // namespace codepacker
+
+template <typename T, typename IdxT>
+void reset_index(const raft::resources& res, index<T, IdxT>& index)
+{
+  auto stream = resource::get_cuda_stream(res);
+
+  utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
+  utils::memzero(index.data_ptrs().data_handle(), index.data_ptrs().size(), stream);
+  utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
+}
 /** @} */
 }  // namespace raft::neighbors::ivf_flat::helpers

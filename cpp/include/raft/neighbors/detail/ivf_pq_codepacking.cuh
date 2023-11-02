@@ -33,10 +33,6 @@ namespace raft::neighbors::ivf_pq::detail {
 /** A chunk of PQ-encoded vector managed by one CUDA thread. */
 using pq_vec_t = TxN_t<uint8_t, kIndexGroupVecLen>::io_t;
 
-using list_view = device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major>;
-using list_const_view =
-  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major>;
-
 /**
  * This type mimics the `uint8_t&` for the indexing operator of `bitfield_view_t`.
  *
@@ -89,52 +85,6 @@ struct bitfield_view_t {
   }
 };
 
-// /**
-//  * A producer for the `write_vector` reads the codes byte-by-byte. That is,
-//  * independent of the code width (pq_bits), one code uses the whole byte, hence
-//  * one vectors uses pq_dim bytes.
-//  */
-// struct pass_1_action {
-//   const uint8_t* flat_code;
-
-//   /**
-//    * Create a callable to be passed to `write_vector`.
-//    *
-//    * @param[in] flat_code flat PQ codes (one byte per code) of a single vector.
-//    */
-//   __host__ __device__ inline pass_1_action(const uint8_t* flat_code) : flat_code{flat_code} {}
-
-//   /** Read j-th component (code) of the i-th vector from the source. NB: i is ignored because there is a single flat code. */
-//   __host__ __device__ inline auto operator()(uint32_t i, uint32_t j) const -> uint8_t
-//   {
-//     return flat_code[j];
-//   }
-// };
-
-// /**
-//  * A consumer for the `run_on_vector` that just flattens PQ codes
-//  * one-per-byte. That is, independent of the code width (pq_bits), one code uses
-//  * the whole byte, hence one vectors uses pq_dim bytes.
-//  */
-// struct unpack_1_action {
-//   uint8_t* out_flat_code;
-
-//   /**
-//    * Create a callable to be passed to `run_on_vector`.
-//    *
-//    * @param[out] out_flat_code the destination for the read PQ codes of a single vector. NB: i is ignored because there is a single flat code.
-//    */
-//   __host__ __device__ inline unpack_1_action(uint8_t* out_flat_code) : out_flat_code{out_flat_code}
-//   {
-//   }
-
-//   /**  Write j-th component (code) of the i-th vector into the output array.NB: i is ignored because there is a single flat code. */
-//   __host__ __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
-//   {
-//     out_flat_code[j] = code;
-//   }
-// };
-
 /**
  * Process a single vector in a list.
  *
@@ -149,11 +99,12 @@ struct bitfield_view_t {
  *    type: void (uint8_t code, uint32_t out_ix, uint32_t j), where j = [0..pq_dim).
  */
 template <uint32_t PqBits, typename Action>
-__host__ __device__ void run_on_vector(std::variant<const uint8_t*, list_const_view> in_list_data,
-                                       uint32_t in_ix,
-                                       uint32_t out_ix,
-                                       uint32_t pq_dim,
-                                       Action action)
+__device__ void run_on_vector(
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
+  uint32_t in_ix,
+  uint32_t out_ix,
+  uint32_t pq_dim,
+  Action action)
 {
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(in_ix);
@@ -164,18 +115,9 @@ __host__ __device__ void run_on_vector(std::variant<const uint8_t*, list_const_v
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // read the chunk
-    if (std::holds_alternative<list_const_view>(in_list_data)) {
-      code_chunk = *reinterpret_cast<const pq_vec_t*>(
-        &(std::get<list_const_view>(in_list_data))(group_ix, i, ingroup_ix, 0));
-    } else {
-      code_chunk = *reinterpret_cast<const pq_vec_t*>(std::get<const uint8_t*>(in_list_data) +
-                                                      group_ix * kIndexGroupSize * pq_dim +
-                                                      ingroup_ix * kIndexGroupVecLen + i * pq_dim);
-    }
+    code_chunk = *reinterpret_cast<const pq_vec_t*>(&in_list_data(group_ix, i, ingroup_ix, 0));
     // read the codes, one/pq_dim at a time
-#ifdef __CUDA_ARCH__
 #pragma unroll
-#endif
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
       // read a piece of the reconstructed vector
       action(code_view[k], out_ix, j);
@@ -199,17 +141,14 @@ __host__ __device__ void run_on_vector(std::variant<const uint8_t*, list_const_v
  *    type: (uint32_t in_ix, uint32_t j) -> uint8_t, where j = [0..pq_dim).
  */
 template <uint32_t PqBits, uint32_t SubWarpSize, typename IdxT, typename Action>
-__host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list_data,
-                                      uint32_t out_ix,
-                                      IdxT in_ix,
-                                      uint32_t pq_dim,
-                                      Action action)
+__device__ void write_vector(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> out_list_data,
+  uint32_t out_ix,
+  IdxT in_ix,
+  uint32_t pq_dim,
+  Action action)
 {
-#ifdef __CUDA_ARCH__
   const uint32_t lane_id = Pow2<SubWarpSize>::mod(threadIdx.x);
-#else
-  const uint32_t lane_id = 0;
-#endif
 
   using group_align         = Pow2<kIndexGroupSize>;
   const uint32_t group_ix   = group_align::div(out_ix);
@@ -218,14 +157,11 @@ __host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list
   pq_vec_t code_chunk;
   bitfield_view_t<PqBits> code_view{reinterpret_cast<uint8_t*>(&code_chunk)};
   constexpr uint32_t kChunkSize = (sizeof(pq_vec_t) * 8u) / PqBits;
-  uint32_t kchunksPerCode = ceil((double)pq_dim / (double)kChunkSize);
   for (uint32_t j = 0, i = 0; j < pq_dim; i++) {
     // clear the chunk
     if (lane_id == 0) { code_chunk = pq_vec_t{}; }
     // write the codes, one/pq_dim at a time
-#ifdef __CUDA_ARCH__
 #pragma unroll
-#endif
     for (uint32_t k = 0; k < kChunkSize && j < pq_dim; k++, j++) {
       // write a single code
       uint8_t code = action(in_ix, j);
@@ -233,14 +169,7 @@ __host__ __device__ void write_vector(std::variant<uint8_t*, list_view> out_list
     }
     // write the chunk to the list
     if (lane_id == 0) {
-      if (std::holds_alternative<list_view>(out_list_data)) {
-        *reinterpret_cast<pq_vec_t*>(
-          &(std::get<list_view>(out_list_data))(group_ix, i, ingroup_ix, 0)) = code_chunk;
-      } else {
-        *reinterpret_cast<pq_vec_t*>(std::get<uint8_t*>(out_list_data)[
-                                     group_ix * kIndexGroupSize * kchunksPerCode * kIndexGroupVecLen +
-                                     i * kIndexGroupSize * kIndexGroupVecLen + ingroup_ix * kIndexGroupVecLen]) = code_chunk;
-      }
+      *reinterpret_cast<pq_vec_t*>(&out_list_data(group_ix, i, ingroup_ix, 0)) = code_chunk;
     }
   }
 }

@@ -666,6 +666,100 @@ void unpack_list_data(raft::resources const& res,
                    resource::get_cuda_stream(res));
 }
 
+/**
+ * A consumer for the `run_on_vector` that just flattens PQ codes
+ * into a tightly packed matrix. That is, the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct unpack_compressed {
+  uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `run_on_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline unpack_compressed(uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /**  Write j-th component (code) of the i-th vector into the output array. */
+  __host__ __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    bitfield_view_t<PqBits> code_view{codes + i * code_size};
+    code_view[j] = code;
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_compressed_list_data_kernel(
+  uint8_t* out_codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  run_on_list<PqBits>(
+    in_list_data, offset_or_indices, n_rows, pq_dim, unpack_compressed<PqBits>(out_codes, pq_dim));
+}
+
+/**
+ * Unpack flat PQ codes from an existing list by the given offset.
+ *
+ * @param[out] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] list_data the packed ivf::list data.
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void unpack_compressed_list_data(
+  uint8_t* codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return unpack_compressed_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_compressed_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_compressed_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_compressed_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_compressed_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(codes, list_data, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/** Unpack the list data; see the public interface for the api and usage. */
+template <typename IdxT>
+void unpack_compressed_list_data(raft::resources const& res,
+                                 const index<IdxT>& index,
+                                 uint8_t* out_codes,
+                                 uint32_t n_rows,
+                                 uint32_t label,
+                                 std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  unpack_compressed_list_data(out_codes,
+                              index.lists()[label]->data.view(),
+                              n_rows,
+                              index.pq_dim(),
+                              offset_or_indices,
+                              index.pq_bits(),
+                              resource::get_cuda_stream(res));
+}
+
 /** A consumer for the `run_on_list` and `run_on_vector` that approximates the original input data.
  */
 struct reconstruct_vectors {
@@ -901,6 +995,101 @@ void pack_list_data(raft::resources const& res,
                  offset_or_indices,
                  index->pq_bits(),
                  resource::get_cuda_stream(res));
+}
+
+/**
+ * A producer for the `write_vector` reads tightly packed flat codes. That is,
+ * the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct pack_compressed {
+  const uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `write_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline pack_compressed(const uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /** Read j-th component (code) of the i-th vector from the source. */
+  __host__ __device__ inline auto operator()(uint32_t i, uint32_t j) -> uint8_t
+  {
+    bitfield_view_t<PqBits> code_view{const_cast<uint8_t*>(codes + i * code_size)};
+    return uint8_t(code_view[j]);
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_compressed_list_data_kernel(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  write_list<PqBits, 1>(
+    list_data, offset_or_indices, n_rows, pq_dim, pack_compressed<PqBits>(codes, pq_dim));
+}
+
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
+ *
+ * @param[out] list_data the packed ivf::list data.
+ * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void pack_compressed_list_data(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return pack_compressed_list_data_kernel<kBlockSize, 4>;
+      case 5: return pack_compressed_list_data_kernel<kBlockSize, 5>;
+      case 6: return pack_compressed_list_data_kernel<kBlockSize, 6>;
+      case 7: return pack_compressed_list_data_kernel<kBlockSize, 7>;
+      case 8: return pack_compressed_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(list_data, codes, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename IdxT>
+void pack_compressed_list_data(raft::resources const& res,
+                               index<IdxT>* index,
+                               const uint8_t* new_codes,
+                               uint32_t n_rows,
+                               uint32_t label,
+                               std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  pack_compressed_list_data(index->lists()[label]->data.view(),
+                            new_codes,
+                            n_rows,
+                            index->pq_dim(),
+                            offset_or_indices,
+                            index->pq_bits(),
+                            resource::get_cuda_stream(res));
 }
 
 /**
@@ -1685,7 +1874,7 @@ auto build(raft::resources const& handle,
                                             centers_const_view,
                                             labels_view,
                                             utils::mapping<float>());
-    
+
     // Make rotation matrix
     make_rotation_matrix(handle,
                          params.force_random_rotation,
