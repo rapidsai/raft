@@ -458,6 +458,7 @@ def main():
         search,
         k,
         batch_size,
+        args.search_threads,
         mode,
     )
 
