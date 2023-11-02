@@ -265,9 +265,7 @@ struct ivf_flat_filter_knn {
       raft::make_device_matrix_view<const ValT, IdxT>(search_items, ps.n_queries, ps.n_dims);
     auto neighbors_view = raft::make_device_matrix_view<IdxT, IdxT>(out_idxs, ps.n_queries, ps.k);
     auto distance_view = raft::make_device_matrix_view<dist_t, IdxT>(out_dists, ps.n_queries, ps.k);
-    auto filter        = raft::neighbors::filtering::ivf_to_sample_filter(
-      index->inds_ptrs().data_handle(),
-      raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view()));
+    auto filter        = raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view());
 
     if (ps.removed_ratio > 0) {
       raft::neighbors::ivf_flat::search_with_filtering(
@@ -317,9 +315,7 @@ struct ivf_pq_filter_knn {
       raft::make_device_matrix_view<IdxT, uint32_t>(out_idxs, ps.n_queries, ps.k);
     auto distance_view =
       raft::make_device_matrix_view<dist_t, uint32_t>(out_dists, ps.n_queries, ps.k);
-    auto filter = raft::neighbors::filtering::ivf_to_sample_filter(
-      index->inds_ptrs().data_handle(),
-      raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view()));
+    auto filter = raft::neighbors::filtering::bitset_filter(removed_indices_bitset_.view());
 
     if (ps.removed_ratio > 0) {
       raft::neighbors::ivf_pq::search_with_filtering(
