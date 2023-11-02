@@ -129,7 +129,7 @@ void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
-  raft::neighbors::cagra::serialize(handle_, file, *index_, false);
+  raft::neighbors::cagra::serialize_to_hnswlib<T, IdxT>(handle_, file, *index_);
 }
 
 template <typename T, typename IdxT>

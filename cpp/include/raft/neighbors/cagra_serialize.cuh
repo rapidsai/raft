@@ -93,6 +93,23 @@ void serialize(raft::resources const& handle,
   detail::serialize(handle, filename, index, include_dataset);
 }
 
+template <typename T, typename IdxT>
+void serialize_to_hnswlib(raft::resources const& handle,
+               std::ostream& os,
+               const index<T, IdxT>& index)
+{
+  detail::serialize_to_hnswlib<T, IdxT>(handle, os, index);
+}
+
+template <typename T, typename IdxT>
+void serialize_to_hnswlib(raft::resources const& handle,
+               const std::string& filename,
+               const index<T, IdxT>& index,
+               bool include_dataset = true)
+{
+  detail::serialize_to_hnswlib<T, IdxT>(handle, filename, index);
+}
+
 /**
  * Load index from input stream
  *
