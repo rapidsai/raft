@@ -33,6 +33,7 @@ def read_file(dataset, dataset_path, method):
 
 def convert_json_to_csv_build(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "build"):
+        algo_name = algo_name.replace("_base", "")
         df["name"] = df["name"].str.split("/").str[0]
         write = pd.DataFrame(
             {
@@ -41,11 +42,17 @@ def convert_json_to_csv_build(dataset, dataset_path):
                 "time": df["real_time"],
             }
         )
-        write.to_csv(file.replace(".json", ".csv"), index=False)
+        filepath = os.path.normpath(file).split(os.sep)
+        filename = filepath[-1].split("-")[0] + ".csv"
+        write.to_csv(
+            os.path.join(f"{os.sep}".join(filepath[:-1]), filename),
+            index=False,
+        )
 
 
 def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
+        algo_name = algo_name.replace("_base", "")
         df["name"] = df["name"].str.split("/").str[0]
         write = pd.DataFrame(
             {
