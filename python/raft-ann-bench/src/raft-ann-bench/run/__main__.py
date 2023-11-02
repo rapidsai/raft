@@ -116,9 +116,6 @@ def run_build_and_search(
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
-
-            if search_threads:
-                cmd = cmd + ["--threads=%s" % search_threads]
             cmd = cmd + [temp_conf_filepath]
             subprocess.run(cmd, check=True)
 
@@ -140,6 +137,10 @@ def run_build_and_search(
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
+
+            if search_threads:
+                cmd = cmd + ["--threads=%s" % search_threads]
+
             cmd = cmd + [temp_conf_filepath]
             subprocess.run(cmd, check=True)
 
