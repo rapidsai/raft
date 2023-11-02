@@ -4,14 +4,14 @@ constraints:
 groups:
   base:
     build:
-      graph_degree: [32, 64]
-      intermediate_graph_degree: [64, 96]
+      graph_degree: [32, 64, 128, 256]
+      intermediate_graph_degree: [32, 64, 96, 128]
       graph_build_algo: ["NN_DESCENT"]
     search:
-      itopk: [32, 64, 128]
+      itopk: [32, 64, 128, 256, 512]
+      search_width: [1, 2, 4, 8, 16, 32, 64]
 
-  large:
-    build:
-      graph_degree: [32, 64]
-    search:
-      itopk: [32, 64, 128]
+
+
+
+
