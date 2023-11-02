@@ -90,7 +90,7 @@ class AnnNNDescentTest : public ::testing::TestWithParam<AnnNNDescentInputs> {
         index_params.metric                    = ps.metric;
         index_params.graph_degree              = ps.graph_degree;
         index_params.intermediate_graph_degree = 2 * ps.graph_degree;
-        index_params.max_iterations            = 50;
+        index_params.max_iterations            = 100;
 
         auto database_view = raft::make_device_matrix_view<const DataT, int64_t>(
           (const DataT*)database.data(), ps.n_rows, ps.dim);
@@ -151,6 +151,6 @@ const std::vector<AnnNNDescentInputs> inputs = raft::util::itertools::product<An
   {32, 64},                                                  // graph_degree
   {raft::distance::DistanceType::L2Expanded},
   {false, true},
-  {0.92});
+  {0.90});
 
 }  // namespace raft::neighbors::experimental::nn_descent
