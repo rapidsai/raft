@@ -252,10 +252,11 @@ def main():
         "-t",
         "--search-threads",
         help="specify the number threads to use for throughput benchmark."
-        " Single value or a pair of min and max separated by ':'. Example --threads=1:4"
-        " Power of 2 values between 'min' and 'max' will be used. If only "
-        "'min' is specified, then a single test is run with 'min' threads. "
-        "By default min=1, max=<num hyper threads>.",
+        " Single value or a pair of min and max separated by ':'. "
+        "Example --threads=1:4. Power of 2 values between 'min' "
+        "and 'max' will be used. If only 'min' is specified, then a "
+        "single test is run with 'min' threads. By default min=1, "
+        "max=<num hyper threads>.",
         default=None,
     )
 
