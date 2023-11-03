@@ -120,22 +120,46 @@ void serialize_to_hnswlib(raft::resources const& res,
   RAFT_LOG_DEBUG(
     "Saving CAGRA index to hnswlib format, size %zu, dim %u", static_cast<size_t>(index_.size()), index_.dim());
 
-  serialize_scalar(res, os, std::size_t{0});
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.size()));
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.size()));
+  // offset_level_0
+  std::size_t offset_level_0 = 0;
+  os.write(reinterpret_cast<char*>(&offset_level_0), sizeof(std::size_t));
+  // max_element
+  std::size_t max_element = index_.size();
+  os.write(reinterpret_cast<char*>(&max_element), sizeof(std::size_t));
+  // curr_element_count
+  std::size_t curr_element_count = index_.size();
+  os.write(reinterpret_cast<char*>(&curr_element_count), sizeof(std::size_t));
   // Example:M: 16, dim = 128, data_t = float, index_t = uint32_t, list_size_type = uint32_t, labeltype: size_t
   // size_data_per_element_ = M * 2 * sizeof(index_t) + sizeof(list_size_type) + dim * sizeof(data_t) + sizeof(labeltype)
   auto size_data_per_element = static_cast<std::size_t>(index_.graph_degree() * 4 + 4 + index_.size() * 4 + 8);
-  serialize_scalar(res, os, size_data_per_element);
-  serialize_scalar(res, os, size_data_per_element - 8);
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.graph_degree() * 4 + 4));
-  serialize_scalar(res, os, std::int32_t{1});
-  serialize_scalar(res, os, static_cast<std::int32_t>(index_.size() / 2));
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.graph_degree() / 2));
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.graph_degree()));
-  serialize_scalar(res, os, static_cast<std::size_t>(index_.graph_degree() / 2));
-  serialize_scalar(res, os, static_cast<double>(0.42424242));
-  serialize_scalar(res, os, std::size_t{500});
+  os.write(reinterpret_cast<char*>(&size_data_per_element), sizeof(std::size_t));
+  // label_offset
+  std::size_t label_offset = size_data_per_element - 8;
+  os.write(reinterpret_cast<char*>(&label_offset), sizeof(std::size_t));
+  // offset_data
+  auto offset_data = static_cast<std::size_t>(index_.graph_degree() * 4 + 4);
+  os.write(reinterpret_cast<char*>(&offset_data), sizeof(std::size_t));
+  // max_level
+  int max_level = 1;
+  os.write(reinterpret_cast<char*>(&max_level), sizeof(int));
+  // entrypoint_node
+  auto entrypoint_node = static_cast<int>(index_.size() / 2);
+  os.write(reinterpret_cast<char*>(&entrypoint_node), sizeof(int));
+  // max_M
+  auto max_M = static_cast<std::size_t>(index_.graph_degree() / 2);
+  os.write(reinterpret_cast<char*>(&max_M), sizeof(std::size_t));
+  // max_M0
+  std::size_t max_M0 = index_.graph_degree();
+  os.write(reinterpret_cast<char*>(&max_M0), sizeof(std::size_t));
+  // M
+  auto M = static_cast<std::size_t>(index_.graph_degree() / 2);
+  os.write(reinterpret_cast<char*>(&M), sizeof(std::size_t));
+  // mult, can be anything
+  double mult = 0.42424242;
+  os.write(reinterpret_cast<char*>(&mult), sizeof(double));
+  // efConstruction, can be anything
+  std::size_t efConstruction = 500;
+  os.write(reinterpret_cast<char*>(&efConstruction), sizeof(std::size_t));
 
   auto dataset = index_.dataset();
   // Remove padding before saving the dataset
@@ -151,38 +175,45 @@ void serialize_to_hnswlib(raft::resources const& res,
   resource::sync_stream(res);
 
   auto graph = index_.graph();
-  // auto host_graph = raft::make_host_matrix<std::uint32_t, int64_t, raft::row_major>(graph.extent(0), graph.extent(1));
+  auto host_graph = raft::make_host_matrix<IdxT, int64_t, raft::row_major>(graph.extent(0), graph.extent(1));
   // std::vector<uint32_t> host_graph_t(graph.size());
-  IdxT* host_graph = new IdxT[graph.size()];
+  // IdxT* host_graph = new IdxT[graph.extent(0), graph.extent(1)];
   // thrust::copy(raft::resource::get_thrust_policy(res), graph.data_handle(), graph.data_handle() + graph.size(), host_graph.data_handle());
-  raft::copy(host_graph, graph.data_handle(), graph.size(), raft::resource::get_cuda_stream(res));
+  raft::copy(host_graph.data_handle(), graph.data_handle(), graph.size(), raft::resource::get_cuda_stream(res));
 
   // Write one dataset and graph row at a time
   for (std::size_t i = 0; i < index_.size(); i++) {
-    serialize_scalar(res, os, static_cast<std::size_t>(index_.graph_degree()));
+    std::size_t graph_degree = index_.graph_degree();
+    os.write(reinterpret_cast<char*>(&graph_degree), sizeof(std::size_t));
 
-    auto graph_row = host_graph + (index_.graph_degree() * i);
-    auto graph_row_mds = raft::make_host_vector_view<IdxT, int64_t>(graph_row, index_.graph_degree());
-    serialize_mdspan(res, os, graph_row_mds);
+    for (std::size_t j = 0; j < index_.graph_degree(); ++j) {
+      auto graph_elem = host_graph(i, j);
+      os.write(reinterpret_cast<char*>(&graph_elem), sizeof(IdxT));
+    }
 
     auto data_row = host_dataset.data_handle() + (index_.dim() * i);
     if constexpr (std::is_same_v<T, float>) {
-      auto data_row_mds = raft::make_host_vector_view<T, int64_t>(data_row, index_.dim());
-      serialize_mdspan(res, os, data_row_mds);
+      for (std::size_t j = 0; j < index_.dim(); ++j) {
+        auto data_elem = host_dataset(i, j);
+        os.write(reinterpret_cast<char*>(&data_elem), sizeof(T));
+      }
     }
     else if constexpr (std::is_same_v<T, std::int8_t> or std::is_same_v<T, std::uint8_t>) {
-      auto data_row_int = raft::make_host_vector<std::int32_t, std::int64_t>(index_.dim());
-      std::copy(data_row, data_row + index_.size(), data_row_int.data_handle());
-      serialize_mdspan(res, os, data_row_int.view());
+      for (std::size_t j = 0; j < index_.dim(); ++j) {
+        auto data_elem = static_cast<int>(host_dataset(i, j));
+        os.write(reinterpret_cast<char*>(&data_elem), sizeof(int));
+      }
     }
 
-    serialize_scalar(res, os, i);
+    os.write(reinterpret_cast<char*>(&i), sizeof(std::size_t));
   }
 
   for (std::size_t i = 0; i < index_.size(); i++) {
-    serialize_scalar(res, os, std::int32_t{0});
+    // zeroes
+    auto zero = 0;
+    os.write(reinterpret_cast<char*>(&zero), sizeof(int));
   }
-  delete [] host_graph;
+  // delete [] host_graph;
 }
 
 template <typename T, typename IdxT>

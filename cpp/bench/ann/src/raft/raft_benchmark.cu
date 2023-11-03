@@ -49,9 +49,9 @@ extern template class raft::bench::ann::RaftCagra<int8_t, uint32_t>;
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB
 #include "raft_cagra_hnswlib_wrapper.h"
-extern template class raft::bench::ann::RaftCagraHnswlib<float, uint32_t>;
-extern template class raft::bench::ann::RaftCagraHnswlib<uint8_t, uint32_t>;
-extern template class raft::bench::ann::RaftCagraHnswlib<int8_t, uint32_t>;
+// extern template class raft::bench::ann::RaftCagraHnswlib<float, uint32_t>;
+// extern template class raft::bench::ann::RaftCagraHnswlib<uint8_t, uint32_t>;
+// extern template class raft::bench::ann::RaftCagraHnswlib<int8_t, uint32_t>;
 #endif
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
@@ -210,9 +210,9 @@ void parse_build_param(const nlohmann::json& conf,
   if (conf.contains("nn_descent_niter")) { param.nn_descent_niter = conf.at("nn_descent_niter"); }
 }
 
-template <typename T>
+template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
-                        typename raft::bench::ann::RaftCagraHnswlib<T>::SearchParam& param)
+                        typename raft::bench::ann::RaftCagraHnswlib<T, IdxT>::SearchParam& param)
 {
   param.ef = conf.at("ef");
   if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }

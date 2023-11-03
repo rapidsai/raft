@@ -88,8 +88,6 @@ class RaftCagraHnswlib : public ANN<T> {
 
   void set_search_param(const AnnSearchParam& param) override;
 
-  void set_search_dataset(const T* dataset, size_t nrow) override;
-
   // TODO: if the number of results is less than k, the remaining elements of 'neighbors'
   // will be filled with (size_t)-1
   void search(const T* queries,
@@ -177,8 +175,10 @@ void RaftCagraHnswlib<T, IdxT>::load(const std::string& file)
     space_ = std::make_unique<hnswlib::L2SpaceI>(dimension_);
   }
 
+  std::cout << "about to create index" << std::endl;
   appr_alg_ = std::make_unique<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
     space_.get(), file);
+  std::cout << "about to failed" << std::endl;
   appr_alg_->base_layer_only = true;
 }
 

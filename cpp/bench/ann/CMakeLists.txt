@@ -31,7 +31,7 @@ option(RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT "Include raft's ivf flat algorithm in be
 option(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ "Include raft's ivf pq algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA "Include raft's CAGRA in benchmark" ON)
 option(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB "Include raft's CAGRA in benchmark" ON)
-option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" ON)
+option(RAFT_ANN_BENCH_USE_HNSWLIB "Include hnsw algorithm in benchmark" OFF)
 option(RAFT_ANN_BENCH_USE_GGNN "Include ggnn algorithm in benchmark" ON)
 option(RAFT_ANN_BENCH_SINGLE_EXE
        "Make a single executable with benchmark as shared library modules" OFF
@@ -259,7 +259,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
     RAFT_CAGRA_HNSWLIB
     PATH
     bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA}>:bench/ann/src/raft/raft_cagra_hnswlib.cu>
+    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB}>:bench/ann/src/raft/raft_cagra_hnswlib.cu>
     INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib
     LINKS

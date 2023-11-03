@@ -1,0 +1,74 @@
+diff --git a/hnswlib/hnswalg.h b/hnswlib/hnswalg.h
+index e95e0b5..ebacfdf 100644
+--- a/hnswlib/hnswalg.h
++++ b/hnswlib/hnswalg.h
+@@ -16,6 +16,8 @@ namespace hnswlib {
+     template<typename dist_t>
+     class HierarchicalNSW : public AlgorithmInterface<dist_t> {
+     public:
++        bool base_layer_only{false};
++        int num_seeds=32;
+         static const tableint max_update_element_locks = 65536;
+         HierarchicalNSW(SpaceInterface<dist_t> *s) {
+         }
+@@ -1119,28 +1121,41 @@ namespace hnswlib {
+             tableint currObj = enterpoint_node_;
+             dist_t curdist = fstdistfunc_(query_data, getDataByInternalId(enterpoint_node_), dist_func_param_);
+ 
+-            for (int level = maxlevel_; level > 0; level--) {
+-                bool changed = true;
+-                while (changed) {
+-                    changed = false;
+-                    unsigned int *data;
++            if (base_layer_only) {
++                // You can increase the number of seeds when testing large-scale dataset, num_seeds = 48 for 100M-scale
++                for (int i = 0; i < num_seeds; i++) {
++                    tableint obj = i * (max_elements_ / num_seeds);
++                    dist_t dist = fstdistfunc_(query_data, getDataByInternalId(obj), dist_func_param_);
++                    if (dist < curdist) {
++                        curdist = dist;
++                        currObj = obj;
++                    }
++                }
++            }
++            else{
++                for (int level = maxlevel_; level > 0; level--) {
++                    bool changed = true;
++                    while (changed) {
++                        changed = false;
++                        unsigned int *data;
+ 
+-                    data = (unsigned int *) get_linklist(currObj, level);
+-                    int size = getListCount(data);
+-                    metric_hops++;
+-                    metric_distance_computations+=size;
++                        data = (unsigned int *) get_linklist(currObj, level);
++                        int size = getListCount(data);
++                        metric_hops++;
++                        metric_distance_computations+=size;
+ 
+-                    tableint *datal = (tableint *) (data + 1);
+-                    for (int i = 0; i < size; i++) {
+-                        tableint cand = datal[i];
+-                        if (cand < 0 || cand > max_elements_)
+-                            throw std::runtime_error("cand error");
+-                        dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
++                        tableint *datal = (tableint *) (data + 1);
++                        for (int i = 0; i < size; i++) {
++                            tableint cand = datal[i];
++                            if (cand < 0 || cand > max_elements_)
++                                throw std::runtime_error("cand error");
++                            dist_t d = fstdistfunc_(query_data, getDataByInternalId(cand), dist_func_param_);
+ 
+-                        if (d < curdist) {
+-                            curdist = d;
+-                            currObj = cand;
+-                            changed = true;
++                            if (d < curdist) {
++                                curdist = d;
++                                currObj = cand;
++                                changed = true;
++                            }
+                         }
+                     }
+                 }
