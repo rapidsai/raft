@@ -176,10 +176,8 @@ void serialize_to_hnswlib(raft::resources const& res,
 
   auto graph = index_.graph();
   auto host_graph = raft::make_host_matrix<IdxT, int64_t, raft::row_major>(graph.extent(0), graph.extent(1));
-  // std::vector<uint32_t> host_graph_t(graph.size());
-  // IdxT* host_graph = new IdxT[graph.extent(0), graph.extent(1)];
-  // thrust::copy(raft::resource::get_thrust_policy(res), graph.data_handle(), graph.data_handle() + graph.size(), host_graph.data_handle());
   raft::copy(host_graph.data_handle(), graph.data_handle(), graph.size(), raft::resource::get_cuda_stream(res));
+  resource::sync_stream(res);
 
   // Write one dataset and graph row at a time
   for (std::size_t i = 0; i < index_.size(); i++) {
