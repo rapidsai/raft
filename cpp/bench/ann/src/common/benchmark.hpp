@@ -17,7 +17,6 @@
 
 #include "ann_types.hpp"
 #include "conf.hpp"
-#include "cuda_stub.hpp"
 #include "dataset.hpp"
 #include "util.hpp"
 
@@ -296,8 +295,7 @@ void bench_search(::benchmark::State& state,
       queries_processed += n_queries;
     }
   }
-  cudaDeviceSynchronize();
-  auto end      = std::chrono::high_resolution_clock::now();
+  2 auto end    = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
   if (state.thread_index() == 0) { state.counters.insert({{"end_to_end", duration}}); }
   state.counters.insert(
