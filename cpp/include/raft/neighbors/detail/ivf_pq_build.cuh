@@ -1468,27 +1468,6 @@ void extend_list_with_codes(raft::resources const& res,
 }
 
 /**
- * Extend one list of the index in-place, by the list label, skipping the classification and
- * encoding steps.
- * See the public interface for the api and usage.
- */
-template <typename IdxT>
-void extend_list_with_compressed_codes(
-  raft::resources const& res,
-  index<IdxT>* index,
-  device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
-  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
-  uint32_t label)
-{
-  // Allocate memory and write indices
-  auto offset = extend_list_prepare(res, index, new_indices, label);
-  // Pack the data
-  pack_list_data<IdxT>(res, index, new_codes, label, offset);
-  // Update the pointers and the sizes
-  recompute_internal_state(res, *index);
-}
-
-/**
  * Extend one list of the index in-place, by the list label, skipping the classification step.
  * See the public interface for the api and usage.
  */
