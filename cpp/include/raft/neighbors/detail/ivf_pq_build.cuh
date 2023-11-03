@@ -708,7 +708,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL unpack_compressed_list_data_kernel(
 /**
  * Unpack flat PQ codes from an existing list by the given offset.
  *
- * @param[out] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[out] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
  * @param[in] list_data the packed ivf::list data.
  * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
  * @param[in] pq_bits codebook size (1 << pq_bits)
@@ -1042,7 +1042,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL pack_compressed_list_data_kernel(
  * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
  *
  * @param[out] list_data the packed ivf::list data.
- * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
+ * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
  * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
  * @param[in] pq_bits codebook size (1 << pq_bits)
  * @param[in] stream
@@ -1458,6 +1458,27 @@ void extend_list_with_codes(raft::resources const& res,
                             device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
                             device_vector_view<const IdxT, uint32_t, row_major> new_indices,
                             uint32_t label)
+{
+  // Allocate memory and write indices
+  auto offset = extend_list_prepare(res, index, new_indices, label);
+  // Pack the data
+  pack_list_data<IdxT>(res, index, new_codes, label, offset);
+  // Update the pointers and the sizes
+  recompute_internal_state(res, *index);
+}
+
+/**
+ * Extend one list of the index in-place, by the list label, skipping the classification and
+ * encoding steps.
+ * See the public interface for the api and usage.
+ */
+template <typename IdxT>
+void extend_list_with_compressed_codes(
+  raft::resources const& res,
+  index<IdxT>* index,
+  device_matrix_view<const uint8_t, uint32_t, row_major> new_codes,
+  device_vector_view<const IdxT, uint32_t, row_major> new_indices,
+  uint32_t label)
 {
   // Allocate memory and write indices
   auto offset = extend_list_prepare(res, index, new_indices, label);

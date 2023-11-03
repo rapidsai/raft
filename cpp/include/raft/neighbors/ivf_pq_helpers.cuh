@@ -76,16 +76,16 @@ inline void unpack(
 }
 
 /**
- * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
+ * @brief Unpack `n_rows` consecutive records of a single list (cluster) in the compressed index
  * starting at given `offset`. The output codes are compressed, which means the output has
- * ceildiv(pq_dim * pq_bits, 8) bytes of pq codes.
+ * ceildiv(pq_dim * pq_bits, 8) bytes per pq code.
  *
  * Usage example:
  * @code{.cpp}
  *   auto list_data = index.lists()[label]->data.view();
  *   // allocate the buffer for the output
  *   uint32_t n_take = 4;
- *   auto codes = raft::make_device_vector<uint8_t>(res, raft::ceildiv(n_take * index.pq_dim() *
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_take, raft::ceildiv(index.pq_dim() *
  * index.pq_bits(), 8)); uint32_t offset = 0;
  *   // unpack n_take elements from the list
  *   ivf_pq::helpers::codepacker::unpack(res, list_data, index.pq_bits(), offset, n_take,
@@ -102,7 +102,7 @@ inline void unpack(
  * @param[in] n_rows How many records to unpack
  * @param[in] pq_dim The dimensionality of the PQ compressed records
  * @param[out] codes
- *   the destination buffer [ceildiv(n_rows * pq_dim * pq_bits, 8)].
+ *   the destination buffer [n_rows, ceildiv(pq_dim * pq_bits, 8)].
  *   The length `n_rows` defines how many records to unpack,
  *   it must be smaller than the list size.
  */
@@ -161,11 +161,12 @@ inline void pack(
  * @code{.cpp}
  *   auto list_data  = index.lists()[label]->data.view();
  *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<uint8_t>(res, n_vec, index.pq_dim());
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_vec, raft::ceildiv(index.pq_dim() *
+ * index.pq_bits()));
  *   ... prepare n_vecs to pack into the list in codes ...
  *   // write codes into the list starting from the 42nd position
- *   ivf_pq::helpers::codepacker::pack(
- *       res, make_const_mdspan(codes.view()), index.pq_bits(), 42, list_data);
+ *   ivf_pq::helpers::codepacker::pack_compressed(
+ *       res, codes, n_vec, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
  *
  * @param[in] res
@@ -189,40 +190,6 @@ inline void pack_compressed(
     list_data, codes, n_rows, pq_dim, offset, pq_bits, resource::get_cuda_stream(res));
 }
 }  // namespace codepacker
-/**
- * Write flat PQ codes into an existing list by the given offset.
- *
- * The list is identified by its label.
- *
- * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
- *
- * Usage example:
- * @code{.cpp}
- *   // We will write into the 137th cluster
- *   uint32_t label = 137;
- *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_vec, index.pq_dim());
- *   ... prepare n_vecs to pack into the list in codes ...
- *   // write codes into the list starting from the 42nd position
- *   ivf_pq::helpers::pack_list_data(res, &index, codes_to_pack, label, 42);
- * @endcode
- *
- * @param[in] res
- * @param[inout] index IVF-PQ index.
- * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
- * @param[in] label The id of the list (cluster) into which we write.
- * @param[in] offset how many records to skip before writing the data into the list
- */
-template <typename IdxT>
-void pack_list_data(raft::resources const& res,
-                    index<IdxT>* index,
-                    uint8_t* codes,
-                    uint32_t n_rows,
-                    uint32_t label,
-                    uint32_t offset)
-{
-  ivf_pq::detail::pack_list_data(res, index, codes, n_rows, label, offset);
-}
 
 /**
  * Write flat PQ codes into an existing list by the given offset.
@@ -259,45 +226,40 @@ void pack_list_data(raft::resources const& res,
 }
 
 /**
- * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
- * starting at given `offset`, one code per byte (independently of pq_bits).
+ * Write flat compressed PQ codes into an existing list by the given offset.
+ *
+ * The list is identified by its label.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
  *
  * Usage example:
  * @code{.cpp}
- *   // We will unpack the fourth cluster
- *   uint32_t label = 3;
- *   // Get the list size
- *   uint32_t list_size = 0;
- *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
- * resource::get_cuda_stream(res)); resource::sync_stream(res);
- *   // allocate the buffer for the output
- *   auto codes = raft::make_device_matrix<float>(res, list_size, index.pq_dim());
- *   // unpack the whole list
- *   ivf_pq::helpers::unpack_list_data(res, index, codes.view(), label, 0);
+ *   // We will write into the 137th cluster
+ *   uint32_t label = 137;
+ *   // allocate the buffer for the input codes
+ *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_vec, raft::ceildiv(index.pq_dim() *
+ * index.pq_bits(), 8));
+ *   ... prepare n_vecs to pack into the list in codes ...
+ *   // write codes into the list starting from the 42nd position
+ *   ivf_pq::helpers::pack_compressed_list_data(res, &index, codes.data_handle(), n_vec, label, 42);
  * @endcode
  *
- * @tparam IdxT type of the indices in the source dataset
- *
  * @param[in] res
- * @param[in] index
- * @param[out] out_codes
- *   the destination buffer [n_take, index.pq_dim()].
- *   The length `n_take` defines how many records to unpack,
- *   it must be smaller than the list size.
- * @param[in] label
- *   The id of the list (cluster) to decode.
- * @param[in] offset
- *   How many records in the list to skip.
+ * @param[inout] index IVF-PQ index.
+ * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] n_rows how many records to pack
+ * @param[in] label The id of the list (cluster) into which we write.
+ * @param[in] offset how many records to skip before writing the data into the list
  */
 template <typename IdxT>
-void unpack_list_data(raft::resources const& res,
-                      const index<IdxT>& index,
-                      uint8_t* out_codes,
-                      uint32_t n_rows,
-                      uint32_t label,
-                      uint32_t offset)
+void pack_compressed_list_data(raft::resources const& res,
+                               index<IdxT>* index,
+                               uint8_t* codes,
+                               uint32_t n_rows,
+                               uint32_t label,
+                               uint32_t offset)
 {
-  return ivf_pq::detail::unpack_list_data<IdxT>(res, index, out_codes, n_rows, label, offset);
+  ivf_pq::detail::pack_compressed_list_data(res, index, codes, n_rows, label, offset);
 }
 
 /**
@@ -381,6 +343,50 @@ void unpack_list_data(raft::resources const& res,
                       uint32_t label)
 {
   return ivf_pq::detail::unpack_list_data<IdxT>(res, index, out_codes, label, in_cluster_indices);
+}
+
+/**
+ * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
+ * starting at given `offset`, not expanded to one code per byte.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   // We will unpack the fourth cluster
+ *   uint32_t label = 3;
+ *   // Get the list size
+ *   uint32_t list_size = 0;
+ *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
+ * resource::get_cuda_stream(res)); resource::sync_stream(res);
+ *   // allocate the buffer for the output
+ *   auto codes = raft::make_device_matrix<float>(res, list_size, index.pq_dim());
+ *   // unpack the whole list
+ *   ivf_pq::helpers::unpack_list_data(res, index, codes.view(), label, 0);
+ * @endcode
+ *
+ * @tparam IdxT type of the indices in the source dataset
+ *
+ * @param[in] res
+ * @param[in] index
+ * @param[out] out_codes
+ *   the destination buffer [n_take, ceildiv(index.pq_dim() * index.pq_bits(), 8)].
+ *   The length `n_take` defines how many records to unpack,
+ *   it must be smaller than the list size.
+ * @param[in] n_rows how many records to unpack
+ * @param[in] label
+ *   The id of the list (cluster) to decode.
+ * @param[in] offset
+ *   How many records in the list to skip.
+ */
+template <typename IdxT>
+void unpack_compressed_list_data(raft::resources const& res,
+                                 const index<IdxT>& index,
+                                 uint8_t* out_codes,
+                                 uint32_t n_rows,
+                                 uint32_t label,
+                                 uint32_t offset)
+{
+  return ivf_pq::detail::unpack_compressed_list_data<IdxT>(
+    res, index, out_codes, n_rows, label, offset);
 }
 
 /**

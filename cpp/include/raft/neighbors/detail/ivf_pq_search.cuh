@@ -790,8 +790,6 @@ inline void search(raft::resources const& handle,
   const auto max_queries = std::min<uint32_t>(std::max<uint32_t>(n_queries, 1), 4096);
   auto max_batch_size    = get_max_batch_size(handle, k, n_probes, max_queries, max_samples);
 
-  RAFT_LOG_INFO("max_queries %u, max_batch_size %u", max_queries, max_batch_size);
-
   rmm::device_uvector<float> float_queries(max_queries * dim_ext, stream, mr);
   rmm::device_uvector<float> rot_queries(max_queries * index.rot_dim(), stream, mr);
   rmm::device_uvector<uint32_t> clusters_to_probe(max_queries * n_probes, stream, mr);
