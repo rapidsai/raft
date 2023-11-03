@@ -131,7 +131,7 @@ void serialize_to_hnswlib(raft::resources const& res,
   os.write(reinterpret_cast<char*>(&curr_element_count), sizeof(std::size_t));
   // Example:M: 16, dim = 128, data_t = float, index_t = uint32_t, list_size_type = uint32_t, labeltype: size_t
   // size_data_per_element_ = M * 2 * sizeof(index_t) + sizeof(list_size_type) + dim * sizeof(data_t) + sizeof(labeltype)
-  auto size_data_per_element = static_cast<std::size_t>(index_.graph_degree() * 4 + 4 + index_.size() * 4 + 8);
+  auto size_data_per_element = static_cast<std::size_t>(index_.graph_degree() * 4 + 4 + index_.dim() * 4 + 8);
   os.write(reinterpret_cast<char*>(&size_data_per_element), sizeof(std::size_t));
   // label_offset
   std::size_t label_offset = size_data_per_element - 8;
@@ -181,8 +181,8 @@ void serialize_to_hnswlib(raft::resources const& res,
 
   // Write one dataset and graph row at a time
   for (std::size_t i = 0; i < index_.size(); i++) {
-    std::size_t graph_degree = index_.graph_degree();
-    os.write(reinterpret_cast<char*>(&graph_degree), sizeof(std::size_t));
+    auto graph_degree = static_cast<int>(index_.graph_degree());
+    os.write(reinterpret_cast<char*>(&graph_degree), sizeof(int));
 
     for (std::size_t j = 0; j < index_.graph_degree(); ++j) {
       auto graph_elem = host_graph(i, j);
