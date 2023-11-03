@@ -410,7 +410,6 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
       auto* b = ::benchmark::RegisterBenchmark(
                   index.name + suf, bench_search<T>, index, i, dataset, metric_objective)
                   ->Unit(benchmark::kMillisecond)
-                  ->ThreadRange(threads[0], threads[1])
                   /**
                    * The following are important for getting accuracy QPS measurements on both CPU
                    * and GPU These make sure that
@@ -420,6 +419,8 @@ void register_search(std::shared_ptr<const Dataset<T>> dataset,
                    */
                   ->MeasureProcessCPUTime()
                   ->UseRealTime();
+
+      if (metric_objective == Objective::THROUGHPUT) { b->ThreadRange(threads[0], threads[1]); }
     }
   }
 }
