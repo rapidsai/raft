@@ -82,6 +82,7 @@ def run_build_and_search(
     search,
     k,
     batch_size,
+    search_threads,
     mode="throughput",
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
@@ -128,7 +129,7 @@ def run_build_and_search(
                 "--benchmark_counters_tabular=true",
                 "--override_kv=k:%s" % k,
                 "--override_kv=n_queries:%s" % batch_size,
-                "--benchmark_min_warmup_time=0.01",
+                "--benchmark_min_warmup_time=1",
                 "--benchmark_out_format=json",
                 "--mode=%s" % mode,
                 "--benchmark_out="
@@ -136,6 +137,10 @@ def run_build_and_search(
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
+
+            if search_threads:
+                cmd = cmd + ["--threads=%s" % search_threads]
+
             cmd = cmd + [temp_conf_filepath]
             subprocess.run(cmd, check=True)
 
@@ -241,6 +246,18 @@ def main():
         help="run search in 'latency' (measure individual batches) or "
         "'throughput' (pipeline batches and measure end-to-end) mode",
         default="latency",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--search-threads",
+        help="specify the number threads to use for throughput benchmark."
+        " Single value or a pair of min and max separated by ':'. "
+        "Example --threads=1:4. Power of 2 values between 'min' "
+        "and 'max' will be used. If only 'min' is specified, then a "
+        "single test is run with 'min' threads. By default min=1, "
+        "max=<num hyper threads>.",
+        default=None,
     )
 
     args = parser.parse_args()
@@ -444,6 +461,7 @@ def main():
         search,
         k,
         batch_size,
+        args.search_threads,
         mode,
     )
 
