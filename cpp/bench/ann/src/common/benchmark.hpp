@@ -17,6 +17,7 @@
 
 #include "ann_types.hpp"
 #include "conf.hpp"
+#include "cuda_stub.hpp"
 #include "dataset.hpp"
 #include "util.hpp"
 
