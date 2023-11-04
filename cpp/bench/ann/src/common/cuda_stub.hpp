@@ -154,6 +154,8 @@ namespace stub {
 {
   return cudaSuccess;
 }
+[[gnu::weak, gnu::noinline]] cudaError_t cudaDeviceSynchronize() { return cudaSuccess; }
+
 [[gnu::weak, gnu::noinline]] cudaError_t cudaStreamSynchronize(cudaStream_t pStream)
 {
   return cudaSuccess;
@@ -214,6 +216,7 @@ RAFT_DECLARE_CUDART(cudaFree);
 RAFT_DECLARE_CUDART(cudaStreamCreate);
 RAFT_DECLARE_CUDART(cudaStreamCreateWithFlags);
 RAFT_DECLARE_CUDART(cudaStreamDestroy);
+RAFT_DECLARE_CUDART(cudaDeviceSynchronize);
 RAFT_DECLARE_CUDART(cudaStreamSynchronize);
 RAFT_DECLARE_CUDART(cudaEventCreate);
 RAFT_DECLARE_CUDART(cudaEventRecord);
