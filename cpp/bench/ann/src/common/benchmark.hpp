@@ -26,6 +26,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <limits>
@@ -39,7 +40,8 @@ namespace raft::bench::ann {
 
 std::mutex init_mutex;
 std::condition_variable cond_var;
-bool processed = false;
+std::atomic_bool ready{true};
+std::atomic_bool processed{false};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
 static inline std::shared_ptr<AlgoProperty> current_algo_props{nullptr};
@@ -201,7 +203,7 @@ void bench_search(::benchmark::State& state,
   if (state.thread_index() == 0) {
     std::unique_lock lk(init_mutex);
     std::cout << "Thread 0 acquired on lock" << std::endl;
-    cond_var.wait(lk, [] { return !processed; });
+    cond_var.wait(lk, [] { return not processed.load(std::memory_order_acquire); });
     std::cout << "Thread 0 starting to process" << std::endl;
     // algo is static to cache it between close search runs to save time on index loading
     static std::string index_file = "";
@@ -251,15 +253,16 @@ void bench_search(::benchmark::State& state,
     }
 
     query_set = dataset->query_set(current_algo_props->query_memory_type);
-    processed = true;
+    processed.store(true, std::memory_order_acq_rel);
     std::cout << "Thread 0 finishing process, about to notify waiting threads" << std::endl;
     cond_var.notify_all();
   } else {
-    std::unique_lock lk(init_mutex, std::defer_lock);
+      std::cout << "Other threads waiting about to acquire lock" << std::endl;
+    std::unique_lock lk(init_mutex);
     // All other threads will wait for the first thread to initialize the algo.
     std::cout << "Other threads waiting on state to become true" << std::endl;
     cond_var.wait(
-      lk, [] { return processed; });
+      lk, [] { return processed.load(std::memory_order_acquire); });
       std::cout << "Other threads are alive, state is true" << std::endl;
     // gbench ensures that all threads are synchronized at the start of the benchmark loop.
     // We are accessing shared variables (like current_algo, current_algo_probs) before the
@@ -348,8 +351,8 @@ void bench_search(::benchmark::State& state,
       state.counters.insert({{"Recall", actual_recall}});
     }
     std::cout << "Last thread about to acquire lock" << std::endl;
-    std::unique_lock lk(init_mutex);
-    processed = false;
+    // std::unique_lock lk(init_mutex);
+    processed.store(false, std::memory_order_acq_rel);
     std::cout << "Last thread reset sync, about to notify" << std::endl;
     cond_var.notify_all();
   }
