@@ -198,7 +198,7 @@ void bench_search(::benchmark::State& state,
    * Make sure the first thread loads the algo and dataset
    */
   if (state.thread_index() == 0) {
-    std::lock_guard lk(init_mutex);
+    std::unique_lock lk(init_mutex);
     // algo is static to cache it between close search runs to save time on index loading
     static std::string index_file = "";
     if (index.file != index_file) {
@@ -249,9 +249,11 @@ void bench_search(::benchmark::State& state,
     query_set = dataset->query_set(current_algo_props->query_memory_type);
     cond_var.notify_all();
   } else {
-    // All other threads will wait for the first thread to initialize the algo.
     std::unique_lock lk(init_mutex);
-    cond_var.wait(lk, [] { return current_algo_props.get() != nullptr; });
+    // All other threads will wait for the first thread to initialize the algo.
+
+    cond_var.wait(
+      lk, [] { return current_algo_props.get() != nullptr && current_algo.get() != nullptr; });
     // gbench ensures that all threads are synchronized at the start of the benchmark loop.
     // We are accessing shared variables (like current_algo, current_algo_probs) before the
     // benchmark loop, therefore the synchronization here is necessary.
@@ -292,6 +294,7 @@ void bench_search(::benchmark::State& state,
 
       // advance to the next batch
       batch_offset = (batch_offset + n_queries) % query_set_size;
+
       queries_processed += n_queries;
     }
   }
