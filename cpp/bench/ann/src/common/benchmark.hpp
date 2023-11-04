@@ -40,7 +40,6 @@ namespace raft::bench::ann {
 
 std::mutex init_mutex;
 std::condition_variable cond_var;
-std::atomic_bool ready{true};
 std::atomic_bool processed{false};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
