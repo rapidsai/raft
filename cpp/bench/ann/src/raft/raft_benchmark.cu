@@ -141,6 +141,20 @@ void parse_search_param(const nlohmann::json& conf,
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
+                       raft::neighbors::experimental::nn_descent::index_params& param)
+{
+  if (conf.contains("graph_degree")) { param.graph_degree = conf.at("graph_degree"); }
+  if (conf.contains("intermediate_graph_degree")) {
+    param.graph_degree = conf.at("intermediate_graph_degree");
+  }
+  if (conf.contains("max_iterations")) { param.graph_degree = conf.at("max_iterations"); }
+  if (conf.contains("termination_threshold")) {
+    param.graph_degree = conf.at("termination_threshold");
+  }
+}
+
+template <typename T, typename IdxT>
+void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::RaftCagra<T, IdxT>::BuildParam& param)
 {
   if (conf.contains("graph_degree")) {
@@ -170,6 +184,11 @@ void parse_build_param(const nlohmann::json& conf,
     parse_search_param<T, IdxT>(conf.at("ivf_pq_search_params"), sparam);
     param.ivf_pq_search_params = sparam.pq_param;
     param.ivf_pq_refine_rate   = sparam.refine_ratio;
+  }
+  if (conf.contains("nn_descent_params")) {
+    raft::neighbors::experimental::nn_descent::index_params nn_param;
+    parse_build_param<T, IdxT>(conf.at("nn_descent_params"), nn_param);
+    param.nn_descent_params = nn_param;
   }
 }
 

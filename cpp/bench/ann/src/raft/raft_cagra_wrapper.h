@@ -31,6 +31,7 @@
 #include <raft/neighbors/cagra_types.hpp>
 #include <raft/neighbors/detail/cagra/cagra_build.cuh>
 #include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -55,6 +56,8 @@ class RaftCagra : public ANN<T> {
 
   struct BuildParam {
     raft::neighbors::cagra::index_params cagra_params;
+    std::optional<raft::neighbors::experimental::nn_descent::index_params> nn_descent_params =
+      std::nullopt;
     std::optional<float> ivf_pq_refine_rate                                    = std::nullopt;
     std::optional<raft::neighbors::ivf_pq::index_params> ivf_pq_build_params   = std::nullopt;
     std::optional<raft::neighbors::ivf_pq::search_params> ivf_pq_search_params = std::nullopt;
@@ -116,6 +119,7 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
   index_.emplace(raft::neighbors::cagra::detail::build(handle_,
                                                        params,
                                                        dataset_view,
+                                                       index_params_.nn_descent_params,
                                                        index_params_.ivf_pq_refine_rate,
                                                        index_params_.ivf_pq_build_params,
                                                        index_params_.ivf_pq_search_params));

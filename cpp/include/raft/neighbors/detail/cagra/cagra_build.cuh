@@ -293,12 +293,14 @@ template <typename T,
           typename IdxT = uint32_t,
           typename Accessor =
             host_device_accessor<std::experimental::default_accessor<T>, memory_type::host>>
-index<T, IdxT> build(raft::resources const& res,
-                     const index_params& params,
-                     mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
-                     std::optional<float> refine_rate                   = std::nullopt,
-                     std::optional<ivf_pq::index_params> build_params   = std::nullopt,
-                     std::optional<ivf_pq::search_params> search_params = std::nullopt)
+index<T, IdxT> build(
+  raft::resources const& res,
+  const index_params& params,
+  mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset,
+  std::optional<experimental::nn_descent::index_params> nn_descent_params = std::nullopt,
+  std::optional<float> refine_rate                                        = std::nullopt,
+  std::optional<ivf_pq::index_params> pq_build_params                     = std::nullopt,
+  std::optional<ivf_pq::search_params> search_params                      = std::nullopt)
 {
   size_t intermediate_degree = params.intermediate_graph_degree;
   size_t graph_degree        = params.graph_degree;
@@ -321,15 +323,17 @@ index<T, IdxT> build(raft::resources const& res,
     raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), intermediate_degree));
 
   if (params.build_algo == graph_build_algo::IVF_PQ) {
-    build_knn_graph(res, dataset, knn_graph->view(), refine_rate, build_params, search_params);
+    build_knn_graph(res, dataset, knn_graph->view(), refine_rate, pq_build_params, search_params);
 
   } else {
     // Use nn-descent to build CAGRA knn graph
-    auto nn_descent_params                      = experimental::nn_descent::index_params();
-    nn_descent_params.graph_degree              = intermediate_degree;
-    nn_descent_params.intermediate_graph_degree = 1.5 * intermediate_degree;
-    nn_descent_params.max_iterations            = params.nn_descent_niter;
-    build_knn_graph<T, IdxT>(res, dataset, knn_graph->view(), nn_descent_params);
+    if (!nn_descent_params) {
+      nn_descent_params                            = experimental::nn_descent::index_params();
+      nn_descent_params->graph_degree              = intermediate_degree;
+      nn_descent_params->intermediate_graph_degree = 1.5 * intermediate_degree;
+      nn_descent_params->max_iterations            = params.nn_descent_niter;
+    }
+    build_knn_graph<T, IdxT>(res, dataset, knn_graph->view(), *nn_descent_params);
   }
 
   auto cagra_graph = raft::make_host_matrix<IdxT, int64_t>(dataset.extent(0), graph_degree);
