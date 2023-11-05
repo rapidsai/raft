@@ -40,7 +40,6 @@ namespace raft::bench::ann {
 
 std::mutex init_mutex;
 std::condition_variable cond_var;
-// std::atomic_bool processed{false};
 std::atomic_int processed_threads{0};
 
 static inline std::unique_ptr<AnnBase> current_algo{nullptr};
@@ -256,8 +255,9 @@ void bench_search(::benchmark::State& state,
   } else {
     std::unique_lock lk(init_mutex);
     // All other threads will wait for the first thread to initialize the algo.
-    cond_var.wait(
-      lk, [&state] { return processed_threads.load(std::memory_order_acquire) == state.threads(); });
+    cond_var.wait(lk, [&state] {
+      return processed_threads.load(std::memory_order_acquire) == state.threads();
+    });
     // gbench ensures that all threads are synchronized at the start of the benchmark loop.
     // We are accessing shared variables (like current_algo, current_algo_probs) before the
     // benchmark loop, therefore the synchronization here is necessary.
@@ -321,9 +321,7 @@ void bench_search(::benchmark::State& state,
 
   // assume thread has finished processing successfully at this point
   // last thread to finish processing notifies all
-  if (processed_threads-- == 0) {
-    cond_var.notify_all();
-  }
+  if (processed_threads-- == 0) { cond_var.notify_all(); }
 
   // Use the last thread as a sanity check that all the threads are working.
   if (state.thread_index() == state.threads() - 1) {
