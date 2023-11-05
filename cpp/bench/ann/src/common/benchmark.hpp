@@ -23,10 +23,10 @@
 #include <benchmark/benchmark.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
-#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <limits>
