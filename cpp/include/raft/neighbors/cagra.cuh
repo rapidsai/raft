@@ -275,7 +275,7 @@ index<T, IdxT> build(raft::resources const& res,
                      const index_params& params,
                      mdspan<const T, matrix_extent<int64_t>, row_major, Accessor> dataset)
 {
-  return detail::build(res, params, dataset);
+  return detail::build<T, IdxT, Accessor>(res, params, dataset);
 }
 
 /**
