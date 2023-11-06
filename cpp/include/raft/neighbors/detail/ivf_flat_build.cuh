@@ -310,6 +310,7 @@ inline auto build(raft::resources const& handle,
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, uint8_t> || std::is_same_v<T, int8_t>,
                 "unsupported data type");
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+  RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   index<T, IdxT> index(handle, params, dim);
   utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
