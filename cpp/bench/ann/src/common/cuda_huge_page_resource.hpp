@@ -26,8 +26,10 @@
 
 namespace rmm::mr {
 /**
- * @brief `device_memory_resource` derived class that uses cudaMallocHost/Free for
- * allocation/deallocation.
+ * @brief `device_memory_resource` derived class that uses mmap to allocate memory.
+ * This class enables memory allocation using huge pages.
+ * It is assumed that the allocated memory is directly accessible on device. This currently only
+ * works on GH systems.
  */
 class cuda_huge_page_resource final : public device_memory_resource {
  public:

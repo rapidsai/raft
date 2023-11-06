@@ -163,15 +163,11 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
   if (search_param.graph_mem != graph_mem_) {
     // Move graph to correct memory space
     graph_mem_ = search_param.graph_mem;
-    std::cout << "Moving graph to new memory space " << allocator_to_string(graph_mem_)
-              << std::endl;
     // We create a new graph and copy to it from existing graph
     auto mr        = get_mr(graph_mem_);
     auto new_graph = make_device_mdarray<IdxT, int64_t>(
       handle_, mr, make_extents<int64_t>(index_->graph().extent(0), index_->graph_degree()));
 
-    std::cout << "new_grap " << new_graph.extent(0) << "x" << new_graph.extent(1) << std::endl;
-    std::cout << "graph size " << index_->graph().size() << std::endl;
     raft::copy(new_graph.data_handle(),
                index_->graph().data_handle(),
                index_->graph().size(),
@@ -198,11 +194,8 @@ void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
     dataset_ = make_device_matrix<T, int64_t>(handle_, 0, 0);
     index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
 
-    // Allocate space using the correcct memory resource
-    auto mr = get_mr(dataset_mem_);
-
-    std::cout << "Moving dataset to new memory space " << allocator_to_string(dataset_mem_)
-              << std::endl;
+    // Allocate space using the correct memory resource.
+    auto mr                 = get_mr(dataset_mem_);
     auto input_dataset_view = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
     raft::neighbors::cagra::detail::copy_with_padding(handle_, dataset_, input_dataset_view, mr);
 
