@@ -65,18 +65,17 @@ class RaftCagra : public ANN<T> {
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull),
+      handle_(cudaStreamPerThread),
       need_dataset_update_(true),
       dataset_(make_device_matrix<T, int64_t>(handle_, 0, 0)),
       graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
       graph_mem_(AllocatorType::Device)
   {
-    rmm::mr::set_current_device_resource(&mr_);
     index_params_.metric = parse_metric_type(metric);
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
-  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
+  ~RaftCagra() noexcept {}
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -113,8 +112,6 @@ class RaftCagra : public ANN<T> {
       default: return rmm::mr::get_current_device_resource();
     }
   }
-  // `mr_` must go first to make sure it dies last
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
   rmm ::mr::cuda_pinned_resource mr_pinned_;
   rmm ::mr::cuda_huge_page_resource mr_huge_page_;
   raft::device_resources handle_;
@@ -257,7 +254,7 @@ void RaftCagra<T, IdxT>::search(
                           neighbors_IdxT,
                           batch_size * k,
                           raft::cast_op<size_t>(),
-                          resource::get_cuda_stream(handle_));
+                          raft::resource::get_cuda_stream(handle_));
   }
 
   handle_.sync_stream();

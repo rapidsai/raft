@@ -21,7 +21,7 @@
 namespace raft::neighbors::experimental::nn_descent {
 
 typedef AnnNNDescentTest<float, int8_t, std::uint32_t> AnnNNDescentTestI8_U32;
-TEST_P(AnnNNDescentTestI8_U32, AnnCagra) { this->testNNDescent(); }
+TEST_P(AnnNNDescentTestI8_U32, AnnNNDescent) { this->testNNDescent(); }
 
 INSTANTIATE_TEST_CASE_P(AnnNNDescentTest, AnnNNDescentTestI8_U32, ::testing::ValuesIn(inputs));
 
