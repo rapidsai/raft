@@ -1,9 +1,10 @@
 {
   "dataset": {
     "name": "wiki_all_1M",
-    "base_file": "wiki_all_1M/base.88M.fbin",
+    "base_file": "wiki_all_1M/base.1M.fbin",
+    "subset_size": 1000000,
     "query_file": "wiki_all_1M/queries.fbin",
-    "groundtruth_neighbors_file": "wiki_all_1M/groundtruth.88M.neighbors.ibin",
+    "groundtruth_neighbors_file": "wiki_all_1M/groundtruth.1M.neighbors.ibin",
     "distance": "euclidean"
   },
   "search_basic_param": {
@@ -169,7 +170,23 @@
     {
       "name": "raft_cagra.dim32.multi_cta",
       "algo": "raft_cagra",
-      "build_param": { "graph_degree": 32, "intermediate_graph_degree": 48 },
+      "build_param": { "graph_degree": 32,
+        "intermediate_graph_degree": 48,
+        "graph_build_algo": "NN_DESCENT",
+        "ivf_pq_build_pq_dim": 32,
+        "ivf_pq_build_pq_bits": 8,
+        "ivf_pq_build_nlist": 16384,
+        "ivf_pq_build_niter": 10,
+        "ivf_pq_build_ratio": 10,
+        "ivf_pq_search_nprobe": 30,
+        "ivf_pq_search_internalDistanceDtype": "half",
+        "ivf_pq_search_smemLutDtype": "half",
+        "ivf_pq_search_refine_ratio": 8,
+        "nn_descent_max_iterations": 10,
+        "nn_descent_graph_degree": 48,
+        "nn_descent_intermediate_graph_degree": 72,
+        "nn_descent_termination_threshold": 0.001
+      },
       "file": "wiki_all_1M/raft_cagra/dim32.ibin",
       "search_params": [
         { "itopk": 32, "search_width": 1, "max_iterations": 0, "algo": "multi_cta" },
