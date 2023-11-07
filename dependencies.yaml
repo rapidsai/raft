@@ -436,21 +436,20 @@ dependencies:
     common:
       - output_types: [conda, pyproject]
         packages:
-          - dask>=2023.9.2
           - dask-cuda==23.12.*
-          - distributed>=2023.9.2
           - joblib>=0.11
           - numba>=0.57
           - *numpy
           - ucx-py==0.35.*
       - output_types: conda
         packages:
-          - dask-core>=2023.9.2
+          - rapids-dask-dependency==23.12.00.*
           - ucx>=1.13.0
           - ucx-proc=*=gpu
           - &ucx_py_conda ucx-py==0.35.*
       - output_types: pyproject
         packages:
+          - rapids-dask-dependency==23.12.*
           - &pylibraft_conda pylibraft==23.12.*
       - output_types: requirements
         packages:
