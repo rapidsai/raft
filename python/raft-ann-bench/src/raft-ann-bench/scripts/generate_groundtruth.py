@@ -100,17 +100,17 @@ if __name__ == "__main__":
         epilog="""Example usage
     # With existing query file
     python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
-        --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
+--output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
 
     # With randomly generated queries
     python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
-        --output=groundtruth_dir --queries=random --n_queries=10000
+--output=groundtruth_dir --queries=random --n_queries=10000
 
     # Using only a subset of the dataset. Define queries by randomly
     # selecting vectors from the (subset of the) dataset.
     python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
-        --nrows=2000000 --cols=128 --output=groundtruth_dir \
-        --queries=random-choice --n_queries=10000
+--nrows=2000000 --cols=128 --output=groundtruth_dir \
+--queries=random-choice --n_queries=10000
     """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
