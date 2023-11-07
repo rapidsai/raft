@@ -152,6 +152,11 @@ options:
   -f, --force           re-run algorithms even if their results already exist (default: False)
   -m SEARCH_MODE, --search-mode SEARCH_MODE
                         run search in 'latency' (measure individual batches) or 'throughput' (pipeline batches and measure end-to-end) mode (default: throughput)
+  -t SEARCH_THREADS, --search-threads SEARCH_THREADS
+                        specify the number threads to use for throughput benchmark. Single value or a pair of min and max separated by ':'. Example --threads=1:4. Power of 2 values between 'min' and 'max' will be used. If only 'min' is
+                        specified, then a single test is run with 'min' threads. By default min=1, max=<num hyper threads>. (default: None)
+  -r, --dry-run         dry-run mode will convert the yaml config for the specified algorithms and datasets to the json format that's consumed by the lower-level c++ binaries and then print the command to run execute the benchmarks but
+                        will not actually execute the command. (default: False)
 ```
 
 `dataset`: name of the dataset to be searched in [datasets.yaml](#yaml-dataset-config)
