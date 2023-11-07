@@ -36,7 +36,7 @@ namespace raft::neighbors::ivf_pq::detail {
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int kSerializationVersion = 3;
+constexpr int kSerializationVersion = 4;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -48,7 +48,7 @@ struct check_index_layout {
 };
 
 // TODO: Recompute this and come back to it.
-template struct check_index_layout<sizeof(index<std::uint64_t>), 480>;
+template struct check_index_layout<sizeof(index<std::uint64_t>), 536>;
 
 /**
  * Write the index to an output stream
