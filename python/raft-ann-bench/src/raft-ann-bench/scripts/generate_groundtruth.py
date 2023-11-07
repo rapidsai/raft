@@ -14,31 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import rmm
-
-pool = rmm.mr.PoolMemoryResource(rmm.mr.CudaMemoryResource(), initial_pool_size=2**30)
-rmm.mr.set_current_device_resource(pool)
-from rmm.allocators.cupy import rmm_cupy_allocator
-import cupy as cp
-
-cp.cuda.set_allocator(rmm_cupy_allocator)
-
 import argparse
 import os
+
 import cupy as cp
 import numpy as np
-import math
-from timeit import default_timer as timer
-from pylibraft.neighbors.brute_force import knn
+import rmm
 from pylibraft.common import DeviceResources
-
-from utils import dtype_from_filename, suffix_from_dtype, memmap_bin_file, write_bin
+from pylibraft.neighbors.brute_force import knn
+from rmm.allocators.cupy import rmm_cupy_allocator
+from utils import memmap_bin_file, suffix_from_dtype, write_bin
 
 
 def generate_random_queries(n_queries, n_features, dtype=np.float32):
     print("Generating random queries")
     if np.issubdtype(dtype, np.integer):
-        queries = cp.random.randint(0, 255, size=(n_queries, n_features), dtype=dtype)
+        queries = cp.random.randint(
+            0, 255, size=(n_queries, n_features), dtype=dtype
+        )
     else:
         queries = cp.random.uniform(size=(n_queries, n_features)).astype(dtype)
     return queries
@@ -46,7 +39,9 @@ def generate_random_queries(n_queries, n_features, dtype=np.float32):
 
 def choose_random_queries(dataset, n_queries):
     print("Choosing random vector from dataset as query vectors")
-    query_idx = np.random.choice(dataset.shape[0], size=(n_queries,), replace=False)
+    query_idx = np.random.choice(
+        dataset.shape[0], size=(n_queries,), replace=False
+    )
     return dataset[query_idx, :]
 
 
@@ -65,7 +60,7 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
 
         X = cp.asarray(dataset[i : i + n_batch, :], cp.float32)
 
-        D, I = knn(
+        D, Ind = knn(
             X,
             queries,
             k,
@@ -75,13 +70,13 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
         )
         handle.sync()
 
-        D, I = cp.asarray(D), cp.asarray(I)
+        D, Ind = cp.asarray(D), cp.asarray(Ind)
         if distances is None:
             distances = D
-            indices = I
+            indices = Ind
         else:
             distances = cp.concatenate([distances, D], axis=1)
-            indices = cp.concatenate([indices, I], axis=1)
+            indices = cp.concatenate([indices, Ind], axis=1)
             idx = cp.argsort(distances, axis=1)[:, :k]
             distances = cp.take_along_axis(distances, idx, axis=1)
             indices = cp.take_along_axis(indices, idx, axis=1)
@@ -92,19 +87,30 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
 
 
 if __name__ == "__main__":
+    pool = rmm.mr.PoolMemoryResource(
+        rmm.mr.CudaMemoryResource(), initial_pool_size=2**30
+    )
+    rmm.mr.set_current_device_resource(pool)
+    cp.cuda.set_allocator(rmm_cupy_allocator)
+
     parser = argparse.ArgumentParser(
         prog="generate_groundtruth",
         description="Generate true neighbors using exact NN search. "
         "The input and output files are in big-ann-benchmark's binary format.",
         epilog="""Example usage
     # With existing query file
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin 
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+        --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
 
     # With randomly generated queries
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=random --n_queries=10000
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+        --output=groundtruth_dir --queries=random --n_queries=10000
 
-    # Using only a subset of the dataset. Define queries by randomly selecting vectors from the (subset of the) dataset.
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --nrows=2000000 --cols=128 --output=groundtruth_dir --queries=random-choice --n_queries=10000
+    # Using only a subset of the dataset. Define queries by randomly
+    # selecting vectors from the (subset of the) dataset.
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+        --nrows=2000000 --cols=128 --output=groundtruth_dir \
+        --queries=random-choice --n_queries=10000
     """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -114,9 +120,9 @@ if __name__ == "__main__":
         "--queries",
         type=str,
         default="random",
-        help="Queries file name, or one of 'random-choice' or 'random' (default). "
-        "'random-choice': select n_queries vectors from the input dataset. "
-        "'random': generate n_queries as uniform random numbers.",
+        help="Queries file name, or one of 'random-choice' or 'random' "
+        "(default). 'random-choice': select n_queries vectors from the input "
+        "dataset. 'random': generate n_queries as uniform random numbers.",
     )
     parser.add_argument(
         "--output",
@@ -129,7 +135,8 @@ if __name__ == "__main__":
         "--n_queries",
         type=int,
         default=10000,
-        help="Number of quries to generate (if no query file is given). Default: 10000.",
+        help="Number of quries to generate (if no query file is given). "
+        "Default: 10000.",
     )
 
     parser.add_argument(
@@ -137,23 +144,28 @@ if __name__ == "__main__":
         "--rows",
         default=0,
         type=int,
-        help="use only first N rows from dataset, by default the whole dataset is used",
+        help="use only first N rows from dataset, by default the whole "
+        "dataset is used",
     )
     parser.add_argument(
         "-D",
         "--cols",
         default=0,
         type=int,
-        help="number of features (dataset columns). Must be specified if --rows is used. Default: read from dataset file.",
+        help="number of features (dataset columns). Must be specified if "
+        "--rows is used. Default: read from dataset file.",
     )
     parser.add_argument(
         "--dtype",
         type=str,
-        help="Dataset dtype. If not given, then derived from filename extension.",
+        help="Dataset dtype. When not specified, then derived from extension.",
     )
 
     parser.add_argument(
-        "-k", type=int, default=100, help="Number of neighbors (per query) to calculate"
+        "-k",
+        type=int,
+        default=100,
+        help="Number of neighbors (per query) to calculate",
     )
     parser.add_argument(
         "--metric",
@@ -195,9 +207,13 @@ if __name__ == "__main__":
 
     if args.queries == "random" or args.queries == "random-choice":
         if args.n_queries is None:
-            raise RuntimeError("n_queries must be given to generate random queries")
+            raise RuntimeError(
+                "n_queries must be given to generate random queries"
+            )
         if args.queries == "random":
-            queries = generate_random_queries(args.n_queries, n_features, dtype)
+            queries = generate_random_queries(
+                args.n_queries, n_features, dtype
+            )
         elif args.queries == "random-choice":
             queries = choose_random_queries(dataset, args.n_queries)
 

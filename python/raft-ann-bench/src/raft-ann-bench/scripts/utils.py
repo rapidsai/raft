@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-import time
 import os
+import time
+
+import cupy as cp
+import numpy as np
 
 
 def dtype_from_filename(filename):
@@ -47,7 +48,9 @@ def suffix_from_dtype(dtype):
         raise RuntimeError("Not supported dtype extension" + dtype)
 
 
-def memmap_bin_file(bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32):
+def memmap_bin_file(
+    bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32
+):
     extent_itemsize = np.dtype(size_dtype).itemsize
     offset = int(extent_itemsize) * 2
     if bin_file is None:
@@ -60,7 +63,9 @@ def memmap_bin_file(bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32)
         if shape is None:
             shape = (a[0], a[1])
             print("Read shape from file", shape)
-        return np.memmap(bin_file, mode=mode, dtype=dtype, offset=offset, shape=shape)
+        return np.memmap(
+            bin_file, mode=mode, dtype=dtype, offset=offset, shape=shape
+        )
     elif mode[0] == "w":
         if shape is None:
             raise ValueError("Need to specify shape to map file in write mode")
@@ -74,7 +79,9 @@ def memmap_bin_file(bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32)
         a[1] = shape[1]
         a.flush()
         del a
-        fp = np.memmap(bin_file, mode="r+", dtype=dtype, offset=offset, shape=shape)
+        fp = np.memmap(
+            bin_file, mode="r+", dtype=dtype, offset=offset, shape=shape
+        )
         return fp
 
     # print('# {}: shape: {}, dtype: {}'.format(bin_file, shape, dtype))
@@ -92,7 +99,9 @@ def calc_recall(ann_idx, true_nn_idx):
     ann_idx = cp.asnumpy(ann_idx)
     if ann_idx.shape != true_nn_idx.shape:
         raise RuntimeError(
-            "Incompatible shapes {} vs {}".format(ann_idx.shape, true_nn_idx.shape)
+            "Incompatible shapes {} vs {}".format(
+                ann_idx.shape, true_nn_idx.shape
+            )
         )
     n = 0
     for i in range(ann_idx.shape[0]):
