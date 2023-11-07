@@ -25,6 +25,8 @@ def dtype_from_filename(filename):
     ext = os.path.splitext(filename)[1]
     if ext == ".fbin":
         return np.float32
+    if ext == ".hbin":
+        return np.float16
     elif ext == ".ibin":
         return np.int32
     elif ext == ".u8bin":
@@ -38,6 +40,8 @@ def dtype_from_filename(filename):
 def suffix_from_dtype(dtype):
     if dtype == np.float32:
         return ".fbin"
+    if dtype == np.float16:
+        return ".hbin"
     elif dtype == np.int32:
         return ".ibin"
     elif dtype == np.ubyte:
@@ -48,9 +52,7 @@ def suffix_from_dtype(dtype):
         raise RuntimeError("Not supported dtype extension" + dtype)
 
 
-def memmap_bin_file(
-    bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32
-):
+def memmap_bin_file(bin_file, dtype, shape=None, mode="r", size_dtype=np.uint32):
     extent_itemsize = np.dtype(size_dtype).itemsize
     offset = int(extent_itemsize) * 2
     if bin_file is None:
@@ -62,10 +64,12 @@ def memmap_bin_file(
         a = np.memmap(bin_file, mode=mode, dtype=size_dtype, shape=(2,))
         if shape is None:
             shape = (a[0], a[1])
-            print("Read shape from file", shape)
-        return np.memmap(
-            bin_file, mode=mode, dtype=dtype, offset=offset, shape=shape
-        )
+        else:
+            shape = tuple(
+                [aval if sval is None else sval for aval, sval in zip(a, shape)]
+            )
+
+        return np.memmap(bin_file, mode=mode, dtype=dtype, offset=offset, shape=shape)
     elif mode[0] == "w":
         if shape is None:
             raise ValueError("Need to specify shape to map file in write mode")
@@ -79,9 +83,7 @@ def memmap_bin_file(
         a[1] = shape[1]
         a.flush()
         del a
-        fp = np.memmap(
-            bin_file, mode="r+", dtype=dtype, offset=offset, shape=shape
-        )
+        fp = np.memmap(bin_file, mode="r+", dtype=dtype, offset=offset, shape=shape)
         return fp
 
     # print('# {}: shape: {}, dtype: {}'.format(bin_file, shape, dtype))
@@ -99,9 +101,7 @@ def calc_recall(ann_idx, true_nn_idx):
     ann_idx = cp.asnumpy(ann_idx)
     if ann_idx.shape != true_nn_idx.shape:
         raise RuntimeError(
-            "Incompatible shapes {} vs {}".format(
-                ann_idx.shape, true_nn_idx.shape
-            )
+            "Incompatible shapes {} vs {}".format(ann_idx.shape, true_nn_idx.shape)
         )
     n = 0
     for i in range(ann_idx.shape[0]):

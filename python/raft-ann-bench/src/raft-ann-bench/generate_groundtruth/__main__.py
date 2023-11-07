@@ -23,15 +23,13 @@ import rmm
 from pylibraft.common import DeviceResources
 from pylibraft.neighbors.brute_force import knn
 from rmm.allocators.cupy import rmm_cupy_allocator
-from utils import memmap_bin_file, suffix_from_dtype, write_bin
+from .utils import memmap_bin_file, suffix_from_dtype, write_bin
 
 
 def generate_random_queries(n_queries, n_features, dtype=np.float32):
     print("Generating random queries")
     if np.issubdtype(dtype, np.integer):
-        queries = cp.random.randint(
-            0, 255, size=(n_queries, n_features), dtype=dtype
-        )
+        queries = cp.random.randint(0, 255, size=(n_queries, n_features), dtype=dtype)
     else:
         queries = cp.random.uniform(size=(n_queries, n_features)).astype(dtype)
     return queries
@@ -39,9 +37,7 @@ def generate_random_queries(n_queries, n_features, dtype=np.float32):
 
 def choose_random_queries(dataset, n_queries):
     print("Choosing random vector from dataset as query vectors")
-    query_idx = np.random.choice(
-        dataset.shape[0], size=(n_queries,), replace=False
-    )
+    query_idx = np.random.choice(dataset.shape[0], size=(n_queries,), replace=False)
     return dataset[query_idx, :]
 
 
@@ -86,7 +82,7 @@ def calc_truth(dataset, queries, k, metric="sqeuclidean"):
     return distances, indices
 
 
-if __name__ == "__main__":
+def main():
     pool = rmm.mr.PoolMemoryResource(
         rmm.mr.CudaMemoryResource(), initial_pool_size=2**30
     )
@@ -127,8 +123,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="/tmp/groundtruth_dir",
-        help="output directory name",
+        default="",
+        help="output directory name (default current dir)",
     )
 
     parser.add_argument(
@@ -142,7 +138,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-N",
         "--rows",
-        default=0,
+        default=None,
         type=int,
         help="use only first N rows from dataset, by default the whole "
         "dataset is used",
@@ -150,7 +146,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-D",
         "--cols",
-        default=0,
+        default=None,
         type=int,
         help="number of features (dataset columns). Must be specified if "
         "--rows is used. Default: read from dataset file.",
@@ -158,7 +154,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dtype",
         type=str,
-        help="Dataset dtype. When not specified, then derived from extension.",
+        help="Dataset dtype. When not specified, then derived from extension."
+        " Supported types: 'float32', 'float16', 'uint8', 'int8'",
     )
 
     parser.add_argument(
@@ -175,45 +172,32 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    if args.rows != 0 and args.cols == 0:
-        raise RuntimeError(
-            "Number of columns has to be specified with the --cols argument"
-        )
 
-    n_samples = args.rows
-    n_features = args.cols
-
-    if n_samples != 0:
-        shape = (n_samples, n_features)
-        print("Reading subset of the data, shape=", shape)
+    if args.rows is not None:
+        print("Reading subset of the data, nrows=", args.rows)
     else:
         print("Reading whole dataset")
-        shape = None
 
     # Load input data
-    dataset = memmap_bin_file(args.dataset, args.dtype, shape)
+    dataset = memmap_bin_file(args.dataset, args.dtype, shape=(args.rows, args.cols))
     n_samples = dataset.shape[0]
     n_features = dataset.shape[1]
     dtype = dataset.dtype
 
-    print(dataset.shape)
     print(
-        "Dataset size {:6.1f} GB, dtype {}".format(
-            dataset.size * dataset.dtype.itemsize / 1e9, np.dtype(dtype)
+        "Dataset size {:6.1f} GB, shape {}, dtype {}".format(
+            dataset.size * dataset.dtype.itemsize / 1e9, dataset.shape, np.dtype(dtype)
         )
     )
 
-    os.makedirs(args.output, exist_ok=True)
+    if len(args.output) > 0:
+        os.makedirs(args.output, exist_ok=True)
 
     if args.queries == "random" or args.queries == "random-choice":
         if args.n_queries is None:
-            raise RuntimeError(
-                "n_queries must be given to generate random queries"
-            )
+            raise RuntimeError("n_queries must be given to generate random queries")
         if args.queries == "random":
-            queries = generate_random_queries(
-                args.n_queries, n_features, dtype
-            )
+            queries = generate_random_queries(args.n_queries, n_features, dtype)
         elif args.queries == "random-choice":
             queries = choose_random_queries(dataset, args.n_queries)
 
@@ -237,3 +221,7 @@ if __name__ == "__main__":
         os.path.join(args.output, "groundtruth.distances.fbin"),
         distances.astype(np.float32),
     )
+
+
+if __name__ == "__main__":
+    main()
