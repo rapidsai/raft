@@ -89,7 +89,7 @@ def run_build_and_search(
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
-        temp_conf_filename = f"temporary_{conf_filename}_{uuid.uuid1()}.json"
+        temp_conf_filename = f"{conf_filename}_{algo}_{uuid.uuid1()}.json"
         with open(temp_conf_filename, "w") as f:
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
@@ -274,7 +274,7 @@ def main():
         "--search-threads",
         help="specify the number threads to use for throughput benchmark."
         " Single value or a pair of min and max separated by ':'. "
-        "Example --threads=1:4. Power of 2 values between 'min' "
+        "Example: --search-threads=1:4. Power of 2 values between 'min' "
         "and 'max' will be used. If only 'min' is specified, then a "
         "single test is run with 'min' threads. By default min=1, "
         "max=<num hyper threads>.",
@@ -303,10 +303,7 @@ def main():
         build = args.build
         search = args.search
 
-    if not args.dry_run:
-        dry_run = False
-    else:
-        dry_run = True
+    dry_run = args.dry_run
 
     mode = args.search_mode
     k = args.count
