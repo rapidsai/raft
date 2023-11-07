@@ -85,23 +85,40 @@ if __name__ == "__main__":
         prog="generate_groundtruth",
         description="Generate true neighbors using exact NN search. "
         "The input and output files are in big-ann-benchmark's binary format.",
+        epilog="""Example usage
+    # With existing query file
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin 
+
+    # With randomly generated queries
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=random --n_queries=10000
+
+    # Using only a subset of the dataset. Define queries by randomly selecting vectors from the (subset of the) dataset.
+    python generate_groundtruth.py --dataset /dataset/base.1B.fbin --nrows=2000000 --cols=128 --output=groundtruth_dir --queries=random-choice --n_queries=10000
+    """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument("--dataset", type=str, help="input dataset file name")
+    parser.add_argument("dataset", type=str, help="input dataset file name")
     parser.add_argument(
         "--queries",
         type=str,
-        default="random-choice",
-        help="Queries file name, or one of 'random-choice' or 'random'. "
+        default="random",
+        help="Queries file name, or one of 'random-choice' or 'random' (default). "
         "'random-choice': select n_queries vectors from the input dataset. "
-        "'random': generate n_queries as uniform random numbers",
+        "'random': generate n_queries as uniform random numbers.",
     )
-    parser.add_argument("--output", type=str, help="output directory name")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="/tmp/groundtruth_dir",
+        help="output directory name",
+    )
 
     parser.add_argument(
         "--n_queries",
         type=int,
-        default=None,
+        default=10000,
+        help="Number of quries to generate (if no query file is given). Default: 10000.",
     )
 
     parser.add_argument(
@@ -116,15 +133,16 @@ if __name__ == "__main__":
         "--cols",
         default=0,
         type=int,
-        help="number of features (dataset columns)",
+        help="number of features (dataset columns). Must be specified if --rows is used. Default: read from dataset file.",
     )
     parser.add_argument(
-        "--dtype", type=str, help="Dataset dtype. If not given, then derived from "
+        "--dtype",
+        type=str,
+        help="Dataset dtype. If not given, then derived from filename extension.",
     )
-    parser.add_argument("--input_type", type=str, default="float32")
-    parser.add_argument("--output_type", type=str, default="float32")
+
     parser.add_argument(
-        "-k", type=int, default=100, help="Number of neighbors (pre query) to calculate"
+        "-k", type=int, default=100, help="Number of neighbors (per query) to calculate"
     )
     parser.add_argument(
         "--metric",
