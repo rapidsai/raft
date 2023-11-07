@@ -95,7 +95,7 @@ def convert_json_to_csv_search(dataset, dataset_path):
         for name in df:
             if name not in skip_search_cols:
                 write[name] = df[name]
-        print(build_file)
+
         if os.path.exists(build_file):
             build_df = pd.read_csv(build_file)
             write_n_cols = len(write.columns)
@@ -104,7 +104,7 @@ def convert_json_to_csv_search(dataset, dataset_path):
             for col_idx in range(5, len(build_df.columns)):
                 col_name = build_df.columns[col_idx]
                 write[col_name] = None
-            print(write.head())
+
             for s_index, search_row in write.iterrows():
                 for b_index, build_row in build_df.iterrows():
                     if search_row["index_name"] == build_row["index_name"]:
