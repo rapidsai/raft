@@ -78,11 +78,10 @@ To fine tune CAGRA index building we can customize IVF-PQ index builder options 
 Alternatively, if `graph_build_algo == "NN_DESCENT"`, then we can customize the following parameters
 | Parameter                   | Type           | Required | Data Type                  | Default | Description                                                                                                                                                                       |
 |-----------------------------|----------------|----------|----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `nn_descent_niter`          | `build_param`  | N        | Positive Integer>0         | 20 | Number of iterations if using NN_DESCENT. |
-| `nn_descent_intermediate_graph_degree`          | `build_param`  | N        | Positive Integer>0         | `intermediate_graph_degree` * 1.5 | Number of iterations if 
-| `nn_descent_max_iterations`          | `build_param`  | N        | Positive Integer>0         | 20 | Alias for `nn_descent_niter` 
-| `nn_descent_termination_threshold`          | `build_param`  | N        | Positive float>0         | 0.0001 | Number of iterations if 
-ch |
+| `nn_descent_niter`          | `build_param`  | N        | Positive Integer>0         | 20 | Number of NN Descent iterations. |
+| `nn_descent_intermediate_graph_degree`          | `build_param`  | N        | Positive Integer>0         | `intermediate_graph_degree` * 1.5 | Intermadiate graph degree during NN descent iterations |
+| `nn_descent_max_iterations`          | `build_param`  | N        | Positive Integer>0         | 20 | Alias for `nn_descent_niter` |
+| `nn_descent_termination_threshold`          | `build_param`  | N        | Positive float>0         | 0.0001 | Termination threshold for NN descent. |
 
 ## FAISS Indexes
 
