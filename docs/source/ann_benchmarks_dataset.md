@@ -52,12 +52,12 @@ If you have a dataset, but no corresponding ground truth file, then you can gene
 
 ```bash
 # With existing query file
-python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
 
 # With randomly generated queries
-python generate_groundtruth.py --dataset /dataset/base.1B.fbin --output=groundtruth_dir --queries=random --n_queries=10000
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --output=groundtruth_dir --queries=random --n_queries=10000
 
 # Using only a subset of the dataset. Define queries by randomly
 # selecting vectors from the (subset of the) dataset.
-python generate_groundtruth.py --dataset /dataset/base.1B.fbin --nrows=2000000 --output=groundtruth_dir --queries=random-choice --n_queries=10000
+python -m raft-ann-bench.generate_groundtruth --dataset /dataset/base.fbin --nrows=2000000 --output=groundtruth_dir --queries=random-choice --n_queries=10000
 ```

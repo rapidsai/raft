@@ -15,9 +15,7 @@
 #
 
 import os
-import time
 
-import cupy as cp
 import numpy as np
 
 
@@ -103,46 +101,3 @@ def write_bin(fname, data):
     with open(fname, "wb") as f:
         np.asarray(data.shape, dtype=np.uint32).tofile(f)
         data.tofile(f)
-
-
-def calc_recall(ann_idx, true_nn_idx):
-    # ann_idx = np.asarray(ann_idx)
-    ann_idx = cp.asnumpy(ann_idx)
-    if ann_idx.shape != true_nn_idx.shape:
-        raise RuntimeError(
-            "Incompatible shapes {} vs {}".format(
-                ann_idx.shape, true_nn_idx.shape
-            )
-        )
-    n = 0
-    for i in range(ann_idx.shape[0]):
-        n += np.intersect1d(ann_idx[i, :], true_nn_idx[i, :]).size
-    recall = n / ann_idx.size
-    return recall
-
-
-class BenchmarkTimer:
-    """Provides a context manager that runs a code block `reps` times
-    and records results to the instance variable `timings`. Use like:
-    .. code-block:: python
-        timer = BenchmarkTimer(rep=5)
-        for _ in timer.benchmark_runs():
-            ... do something ...
-        print(np.min(timer.timings))
-
-        This class is part of the rapids/cuml benchmark suite
-    """
-
-    def __init__(self, reps=1, warmup=0):
-        self.warmup = warmup
-        self.reps = reps
-        self.timings = []
-
-    def benchmark_runs(self):
-        for r in range(self.reps + self.warmup):
-            t0 = time.time()
-            yield r
-            t1 = time.time()
-            self.timings.append(t1 - t0)
-            if r >= self.warmup:
-                self.timings.append(t1 - t0)
