@@ -648,5 +648,28 @@ void reset_index(const raft::resources& res, index<IdxT>& index)
   utils::memzero(index.data_ptrs().data_handle(), index.data_ptrs().size(), stream);
   utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
 }
+
+/**
+ * @brief Public helper API for fetching a trained index's IVF centroids into a buffer that may be
+ * allocated on either host or device.
+ *
+ * @tparam IdxT
+ * @param[in] res
+ * @param[in] index
+ * @param[out] cluster_centers the new cluster centers
+ */
+template <typename IdxT>
+void extract_centers(raft::resources const& res, const index<IdxT>& index, float* cluster_centers)
+{
+  auto stream = resource::get_cuda_stream(res);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(cluster_centers,
+                                  sizeof(float) * index.dim(),
+                                  index.centers().data_handle(),
+                                  sizeof(float) * index.dim_ext(),
+                                  sizeof(float) * index.dim(),
+                                  index.n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+}
 /** @} */
 }  // namespace raft::neighbors::ivf_pq::helpers
