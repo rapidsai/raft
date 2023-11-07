@@ -183,7 +183,6 @@
         "ivf_pq_search_smemLutDtype": "half",
         "ivf_pq_search_refine_ratio": 8,
         "nn_descent_max_iterations": 10,
-        "nn_descent_graph_degree": 48,
         "nn_descent_intermediate_graph_degree": 72,
         "nn_descent_termination_threshold": 0.001
       },
