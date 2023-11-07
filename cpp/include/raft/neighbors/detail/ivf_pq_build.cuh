@@ -1763,6 +1763,7 @@ auto build(raft::resources const& handle,
                 "Unsupported data type");
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+  RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   auto stream = resource::get_cuda_stream(handle);
 
