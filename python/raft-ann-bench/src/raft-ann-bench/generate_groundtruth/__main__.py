@@ -23,13 +23,16 @@ import rmm
 from pylibraft.common import DeviceResources
 from pylibraft.neighbors.brute_force import knn
 from rmm.allocators.cupy import rmm_cupy_allocator
+
 from .utils import memmap_bin_file, suffix_from_dtype, write_bin
 
 
 def generate_random_queries(n_queries, n_features, dtype=np.float32):
     print("Generating random queries")
     if np.issubdtype(dtype, np.integer):
-        queries = cp.random.randint(0, 255, size=(n_queries, n_features), dtype=dtype)
+        queries = cp.random.randint(
+            0, 255, size=(n_queries, n_features), dtype=dtype
+        )
     else:
         queries = cp.random.uniform(size=(n_queries, n_features)).astype(dtype)
     return queries
@@ -37,7 +40,9 @@ def generate_random_queries(n_queries, n_features, dtype=np.float32):
 
 def choose_random_queries(dataset, n_queries):
     print("Choosing random vector from dataset as query vectors")
-    query_idx = np.random.choice(dataset.shape[0], size=(n_queries,), replace=False)
+    query_idx = np.random.choice(
+        dataset.shape[0], size=(n_queries,), replace=False
+    )
     return dataset[query_idx, :]
 
 
@@ -95,16 +100,16 @@ def main():
         "The input and output files are in big-ann-benchmark's binary format.",
         epilog="""Example usage
     # With existing query file
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+    python -m generate_groundtruth --dataset /dataset/base.1B.fbin \
 --output=groundtruth_dir --queries=/dataset/query.public.10K.fbin
 
     # With randomly generated queries
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+    python -m generate_groundtruth --dataset /dataset/base.1B.fbin \
 --output=groundtruth_dir --queries=random --n_queries=10000
 
     # Using only a subset of the dataset. Define queries by randomly
     # selecting vectors from the (subset of the) dataset.
-    python generate_groundtruth.py --dataset /dataset/base.1B.fbin \
+    python -m generate_groundtruth --dataset /dataset/base.1B.fbin \
 --nrows=2000000 --cols=128 --output=groundtruth_dir \
 --queries=random-choice --n_queries=10000
     """,
@@ -179,14 +184,17 @@ def main():
         print("Reading whole dataset")
 
     # Load input data
-    dataset = memmap_bin_file(args.dataset, args.dtype, shape=(args.rows, args.cols))
-    n_samples = dataset.shape[0]
+    dataset = memmap_bin_file(
+        args.dataset, args.dtype, shape=(args.rows, args.cols)
+    )
     n_features = dataset.shape[1]
     dtype = dataset.dtype
 
     print(
         "Dataset size {:6.1f} GB, shape {}, dtype {}".format(
-            dataset.size * dataset.dtype.itemsize / 1e9, dataset.shape, np.dtype(dtype)
+            dataset.size * dataset.dtype.itemsize / 1e9,
+            dataset.shape,
+            np.dtype(dtype),
         )
     )
 
@@ -195,9 +203,13 @@ def main():
 
     if args.queries == "random" or args.queries == "random-choice":
         if args.n_queries is None:
-            raise RuntimeError("n_queries must be given to generate random queries")
+            raise RuntimeError(
+                "n_queries must be given to generate random queries"
+            )
         if args.queries == "random":
-            queries = generate_random_queries(args.n_queries, n_features, dtype)
+            queries = generate_random_queries(
+                args.n_queries, n_features, dtype
+            )
         elif args.queries == "random-choice":
             queries = choose_random_queries(dataset, args.n_queries)
 
