@@ -153,8 +153,8 @@ def main():
         "--cols",
         default=None,
         type=int,
-        help="number of features (dataset columns). Must be specified if "
-        "--rows is used. Default: read from dataset file.",
+        help="number of features (dataset columns). "
+        "Default: read from dataset file.",
     )
     parser.add_argument(
         "--dtype",
@@ -173,7 +173,9 @@ def main():
         "--metric",
         type=str,
         default="sqeuclidean",
-        help="Metric to use while calculating distances.",
+        help="Metric to use while calculating distances. Valid metrics are "
+        "those that are accepted by pylibraft.neighbors.brute_force.knn. Most"
+        " commonly used with RAFT ANN are 'sqeuclidean' and 'inner_product'",
     )
 
     args = parser.parse_args()
