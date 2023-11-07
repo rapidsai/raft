@@ -25,7 +25,7 @@
 
 namespace raft::neighbors::cagra::detail {
 
-constexpr int serialization_version = 3;
+constexpr int serialization_version = 4;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
@@ -36,7 +36,7 @@ struct check_index_layout {
                 "paste in the new size and consider updating the serialization logic");
 };
 
-constexpr size_t expected_size = 200;
+constexpr size_t expected_size = 216;
 template struct check_index_layout<sizeof(index<double, std::uint64_t>), expected_size>;
 
 /**
