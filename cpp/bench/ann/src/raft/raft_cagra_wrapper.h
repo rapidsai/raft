@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/logger.hpp>
@@ -28,6 +29,9 @@
 #include <raft/neighbors/cagra.cuh>
 #include <raft/neighbors/cagra_serialize.cuh>
 #include <raft/neighbors/cagra_types.hpp>
+#include <raft/neighbors/detail/cagra/cagra_build.cuh>
+#include <raft/neighbors/ivf_pq_types.hpp>
+#include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <stdexcept>
@@ -59,7 +63,14 @@ class RaftCagra : public ANN<T> {
     auto needs_dataset() const -> bool override { return true; }
   };
 
-  using BuildParam = raft::neighbors::cagra::index_params;
+  struct BuildParam {
+    raft::neighbors::cagra::index_params cagra_params;
+    std::optional<raft::neighbors::experimental::nn_descent::index_params> nn_descent_params =
+      std::nullopt;
+    std::optional<float> ivf_pq_refine_rate                                    = std::nullopt;
+    std::optional<raft::neighbors::ivf_pq::index_params> ivf_pq_build_params   = std::nullopt;
+    std::optional<raft::neighbors::ivf_pq::search_params> ivf_pq_search_params = std::nullopt;
+  };
 
   RaftCagra(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
     : ANN<T>(metric, dim),
@@ -71,7 +82,8 @@ class RaftCagra : public ANN<T> {
       graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
       graph_mem_(AllocatorType::Device)
   {
-    index_params_.metric = parse_metric_type(metric);
+    index_params_.cagra_params.metric         = parse_metric_type(metric);
+    index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
     RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
@@ -130,17 +142,19 @@ class RaftCagra : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
 {
-  if (raft::get_device_for_address(dataset) == -1) {
-    auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
-  } else {
-    auto dataset_view =
-      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
-  }
+  auto dataset_view =
+    raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
+
+  auto& params = index_params_.cagra_params;
+
+  index_.emplace(raft::neighbors::cagra::detail::build(handle_,
+                                                       params,
+                                                       dataset_view,
+                                                       index_params_.nn_descent_params,
+                                                       index_params_.ivf_pq_refine_rate,
+                                                       index_params_.ivf_pq_build_params,
+                                                       index_params_.ivf_pq_search_params));
+  return;
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
