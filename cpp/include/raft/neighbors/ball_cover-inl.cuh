@@ -44,7 +44,7 @@ namespace raft::neighbors::ball_cover {
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *  BallCoverIndex index(handle, X, metric);
@@ -168,7 +168,7 @@ void all_knn_query(raft::resources const& handle,
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *
@@ -316,7 +316,7 @@ void knn_query(raft::resources const& handle,
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2Expanded;
  *

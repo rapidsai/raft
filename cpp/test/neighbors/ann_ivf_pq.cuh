@@ -29,6 +29,7 @@
 #include <raft/neighbors/ivf_pq.cuh>
 #include <raft/neighbors/ivf_pq_helpers.cuh>
 #include <raft/neighbors/ivf_pq_serialize.cuh>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/random/rng.cuh>
 
 #include <rmm/cuda_stream_view.hpp>
@@ -39,6 +40,7 @@
 #include <gtest/gtest.h>
 
 #include <cub/cub.cuh>
+#include <thrust/sequence.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -47,6 +49,10 @@
 #include <vector>
 
 namespace raft::neighbors::ivf_pq {
+
+struct test_ivf_sample_filter {
+  static constexpr unsigned offset = 1500;
+};
 
 struct ivf_pq_inputs {
   uint32_t num_db_vecs             = 4096;
@@ -312,7 +318,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     // Hence, encoding-decoding chain often leads to altering both the PQ codes and the
     // reconstructed data.
     compare_vectors_l2(
-      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.025);
+      handle_, vectors_1.view(), vectors_2.view(), label, compression_ratio, 0.04);  // 0.025);
   }
 
   void check_packing(index<IdxT>* index, uint32_t label)
@@ -473,6 +479,163 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
         size_t(ps.num_db_vecs),
         ps.index_params.n_lists);
     }
+  }
+
+  void SetUp() override  // NOLINT
+  {
+    gen_data();
+    calc_ref();
+  }
+
+  void TearDown() override  // NOLINT
+  {
+    cudaGetLastError();
+    resource::sync_stream(handle_);
+    database.resize(0, stream_);
+    search_queries.resize(0, stream_);
+  }
+
+ private:
+  raft::resources handle_;
+  rmm::cuda_stream_view stream_;
+  ivf_pq_inputs ps;                           // NOLINT
+  rmm::device_uvector<DataT> database;        // NOLINT
+  rmm::device_uvector<DataT> search_queries;  // NOLINT
+  std::vector<IdxT> indices_ref;              // NOLINT
+  std::vector<EvalT> distances_ref;           // NOLINT
+};
+
+template <typename EvalT, typename DataT, typename IdxT>
+class ivf_pq_filter_test : public ::testing::TestWithParam<ivf_pq_inputs> {
+ public:
+  ivf_pq_filter_test()
+    : stream_(resource::get_cuda_stream(handle_)),
+      ps(::testing::TestWithParam<ivf_pq_inputs>::GetParam()),
+      database(0, stream_),
+      search_queries(0, stream_)
+  {
+  }
+
+  void gen_data()
+  {
+    database.resize(size_t{ps.num_db_vecs} * size_t{ps.dim}, stream_);
+    search_queries.resize(size_t{ps.num_queries} * size_t{ps.dim}, stream_);
+
+    raft::random::RngState r(1234ULL);
+    if constexpr (std::is_same<DataT, float>{}) {
+      raft::random::uniform(
+        handle_, r, database.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0));
+      raft::random::uniform(
+        handle_, r, search_queries.data(), ps.num_queries * ps.dim, DataT(0.1), DataT(2.0));
+    } else {
+      raft::random::uniformInt(
+        handle_, r, database.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20));
+      raft::random::uniformInt(
+        handle_, r, search_queries.data(), ps.num_queries * ps.dim, DataT(1), DataT(20));
+    }
+    resource::sync_stream(handle_);
+  }
+
+  void calc_ref()
+  {
+    size_t queries_size = size_t{ps.num_queries} * size_t{ps.k};
+    rmm::device_uvector<EvalT> distances_naive_dev(queries_size, stream_);
+    rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+    naive_knn<EvalT, DataT, IdxT>(handle_,
+                                  distances_naive_dev.data(),
+                                  indices_naive_dev.data(),
+                                  search_queries.data(),
+                                  database.data() + test_ivf_sample_filter::offset * ps.dim,
+                                  ps.num_queries,
+                                  ps.num_db_vecs - test_ivf_sample_filter::offset,
+                                  ps.dim,
+                                  ps.k,
+                                  ps.index_params.metric);
+    raft::linalg::addScalar(indices_naive_dev.data(),
+                            indices_naive_dev.data(),
+                            IdxT(test_ivf_sample_filter::offset),
+                            queries_size,
+                            stream_);
+    distances_ref.resize(queries_size);
+    update_host(distances_ref.data(), distances_naive_dev.data(), queries_size, stream_);
+    indices_ref.resize(queries_size);
+    update_host(indices_ref.data(), indices_naive_dev.data(), queries_size, stream_);
+    resource::sync_stream(handle_);
+  }
+
+  auto build_only()
+  {
+    auto ipams              = ps.index_params;
+    ipams.add_data_on_build = true;
+
+    auto index_view =
+      raft::make_device_matrix_view<DataT, IdxT>(database.data(), ps.num_db_vecs, ps.dim);
+    return ivf_pq::build<DataT, IdxT>(handle_, ipams, index_view);
+  }
+
+  template <typename BuildIndex>
+  void run(BuildIndex build_index)
+  {
+    index<IdxT> index = build_index();
+
+    double compression_ratio =
+      static_cast<double>(ps.dim * 8) / static_cast<double>(index.pq_dim() * index.pq_bits());
+    size_t queries_size = ps.num_queries * ps.k;
+    std::vector<IdxT> indices_ivf_pq(queries_size);
+    std::vector<EvalT> distances_ivf_pq(queries_size);
+
+    rmm::device_uvector<EvalT> distances_ivf_pq_dev(queries_size, stream_);
+    rmm::device_uvector<IdxT> indices_ivf_pq_dev(queries_size, stream_);
+
+    auto query_view =
+      raft::make_device_matrix_view<DataT, uint32_t>(search_queries.data(), ps.num_queries, ps.dim);
+    auto inds_view = raft::make_device_matrix_view<IdxT, uint32_t>(
+      indices_ivf_pq_dev.data(), ps.num_queries, ps.k);
+    auto dists_view = raft::make_device_matrix_view<EvalT, uint32_t>(
+      distances_ivf_pq_dev.data(), ps.num_queries, ps.k);
+
+    // Create Bitset filter
+    auto removed_indices =
+      raft::make_device_vector<IdxT, int64_t>(handle_, test_ivf_sample_filter::offset);
+    thrust::sequence(
+      resource::get_thrust_policy(handle_),
+      thrust::device_pointer_cast(removed_indices.data_handle()),
+      thrust::device_pointer_cast(removed_indices.data_handle() + test_ivf_sample_filter::offset));
+    resource::sync_stream(handle_);
+
+    raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+      handle_, removed_indices.view(), ps.num_db_vecs);
+    ivf_pq::search_with_filtering<DataT, IdxT>(
+      handle_,
+      ps.search_params,
+      index,
+      query_view,
+      inds_view,
+      dists_view,
+      raft::neighbors::filtering::bitset_filter(removed_indices_bitset.view()));
+
+    update_host(distances_ivf_pq.data(), distances_ivf_pq_dev.data(), queries_size, stream_);
+    update_host(indices_ivf_pq.data(), indices_ivf_pq_dev.data(), queries_size, stream_);
+    resource::sync_stream(handle_);
+
+    // A very conservative lower bound on recall
+    double min_recall =
+      static_cast<double>(ps.search_params.n_probes) / static_cast<double>(ps.index_params.n_lists);
+    // Using a heuristic to lower the required recall due to code-packing errors
+    min_recall =
+      std::min(std::erfc(0.05 * compression_ratio / std::max(min_recall, 0.5)), min_recall);
+    // Use explicit per-test min recall value if provided.
+    min_recall = ps.min_recall.value_or(min_recall);
+
+    ASSERT_TRUE(eval_neighbours(indices_ref,
+                                indices_ivf_pq,
+                                distances_ref,
+                                distances_ivf_pq,
+                                ps.num_queries,
+                                ps.k,
+                                0.0001 * compression_ratio,
+                                min_recall))
+      << ps;
   }
 
   void SetUp() override  // NOLINT

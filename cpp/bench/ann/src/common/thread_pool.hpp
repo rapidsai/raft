@@ -72,6 +72,7 @@ class FixedThreadPool {
   template <typename Func, typename IdxT>
   void submit(Func f, IdxT len)
   {
+    // Run functions in main thread if thread pool has no threads
     if (threads_.empty()) {
       for (IdxT i = 0; i < len; ++i) {
         f(i);
@@ -84,6 +85,7 @@ class FixedThreadPool {
     const IdxT items_per_thread = len / (num_threads + 1);
     std::atomic<IdxT> cnt(items_per_thread * num_threads);
 
+    // Wrap function
     auto wrapped_f = [&](IdxT start, IdxT end) {
       for (IdxT i = start; i < end; ++i) {
         f(i);

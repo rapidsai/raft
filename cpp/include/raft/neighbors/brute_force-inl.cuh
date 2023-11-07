@@ -34,13 +34,13 @@ namespace raft::neighbors::brute_force {
  * @brief Performs a k-select across several (contiguous) row-partitioned index/distance
  * matrices formatted like the following:
  *
- * part1row1: k0, k1, k2, k3
- * part1row2: k0, k1, k2, k3
- * part1row3: k0, k1, k2, k3
- * part2row1: k0, k1, k2, k3
- * part2row2: k0, k1, k2, k3
- * part2row3: k0, k1, k2, k3
- * etc...
+ *     part1row1: k0, k1, k2, k3
+ *     part1row2: k0, k1, k2, k3
+ *     part1row3: k0, k1, k2, k3
+ *     part2row1: k0, k1, k2, k3
+ *     part2row2: k0, k1, k2, k3
+ *     part2row3: k0, k1, k2, k3
+ *     etc...
  *
  * The example above shows what an aggregated index/distance matrix
  * would look like with two partitions when n_samples=3 and k=4.
@@ -59,7 +59,7 @@ namespace raft::neighbors::brute_force {
  *  #include <raft/neighbors/brute_force.cuh>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  compute multiple knn graphs and aggregate row-wise
  *  (see detailed description above)
@@ -126,7 +126,7 @@ inline void knn_merge_parts(
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::knn(handle, index, search, indices, distances, metric);
@@ -219,7 +219,7 @@ void knn(raft::resources const& handle,
  *  #include <raft/distance/distance_types.hpp>
  *  using namespace raft::neighbors;
  *
- *  raft::raft::resources handle;
+ *  raft::resources handle;
  *  ...
  *  auto metric = raft::distance::DistanceType::L2SqrtExpanded;
  *  brute_force::fused_l2_knn(handle, index, search, indices, distances, metric);
