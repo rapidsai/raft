@@ -30,7 +30,7 @@
 
 namespace raft::neighbors::brute_force {
 /**
- * @addtogroup brute_force
+ * @addtogroup brute_force_knn
  * @{
  */
 
