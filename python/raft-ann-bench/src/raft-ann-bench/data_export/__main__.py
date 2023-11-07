@@ -114,14 +114,15 @@ def convert_json_to_csv_search(dataset, dataset_path):
                         write.iloc[s_index, write_ncols] = build_df.iloc[
                             b_index, 2
                         ]
-                        write.iloc[s_index, write_ncols + 1:] = build_df.iloc[
+                        write.iloc[s_index, write_ncols + 1 :] = build_df.iloc[
                             b_index, 3:
                         ]
                         break
         else:
             warnings.warn(
                 f"Build CSV not found for {algo_name}, build params won't be "
-                "appended in the Search CSV")
+                "appended in the Search CSV"
+            )
 
         write.to_csv(file.replace(".json", ".csv"), index=False)
 
