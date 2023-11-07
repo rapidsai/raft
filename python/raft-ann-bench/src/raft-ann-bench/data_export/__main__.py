@@ -20,15 +20,30 @@ import os
 
 import pandas as pd
 
-skip_build_cols = set([
-    "algo_name", "index_name", "time", "name", "family_index",
-    "per_family_instance_index", "run_name", "run_type", "repetitions",
-    "repetition_index", "iterations", "real_time", "cpu_time", "time_unit",
-    "index_size"])
+skip_build_cols = set(
+    [
+        "algo_name",
+        "index_name",
+        "time",
+        "name",
+        "family_index",
+        "per_family_instance_index",
+        "run_name",
+        "run_type",
+        "repetitions",
+        "repetition_index",
+        "iterations",
+        "real_time",
+        "cpu_time",
+        "time_unit",
+        "index_size",
+    ]
+)
 
-skip_search_cols = set([
-    "recall", "qps", "items_per_second", "Recall"
-]) | skip_build_cols
+skip_search_cols = (
+    set(["recall", "qps", "items_per_second", "Recall"]) | skip_build_cols
+)
+
 
 def read_file(dataset, dataset_path, method):
     dir = os.path.join(dataset_path, dataset, "result", method)
@@ -81,11 +96,8 @@ def convert_json_to_csv_search(dataset, dataset_path):
             if name not in skip_search_cols:
                 write[name] = df[name]
         print(build_file)
-        if os.path.exists(
-            build_file
-        ):
-            with open(build_file, "r") as f:
-                build_df = pd.read_csv(build_file)
+        if os.path.exists(build_file):
+            build_df = pd.read_csv(build_file)
             write_n_cols = len(write.columns)
             write["build GPU"] = None
             write["build threads"] = None
@@ -96,7 +108,9 @@ def convert_json_to_csv_search(dataset, dataset_path):
             for s_index, search_row in write.iterrows():
                 for b_index, build_row in build_df.iterrows():
                     if search_row["index_name"] == build_row["index_name"]:
-                        write.iloc[s_index, write_n_cols:] = build_df.iloc[b_index, 3:]
+                        write.iloc[s_index, write_n_cols:] = build_df.iloc[
+                            b_index, 3:
+                        ]
                         break
 
         write.to_csv(file.replace(".json", ".csv"), index=False)
