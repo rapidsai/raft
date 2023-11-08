@@ -21,6 +21,7 @@ import subprocess
 import uuid
 from importlib import import_module
 
+import sys
 import warnings
 import yaml
 
@@ -293,6 +294,9 @@ def main():
         action="store_true",
     )
 
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
     args = parser.parse_args()
 
     # If both build and search are not provided,

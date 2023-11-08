@@ -16,6 +16,7 @@
 import argparse
 import os
 import subprocess
+import sys
 from urllib.request import urlretrieve
 
 
@@ -101,6 +102,10 @@ def main():
         help="normalize cosine distance to inner product",
         action="store_true",
     )
+
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
     args = parser.parse_args()
 
     download(args.dataset, args.normalize, args.dataset_path)

@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import warnings
+import sys
 
 import pandas as pd
 
@@ -147,6 +148,9 @@ def main():
         default=default_dataset_path,
     )
 
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
     args = parser.parse_args()
 
     convert_json_to_csv_build(args.dataset, args.dataset_path)
