@@ -16,7 +16,6 @@
 
 #pragma once
 #include <cstdio>
-#include <execution>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>

@@ -103,6 +103,6 @@ for path_key, (OutT, LutT) in types.items():
     path = f"ivf_pq_compute_similarity_{path_key}.cu"
     with open(path, "w") as f:
         f.write(header)
-        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, raft::neighbors::filtering::none_ivf_sample_filter);\n")
+        f.write(f"instantiate_raft_neighbors_ivf_pq_detail_compute_similarity_select({OutT}, {LutT}, raft::neighbors::filtering::ivf_to_sample_filter<int64_t COMMA raft::neighbors::filtering::none_ivf_sample_filter>);\n")
         f.write(trailer)
     print(f"src/neighbors/detail/{path}")
