@@ -42,7 +42,7 @@ dependencies:
 - pydata-sphinx-theme
 - pytest
 - pytest-cov
-- rapids-dask-dependency==23.12.00.*
+- rapids-dask-dependency==23.12.*
 - recommonmark
 - rmm==23.12.*
 - scikit-build>=0.13.1
