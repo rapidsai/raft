@@ -180,7 +180,7 @@ fbin --nrows=2000000 --cols=128 --output=groundtruth_dir \
     )
 
     if len(sys.argv) == 1:
-        parser.print_help(sys.stderr)
+        parser.print_help()
         sys.exit(1)
     args = parser.parse_args()
 
