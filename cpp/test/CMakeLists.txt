@@ -379,14 +379,16 @@ if(BUILD_TESTS)
     NAME
     NEIGHBORS_ANN_IVF_TEST
     PATH
+    test/neighbors/ann_ivf_flat/test_filter_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_float_int64_t.cu
     test/neighbors/ann_ivf_flat/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_flat/test_uint8_t_int64_t.cu
-    test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_float_uint32_t.cu
     test/neighbors/ann_ivf_pq/test_float_int64_t.cu
     test/neighbors/ann_ivf_pq/test_int8_t_int64_t.cu
     test/neighbors/ann_ivf_pq/test_uint8_t_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_filter_float_int64_t.cu
+    test/neighbors/ann_ivf_pq/test_filter_int8_t_int64_t.cu
     LIB
     EXPLICIT_INSTANTIATE_ONLY
     GPUS

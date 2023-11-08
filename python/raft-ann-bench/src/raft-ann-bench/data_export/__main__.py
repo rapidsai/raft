@@ -17,8 +17,32 @@
 import argparse
 import json
 import os
+import warnings
 
 import pandas as pd
+
+skip_build_cols = set(
+    [
+        "algo_name",
+        "index_name",
+        "time",
+        "name",
+        "family_index",
+        "per_family_instance_index",
+        "run_name",
+        "run_type",
+        "repetitions",
+        "repetition_index",
+        "iterations",
+        "real_time",
+        "time_unit",
+        "index_size",
+    ]
+)
+
+skip_search_cols = (
+    set(["recall", "qps", "items_per_second", "Recall"]) | skip_build_cols
+)
 
 
 def read_file(dataset, dataset_path, method):
@@ -42,6 +66,9 @@ def convert_json_to_csv_build(dataset, dataset_path):
                 "time": df["real_time"],
             }
         )
+        for name in df:
+            if name not in skip_build_cols:
+                write[name] = df[name]
         filepath = os.path.normpath(file).split(os.sep)
         filename = filepath[-1].split("-")[0] + ".csv"
         write.to_csv(
@@ -52,6 +79,9 @@ def convert_json_to_csv_build(dataset, dataset_path):
 
 def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
+        build_file = os.path.join(
+            dataset_path, dataset, "result", "build", f"{algo_name}.csv"
+        )
         algo_name = algo_name.replace("_base", "")
         df["name"] = df["name"].str.split("/").str[0]
         write = pd.DataFrame(
@@ -62,6 +92,38 @@ def convert_json_to_csv_search(dataset, dataset_path):
                 "qps": df["items_per_second"],
             }
         )
+        for name in df:
+            if name not in skip_search_cols:
+                write[name] = df[name]
+
+        if os.path.exists(build_file):
+            build_df = pd.read_csv(build_file)
+            write_ncols = len(write.columns)
+            write["build time"] = None
+            write["build threads"] = None
+            write["build cpu_time"] = None
+            write["build GPU"] = None
+
+            for col_idx in range(5, len(build_df.columns)):
+                col_name = build_df.columns[col_idx]
+                write[col_name] = None
+
+            for s_index, search_row in write.iterrows():
+                for b_index, build_row in build_df.iterrows():
+                    if search_row["index_name"] == build_row["index_name"]:
+                        write.iloc[s_index, write_ncols] = build_df.iloc[
+                            b_index, 2
+                        ]
+                        write.iloc[s_index, write_ncols + 1 :] = build_df.iloc[
+                            b_index, 3:
+                        ]
+                        break
+        else:
+            warnings.warn(
+                f"Build CSV not found for {algo_name}, build params won't be "
+                "appended in the Search CSV"
+            )
+
         write.to_csv(file.replace(".json", ".csv"), index=False)
 
 
