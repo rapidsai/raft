@@ -21,10 +21,10 @@
 #include <raft/matrix/detail/select_radix.cuh>
 #include <raft/matrix/detail/select_warpsort.cuh>
 #include <raft/matrix/select_k.cuh>
-#include <raft/neighbors/detail/selection_faiss.cuh>
-// #include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
+#include <raft/neighbors/detail/cagra/topk_for_cagra/topk.h>
 #include <raft/neighbors/detail/cagra/topk_for_cagra/topk_core.cuh>
 #include <raft/neighbors/detail/cagra/utils.hpp>
+#include <raft/neighbors/detail/selection_faiss.cuh>
 
 namespace raft::matrix::select {
 
@@ -178,26 +178,25 @@ void select_k_impl(const resources& handle,
     case Algo::kCagra: {
       // TODO: afaict cagra top-k only works on floats
       if constexpr (std::is_same_v<T, float>) {
-        auto dtype = raft::neighbors::experimental::cagra::detail::utils::get_cuda_data_type<T>();
+        auto dtype = raft::neighbors::cagra::detail::utils::get_cuda_data_type<T>();
         size_t buffer_size =
-          raft::neighbors::experimental::cagra::detail::_cuann_find_topk_bufferSize(
-            k, batch_size, len, dtype);
+          raft::neighbors::cagra::detail::_cuann_find_topk_bufferSize(k, batch_size, len, dtype);
         rmm::device_uvector<char> buffer(buffer_size, stream);
-        raft::neighbors::experimental::cagra::detail::_cuann_find_topk<IdxT>(k,
-                                                                             batch_size,
-                                                                             len,
-                                                                             in,
-                                                                             len,
-                                                                             in_idx,
-                                                                             len,
-                                                                             out,
-                                                                             len,
-                                                                             out_idx,
-                                                                             len,
-                                                                             buffer.data(),
-                                                                             false,
-                                                                             NULL,
-                                                                             stream);
+        raft::neighbors::cagra::detail::_cuann_find_topk<IdxT>(k,
+                                                               batch_size,
+                                                               len,
+                                                               in,
+                                                               len,
+                                                               in_idx,
+                                                               len,
+                                                               out,
+                                                               len,
+                                                               out_idx,
+                                                               len,
+                                                               buffer.data(),
+                                                               false,
+                                                               NULL,
+                                                               stream);
       } else {
         throw std::logic_error("TODO: CAGRA topk for double/half");
       }
