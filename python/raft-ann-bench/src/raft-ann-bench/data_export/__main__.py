@@ -17,8 +17,8 @@
 import argparse
 import json
 import os
-import traceback
 import sys
+import traceback
 import warnings
 
 import pandas as pd
