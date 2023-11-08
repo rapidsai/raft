@@ -24,14 +24,17 @@
 
 #include <cstddef>
 
-namespace rmm::mr {
+namespace raft::mr {
 /**
  * @brief `device_memory_resource` derived class that uses mmap to allocate memory.
  * This class enables memory allocation using huge pages.
  * It is assumed that the allocated memory is directly accessible on device. This currently only
  * works on GH systems.
+ *
+ * TODO(tfeher): consider improving or removing this helper once we made progress with
+ * https://github.com/rapidsai/raft/issues/1819
  */
-class cuda_huge_page_resource final : public device_memory_resource {
+class cuda_huge_page_resource final : public rmm::mr::device_memory_resource {
  public:
   cuda_huge_page_resource()                                          = default;
   ~cuda_huge_page_resource() override                                = default;
@@ -68,19 +71,14 @@ class cuda_huge_page_resource final : public device_memory_resource {
    * @param bytes The size, in bytes, of the allocation
    * @return void* Pointer to the newly allocated memory
    */
-  void* do_allocate(std::size_t bytes, cuda_stream_view) override
+  void* do_allocate(std::size_t bytes, rmm::cuda_stream_view) override
   {
     void* _addr{nullptr};
     _addr = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (_addr == MAP_FAILED) {
-      // RAFT_LOG_ERROR("mmap failed");
-
-      exit(-1);
-    }
+    if (_addr == MAP_FAILED) { RAFT_FAIL("huge_page_resource::MAP FAILED"); }
     if (madvise(_addr, bytes, MADV_HUGEPAGE) == -1) {
-      // RAFT_LOG_ERROR("madvise");
       munmap(_addr, bytes);
-      exit(-1);
+      RAFT_FAIL("huge_page_resource::madvise MADV_HUGEPAGE");
     }
     memset(_addr, 0, bytes);
     return _addr;
@@ -95,12 +93,9 @@ class cuda_huge_page_resource final : public device_memory_resource {
    *
    * @param p Pointer to be deallocated
    */
-  void do_deallocate(void* ptr, std::size_t size, cuda_stream_view) override
+  void do_deallocate(void* ptr, std::size_t size, rmm::cuda_stream_view) override
   {
-    if (munmap(ptr, size) == -1) {
-      // RAFT_LOG_ERROR("munmap");
-      exit(-1);
-    }
+    if (munmap(ptr, size) == -1) { RAFT_FAIL("huge_page_resource::munmap"); }
   }
 
   /**
@@ -127,7 +122,8 @@ class cuda_huge_page_resource final : public device_memory_resource {
    *
    * @return std::pair contaiing free_size and total_size of memory
    */
-  [[nodiscard]] std::pair<std::size_t, std::size_t> do_get_mem_info(cuda_stream_view) const override
+  [[nodiscard]] std::pair<std::size_t, std::size_t> do_get_mem_info(
+    rmm::cuda_stream_view) const override
   {
     std::size_t free_size{};
     std::size_t total_size{};
@@ -135,4 +131,4 @@ class cuda_huge_page_resource final : public device_memory_resource {
     return std::make_pair(free_size, total_size);
   }
 };
-}  // namespace rmm::mr
+}  // namespace raft::mr

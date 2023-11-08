@@ -22,12 +22,21 @@
 
 #include <cstddef>
 
-namespace rmm::mr {
+namespace raft::mr {
 /**
  * @brief `device_memory_resource` derived class that uses cudaMallocHost/Free for
  * allocation/deallocation.
+ *
+ * This is almost the same as rmm::mr::host::pinned_memory_resource, but it has
+ * device_memory_resource as base class. Pinned memory can be accessed from device,
+ * and using this allocator we can create device_mdarray backed by pinned allocator.
+ *
+ * TODO(tfeher): it would be preferred to just rely on the existing allocator from rmm
+ * (pinned_memory_resource), but that is incompatible with the container_policy class
+ * for device matrix, because the latter expects a device_memory_resource. We shall
+ * revise this once we progress with Issue https://github.com/rapidsai/raft/issues/1819
  */
-class cuda_pinned_resource final : public device_memory_resource {
+class cuda_pinned_resource final : public rmm::mr::device_memory_resource {
  public:
   cuda_pinned_resource()                                       = default;
   ~cuda_pinned_resource() override                             = default;
@@ -64,7 +73,7 @@ class cuda_pinned_resource final : public device_memory_resource {
    * @param bytes The size, in bytes, of the allocation
    * @return void* Pointer to the newly allocated memory
    */
-  void* do_allocate(std::size_t bytes, cuda_stream_view) override
+  void* do_allocate(std::size_t bytes, rmm::cuda_stream_view) override
   {
     void* ptr{nullptr};
     RMM_CUDA_TRY_ALLOC(cudaMallocHost(&ptr, bytes));
@@ -80,7 +89,7 @@ class cuda_pinned_resource final : public device_memory_resource {
    *
    * @param p Pointer to be deallocated
    */
-  void do_deallocate(void* ptr, std::size_t, cuda_stream_view) override
+  void do_deallocate(void* ptr, std::size_t, rmm::cuda_stream_view) override
   {
     RMM_ASSERT_CUDA_SUCCESS(cudaFreeHost(ptr));
   }
@@ -109,7 +118,8 @@ class cuda_pinned_resource final : public device_memory_resource {
    *
    * @return std::pair contaiing free_size and total_size of memory
    */
-  [[nodiscard]] std::pair<std::size_t, std::size_t> do_get_mem_info(cuda_stream_view) const override
+  [[nodiscard]] std::pair<std::size_t, std::size_t> do_get_mem_info(
+    rmm::cuda_stream_view) const override
   {
     std::size_t free_size{};
     std::size_t total_size{};
@@ -117,4 +127,4 @@ class cuda_pinned_resource final : public device_memory_resource {
     return std::make_pair(free_size, total_size);
   }
 };
-}  // namespace rmm::mr
+}  // namespace raft::mr

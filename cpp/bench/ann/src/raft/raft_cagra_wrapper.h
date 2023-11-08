@@ -124,8 +124,8 @@ class RaftCagra : public ANN<T> {
       default: return rmm::mr::get_current_device_resource();
     }
   }
-  rmm ::mr::cuda_pinned_resource mr_pinned_;
-  rmm ::mr::cuda_huge_page_resource mr_huge_page_;
+  raft ::mr::cuda_pinned_resource mr_pinned_;
+  raft ::mr::cuda_huge_page_resource mr_huge_page_;
   raft::device_resources handle_;
   AllocatorType graph_mem_;
   AllocatorType dataset_mem_;
@@ -216,6 +216,7 @@ void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
     index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
 
     // Ideally, instead of dataset_.view(), we should pass a strided matrix view to update.
+    // See Issue https://github.com/rapidsai/raft/issues/1972 for details.
     // auto dataset_view = make_device_strided_matrix_view<const T, int64_t>(
     //   dataset_.data_handle(), dataset_.extent(0), this->dim_, dataset_.extent(1));
     // index_->update_dataset(handle_, dataset_view);
