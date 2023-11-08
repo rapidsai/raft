@@ -377,8 +377,8 @@ def main():
                 algo = yaml.safe_load(f)
             except Exception as e:
                 warnings.warn(
-                    f"Could not load YAML config {algo_f} due to " + 
-                    e.with_traceback()
+                    f"Could not load YAML config {algo_f} due to "
+                    + e.with_traceback()
                 )
                 continue
             insert_algo = True
