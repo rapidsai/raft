@@ -62,7 +62,7 @@ CAGRA uses a graph-based index, which creates an intermediate, approximate kNN g
 | `graph_mem`                 | `search_param`  | N        | string                     | "device" | Memory type to store gaph. Must be one of {"device", "host_pinned", "host_huge_page"}. |
 | `dataset_mem`               | `search_param`  | N        | string                     | "device" | Memory type to store dataset. Must be one of {"device", "host_pinned", "host_huge_page"}. |
 
-The `graph_mem` or `device_mem` options can be useful for large datasets that do not fit the device memory. Setting `device_mem` other than `device` has negative impact on search speed. Using `host_huge_page` option is only supported on systems with Heterogeneous Memory Managment or on platforms that natively support GPU access to system allocated memory, for example Grace Hopper.
+The `graph_mem` or `device_mem` options can be useful for large datasets that do not fit the device memory. Setting `dataset_mem` other than `device` has negative impact on search speed. Using `host_huge_page` option is only supported on systems with Heterogeneous Memory Managment or on platforms that natively support GPU access to system allocated memory, for example Grace Hopper.
 
 To fine tune CAGRA index building we can customize IVF-PQ index builder options using the following settings. These take effect only if `graph_build_algo == "IVF_PQ"`. It is recommended to experiment using a separate IVF-PQ index to find the config that gives the largest QPS for large batch. Recall does not need to be very high, since CAGRA further optimizes the kNN neighbor graph. Some of the default values are derived from the dataset size which is assumed to be [n_vecs, dim].
 
