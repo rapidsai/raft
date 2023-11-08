@@ -21,6 +21,7 @@ import subprocess
 import uuid
 from importlib import import_module
 
+import warnings
 import yaml
 
 
@@ -368,7 +369,14 @@ def main():
     algos_conf = dict()
     for algo_f in algos_conf_fs:
         with open(algo_f, "r") as f:
-            algo = yaml.safe_load(f)
+            try:
+                algo = yaml.safe_load(f)
+            except Exception as e:
+                warnings.warn(
+                    f"Could not load YAML config {algo_f} due to " + 
+                    e.with_traceback()
+                )
+                continue
             insert_algo = True
             insert_algo_group = False
             if filter_algos:
