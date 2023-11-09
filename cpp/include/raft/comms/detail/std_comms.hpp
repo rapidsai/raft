@@ -211,106 +211,208 @@ class std_comms : public comms_iface {
 
   void isend(const void* buf, size_t size, int dest, int tag, request_t* request) const
   {
-    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+    if (std::holds_alternative<ucxx_worker_t>(ucx_objects_.worker)) {
+      get_request_id(request);
 
-    get_request_id(request);
-    ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[dest];
+      ucxx::Endpoint* ep_ptr = (*std::get<ucxx_endpoint_array_t>(ucx_objects_.endpoints))[dest];
 
-    ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
+      ucp_tag_t ucp_tag = build_message_tag(get_rank(), tag);
+      auto ucxx_req     = ep_ptr->tagSend(const_cast<void*>(buf), size, ucp_tag);
 
-    this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag, default_tag_mask, get_rank());
+      requests_in_flight_.insert(std::make_pair(*request, ucxx_req));
+    } else {
+      ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
+             "ERROR: UCX comms not initialized on communicator.");
 
-    requests_in_flight_.insert(std::make_pair(*request, ucp_req));
+      get_request_id(request);
+      ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[dest];
+
+      ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
+
+      this->ucp_handler_.ucp_isend(ucp_req, ep_ptr, buf, size, tag, default_tag_mask, get_rank());
+
+      requests_in_flight_.insert(std::make_pair(*request, ucp_req));
+    }
   }
 
   void irecv(void* buf, size_t size, int source, int tag, request_t* request) const
   {
-    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+    if (std::holds_alternative<ucxx_worker_t>(ucx_objects_.worker)) {
+      get_request_id(request);
 
-    get_request_id(request);
+      ucxx::Endpoint* ep_ptr = (*std::get<ucxx_endpoint_array_t>(ucx_objects_.endpoints))[source];
 
-    ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[source];
+      ucp_tag_t ucp_tag = build_message_tag(get_rank(), tag);
+      auto ucxx_req     = ep_ptr->tagRecv(buf, size, ucp_tag, default_tag_mask);
 
-    ucp_tag_t tag_mask = default_tag_mask;
+      requests_in_flight_.insert(std::make_pair(*request, ucxx_req));
+    } else {
+      ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
+             "ERROR: UCX comms not initialized on communicator.");
 
-    ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
-    ucp_handler_.ucp_irecv(ucp_req,
-                           std::get<ucp_worker_t>(ucx_objects_.worker),
-                           ep_ptr,
-                           buf,
-                           size,
-                           tag,
-                           tag_mask,
-                           source);
+      get_request_id(request);
 
-    requests_in_flight_.insert(std::make_pair(*request, ucp_req));
+      ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[source];
+
+      ucp_tag_t tag_mask = default_tag_mask;
+
+      ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
+      ucp_handler_.ucp_irecv(ucp_req,
+                             std::get<ucp_worker_t>(ucx_objects_.worker),
+                             ep_ptr,
+                             buf,
+                             size,
+                             tag,
+                             tag_mask,
+                             source);
+
+      requests_in_flight_.insert(std::make_pair(*request, ucp_req));
+    }
   }
 
   void waitall(int count, request_t array_of_requests[]) const
   {
-    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
-           "ERROR: UCX comms not initialized on communicator.");
+    if (std::holds_alternative<ucxx_worker_t>(ucx_objects_.worker)) {
+      ucxx_worker_t worker = std::get<ucxx_worker_t>(ucx_objects_.worker);
 
-    std::vector<ucp_request*> requests;
-    requests.reserve(count);
+      std::vector<std::shared_ptr<ucxx::Request>> requests;
+      requests.reserve(count);
 
-    time_t start = time(NULL);
+      time_t start = time(NULL);
 
-    for (int i = 0; i < count; ++i) {
-      auto req_it = requests_in_flight_.find(array_of_requests[i]);
-      ASSERT(requests_in_flight_.end() != req_it,
-             "ERROR: waitall on invalid request: %d",
-             array_of_requests[i]);
-      requests.push_back(req_it->second);
-      free_requests_.insert(req_it->first);
-      requests_in_flight_.erase(req_it);
-    }
+      for (int i = 0; i < count; ++i) {
+        auto req_it = requests_in_flight_.find(array_of_requests[i]);
+        ASSERT(requests_in_flight_.end() != req_it,
+               "ERROR: waitall on invalid request: %d",
+               array_of_requests[i]);
+        requests.push_back(std::get<std::shared_ptr<ucxx::Request>>(req_it->second));
+        free_requests_.insert(req_it->first);
+        requests_in_flight_.erase(req_it);
+      }
 
-    while (requests.size() > 0) {
-      time_t now = time(NULL);
+      while (requests.size() > 0) {
+        time_t now = time(NULL);
 
-      // Timeout if we have not gotten progress or completed any requests
-      // in 10 or more seconds.
-      ASSERT(now - start < 10, "Timed out waiting for requests.");
+        // Timeout if we have not gotten progress or completed any requests
+        // in 10 or more seconds.
+        ASSERT(now - start < 10, "Timed out waiting for requests.");
 
-      for (std::vector<ucp_request*>::iterator it = requests.begin(); it != requests.end();) {
-        bool restart = false;  // resets the timeout when any progress was made
+        for (std::vector<std::shared_ptr<ucxx::Request>>::iterator it = requests.begin();
+             it != requests.end();) {
+          bool restart = false;  // resets the timeout when any progress was made
 
-        // Causes UCP to progress through the send/recv message queue
-        while (ucp_worker_progress(std::get<ucp_worker_t>(ucx_objects_.worker)) != 0) {
-          restart = true;
+          if (worker->isProgressThreadRunning()) {
+            // Wait for a UCXX progress thread roundtrip
+            ucxx::utils::CallbackNotifier callbackNotifierPre{};
+            worker->registerGenericPre([&callbackNotifierPre]() { callbackNotifierPre.set(); });
+            callbackNotifierPre.wait();
+
+            ucxx::utils::CallbackNotifier callbackNotifierPost{};
+            worker->registerGenericPost([&callbackNotifierPost]() { callbackNotifierPost.set(); });
+            callbackNotifierPost.wait();
+          } else {
+            // Causes UCXX to progress through the send/recv message queue
+            while (!worker->progress()) {
+              restart = true;
+            }
+          }
+
+          auto req = *it;
+
+          // If the message needs release, we know it will be sent/received
+          // asynchronously, so we will need to track and verify its state
+          if (req->isCompleted()) {
+            auto status = req->getStatus();
+            ASSERT(req->getStatus() == UCS_OK,
+                   "UCX Request Error: %d (%s)\n",
+                   status,
+                   ucs_status_string(status));
+          }
+
+          // If a message was sent synchronously (eg. completed before
+          // `isend`/`irecv` completed) or an asynchronous message
+          // is complete, we can go ahead and clean it up.
+          if (req->isCompleted()) {
+            restart = true;
+
+            auto status = req->getStatus();
+            ASSERT(req->getStatus() == UCS_OK,
+                   "UCX Request Error: %d (%s)\n",
+                   status,
+                   ucs_status_string(status));
+
+            // remove from pending requests
+            it = requests.erase(it);
+          } else {
+            ++it;
+          }
+          // if any progress was made, reset the timeout start time
+          if (restart) { start = time(NULL); }
         }
+      }
+    } else {
+      ucp_worker_t worker = std::get<ucp_worker_t>(ucx_objects_.worker);
+      ASSERT(worker != nullptr, "ERROR: UCX comms not initialized on communicator.");
 
-        auto req = *it;
+      std::vector<ucp_request*> requests;
+      requests.reserve(count);
 
-        // If the message needs release, we know it will be sent/received
-        // asynchronously, so we will need to track and verify its state
-        if (req->needs_release) {
-          ASSERT(UCS_PTR_IS_PTR(req->req), "UCX Request Error. Request is not valid UCX pointer");
-          ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
-          ASSERT(req->req->completed == 1 || req->req->completed == 0,
-                 "request->completed not a valid value: %d\n",
-                 req->req->completed);
+      time_t start = time(NULL);
+
+      for (int i = 0; i < count; ++i) {
+        auto req_it = requests_in_flight_.find(array_of_requests[i]);
+        ASSERT(requests_in_flight_.end() != req_it,
+               "ERROR: waitall on invalid request: %d",
+               array_of_requests[i]);
+        requests.push_back(std::get<ucp_request*>(req_it->second));
+        free_requests_.insert(req_it->first);
+        requests_in_flight_.erase(req_it);
+      }
+
+      while (requests.size() > 0) {
+        time_t now = time(NULL);
+
+        // Timeout if we have not gotten progress or completed any requests
+        // in 10 or more seconds.
+        ASSERT(now - start < 10, "Timed out waiting for requests.");
+
+        for (std::vector<ucp_request*>::iterator it = requests.begin(); it != requests.end();) {
+          bool restart = false;  // resets the timeout when any progress was made
+
+          // Causes UCP to progress through the send/recv message queue
+          while (ucp_worker_progress(worker) != 0) {
+            restart = true;
+          }
+
+          auto req = *it;
+
+          // If the message needs release, we know it will be sent/received
+          // asynchronously, so we will need to track and verify its state
+          if (req->needs_release) {
+            ASSERT(UCS_PTR_IS_PTR(req->req), "UCX Request Error. Request is not valid UCX pointer");
+            ASSERT(!UCS_PTR_IS_ERR(req->req), "UCX Request Error: %d\n", UCS_PTR_STATUS(req->req));
+            ASSERT(req->req->completed == 1 || req->req->completed == 0,
+                   "request->completed not a valid value: %d\n",
+                   req->req->completed);
+          }
+
+          // If a message was sent synchronously (eg. completed before
+          // `isend`/`irecv` completed) or an asynchronous message
+          // is complete, we can go ahead and clean it up.
+          if (!req->needs_release || req->req->completed == 1) {
+            restart = true;
+
+            // perform cleanup
+            ucp_handler_.free_ucp_request(req);
+
+            // remove from pending requests
+            it = requests.erase(it);
+          } else {
+            ++it;
+          }
+          // if any progress was made, reset the timeout start time
+          if (restart) { start = time(NULL); }
         }
-
-        // If a message was sent synchronously (eg. completed before
-        // `isend`/`irecv` completed) or an asynchronous message
-        // is complete, we can go ahead and clean it up.
-        if (!req->needs_release || req->req->completed == 1) {
-          restart = true;
-
-          // perform cleanup
-          ucp_handler_.free_ucp_request(req);
-
-          // remove from pending requests
-          it = requests.erase(it);
-        } else {
-          ++it;
-        }
-        // if any progress was made, reset the timeout start time
-        if (restart) { start = time(NULL); }
       }
     }
   }
@@ -541,7 +643,9 @@ class std_comms : public comms_iface {
   comms_ucp_handler ucp_handler_;
   ucx_objects_t ucx_objects_;
   mutable request_t next_request_id_;
-  mutable std::unordered_map<request_t, struct ucp_request*> requests_in_flight_;
+  mutable std::unordered_map<request_t,
+                             std::variant<struct ucp_request*, std::shared_ptr<ucxx::Request>>>
+    requests_in_flight_;
   mutable std::unordered_set<request_t> free_requests_;
 };
 }  // namespace detail

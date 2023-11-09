@@ -69,17 +69,16 @@ static void recv_callback(void* request, ucs_status_t status, ucp_tag_recv_info_
   context->completed          = 1;
 }
 
+ucp_tag_t build_message_tag(int rank, int tag)
+{
+  // keeping the rank in the lower bits enables debugging.
+  return ((uint32_t)tag << 31) | (uint32_t)rank;
+}
+
 /**
  * Helper class for interacting with ucp.
  */
 class comms_ucp_handler {
- private:
-  ucp_tag_t build_message_tag(int rank, int tag) const
-  {
-    // keeping the rank in the lower bits enables debugging.
-    return ((uint32_t)tag << 31) | (uint32_t)rank;
-  }
-
  public:
   /**
    * @brief Frees any memory underlying the given ucp request object
