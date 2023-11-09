@@ -59,7 +59,6 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   return ann;
 }
 
-
 template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)

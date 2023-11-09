@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "raft/core/host_mdarray.hpp"
-#include "raft/core/mdspan_types.hpp"
-#include "raft/core/resource/cuda_stream.hpp"
+#include <raft/core/host_mdarray.hpp>
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <raft/core/mdarray.hpp>
@@ -116,10 +116,9 @@ void serialize_to_hnswlib(raft::resources const& res,
                           const index<T, IdxT>& index_)
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize_to_hnswlib");
-  RAFT_LOG_DEBUG(
-    "Saving CAGRA index to hnswlib format, size %zu, dim %u",
-    static_cast<size_t>(index_.size()),
-    index_.dim());
+  RAFT_LOG_DEBUG("Saving CAGRA index to hnswlib format, size %zu, dim %u",
+                 static_cast<size_t>(index_.size()),
+                 index_.dim());
 
   // offset_level_0
   std::size_t offset_level_0 = 0;
@@ -133,7 +132,7 @@ void serialize_to_hnswlib(raft::resources const& res,
   // Example:M: 16, dim = 128, data_t = float, index_t = uint32_t, list_size_type = uint32_t,
   // labeltype: size_t size_data_per_element_ = M * 2 * sizeof(index_t) + sizeof(list_size_type) +
   // dim * sizeof(data_t) + sizeof(labeltype)
-  auto size_data_per_element = 
+  auto size_data_per_element =
     static_cast<std::size_t>(index_.graph_degree() * 4 + 4 + index_.dim() * 4 + 8);
   os.write(reinterpret_cast<char*>(&size_data_per_element), sizeof(std::size_t));
   // label_offset
@@ -178,7 +177,7 @@ void serialize_to_hnswlib(raft::resources const& res,
   resource::sync_stream(res);
 
   auto graph = index_.graph();
-  auto host_graph = 
+  auto host_graph =
     raft::make_host_matrix<IdxT, int64_t, raft::row_major>(graph.extent(0), graph.extent(1));
   raft::copy(host_graph.data_handle(),
              graph.data_handle(),
@@ -223,7 +222,8 @@ void serialize_to_hnswlib(raft::resources const& res,
 template <typename T, typename IdxT>
 void serialize_to_hnswlib(raft::resources const& res,
                           const std::string& filename,
-                          const index<T, IdxT>& index_) {
+                          const index<T, IdxT>& index_)
+{
   std::ofstream of(filename, std::ios::out | std::ios::binary);
   if (!of) { RAFT_FAIL("Cannot open file %s", filename.c_str()); }
 

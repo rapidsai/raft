@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include "raft_cagra_wrapper.h"
 #include "../hnswlib/hnswlib_wrapper.h"
+#include "raft_cagra_wrapper.h"
 #include <memory>
 
 namespace raft::bench::ann {
