@@ -22,6 +22,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
+#include <raft/util/integer_utils.hpp>
 #include <raft/util/pow2_utils.cuh>
 #include <raft/util/vectorized.cuh>
 
@@ -119,9 +120,10 @@ _RAFT_HOST_DEVICE IdxT calc_buf_len(IdxT len)
 
   // one-block kernel splits one large buffer into smaller ones, so round buf size to 256 bytes to
   // avoid alignment issues
-  static_assert(std::max(sizeof(T), sizeof(IdxT)) % std::min(sizeof(T), sizeof(IdxT)) == 0);
+  static_assert(is_a_power_of_two(sizeof(T)));
+  static_assert(is_a_power_of_two(sizeof(IdxT)));
   constexpr IdxT aligned = 256 / std::min(sizeof(T), sizeof(IdxT));
-  buf_len                = raft::alignDown(buf_len, aligned);
+  buf_len                = Pow2<aligned>::roundDown(buf_len);
   return buf_len;
 }
 
@@ -679,11 +681,25 @@ int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel, bool on
   RAFT_CUDA_TRY(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
 
+  // The chunk size is chose that there is enough workload to fully utilize GPU.
+  // One full wave contains (sm_cnt * active_blocks) blocks, and 10 waves is an empirically safe
+  // estimation of enough workload. It also counteracts imbalance if some blocks run slow than
+  // others.
   constexpr int num_waves = 10;
   int chunk_size;
   if (one_block) {
+    // For one-block version, one block processes one instance in the chunk, just ensure that there
+    // are enough blocks.
     chunk_size = num_waves * sm_cnt * active_blocks;
   } else {
+    // One instance in the chunk contains len items and is processed by multiple blocks.
+    // The total number of items in a chunk (chunk_size * len) should be large enough that every
+    // thread has enough items to processes. So set it to num_waves * "max num of active threads"
+    // (sm_cnt * active_blocks * BlockSize) * items_per_thread.
+    //
+    // Also, the upper bound of the total number of items in a chunk is:
+    // 10 (num_waves) * ~100 (sm_cnt) * 2048 (active_blocks*BlockSize) * 32 (items_per_thread) =64M.
+    // So temporary buffer size required for one chunk won't be too large.
     constexpr int items_per_thread = 32;
     chunk_size =
       std::max<int>(1, num_waves * sm_cnt * active_blocks * BlockSize * items_per_thread / len);
