@@ -80,6 +80,7 @@ To fine tune CAGRA index building we can customize IVF-PQ index builder options 
 | `ivf_pq_search_refine_ratio`         | `build_params` | N| Positive Number >=0              | 2       | `refine_ratio * k` nearest neighbors are queried from the index initially and an additional refinement step improves recall by selecting only the best `k` neighbors.           |
 
 Alternatively, if `graph_build_algo == "NN_DESCENT"`, then we can customize the following parameters
+
 | Parameter                   | Type           | Required | Data Type                  | Default | Description                                                                                                                                                                       |
 |-----------------------------|----------------|----------|----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `nn_descent_niter`          | `build_param`  | N        | Positive Integer>0         | 20 | Number of NN Descent iterations. |
@@ -167,4 +168,4 @@ Use FAISS IVF-PQ index on CPU
 | `ef`             | `search_param`  | Y        | Positive Integer >0                  |         | Size of the dynamic list for the nearest neighbors used for search. Higher value leads to more accurate but slower search. Cannot be lower than `k`.                                                                                                                                              |
 | `numThreads`     | `search_params` | N        | Positive Integer >0                  | 1       | Number of threads to use for queries.                                                                                                                                                                                                                                                             |
 
-Please refer to [HNSW algorithm parameters guide] from `hnswlib` to learn more about these arguments.
+Please refer to [HNSW algorithm parameters guide](https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md) from `hnswlib` to learn more about these arguments.
