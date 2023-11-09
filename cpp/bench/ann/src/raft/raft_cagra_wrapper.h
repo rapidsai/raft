@@ -98,6 +98,7 @@ class RaftCagra : public ANN<T> {
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+  void save_to_hnswlib(const std::string& file) const;
 
  private:
   raft::device_resources handle_;
@@ -144,6 +145,12 @@ template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::save(const std::string& file) const
 {
   raft::neighbors::cagra::serialize<T, IdxT>(handle_, file, *index_);
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::save_to_hnswlib(const std::string& file) const
+{
+  raft::neighbors::cagra::serialize_to_hnswlib<T, IdxT>(handle_, file, *index_);
 }
 
 template <typename T, typename IdxT>

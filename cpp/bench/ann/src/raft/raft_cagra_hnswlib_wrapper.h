@@ -15,71 +15,48 @@
  */
 #pragma once
 
-#include <cassert>
-#include <fstream>
-#include <iostream>
+// #include <cassert>
+// #include <fstream>
+// #include <iostream>
+// #include <memory>
+// #include <raft/core/device_mdspan.hpp>
+// #include <raft/core/device_resources.hpp>
+// #include <raft/core/logger.hpp>
+// #include <raft/core/operators.hpp>
+// #include <raft/distance/distance_types.hpp>
+// #include <raft/linalg/unary_op.cuh>
+// #include <raft/neighbors/cagra.cuh>
+// #include <raft/neighbors/cagra_serialize.cuh>
+// #include <raft/neighbors/cagra_types.hpp>
+// #include <raft/util/cudart_utils.hpp>
+// #include <rmm/device_uvector.hpp>
+// #include <stdexcept>
+// #include <string>
+// #include <type_traits>
+
+// #include "../common/ann_types.hpp"
+// #include "../common/thread_pool.hpp"
+// #include "raft_ann_bench_utils.h"
+// #include <raft/util/cudart_utils.hpp>
+
+// #include <hnswlib.h>
+
+#include "raft_cagra_wrapper.h"
+#include "../hnswlib/hnswlib_wrapper.h"
 #include <memory>
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/device_resources.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/core/operators.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/neighbors/cagra.cuh>
-#include <raft/neighbors/cagra_serialize.cuh>
-#include <raft/neighbors/cagra_types.hpp>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-
-#include "../common/ann_types.hpp"
-#include "../common/thread_pool.hpp"
-#include "raft_ann_bench_utils.h"
-#include <raft/util/cudart_utils.hpp>
-
-#include <hnswlib.h>
 
 namespace raft::bench::ann {
-
-template <typename T>
-struct hnsw_dist_t {
-  using type = void;
-};
-
-template <>
-struct hnsw_dist_t<float> {
-  using type = float;
-};
-
-template <>
-struct hnsw_dist_t<uint8_t> {
-  using type = int;
-};
-
-template <>
-struct hnsw_dist_t<int8_t> {
-  using type = int;
-};
 
 template <typename T, typename IdxT>
 class RaftCagraHnswlib : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
-
-  struct SearchParam : public AnnSearchParam {
-    int ef;
-    int num_threads = 1;
-  };
-
-  using BuildParam = raft::neighbors::cagra::index_params;
+  using BuildParam = typename RaftCagra<T, IdxT>::BuildParam;
+  using SearchParam = typename HnswLib<T>::SearchParam;
 
   RaftCagraHnswlib(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
-    : ANN<T>(metric, dim), index_params_(param), dimension_(dim), handle_(cudaStreamPerThread)
+    : ANN<T>(metric, dim), metric_(metric), index_params_(param), dimension_(dim), handle_(cudaStreamPerThread)
   {
-    index_params_.metric = parse_metric_type(metric);
-    RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
 
   ~RaftCagraHnswlib() noexcept {}
@@ -109,108 +86,58 @@ class RaftCagraHnswlib : public ANN<T> {
   void load(const std::string&) override;
 
  private:
-  void get_search_knn_results_(const T* query, int k, size_t* indices, float* distances) const;
 
   raft::device_resources handle_;
+  Metric metric_;
   BuildParam index_params_;
-  std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
-  int device_;
   int dimension_;
 
-  std::unique_ptr<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>> appr_alg_;
-  std::unique_ptr<hnswlib::SpaceInterface<typename hnsw_dist_t<T>::type>> space_;
-  int num_threads_;
-  std::unique_ptr<FixedThreadPool> thread_pool_;
+  std::unique_ptr<RaftCagra<T, IdxT>> cagra_build_;
+  std::unique_ptr<HnswLib<T>> hnswlib_search_;
 
   Objective metric_objective_;
 };
 
 template <typename T, typename IdxT>
-void RaftCagraHnswlib<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
+void RaftCagraHnswlib<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  if (raft::get_device_for_address(dataset) == -1) {
-    auto dataset_view =
-      raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
-  } else {
-    auto dataset_view =
-      raft::make_device_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
-    index_.emplace(raft::neighbors::cagra::build(handle_, index_params_, dataset_view));
-    return;
+  if (not cagra_build_) {
+    cagra_build_ = std::make_unique<RaftCagra<T, IdxT>>(metric_, dimension_, index_params_);
   }
+  cagra_build_->build(dataset, nrow, stream);
 }
 
 template <typename T, typename IdxT>
 void RaftCagraHnswlib<T, IdxT>::set_search_param(const AnnSearchParam& param_)
 {
-  auto param        = dynamic_cast<const SearchParam&>(param_);
-  appr_alg_->ef_    = param.ef;
-  metric_objective_ = param.metric_objective;
-
-  bool use_pool = (metric_objective_ == Objective::LATENCY && param.num_threads > 1) &&
-                  (!thread_pool_ || num_threads_ != param.num_threads);
-  if (use_pool) {
-    num_threads_ = param.num_threads;
-    thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
-  }
+  hnswlib_search_->set_search_param(param_);
 }
 
 template <typename T, typename IdxT>
 void RaftCagraHnswlib<T, IdxT>::save(const std::string& file) const
 {
-  raft::neighbors::cagra::serialize_to_hnswlib<T, IdxT>(handle_, file, *index_);
+  cagra_build_->save_to_hnswlib(file);
 }
 
 template <typename T, typename IdxT>
 void RaftCagraHnswlib<T, IdxT>::load(const std::string& file)
 {
-  if constexpr (std::is_same_v<T, float>) {
-    if (static_cast<Metric>(index_params_.metric) == Metric::kInnerProduct) {
-      space_ = std::make_unique<hnswlib::InnerProductSpace>(dimension_);
-    } else {
-      space_ = std::make_unique<hnswlib::L2Space>(dimension_);
-    }
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    space_ = std::make_unique<hnswlib::L2SpaceI>(dimension_);
+  typename HnswLib<T>::BuildParam param;
+  // these values don't matter since we don't build with HnswLib
+  param.M = 50;
+  param.ef_construction = 100;
+  if (not hnswlib_search_) {
+    hnswlib_search_ = std::make_unique<HnswLib<T>>(metric_, dimension_, param);
   }
-
-  appr_alg_ = std::make_unique<hnswlib::HierarchicalNSW<typename hnsw_dist_t<T>::type>>(
-    space_.get(), file);
-  appr_alg_->base_layer_only = true;
+  hnswlib_search_->load(file);
+  hnswlib_search_->set_base_layer_only();
 }
 
 template <typename T, typename IdxT>
 void RaftCagraHnswlib<T, IdxT>::search(
   const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
 {
-  auto f = [&](int i) {
-    // hnsw can only handle a single vector at a time.
-    get_search_knn_results_(queries + i * dimension_, k, neighbors + i * k, distances + i * k);
-  };
-  if (metric_objective_ == Objective::LATENCY) {
-    thread_pool_->submit(f, batch_size);
-  } else {
-    for (int i = 0; i < batch_size; i++) {
-      f(i);
-    }
-  }
-}
-
-template <typename T, typename IdxT>
-void RaftCagraHnswlib<T, IdxT>::get_search_knn_results_(const T* query,
-                                         int k,
-                                         size_t* indices,
-                                         float* distances) const
-{
-  auto result = appr_alg_->searchKnn(query, k);
-  assert(result.size() >= static_cast<size_t>(k));
-
-  for (int i = k - 1; i >= 0; --i) {
-    indices[i]   = result.top().second;
-    distances[i] = result.top().first;
-    result.pop();
-  }
+  hnswlib_search_->search(queries, batch_size, k, neighbors, distances);
 }
 
 }  // namespace raft::bench::ann

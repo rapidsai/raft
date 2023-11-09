@@ -91,6 +91,10 @@ class HnswLib : public ANN<T> {
     return property;
   }
 
+  void set_base_layer_only() {
+    appr_alg_->base_layer_only = true;
+  }
+
  private:
   void get_search_knn_results_(const T* query, int k, size_t* indices, float* distances) const;
 

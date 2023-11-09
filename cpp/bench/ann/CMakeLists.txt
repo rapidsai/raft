@@ -258,8 +258,7 @@ if(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
     NAME
     RAFT_CAGRA_HNSWLIB
     PATH
-    bench/ann/src/raft/raft_benchmark.cu
-    $<$<BOOL:${RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB}>:bench/ann/src/raft/raft_cagra_hnswlib.cu>
+    bench/ann/src/raft/raft_cagra_hnswlib.cu
     INCLUDES
     ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib
     LINKS
