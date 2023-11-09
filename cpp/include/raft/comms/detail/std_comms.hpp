@@ -35,11 +35,14 @@
 #include <ucp/api/ucp.h>
 #include <ucp/api/ucp_def.h>
 
+#include <ucxx/api.h>
+
 #include <nccl.h>
 
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 
 #include <algorithm>
 #include <chrono>
@@ -53,6 +56,17 @@
 namespace raft {
 namespace comms {
 namespace detail {
+
+using ucp_endpoint_array_t  = std::shared_ptr<ucp_ep_h*>;
+using ucxx_endpoint_array_t = std::shared_ptr<ucxx::Endpoint**>;
+using ucp_worker_t          = ucp_worker_h;
+using ucxx_worker_t         = ucxx::Worker*;
+
+struct ucx_objects_t {
+ public:
+  std::variant<ucp_endpoint_array_t, ucxx_endpoint_array_t> endpoints;
+  std::variant<ucp_worker_t, ucxx_worker_t> worker;
+};
 
 class std_comms : public comms_iface {
  public:
@@ -69,8 +83,7 @@ class std_comms : public comms_iface {
    * @param subcomms_ucp use ucp for subcommunicators
    */
   std_comms(ncclComm_t nccl_comm,
-            ucp_worker_h ucp_worker,
-            std::shared_ptr<ucp_ep_h*> eps,
+            ucx_objects_t ucx_objects,
             int num_ranks,
             int rank,
             rmm::cuda_stream_view stream,
@@ -81,8 +94,7 @@ class std_comms : public comms_iface {
       num_ranks_(num_ranks),
       rank_(rank),
       subcomms_ucp_(subcomms_ucp),
-      ucp_worker_(ucp_worker),
-      ucp_eps_(eps),
+      ucx_objects_(ucx_objects),
       next_request_id_(0)
   {
     initialize();
@@ -199,10 +211,11 @@ class std_comms : public comms_iface {
 
   void isend(const void* buf, size_t size, int dest, int tag, request_t* request) const
   {
-    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
+    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
+           "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
-    ucp_ep_h ep_ptr = (*ucp_eps_)[dest];
+    ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[dest];
 
     ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
 
@@ -213,23 +226,32 @@ class std_comms : public comms_iface {
 
   void irecv(void* buf, size_t size, int source, int tag, request_t* request) const
   {
-    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
+    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
+           "ERROR: UCX comms not initialized on communicator.");
 
     get_request_id(request);
 
-    ucp_ep_h ep_ptr = (*ucp_eps_)[source];
+    ucp_ep_h ep_ptr = (*std::get<ucp_endpoint_array_t>(ucx_objects_.endpoints))[source];
 
     ucp_tag_t tag_mask = default_tag_mask;
 
     ucp_request* ucp_req = (ucp_request*)malloc(sizeof(ucp_request));
-    ucp_handler_.ucp_irecv(ucp_req, ucp_worker_, ep_ptr, buf, size, tag, tag_mask, source);
+    ucp_handler_.ucp_irecv(ucp_req,
+                           std::get<ucp_worker_t>(ucx_objects_.worker),
+                           ep_ptr,
+                           buf,
+                           size,
+                           tag,
+                           tag_mask,
+                           source);
 
     requests_in_flight_.insert(std::make_pair(*request, ucp_req));
   }
 
   void waitall(int count, request_t array_of_requests[]) const
   {
-    ASSERT(ucp_worker_ != nullptr, "ERROR: UCX comms not initialized on communicator.");
+    ASSERT(std::get<ucp_worker_t>(ucx_objects_.worker) != nullptr,
+           "ERROR: UCX comms not initialized on communicator.");
 
     std::vector<ucp_request*> requests;
     requests.reserve(count);
@@ -257,7 +279,7 @@ class std_comms : public comms_iface {
         bool restart = false;  // resets the timeout when any progress was made
 
         // Causes UCP to progress through the send/recv message queue
-        while (ucp_worker_progress(ucp_worker_) != 0) {
+        while (ucp_worker_progress(std::get<ucp_worker_t>(ucx_objects_.worker)) != 0) {
           restart = true;
         }
 
@@ -517,8 +539,7 @@ class std_comms : public comms_iface {
   bool subcomms_ucp_;
 
   comms_ucp_handler ucp_handler_;
-  ucp_worker_h ucp_worker_;
-  std::shared_ptr<ucp_ep_h*> ucp_eps_;
+  ucx_objects_t ucx_objects_;
   mutable request_t next_request_id_;
   mutable std::unordered_map<request_t, struct ucp_request*> requests_in_flight_;
   mutable std::unordered_set<request_t> free_requests_;

@@ -41,6 +41,7 @@ cdef extern from "raft/comms/std_comms.hpp" namespace "raft::comms":
 
     void build_comms_nccl_ucx(device_resources *handle,
                               ncclComm_t comm,
+                              bint is_ucxx,
                               void *ucp_worker,
                               void *eps,
                               int size,
@@ -323,6 +324,7 @@ def inject_comms_on_handle(handle, nccl_inst, ucp_worker, eps, size,
 
     build_comms_nccl_ucx(handle_,
                          deref(nccl_comm_),
+                         False,
                          <void*>ucp_worker_st,
                          <void*>ucp_eps,
                          size,
