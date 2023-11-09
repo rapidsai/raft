@@ -16,6 +16,7 @@
 import argparse
 import os
 import subprocess
+import sys
 
 
 def split_groundtruth(groundtruth_filepath):
@@ -43,6 +44,10 @@ def main():
         help="Path to billion-scale dataset groundtruth file",
         required=True,
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     split_groundtruth(args.groundtruth)
