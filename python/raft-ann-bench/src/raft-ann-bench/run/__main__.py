@@ -18,7 +18,9 @@ import itertools
 import json
 import os
 import subprocess
+import sys
 import uuid
+import warnings
 from importlib import import_module
 
 import yaml
@@ -130,7 +132,8 @@ def run_build_and_search(
                 except Exception as e:
                     print("Error occurred running benchmark: %s" % e)
                 finally:
-                    os.remove(temp_conf_filename)
+                    if not search:
+                        os.remove(temp_conf_filename)
 
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
@@ -292,6 +295,9 @@ def main():
         action="store_true",
     )
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     # If both build and search are not provided,
@@ -368,7 +374,14 @@ def main():
     algos_conf = dict()
     for algo_f in algos_conf_fs:
         with open(algo_f, "r") as f:
-            algo = yaml.safe_load(f)
+            try:
+                algo = yaml.safe_load(f)
+            except Exception as e:
+                warnings.warn(
+                    f"Could not load YAML config {algo_f} due to "
+                    + e.with_traceback()
+                )
+                continue
             insert_algo = True
             insert_algo_group = False
             if filter_algos:
