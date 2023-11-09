@@ -22,6 +22,7 @@
 import argparse
 import itertools
 import os
+import sys
 from collections import OrderedDict
 
 import matplotlib as mpl
@@ -486,6 +487,9 @@ def main():
         action="store_true",
     )
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     if args.algorithms:
