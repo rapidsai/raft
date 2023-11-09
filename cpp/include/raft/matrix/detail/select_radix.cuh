@@ -681,10 +681,10 @@ int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel, bool on
   RAFT_CUDA_TRY(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(&active_blocks, kernel, BlockSize, 0));
 
-  // The chunk size is chose that there is enough workload to fully utilize GPU.
+  // The chunk size is chosen so that there is enough workload to fully utilize GPU.
   // One full wave contains (sm_cnt * active_blocks) blocks, and 10 waves is an empirically safe
-  // estimation of enough workload. It also counteracts imbalance if some blocks run slow than
-  // others.
+  // estimation of enough workload. It also counteracts imbalance if some blocks run slower
+  // than others.
   constexpr int num_waves = 10;
   int chunk_size;
   if (one_block) {
