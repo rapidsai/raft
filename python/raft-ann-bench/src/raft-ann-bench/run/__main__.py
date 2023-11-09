@@ -18,6 +18,9 @@ import itertools
 import json
 import os
 import subprocess
+import sys
+import uuid
+import warnings
 from importlib import import_module
 
 import yaml
@@ -80,6 +83,7 @@ def run_build_and_search(
     force,
     build,
     search,
+    dry_run,
     k,
     batch_size,
     search_threads,
@@ -87,16 +91,16 @@ def run_build_and_search(
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
-        temp_conf_filename = f"temporary_{conf_filename}"
-        temp_conf_filepath = os.path.join(conf_filedir, temp_conf_filename)
-        with open(temp_conf_filepath, "w") as f:
+        temp_conf_filename = f"{conf_filename}_{algo}_{uuid.uuid1()}.json"
+        with open(temp_conf_filename, "w") as f:
             temp_conf = dict()
             temp_conf["dataset"] = conf_file["dataset"]
             temp_conf["search_basic_param"] = conf_file["search_basic_param"]
             temp_conf["index"] = executables_to_run[
                 (executable, ann_executable_path, algo)
             ]["index"]
-            json.dump(temp_conf, f)
+            json_str = json.dumps(temp_conf, indent=2)
+            f.write(json_str)
 
         legacy_result_folder = os.path.join(
             dataset_path, conf_file["dataset"]["name"], "result"
@@ -116,8 +120,20 @@ def run_build_and_search(
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
-            cmd = cmd + [temp_conf_filepath]
-            subprocess.run(cmd, check=True)
+            cmd = cmd + [temp_conf_filename]
+
+            if dry_run:
+                print(
+                    "Benchmark command for %s:\n%s\n" % (algo, " ".join(cmd))
+                )
+            else:
+                try:
+                    subprocess.run(cmd, check=True)
+                except Exception as e:
+                    print("Error occurred running benchmark: %s" % e)
+                finally:
+                    if not search:
+                        os.remove(temp_conf_filename)
 
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
@@ -141,10 +157,18 @@ def run_build_and_search(
             if search_threads:
                 cmd = cmd + ["--threads=%s" % search_threads]
 
-            cmd = cmd + [temp_conf_filepath]
-            subprocess.run(cmd, check=True)
-
-        os.remove(temp_conf_filepath)
+            cmd = cmd + [temp_conf_filename]
+            if dry_run:
+                print(
+                    "Benchmark command for %s:\n%s\n" % (algo, " ".join(cmd))
+                )
+            else:
+                try:
+                    subprocess.run(cmd, check=True)
+                except Exception as e:
+                    print("Error occurred running benchmark: %s" % e)
+                finally:
+                    os.remove(temp_conf_filename)
 
 
 def main():
@@ -253,13 +277,27 @@ def main():
         "--search-threads",
         help="specify the number threads to use for throughput benchmark."
         " Single value or a pair of min and max separated by ':'. "
-        "Example --threads=1:4. Power of 2 values between 'min' "
+        "Example: --search-threads=1:4. Power of 2 values between 'min' "
         "and 'max' will be used. If only 'min' is specified, then a "
         "single test is run with 'min' threads. By default min=1, "
         "max=<num hyper threads>.",
         default=None,
     )
 
+    parser.add_argument(
+        "-r",
+        "--dry-run",
+        help="dry-run mode will convert the yaml config for the specified "
+        "algorithms and datasets to the json format that's consumed "
+        "by the lower-level c++ binaries and then print the command "
+        "to run execute the benchmarks but will not actually execute "
+        "the command.",
+        action="store_true",
+    )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     # If both build and search are not provided,
@@ -270,6 +308,8 @@ def main():
     else:
         build = args.build
         search = args.search
+
+    dry_run = args.dry_run
 
     mode = args.search_mode
     k = args.count
@@ -334,7 +374,14 @@ def main():
     algos_conf = dict()
     for algo_f in algos_conf_fs:
         with open(algo_f, "r") as f:
-            algo = yaml.safe_load(f)
+            try:
+                algo = yaml.safe_load(f)
+            except Exception as e:
+                warnings.warn(
+                    f"Could not load YAML config {algo_f} due to "
+                    + e.with_traceback()
+                )
+                continue
             insert_algo = True
             insert_algo_group = False
             if filter_algos:
@@ -452,13 +499,14 @@ def main():
 
     run_build_and_search(
         conf_file,
-        f"{args.dataset}.json",
+        f"{args.dataset}",
         conf_filedir,
         executables_to_run,
         args.dataset_path,
         args.force,
         build,
         search,
+        dry_run,
         k,
         batch_size,
         args.search_threads,
