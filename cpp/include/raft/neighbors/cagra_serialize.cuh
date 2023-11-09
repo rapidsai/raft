@@ -115,7 +115,6 @@ void serialize(raft::resources const& handle,
  * @param[in] handle the raft handle
  * @param[in] os output stream
  * @param[in] index CAGRA index
- * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
@@ -148,7 +147,6 @@ void serialize_to_hnswlib(raft::resources const& handle,
  * @param[in] handle the raft handle
  * @param[in] filename the file name for saving the index
  * @param[in] index CAGRA index
- * @param[in] include_dataset Whether or not to write out the dataset to the file.
  *
  */
 template <typename T, typename IdxT>
