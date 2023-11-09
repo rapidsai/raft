@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,7 @@ struct ucx_context {
 class ucp_request {
  public:
   struct ucx_context* req;
-  bool needs_release   = true;
-  int other_rank       = -1;
-  bool is_send_request = false;
+  bool needs_release = true;
 };
 
 // by default, match the whole tag
@@ -131,9 +129,7 @@ class comms_ucp_handler {
       req->needs_release = false;
     }
 
-    req->other_rank      = rank;
-    req->is_send_request = true;
-    req->req             = ucp_req;
+    req->req = ucp_req;
   }
 
   /**
@@ -155,10 +151,8 @@ class comms_ucp_handler {
 
     struct ucx_context* ucp_req = (struct ucx_context*)recv_result;
 
-    req->req             = ucp_req;
-    req->needs_release   = true;
-    req->is_send_request = false;
-    req->other_rank      = sender_rank;
+    req->req           = ucp_req;
+    req->needs_release = true;
 
     ASSERT(!UCS_PTR_IS_ERR(recv_result),
            "unable to receive UCX data message (%d)\n",
