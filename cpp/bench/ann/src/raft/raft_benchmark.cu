@@ -251,8 +251,12 @@ void parse_search_param(const nlohmann::json& conf,
       THROW("Invalid value for algo: %s", tmp.c_str());
     }
   }
-  if (conf.contains("graph_mem")) { param.graph_mem = parse_allocator(conf.at("graph_mem")); }
-  if (conf.contains("dataset_mem")) { param.dataset_mem = parse_allocator(conf.at("dataset_mem")); }
+  if (conf.contains("graph_memory_type")) {
+    param.graph_mem = parse_allocator(conf.at("graph_memory_type"));
+  }
+  if (conf.contains("dataset_memory_type")) {
+    param.dataset_mem = parse_allocator(conf.at("dataset_memory_type"));
+  }
 }
 #endif
 
