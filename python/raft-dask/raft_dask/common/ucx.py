@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import ucp
 
 
 async def _connection_func(ep):
@@ -29,9 +27,19 @@ class UCX:
 
     __instance = None
 
-    def __init__(self, listener_callback):
+    def __init__(self, listener_callback, protocol):
 
         self.listener_callback = listener_callback
+
+        self._protocol = protocol
+        if self._protocol == "ucxx":
+            import ucxx
+
+            self.ucx_api = ucxx
+        else:
+            import ucp
+
+            self.ucx_api = ucp
 
         self._create_listener()
         self._endpoints = {}
@@ -42,22 +50,28 @@ class UCX:
         UCX.__instance = self
 
     @staticmethod
-    def get(listener_callback=_connection_func):
+    def get(listener_callback=_connection_func, protocol="ucx"):
         if UCX.__instance is None:
-            UCX(listener_callback)
+            UCX(listener_callback, protocol)
         return UCX.__instance
 
+    def get_protocol(self):
+        return self._protocol
+
     def get_worker(self):
-        return ucp.get_ucp_worker()
+        if self._protocol == "ucxx":
+            return self.ucx_api.get_ucxx_worker()
+        else:
+            return self.ucx_api.get_ucp_worker()
 
     def _create_listener(self):
-        self._listener = ucp.create_listener(self.listener_callback)
+        self._listener = self.ucx_api.create_listener(self.listener_callback)
 
     def listener_port(self):
         return self._listener.port
 
     async def _create_endpoint(self, ip, port):
-        ep = await ucp.create_endpoint(ip, port)
+        ep = await self.ucx_api.create_endpoint(ip, port)
         self._endpoints[(ip, port)] = ep
         return ep
 
