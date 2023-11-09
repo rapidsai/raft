@@ -688,7 +688,7 @@ int calc_chunk_size(int batch_size, IdxT len, int sm_cnt, Kernel kernel, bool on
   constexpr int num_waves = 10;
   int chunk_size;
   if (one_block) {
-    // For one-block version, one block processes one instance in the chunk, just ensure that there
+    // For one-block version, one block processes one instance in the chunk. Just ensure that there
     // are enough blocks.
     chunk_size = num_waves * sm_cnt * active_blocks;
   } else {
