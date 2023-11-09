@@ -48,9 +48,9 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
   if constexpr (std::is_same_v<T, float> or std::is_same_v<T, std::uint8_t>) {
     if (algo == "raft_cagra_hnswlib") {
-        typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::BuildParam param;
-        parse_build_param<T, uint32_t>(conf, param);
-        ann = std::make_unique<raft::bench::ann::RaftCagraHnswlib<T, uint32_t>>(metric, dim, param);
+      typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::BuildParam param;
+      parse_build_param<T, uint32_t>(conf, param);
+      ann = std::make_unique<raft::bench::ann::RaftCagraHnswlib<T, uint32_t>>(metric, dim, param);
     }
   }
 
@@ -62,14 +62,16 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
 
 template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
-  const std::string& algo, const nlohmann::json& conf) {
+  const std::string& algo, const nlohmann::json& conf)
+{
   if (algo == "raft_cagra_hnswlib") {
-    auto param = std::make_unique<typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::SearchParam>();
+    auto param =
+      std::make_unique<typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::SearchParam>();
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
 
- throw std::runtime_error("invalid algo: '" + algo + "'");
+  throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 
 }  // namespace raft::bench::ann

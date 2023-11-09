@@ -19,8 +19,6 @@
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
-#include <raft/core/logger.hpp>
-
 #undef WARP_SIZE
 #ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
 #include "raft_wrapper.h"
@@ -31,7 +29,8 @@ extern template class raft::bench::ann::RaftIvfFlatGpu<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfFlatGpu<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfFlatGpu<int8_t, int64_t>;
 #endif
-#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || \
+  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
 #include "raft_ivf_pq_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
@@ -39,7 +38,7 @@ extern template class raft::bench::ann::RaftIvfPQ<float, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<uint8_t, int64_t>;
 extern template class raft::bench::ann::RaftIvfPQ<int8_t, int64_t>;
 #endif
-#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA)  || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+#if defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
 #include "raft_cagra_wrapper.h"
 #endif
 #ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
@@ -66,7 +65,8 @@ void parse_search_param(const nlohmann::json& conf,
 }
 #endif
 
-#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
+#if defined(RAFT_ANN_BENCH_USE_RAFT_IVF_PQ) || defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA) || \
+  defined(RAFT_ANN_BENCH_USE_RAFT_CAGRA_HNSWLIB)
 template <typename T, typename IdxT>
 void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::RaftIvfPQ<T, IdxT>::BuildParam& param)
@@ -200,8 +200,6 @@ void parse_build_param(const nlohmann::json& conf,
     nn_param.intermediate_graph_degree = 1.5 * param.cagra_params.intermediate_graph_degree;
     parse_build_param<T, IdxT>(nn_descent_conf, nn_param);
     if (nn_param.graph_degree != param.cagra_params.intermediate_graph_degree) {
-    //   RAFT_LOG_WARN(
-    //     "nn_descent_graph_degree has to be equal to CAGRA intermediate_grpah_degree, overriding");
       nn_param.graph_degree = param.cagra_params.intermediate_graph_degree;
     }
     param.nn_descent_params = nn_param;

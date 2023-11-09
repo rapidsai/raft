@@ -15,32 +15,6 @@
  */
 #pragma once
 
-// #include <cassert>
-// #include <fstream>
-// #include <iostream>
-// #include <memory>
-// #include <raft/core/device_mdspan.hpp>
-// #include <raft/core/device_resources.hpp>
-// #include <raft/core/logger.hpp>
-// #include <raft/core/operators.hpp>
-// #include <raft/distance/distance_types.hpp>
-// #include <raft/linalg/unary_op.cuh>
-// #include <raft/neighbors/cagra.cuh>
-// #include <raft/neighbors/cagra_serialize.cuh>
-// #include <raft/neighbors/cagra_types.hpp>
-// #include <raft/util/cudart_utils.hpp>
-// #include <rmm/device_uvector.hpp>
-// #include <stdexcept>
-// #include <string>
-// #include <type_traits>
-
-// #include "../common/ann_types.hpp"
-// #include "../common/thread_pool.hpp"
-// #include "raft_ann_bench_utils.h"
-// #include <raft/util/cudart_utils.hpp>
-
-// #include <hnswlib.h>
-
 #include "raft_cagra_wrapper.h"
 #include "../hnswlib/hnswlib_wrapper.h"
 #include <memory>
@@ -51,11 +25,15 @@ template <typename T, typename IdxT>
 class RaftCagraHnswlib : public ANN<T> {
  public:
   using typename ANN<T>::AnnSearchParam;
-  using BuildParam = typename RaftCagra<T, IdxT>::BuildParam;
+  using BuildParam  = typename RaftCagra<T, IdxT>::BuildParam;
   using SearchParam = typename HnswLib<T>::SearchParam;
 
   RaftCagraHnswlib(Metric metric, int dim, const BuildParam& param, int concurrent_searches = 1)
-    : ANN<T>(metric, dim), metric_(metric), index_params_(param), dimension_(dim), handle_(cudaStreamPerThread)
+    : ANN<T>(metric, dim),
+      metric_(metric),
+      index_params_(param),
+      dimension_(dim),
+      handle_(cudaStreamPerThread)
   {
   }
 
@@ -86,7 +64,6 @@ class RaftCagraHnswlib : public ANN<T> {
   void load(const std::string&) override;
 
  private:
-
   raft::device_resources handle_;
   Metric metric_;
   BuildParam index_params_;
@@ -124,7 +101,7 @@ void RaftCagraHnswlib<T, IdxT>::load(const std::string& file)
 {
   typename HnswLib<T>::BuildParam param;
   // these values don't matter since we don't build with HnswLib
-  param.M = 50;
+  param.M               = 50;
   param.ef_construction = 100;
   if (not hnswlib_search_) {
     hnswlib_search_ = std::make_unique<HnswLib<T>>(metric_, dimension_, param);

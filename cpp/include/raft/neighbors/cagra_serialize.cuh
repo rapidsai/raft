@@ -120,8 +120,8 @@ void serialize(raft::resources const& handle,
  */
 template <typename T, typename IdxT>
 void serialize_to_hnswlib(raft::resources const& handle,
-               std::ostream& os,
-               const index<T, IdxT>& index)
+                          std::ostream& os,
+                          const index<T, IdxT>& index)
 {
   detail::serialize_to_hnswlib<T, IdxT>(handle, os, index);
 }
@@ -153,8 +153,8 @@ void serialize_to_hnswlib(raft::resources const& handle,
  */
 template <typename T, typename IdxT>
 void serialize_to_hnswlib(raft::resources const& handle,
-               const std::string& filename,
-               const index<T, IdxT>& index)
+                          const std::string& filename,
+                          const index<T, IdxT>& index)
 {
   detail::serialize_to_hnswlib<T, IdxT>(handle, filename, index);
 }
