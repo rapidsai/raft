@@ -1053,6 +1053,19 @@ inline auto special_cases() -> test_cases_t
     x.search_params.n_probes     = 69;
   });
 
+  ADD_CASE({
+    x.num_db_vecs                = 4335;
+    x.dim                        = 4;
+    x.num_queries                = 100000;
+    x.k                          = 12;
+    x.index_params.metric        = distance::DistanceType::L2Expanded;
+    x.index_params.codebook_kind = ivf_pq::codebook_gen::PER_CLUSTER;
+    x.index_params.pq_dim        = 2;
+    x.index_params.pq_bits       = 8;
+    x.index_params.n_lists       = 69;
+    x.search_params.n_probes     = 69;
+  });
+
   return xs;
 }
 
