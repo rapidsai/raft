@@ -660,9 +660,9 @@ void set_centers(raft::resources const& res,
 template <typename IdxT>
 auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_t
 {
-  RAFT_EXPECTS(label < index->n_lists(),
+  RAFT_EXPECTS(label < index.n_lists(),
                "Expected label to be less than number of lists in the index");
-  auto list_data = index->lists()[label]->data;
+  auto list_data = index.lists()[label]->data;
   return list_data.size();
 }
 
