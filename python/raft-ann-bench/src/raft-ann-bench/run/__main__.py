@@ -132,7 +132,8 @@ def run_build_and_search(
                 except Exception as e:
                     print("Error occurred running benchmark: %s" % e)
                 finally:
-                    os.remove(temp_conf_filename)
+                    if not search:
+                        os.remove(temp_conf_filename)
 
         if search:
             search_folder = os.path.join(legacy_result_folder, "search")
