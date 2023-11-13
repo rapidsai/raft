@@ -266,13 +266,36 @@ def test_comm_split(client):
 
 @pytest.mark.ucx
 @pytest.mark.parametrize("n_trials", [1, 5])
-def test_send_recv(n_trials, client):
+def test_send_recv_protocol_tcp(n_trials, client):
 
     cb = Comms(comms_p2p=True, verbose=True)
     cb.init()
 
     dfs = [
         client.submit(
+            func_test_send_recv,
+            cb.sessionId,
+            n_trials,
+            pure=False,
+            workers=[w],
+        )
+        for w in cb.worker_addresses
+    ]
+
+    wait(dfs, timeout=5)
+
+    assert list(map(lambda x: x.result(), dfs))
+
+
+@pytest.mark.ucx
+@pytest.mark.parametrize("n_trials", [1, 5])
+def test_send_recv_protocol_ucx(n_trials, ucx_client):
+
+    cb = Comms(comms_p2p=True, verbose=True)
+    cb.init()
+
+    dfs = [
+        ucx_client.submit(
             func_test_send_recv,
             cb.sessionId,
             n_trials,
