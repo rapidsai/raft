@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,10 @@ namespace convert {
 namespace detail {
 
 template <typename value_idx = int, int TPB_X = 32>
-__global__ void csr_to_coo_kernel(const value_idx* row_ind,
-                                  value_idx m,
-                                  value_idx* coo_rows,
-                                  value_idx nnz)
+RAFT_KERNEL csr_to_coo_kernel(const value_idx* row_ind,
+                              value_idx m,
+                              value_idx* coo_rows,
+                              value_idx nnz)
 {
   // row-based matrix 1 thread per row
   value_idx row = (blockIdx.x * TPB_X) + threadIdx.x;

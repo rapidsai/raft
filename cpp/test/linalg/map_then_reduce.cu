@@ -31,7 +31,7 @@ namespace raft {
 namespace linalg {
 
 template <typename InType, typename OutType, typename MapOp>
-__global__ void naiveMapReduceKernel(OutType* out, const InType* in, size_t len, MapOp map)
+RAFT_KERNEL naiveMapReduceKernel(OutType* out, const InType* in, size_t len, MapOp map)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { raft::myAtomicAdd(out, (OutType)map(in[idx])); }

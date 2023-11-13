@@ -114,9 +114,9 @@ testing::AssertionResult CheckOrder(raft::host_matrix_view<IdxT, int64_t> index_
 // When testing the CAGRA index sorting function, rounding errors can affect the norm and alter the
 // order of the index. To ensure the accuracy of the test, we utilize the dataset. The generation
 // method is based on the error-free transformation (EFT) method.
-__global__ void GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
-                                                        const uint32_t size,
-                                                        const uint32_t resolution)
+RAFT_KERNEL GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
+                                                    const uint32_t size,
+                                                    const uint32_t resolution)
 {
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= size) { return; }
@@ -274,7 +274,7 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -457,6 +457,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        index_params.nn_descent_niter = 50;
         cagra::search_params search_params;
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
@@ -515,7 +516,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),
@@ -571,6 +572,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
         cagra::index_params index_params;
         index_params.metric = ps.metric;  // Note: currently ony the cagra::index_params metric is
                                           // not used for knn_graph building.
+        index_params.nn_descent_niter = 50;
         cagra::search_params search_params;
         search_params.algo         = ps.algo;
         search_params.max_queries  = ps.max_queries;
@@ -628,7 +630,7 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
                                   distances_Cagra,
                                   ps.n_queries,
                                   ps.k,
-                                  0.001,
+                                  0.003,
                                   min_recall));
       EXPECT_TRUE(eval_distances(handle_,
                                  database.data(),

@@ -35,10 +35,10 @@ namespace distance {
 namespace detail {
 // @TODO: Move this into sparse prims (coo_norm)
 template <typename value_idx, typename value_t>
-__global__ void compute_binary_row_norm_kernel(value_t* out,
-                                               const value_idx* __restrict__ coo_rows,
-                                               const value_t* __restrict__ data,
-                                               value_idx nnz)
+RAFT_KERNEL compute_binary_row_norm_kernel(value_t* out,
+                                           const value_idx* __restrict__ coo_rows,
+                                           const value_t* __restrict__ data,
+                                           value_idx nnz)
 {
   value_idx i = blockDim.x * blockIdx.x + threadIdx.x;
   if (i < nnz) {
@@ -51,12 +51,12 @@ __global__ void compute_binary_row_norm_kernel(value_t* out,
 }
 
 template <typename value_idx, typename value_t, typename expansion_f>
-__global__ void compute_binary_warp_kernel(value_t* __restrict__ C,
-                                           const value_t* __restrict__ Q_norms,
-                                           const value_t* __restrict__ R_norms,
-                                           value_idx n_rows,
-                                           value_idx n_cols,
-                                           expansion_f expansion_func)
+RAFT_KERNEL compute_binary_warp_kernel(value_t* __restrict__ C,
+                                       const value_t* __restrict__ Q_norms,
+                                       const value_t* __restrict__ R_norms,
+                                       value_idx n_rows,
+                                       value_idx n_cols,
+                                       expansion_f expansion_func)
 {
   std::size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
   value_idx i     = tid / n_cols;

@@ -83,9 +83,9 @@ class mask_row_it {
 };
 
 template <typename value_idx>
-__global__ void fill_chunk_indices_kernel(value_idx* n_chunks_per_row,
-                                          value_idx* chunk_indices,
-                                          value_idx n_rows)
+RAFT_KERNEL fill_chunk_indices_kernel(value_idx* n_chunks_per_row,
+                                      value_idx* chunk_indices,
+                                      value_idx n_rows)
 {
   auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_rows) {

@@ -26,7 +26,7 @@ namespace raft {
 namespace linalg {
 // Reference dot implementation.
 template <typename T>
-__global__ void naiveDot(const int n, const T* x, int incx, const T* y, int incy, T* out)
+RAFT_KERNEL naiveDot(const int n, const T* x, int incx, const T* y, int incy, T* out)
 {
   T sum = 0;
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {

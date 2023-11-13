@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,15 +48,15 @@ struct WeakCCState {
 };
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-__global__ void weak_cc_label_device(Index_* __restrict__ labels,
-                                     const Index_* __restrict__ row_ind,
-                                     const Index_* __restrict__ row_ind_ptr,
-                                     Index_ nnz,
-                                     bool* __restrict__ m,
-                                     Index_ start_vertex_id,
-                                     Index_ batch_size,
-                                     Index_ N,
-                                     Lambda filter_op)
+RAFT_KERNEL weak_cc_label_device(Index_* __restrict__ labels,
+                                 const Index_* __restrict__ row_ind,
+                                 const Index_* __restrict__ row_ind_ptr,
+                                 Index_ nnz,
+                                 bool* __restrict__ m,
+                                 Index_ start_vertex_id,
+                                 Index_ batch_size,
+                                 Index_ N,
+                                 Lambda filter_op)
 {
   Index_ tid       = threadIdx.x + blockIdx.x * TPB_X;
   Index_ global_id = tid + start_vertex_id;
@@ -96,10 +96,7 @@ __global__ void weak_cc_label_device(Index_* __restrict__ labels,
 }
 
 template <typename Index_, int TPB_X = 256, typename Lambda>
-__global__ void weak_cc_init_all_kernel(Index_* labels,
-                                        Index_ N,
-                                        Index_ MAX_LABEL,
-                                        Lambda filter_op)
+RAFT_KERNEL weak_cc_init_all_kernel(Index_* labels, Index_ N, Index_ MAX_LABEL, Lambda filter_op)
 {
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {

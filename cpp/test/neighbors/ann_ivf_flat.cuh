@@ -26,6 +26,7 @@
 #include <raft/linalg/map.cuh>
 #include <raft/neighbors/ivf_flat_types.hpp>
 #include <raft/neighbors/ivf_list.hpp>
+#include <raft/neighbors/sample_filter.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
 #include <thrust/functional.h>
@@ -56,6 +57,10 @@
 #include <vector>
 
 namespace raft::neighbors::ivf_flat {
+
+struct test_ivf_sample_filter {
+  static constexpr unsigned offset = 300;
+};
 
 template <typename IdxT>
 struct AnnIvfFlatInputs {
@@ -403,6 +408,105 @@ class AnnIVFFlatTest : public ::testing::TestWithParam<AnnIvfFlatInputs<IdxT>> {
                                       raft::Compare<DataT>(),
                                       stream_));
       }
+    }
+  }
+
+  void testFilter()
+  {
+    size_t queries_size = ps.num_queries * ps.k;
+    std::vector<IdxT> indices_ivfflat(queries_size);
+    std::vector<IdxT> indices_naive(queries_size);
+    std::vector<T> distances_ivfflat(queries_size);
+    std::vector<T> distances_naive(queries_size);
+
+    {
+      rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
+      rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
+      auto* database_filtered_ptr = database.data() + test_ivf_sample_filter::offset * ps.dim;
+      naive_knn<T, DataT, IdxT>(handle_,
+                                distances_naive_dev.data(),
+                                indices_naive_dev.data(),
+                                search_queries.data(),
+                                database_filtered_ptr,
+                                ps.num_queries,
+                                ps.num_db_vecs - test_ivf_sample_filter::offset,
+                                ps.dim,
+                                ps.k,
+                                ps.metric);
+      raft::linalg::addScalar(indices_naive_dev.data(),
+                              indices_naive_dev.data(),
+                              IdxT(test_ivf_sample_filter::offset),
+                              queries_size,
+                              stream_);
+      update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
+      update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
+      resource::sync_stream(handle_);
+    }
+
+    {
+      // unless something is really wrong with clustering, this could serve as a lower bound on
+      // recall
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+
+      auto distances_ivfflat_dev = raft::make_device_matrix<T, IdxT>(handle_, ps.num_queries, ps.k);
+      auto indices_ivfflat_dev =
+        raft::make_device_matrix<IdxT, IdxT>(handle_, ps.num_queries, ps.k);
+
+      {
+        ivf_flat::index_params index_params;
+        ivf_flat::search_params search_params;
+        index_params.n_lists          = ps.nlist;
+        index_params.metric           = ps.metric;
+        index_params.adaptive_centers = ps.adaptive_centers;
+        search_params.n_probes        = ps.nprobe;
+
+        index_params.add_data_on_build        = true;
+        index_params.kmeans_trainset_fraction = 0.5;
+        index_params.metric_arg               = 0;
+
+        // Create IVF Flat index
+        auto database_view = raft::make_device_matrix_view<const DataT, IdxT>(
+          (const DataT*)database.data(), ps.num_db_vecs, ps.dim);
+        auto index = ivf_flat::build(handle_, index_params, database_view);
+
+        // Create Bitset filter
+        auto removed_indices =
+          raft::make_device_vector<IdxT, int64_t>(handle_, test_ivf_sample_filter::offset);
+        thrust::sequence(resource::get_thrust_policy(handle_),
+                         thrust::device_pointer_cast(removed_indices.data_handle()),
+                         thrust::device_pointer_cast(removed_indices.data_handle() +
+                                                     test_ivf_sample_filter::offset));
+        resource::sync_stream(handle_);
+
+        raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+          handle_, removed_indices.view(), ps.num_db_vecs);
+
+        // Search with the filter
+        auto search_queries_view = raft::make_device_matrix_view<const DataT, IdxT>(
+          search_queries.data(), ps.num_queries, ps.dim);
+        ivf_flat::search_with_filtering(
+          handle_,
+          search_params,
+          index,
+          search_queries_view,
+          indices_ivfflat_dev.view(),
+          distances_ivfflat_dev.view(),
+          raft::neighbors::filtering::bitset_filter(removed_indices_bitset.view()));
+
+        update_host(
+          distances_ivfflat.data(), distances_ivfflat_dev.data_handle(), queries_size, stream_);
+        update_host(
+          indices_ivfflat.data(), indices_ivfflat_dev.data_handle(), queries_size, stream_);
+        resource::sync_stream(handle_);
+      }
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ivfflat,
+                                  distances_naive,
+                                  distances_ivfflat,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
     }
   }
 

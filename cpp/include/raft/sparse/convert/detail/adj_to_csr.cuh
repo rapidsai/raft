@@ -62,7 +62,7 @@ static const constexpr int adj_to_csr_tpb = 512;
  *                             the number of non-zeros in `adj`.
  */
 template <typename index_t>
-__global__ void __launch_bounds__(adj_to_csr_tpb)
+RAFT_KERNEL __launch_bounds__(adj_to_csr_tpb)
   adj_to_csr_kernel(const bool* adj,         // row-major adjacency matrix
                     const index_t* row_ind,  // precomputed row indices
                     index_t num_rows,        // # rows of adj

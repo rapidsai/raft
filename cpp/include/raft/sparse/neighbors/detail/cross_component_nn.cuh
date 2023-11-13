@@ -371,13 +371,13 @@ void sort_by_color(raft::resources const& handle,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void min_components_by_color_kernel(value_idx* out_rows,
-                                               value_idx* out_cols,
-                                               value_t* out_vals,
-                                               const value_idx* out_index,
-                                               const value_idx* indices,
-                                               const raft::KeyValuePair<value_idx, value_t>* kvp,
-                                               size_t nnz)
+RAFT_KERNEL min_components_by_color_kernel(value_idx* out_rows,
+                                           value_idx* out_cols,
+                                           value_t* out_vals,
+                                           const value_idx* out_index,
+                                           const value_idx* indices,
+                                           const raft::KeyValuePair<value_idx, value_t>* kvp,
+                                           size_t nnz)
 {
   size_t tid = blockDim.x * blockIdx.x + threadIdx.x;
 

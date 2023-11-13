@@ -16,7 +16,6 @@
 
 #pragma once
 #include <cstdio>
-#include <execution>
 #include <raft/core/cuda_support.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
@@ -329,8 +328,8 @@ __device__ auto increment_indices(IdxType* indices,
  * parameters.
  */
 template <typename DstType, typename SrcType>
-__global__ mdspan_copyable_with_kernel_t<DstType, SrcType> mdspan_copy_kernel(DstType dst,
-                                                                              SrcType src)
+
+RAFT_KERNEL mdspan_copy_kernel(DstType dst, SrcType src)
 {
   using config = mdspan_copyable<true, DstType, SrcType>;
 

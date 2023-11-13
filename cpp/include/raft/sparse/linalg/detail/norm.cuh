@@ -43,7 +43,7 @@ namespace linalg {
 namespace detail {
 
 template <int TPB_X = 64, typename T>
-__global__ void csr_row_normalize_l1_kernel(
+RAFT_KERNEL csr_row_normalize_l1_kernel(
   // @TODO: This can be done much more parallel by
   // having threads in a warp compute the sum in parallel
   // over each row and then divide the values in parallel.
@@ -109,7 +109,7 @@ void csr_row_normalize_l1(const int* ia,  // csr row ex_scan (sorted by row)
 }
 
 template <int TPB_X = 64, typename T>
-__global__ void csr_row_normalize_max_kernel(
+RAFT_KERNEL csr_row_normalize_max_kernel(
   // @TODO: This can be done much more parallel by
   // having threads in a warp compute the sum in parallel
   // over each row and then divide the values in parallel.
