@@ -23,6 +23,7 @@ dependencies:
 - dask-core==2023.9.2
 - dask-cuda==23.12.*
 - dask==2023.9.2
+- distributed-ucxx==0.35.*
 - distributed==2023.9.2
 - doxygen>=1.8.20
 - gcc_linux-64=11.*
