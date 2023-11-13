@@ -666,10 +666,7 @@ template <int ITEMS_PER_CALL,
           typename LenType,
           typename GenType,
           typename ParamType>
-__global__ void rngKernel(DeviceState<GenType> rng_state,
-                          OutType* ptr,
-                          LenType len,
-                          ParamType params)
+RAFT_KERNEL rngKernel(DeviceState<GenType> rng_state, OutType* ptr, LenType len, ParamType params)
 {
   LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;
   GenType gen(rng_state, (uint64_t)tid);
@@ -686,11 +683,11 @@ __global__ void rngKernel(DeviceState<GenType> rng_state,
 }
 
 template <typename GenType, typename OutType, typename WeightType, typename IdxType>
-__global__ void sample_with_replacement_kernel(DeviceState<GenType> rng_state,
-                                               OutType* out,
-                                               const WeightType* weights_csum,
-                                               IdxType sampledLen,
-                                               IdxType len)
+RAFT_KERNEL sample_with_replacement_kernel(DeviceState<GenType> rng_state,
+                                           OutType* out,
+                                           const WeightType* weights_csum,
+                                           IdxType sampledLen,
+                                           IdxType len)
 {
   // todo(lsugy): warp-collaborative binary search
 
@@ -727,7 +724,7 @@ template <typename OutType,
           typename GenType,
           int ITEMS_PER_CALL,
           typename ParamType>
-__global__ void fillKernel(
+RAFT_KERNEL fillKernel(
   uint64_t seed, uint64_t adv_subs, uint64_t offset, OutType* ptr, LenType len, ParamType params)
 {
   LenType tid = threadIdx.x + static_cast<LenType>(blockIdx.x) * blockDim.x;

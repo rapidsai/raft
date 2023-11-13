@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ namespace detail {
 //
 
 template <typename IteratorT1, typename IteratorT2>
-void __global__ convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
+RAFT_KERNEL convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
 {
   for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n; idx += gridDim.x * blockDim.x) {
     dst[idx] = src[idx];
@@ -95,14 +95,14 @@ struct quadSum {
 template <typename DataIteratorT, typename WeightT, typename SumsT, typename IdxT>
 __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4)
 
-  __global__ void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A,
-                                                     IdxT lda,
-                                                     const char* d_keys,
-                                                     const WeightT* d_weights,
-                                                     IdxT nrows,
-                                                     IdxT ncols,
-                                                     IdxT nkeys,
-                                                     SumsT* d_sums)
+  RAFT_KERNEL sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A,
+                                                 IdxT lda,
+                                                 const char* d_keys,
+                                                 const WeightT* d_weights,
+                                                 IdxT nrows,
+                                                 IdxT ncols,
+                                                 IdxT nkeys,
+                                                 SumsT* d_sums)
 {
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
   typedef cub::BlockReduce<quad<SumsT>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
@@ -193,15 +193,15 @@ template <typename DataIteratorT,
           typename WeightT,
           typename SumsT,
           typename IdxT>
-__global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(const DataIteratorT d_A,
-                                                            IdxT lda,
-                                                            KeysIteratorT d_keys,
-                                                            const WeightT* d_weights,
-                                                            IdxT nrows,
-                                                            IdxT ncols,
-                                                            int key_offset,
-                                                            IdxT nkeys,
-                                                            SumsT* d_sums)
+RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_colmajor(const DataIteratorT d_A,
+                                                        IdxT lda,
+                                                        KeysIteratorT d_keys,
+                                                        const WeightT* d_weights,
+                                                        IdxT nrows,
+                                                        IdxT ncols,
+                                                        int key_offset,
+                                                        IdxT nkeys,
+                                                        SumsT* d_sums)
 {
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
@@ -269,13 +269,13 @@ template <typename DataIteratorT,
           typename WeightT,
           typename SumsT,
           typename IdxT>
-__global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
-                                                            IdxT lda,
-                                                            const WeightT* d_weights,
-                                                            KeysIteratorT d_keys,
-                                                            IdxT nrows,
-                                                            IdxT ncols,
-                                                            SumsT* d_sums)
+RAFT_KERNEL sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
+                                                        IdxT lda,
+                                                        const WeightT* d_weights,
+                                                        KeysIteratorT d_keys,
+                                                        IdxT nrows,
+                                                        IdxT ncols,
+                                                        SumsT* d_sums)
 {
   IdxT gid = threadIdx.x + (blockDim.x * static_cast<IdxT>(blockIdx.x));
   IdxT j   = gid % ncols;

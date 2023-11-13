@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ namespace convert {
 namespace detail {
 
 template <typename value_t>
-__global__ void csr_to_dense_warp_per_row_kernel(
+RAFT_KERNEL csr_to_dense_warp_per_row_kernel(
   int n_cols, const value_t* csrVal, const int* csrRowPtr, const int* csrColInd, value_t* a)
 {
   int row = blockIdx.x;

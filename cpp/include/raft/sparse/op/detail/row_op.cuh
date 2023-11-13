@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ namespace op {
 namespace detail {
 
 template <typename T, int TPB_X = 256, typename Lambda = auto(T, T, T)->void>
-__global__ void csr_row_op_kernel(const T* row_ind, T n_rows, T nnz, Lambda op)
+RAFT_KERNEL csr_row_op_kernel(const T* row_ind, T n_rows, T nnz, Lambda op)
 {
   T row = blockIdx.x * TPB_X + threadIdx.x;
   if (row < n_rows) {

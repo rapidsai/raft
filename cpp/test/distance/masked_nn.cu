@@ -44,10 +44,10 @@ enum AdjacencyPattern {
 // - init_adj: to initialize the adjacency kernel with a specific adjacency pattern
 // - referenceKernel: to produce the ground-truth output
 
-__global__ void init_adj(AdjacencyPattern pattern,
-                         int n,
-                         raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
-                         raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
+RAFT_KERNEL init_adj(AdjacencyPattern pattern,
+                     int n,
+                     raft::device_matrix_view<bool, int, raft::layout_c_contiguous> adj,
+                     raft::device_vector_view<int, int, raft::layout_c_contiguous> group_idxs)
 {
   int m          = adj.extent(0);
   int num_groups = adj.extent(1);
@@ -85,19 +85,18 @@ __global__ void init_adj(AdjacencyPattern pattern,
 }
 
 template <typename DataT, typename ReduceOpT, int NWARPS>
-__global__ __launch_bounds__(32 * NWARPS,
-                             2) void referenceKernel(raft::KeyValuePair<int, DataT>* min,
-                                                     DataT* x,
-                                                     DataT* y,
-                                                     bool* adj,
-                                                     int* group_idxs,
-                                                     int m,
-                                                     int n,
-                                                     int k,
-                                                     int num_groups,
-                                                     bool sqrt,
-                                                     int* workspace,
-                                                     DataT maxVal)
+__launch_bounds__(32 * NWARPS, 2) RAFT_KERNEL referenceKernel(raft::KeyValuePair<int, DataT>* min,
+                                                              DataT* x,
+                                                              DataT* y,
+                                                              bool* adj,
+                                                              int* group_idxs,
+                                                              int m,
+                                                              int n,
+                                                              int k,
+                                                              int num_groups,
+                                                              bool sqrt,
+                                                              int* workspace,
+                                                              DataT maxVal)
 {
   const int m_stride = blockDim.y * gridDim.y;
   const int m_offset = threadIdx.y + blockIdx.y * blockDim.y;

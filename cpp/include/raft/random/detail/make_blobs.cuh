@@ -92,16 +92,16 @@ DI void get_mu_sigma(DataT& mu,
 }
 
 template <typename DataT, typename IdxT, typename GenType>
-__global__ void generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
-                                     DataT* out,
-                                     const IdxT* labels,
-                                     IdxT n_rows,
-                                     IdxT n_cols,
-                                     IdxT n_clusters,
-                                     bool row_major,
-                                     const DataT* centers,
-                                     const DataT* cluster_std,
-                                     const DataT cluster_std_scalar)
+RAFT_KERNEL generate_data_kernel(raft::random::DeviceState<GenType> rng_state,
+                                 DataT* out,
+                                 const IdxT* labels,
+                                 IdxT n_rows,
+                                 IdxT n_cols,
+                                 IdxT n_clusters,
+                                 bool row_major,
+                                 const DataT* centers,
+                                 const DataT* cluster_std,
+                                 const DataT cluster_std_scalar)
 {
   uint64_t tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   GenType gen(rng_state, tid);

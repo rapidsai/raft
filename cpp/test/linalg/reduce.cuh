@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,15 +35,15 @@ template <typename InType,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void naiveCoalescedReductionKernel(OutType* dots,
-                                              const InType* data,
-                                              IdxType D,
-                                              IdxType N,
-                                              OutType init,
-                                              bool inplace,
-                                              MainLambda main_op,
-                                              ReduceLambda reduce_op,
-                                              FinalLambda fin_op)
+RAFT_KERNEL naiveCoalescedReductionKernel(OutType* dots,
+                                          const InType* data,
+                                          IdxType D,
+                                          IdxType N,
+                                          OutType init,
+                                          bool inplace,
+                                          MainLambda main_op,
+                                          ReduceLambda reduce_op,
+                                          FinalLambda fin_op)
 {
   OutType acc      = init;
   IdxType rowStart = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;
@@ -89,15 +89,15 @@ template <typename InType,
           typename MainLambda,
           typename ReduceLambda,
           typename FinalLambda>
-__global__ void naiveStridedReductionKernel(OutType* dots,
-                                            const InType* data,
-                                            IdxType D,
-                                            IdxType N,
-                                            OutType init,
-                                            bool inplace,
-                                            MainLambda main_op,
-                                            ReduceLambda reduce_op,
-                                            FinalLambda fin_op)
+RAFT_KERNEL naiveStridedReductionKernel(OutType* dots,
+                                        const InType* data,
+                                        IdxType D,
+                                        IdxType N,
+                                        OutType init,
+                                        bool inplace,
+                                        MainLambda main_op,
+                                        ReduceLambda reduce_op,
+                                        FinalLambda fin_op)
 {
   OutType acc = init;
   IdxType col = threadIdx.x + static_cast<IdxType>(blockIdx.x) * blockDim.x;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,8 +75,7 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner, C
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void gmemHistKernel(
-  int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
+RAFT_KERNEL gmemHistKernel(int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
@@ -109,8 +108,7 @@ void gmemHist(int* bins,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, bool UseMatchAny>
-__global__ void smemHistKernel(
-  int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
+RAFT_KERNEL smemHistKernel(int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -204,7 +202,7 @@ DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId)
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS, int VecLen>
-__global__ void smemBitsHistKernel(
+RAFT_KERNEL smemBitsHistKernel(
   int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
 {
   extern __shared__ unsigned sbins[];
@@ -287,13 +285,13 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col)
 
 ///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void smemHashHistKernel(int* bins,
-                                   const DataT* data,
-                                   IdxT nrows,
-                                   IdxT nbins,
-                                   BinnerOp binner,
-                                   int hashSize,
-                                   int threshold)
+RAFT_KERNEL smemHashHistKernel(int* bins,
+                               const DataT* data,
+                               IdxT nrows,
+                               IdxT nbins,
+                               BinnerOp binner,
+                               int hashSize,
+                               int threshold)
 {
   extern __shared__ int2 ht[];
   int* needFlush = (int*)&(ht[hashSize]);

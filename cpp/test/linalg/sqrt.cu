@@ -25,7 +25,7 @@ namespace raft {
 namespace linalg {
 
 template <typename Type>
-__global__ void naiveSqrtElemKernel(Type* out, const Type* in1, int len)
+RAFT_KERNEL naiveSqrtElemKernel(Type* out, const Type* in1, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = raft::sqrt(in1[idx]); }

@@ -11,7 +11,7 @@ if (!(LHS == RHS)) { \
 #ifdef _MDSPAN_HAS_CUDA
 
 template<class LAMBDA>
-__global__ void dispatch_kernel(const LAMBDA f) {
+RAFT_KERNEL dispatch_kernel(const LAMBDA f) {
   f();
 }
 

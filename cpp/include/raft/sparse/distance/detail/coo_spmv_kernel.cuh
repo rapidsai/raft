@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,25 +86,25 @@ template <typename strategy_t,
           typename product_f,
           typename accum_f,
           typename write_f>
-__global__ void balanced_coo_generalized_spmv_kernel(strategy_t strategy,
-                                                     indptr_it indptrA,
-                                                     value_idx* indicesA,
-                                                     value_t* dataA,
-                                                     value_idx nnz_a,
-                                                     value_idx* rowsB,
-                                                     value_idx* indicesB,
-                                                     value_t* dataB,
-                                                     value_idx m,
-                                                     value_idx n,
-                                                     int dim,
-                                                     value_idx nnz_b,
-                                                     value_t* out,
-                                                     int n_blocks_per_row,
-                                                     int chunk_size,
-                                                     value_idx b_ncols,
-                                                     product_f product_func,
-                                                     accum_f accum_func,
-                                                     write_f write_func)
+RAFT_KERNEL balanced_coo_generalized_spmv_kernel(strategy_t strategy,
+                                                 indptr_it indptrA,
+                                                 value_idx* indicesA,
+                                                 value_t* dataA,
+                                                 value_idx nnz_a,
+                                                 value_idx* rowsB,
+                                                 value_idx* indicesB,
+                                                 value_t* dataB,
+                                                 value_idx m,
+                                                 value_idx n,
+                                                 int dim,
+                                                 value_idx nnz_b,
+                                                 value_t* out,
+                                                 int n_blocks_per_row,
+                                                 int chunk_size,
+                                                 value_idx b_ncols,
+                                                 product_f product_func,
+                                                 accum_f accum_func,
+                                                 write_f write_func)
 {
   typedef cub::WarpReduce<value_t> warp_reduce;
 

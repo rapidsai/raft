@@ -107,7 +107,7 @@ struct distance_graph_impl<raft::cluster::LinkageDistance::KNN_GRAPH, value_idx,
 };
 
 template <typename value_idx>
-__global__ void fill_indices2(value_idx* indices, size_t m, size_t nnz)
+RAFT_KERNEL fill_indices2(value_idx* indices, size_t m, size_t nnz)
 {
   value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;

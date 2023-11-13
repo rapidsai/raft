@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,10 @@ void add(OutT* out, const InT* in1, const InT* in2, IdxType len, cudaStream_t st
 }
 
 template <class InT, typename IdxType, typename OutT = InT>
-__global__ void add_dev_scalar_kernel(OutT* outDev,
-                                      const InT* inDev,
-                                      const InT* singleScalarDev,
-                                      IdxType len)
+RAFT_KERNEL add_dev_scalar_kernel(OutT* outDev,
+                                  const InT* inDev,
+                                  const InT* singleScalarDev,
+                                  IdxType len)
 {
   IdxType i = ((IdxType)blockIdx.x * (IdxType)blockDim.x) + threadIdx.x;
   if (i < len) { outDev[i] = inDev[i] + *singleScalarDev; }
