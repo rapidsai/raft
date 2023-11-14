@@ -25,10 +25,8 @@
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/logger.hpp>
-#include <raft/core/managed_container_policy.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdspan.hpp>
-#include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/stream_view.hpp>
 #include <raft/util/variant_utils.hpp>
 #include <utility>
@@ -326,12 +324,11 @@ struct mdbuffer {
       }
       case memory_type::managed: {
         result = std::visit(
-          [&res](auto other_view) {
-            auto managed_container_policy =
-              typename container_policy_type::template container_policy<memory_type::managed>{};
-            auto map = mapping_type{other_view.extents()};
-            managed_container_policy.create(res, map.required_span_size());
-            auto tmp_result = owning_type<memory_type::managed>{res, map, managed_container_policy};
+          [&res](auto&& other_view) {
+            auto tmp_result = owning_type<memory_type::managed>{
+              res,
+              mapping_type{other_view.extents()},
+              typename container_policy_type::template container_policy<memory_type::managed>{}};
             raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
           },
@@ -393,7 +390,7 @@ struct mdbuffer {
         if (mem_type == other.mem_type()) {
           result = std::move(other.data_);
         } else if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type) &&
-                   mem_type != memory_type::pinned) {
+                   other_mem_type != memory_type::pinned) {
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
