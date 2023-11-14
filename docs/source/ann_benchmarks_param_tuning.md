@@ -53,16 +53,16 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 | `graph_degree`              | `build_param`  | N        | Positive Integer >0        | 64 | Degree of the final kNN graph index. |
 | `intermediate_graph_degree` | `build_param`  | N        | Positive Integer >0        | 128 | Degree of the intermediate kNN graph. |
 | `graph_build_algo`          | `build_param`  | N | ["IVF_PQ", "NN_DESCENT"]   | "IVF_PQ" | Algorithm to use for search |
-| `dataset_memory_type`       | `build_param`  | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside?                                                                                                                                       |
+| `dataset_memory_type`       | `build_param`  | N | ["device", "host", "mmap"] | "device" | What memory type should the dataset reside while constructing the index?                                                                                                                                       |
 | `query_memory_type`         | `search_params` | N | ["device", "host", "mmap"] | "device | What memory type should the queries reside? |
 | `itopk`                     | `search_wdith`  | N        | Positive Integer >0        | 64 | Number of intermediate search results retained during the search. Higher values improve search accuracy at the cost of speed. |
 | `search_width`              | `search_param`  | N        | Positive Integer >0        | 1 | Number of graph nodes to select as the starting point for the search in each iteration. |
 | `max_iterations`            | `search_param`  | N        | Integer >=0                | 0 | Upper limit of search iterations. Auto select when 0. |
 | `algo`                      | `search_param`  | N        | string                     | "auto" | Algorithm to use for search. Possible values: {"auto", "single_cta", "multi_cta", "multi_kernel"} |
 | `graph_memory_type`         | `search_param`  | N        | string                     | "device" | Memory type to store gaph. Must be one of {"device", "host_pinned", "host_huge_page"}. |
-| `dataset_memory_type`       | `search_param`  | N        | string                     | "device" | Memory type to store dataset. Must be one of {"device", "host_pinned", "host_huge_page"}. |
+| `internal_dataset_memory_type` | `search_param`  | N        | string                     | "device" | Memory type to store dataset in the index. Must be one of {"device", "host_pinned", "host_huge_page"}. |
 
-The `graph_mem` or `device_mem` options can be useful for large datasets that do not fit the device memory. Setting `dataset_mem` other than `device` has negative impact on search speed. Using `host_huge_page` option is only supported on systems with Heterogeneous Memory Management or on platforms that natively support GPU access to system allocated memory, for example Grace Hopper.
+The `graph_memory_type` or `internal_dataset_memory_type` options can be useful for large datasets that do not fit the device memory. Setting `internal_dataset_memory_type` other than `device` has negative impact on search speed. Using `host_huge_page` option is only supported on systems with Heterogeneous Memory Management or on platforms that natively support GPU access to system allocated memory, for example Grace Hopper.
 
 To fine tune CAGRA index building we can customize IVF-PQ index builder options using the following settings. These take effect only if `graph_build_algo == "IVF_PQ"`. It is recommended to experiment using a separate IVF-PQ index to find the config that gives the largest QPS for large batch. Recall does not need to be very high, since CAGRA further optimizes the kNN neighbor graph. Some of the default values are derived from the dataset size which is assumed to be [n_vecs, dim].
 

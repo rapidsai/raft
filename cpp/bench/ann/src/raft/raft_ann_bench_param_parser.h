@@ -245,8 +245,8 @@ void parse_search_param(const nlohmann::json& conf,
   if (conf.contains("graph_memory_type")) {
     param.graph_mem = parse_allocator(conf.at("graph_memory_type"));
   }
-  if (conf.contains("dataset_memory_type")) {
-    param.dataset_mem = parse_allocator(conf.at("dataset_memory_type"));
+  if (conf.contains("internal_dataset_memory_type")) {
+    param.dataset_mem = parse_allocator(conf.at("internal_dataset_memory_type"));
   }
 }
 #endif
