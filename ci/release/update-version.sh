@@ -57,6 +57,7 @@ DEPENDENCIES=(
   dask-cuda
   pylibraft
   rmm
+  rapids-dask-dependency
   # ucx-py is handled separately below
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
@@ -74,11 +75,6 @@ for FILE in python/*/pyproject.toml; do
 done
 
 sed_runner "/^ucx_py_version:$/ {n;s/.*/  - \"${NEXT_UCX_PY_VERSION}\"/}" conda/recipes/raft-dask/conda_build_config.yaml
-
-# Wheel builds install dask-cuda from source, update its branch
-for FILE in .github/workflows/*.yaml; do
-  sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" ${FILE};
-done
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"

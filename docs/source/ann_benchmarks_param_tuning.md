@@ -46,7 +46,7 @@ IVF-pq is an inverted-file index, which partitions the vectors into a series of 
 
 
 ### `raft_cagra`
-CAGRA uses a graph-based index, which creates an intermediate, approximate kNN graph using IVF-PQ and then further refining and optimizing to create a final kNN graph. This kNN graph is used by CAGRA as an index for search.
+<a id='raft-cagra'></a>CAGRA uses a graph-based index, which creates an intermediate, approximate kNN graph using IVF-PQ and then further refining and optimizing to create a final kNN graph. This kNN graph is used by CAGRA as an index for search.
 
 | Parameter                   | Type           | Required | Data Type                  | Default | Description                                                                                                                                                                       |
 |-----------------------------|----------------|----------|----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -87,6 +87,13 @@ Alternatively, if `graph_build_algo == "NN_DESCENT"`, then we can customize the 
 | `nn_descent_intermediate_graph_degree`          | `build_param`  | N        | Positive Integer>0         | `intermediate_graph_degree` * 1.5 | Intermadiate graph degree during NN descent iterations |
 | `nn_descent_max_iterations`          | `build_param`  | N        | Positive Integer>0         | 20 | Alias for `nn_descent_niter` |
 | `nn_descent_termination_threshold`          | `build_param`  | N        | Positive float>0         | 0.0001 | Termination threshold for NN descent. |
+
+### `raft_cagra_hnswlib`
+This is a benchmark that enables interoperability between `CAGRA` built `HNSW` search. It uses the `CAGRA` built graph as the base layer of an `hnswlib` index to search queries only within the base layer (this is enabled with a simple patch to `hnswlib`).
+
+`build_param` : Same as `build_param` of [CAGRA](#raft-cagra)
+
+`search_param` : Same as `search_param` of [hnswlib](#hnswlib)
 
 ## FAISS Indexes
 
@@ -157,7 +164,7 @@ Use FAISS IVF-PQ index on CPU
 
 
 ## HNSW
-
+<a id='hnswlib'></a>
 ### `hnswlib`
 
 | Parameter        | Type            | Required | Data Type                            | Default | Description                                                                                                                                                                                                                                                                                       |
