@@ -114,7 +114,7 @@ def convert_json_to_csv_search(dataset, dataset_path):
                 write["build cpu_time"] = None
                 write["build GPU"] = None
 
-                for col_idx in range(5, len(build_df.columns)):
+                for col_idx in range(6, len(build_df.columns)):
                     col_name = build_df.columns[col_idx]
                     write[col_name] = None
 
