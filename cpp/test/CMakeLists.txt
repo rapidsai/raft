@@ -399,6 +399,19 @@ if(BUILD_TESTS)
 
   ConfigureTest(
     NAME
+    NEIGHBORS_ANN_MG_TEST
+    PATH
+    test/neighbors/ann_mg/test_ann_mg.cu
+    LIB
+    EXPLICIT_INSTANTIATE_ONLY
+    GPUS
+    1
+    PERCENT
+    100
+  )
+
+  ConfigureTest(
+    NAME
     NEIGHBORS_ANN_NN_DESCENT_TEST
     PATH
     test/neighbors/ann_nn_descent/test_float_uint32_t.cu
