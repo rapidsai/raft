@@ -126,6 +126,9 @@ class batch_k_query {
       return raft::make_const_mdspan(distances_.view());
     }
 
+    /** Returns the size of the batch */
+    int64_t batch_size() const { return end_k - start_k; }
+
     friend class iterator;
     friend class batch_k_query<T, IdxT>;
 
