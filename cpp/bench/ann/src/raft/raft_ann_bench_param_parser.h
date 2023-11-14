@@ -206,14 +206,14 @@ void parse_build_param(const nlohmann::json& conf,
   }
 }
 
-AllocatorType parse_allocator(std::string mem_type)
+raft::bench::ann::AllocatorType parse_allocator(std::string mem_type)
 {
   if (mem_type == "device") {
-    return AllocatorType::Device;
+    return raft::bench::ann::AllocatorType::Device;
   } else if (mem_type == "host_pinned") {
-    return AllocatorType::HostPinned;
+    return raft::bench::ann::AllocatorType::HostPinned;
   } else if (mem_type == "host_huge_page") {
-    return AllocatorType::HostHugePage;
+    return raft::bench::ann::AllocatorType::HostHugePage;
   }
   THROW(
     "Invalid value for memory type %s, must be one of [\"device\", \"host_pinned\", "
