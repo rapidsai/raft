@@ -25,8 +25,10 @@
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_device_accessor.hpp>
 #include <raft/core/logger.hpp>
+#include <raft/core/managed_container_policy.hpp>
 #include <raft/core/mdarray.hpp>
 #include <raft/core/mdspan.hpp>
+#include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/stream_view.hpp>
 #include <raft/util/variant_utils.hpp>
 #include <utility>
