@@ -15,23 +15,23 @@
  */
 
 #include "../common/ann_types.hpp"
-
 #include "raft_ann_bench_param_parser.h"
+#include "raft_cagra_hnswlib_wrapper.h"
 
-#include <algorithm>
-#include <cmath>
-#include <memory>
-#include <raft/core/logger.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-#include <utility>
 
 #define JSON_DIAGNOSTICS 1
 #include <nlohmann/json.hpp>
 
 namespace raft::bench::ann {
+
+template <typename T, typename IdxT>
+void parse_search_param(const nlohmann::json& conf,
+                        typename raft::bench::ann::RaftCagraHnswlib<T, IdxT>::SearchParam& param)
+{
+  param.ef = conf.at("ef");
+  if (conf.contains("numThreads")) { param.num_threads = conf.at("numThreads"); }
+}
 
 template <typename T>
 std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
@@ -46,35 +46,13 @@ std::unique_ptr<raft::bench::ann::ANN<T>> create_algo(const std::string& algo,
   raft::bench::ann::Metric metric = parse_metric(distance);
   std::unique_ptr<raft::bench::ann::ANN<T>> ann;
 
-  if constexpr (std::is_same_v<T, float>) {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-    if (algo == "raft_bfknn") { ann = std::make_unique<raft::bench::ann::RaftGpu<T>>(metric, dim); }
-#endif
+  if constexpr (std::is_same_v<T, float> or std::is_same_v<T, std::uint8_t>) {
+    if (algo == "raft_cagra_hnswlib") {
+      typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::BuildParam param;
+      parse_build_param<T, uint32_t>(conf, param);
+      ann = std::make_unique<raft::bench::ann::RaftCagraHnswlib<T, uint32_t>>(metric, dim, param);
+    }
   }
-
-  if constexpr (std::is_same_v<T, uint8_t>) {}
-
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
-  if (algo == "raft_ivf_flat") {
-    typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::BuildParam param;
-    parse_build_param<T, int64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfFlatGpu<T, int64_t>>(metric, dim, param);
-  }
-#endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
-  if (algo == "raft_ivf_pq") {
-    typename raft::bench::ann::RaftIvfPQ<T, int64_t>::BuildParam param;
-    parse_build_param<T, int64_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftIvfPQ<T, int64_t>>(metric, dim, param);
-  }
-#endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
-  if (algo == "raft_cagra") {
-    typename raft::bench::ann::RaftCagra<T, uint32_t>::BuildParam param;
-    parse_build_param<T, uint32_t>(conf, param);
-    ann = std::make_unique<raft::bench::ann::RaftCagra<T, uint32_t>>(metric, dim, param);
-  }
-#endif
 
   if (!ann) { throw std::runtime_error("invalid algo: '" + algo + "'"); }
 
@@ -85,40 +63,17 @@ template <typename T>
 std::unique_ptr<typename raft::bench::ann::ANN<T>::AnnSearchParam> create_search_param(
   const std::string& algo, const nlohmann::json& conf)
 {
-#ifdef RAFT_ANN_BENCH_USE_RAFT_BFKNN
-  if (algo == "raft_brute_force") {
-    auto param = std::make_unique<typename raft::bench::ann::ANN<T>::AnnSearchParam>();
-    return param;
-  }
-#endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_FLAT
-  if (algo == "raft_ivf_flat") {
+  if (algo == "raft_cagra_hnswlib") {
     auto param =
-      std::make_unique<typename raft::bench::ann::RaftIvfFlatGpu<T, int64_t>::SearchParam>();
-    parse_search_param<T, int64_t>(conf, *param);
-    return param;
-  }
-#endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_IVF_PQ
-  if (algo == "raft_ivf_pq") {
-    auto param = std::make_unique<typename raft::bench::ann::RaftIvfPQ<T, int64_t>::SearchParam>();
-    parse_search_param<T, int64_t>(conf, *param);
-    return param;
-  }
-#endif
-#ifdef RAFT_ANN_BENCH_USE_RAFT_CAGRA
-  if (algo == "raft_cagra") {
-    auto param = std::make_unique<typename raft::bench::ann::RaftCagra<T, uint32_t>::SearchParam>();
+      std::make_unique<typename raft::bench::ann::RaftCagraHnswlib<T, uint32_t>::SearchParam>();
     parse_search_param<T, uint32_t>(conf, *param);
     return param;
   }
-#endif
 
-  // else
   throw std::runtime_error("invalid algo: '" + algo + "'");
 }
 
-};  // namespace raft::bench::ann
+}  // namespace raft::bench::ann
 
 REGISTER_ALGO_INSTANCE(float);
 REGISTER_ALGO_INSTANCE(std::int8_t);
