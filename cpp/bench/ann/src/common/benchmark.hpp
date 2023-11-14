@@ -287,8 +287,8 @@ void bench_search(::benchmark::State& state,
   std::shared_ptr<buf<std::size_t>> neighbors =
     std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
 
-  auto start = std::chrono::high_resolution_clock::now();
   cuda_timer gpu_timer;
+  auto start = std::chrono::high_resolution_clock::now();
   {
     nvtx_case nvtx{state.name()};
 
