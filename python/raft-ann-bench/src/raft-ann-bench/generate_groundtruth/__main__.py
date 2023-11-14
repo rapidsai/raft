@@ -16,6 +16,7 @@
 #
 import argparse
 import os
+import sys
 
 import cupy as cp
 import numpy as np
@@ -178,6 +179,9 @@ fbin --nrows=2000000 --cols=128 --output=groundtruth_dir \
         " commonly used with RAFT ANN are 'sqeuclidean' and 'inner_product'",
     )
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
     args = parser.parse_args()
 
     if args.rows is not None:

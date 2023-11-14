@@ -26,6 +26,11 @@ function(find_and_configure_hnswlib)
                 COMMAND git clone --branch=v0.6.2 https://github.com/nmslib/hnswlib.git hnswlib-src
                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
 
+        message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
+        execute_process (
+                COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.patch
+                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src
+        )
     endif ()
 
     include(cmake/modules/FindAVX.cmake)
