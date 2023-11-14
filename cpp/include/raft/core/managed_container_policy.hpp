@@ -33,9 +33,8 @@ namespace raft {
 template <typename ElementType>
 class managed_uvector_policy {
  public:
-  using element_type   = ElementType;
-  using container_type = device_uvector<element_type>;
-  // FIXME(jiamingy): allocator type is not supported by rmm::device_uvector
+  using element_type    = ElementType;
+  using container_type  = device_uvector<element_type>;
   using pointer         = typename container_type::pointer;
   using const_pointer   = typename container_type::const_pointer;
   using reference       = device_reference<element_type>;
@@ -46,10 +45,8 @@ class managed_uvector_policy {
 
   auto create(raft::resources const& res, size_t n) -> container_type
   {
-    return container_type(n, resource::get_cuda_stream(res), &mr_);
+    return container_type(n, resource::get_cuda_stream(res), mr_);
   }
-
-  managed_uvector_policy() { std::cout << "MR ptr: " << &mr_ << std::endl; }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference
   {
@@ -63,6 +60,14 @@ class managed_uvector_policy {
 
   [[nodiscard]] auto make_accessor_policy() noexcept { return accessor_policy{}; }
   [[nodiscard]] auto make_accessor_policy() const noexcept { return const_accessor_policy{}; }
+
+ private:
+  static auto* get_default_memory_resource()
+  {
+    auto static result = rmm::mr::managed_memory_resource{};
+    return &result;
+  }
+  rmm::mr::managed_memory_resource* mr_{get_default_memory_resource()};
 };
 
 }  // namespace raft

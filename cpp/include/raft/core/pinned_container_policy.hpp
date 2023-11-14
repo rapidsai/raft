@@ -117,7 +117,6 @@ struct pinned_vector_policy {
   constexpr pinned_vector_policy() noexcept(std::is_nothrow_default_constructible_v<ElementType>)
     : allocator_{}
   {
-    std::cout << "ALLOCATOR ptr: " << &allocator_ << std::endl;
   }
 
   [[nodiscard]] constexpr auto access(container_type& c, size_t n) const noexcept -> reference

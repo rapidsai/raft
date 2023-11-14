@@ -297,7 +297,6 @@ struct mdbuffer {
   auto static copy_from(raft::resources const& res, FromT&& other, memory_type mem_type)
   {
     auto result = storage_type_variant{};
-    std::cout << "D" << std::endl;
     switch (mem_type) {
       case memory_type::host: {
         result = std::visit(
@@ -326,19 +325,14 @@ struct mdbuffer {
         break;
       }
       case memory_type::managed: {
-        std::cout << "E" << std::endl;
         result = std::visit(
           [&res](auto other_view) {
-            std::cout << "-1" << std::endl;
             auto managed_container_policy =
               typename container_policy_type::template container_policy<memory_type::managed>{};
-            std::cout << "0" << std::endl;
             auto map = mapping_type{other_view.extents()};
-            std::cout << "1" << std::endl;
             managed_container_policy.create(res, map.required_span_size());
-            std::cout << "2" << std::endl;
             auto tmp_result = owning_type<memory_type::managed>{res, map, managed_container_policy};
-            // raft::copy(res, tmp_result.view(), other_view);
+            raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
           },
           other.view());
@@ -347,23 +341,17 @@ struct mdbuffer {
       case memory_type::pinned: {
         result = std::visit(
           [&res](auto&& other_view) {
-            std::cout << "F" << std::endl;
-            auto tmp_result = owning_type<memory_type::pinned>{res};
-            std::cout << "G" << std::endl;
-            /* auto tmp_result = owning_type<memory_type::pinned>{
+            auto tmp_result = owning_type<memory_type::pinned>{
               res,
               mapping_type{other_view.extents()},
-              typename container_policy_type::template
-              container_policy<memory_type::pinned>{}};*/
-            // raft::copy(res, tmp_result.view(), other_view);
+              typename container_policy_type::template container_policy<memory_type::pinned>{}};
+            raft::copy(res, tmp_result.view(), other_view);
             return tmp_result;
           },
           other.view());
-        std::cout << "H" << std::endl;
         break;
       }
     }
-    std::cout << "I" << std::endl;
     return result;
   }
 
@@ -468,11 +456,9 @@ struct mdbuffer {
         auto result         = storage_type_variant{};
         auto other_mem_type = other.mem_type();
         if (mem_type == other_mem_type) {
-          std::cout << "A\n";
           std::visit([&result](auto&& other_view) { result = other_view; }, other.view());
         } else if (has_compatible_accessibility(other_mem_type, mem_type) &&
                    mem_type != memory_type::pinned) {
-          std::cout << "B\n";
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
@@ -520,17 +506,11 @@ struct mdbuffer {
             }
           }
         } else {
-          std::cout << "C\n";
           result = copy_from(res, other, mem_type);
-          std::cout << "J\n";
         }
-        std::cout << "K\n";
         return result;
       }()}
   {
-    std::cout << "IN CONSTRUCTOR\n";
-    std::cout << &cp_ << std::endl;
-    std::cout << &data_ << std::endl;
   }
 
   template <
