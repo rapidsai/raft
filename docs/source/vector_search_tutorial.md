@@ -174,7 +174,7 @@ raft::neighbors::cagra::search<float, uint32_t>(
 res, search_params, index, search, indices.view(), distances.view());
 ```
 
-## Step 7: Evaluate neighborhood quality
+## Step 5: Evaluate neighborhood quality
 
 In step 3 we built a flat index and queried for exact neighbors while in step 4 we build an ANN index and queried for approximate neighbors. How do you quickly figure out the quality of our approximate neighbors and whether it's in an acceptable range based on your needs? Just compute the `neighborhood_recall` which gives a single value in the range [0, 1]. Closer the value to 1, higher the quality of the approximation.
 
@@ -340,4 +340,32 @@ The below example specifies the total number of bytes that RAFT can use for temp
 
 std::shared_ptr<rmm::mr::managed_memory_resource> managed_resource;
 raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 1024^3));
+```
+
+### Filtering
+
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This feature is useful for applications that want to remove vectors already added to the index, or to enable access control in searches. The filtering is done by applying a predicate function on the GPU. The following example demonstrates how to use the filtering API:
+
+```c++
+#include <raft/neighbors/cagra.cuh>
+#include <raft/neighbors/sample_filter.cuh>
+
+using namespace raft::neighbors;
+// use default index parameters
+cagra::index_params index_params;
+// create and fill the index from a [N, D] dataset
+auto index = cagra::build(res, index_params, dataset);
+// use default search parameters
+cagra::search_params search_params;
+
+// create a bitset to filter the search
+auto removed_indices = raft::make_device_vector<IdxT>(res, n_removed_indices);
+raft::core::bitset<std::uint32_t, IdxT> removed_indices_bitset(
+  res, removed_indices.view(), dataset.extent(0));
+
+// search K nearest neighbours according to a bitset filter
+auto neighbors = raft::make_device_matrix<uint32_t>(res, n_queries, k);
+auto distances = raft::make_device_matrix<float>(res, n_queries, k);
+cagra::search_with_filtering(res, search_params, index, queries, neighbors, distances,
+  filtering::bitset_filter(removed_indices_bitset.view()));
 ```
