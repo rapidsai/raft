@@ -66,7 +66,7 @@ class factory {
           default: THROW("Incorrect team size %lu", plan.team_size);
         }
         break;
-      default: RAFT_LOG_DEBUG("Incorrect dataset_block_dim (%lu)\n", plan.dataset_block_dim);
+      default: THROW("Incorrect dataset_block_dim (%lu)\n", plan.dataset_block_dim);
     }
     return std::unique_ptr<search_plan_impl<T, IdxT, DistanceT, CagraSampleFilterT>>();
   }

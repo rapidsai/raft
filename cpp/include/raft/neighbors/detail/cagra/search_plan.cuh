@@ -51,8 +51,9 @@ struct search_plan_impl_base : public search_params {
 
   void set_dataset_block_and_team_size(int64_t dim)
   {
-    dataset_block_dim = 128;
-    while (dataset_block_dim < dim && dataset_block_dim <= 1024) {
+    constexpr int64_t max_dataset_block_dim = 1024;
+    dataset_block_dim                       = 128;
+    while (dataset_block_dim < dim && dataset_block_dim < max_dataset_block_dim) {
       dataset_block_dim *= 2;
     }
     // To keep binary size in check we limit only one team size specialization for each max_dim.
