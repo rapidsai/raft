@@ -16,4 +16,5 @@ This page provides C++ class references for the RAFT's 1d span and multi-dimensi
    mdspan_mdspan.rst
    mdspan_mdarray.rst
    mdspan_span.rst
+   mdspan_mdbuffer.rst
    mdspan_temporary_device_buffer.rst
