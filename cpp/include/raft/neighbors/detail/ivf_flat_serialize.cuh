@@ -34,18 +34,7 @@ namespace raft::neighbors::ivf_flat::detail {
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int serialization_version = 5;
-
-// NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
-// message.
-template <size_t RealSize, size_t ExpectedSize>
-struct check_index_layout {
-  static_assert(RealSize == ExpectedSize,
-                "The size of the index struct has changed since the last update; "
-                "paste in the new size and consider updating the serialization logic");
-};
-
-template struct check_index_layout<sizeof(index<double, std::uint64_t>), 368>;
+constexpr int serialization_version = 4;
 
 /**
  * Save the index to file.
