@@ -45,7 +45,6 @@
     template void raft::neighbors::mg::search<T, IdxT>(                                         \
         raft::neighbors::mg::detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,    \
         const ivf_flat::search_params& search_params,                                           \
-        IdxT n_neighbors,                                                                       \
         raft::host_matrix_view<const T, IdxT, row_major> query_dataset,                         \
         raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,                                \
         raft::host_matrix_view<float, IdxT, row_major> distances);                              \
@@ -53,7 +52,6 @@
     template void raft::neighbors::mg::search<T>(                                               \
         raft::neighbors::mg::detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index, \
         const ivf_pq::search_params& search_params,                                             \
-        uint32_t n_neighbors,                                                                   \
         raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,                     \
         raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,                        \
         raft::host_matrix_view<float, uint32_t, row_major> distances);                          \

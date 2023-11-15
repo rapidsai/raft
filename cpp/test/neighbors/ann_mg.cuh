@@ -17,45 +17,8 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft/core/device_mdarray.hpp>
-#include <raft/core/host_mdarray.hpp>
-#include <raft/core/mdspan.hpp>
-#include <raft/core/mdspan_types.hpp>
-#include <raft/core/resource/cuda_stream.hpp>
-#include <raft/core/resource/thrust_policy.hpp>
-#include <raft/linalg/map.cuh>
-#include <raft/neighbors/ivf_flat_types.hpp>
-#include <raft/neighbors/ivf_list.hpp>
-#include <raft/neighbors/sample_filter.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/fast_int_div.cuh>
-#include <thrust/functional.h>
-
 #include <raft_internal/neighbors/naive_knn.cuh>
-
-#include <raft/core/device_mdspan.hpp>
-#include <raft/core/logger.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/matrix/gather.cuh>
-#include <raft/neighbors/ivf_flat.cuh>
-#include <raft/neighbors/ivf_flat_helpers.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/spatial/knn/ann.cuh>
-#include <raft/spatial/knn/knn.cuh>
-#include <raft/stats/mean.cuh>
 #include <raft/neighbors/ann_mg.cuh>
-
-#include <rmm/cuda_stream_view.hpp>
-#include <rmm/device_buffer.hpp>
-
-#include <gtest/gtest.h>
-
-#include <rmm/device_uvector.hpp>
-#include <thrust/sequence.h>
-
-#include <cstddef>
-#include <iostream>
-#include <vector>
 
 namespace raft::neighbors::mg {
 
@@ -87,35 +50,33 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
   void testAnnMG()
   {
     size_t queries_size = ps.num_queries * ps.k;
-    std::vector<T> distances_ivfflat(queries_size);
-    std::vector<T> distances_naive(queries_size);
-    std::vector<IdxT> indices_ivfflat(queries_size);
     std::vector<IdxT> indices_naive(queries_size);
+    std::vector<float> distances_naive(queries_size);
+    std::vector<IdxT> indices_ann(queries_size);
+    std::vector<float> distances_ann(queries_size);
 
     {
       rmm::device_uvector<T> distances_naive_dev(queries_size, stream_);
       rmm::device_uvector<IdxT> indices_naive_dev(queries_size, stream_);
-      naive_knn<T, DataT, IdxT>(handle_,
-                                distances_naive_dev.data(),
-                                indices_naive_dev.data(),
-                                d_query_dataset.data(),
-                                d_index_dataset.data(),
-                                ps.num_queries,
-                                ps.num_db_vecs,
-                                ps.dim,
-                                ps.k,
-                                ps.metric);
+      raft::neighbors::naive_knn<T, DataT, IdxT>(handle_,
+                                                 distances_naive_dev.data(),
+                                                 indices_naive_dev.data(),
+                                                 d_query_dataset.data(),
+                                                 d_index_dataset.data(),
+                                                 ps.num_queries,
+                                                 ps.num_db_vecs,
+                                                 ps.dim,
+                                                 ps.k,
+                                                 ps.metric);
       update_host(distances_naive.data(), distances_naive_dev.data(), queries_size, stream_);
       update_host(indices_naive.data(), indices_naive_dev.data(), queries_size, stream_);
       resource::sync_stream(handle_);
     }
 
-    {
-      rmm::device_uvector<T> distances_ivfflat_dev(queries_size, stream_);
-      rmm::device_uvector<IdxT> indices_ivfflat_dev(queries_size, stream_);
+    std::vector<int> device_ids{0, 1};
 
-      std::vector<int> device_ids{0, 1};
-      raft::neighbors::mg::dist_mode mode = SHARDING;
+    // IVF-Flat
+    for (dist_mode d_mode : { dist_mode::SHARDING, dist_mode::INDEX_DUPLICATION }) {
       ivf_flat::index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -123,23 +84,61 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       index_params.add_data_on_build        = false;
       index_params.kmeans_trainset_fraction = 1.0;
       index_params.metric_arg               = 0;
-      auto index_dataset_view = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_index_dataset.data(), ps.num_db_vecs, ps.dim);
-      auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, mode, index_params, index_dataset_view);
 
-      update_host(distances_ivfflat.data(), distances_ivfflat_dev.data(), queries_size, stream_);
-      update_host(indices_ivfflat.data(), indices_ivfflat_dev.data(), queries_size, stream_);
+      ivf_flat::search_params search_params;
+      search_params.n_probes = ps.nprobe;
+
+      auto index_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_index_dataset.data(), ps.num_db_vecs, ps.dim);
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+
+      auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+      raft::neighbors::mg::search<DataT, IdxT>(index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
+
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ann,
+                                  distances_naive,
+                                  distances_ann,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
     }
 
-    double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
-    ASSERT_TRUE(eval_neighbours(indices_naive,
-                                indices_ivfflat,
-                                distances_naive,
-                                distances_ivfflat,
-                                ps.num_queries,
-                                ps.k,
-                                0.001,
-                                min_recall));
+    // IVF-PQ
+    for (dist_mode d_mode : { dist_mode::SHARDING, dist_mode::INDEX_DUPLICATION }) {
+      ivf_pq::index_params index_params;
+      index_params.n_lists                  = ps.nlist;
+      index_params.metric                   = ps.metric;
+      index_params.add_data_on_build        = false;
+      index_params.kmeans_trainset_fraction = 1.0;
+      index_params.metric_arg               = 0;
+
+      ivf_pq::search_params search_params;
+      search_params.n_probes = ps.nprobe;
+
+      auto index_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(h_index_dataset.data(), ps.num_db_vecs, ps.dim);
+      auto query_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, uint32_t, row_major>(indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+
+      auto index = raft::neighbors::mg::build<DataT>(device_ids, d_mode, index_params, index_dataset);
+      raft::neighbors::mg::search<DataT>(index, search_params, query_dataset, neighbors, distances);
+      resource::sync_stream(handle_);
+
+      double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
+      ASSERT_TRUE(eval_neighbours(indices_naive,
+                                  indices_ann,
+                                  distances_naive,
+                                  distances_ann,
+                                  ps.num_queries,
+                                  ps.k,
+                                  0.001,
+                                  min_recall));
+    }
   }
 
   void SetUp() override

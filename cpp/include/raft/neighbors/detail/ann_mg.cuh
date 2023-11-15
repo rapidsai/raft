@@ -16,15 +16,17 @@
 
 #pragma once
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
+
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/ann_types.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/comms/std_comms.hpp>
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
+
 #define RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 
@@ -57,11 +59,13 @@ namespace raft::neighbors::mg::detail {
             void extend(raft::resources const& handle,
                         raft::host_matrix_view<const T, IdxT, row_major> h_new_vectors,
                         raft::host_matrix_view<const IdxT, IdxT, row_major> h_new_indices) {
+                resource::sync_stream(handle);
+                index_dataset_.reset();
+
                 auto new_vectors_view = store_to_device(handle, new_vectors_, h_new_vectors);
                 auto new_indices_view = store_to_device(handle, new_indices_, h_new_indices);
                 auto new_indices_vector_view = \
                     raft::make_device_vector_view<const IdxT, IdxT, row_major>(new_indices_view.data_handle(), new_indices_view.extent(0));
-
                  std::optional<raft::device_vector_view<const IdxT, IdxT, row_major>> new_indices_opt =
                     std::make_optional<raft::device_vector_view<const IdxT, IdxT, row_major>>(new_indices_vector_view);
 
@@ -80,14 +84,20 @@ namespace raft::neighbors::mg::detail {
 
             void search(raft::resources const& handle,
                         const ann::search_params* search_params,
-                        IdxT n_neighbors,
                         raft::host_matrix_view<const T, IdxT, row_major> h_query_dataset,
                         raft::host_matrix_view<IdxT, IdxT, row_major> h_neighbors,
                         raft::host_matrix_view<float, IdxT, row_major> h_distances) {
+                resource::sync_stream(handle);
+                index_dataset_.reset();
+                new_vectors_.reset();
+                new_indices_.reset();
+                query_dataset_.reset();
+
                 auto query_dataset_view = store_to_device(handle, query_dataset_, h_query_dataset);
                 IdxT n_rows = h_query_dataset.extent(0);
-                auto neighbors_view = neighbors_.emplace(std::move(raft::make_device_matrix<IdxT, IdxT, row_major>(handle, n_rows, n_neighbors)));
-                auto distances_view = distances_.emplace(std::move(raft::make_device_matrix<float, IdxT, row_major>(handle, n_rows, n_neighbors)));
+                IdxT n_neighbors = h_neighbors.extent(1);
+                auto neighbors_view = neighbors_.emplace(std::move(raft::make_device_matrix<IdxT, IdxT, row_major>(handle, n_rows, n_neighbors))).view();
+                auto distances_view = distances_.emplace(std::move(raft::make_device_matrix<float, IdxT, row_major>(handle, n_rows, n_neighbors))).view();
 
                 if constexpr (std::is_same<AnnIndexType, ivf_flat::index<T, IdxT>>::value) {
                     ivf_flat::search<T, IdxT>(handle,
@@ -100,10 +110,19 @@ namespace raft::neighbors::mg::detail {
                     ivf_pq::search<T, IdxT>(handle,
                                             *reinterpret_cast<const ivf_pq::search_params*>(search_params),
                                             index_.value(),
-                                            query_dataset_view, 
+                                            query_dataset_view,
                                             neighbors_view,
                                             distances_view);
                 }
+
+                raft::copy(h_neighbors.data_handle(),
+                           neighbors_view.data_handle(),
+                           n_rows * n_neighbors,
+                           resource::get_cuda_stream(handle));
+                raft::copy(h_distances.data_handle(),
+                           distances_view.data_handle(),
+                           n_rows * n_neighbors,
+                           resource::get_cuda_stream(handle));
             }
 
         private:
@@ -220,30 +239,67 @@ namespace raft::neighbors::mg::detail {
             }
 
             void search(const ann::search_params* search_params,
-                        IdxT n_neighbors,
                         raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
                         raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
                         raft::host_matrix_view<float, IdxT, row_major> distances)
             {
                 if (mode_ == INDEX_DUPLICATION) {
+                    IdxT n_rows = query_dataset.extent(0);
+                    IdxT n_cols = query_dataset.extent(1);
+                    IdxT n_neighbors = neighbors.extent(1);
+                    IdxT n_rows_per_shard = (n_rows + num_ranks_ - 1) / num_ranks_;
+                    IdxT query_offset = 0;
+                    IdxT output_offset = 0;
                     for (int rank = 0; rank < num_ranks_; rank++) {
                         cudaSetDevice(dev_ids_[rank]);
+                        n_rows_per_shard = std::min(n_rows_per_shard, n_rows - query_offset);
+                        auto query_partition = \
+                            raft::make_host_matrix_view<const T, IdxT, row_major>(query_dataset.data_handle() + query_offset,
+                                                                                  n_rows_per_shard,
+                                                                                  n_cols);
+                        auto neighbors_partition = \
+                            raft::make_host_matrix_view<IdxT, IdxT, row_major>(neighbors.data_handle() + output_offset,
+                                                                               n_rows_per_shard,
+                                                                               n_neighbors);
+                        auto distances_partition = \
+                            raft::make_host_matrix_view<float, IdxT, row_major>(distances.data_handle() + output_offset,
+                                                                                n_rows_per_shard,
+                                                                                n_neighbors);
                         auto& ann_if = ann_interfaces_[rank];
-                        ann_if.search(dev_resources_[rank], search_params, n_neighbors, query_dataset, neighbors, distances);
+                        ann_if.search(dev_resources_[rank], search_params, query_partition, neighbors_partition, distances_partition);
+                        query_offset += n_rows_per_shard * n_cols;
+                        output_offset += n_rows_per_shard * n_neighbors;
                     }
                 } else if (mode_ == SHARDING) {
                     IdxT n_rows = query_dataset.extent(0);
                     IdxT n_cols = query_dataset.extent(1);
-                    IdxT n_rows_per_shard = (n_rows + num_ranks_ - 1) / num_ranks_;
-                    IdxT offset = 0;
-                    for (int rank = 0; rank < num_ranks_; rank++) {
-                        cudaSetDevice(dev_ids_[rank]);
-                        n_rows_per_shard = std::min(n_rows_per_shard, n_rows - offset);
-                        const T* query_dataset_ptr = query_dataset.data_handle() + offset;
-                        auto query_dataset_part = raft::make_host_matrix_view<const T, IdxT, row_major>(query_dataset_ptr, n_rows_per_shard, n_cols);
-                        auto& ann_if = ann_interfaces_[rank];
-                        //ann_if.search(dev_resources_[rank], search_params, n_neighbors, query_dataset_part, neighbors, distances);
-                        offset += n_rows_per_shard * n_cols;
+                    IdxT n_neighbors = neighbors.extent(1);
+
+                    IdxT n_rows_per_batches = 1000000;
+                    IdxT n_batches = (n_rows + n_rows_per_batches - 1) / n_rows_per_batches;
+                    IdxT query_offset = 0;
+                    IdxT output_offset = 0;
+                    for (IdxT batch_idx = 0; batch_idx < n_batches; batch_idx++) {
+                        n_rows_per_batches = std::min(n_rows_per_batches, n_rows - query_offset);
+                        for (int rank = 0; rank < num_ranks_; rank++) {
+                            cudaSetDevice(dev_ids_[rank]);
+                            auto query_partition = \
+                                raft::make_host_matrix_view<const T, IdxT, row_major>(query_dataset.data_handle() + query_offset,
+                                                                                      n_rows_per_batches,
+                                                                                      n_cols);
+                            auto neighbors_partition = \
+                                raft::make_host_matrix_view<IdxT, IdxT, row_major>(neighbors.data_handle() + output_offset,
+                                                                                   n_rows_per_batches,
+                                                                                   n_neighbors);
+                            auto distances_partition = \
+                                raft::make_host_matrix_view<float, IdxT, row_major>(distances.data_handle() + output_offset,
+                                                                                    n_rows_per_batches,
+                                                                                    n_neighbors);
+                            auto& ann_if = ann_interfaces_[rank];
+                            ann_if.search(dev_resources_[rank], search_params, query_partition, neighbors_partition, distances_partition);
+                            query_offset += n_rows_per_batches * n_cols;
+                            output_offset += n_rows_per_batches * n_neighbors;
+                        }
                     }
                 }
             }
@@ -270,9 +326,9 @@ namespace raft::neighbors::mg::detail {
 
     template<typename T>
     ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> build(const std::vector<int> device_ids,
-                                                      dist_mode mode,
-                                                      const ivf_pq::index_params& index_params,
-                                                      raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
+                                                             dist_mode mode,
+                                                             const ivf_pq::index_params& index_params,
+                                                             raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
     {
         ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> index(device_ids, mode);
         index.build(static_cast<const ann::index_params*>(&index_params), index_dataset);
@@ -298,13 +354,11 @@ namespace raft::neighbors::mg::detail {
     template<typename T, typename IdxT>
     void search(ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
                 const ivf_flat::search_params& search_params,
-                IdxT n_neighbors,
                 raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
                 raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
                 raft::host_matrix_view<float, IdxT, row_major> distances)
     {
         index.search(static_cast<const ann::search_params*>(&search_params),
-                     n_neighbors,
                      query_dataset,
                      neighbors,
                      distances);
@@ -313,13 +367,11 @@ namespace raft::neighbors::mg::detail {
     template<typename T>
     void search(ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
                 const ivf_pq::search_params& search_params,
-                uint32_t n_neighbors,
                 raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
                 raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
                 raft::host_matrix_view<float, uint32_t, row_major> distances)
     {
         index.search(static_cast<const ann::search_params*>(&search_params),
-                     n_neighbors,
                      query_dataset,
                      neighbors,
                      distances);
