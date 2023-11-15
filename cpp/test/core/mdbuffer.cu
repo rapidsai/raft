@@ -24,6 +24,7 @@
 #include <raft/core/mdbuffer.cuh>
 #include <raft/core/pinned_mdarray.hpp>
 #include <utility>
+#include <variant>
 
 namespace raft {
 
@@ -277,6 +278,39 @@ TEST(MDBuffer, FromPinned)
   EXPECT_EQ(buffer2.mem_type(), memory_type::pinned);
   EXPECT_EQ(buffer2.view<memory_type::pinned>().data_handle(),
             buffer.view<memory_type::pinned>().data_handle());
+}
+
+TEST(MDBuffer, ImplicitMdspanConversion)
+{
+  auto res             = device_resources{};
+  auto constexpr depth = std::uint32_t{5};
+  auto constexpr rows  = std::uint32_t{3};
+  auto constexpr cols  = std::uint32_t{2};
+
+  using extents_type  = extents<std::uint32_t, depth, rows, cols>;
+  auto shared_extents = extents_type{};
+
+  auto data_host = make_host_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+    res, shared_extents);
+  auto data_device =
+    make_device_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(res,
+                                                                                    shared_extents);
+  auto data_managed =
+    make_managed_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(
+      res, shared_extents);
+  auto data_pinned =
+    make_pinned_mdarray<int, std::uint32_t, layout_c_contiguous, depth, rows, cols>(res,
+                                                                                    shared_extents);
+
+  auto test_function = [shared_extents](mdbuffer<int, extents_type>&& buf) {
+    std::visit([shared_extents](auto view) { EXPECT_EQ(view.extents(), shared_extents); },
+               buf.view());
+  };
+
+  test_function(data_host);
+  test_function(data_device);
+  test_function(data_managed);
+  test_function(data_pinned);
 }
 
 }  // namespace raft

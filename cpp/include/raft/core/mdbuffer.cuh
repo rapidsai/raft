@@ -267,8 +267,8 @@ struct default_buffer_container_policy {
  * possible to avoid multiple template instantiations by directly accepting an
  * `mdbuffer` as argument, as in the following example:
  * @code{.cpp}
- * void foo_device(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>> data)
- * { auto buf = raft::mdbuffer{res, data, raft::memory_type::device};
+ * void foo_device(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>>&&
+ * data) { auto buf = raft::mdbuffer{res, data, raft::memory_type::device};
  *   // Data in buf is now guaranteed to be accessible from device.
  *
  *   some_kernel<<<...>>>(buf.view<raft::memory_type::device>());
