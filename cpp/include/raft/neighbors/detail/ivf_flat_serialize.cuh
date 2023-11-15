@@ -29,12 +29,12 @@
 
 namespace raft::neighbors::ivf_flat::detail {
 
-// Serialization version 3
+// Serialization version
 // No backward compatibility yet; that is, can't add additional fields without breaking
 // backward compatibility.
 // TODO(hcho3) Implement next-gen serializer for IVF that allows for expansion in a backward
 //             compatible fashion.
-constexpr int serialization_version = 4;
+constexpr int serialization_version = 5;
 
 // NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
 // message.
