@@ -285,7 +285,7 @@ struct default_buffer_container_policy {
  * using std::visit, as in the following example:
  *
  * @code{.cpp}
- * void foo(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>> data) {
+ * void foo(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>>&& data) {
  *   std::visit([](auto&& view) {
  *     // Do something with the view, including (possibly) dispatching based on
  *     // whether it is a host, device, managed, or pinned mdspan
