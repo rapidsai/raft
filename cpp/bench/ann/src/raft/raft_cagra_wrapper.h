@@ -80,7 +80,9 @@ class RaftCagra : public ANN<T> {
       need_dataset_update_(true),
       dataset_(make_device_matrix<T, int64_t>(handle_, 0, 0)),
       graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
-      graph_mem_(AllocatorType::Device)
+      input_dataset_v_(nullptr, 0, 0),
+      graph_mem_(AllocatorType::Device),
+      dataset_mem_(AllocatorType::Device)
   {
     index_params_.cagra_params.metric         = parse_metric_type(metric);
     index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
@@ -138,6 +140,7 @@ class RaftCagra : public ANN<T> {
   int dimension_;
   raft::device_matrix<IdxT, int64_t, row_major> graph_;
   raft::device_matrix<T, int64_t, row_major> dataset_;
+  raft::device_matrix_view<const T, int64_t, row_major> input_dataset_v_;
 };
 
 template <typename T, typename IdxT>
@@ -178,6 +181,7 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
   if (search_param.graph_mem != graph_mem_) {
     // Move graph to correct memory space
     graph_mem_ = search_param.graph_mem;
+    RAFT_LOG_INFO("moving graph to new memory space: %s", allocator_to_string(graph_mem_).c_str());
     // We create a new graph and copy to it from existing graph
     auto mr        = get_mr(graph_mem_);
     auto new_graph = make_device_mdarray<IdxT, int64_t>(
@@ -193,26 +197,19 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
     graph_ = std::move(new_graph);
   }
 
-  if (search_param.dataset_mem != dataset_mem_) {
-    need_dataset_update_ = true;
-    dataset_mem_         = search_param.dataset_mem;
-  }
-}
+  if (search_param.dataset_mem != dataset_mem_ || need_dataset_update_) {
+    dataset_mem_ = search_param.dataset_mem;
 
-template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
-{
-  // It can happen that we are re-using a previous algo object which already has
-  // the dataset set. Check if we need update.
-  if (index_->size() != nrow || need_dataset_update_) {
     // First free up existing memory
     dataset_ = make_device_matrix<T, int64_t>(handle_, 0, 0);
     index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
 
     // Allocate space using the correct memory resource.
-    auto mr                 = get_mr(dataset_mem_);
-    auto input_dataset_view = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
-    raft::neighbors::cagra::detail::copy_with_padding(handle_, dataset_, input_dataset_view, mr);
+    RAFT_LOG_INFO("moving dataset to new memory space: %s",
+                  allocator_to_string(dataset_mem_).c_str());
+
+    auto mr = get_mr(dataset_mem_);
+    raft::neighbors::cagra::detail::copy_with_padding(handle_, dataset_, input_dataset_v_, mr);
 
     index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
 
@@ -222,6 +219,18 @@ void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
     //   dataset_.data_handle(), dataset_.extent(0), this->dim_, dataset_.extent(1));
     // index_->update_dataset(handle_, dataset_view);
     need_dataset_update_ = false;
+  }
+}
+
+template <typename T, typename IdxT>
+void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
+{
+  // It can happen that we are re-using a previous algo object which already has
+  // the dataset set. Check if we need update.
+  if (static_cast<size_t>(input_dataset_v_.extent(0)) != nrow ||
+      input_dataset_v_.data_handle() != dataset) {
+    input_dataset_v_     = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
+    need_dataset_update_ = true;
   }
 }
 
