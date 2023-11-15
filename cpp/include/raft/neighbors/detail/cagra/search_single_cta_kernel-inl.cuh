@@ -458,7 +458,7 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_ITOPK,
           unsigned MAX_CANDIDATES,
           unsigned TOPK_BY_BITONIC_SORT,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T,
@@ -521,8 +521,11 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
   std::uint32_t result_buffer_size_32 = result_buffer_size;
   if (result_buffer_size % 32) { result_buffer_size_32 += 32 - (result_buffer_size % 32); }
   const auto small_hash_size = hashmap::get_size(small_hash_bitlen);
+
+  const auto query_smem_buffer_length =
+    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
   auto query_buffer          = reinterpret_cast<float*>(smem);
-  auto result_indices_buffer = reinterpret_cast<INDEX_T*>(query_buffer + MAX_DATASET_DIM);
+  auto result_indices_buffer = reinterpret_cast<INDEX_T*>(query_buffer + query_smem_buffer_length);
   auto result_distances_buffer =
     reinterpret_cast<DISTANCE_T*>(result_indices_buffer + result_buffer_size_32);
   auto visited_hash_buffer =
@@ -536,7 +539,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
   auto filter_flag = terminate_flag;
 
   const DATA_T* const query_ptr = queries_ptr + query_id * dataset_dim;
-  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += blockDim.x) {
+  for (unsigned i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
       query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
@@ -563,7 +566,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
   // compute distance to randomly selecting nodes
   _CLK_START();
   const INDEX_T* const local_seed_ptr = seed_ptr ? seed_ptr + (num_seeds * query_id) : nullptr;
-  device::compute_distance_to_random_nodes<TEAM_SIZE, MAX_DATASET_DIM, LOAD_T>(
+  device::compute_distance_to_random_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, LOAD_T>(
     result_indices_buffer,
     result_distances_buffer,
     query_buffer,
@@ -703,7 +706,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
     // compute the norms between child nodes and query node
     _CLK_START();
     constexpr unsigned max_n_frags = 16;
-    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+    device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags, LOAD_T>(
       result_indices_buffer + internal_topk,
       result_distances_buffer + internal_topk,
       query_buffer,
@@ -885,7 +888,7 @@ struct search_kernel_config {
 };
 
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           typename DATA_T,
           typename INDEX_T,
           typename DISTANCE_T,
@@ -918,8 +921,14 @@ void select_and_run(  // raft::resources const& res,
   cudaStream_t stream)
 {
   auto kernel =
-    search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
-      choose_itopk_and_mx_candidates(itopk_size, num_itopk_candidates, block_size);
+    search_kernel_config<TEAM_SIZE,
+                         DATASET_BLOCK_DIM,
+                         DATA_T,
+                         INDEX_T,
+                         DISTANCE_T,
+                         SAMPLE_FILTER_T>::choose_itopk_and_mx_candidates(itopk_size,
+                                                                          num_itopk_candidates,
+                                                                          block_size);
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
   dim3 thread_dims(block_size, 1, 1);

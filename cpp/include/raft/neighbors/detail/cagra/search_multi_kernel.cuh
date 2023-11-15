@@ -602,7 +602,6 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::num_random_samplings;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::rand_xor_mask;
 
-  using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::max_dim;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::dim;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::graph_degree;
   using search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::topk;
