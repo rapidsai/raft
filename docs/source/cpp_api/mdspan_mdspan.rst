@@ -92,7 +92,7 @@ Device Factories
 Managed Vocabulary
 ------------------
 
-``#include <raft/core/device_mdspan.hpp>``
+``#include <raft/core/managed_mdspan.hpp>``
 
 ..doxygentypedef:: raft::managed_mdspan
   :project: RAFT
@@ -122,7 +122,7 @@ Managed Vocabulary
 Managed Factories
 -----------------
 
-``#include <raft/core/device_mdspan.hpp>``
+``#include <raft/core/managed_mdspan.hpp>``
 
 .. doxygenfunction:: make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
     :project: RAFT

@@ -26,9 +26,6 @@ namespace raft {
 template <typename AccessorPolicy>
 using device_accessor = host_device_accessor<AccessorPolicy, memory_type::device>;
 
-template <typename AccessorPolicy>
-using managed_accessor = host_device_accessor<AccessorPolicy, memory_type::managed>;
-
 /**
  * @brief std::experimental::mdspan with device tag to avoid accessing incorrect memory location.
  */
@@ -37,12 +34,6 @@ template <typename ElementType,
           typename LayoutPolicy   = layout_c_contiguous,
           typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
 using device_mdspan = mdspan<ElementType, Extents, LayoutPolicy, device_accessor<AccessorPolicy>>;
-
-template <typename ElementType,
-          typename Extents,
-          typename LayoutPolicy   = layout_c_contiguous,
-          typename AccessorPolicy = std::experimental::default_accessor<ElementType>>
-using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_accessor<AccessorPolicy>>;
 
 template <typename T, bool B>
 struct is_device_mdspan : std::false_type {};
@@ -60,23 +51,6 @@ using is_input_device_mdspan_t = is_device_mdspan<T, is_input_mdspan_v<T>>;
 
 template <typename T>
 using is_output_device_mdspan_t = is_device_mdspan<T, is_output_mdspan_v<T>>;
-
-template <typename T, bool B>
-struct is_managed_mdspan : std::false_type {};
-template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {};
-
-/**
- * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type
- */
-template <typename T>
-using is_managed_mdspan_t = is_managed_mdspan<T, is_mdspan_v<T>>;
-
-template <typename T>
-using is_input_managed_mdspan_t = is_managed_mdspan<T, is_input_mdspan_v<T>>;
-
-template <typename T>
-using is_output_managed_mdspan_t = is_managed_mdspan<T, is_output_mdspan_v<T>>;
 
 /**
  * @\brief Boolean to determine if variadic template types Tn are either raft::device_mdspan or a
@@ -101,30 +75,6 @@ using enable_if_input_device_mdspan = std::enable_if_t<is_input_device_mdspan_v<
 
 template <typename... Tn>
 using enable_if_output_device_mdspan = std::enable_if_t<is_output_device_mdspan_v<Tn...>>;
-
-/**
- * @\brief Boolean to determine if variadic template types Tn are either raft::managed_mdspan or a
- * derived type
- */
-template <typename... Tn>
-inline constexpr bool is_managed_mdspan_v = std::conjunction_v<is_managed_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-inline constexpr bool is_input_managed_mdspan_v =
-  std::conjunction_v<is_input_managed_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-inline constexpr bool is_output_managed_mdspan_v =
-  std::conjunction_v<is_output_managed_mdspan_t<Tn>...>;
-
-template <typename... Tn>
-using enable_if_managed_mdspan = std::enable_if_t<is_managed_mdspan_v<Tn...>>;
-
-template <typename... Tn>
-using enable_if_input_managed_mdspan = std::enable_if_t<is_input_managed_mdspan_v<Tn...>>;
-
-template <typename... Tn>
-using enable_if_output_managed_mdspan = std::enable_if_t<is_output_managed_mdspan_v<Tn...>>;
 
 /**
  * @brief Shorthand for 0-dim host mdspan (scalar).
@@ -201,24 +151,6 @@ auto make_device_aligned_matrix_view(ElementType* ptr, IndexType n_rows, IndexTy
 
   matrix_extent<IndexType> extents{n_rows, n_cols};
   return device_aligned_matrix_view<ElementType, IndexType, LayoutPolicy>{aligned_pointer, extents};
-}
-
-/**
- * @brief Create a raft::managed_mdspan
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param ptr Pointer to the data
- * @param exts dimensionality of the array (series of integers)
- * @return raft::managed_mdspan
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_managed_mdspan(ElementType* ptr, extents<IndexType, Extents...> exts)
-{
-  return make_mdspan<ElementType, IndexType, LayoutPolicy, true, true>(ptr, exts);
 }
 
 /**

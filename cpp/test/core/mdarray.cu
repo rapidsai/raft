@@ -22,6 +22,7 @@
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_container_policy.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/managed_mdspan.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/util/cuda_utils.cuh>

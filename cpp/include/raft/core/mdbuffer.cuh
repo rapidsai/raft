@@ -43,22 +43,44 @@
 
 namespace raft {
 
+/**
+ * @defgroup mdbuffer_apis multi-dimensional maybe-owning type
+ * @{
+ */
+
+/**
+ * @brief Retrieve a canonical index associated with a given memory type.
+ *
+ * For variants based on memory type, this index can be used to help keep a
+ * consistent ordering of the memory types in the variant.
+ */
 inline auto constexpr variant_index_from_memory_type(raft::memory_type mem_type)
 {
   return static_cast<std::underlying_type_t<raft::memory_type>>(mem_type);
 }
 
+/**
+ * @brief Retrieve a type from a variant based on a given memory type.
+ */
 template <raft::memory_type MemType, typename Variant>
 using alternate_from_mem_type =
   std::variant_alternative_t<variant_index_from_memory_type(MemType) % std::variant_size_v<Variant>,
                              Variant>;
 
+/**
+ * @brief A variant of container policies for each memory type which can be
+ * used to build the default container policy for a buffer.
+ */
 template <typename T>
 using default_container_policy_variant = std::variant<host_vector_policy<T>,
                                                       device_uvector_policy<T>,
                                                       managed_uvector_policy<T>,
                                                       pinned_vector_policy<T>>;
 
+/**
+ * @brief A template used to translate a variant of underlying mdarray
+ * container policies into a container policy that can be used by an mdbuffer.
+ */
 template <typename ElementType,
           typename ContainerPolicyVariant = default_container_policy_variant<ElementType>>
 struct default_buffer_container_policy {
@@ -166,6 +188,122 @@ struct default_buffer_container_policy {
   }
 };
 
+/**
+ * @brief A type representing multi-dimensional data which may or may not own
+ * its underlying storage. `raft::mdbuffer` is used to conveniently perform
+ * copies of data _only_ when necessary to ensure that the data are accessible
+ * in the desired memory space and format.
+ *
+ * When developing functions that interact with the GPU, it is often necessary
+ * to ensure that the data are in a particular memory space (e.g. device,
+ * host, managed, pinned), but those functions may be called with data that
+ * may or may not already be in the desired memory space. For instance, when
+ * called in one workflow, the data may have been previously transferred to
+ * device, rendering a copy unnecessary. In another, the function may be
+ * directly invoked on host data.
+ *
+ * Even when working strictly with host memory, it is often necessary to
+ * ensure that the data are in a particular layout for efficient access (e.g.
+ * column major vs row major) or that the the data are of a particular type
+ * (e.g. double) even though we wish to call the function with data of
+ * another compatible type (e.g. float).
+ *
+ * `mdbuffer` is a tool for ensuring that the data are represented in exactly
+ * the desired format and location while flexibly supporting data which may
+ * not already be in that format or location. It does so by providing a
+ * non-owning view on data which are already in the required form, but it
+ * allocates (owned) memory and performs a copy if and only if it is
+ * necessary.
+ *
+ * Usage example:
+ * @code{.cpp}
+ * template <typename mdspan_type>
+ * void foo_device(raft::resources const& res, mdspan_type data) {
+ *   auto buf = raft::mdbuffer{res, raft::mdbuffer{data}, raft::memory_type::device};
+ *   // Data in buf is now guaranteed to be accessible from device.
+ *   // If it was already accessible from device, no copy was performed. If it
+ *   // was not, a copy was performed.
+ *
+ *   some_kernel<<<...>>>(buf.view<raft::memory_type::device>());
+ *
+ *   // It is sometimes useful to know whether or not a copy was performed to
+ *   // e.g. determine whether the transformed data should be copied back to its original
+ *   // location. This can be checked via the `is_owning()` method.
+ *   if (buf.is_owning()) {
+ *     raft::copy(res, data, buf.view<raft::memory_type::device>());
+ *   }
+ * }
+ * @endcode
+ *
+ * Note that in this example, the `foo_device` template can be correctly
+ * instantiated for both host and device mdspans. Similarly we can use
+ * `mdbuffer` to coerce data to a particular memory layout and data-type, as in
+ * the following example:
+ * @code{.cpp}
+ * template <typename mdspan_type>
+ * void foo_device(raft::resources const& res, mdspan_type data) {
+ *   auto buf = raft::mdbuffer<float, raft::vector_extent<int>, raft::row_major>{res,
+ * raft::mdbuffer{data}, raft::memory_type::device};
+ *   // Data in buf is now guaranteed to be accessible from device, and
+ *   // represented by floats in row-major order.
+ *
+ *   some_kernel<<<...>>>(buf.view<raft::memory_type::device>());
+ *
+ *   // The same check can be used to determine whether or not a copy was
+ *   // required, regardless of the cause. I.e. if the data were already on
+ *   // device but in column-major order, the is_owning() method would still
+ *   // return true because new storage needed to be allocated.
+ *   if (buf.is_owning()) {
+ *     raft::copy(res, data, buf.view<raft::memory_type::device>());
+ *   }
+ * }
+ * @endcode
+ *
+ * Note that in this example, the `foo_device` template can accept data of
+ * any float-convertible type in any layout and of any memory type and coerce
+ * it to the desired device-accessible representation.
+ *
+ * Because `mdspan` types can be implicitly converted to `mdbuffer`, it is even
+ * possible to avoid multiple template instantiations by directly accepting an
+ * `mdbuffer` as argument, as in the following example:
+ * @code{.cpp}
+ * void foo_device(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>> data)
+ * { auto buf = raft::mdbuffer{res, data, raft::memory_type::device};
+ *   // Data in buf is now guaranteed to be accessible from device.
+ *
+ *   some_kernel<<<...>>>(buf.view<raft::memory_type::device>());
+ * }
+ * @endcode
+ *
+ * In this example, `foo_device` can now accept any row-major mdspan of floats
+ * regardless of memory type without requiring separate template instantiations
+ * for each type.
+ *
+ * While the view method takes an optional compile-time memory type parameter,
+ * omitting this parameter will return a std::variant of mdspan types. This
+ * allows for straightforward runtime dispatching based on the memory type
+ * using std::visit, as in the following example:
+ *
+ * @code{.cpp}
+ * void foo(raft::resources const& res, raft::mdbuffer<float, raft::matrix_extent<int>> data) {
+ *   std::visit([](auto&& view) {
+ *     // Do something with the view, including (possibly) dispatching based on
+ *     // whether it is a host, device, managed, or pinned mdspan
+ *   }, data.view());
+ * }
+ * @endcode
+ *
+ * @tparam ElementType element type stored in the buffer
+ * @tparam Extents specifies the number of dimensions and their sizes
+ * @tparam LayoutPolicy specifies how data should be laid out in memory
+ * @tparam ContainerPolicy specifies how data should be allocated if necessary
+ * and how it should be accessed. This should very rarely need to be
+ * customized. For those cases where it must be customized, it is recommended
+ * to instantiate default_buffer_container_policy with a std::variant of
+ * container policies for each memory type. Note that the accessor policy of
+ * each container policy variant is used as the accessor policy for the mdspan
+ * view of the buffer for the corresponding memory type.
+ */
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy    = layout_c_contiguous,
@@ -229,6 +367,9 @@ struct mdbuffer {
                                  std::size_t{variant_index_from_memory_type(MemType)},
                                storage_type_variant>;
 
+  /**
+   * @brief Construct an empty, uninitialized buffer
+   */
   constexpr mdbuffer() = default;
 
  private:
@@ -355,6 +496,11 @@ struct mdbuffer {
   }
 
  public:
+  /**
+   * @brief Construct an mdbuffer wrapping an existing mdspan. The resulting
+   * mdbuffer will be non-owning and match the memory type, layout, and
+   * element type of the mdspan.
+   */
   template <
     typename OtherAccessorPolicy,
     std::enable_if_t<is_type_in_variant_v<OtherAccessorPolicy, accessor_policy_variant>>* = nullptr>
@@ -362,6 +508,10 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Construct an mdbuffer to hold an existing mdarray rvalue. The
+   * mdarray will be moved into the mdbuffer, and the mdbuffer will be owning.
+   */
   template <typename OtherContainerPolicy,
             std::enable_if_t<is_type_in_variant_v<
               host_device_accessor<typename OtherContainerPolicy::accessor_type,
@@ -372,6 +522,11 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Construct an mdbuffer from an existing mdarray lvalue. An mdspan
+   * view will be taken from the mdarray in order to construct the mdbuffer,
+   * and the mdbuffer will be non-owning
+   */
   template <typename OtherContainerPolicy,
             std::enable_if_t<is_type_in_variant_v<
               host_device_accessor<typename OtherContainerPolicy::accessor_type,
@@ -382,6 +537,16 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Construct one mdbuffer from another mdbuffer rvalue with matching
+   * element type, extents, layout, and container policy.
+   *
+   * If the existing mdbuffer is owning and of the correct memory type,
+   * the new mdbuffer will take ownership of the underlying memory
+   * (preventing a view on memory owned by a moved-from object). The memory
+   * type of the new mdbuffer may be specified explicitly, in which case a copy
+   * will be performed if and only if it is necessary to do so.
+   */
   mdbuffer(raft::resources const& res,
            mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>&& other,
            std::optional<memory_type> specified_mem_type = std::nullopt)
@@ -447,6 +612,14 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Construct one mdbuffer from another mdbuffer lvalue with matching
+   * element type, extents, layout, and container policy.
+   *
+   * Unlike when constructing from an rvalue, the new mdbuffer will take a
+   * non-owning view whenever possible, since it is assumed that the caller
+   * will manage the lifetime of the lvalue input.
+   */
   mdbuffer(raft::resources const& res,
            mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>& other,
            std::optional<memory_type> specified_mem_type = std::nullopt)
@@ -512,6 +685,12 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Construct an mdbuffer from an existing mdbuffer with arbitrary but
+   * compatible element type, extents, layout, and container policy. This
+   * constructor is used to coerce data to specific element types, layouts,
+   * or extents as well as specifying a memory type.
+   */
   template <
     typename OtherElementType,
     typename OtherExtents,
@@ -538,11 +717,19 @@ struct mdbuffer {
   {
   }
 
+  /**
+   * @brief Return the memory type of the underlying data referenced by the
+   * mdbuffer
+   */
   [[nodiscard]] auto constexpr mem_type() const
   {
     return static_cast<memory_type>(data_.index() % std::variant_size_v<owning_type_variant>);
   };
 
+  /**
+   * @brief Return a boolean indicating whether or not the mdbuffer owns its
+   * storage
+   */
   [[nodiscard]] auto constexpr is_owning() const
   {
     return data_.index() >= std::variant_size_v<view_type_variant>;
@@ -595,18 +782,50 @@ struct mdbuffer {
   }
 
  public:
+  /**
+   * @brief Return an mdspan of the indicated memory type representing a view
+   * on the stored data. If the mdbuffer does not contain data of the indicated
+   * memory type, a std::bad_variant_access will be thrown.
+   */
   template <memory_type mem_type>
   [[nodiscard]] auto view()
   {
     return view<memory_type_constant<mem_type>>();
   }
+  /**
+   * @brief Return an mdspan containing const elementgs of the indicated memory type representing a
+   * view on the stored data. If the mdbuffer does not contain data of the indicated memory type, a
+   * std::bad_variant_access will be thrown.
+   */
   template <memory_type mem_type>
   [[nodiscard]] auto view() const
   {
     return view<memory_type_constant<mem_type>>();
   }
+  /**
+   * @brief Return a std::variant representing the possible mdspan types that
+   * could be returned as views on the mdbuffer. The variant will contain the mdspan
+   * corresponding to its current memory type.
+   *
+   * This method is useful for writing generic code to handle any memory type
+   * that might be contained in an mdbuffer at a particular point in a
+   * workflow. By performing a `std::visit` on the returned value, the caller
+   * can easily dispatch to the correct code path for the memory type.
+   */
   [[nodiscard]] auto view() { return view<memory_type_constant<>>(); }
+  /**
+   * @brief Return a std::variant representing the possible mdspan types that
+   * could be returned as const views on the mdbuffer. The variant will contain the mdspan
+   * corresponding to its current memory type.
+   *
+   * This method is useful for writing generic code to handle any memory type
+   * that might be contained in an mdbuffer at a particular point in a
+   * workflow. By performing a `std::visit` on the returned value, the caller
+   * can easily dispatch to the correct code path for the memory type.
+   */
   [[nodiscard]] auto view() const { return view<memory_type_constant<>>(); }
 };
+
+/** @} */
 
 }  // namespace raft

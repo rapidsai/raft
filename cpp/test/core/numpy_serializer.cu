@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include <raft/core/host_mdarray.hpp>
+#include <raft/core/managed_mdspan.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/core/serialize.hpp>
 
