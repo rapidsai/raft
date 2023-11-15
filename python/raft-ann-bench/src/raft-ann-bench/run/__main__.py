@@ -88,6 +88,7 @@ def run_build_and_search(
     batch_size,
     search_threads,
     mode="throughput",
+    raft_log_level=4,
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
@@ -117,6 +118,7 @@ def run_build_and_search(
                 "--benchmark_counters_tabular=true",
                 "--benchmark_out="
                 + f"{os.path.join(build_folder, f'{algo}.json')}",
+                "--raft_log_level=" + raft_log_level,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -150,6 +152,7 @@ def run_build_and_search(
                 "--mode=%s" % mode,
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
+                "--raft_log_level=" + raft_log_level,
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -293,6 +296,16 @@ def main():
         "to run execute the benchmarks but will not actually execute "
         "the command.",
         action="store_true",
+    )
+    parser.add_argument(
+        "--raft-log-level",
+        type=int,
+        help="Log level, possible values are [0,1,2,3,4,5,6]. These levels "
+        "correspond to [OFF, ERROR, WARN, INFO, DEBUG, TRACE] respectively."
+        "Default: 4 (INFO). Note that DEBUG or more detailed logging level "
+        "requires that the library is compiled with -DRAFT_ACTIVE_LEVER=<L>"
+        " where <L> >= <requested log level>",
+        default=4,
     )
 
     if len(sys.argv) == 1:
@@ -511,6 +524,7 @@ def main():
         batch_size,
         args.search_threads,
         mode,
+        args.raft_log_level,
     )
 
 
