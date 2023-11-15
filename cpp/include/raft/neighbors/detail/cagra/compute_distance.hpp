@@ -59,19 +59,19 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, fal
   const float* const query_buffer;
   __device__ distance_op(const float* const query_buffer) : query_buffer(query_buffer) {}
 
-  __device__ float operator()(const DATA_T* const dataset_ptr,
-                              const std::uint32_t dataset_dim,
-                              const bool valid)
+  __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
+                                   const std::uint32_t dataset_dim,
+                                   const bool valid)
   {
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
     constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
     constexpr unsigned reg_nelem =
       (DATASET_BLOCK_DIM + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
-    struct data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
+    data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
 
     DISTANCE_T norm2 = 0;
     if (valid) {
-      for (uint32_t elem_offset = 0; elem_offset < dataset_dim; elem_offset += vlen * TEAM_SIZE) {
+      for (uint32_t elem_offset = 0; elem_offset < dataset_dim; elem_offset += DATASET_BLOCK_DIM) {
 #pragma unroll
         for (uint32_t e = 0; e < reg_nelem; e++) {
           const uint32_t k = (lane_id + (TEAM_SIZE * e)) * vlen + elem_offset;
@@ -128,15 +128,15 @@ struct distance_op<LOAD_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, tru
     }
   }
 
-  __device__ float operator()(const DATA_T* const dataset_ptr,
-                              const std::uint32_t dataset_dim,
-                              const bool valid)
+  __device__ DISTANCE_T operator()(const DATA_T* const dataset_ptr,
+                                   const std::uint32_t dataset_dim,
+                                   const bool valid)
   {
     const unsigned lane_id  = threadIdx.x % TEAM_SIZE;
     constexpr unsigned vlen = get_vlen<LOAD_T, DATA_T>();
     constexpr unsigned reg_nelem =
       (DATASET_BLOCK_DIM + (TEAM_SIZE * vlen) - 1) / (TEAM_SIZE * vlen);
-    struct data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
+    data_load_t<LOAD_T, DATA_T, vlen> dl_buff[reg_nelem];
 
     DISTANCE_T norm2 = 0;
     if (valid) {
@@ -205,7 +205,6 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
     for (uint32_t j = 0; j < num_distilation; j++) {
       // Select a node randomly and compute the distance to it
       INDEX_T seed_index;
-      DISTANCE_T norm2 = 0.0;
       if (valid_i) {
         // uint32_t gid = i + (num_pickup * (j + (num_distilation * block_id)));
         uint32_t gid = block_id + (num_blocks * (i + (num_pickup * j)));
@@ -216,7 +215,7 @@ _RAFT_DEVICE void compute_distance_to_random_nodes(
         }
       }
 
-      norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i);
+      const auto norm2 = dist_op(dataset_ptr + dataset_ld * seed_index, dataset_dim, valid_i);
 
       if (valid_i && (norm2 < best_norm2_team_local)) {
         best_norm2_team_local = norm2;
