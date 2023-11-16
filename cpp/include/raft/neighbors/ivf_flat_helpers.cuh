@@ -110,14 +110,36 @@ void unpack(
 }
 }  // namespace codepacker
 
+/**
+ * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
+ * externally modifying the index without going through the build stage. The data and indices of the
+ * IVF lists will be lost.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   raft::resources res;
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_flat::index_params index_params;
+ *   // initialize an empty index
+ *   ivf_flat::index<int64_t> index(res, index_params, D);
+ *   // reset the index's state and list sizes
+ *   ivf_flat::helpers::reset_index(res, &index);
+ * @endcode
+ *
+ * @tparam IdxT
+ *
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
+ */
 template <typename T, typename IdxT>
-void reset_index(const raft::resources& res, index<T, IdxT>& index)
+void reset_index(const raft::resources& res, index<T, IdxT>* index)
 {
   auto stream = resource::get_cuda_stream(res);
 
-  utils::memzero(index.list_sizes().data_handle(), index.list_sizes().size(), stream);
-  utils::memzero(index.data_ptrs().data_handle(), index.data_ptrs().size(), stream);
-  utils::memzero(index.inds_ptrs().data_handle(), index.inds_ptrs().size(), stream);
+  utils::memzero(index->list_sizes().data_handle(), index->list_sizes().size(), stream);
+  utils::memzero(index->data_ptrs().data_handle(), index->data_ptrs().size(), stream);
+  utils::memzero(index->inds_ptrs().data_handle(), index->inds_ptrs().size(), stream);
 }
 /** @} */
 }  // namespace raft::neighbors::ivf_flat::helpers
