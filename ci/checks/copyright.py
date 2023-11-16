@@ -40,7 +40,8 @@ FilesToCheck = [
     re.compile(r"meta[.]yaml$")
 ]
 ExemptFiles = [
-    re.compile("cpp/include/raft/neighbors/detail/faiss_select/")
+    re.compile("cpp/include/raft/neighbors/detail/faiss_select/"),
+    re.compile("cpp/include/raft/thirdparty/")
 ]
 
 # this will break starting at year 10000, which is probably OK :)
