@@ -85,11 +85,12 @@ inline void unpack(
  *   auto list_data = index.lists()[label]->data.view();
  *   // allocate the buffer for the output
  *   uint32_t n_rows = 4;
- *   auto codes = raft::make_device_matrix<uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim() *
- * index.pq_bits(), 8)); uint32_t offset = 0;
+ *   auto codes = raft::make_device_matrix<uint8_t>(
+ *     res, n_rows, raft::ceildiv(index.pq_dim() * index.pq_bits(), 8));
+ *   uint32_t offset = 0;
  *   // unpack n_rows elements from the list
- *   ivf_pq::helpers::codepacker::unpack(res, list_data, index.pq_bits(), offset, n_rows,
- * index.pq_dim(), codes.data_handle());
+ *   ivf_pq::helpers::codepacker::unpack_compressed(
+ *     res, list_data, index.pq_bits(), offset, n_rows, index.pq_dim(), codes.data_handle());
  * @endcode
  *
  * @tparam IdxT type of the indices in the source dataset
@@ -245,14 +246,17 @@ void pack_list_data(raft::resources const& res,
  *   // allocate the buffer for n_rows input codes. Each vector occupies
  *   // raft::ceildiv(index.pq_dim() * index.pq_bits(), 8) bytes because
  *   // codes are compressed and without gaps.
- *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim()
- * * index.pq_bits(), 8));
+ *   auto codes = raft::make_device_matrix<const uint8_t>(
+ *     res, n_rows, raft::ceildiv(index.pq_dim() * index.pq_bits(), 8));
  *   ... prepare the compressed vectors to pack into the list in codes ...
  *   // the first n_rows codes in the fourth IVF list are to be overwritten.
  *   uint32_t label = 3;
  *   // write codes into the list starting from the 0th position
- *   ivf_pq::helpers::pack_compressed_list_data(res, &index, codes.data_handle(), n_rows, label, 0);
+ *   ivf_pq::helpers::pack_compressed_list_data(
+ *     res, &index, codes.data_handle(), n_rows, label, 0);
  * @endcode
+ *
+ * @tparam IdxT
  *
  * @param[in] res
  * @param[inout] index IVF-PQ index.
@@ -603,8 +607,8 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  *   // reset the index
  *   reset_index(handle, &index);
  *   // compute the rotation matrix with random_rotation
- *   raft::neighbors::ivf_pq::helpers::make_rotation_matrix(res, &index,
- *       index_params.force_random_rotation);
+ *   raft::neighbors::ivf_pq::helpers::make_rotation_matrix(
+ *     res, &index, index_params.force_random_rotation);
  * @endcode
  *
  * @tparam IdxT
@@ -688,8 +692,9 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
 }
 
 /**
- * @brief Helper exposing the re-computation of list sizes and related arrays if IVF lists have been
- * modified.
+ * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
+ * externally modifying the index without going through the build stage. The data and indices of the
+ * IVF lists will be lost.
  *
  * Usage example:
  * @code{.cpp}
@@ -697,31 +702,10 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // initialize an empty index
- *   raft::neighbors::ivf_pq::index<int64_t> index(handle, index_params, D);
- *   // resize the first IVF list to hold 5 records
- *   auto spec = list_spec<uint32_t, int64_t>{index->pq_bits(), index->pq_dim(),
- *   index->conservative_memory_allocation()}; auto& list = index->lists()[0]; uint32_t new_size = 5;
- *   ivf::resize_list(res, list, spec, new_size, 0);
- *   raft::update_device(index.list_sizes(), &new_size, 1, stream);
- *   // recompute the internal state of the index
- *   raft::neighbors::ivf_pq::recompute_internal_state(handle, &index);
+ *   ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   // reset the index's state and list sizes
+ *   ivf_pq::helpers::reset_index(res, &index);
  * @endcode
- *
- * @tparam IdxT
- * @param[in] res
- * @param[inout] index
- */
-template <typename IdxT>
-void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
-{
-  ivf_pq::detail::recompute_internal_state(res, *index);
-}
-
-/**
- * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
- * externally modifying the index without going through the build stage. The data and indices of the
- * IVF lists will be lost.
- *
  * @tparam IdxT
  * @param[in] res
  * @param[inout] index
@@ -739,6 +723,37 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
 }
 
 /**
+ * @brief Helper exposing the re-computation of list sizes and related arrays if IVF lists have been
+ * modified.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_pq::index_params index_params;
+ *   // initialize an empty index
+ *   ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   ivf_pq::helpers::reset_index(res, &index);
+ *   // resize the first IVF list to hold 5 records
+ *   auto spec = list_spec<uint32_t, int64_t>{index->pq_bits(), index->pq_dim(),
+ *   index->conservative_memory_allocation()}; auto& list = index->lists()[0]; uint32_t new_size =
+ * 5; ivf::resize_list(res, list, spec, new_size, 0); raft::update_device(index.list_sizes(),
+ * &new_size, 1, stream);
+ *   // recompute the internal state of the index
+ *   ivf_pq::recompute_internal_state(handle, &index);
+ * @endcode
+ *
+ * @tparam IdxT
+ * @param[in] res
+ * @param[inout] index
+ */
+template <typename IdxT>
+void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
+{
+  ivf_pq::detail::recompute_internal_state(res, *index);
+}
+
+/**
  * @brief Public helper API for fetching a trained index's IVF centroids into a buffer that may be
  * allocated on either host or device.
  *
@@ -746,7 +761,7 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
  * @code{.cpp}
  *   // allocate the buffer for the output centers
  *   auto cluster_centers = raft::make_device_matrix<float, uint32_t>(res, index.n_lists(),
- * index.dim());
+ *       index.dim());
  *   // Extract the IVF centroids into the buffer
  *   raft::neighbors::ivf_pq::helpers::extract_centers(res, index, cluster_centers.data_handle());
  * @endcode
