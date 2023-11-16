@@ -242,7 +242,7 @@ void pack_list_data(raft::resources const& res,
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // create and fill the index from a [N, D] dataset
- *   auto index = ivf_pq::build(handle, index_params, dataset, N, D);
+ *   auto index = ivf_pq::build(res, index_params, dataset, N, D);
  *   // allocate the buffer for n_rows input codes. Each vector occupies
  *   // raft::ceildiv(index.pq_dim() * index.pq_bits(), 8) bytes because
  *   // codes are compressed and without gaps.
@@ -603,7 +603,7 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // initialize an empty index
- *   ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   ivf_pq::index<int64_t> index(res, index_params, D);
  *   // reset the index's state and list sizes
  *   ivf_pq::helpers::reset_index(res, &index);
  * @endcode
@@ -637,9 +637,9 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
  *   // force random rotation
  *   index_params.force_random_rotation = true;
  *   // initialize an empty index
- *   raft::neighbors::ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   raft::neighbors::ivf_pq::index<int64_t> index(res, index_params, D);
  *   // reset the index
- *   reset_index(handle, &index);
+ *   reset_index(res, &index);
  *   // compute the rotation matrix with random_rotation
  *   raft::neighbors::ivf_pq::helpers::make_rotation_matrix(
  *     res, &index, index_params.force_random_rotation);
@@ -744,7 +744,7 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // initialize an empty index
- *   ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   ivf_pq::index<int64_t> index(res, index_params, D);
  *   ivf_pq::helpers::reset_index(res, &index);
  *   // resize the first IVF list to hold 5 records
  *   auto spec = list_spec<uint32_t, int64_t>{
@@ -753,7 +753,7 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  *   ivf::resize_list(res, list, spec, new_size, 0);
  *   raft::update_device(index.list_sizes(), &new_size, 1, stream);
  *   // recompute the internal state of the index
- *   ivf_pq::recompute_internal_state(handle, &index);
+ *   ivf_pq::recompute_internal_state(res, &index);
  * @endcode
  *
  * @tparam IdxT
