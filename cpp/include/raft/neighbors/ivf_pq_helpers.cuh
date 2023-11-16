@@ -136,7 +136,7 @@ inline void unpack_compressed(
  *       res, make_const_mdspan(codes.view()), index.pq_bits(), 42, list_data);
  * @endcode
  *
- * @param[in] res
+ * @param[in] res raft resource
  * @param[in] codes flat PQ codes, one code per byte [n_vec, pq_dim]
  * @param[in] pq_bits bit length of encoded vector elements
  * @param[in] offset how many records to skip before writing the data into the list
@@ -171,7 +171,7 @@ inline void pack(
  *     res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
  *
- * @param[in] res
+ * @param[in] res raft resource
  * @param[in] codes flat PQ codes, [n_vec, ceildiv(pq_dim * pq_bits, 8)]
  * @param[in] n_rows number of records
  * @param[in] pq_dim
@@ -211,7 +211,7 @@ inline void pack_compressed(
  *   ivf_pq::helpers::pack_list_data(res, &index, codes_to_pack, label, 42);
  * @endcode
  *
- * @param[in] res
+ * @param[in] res raft resource
  * @param[inout] index IVF-PQ index.
  * @param[in] codes flat PQ codes, one code per byte [n_rows, pq_dim]
  * @param[in] label The id of the list (cluster) into which we write.
@@ -258,8 +258,8 @@ void pack_list_data(raft::resources const& res,
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[inout] index IVF-PQ index.
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
  * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
  * @param[in] n_rows how many records to pack
  * @param[in] label The id of the list (cluster) into which we write.
@@ -338,8 +338,8 @@ void unpack_list_data(raft::resources const& res,
  *
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param[in] res
- * @param[in] index
+ * @param[in] res raft resource
+ * @param[in] index IVF-PQ index (passed by reference)
  * @param[in] in_cluster_indices
  *   The offsets of the selected indices within the cluster.
  * @param[out] out_codes
@@ -381,8 +381,8 @@ void unpack_list_data(raft::resources const& res,
  *
  * @tparam IdxT type of the indices in the source dataset
  *
- * @param[in] res
- * @param[in] index
+ * @param[in] res raft resource
+ * @param[in] index IVF-PQ index (passed by reference)
  * @param[out] out_codes
  *   the destination buffer [n_rows, ceildiv(index.pq_dim() * index.pq_bits(), 8)].
  *   The length `n_rows` defines how many records to unpack,
@@ -610,8 +610,8 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[inout] index
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
  */
 template <typename IdxT>
 void reset_index(const raft::resources& res, index<IdxT>* index)
@@ -647,8 +647,8 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[inout] index
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
  * @param[in] force_random_rotation whether to apply a random rotation matrix on the input data. See
  * raft::neighbors::ivf_pq::index_params for more details.
  */
@@ -688,9 +688,9 @@ void make_rotation_matrix(raft::resources const& res,
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[inout] index
- * @param[in] cluster_centers the new cluster centers
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
+ * @param[in] cluster_centers new cluster centers [index.n_lists(), index.dim()]
  */
 template <typename IdxT>
 void set_centers(raft::resources const& res,
@@ -722,7 +722,7 @@ void set_centers(raft::resources const& res,
  *
  * @tparam IdxT
  *
- * @param[in] index
+ * @param[in] index IVF-PQ index (passed by reference)
  * @param[in] label list ID
  */
 template <typename IdxT>
@@ -758,8 +758,8 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[inout] index
+ * @param[in] res raft resource
+ * @param[inout] index pointer to IVF-PQ index
  */
 template <typename IdxT>
 void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
@@ -783,9 +783,9 @@ void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
  *
  * @tparam IdxT
  *
- * @param[in] res
- * @param[in] index
- * @param[out] cluster_centers the new cluster centers
+ * @param[in] res raft resource
+ * @param[in] index IVF-PQ index (passed by reference)
+ * @param[out] cluster_centers the new cluster centers [index.n_lists(), index.dim]
  */
 template <typename IdxT>
 void extract_centers(raft::resources const& res, const index<IdxT>& index, float* cluster_centers)
