@@ -185,7 +185,7 @@ def run_build_and_search(
                 "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
-                cmd = cmd + ["--overwrite"]
+                cmd = cmd + ["--force"]
             cmd = cmd + [temp_conf_filename]
 
             if dry_run:
@@ -223,7 +223,7 @@ def run_build_and_search(
                 "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
-                cmd = cmd + ["--overwrite"]
+                cmd = cmd + ["--force"]
 
             if search_threads:
                 cmd = cmd + ["--threads=%s" % search_threads]

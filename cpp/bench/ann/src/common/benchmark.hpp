@@ -132,7 +132,7 @@ void bench_build(::benchmark::State& state,
       log_info("Overwriting file: %s", index.file.c_str());
     } else {
       return state.SkipWithMessage(
-        "Index file already exists (use --overwrite to overwrite the index).");
+        "Index file already exists (use --force to overwrite the index).");
     }
   }
 
@@ -381,7 +381,7 @@ inline void printf_usage()
   ::benchmark::PrintDefaultHelp();
   fprintf(stdout,
           "          [--build|--search] \n"
-          "          [--overwrite]\n"
+          "          [--force]\n"
           "          [--data_prefix=<prefix>]\n"
           "          [--index_prefix=<prefix>]\n"
           "          [--override_kv=<key:value1:value2:...:valueN>]\n"
@@ -393,7 +393,7 @@ inline void printf_usage()
           "  --build: build mode, will build index\n"
           "  --search: search mode, will search using the built index\n"
           "            one and only one of --build and --search should be specified\n"
-          "  --overwrite: force overwriting existing index files\n"
+          "  --force: force overwriting existing index files\n"
           "  --data_prefix=<prefix>:"
           " prepend <prefix> to dataset file paths specified in the <conf>.json (default = "
           "'data/').\n"
@@ -592,7 +592,7 @@ inline auto run_main(int argc, char** argv) -> int
   std::ifstream conf_stream(conf_path);
 
   for (int i = 1; i < argc; i++) {
-    if (parse_bool_flag(argv[i], "--overwrite", force_overwrite) ||
+    if (parse_bool_flag(argv[i], "--force", force_overwrite) ||
         parse_bool_flag(argv[i], "--build", build_mode) ||
         parse_bool_flag(argv[i], "--search", search_mode) ||
         parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
