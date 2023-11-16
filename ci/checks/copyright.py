@@ -20,6 +20,8 @@ import io
 import os
 import sys
 
+import git
+
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 # Add the scripts dir for gitutils
