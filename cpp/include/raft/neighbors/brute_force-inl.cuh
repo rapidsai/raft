@@ -340,46 +340,15 @@ index<T> build(raft::resources const& res,
  * [n_queries, k]
  * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
  * k]
- * @param[in] query_norms Optional device_vector_view of precomputed query norms
  */
 template <typename T, typename IdxT>
 void search(raft::resources const& res,
             const index<T>& idx,
             raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
-            raft::device_matrix_view<T, int64_t, row_major> distances,
-            std::optional<raft::device_vector_view<const T, int64_t>> query_norms = std::nullopt)
+            raft::device_matrix_view<T, int64_t, row_major> distances)
 {
-  RAFT_EXPECTS(neighbors.extent(1) == distances.extent(1), "Value of k must match for outputs");
-  RAFT_EXPECTS(idx.dataset().extent(1) == queries.extent(1),
-               "Number of columns in queries must match brute force index");
-
-  auto k = neighbors.extent(1);
-  auto d = idx.dataset().extent(1);
-
-  std::vector<T*> dataset    = {const_cast<T*>(idx.dataset().data_handle())};
-  std::vector<int64_t> sizes = {idx.dataset().extent(0)};
-  std::vector<T*> norms;
-  if (idx.has_norms()) { norms.push_back(const_cast<T*>(idx.norms().data_handle())); }
-
-  detail::brute_force_knn_impl<int64_t, IdxT, T>(
-    res,
-    dataset,
-    sizes,
-    d,
-    const_cast<T*>(queries.data_handle()),
-    queries.extent(0),
-    neighbors.data_handle(),
-    distances.data_handle(),
-    k,
-    true,
-    true,
-    nullptr,
-    idx.metric(),
-    idx.metric_arg(),
-    raft::identity_op(),
-    norms.size() ? &norms : nullptr,
-    query_norms ? query_norms->data_handle() : nullptr);
+  raft::neighbors::detail::brute_force_search<T, IdxT>(res, idx, queries, neighbors, distances);
 }
 /** @} */  // end group brute_force_knn
 }  // namespace raft::neighbors::brute_force

@@ -26,7 +26,6 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/init.cuh>
 #include <raft/neighbors/brute_force.cuh>
-#include <raft/neighbors/brute_force_batch_k_query.cuh>
 #include <raft/neighbors/detail/knn_brute_force.cuh>  // raft::neighbors::detail::brute_force_knn_impl
 #include <raft/neighbors/detail/selection_faiss.cuh>  // raft::neighbors::detail::select_k
 
@@ -222,8 +221,9 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
         handle_, idx, query_view, all_indices.view(), all_distances.view());
 
       int64_t offset = 0;
-      for (auto batch : batch_k_query<T, int>(handle_, idx, query_view, k_)) {
-        auto batch_size = batch.indices().extent(1);
+      auto query     = make_batch_k_query<T, int>(handle_, idx, query_view, k_);
+      for (auto batch : *query) {
+        auto batch_size = batch.batch_size();
         auto indices    = raft::make_device_matrix<int, int64_t>(handle_, num_queries, batch_size);
         auto distances  = raft::make_device_matrix<T, int64_t>(handle_, num_queries, batch_size);
 
@@ -250,8 +250,8 @@ class TiledKNNTest : public ::testing::TestWithParam<TiledKNNInputs> {
       // also test out with variable batch sizes
       offset             = 0;
       int64_t batch_size = k_;
-      batch_k_query<T, int> query(handle_, idx, query_view, batch_size);
-      for (auto it = query.begin(); it != query.end(); it.advance(batch_size)) {
+      query              = make_batch_k_query<T, int>(handle_, idx, query_view, batch_size);
+      for (auto it = query->begin(); it != query->end(); it.advance(batch_size)) {
         // batch_size could be less than requested (in the case of final batch). handle.
         ASSERT_TRUE(it->indices().extent(1) <= batch_size);
         batch_size = it->indices().extent(1);

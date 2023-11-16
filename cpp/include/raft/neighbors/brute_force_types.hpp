@@ -25,6 +25,7 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/neighbors_types.hpp>
 
 #include <raft/core/logger.hpp>
 
@@ -160,6 +161,99 @@ struct index : ann::index {
   T metric_arg_;
 };
 
+/**
+ * @brief Interface for performing queries over values of k
+ *
+ * @tparam T data element type
+ * @tparam IdxT type of the indices in the source dataset
+ */
+template <typename T, typename IdxT = int64_t>
+class batch_k_query {
+ public:
+  batch_k_query(const raft::resources& res,
+                int64_t index_size,
+                int64_t query_size,
+                int64_t batch_size)
+    : res(res), index_size(index_size), query_size(query_size), batch_size(batch_size)
+  {
+  }
+  virtual ~batch_k_query() {}
+
+  using value_type = raft::neighbors::batch<T, IdxT>;
+
+  class iterator {
+   public:
+    using value_type = raft::neighbors::batch<T, IdxT>;
+    using reference  = const value_type&;
+    using pointer    = const value_type*;
+
+    iterator(const batch_k_query<T, IdxT>* query, int64_t offset = 0)
+      : current(query->res, 0, 0), batches(query->res, 0, 0), query(query), offset(offset)
+    {
+      query->load_batch(offset, query->batch_size, &batches);
+      query->slice_batch(batches, offset, query->batch_size, &current);
+    }
+
+    reference operator*() const { return current; }
+
+    pointer operator->() const { return &current; }
+
+    iterator& operator++()
+    {
+      advance(query->batch_size);
+      return *this;
+    }
+
+    iterator operator++(int)
+    {
+      iterator previous(*this);
+      operator++();
+      return previous;
+    }
+
+    void advance(int64_t next_batch_size)
+    {
+      offset = std::min(offset + current.batch_size(), query->index_size);
+      if (offset + next_batch_size > batches.batch_size()) {
+        query->load_batch(offset, next_batch_size, &batches);
+      }
+      query->slice_batch(batches, offset, next_batch_size, &current);
+    }
+
+    friend bool operator==(const iterator& lhs, const iterator& rhs)
+    {
+      return (lhs.query == rhs.query) && (lhs.offset == rhs.offset);
+    };
+    friend bool operator!=(const iterator& lhs, const iterator& rhs) { return !(lhs == rhs); };
+
+   protected:
+    // the current batch of data
+    value_type current;
+
+    // the currently loaded group of data (containing multiple batches of data that we can iterate
+    // through)
+    value_type batches;
+
+    const batch_k_query<T, IdxT>* query;
+    int64_t offset, current_batch_size;
+  };
+
+  iterator begin() const { return iterator(this); }
+  iterator end() const { return iterator(this, index_size); }
+
+ protected:
+  // these two methods need cuda code, and are implemented in the subclass
+  virtual void load_batch(int64_t offset,
+                          int64_t next_batch_size,
+                          batch<T, IdxT>* output) const = 0;
+  virtual void slice_batch(const value_type& input,
+                           int64_t offset,
+                           int64_t batch_size,
+                           value_type* output) const    = 0;
+
+  const raft::resources& res;
+  int64_t index_size, query_size, batch_size;
+};
 /** @} */
 
 }  // namespace raft::neighbors::brute_force
