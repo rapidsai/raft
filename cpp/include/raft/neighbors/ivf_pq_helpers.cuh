@@ -77,18 +77,18 @@ inline void unpack(
 
 /**
  * @brief Unpack `n_rows` consecutive records of a single list (cluster) in the compressed index
- * starting at given `offset`. The output codes are compressed, which means the output has
- * ceildiv(pq_dim * pq_bits, 8) bytes per pq code.
+ * starting at given `offset`. The output codes are not expanded to one code per byte, which means
+ * the output has ceildiv(pq_dim * pq_bits, 8) bytes per pq encoded vector.
  *
  * Usage example:
  * @code{.cpp}
  *   auto list_data = index.lists()[label]->data.view();
  *   // allocate the buffer for the output
- *   uint32_t n_take = 4;
- *   auto codes = raft::make_device_matrix<uint8_t>(res, n_take, raft::ceildiv(index.pq_dim() *
+ *   uint32_t n_rows = 4;
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim() *
  * index.pq_bits(), 8)); uint32_t offset = 0;
- *   // unpack n_take elements from the list
- *   ivf_pq::helpers::codepacker::unpack(res, list_data, index.pq_bits(), offset, n_take,
+ *   // unpack n_rows elements from the list
+ *   ivf_pq::helpers::codepacker::unpack(res, list_data, index.pq_bits(), offset, n_rows,
  * index.pq_dim(), codes.data_handle());
  * @endcode
  *
@@ -155,18 +155,19 @@ inline void pack(
  * Write flat PQ codes into an existing list by the given offset. The input codes are compressed
  * (not expanded to one code per byte).
  *
- * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows records).
  *
  * Usage example:
  * @code{.cpp}
  *   auto list_data  = index.lists()[label]->data.view();
  *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<uint8_t>(res, n_vec, raft::ceildiv(index.pq_dim() *
- * index.pq_bits()));
- *   ... prepare n_vecs to pack into the list in codes ...
- *   // write codes into the list starting from the 42nd position
+ *   auto codes = raft::make_device_matrix<uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim() *
+ * index.pq_bits(), 8));
+ *   ... prepare compressed vectors to pack into the list in codes ...
+ *   // write codes into the list starting from the 42nd position. If the current size of the list
+ * is greater than 42, this will overwrite the codes starting at this offset.
  *   ivf_pq::helpers::codepacker::pack_compressed(
- *       res, codes, n_vec, index.pq_dim(), index.pq_bits(), 42, list_data);
+ *       res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
  *
  * @param[in] res
@@ -226,22 +227,31 @@ void pack_list_data(raft::resources const& res,
 }
 
 /**
- * Write flat compressed PQ codes into an existing list by the given offset.
+ * Write flat compressed PQ codes into an existing list by the given offset. Use this when the input
+ * vectors are PQ encoded and not expanded to one code per byte.
  *
  * The list is identified by its label.
  *
- * NB: no memory allocation happens here; the list must fit the data (offset + n_vec).
+ * NB: no memory allocation happens here; the list into which the vectors are packed must fit offset
+ * + n_rows rows.
  *
  * Usage example:
  * @code{.cpp}
- *   // We will write into the 137th cluster
- *   uint32_t label = 137;
- *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_vec, raft::ceildiv(index.pq_dim() *
- * index.pq_bits(), 8));
- *   ... prepare n_vecs to pack into the list in codes ...
- *   // write codes into the list starting from the 42nd position
- *   ivf_pq::helpers::pack_compressed_list_data(res, &index, codes.data_handle(), n_vec, label, 42);
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_pq::index_params index_params;
+ *   // create and fill the index from a [N, D] dataset
+ *   auto index = ivf_pq::build(handle, index_params, dataset, N, D);
+ *   // allocate the buffer for n_rows input codes. Each vector occupies
+ *   // raft::ceildiv(index.pq_dim() * index.pq_bits(), 8) bytes because
+ *   // codes are compressed and without gaps.
+ *   auto codes = raft::make_device_matrix<const uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim()
+ * * index.pq_bits(), 8));
+ *   ... prepare the compressed vectors to pack into the list in codes ...
+ *   // the first n_rows codes in the fourth IVF list are to be overwritten.
+ *   uint32_t label = 3;
+ *   // write codes into the list starting from the 0th position
+ *   ivf_pq::helpers::pack_compressed_list_data(res, &index, codes.data_handle(), n_rows, label, 0);
  * @endcode
  *
  * @param[in] res
@@ -346,21 +356,23 @@ void unpack_list_data(raft::resources const& res,
 }
 
 /**
- * @brief Unpack `n_take` consecutive records of a single list (cluster) in the compressed index
- * starting at given `offset`, not expanded to one code per byte.
+ * @brief Unpack `n_rows` consecutive PQ encoded vectors of a single list (cluster) in the
+ * compressed index starting at given `offset`, not expanded to one code per byte. Each code in the
+ * output buffer occupies ceildiv(index.pq_dim() * index.pq_bits(), 8) bytes.
  *
  * Usage example:
  * @code{.cpp}
- *   // We will unpack the fourth cluster
+ *   // We will unpack the whole fourth cluster
  *   uint32_t label = 3;
  *   // Get the list size
  *   uint32_t list_size = 0;
- *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
- * resource::get_cuda_stream(res)); resource::sync_stream(res);
+ *   raft::update_host(&list_size, index.list_sizes().data_handle() + label, 1,
+ * raft::resource::get_cuda_stream(res)); raft::resource::sync_stream(res);
  *   // allocate the buffer for the output
- *   auto codes = raft::make_device_matrix<float>(res, list_size, index.pq_dim());
+ *   auto codes = raft::make_device_matrix<float>(res, list_size, raft::ceildiv(index.pq_dim() *
+ * index.pq_bits(), 8));
  *   // unpack the whole list
- *   ivf_pq::helpers::unpack_list_data(res, index, codes.view(), label, 0);
+ *   ivf_pq::helpers::unpack_list_data(res, index, codes.data_handle(), list_size, label, 0);
  * @endcode
  *
  * @tparam IdxT type of the indices in the source dataset
@@ -368,10 +380,10 @@ void unpack_list_data(raft::resources const& res,
  * @param[in] res
  * @param[in] index
  * @param[out] out_codes
- *   the destination buffer [n_take, ceildiv(index.pq_dim() * index.pq_bits(), 8)].
- *   The length `n_take` defines how many records to unpack,
- *   it must be smaller than the list size.
- * @param[in] n_rows how many records to unpack
+ *   the destination buffer [n_rows, ceildiv(index.pq_dim() * index.pq_bits(), 8)].
+ *   The length `n_rows` defines how many records to unpack,
+ *   offset + n_rows must be smaller than or equal to the list size.
+ * @param[in] n_rows how many codes to unpack
  * @param[in] label
  *   The id of the list (cluster) to decode.
  * @param[in] offset
@@ -400,7 +412,7 @@ void unpack_compressed_list_data(raft::resources const& res,
  *   // Get the list size
  *   uint32_t list_size = 0;
  *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
- * resource::get_cuda_stream(res)); resource::sync_stream(res);
+ *       resource::get_cuda_stream(res)); resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto decoded_vectors = raft::make_device_matrix<float>(res, list_size, index.dim());
  *   // decode the whole list
@@ -582,8 +594,17 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  *
  * Usage example:
  * @code{.cpp}
+ *   // use default index parameters
+ *   ivf_pq::index_params index_params;
+ *   // force random rotation
+ *   index_params.force_random_rotation = true;
+ *   // initialize an empty index
+ *   raft::neighbors::ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   // reset the index
+ *   reset_index(handle, &index);
  *   // compute the rotation matrix with random_rotation
- *   raft::neighbors::ivf_pq::helpers::make_rotation_matrix(res, &index, true);
+ *   raft::neighbors::ivf_pq::helpers::make_rotation_matrix(res, &index,
+ *       index_params.force_random_rotation);
  * @endcode
  *
  * @tparam IdxT
@@ -616,7 +637,7 @@ void make_rotation_matrix(raft::resources const& res,
  index.dim());
  *   ... prepare ivf centroids in cluster_centers ...
  *   // reset the index
- *   reset_index(res, index);
+ *   reset_index(res, &index);
  *   // recompute the state of the index
  *   raft::neighbors::ivf_pq::helpers::recompute_internal_state(res, index);
  *   // Write the IVF centroids
@@ -670,6 +691,22 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  * @brief Helper exposing the re-computation of list sizes and related arrays if IVF lists have been
  * modified.
  *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_pq::index_params index_params;
+ *   // initialize an empty index
+ *   raft::neighbors::ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   // resize the first IVF list to hold 5 records
+ *   auto spec = list_spec<uint32_t, int64_t>{index->pq_bits(), index->pq_dim(),
+ *   index->conservative_memory_allocation()}; auto& list = index->lists()[0]; uint32_t new_size = 5;
+ *   ivf::resize_list(res, list, spec, new_size, 0);
+ *   raft::update_device(index.list_sizes(), &new_size, 1, stream);
+ *   // recompute the internal state of the index
+ *   raft::neighbors::ivf_pq::recompute_internal_state(handle, &index);
+ * @endcode
+ *
  * @tparam IdxT
  * @param[in] res
  * @param[inout] index
@@ -682,7 +719,8 @@ void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
 
 /**
  * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
- * externally modifying the index without going through the build stage.
+ * externally modifying the index without going through the build stage. The data and indices of the
+ * IVF lists will be lost.
  *
  * @tparam IdxT
  * @param[in] res
