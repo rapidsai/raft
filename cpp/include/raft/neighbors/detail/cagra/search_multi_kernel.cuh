@@ -86,7 +86,7 @@ void get_value(T* const host_ptr, const T* const dev_ptr, cudaStream_t cuda_stre
 
 // MAX_DATASET_DIM : must equal to or greater than dataset_dim
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
@@ -111,8 +111,21 @@ RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_s
   const uint32_t query_id      = blockIdx.y;
   if (global_team_index >= num_pickup) { return; }
   // Load a query
-  device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> query_frag;
-  device::load_vector_sync(query_frag, queries_ptr + query_id * dataset_dim, dataset_dim);
+  extern __shared__ float query_buffer[];
+  const auto query_smem_buffer_length =
+    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+  for (uint32_t i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
+    unsigned j = device::swizzling(i);
+    if (i < dataset_dim) {
+      query_buffer[j] =
+        spatial::knn::detail::utils::mapping<float>{}((queries_ptr + query_id * dataset_dim)[i]);
+    } else {
+      query_buffer[j] = 0.0;
+    }
+  }
+  __syncthreads();
+  device::distance_op<DATA_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, false> dist_op(
+    query_buffer);
 
   INDEX_T best_index_team_local;
   DISTANCE_T best_norm2_team_local = utils::get_max_value<DISTANCE_T>();
@@ -124,17 +137,8 @@ RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_s
       // Chose a seed node randomly
       seed_index = device::xorshift64((global_team_index ^ rand_xor_mask) * (i + 1)) % dataset_size;
     }
-    device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> random_data_frag;
-    device::load_vector_sync(
-      random_data_frag, dataset_ptr + (dataset_ld * seed_index), dataset_dim);
 
-    // Compute the norm of two data
-    const auto norm2 = device::norm2<DISTANCE_T>(
-      query_frag,
-      random_data_frag,
-      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor)
-      /*, scale*/
-    );
+    const auto norm2 = dist_op(dataset_ptr + (dataset_ld * seed_index), dataset_dim, true);
 
     if (norm2 < best_norm2_team_local) {
       best_norm2_team_local = norm2;
@@ -157,7 +161,7 @@ RAFT_KERNEL random_pickup_kernel(const DATA_T* const dataset_ptr,  // [dataset_s
 
 // MAX_DATASET_DIM : must be equal to or greater than dataset_dim
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T>
@@ -184,22 +188,26 @@ void random_pickup(const DATA_T* const dataset_ptr,  // [dataset_size, dataset_d
   const dim3 grid_size((num_pickup + num_teams_per_threadblock - 1) / num_teams_per_threadblock,
                        num_queries);
 
-  random_pickup_kernel<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, DISTANCE_T, INDEX_T>
-    <<<grid_size, block_size, 0, cuda_stream>>>(dataset_ptr,
-                                                dataset_dim,
-                                                dataset_size,
-                                                dataset_ld,
-                                                queries_ptr,
-                                                num_pickup,
-                                                num_distilation,
-                                                rand_xor_mask,
-                                                seed_ptr,
-                                                num_seeds,
-                                                result_indices_ptr,
-                                                result_distances_ptr,
-                                                ldr,
-                                                visited_hashmap_ptr,
-                                                hash_bitlen);
+  const auto query_smem_buffer_length =
+    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+  const auto smem_size = query_smem_buffer_length * sizeof(float);
+
+  random_pickup_kernel<TEAM_SIZE, DATASET_BLOCK_DIM, DATA_T, DISTANCE_T, INDEX_T>
+    <<<grid_size, block_size, smem_size, cuda_stream>>>(dataset_ptr,
+                                                        dataset_dim,
+                                                        dataset_size,
+                                                        dataset_ld,
+                                                        queries_ptr,
+                                                        num_pickup,
+                                                        num_distilation,
+                                                        rand_xor_mask,
+                                                        seed_ptr,
+                                                        num_seeds,
+                                                        result_indices_ptr,
+                                                        result_distances_ptr,
+                                                        ldr,
+                                                        visited_hashmap_ptr,
+                                                        hash_bitlen);
 }
 
 template <class INDEX_T>
@@ -303,7 +311,7 @@ void pickup_next_parents(INDEX_T* const parent_candidates_ptr,  // [num_queries,
 }
 
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           class DATA_T,
           class INDEX_T,
           class DISTANCE_T,
@@ -315,7 +323,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   const std::size_t lds,
   const std::uint32_t search_width,
   const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
-  const std::uint32_t data_dim,
+  const std::uint32_t dataset_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
@@ -333,7 +341,23 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   const auto global_team_id = tid / TEAM_SIZE;
   const auto query_id       = blockIdx.y;
 
+  extern __shared__ float query_buffer[];
+  const auto query_smem_buffer_length =
+    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+  for (uint32_t i = threadIdx.x; i < query_smem_buffer_length; i += blockDim.x) {
+    unsigned j = device::swizzling(i);
+    if (i < dataset_dim) {
+      query_buffer[j] =
+        spatial::knn::detail::utils::mapping<float>{}((query_ptr + query_id * dataset_dim)[i]);
+    } else {
+      query_buffer[j] = 0.0;
+    }
+  }
+  __syncthreads();
   if (global_team_id >= search_width * graph_degree) { return; }
+
+  device::distance_op<DATA_T, DATA_T, DISTANCE_T, DATASET_BLOCK_DIM, TEAM_SIZE, false> dist_op(
+    query_buffer);
 
   const std::size_t parent_list_index =
     parent_node_list[global_team_id / graph_degree + (search_width * blockIdx.y)];
@@ -352,19 +376,13 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
 
   const std::size_t child_id = neighbor_list_head_ptr[global_team_id % graph_degree];
 
-  if (hashmap::insert<TEAM_SIZE, INDEX_T>(
-        visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id)) {
-    device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_target;
-    device::load_vector_sync(frag_target, dataset_ptr + (dataset_ld * child_id), data_dim);
+  const auto compute_distance_flag = hashmap::insert<TEAM_SIZE, INDEX_T>(
+    visited_hashmap_ptr + (ldb * blockIdx.y), hash_bitlen, child_id);
 
-    device::fragment<MAX_DATASET_DIM, DATA_T, TEAM_SIZE> frag_query;
-    device::load_vector_sync(frag_query, query_ptr + blockIdx.y * data_dim, data_dim);
+  const auto norm2 =
+    dist_op(dataset_ptr + (dataset_ld * child_id), dataset_dim, compute_distance_flag);
 
-    const auto norm2 = device::norm2<DISTANCE_T>(
-      frag_target,
-      frag_query,
-      static_cast<float>(1.0 / spatial::knn::detail::utils::config<DATA_T>::kDivisor));
-
+  if (compute_distance_flag) {
     if (threadIdx.x % TEAM_SIZE == 0) {
       result_indices_ptr[ldd * blockIdx.y + global_team_id]   = child_id;
       result_distances_ptr[ldd * blockIdx.y + global_team_id] = norm2;
@@ -386,7 +404,7 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
 }
 
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           class DATA_T,
           class INDEX_T,
           class DISTANCE_T,
@@ -398,7 +416,7 @@ void compute_distance_to_child_nodes(
   const std::size_t lds,
   const uint32_t search_width,
   const DATA_T* const dataset_ptr,  // [dataset_size, data_dim]
-  const std::uint32_t data_dim,
+  const std::uint32_t dataset_dim,
   const std::uint32_t dataset_size,
   const std::uint32_t dataset_ld,
   const INDEX_T* const neighbor_graph_ptr,  // [dataset_size, graph_degree]
@@ -417,25 +435,31 @@ void compute_distance_to_child_nodes(
   const dim3 grid_size(
     (search_width * graph_degree + (block_size / TEAM_SIZE) - 1) / (block_size / TEAM_SIZE),
     num_queries);
-  compute_distance_to_child_nodes_kernel<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>
-    <<<grid_size, block_size, 0, cuda_stream>>>(parent_node_list,
-                                                parent_candidates_ptr,
-                                                parent_distance_ptr,
-                                                lds,
-                                                search_width,
-                                                dataset_ptr,
-                                                data_dim,
-                                                dataset_size,
-                                                dataset_ld,
-                                                neighbor_graph_ptr,
-                                                graph_degree,
-                                                query_ptr,
-                                                visited_hashmap_ptr,
-                                                hash_bitlen,
-                                                result_indices_ptr,
-                                                result_distances_ptr,
-                                                ldd,
-                                                sample_filter);
+
+  const auto query_smem_buffer_length =
+    raft::ceildiv<uint32_t>(dataset_dim, DATASET_BLOCK_DIM) * DATASET_BLOCK_DIM;
+
+  const auto smem_size = query_smem_buffer_length * sizeof(float);
+
+  compute_distance_to_child_nodes_kernel<TEAM_SIZE, DATASET_BLOCK_DIM, DATA_T, INDEX_T, DISTANCE_T>
+    <<<grid_size, block_size, smem_size, cuda_stream>>>(parent_node_list,
+                                                        parent_candidates_ptr,
+                                                        parent_distance_ptr,
+                                                        lds,
+                                                        search_width,
+                                                        dataset_ptr,
+                                                        dataset_dim,
+                                                        dataset_size,
+                                                        dataset_ld,
+                                                        neighbor_graph_ptr,
+                                                        graph_degree,
+                                                        query_ptr,
+                                                        visited_hashmap_ptr,
+                                                        hash_bitlen,
+                                                        result_indices_ptr,
+                                                        result_distances_ptr,
+                                                        ldd,
+                                                        sample_filter);
 }
 
 template <class INDEX_T>
@@ -582,7 +606,7 @@ void set_value_batch(T* const dev_ptr,
 // |<---                       result_buffer_size  --->|                     // Double buffer (A)
 //                      |<---  result_buffer_size                      --->| // Double buffer (B)
 template <unsigned TEAM_SIZE,
-          unsigned MAX_DATASET_DIM,
+          unsigned DATASET_BLOCK_DIM,
           typename DATA_T,
           typename INDEX_T,
           typename DISTANCE_T,
@@ -692,7 +716,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     if (topk_hint.size() > 0) { set_value(topk_hint.data(), 0xffffffffu, num_queries, stream); }
 
     // Choose initial entry point candidates at random
-    random_pickup<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, DISTANCE_T, INDEX_T>(
+    random_pickup<TEAM_SIZE, DATASET_BLOCK_DIM, DATA_T, DISTANCE_T, INDEX_T>(
       dataset.data_handle(),
       dataset.extent(1),
       dataset.extent(0),
@@ -761,7 +785,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
       }
 
       // Compute distance to child nodes that are adjacent to the parent node
-      compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM>(
+      compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM>(
         parent_node_list.data(),
         result_indices.data() + (1 - (iter & 0x1)) * result_buffer_size,
         result_distances.data() + (1 - (iter & 0x1)) * result_buffer_size,
