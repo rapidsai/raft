@@ -710,8 +710,14 @@ void set_centers(raft::resources const& res,
  *
  * Usage example:
  * @code{.cpp}
+ *   // use default index params
+ *   ivf_pq::index_params index_params;
+ *   // extend the IVF lists while building the index
+ *   index_params.add_data_on_build = true;
+ *   // create and fill the index from a [N, D] dataset
+ *   auto index = raft::neighbors::ivf_pq::build<int64_t>(res, index_params, dataset, N, D);
  *   // Fetch the size of the fourth list
- *   raft::neighbors::ivf_pq::helpers::get_list_size_in_bytes(index, 3);
+ *   uint32_t size = raft::neighbors::ivf_pq::helpers::get_list_size_in_bytes(index, 3);
  * @endcode
  *
  * @tparam IdxT
