@@ -25,6 +25,21 @@ from importlib import import_module
 
 import yaml
 
+log_levels = {
+    "off": 0,
+    "error": 1,
+    "warn": 2,
+    "info": 3,
+    "debug": 4,
+    "trace": 5,
+}
+
+
+def parse_log_level(level_str):
+    if level_str not in log_levels:
+        raise ValueError("Invalid log level: %s" % level_str)
+    return log_levels[level_str.lower()]
+
 
 def positive_int(input_str: str) -> int:
     try:
@@ -88,7 +103,7 @@ def run_build_and_search(
     batch_size,
     search_threads,
     mode="throughput",
-    raft_log_level=4,
+    raft_log_level="info",
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
@@ -118,7 +133,7 @@ def run_build_and_search(
                 "--benchmark_counters_tabular=true",
                 "--benchmark_out="
                 + f"{os.path.join(build_folder, f'{algo}.json')}",
-                "--raft_log_level=" + raft_log_level,
+                "--raft_log_level=" + parse_log_level(raft_log_level),
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -299,13 +314,12 @@ def main():
     )
     parser.add_argument(
         "--raft-log-level",
-        type=int,
-        help="Log level, possible values are [0,1,2,3,4,5,6]. These levels "
-        "correspond to [OFF, ERROR, WARN, INFO, DEBUG, TRACE] respectively."
-        "Default: 4 (INFO). Note that DEBUG or more detailed logging level "
-        "requires that the library is compiled with -DRAFT_ACTIVE_LEVER=<L>"
-        " where <L> >= <requested log level>",
-        default=4,
+        help="Log level, possible values are "
+        "[off, error, warn, info, debug, trace]. "
+        "Default: 'info'. Note that 'debug' or more detailed "
+        "logging level requires that the library is compiled with "
+        "-DRAFT_ACTIVE_LEVEL=<L> where <L> >= <requested log level>",
+        default="info",
     )
 
     if len(sys.argv) == 1:
