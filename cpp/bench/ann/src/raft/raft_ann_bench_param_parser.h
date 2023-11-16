@@ -206,6 +206,21 @@ void parse_build_param(const nlohmann::json& conf,
   }
 }
 
+raft::bench::ann::AllocatorType parse_allocator(std::string mem_type)
+{
+  if (mem_type == "device") {
+    return raft::bench::ann::AllocatorType::Device;
+  } else if (mem_type == "host_pinned") {
+    return raft::bench::ann::AllocatorType::HostPinned;
+  } else if (mem_type == "host_huge_page") {
+    return raft::bench::ann::AllocatorType::HostHugePage;
+  }
+  THROW(
+    "Invalid value for memory type %s, must be one of [\"device\", \"host_pinned\", "
+    "\"host_huge_page\"",
+    mem_type.c_str());
+}
+
 template <typename T, typename IdxT>
 void parse_search_param(const nlohmann::json& conf,
                         typename raft::bench::ann::RaftCagra<T, IdxT>::SearchParam& param)
@@ -226,6 +241,12 @@ void parse_search_param(const nlohmann::json& conf,
       std::string tmp = conf.at("algo");
       THROW("Invalid value for algo: %s", tmp.c_str());
     }
+  }
+  if (conf.contains("graph_memory_type")) {
+    param.graph_mem = parse_allocator(conf.at("graph_memory_type"));
+  }
+  if (conf.contains("internal_dataset_memory_type")) {
+    param.dataset_mem = parse_allocator(conf.at("internal_dataset_memory_type"));
   }
 }
 #endif

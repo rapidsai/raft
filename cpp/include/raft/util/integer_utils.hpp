@@ -36,7 +36,7 @@ namespace raft {
  * `modulus` is positive.
  */
 template <typename S>
-inline S round_up_safe(S number_to_round, S modulus)
+constexpr inline S round_up_safe(S number_to_round, S modulus)
 {
   auto remainder = number_to_round % modulus;
   if (remainder == 0) { return number_to_round; }
