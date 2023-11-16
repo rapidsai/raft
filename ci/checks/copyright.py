@@ -40,10 +40,7 @@ FilesToCheck = [
     re.compile(r"meta[.]yaml$")
 ]
 ExemptFiles = [
-    re.compile("cpp/include/raft/neighbors/detail/faiss_select/"),
-    re.compile("cpp/include/raft/thirdparty/"),
-    re.compile("docs/source/sphinxext/github_link.py"),
-    re.compile("cpp/cmake/modules/FindAVX.cmake")
+    re.compile("cpp/include/raft/neighbors/detail/faiss_select/")
 ]
 
 # this will break starting at year 10000, which is probably OK :)
