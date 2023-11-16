@@ -416,7 +416,7 @@ void unpack_compressed_list_data(raft::resources const& res,
  *   // Get the list size
  *   uint32_t list_size = 0;
  *   raft::copy(&list_size, index.list_sizes().data_handle() + label, 1,
- *       resource::get_cuda_stream(res)); resource::sync_stream(res);
+ *   resource::get_cuda_stream(res)); resource::sync_stream(res);
  *   // allocate the buffer for the output
  *   auto decoded_vectors = raft::make_device_matrix<float>(res, list_size, index.dim());
  *   // decode the whole list
