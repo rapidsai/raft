@@ -32,7 +32,6 @@
 
 #include "compute_distance.hpp"
 #include "device_common.hpp"
-#include "fragment.hpp"
 #include "hashmap.hpp"
 #include "search_plan.cuh"
 #include "topk_for_cagra/topk_core.cuh"  //todo replace with raft kernel
