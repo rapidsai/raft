@@ -82,6 +82,7 @@ inline void unpack(
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   auto list_data = index.lists()[label]->data.view();
  *   // allocate the buffer for the output
  *   uint32_t n_rows = 4;
@@ -160,6 +161,7 @@ inline void pack(
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   auto list_data  = index.lists()[label]->data.view();
  *   // allocate the buffer for the input codes
  *   auto codes = raft::make_device_matrix<uint8_t>(
@@ -239,6 +241,7 @@ void pack_list_data(raft::resources const& res,
  * Usage example:
  * @code{.cpp}
  *   using namespace raft::neighbors;
+ *   raft::resources res;
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // create and fill the index from a [N, D] dataset
@@ -366,6 +369,7 @@ void unpack_list_data(raft::resources const& res,
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   // We will unpack the whole fourth cluster
  *   uint32_t label = 3;
  *   // Get the list size
@@ -599,6 +603,7 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   using namespace raft::neighbors;
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
@@ -632,6 +637,7 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // force random rotation
@@ -671,6 +677,7 @@ void make_rotation_matrix(raft::resources const& res,
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   // allocate the buffer for the input centers
  *   auto cluster_centers = raft::make_device_matrix<float, uint32_t>(res, index.n_lists(),
  index.dim());
@@ -710,6 +717,7 @@ void set_centers(raft::resources const& res,
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   // use default index params
  *   ivf_pq::index_params index_params;
  *   // extend the IVF lists while building the index
@@ -741,6 +749,7 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
  * Usage example:
  * @code{.cpp}
  *   using namespace raft::neighbors;
+ *   raft::resources res;
  *   // use default index parameters
  *   ivf_pq::index_params index_params;
  *   // initialize an empty index
@@ -774,6 +783,7 @@ void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
  *
  * Usage example:
  * @code{.cpp}
+ *   raft::resources res;
  *   // allocate the buffer for the output centers
  *   auto cluster_centers = raft::make_device_matrix<float, uint32_t>(
  *     res, index.n_lists(), index.dim());
