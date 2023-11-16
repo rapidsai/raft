@@ -38,18 +38,6 @@ namespace raft::neighbors::ivf_pq::detail {
 //             compatible fashion.
 constexpr int kSerializationVersion = 3;
 
-// NB: we wrap this check in a struct, so that the updated RealSize is easy to see in the error
-// message.
-template <size_t RealSize, size_t ExpectedSize>
-struct check_index_layout {
-  static_assert(RealSize == ExpectedSize,
-                "The size of the index struct has changed since the last update; "
-                "paste in the new size and consider updating the serialization logic");
-};
-
-// TODO: Recompute this and come back to it.
-template struct check_index_layout<sizeof(index<std::uint64_t>), 480>;
-
 /**
  * Write the index to an output stream
  *
