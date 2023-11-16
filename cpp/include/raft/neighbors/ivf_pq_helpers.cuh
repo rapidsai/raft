@@ -165,8 +165,8 @@ inline void pack(
  *   auto codes = raft::make_device_matrix<uint8_t>(
  *     res, n_rows, raft::ceildiv(index.pq_dim() * index.pq_bits(), 8));
  *   ... prepare compressed vectors to pack into the list in codes ...
- *   // write codes into the list starting from the 42nd position. If the current size of the list is
- *   // greater than 42, this will overwrite the codes starting at this offset.
+ *   // write codes into the list starting from the 42nd position. If the current size of the list
+ *   // is greater than 42, this will overwrite the codes starting at this offset.
  *   ivf_pq::helpers::codepacker::pack_compressed(
  *     res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
