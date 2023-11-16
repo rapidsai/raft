@@ -162,13 +162,13 @@ inline void pack(
  * @code{.cpp}
  *   auto list_data  = index.lists()[label]->data.view();
  *   // allocate the buffer for the input codes
- *   auto codes = raft::make_device_matrix<uint8_t>(res, n_rows, raft::ceildiv(index.pq_dim() *
- * index.pq_bits(), 8));
+ *   auto codes = raft::make_device_matrix<uint8_t>(
+ *     res, n_rows, raft::ceildiv(index.pq_dim() * index.pq_bits(), 8));
  *   ... prepare compressed vectors to pack into the list in codes ...
- *   // write codes into the list starting from the 42nd position. If the current size of the list
- * is greater than 42, this will overwrite the codes starting at this offset.
+ *   // write codes into the list starting from the 42nd position. If the current size of the list is
+ *   // greater than 42, this will overwrite the codes starting at this offset.
  *   ivf_pq::helpers::codepacker::pack_compressed(
- *       res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
+ *     res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
  *
  * @param[in] res
@@ -581,6 +581,7 @@ void extend_list(raft::resources const& res,
  * @endcode
  *
  * @tparam IdxT
+ *
  * @param[in] res
  * @param[inout] index
  * @param[in] label the id of the target list (cluster).
@@ -589,6 +590,39 @@ template <typename IdxT>
 void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
 {
   ivf_pq::detail::erase_list(res, index, label);
+}
+
+/**
+ * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
+ * externally modifying the index without going through the build stage. The data and indices of the
+ * IVF lists will be lost.
+ *
+ * Usage example:
+ * @code{.cpp}
+ *   using namespace raft::neighbors;
+ *   // use default index parameters
+ *   ivf_pq::index_params index_params;
+ *   // initialize an empty index
+ *   ivf_pq::index<int64_t> index(handle, index_params, D);
+ *   // reset the index's state and list sizes
+ *   ivf_pq::helpers::reset_index(res, &index);
+ * @endcode
+ *
+ * @tparam IdxT
+ *
+ * @param[in] res
+ * @param[inout] index
+ */
+template <typename IdxT>
+void reset_index(const raft::resources& res, index<IdxT>* index)
+{
+  auto stream = resource::get_cuda_stream(res);
+
+  utils::memzero(
+    index->accum_sorted_sizes().data_handle(), index->accum_sorted_sizes().size(), stream);
+  utils::memzero(index->list_sizes().data_handle(), index->list_sizes().size(), stream);
+  utils::memzero(index->data_ptrs().data_handle(), index->data_ptrs().size(), stream);
+  utils::memzero(index->inds_ptrs().data_handle(), index->inds_ptrs().size(), stream);
 }
 
 /**
@@ -612,6 +646,7 @@ void erase_list(raft::resources const& res, index<IdxT>* index, uint32_t label)
  * @endcode
  *
  * @tparam IdxT
+ *
  * @param[in] res
  * @param[inout] index
  * @param[in] force_random_rotation whether to apply a random rotation matrix on the input data. See
@@ -652,6 +687,7 @@ void make_rotation_matrix(raft::resources const& res,
  * @endcode
  *
  * @tparam IdxT
+ *
  * @param[in] res
  * @param[inout] index
  * @param[in] cluster_centers the new cluster centers
@@ -679,6 +715,7 @@ void set_centers(raft::resources const& res,
  * @endcode
  *
  * @tparam IdxT
+ *
  * @param[in] index
  * @param[in] label list ID
  */
@@ -689,37 +726,6 @@ auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_
                "Expected label to be less than number of lists in the index");
   auto list_data = index.lists()[label]->data;
   return list_data.size();
-}
-
-/**
- * @brief Public helper API to reset the data and indices ptrs, and the list sizes. Useful for
- * externally modifying the index without going through the build stage. The data and indices of the
- * IVF lists will be lost.
- *
- * Usage example:
- * @code{.cpp}
- *   using namespace raft::neighbors;
- *   // use default index parameters
- *   ivf_pq::index_params index_params;
- *   // initialize an empty index
- *   ivf_pq::index<int64_t> index(handle, index_params, D);
- *   // reset the index's state and list sizes
- *   ivf_pq::helpers::reset_index(res, &index);
- * @endcode
- * @tparam IdxT
- * @param[in] res
- * @param[inout] index
- */
-template <typename IdxT>
-void reset_index(const raft::resources& res, index<IdxT>* index)
-{
-  auto stream = resource::get_cuda_stream(res);
-
-  utils::memzero(
-    index->accum_sorted_sizes().data_handle(), index->accum_sorted_sizes().size(), stream);
-  utils::memzero(index->list_sizes().data_handle(), index->list_sizes().size(), stream);
-  utils::memzero(index->data_ptrs().data_handle(), index->data_ptrs().size(), stream);
-  utils::memzero(index->inds_ptrs().data_handle(), index->inds_ptrs().size(), stream);
 }
 
 /**
@@ -735,21 +741,24 @@ void reset_index(const raft::resources& res, index<IdxT>* index)
  *   ivf_pq::index<int64_t> index(handle, index_params, D);
  *   ivf_pq::helpers::reset_index(res, &index);
  *   // resize the first IVF list to hold 5 records
- *   auto spec = list_spec<uint32_t, int64_t>{index->pq_bits(), index->pq_dim(),
- *   index->conservative_memory_allocation()}; auto& list = index->lists()[0]; uint32_t new_size =
- * 5; ivf::resize_list(res, list, spec, new_size, 0); raft::update_device(index.list_sizes(),
- * &new_size, 1, stream);
+ *   auto spec = list_spec<uint32_t, int64_t>{
+ *     index->pq_bits(), index->pq_dim(), index->conservative_memory_allocation()};
+ *   uint32_t new_size = 5;
+ *   ivf::resize_list(res, list, spec, new_size, 0);
+ *   raft::update_device(index.list_sizes(), &new_size, 1, stream);
  *   // recompute the internal state of the index
  *   ivf_pq::recompute_internal_state(handle, &index);
  * @endcode
  *
  * @tparam IdxT
+ *
  * @param[in] res
  * @param[inout] index
  */
 template <typename IdxT>
 void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
 {
+  auto& list = index->lists()[0];
   ivf_pq::detail::recompute_internal_state(res, *index);
 }
 
@@ -760,12 +769,14 @@ void recompute_internal_state(const raft::resources& res, index<IdxT>* index)
  * Usage example:
  * @code{.cpp}
  *   // allocate the buffer for the output centers
- *   auto cluster_centers = raft::make_device_matrix<float, uint32_t>(res, index.n_lists(),
- *       index.dim());
+ *   auto cluster_centers = raft::make_device_matrix<float, uint32_t>(
+ *     res, index.n_lists(), index.dim());
  *   // Extract the IVF centroids into the buffer
  *   raft::neighbors::ivf_pq::helpers::extract_centers(res, index, cluster_centers.data_handle());
  * @endcode
+ *
  * @tparam IdxT
+ *
  * @param[in] res
  * @param[in] index
  * @param[out] cluster_centers the new cluster centers
