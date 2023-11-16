@@ -52,9 +52,15 @@ def read_file(dataset, dataset_path, method):
     for file in os.listdir(dir):
         if file.endswith(".json"):
             with open(os.path.join(dir, file), "r") as f:
-                data = json.load(f)
-                df = pd.DataFrame(data["benchmarks"])
-                yield (os.path.join(dir, file), file.split("-")[0], df)
+                try:
+                    data = json.load(f)
+                    df = pd.DataFrame(data["benchmarks"])
+                    yield os.path.join(dir, file), file.split("-")[0], df
+                except Exception as e:
+                    print(
+                        "An error occurred processing file %s (%s). "
+                        "Skipping..." % (file, e)
+                    )
 
 
 def convert_json_to_csv_build(dataset, dataset_path):
@@ -114,7 +120,7 @@ def convert_json_to_csv_search(dataset, dataset_path):
                 write["build cpu_time"] = None
                 write["build GPU"] = None
 
-                for col_idx in range(5, len(build_df.columns)):
+                for col_idx in range(6, len(build_df.columns)):
                     col_name = build_df.columns[col_idx]
                     write[col_name] = None
 
