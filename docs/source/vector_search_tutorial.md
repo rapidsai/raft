@@ -344,7 +344,12 @@ raft::device_resource res(managed_resource, std::make_optional<std::size_t>(3 * 
 
 ### Filtering
 
-As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This feature is useful for applications that want to remove vectors already added to the index, or to enable access control in searches. The filtering is done by applying a predicate function on the GPU. The following example demonstrates how to use the filtering API:
+As of RAFT 23.10, support for pre-filtering of neighbors has been added to ANN index. This search feature can enable multiple use-cases, such as filtering a vector based on it's attributes (hybrid searches), the removal of vectors already added to the index, or the control of access in searches for security purposes.
+The filtering is available through the `search_with_filtering()` function of the ANN index, and is done by applying a predicate function on the GPU, which usually have the signature `(uint32_t query_ix, uint32_t sample_ix) -> bool`.
+
+One of the most commonly used mechanism for filtering is the bitset: the bitset is a data structure that allows to test the presence of a value in a set through a fast lookup, and is implemented as a bit array so that every element contains a `0` or a `1` (respectively `false` and `true` in boolean logic). RAFT provides a `raft::core::bitset` class that can be used to create and manipulate bitsets on the GPU, and a `raft::core::bitset_view` class that can be used to pass bitsets to filtering functions.
+
+The following example demonstrates how to use the filtering API:
 
 ```c++
 #include <raft/neighbors/cagra.cuh>
