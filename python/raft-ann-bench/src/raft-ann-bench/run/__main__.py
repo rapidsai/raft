@@ -54,6 +54,53 @@ def positive_int(input_str: str) -> int:
     return i
 
 
+def merge_build_files(build_dir, build_file, temp_build_file):
+
+    build_dict = {}
+
+    # If build file exists, read it
+    build_json_path = os.path.join(build_dir, build_file)
+    tmp_build_json_path = os.path.join(build_dir, temp_build_file)
+    if os.path.isfile(build_json_path):
+        try:
+            with open(build_json_path, "r") as f:
+                build_dict = json.load(f)
+        except Exception as e:
+            print(
+                "Error loading existing build file: %s (%s)"
+                % (build_json_path, e)
+            )
+
+    temp_build_dict = {}
+    if os.path.isfile(tmp_build_json_path):
+        with open(tmp_build_json_path, "r") as f:
+            temp_build_dict = json.load(f)
+    else:
+        raise ValueError("Temp build file not found: %s" % tmp_build_json_path)
+
+    tmp_benchmarks = (
+        temp_build_dict["benchmarks"]
+        if "benchmarks" in temp_build_dict
+        else {}
+    )
+    benchmarks = build_dict["benchmarks"] if "benchmarks" in build_dict else {}
+
+    # If the build time is absolute 0 then an error occurred
+    final_bench_dict = {}
+    for b in benchmarks:
+        if b["real_time"] > 0:
+            final_bench_dict[b["name"]] = b
+
+    for tmp_bench in tmp_benchmarks:
+        if tmp_bench["real_time"] > 0:
+            final_bench_dict[tmp_bench["name"]] = tmp_bench
+
+    temp_build_dict["benchmarks"] = [v for k, v in final_bench_dict.items()]
+    with open(build_json_path, "w") as f:
+        json_str = json.dumps(temp_build_dict, indent=2)
+        f.write(json_str)
+
+
 def validate_algorithm(algos_conf, algo, gpu_present):
     algos_conf_keys = set(algos_conf.keys())
     if gpu_present:
@@ -125,6 +172,8 @@ def run_build_and_search(
         if build:
             build_folder = os.path.join(legacy_result_folder, "build")
             os.makedirs(build_folder, exist_ok=True)
+            build_file = f"{algo}.json"
+            temp_build_file = f"{build_file}.lock"
             cmd = [
                 ann_executable_path,
                 "--build",
@@ -132,8 +181,8 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--benchmark_counters_tabular=true",
                 "--benchmark_out="
-                + f"{os.path.join(build_folder, f'{algo}.json')}",
-                "--raft_log_level=" + parse_log_level(raft_log_level),
+                + f"{os.path.join(build_folder, temp_build_file)}",
+                "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
@@ -146,9 +195,13 @@ def run_build_and_search(
             else:
                 try:
                     subprocess.run(cmd, check=True)
+                    merge_build_files(
+                        build_folder, build_file, temp_build_file
+                    )
                 except Exception as e:
                     print("Error occurred running benchmark: %s" % e)
                 finally:
+                    os.remove(os.path.join(build_folder, temp_build_file))
                     if not search:
                         os.remove(temp_conf_filename)
 
@@ -167,7 +220,7 @@ def run_build_and_search(
                 "--mode=%s" % mode,
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
-                "--raft_log_level=" + raft_log_level,
+                "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
                 cmd = cmd + ["--overwrite"]
