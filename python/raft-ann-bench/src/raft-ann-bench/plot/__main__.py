@@ -43,7 +43,7 @@ metrics = {
         "worst": float("-inf"),
     },
     "latency": {
-        "description": "Search Latency (ms)",
+        "description": "Search Latency (s)",
         "worst": float("inf"),
     },
 }
@@ -112,6 +112,7 @@ def create_plot_search(
     k,
     batch_size,
     mode,
+    time_unit,
 ):
     xn = "k-nn"
     xm, ym = (metrics[xn], metrics[mode])
@@ -150,7 +151,10 @@ def create_plot_search(
         labels.append(algo)
 
     ax = plt.gca()
-    ax.set_ylabel(ym["description"])
+    y_description = ym["description"]
+    if mode == "latency":
+        y_description = y_description.replace("(s)", f"({time_unit})")
+    ax.set_ylabel(y_description)
     ax.set_xlabel("Recall")
     # Custom scales of the type --x-scale a3
     if x_scale[0] == "a":
@@ -267,7 +271,7 @@ def create_plot_build(
     fig.savefig(fn_out)
 
 
-def load_lines(results_path, result_files, method, index_key, mode):
+def load_lines(results_path, result_files, method, index_key, mode, time_unit):
     results = dict()
 
     for result_filename in result_files:
@@ -297,6 +301,16 @@ def load_lines(results_path, result_files, method, index_key, mode):
                     to_add = [algo_name, index_name]
                     for key_i in key_idx:
                         to_add.append(float(split_lines[key_i]))
+                    if (
+                        mode == "latency"
+                        and time_unit != "s"
+                        and method == "search"
+                    ):
+                        to_add[-1] = (
+                            to_add[-1] * (10**3)
+                            if time_unit == "ms"
+                            else to_add[-1] * (10**6)
+                        )
                     results[dict_key].append(to_add)
         except Exception:
             print(
@@ -318,6 +332,7 @@ def load_all_results(
     index_key,
     raw,
     mode,
+    time_unit,
 ):
     results_path = os.path.join(dataset_path, "result", method)
     result_files = os.listdir(results_path)
@@ -387,7 +402,9 @@ def load_all_results(
         final_results = final_results + final_algo_groups
         final_results = set(final_results)
 
-    results = load_lines(results_path, final_results, method, index_key, mode)
+    results = load_lines(
+        results_path, final_results, method, index_key, mode, time_unit
+    )
 
     return results
 
@@ -468,6 +485,12 @@ def main():
         default="throughput",
     )
     parser.add_argument(
+        "--time-unit",
+        help="time unit to plot when mode is latency",
+        choices=["s", "ms", "us"],
+        default="ms",
+    )
+    parser.add_argument(
         "--raw",
         help="Show raw results (not just Pareto frontier) of mode arg",
         action="store_true",
@@ -516,6 +539,7 @@ def main():
         "algo",
         args.raw,
         args.mode,
+        args.time_unit,
     )
     linestyles = create_linestyles(sorted(search_results.keys()))
     if search:
@@ -529,6 +553,7 @@ def main():
             k,
             batch_size,
             args.mode,
+            args.time_unit,
         )
     if build:
         build_results = load_all_results(
@@ -542,6 +567,7 @@ def main():
             "index",
             args.raw,
             args.mode,
+            args.time_unit,
         )
         create_plot_build(
             build_results,

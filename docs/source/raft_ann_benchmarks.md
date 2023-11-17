@@ -212,15 +212,16 @@ CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 The usage of this script is:
 ```bash
 usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS]
-        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--raw]
+        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--time-unit {s,ms,us}]
+        [--raw]
 
 options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to plot (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: os.getcwd()/datasets/)
+                        path to dataset folder (default: /home/coder/raft/datasets/)
   --output-filepath OUTPUT_FILEPATH
-                        directory for PNG to be saved (default: os.getcwd())
+                        directory for PNG to be saved (default: /home/coder/raft)
   --algorithms ALGORITHMS
                         plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default
                         (default: None)
@@ -237,8 +238,10 @@ options:
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
   --mode {throughput,latency}
-                        metric whose Pareto frontier is used on the y-axis (default: throughput)
-  --raw                 Show raw results (not just Pareto frontier) of metric arg (default: False)
+                        search mode whose Pareto frontier is used on the y-axis (default: throughput)
+  --time-unit {s,ms,us}
+                        time unit to plot when mode is latency (default: ms)
+  --raw                 Show raw results (not just Pareto frontier) of mode arg (default: False)
 ```
 `mode`: plots pareto frontier of `throughput` or `latency` results exported in the previous step
 
