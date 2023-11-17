@@ -104,7 +104,6 @@ def create_linestyles(unique_algorithms):
 
 def create_plot_search(
     all_data,
-    raw,
     x_scale,
     y_scale,
     fn_out,
@@ -124,7 +123,6 @@ def create_plot_search(
     # Sorting by mean y-value helps aligning plots with labels
     def mean_y(algo):
         points = np.array(all_data[algo], dtype=object)
-        print(points[:, 3])
         return -np.log(np.array(points[:, 3], dtype=np.float32)).mean()
 
     # Find range for logit x-scale
@@ -209,14 +207,7 @@ def create_plot_search(
 
 
 def create_plot_build(
-    build_results,
-    search_results,
-    linestyles,
-    fn_out,
-    dataset,
-    k,
-    batch_size,
-    mode,
+    build_results, search_results, linestyles, fn_out, dataset
 ):
 
     qps_85 = [-1] * len(linestyles)
@@ -522,7 +513,6 @@ def main():
     if search:
         create_plot_search(
             search_results,
-            args.raw,
             args.x_scale,
             args.y_scale,
             search_output_filepath,
@@ -551,9 +541,6 @@ def main():
             linestyles,
             build_output_filepath,
             args.dataset,
-            k,
-            batch_size,
-            args.mode,
         )
 
 
