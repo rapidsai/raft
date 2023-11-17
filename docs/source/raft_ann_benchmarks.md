@@ -198,27 +198,32 @@ options:
   --dataset-path DATASET_PATH
                         path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
 ```
-Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.csv>`
-and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
+Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo_group.csv>`
+and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo_group-k{k}-batch_size{batch_size}_{suffix}.csv>`, where suffix has three values:
+1. `raw`: All search results are exported
+2. `throughput`: Pareto frontier of throughput results is exported
+3. `latency`: Pareto frontier of latency results is exported
+
 
 ### Step 4: Plot Results
 The script `raft-ann-bench.plot` will plot results for all algorithms found in index search statistics
-CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}>.csv`.
+CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 
 The usage of this script is:
 ```bash
-usage: __main__.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS] [-k COUNT]
-                   [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS]
+        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--raw]
 
 options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to plot (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: os.getcwd()/datasets/)
+                        path to dataset folder (default: /home/coder/raft/datasets/)
   --output-filepath OUTPUT_FILEPATH
-                        directory for PNG to be saved (default: os.getcwd())
+                        directory for PNG to be saved (default: /home/coder/raft)
   --algorithms ALGORITHMS
-                        plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default (default: None)
+                        plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default
+                        (default: None)
   --groups GROUPS       plot only comma separated groups of parameters (default: base)
   --algo-groups ALGO_GROUPS, --algo-groups ALGO_GROUPS
                         add comma separated <algorithm>.<group> to plot. Example usage: "--algo-groups=raft_cagra.large,hnswlib.large" (default: None)
@@ -231,8 +236,12 @@ options:
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
-  --raw                 Show raw results (not just Pareto frontier) in faded colours (default: False)
+  --mode {throughput,latency}
+                        metric whose Pareto frontier is used on the y-axis (default: throughput)
+  --raw                 Show raw results (not just Pareto frontier) of metric arg (default: False)
 ```
+`mode`: plots pareto frontier of `throughput` or `latency` results exported in the previous step
+
 `algorithms`: plots all algorithms that it can find results for the specified `dataset`. By default, only `base` group will be plotted.
 
 `groups`: plot only specific groups of parameters configurations for an algorithm. Groups are defined in YAML configs (see `configuration`), and by default run `base` group

@@ -43,8 +43,25 @@ skip_build_cols = set(
 )
 
 skip_search_cols = (
-    set(["recall", "qps", "items_per_second", "Recall"]) | skip_build_cols
+    set(["recall", "qps", "latency", "items_per_second", "Recall", "Latency"])
+    | skip_build_cols
 )
+
+metrics = {
+    "k-nn": {
+        "description": "Recall",
+        "worst": float("-inf"),
+        "lim": [0.0, 1.03],
+    },
+    "throughput": {
+        "description": "Queries per second (1/s)",
+        "worst": float("-inf"),
+    },
+    "latency": {
+        "description": "Search Latency (s)",
+        "worst": float("inf"),
+    },
+}
 
 
 def read_file(dataset, dataset_path, method):
@@ -92,6 +109,31 @@ def convert_json_to_csv_build(dataset, dataset_path):
             traceback.print_exc()
 
 
+def create_pointset(data, xn, yn):
+    xm, ym = (metrics[xn], metrics[yn])
+    rev_y = -1 if ym["worst"] < 0 else 1
+    rev_x = -1 if xm["worst"] < 0 else 1
+
+    y_idx = 3 if yn == "throughput" else 4
+    data.sort(key=lambda t: (rev_y * t[y_idx], rev_x * t[2]))
+
+    lines = []
+    last_x = xm["worst"]
+    comparator = (
+        (lambda xv, lx: xv > lx) if last_x < 0 else (lambda xv, lx: xv < lx)
+    )
+    for d in data:
+        if comparator(d[2], last_x):
+            last_x = d[2]
+            lines.append(d)
+    return lines
+
+
+def get_frontier(df, metric):
+    lines = create_pointset(df.values.tolist(), "k-nn", metric)
+    return pd.DataFrame(lines, columns=df.columns)
+
+
 def convert_json_to_csv_search(dataset, dataset_path):
     for file, algo_name, df in read_file(dataset, dataset_path, "search"):
         try:
@@ -105,7 +147,8 @@ def convert_json_to_csv_search(dataset, dataset_path):
                     "algo_name": [algo_name] * len(df),
                     "index_name": df["name"],
                     "recall": df["Recall"],
-                    "qps": df["items_per_second"],
+                    "throughput": df["items_per_second"],
+                    "latency": df["Latency"],
                 }
             )
             for name in df:
@@ -141,7 +184,13 @@ def convert_json_to_csv_search(dataset, dataset_path):
                     "appended in the Search CSV"
                 )
 
-            write.to_csv(file.replace(".json", ".csv"), index=False)
+            write.to_csv(file.replace(".json", "_raw.csv"), index=False)
+            throughput = get_frontier(write, "throughput")
+            throughput.to_csv(
+                file.replace(".json", "_throughput.csv"), index=False
+            )
+            latency = get_frontier(write, "latency")
+            latency.to_csv(file.replace(".json", "_latency.csv"), index=False)
         except Exception as e:
             print(
                 "An error occurred processing file %s (%s). Skipping..."
