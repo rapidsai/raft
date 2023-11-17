@@ -714,36 +714,6 @@ void set_centers(raft::resources const& res,
 }
 
 /**
- * @brief Helper to fetch size of a particular IVF list in bytes using the list extents.
- *
- * Usage example:
- * @code{.cpp}
- *   raft::resources res;
- *   // use default index params
- *   ivf_pq::index_params index_params;
- *   // extend the IVF lists while building the index
- *   index_params.add_data_on_build = true;
- *   // create and fill the index from a [N, D] dataset
- *   auto index = raft::neighbors::ivf_pq::build<int64_t>(res, index_params, dataset, N, D);
- *   // Fetch the size of the fourth list
- *   uint32_t size = raft::neighbors::ivf_pq::helpers::get_list_size_in_bytes(index, 3);
- * @endcode
- *
- * @tparam IdxT
- *
- * @param[in] index IVF-PQ index (passed by reference)
- * @param[in] label list ID
- */
-template <typename IdxT>
-auto get_list_size_in_bytes(const index<IdxT>& index, uint32_t label) -> uint32_t
-{
-  RAFT_EXPECTS(label < index.n_lists(),
-               "Expected label to be less than number of lists in the index");
-  auto list_data = index.lists()[label]->data;
-  return list_data.size();
-}
-
-/**
  * @brief Helper exposing the re-computation of list sizes and related arrays if IVF lists have been
  * modified.
  *
