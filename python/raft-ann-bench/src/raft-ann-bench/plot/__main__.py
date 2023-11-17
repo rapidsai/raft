@@ -455,13 +455,13 @@ def main():
     )
     parser.add_argument(
         "--mode",
-        help="metric whose Pareto frontier is used on the y-axis",
+        help="search mode whose Pareto frontier is used on the y-axis",
         choices=["throughput", "latency"],
         default="throughput",
     )
     parser.add_argument(
         "--raw",
-        help="Show raw results (not just Pareto frontier) of metric arg",
+        help="Show raw results (not just Pareto frontier) of mode arg",
         action="store_true",
     )
 
