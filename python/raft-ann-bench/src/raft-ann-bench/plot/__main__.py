@@ -271,7 +271,7 @@ def load_lines(results_path, result_files, method, index_key, mode):
     results = dict()
 
     for result_filename in result_files:
-        if result_filename.endswith(".csv"):
+        try:
             with open(os.path.join(results_path, result_filename), "r") as f:
                 lines = f.readlines()
                 lines = lines[:-1] if lines[-1] == "\n" else lines
@@ -298,6 +298,11 @@ def load_lines(results_path, result_files, method, index_key, mode):
                     for key_i in key_idx:
                         to_add.append(float(split_lines[key_i]))
                     results[dict_key].append(to_add)
+        except Exception:
+            print(
+                f"An error occurred processing file {result_filename}. "
+                "Skipping..."
+            )
 
     return results
 
@@ -332,6 +337,9 @@ def load_all_results(
             for result_file in result_files
             if f"{suffix}.csv" in result_file
         ]
+    if len(result_files) == 0:
+        raise FileNotFoundError(f"No CSV result files found in {results_path}")
+
     if method == "search":
         result_files = [
             result_filename
