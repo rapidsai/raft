@@ -164,6 +164,19 @@ struct index : ann::index {
 /**
  * @brief Interface for performing queries over values of k
  *
+ * This interface lets you iterate over batches of k from a brute_force::index.
+ * This lets you do things like retrieve the first 100 neighbors for a query,
+ * apply post processing to remove any unwanted items and then if needed get the
+ * next 100 closest neighbors for the query.
+ *
+ * This query interface exposes C++ iterators through the ::begin and ::end, and
+ * is compatible with range based for loops.
+ *
+ * Note that this class is an abstract class without any cuda dependencies, meaning
+ * that it doesn't require a cuda compiler to use - but also means it can't be directly
+ * instantiated.  See the raft::neighbors::brute_force::make_batch_k_query
+ * function for usage examples.
+ *
  * @tparam T data element type
  * @tparam IdxT type of the indices in the source dataset
  */
@@ -211,6 +224,16 @@ class batch_k_query {
       return previous;
     }
 
+    /**
+     * @brief Advance the iterator, using a custom size for the next batch
+     *
+     * Using operator++ means that we will load up the same batch_size for each
+     * batch. This method allows us to get around this restriction, and load up
+     * arbitrary batch sizes on each iteration.
+     * See raft::neighbors::brute_force::make_batch_k_query for a usage example.
+     *
+     * @param[in] next_batch_size: size of the next batch to load up
+     */
     void advance(int64_t next_batch_size)
     {
       offset = std::min(offset + current.batch_size(), query->index_size);

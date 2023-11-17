@@ -52,11 +52,22 @@ namespace raft::neighbors::brute_force {
  * // create a brute_force knn index from the dataset
  * auto index = raft::neighbors::brute_force::build(res,
  *                                                  raft::make_const_mdspan(dataset.view()));
+ *
  * // search the index in batches of 128 nearest neighbors
  * auto search = raft::make_const_mdspan(dataset.view());
  * auto query = make_batch_k_query<float, int>(res, index, search, 128);
  * for (auto & batch: *query) {
  *  // batch.indices() and batch.distances() contain the information on the current batch
+ * }
+ *
+ * // we can also support variable sized batches - loaded up a different number
+ * // of neighbors at each iteration through the ::advance method
+ * int64_t batch_size = 128;
+ * query = make_batch_k_query<float, int>(res, index, search, batch_size);
+ * for (auto it = query->begin(); it != query->end(); it.advance(batch_size)) {
+ *  // batch.indices() and batch.distances() contain the information on the current batch
+ *
+ *  batch_size += 16; // load up an extra 16 items in the next batch
  * }
  * @endcode
  *
