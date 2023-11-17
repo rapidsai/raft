@@ -50,7 +50,7 @@ void search(raft::resources const& res,
             const index<T>& idx,
             raft::device_matrix_view<const T, int64_t, row_major> queries,
             raft::device_matrix_view<IdxT, int64_t, row_major> neighbors,
-            raft::device_matrix_view<float, int64_t, row_major> distances) RAFT_EXPLICIT;
+            raft::device_matrix_view<T, int64_t, row_major> distances) RAFT_EXPLICIT;
 
 template <typename idx_t,
           typename value_t,
