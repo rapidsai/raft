@@ -142,15 +142,21 @@ def convert_json_to_csv_search(dataset, dataset_path):
             )
             algo_name = algo_name.replace("_base", "")
             df["name"] = df["name"].str.split("/").str[0]
-            write = pd.DataFrame(
-                {
-                    "algo_name": [algo_name] * len(df),
-                    "index_name": df["name"],
-                    "recall": df["Recall"],
-                    "throughput": df["items_per_second"],
-                    "latency": df["Latency"],
-                }
-            )
+            try:
+                write = pd.DataFrame(
+                    {
+                        "algo_name": [algo_name] * len(df),
+                        "index_name": df["name"],
+                        "recall": df["Recall"],
+                        "throughput": df["items_per_second"],
+                        "latency": df["Latency"],
+                    }
+                )
+            except Exception as e:
+                print(
+                    "Search file %s (%s) missing a key. Skipping..."
+                    % (file, e)
+                )
             for name in df:
                 if name not in skip_search_cols:
                     write[name] = df[name]
@@ -163,20 +169,29 @@ def convert_json_to_csv_search(dataset, dataset_path):
                 write["build cpu_time"] = None
                 write["build GPU"] = None
 
-                for col_idx in range(6, len(build_df.columns)):
-                    col_name = build_df.columns[col_idx]
-                    write[col_name] = None
+                try:
+                    for col_idx in range(6, len(build_df.columns)):
+                        col_name = build_df.columns[col_idx]
+                        write[col_name] = None
 
-                for s_index, search_row in write.iterrows():
-                    for b_index, build_row in build_df.iterrows():
-                        if search_row["index_name"] == build_row["index_name"]:
-                            write.iloc[s_index, write_ncols] = build_df.iloc[
-                                b_index, 2
-                            ]
-                            write.iloc[
-                                s_index, write_ncols + 1 :
-                            ] = build_df.iloc[b_index, 3:]
-                            break
+                    for s_index, search_row in write.iterrows():
+                        for b_index, build_row in build_df.iterrows():
+                            if (
+                                search_row["index_name"]
+                                == build_row["index_name"]
+                            ):
+                                write.iloc[
+                                    s_index, write_ncols
+                                ] = build_df.iloc[b_index, 2]
+                                write.iloc[
+                                    s_index, write_ncols + 1 :
+                                ] = build_df.iloc[b_index, 3:]
+                                break
+                except Exception as e:
+                    print(
+                        "Build file %s (%s) missing a key. Skipping..."
+                        % (build_file, e)
+                    )
             else:
                 warnings.warn(
                     f"Build CSV not found for {algo_name}, "
