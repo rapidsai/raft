@@ -380,7 +380,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                             list_data_size,
                             Compare<uint8_t>{}));
   }
-  void check_packing_compressed(index<IdxT>* index, uint32_t label)
+  void check_packing_contiguous(index<IdxT>* index, uint32_t label)
   {
     auto old_list = index->lists()[label];
     auto n_rows   = old_list->size.load();
@@ -475,7 +475,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
         case 1: {
           // Dump and re-write codes for one label
           check_packing(&index, label);
-          check_packing_compressed(&index, label);
+          check_packing_contiguous(&index, label);
         } break;
         default: {
           // check a small subset of data in a randomly chosen cluster to see if the data
