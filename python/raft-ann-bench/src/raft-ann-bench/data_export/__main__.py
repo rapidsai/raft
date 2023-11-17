@@ -58,7 +58,7 @@ metrics = {
         "worst": float("-inf"),
     },
     "latency": {
-        "description": "Search Latency (s)",
+        "description": "Search Latency (ms)",
         "worst": float("inf"),
     },
 }
