@@ -218,9 +218,9 @@ options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to plot (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: /home/coder/raft/datasets/)
+                        path to dataset folder (default: os.getcwd()/datasets/)
   --output-filepath OUTPUT_FILEPATH
-                        directory for PNG to be saved (default: /home/coder/raft)
+                        directory for PNG to be saved (default: os.getcwd())
   --algorithms ALGORITHMS
                         plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default
                         (default: None)
