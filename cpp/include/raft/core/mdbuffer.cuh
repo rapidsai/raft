@@ -31,6 +31,7 @@
 #include <raft/core/pinned_container_policy.hpp>
 #include <raft/core/stream_view.hpp>
 #include <raft/util/variant_utils.hpp>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #ifndef RAFT_DISABLE_CUDA
@@ -557,7 +558,7 @@ struct mdbuffer {
         if (mem_type == other.mem_type()) {
           result = std::move(other.data_);
         } else if (!other.is_owning() && has_compatible_accessibility(other_mem_type, mem_type) &&
-                   other_mem_type != memory_type::pinned) {
+                   !is_host_device_accessible(mem_type)) {
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
@@ -630,7 +631,7 @@ struct mdbuffer {
         if (mem_type == other_mem_type) {
           std::visit([&result](auto&& other_view) { result = other_view; }, other.view());
         } else if (has_compatible_accessibility(other_mem_type, mem_type) &&
-                   mem_type != memory_type::pinned) {
+                   !is_host_device_accessible(mem_type)) {
           switch (mem_type) {
             case (memory_type::host): {
               result = std::visit(
@@ -825,6 +826,63 @@ struct mdbuffer {
    */
   [[nodiscard]] auto view() const { return view<memory_type_constant<>>(); }
 };
+
+/**
+ * @\brief Template checks and helpers to determine if type T is an mdbuffer
+ *         or a derived type
+ */
+
+template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
+void __takes_an_mdbufer_ptr(mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>*);
+
+template <typename T, typename = void>
+struct is_mdbuffer : std::false_type {};
+template <typename T>
+struct is_mdbuffer<T, std::void_t<decltype(__takes_an_mdbuffer_ptr(std::declval<T*>()))>>
+  : std::true_type {};
+
+template <typename T, typename = void>
+struct is_input_mdbuffer : std::false_type {};
+template <typename T>
+struct is_input_mdbuffer<T, std::void_t<decltype(__takes_an_mdbuffer_ptr(std::declval<T*>()))>>
+  : std::bool_constant<std::is_const_v<typename T::element_type>> {};
+
+template <typename T, typename = void>
+struct is_output_mdbuffer : std::false_type {};
+template <typename T>
+struct is_output_mdbuffer<T, std::void_t<decltype(__takes_an_mdbuffer_ptr(std::declval<T*>()))>>
+  : std::bool_constant<not std::is_const_v<typename T::element_type>> {};
+
+template <typename T>
+using is_mdbuffer_t = is_mdbuffer<std::remove_const_t<T>>;
+
+template <typename T>
+using is_input_mdbuffer_t = is_input_mdbuffer<T>;
+
+template <typename T>
+using is_output_mdbuffer_t = is_output_mdbuffer<T>;
+
+/**
+ * @\brief Boolean to determine if variadic template types Tn are
+ *          raft::mdbuffer or derived types
+ */
+template <typename... Tn>
+inline constexpr bool is_mdbuffer_v = std::conjunction_v<is_mdbuffer_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_mdbuffer = std::enable_if_t<is_mdbuffer_v<Tn...>>;
+
+template <typename... Tn>
+inline constexpr bool is_input_mdbuffer_v = std::conjunction_v<is_input_mdbuffer_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_input_mdbuffer = std::enable_if_t<is_input_mdbuffer_v<Tn...>>;
+
+template <typename... Tn>
+inline constexpr bool is_output_mdbuffer_v = std::conjunction_v<is_output_mdbuffer_t<Tn>...>;
+
+template <typename... Tn>
+using enable_if_output_mdbuffer = std::enable_if_t<is_output_mdbuffer_v<Tn...>>;
 
 /** @} */
 

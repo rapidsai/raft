@@ -262,9 +262,9 @@ TEST(MDBuffer, FromPinned)
             buffer.view<memory_type::pinned>().data_handle());
 
   buffer2 = mdbuffer(res, buffer, memory_type::device);
-  EXPECT_TRUE(buffer2.is_owning());
+  EXPECT_FALSE(buffer2.is_owning());
   EXPECT_EQ(buffer2.mem_type(), memory_type::device);
-  EXPECT_NE(buffer2.view<memory_type::device>().data_handle(),
+  EXPECT_EQ(buffer2.view<memory_type::device>().data_handle(),
             buffer.view<memory_type::pinned>().data_handle());
 
   buffer2 = mdbuffer(res, buffer, memory_type::managed);

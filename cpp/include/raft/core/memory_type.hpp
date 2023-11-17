@@ -34,7 +34,8 @@ enum class memory_type : std::uint8_t {
 
 auto constexpr is_device_accessible(memory_type mem_type)
 {
-  return (mem_type == memory_type::device || mem_type == memory_type::managed);
+  return (mem_type == memory_type::device || mem_type == memory_type::managed ||
+          mem_type == memory_type::pinned);
 }
 auto constexpr is_host_accessible(memory_type mem_type)
 {

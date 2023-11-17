@@ -23,7 +23,7 @@ TEST(MemoryType, IsDeviceAccessible)
   static_assert(!is_device_accessible(memory_type::host));
   static_assert(is_device_accessible(memory_type::device));
   static_assert(is_device_accessible(memory_type::managed));
-  static_assert(!is_device_accessible(memory_type::pinned));
+  static_assert(is_device_accessible(memory_type::pinned));
 }
 
 TEST(MemoryType, IsHostAccessible)
@@ -39,7 +39,7 @@ TEST(MemoryType, IsHostDeviceAccessible)
   static_assert(!is_host_device_accessible(memory_type::host));
   static_assert(!is_host_device_accessible(memory_type::device));
   static_assert(is_host_device_accessible(memory_type::managed));
-  static_assert(!is_host_device_accessible(memory_type::pinned));
+  static_assert(is_host_device_accessible(memory_type::pinned));
 }
 
 TEST(MemoryTypeFromPointer, Host)
