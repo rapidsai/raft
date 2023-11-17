@@ -395,11 +395,11 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
 
     auto codes_compressed = make_device_matrix<uint8_t>(handle_, n_rows, code_size);
 
-    ivf_pq::helpers::unpack_compressed_list_data(
+    ivf_pq::helpers::unpack_contiguous_list_data(
       handle_, *index, codes_compressed.data_handle(), n_rows, label, 0);
     ivf_pq::helpers::erase_list(handle_, index, label);
     ivf_pq::detail::extend_list_prepare(handle_, index, make_const_mdspan(indices.view()), label);
-    ivf_pq::helpers::pack_compressed_list_data<IdxT>(
+    ivf_pq::helpers::pack_contiguous_list_data<IdxT>(
       handle_, index, codes_compressed.data_handle(), n_rows, label, 0);
     ivf_pq::helpers::recompute_internal_state(handle_, index);
 
@@ -424,7 +424,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     size_t offset      = row_offset * code_size;
     auto codes_to_pack = make_device_matrix_view<uint8_t, uint32_t>(
       codes_compressed.data_handle() + offset, n_vec, index->pq_dim());
-    ivf_pq::helpers::pack_compressed_list_data(
+    ivf_pq::helpers::pack_contiguous_list_data(
       handle_, index, codes_to_pack.data_handle(), n_vec, label, row_offset);
     ASSERT_TRUE(devArrMatch(old_list->data.data_handle(),
                             new_list->data.data_handle(),
@@ -436,7 +436,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
     uint32_t n_take = 4;
     ASSERT_TRUE(row_offset + n_take < n_rows);
     auto codes2 = raft::make_device_matrix<uint8_t>(handle_, n_take, code_size);
-    ivf_pq::helpers::codepacker::unpack_compressed(handle_,
+    ivf_pq::helpers::codepacker::unpack_contiguous(handle_,
                                                    list_data,
                                                    index->pq_bits(),
                                                    row_offset,
@@ -445,7 +445,7 @@ class ivf_pq_test : public ::testing::TestWithParam<ivf_pq_inputs> {
                                                    codes2.data_handle());
 
     // Write it back
-    ivf_pq::helpers::codepacker::pack_compressed(handle_,
+    ivf_pq::helpers::codepacker::pack_contiguous(handle_,
                                                  codes2.data_handle(),
                                                  n_vec,
                                                  index->pq_dim(),

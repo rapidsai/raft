@@ -77,8 +77,9 @@ inline void unpack(
 
 /**
  * @brief Unpack `n_rows` consecutive records of a single list (cluster) in the compressed index
- * starting at given `offset`. The output codes are not expanded to one code per byte, which means
- * the output has ceildiv(pq_dim * pq_bits, 8) bytes per pq encoded vector.
+ * starting at given `offset`. The output codes of a single vector are contiguous, not expanded to
+ * one code per byte, which means the output has ceildiv(pq_dim * pq_bits, 8) bytes per PQ encoded
+ * vector.
  *
  * Usage example:
  * @code{.cpp}
@@ -90,7 +91,7 @@ inline void unpack(
  *     res, n_rows, raft::ceildiv(index.pq_dim() * index.pq_bits(), 8));
  *   uint32_t offset = 0;
  *   // unpack n_rows elements from the list
- *   ivf_pq::helpers::codepacker::unpack_compressed(
+ *   ivf_pq::helpers::codepacker::unpack_contiguous(
  *     res, list_data, index.pq_bits(), offset, n_rows, index.pq_dim(), codes.data_handle());
  * @endcode
  *
@@ -108,7 +109,7 @@ inline void unpack(
  *   The length `n_rows` defines how many records to unpack,
  *   it must be smaller than the list size.
  */
-inline void unpack_compressed(
+inline void unpack_contiguous(
   raft::resources const& res,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   uint32_t pq_bits,
@@ -117,7 +118,7 @@ inline void unpack_compressed(
   uint32_t pq_dim,
   uint8_t* codes)
 {
-  ivf_pq::detail::unpack_compressed_list_data(
+  ivf_pq::detail::unpack_contiguous_list_data(
     codes, list_data, n_rows, pq_dim, offset, pq_bits, resource::get_cuda_stream(res));
 }
 
@@ -154,8 +155,8 @@ inline void pack(
 }
 
 /**
- * Write flat PQ codes into an existing list by the given offset. The input codes are compressed
- * (not expanded to one code per byte).
+ * Write flat PQ codes into an existing list by the given offset. The input codes of a single vector
+ * are contiguous (not expanded to one code per byte).
  *
  * NB: no memory allocation happens here; the list must fit the data (offset + n_rows records).
  *
@@ -169,7 +170,7 @@ inline void pack(
  *   ... prepare compressed vectors to pack into the list in codes ...
  *   // write codes into the list starting from the 42nd position. If the current size of the list
  *   // is greater than 42, this will overwrite the codes starting at this offset.
- *   ivf_pq::helpers::codepacker::pack_compressed(
+ *   ivf_pq::helpers::codepacker::pack_contiguous(
  *     res, codes.data_handle(), n_rows, index.pq_dim(), index.pq_bits(), 42, list_data);
  * @endcode
  *
@@ -181,7 +182,7 @@ inline void pack(
  * @param[in] offset how many records to skip before writing the data into the list
  * @param[in] list_data block to write into
  */
-inline void pack_compressed(
+inline void pack_contiguous(
   raft::resources const& res,
   const uint8_t* codes,
   uint32_t n_rows,
@@ -190,7 +191,7 @@ inline void pack_compressed(
   uint32_t offset,
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data)
 {
-  ivf_pq::detail::pack_compressed_list_data(
+  ivf_pq::detail::pack_contiguous_list_data(
     list_data, codes, n_rows, pq_dim, offset, pq_bits, resource::get_cuda_stream(res));
 }
 }  // namespace codepacker
@@ -230,7 +231,7 @@ void pack_list_data(raft::resources const& res,
 }
 
 /**
- * Write flat compressed PQ codes into an existing list by the given offset. Use this when the input
+ * Write flat PQ codes into an existing list by the given offset. Use this when the input
  * vectors are PQ encoded and not expanded to one code per byte.
  *
  * The list is identified by its label.
@@ -255,7 +256,7 @@ void pack_list_data(raft::resources const& res,
  *   // the first n_rows codes in the fourth IVF list are to be overwritten.
  *   uint32_t label = 3;
  *   // write codes into the list starting from the 0th position
- *   ivf_pq::helpers::pack_compressed_list_data(
+ *   ivf_pq::helpers::pack_contiguous_list_data(
  *     res, &index, codes.data_handle(), n_rows, label, 0);
  * @endcode
  *
@@ -263,20 +264,20 @@ void pack_list_data(raft::resources const& res,
  *
  * @param[in] res raft resource
  * @param[inout] index pointer to IVF-PQ index
- * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] codes flat contiguous PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
  * @param[in] n_rows how many records to pack
  * @param[in] label The id of the list (cluster) into which we write.
  * @param[in] offset how many records to skip before writing the data into the list
  */
 template <typename IdxT>
-void pack_compressed_list_data(raft::resources const& res,
+void pack_contiguous_list_data(raft::resources const& res,
                                index<IdxT>* index,
                                uint8_t* codes,
                                uint32_t n_rows,
                                uint32_t label,
                                uint32_t offset)
 {
-  ivf_pq::detail::pack_compressed_list_data(res, index, codes, n_rows, label, offset);
+  ivf_pq::detail::pack_contiguous_list_data(res, index, codes, n_rows, label, offset);
 }
 
 /**
@@ -398,14 +399,14 @@ void unpack_list_data(raft::resources const& res,
  *   How many records in the list to skip.
  */
 template <typename IdxT>
-void unpack_compressed_list_data(raft::resources const& res,
+void unpack_contiguous_list_data(raft::resources const& res,
                                  const index<IdxT>& index,
                                  uint8_t* out_codes,
                                  uint32_t n_rows,
                                  uint32_t label,
                                  uint32_t offset)
 {
-  return ivf_pq::detail::unpack_compressed_list_data<IdxT>(
+  return ivf_pq::detail::unpack_contiguous_list_data<IdxT>(
     res, index, out_codes, n_rows, label, offset);
 }
 

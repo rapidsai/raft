@@ -671,7 +671,7 @@ void unpack_list_data(raft::resources const& res,
  * into a tightly packed matrix. That is, the codes are not expanded to one code-per-byte.
  */
 template <uint32_t PqBits>
-struct unpack_compressed {
+struct unpack_contiguous {
   uint8_t* codes;
   uint32_t code_size;
 
@@ -680,7 +680,7 @@ struct unpack_compressed {
    *
    * @param[in] codes flat compressed PQ codes
    */
-  __host__ __device__ inline unpack_compressed(uint8_t* codes, uint32_t pq_dim)
+  __host__ __device__ inline unpack_contiguous(uint8_t* codes, uint32_t pq_dim)
     : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
   {
   }
@@ -694,7 +694,7 @@ struct unpack_compressed {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) RAFT_KERNEL unpack_compressed_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_contiguous_list_data_kernel(
   uint8_t* out_codes,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   uint32_t n_rows,
@@ -702,7 +702,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL unpack_compressed_list_data_kernel(
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   run_on_list<PqBits>(
-    in_list_data, offset_or_indices, n_rows, pq_dim, unpack_compressed<PqBits>(out_codes, pq_dim));
+    in_list_data, offset_or_indices, n_rows, pq_dim, unpack_contiguous<PqBits>(out_codes, pq_dim));
 }
 
 /**
@@ -714,7 +714,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL unpack_compressed_list_data_kernel(
  * @param[in] pq_bits codebook size (1 << pq_bits)
  * @param[in] stream
  */
-inline void unpack_compressed_list_data(
+inline void unpack_contiguous_list_data(
   uint8_t* codes,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   uint32_t n_rows,
@@ -730,11 +730,11 @@ inline void unpack_compressed_list_data(
   dim3 threads(kBlockSize, 1, 1);
   auto kernel = [pq_bits]() {
     switch (pq_bits) {
-      case 4: return unpack_compressed_list_data_kernel<kBlockSize, 4>;
-      case 5: return unpack_compressed_list_data_kernel<kBlockSize, 5>;
-      case 6: return unpack_compressed_list_data_kernel<kBlockSize, 6>;
-      case 7: return unpack_compressed_list_data_kernel<kBlockSize, 7>;
-      case 8: return unpack_compressed_list_data_kernel<kBlockSize, 8>;
+      case 4: return unpack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_contiguous_list_data_kernel<kBlockSize, 8>;
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }();
@@ -744,14 +744,14 @@ inline void unpack_compressed_list_data(
 
 /** Unpack the list data; see the public interface for the api and usage. */
 template <typename IdxT>
-void unpack_compressed_list_data(raft::resources const& res,
+void unpack_contiguous_list_data(raft::resources const& res,
                                  const index<IdxT>& index,
                                  uint8_t* out_codes,
                                  uint32_t n_rows,
                                  uint32_t label,
                                  std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
-  unpack_compressed_list_data(out_codes,
+  unpack_contiguous_list_data(out_codes,
                               index.lists()[label]->data.view(),
                               n_rows,
                               index.pq_dim(),
@@ -1002,7 +1002,7 @@ void pack_list_data(raft::resources const& res,
  * the codes are not expanded to one code-per-byte.
  */
 template <uint32_t PqBits>
-struct pack_compressed {
+struct pack_contiguous {
   const uint8_t* codes;
   uint32_t code_size;
 
@@ -1011,7 +1011,7 @@ struct pack_compressed {
    *
    * @param[in] codes flat compressed PQ codes
    */
-  __host__ __device__ inline pack_compressed(const uint8_t* codes, uint32_t pq_dim)
+  __host__ __device__ inline pack_contiguous(const uint8_t* codes, uint32_t pq_dim)
     : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
   {
   }
@@ -1025,7 +1025,7 @@ struct pack_compressed {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) RAFT_KERNEL pack_compressed_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_contiguous_list_data_kernel(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   const uint8_t* codes,
   uint32_t n_rows,
@@ -1033,7 +1033,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL pack_compressed_list_data_kernel(
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
   write_list<PqBits, 1>(
-    list_data, offset_or_indices, n_rows, pq_dim, pack_compressed<PqBits>(codes, pq_dim));
+    list_data, offset_or_indices, n_rows, pq_dim, pack_contiguous<PqBits>(codes, pq_dim));
 }
 
 /**
@@ -1047,7 +1047,7 @@ __launch_bounds__(BlockSize) RAFT_KERNEL pack_compressed_list_data_kernel(
  * @param[in] pq_bits codebook size (1 << pq_bits)
  * @param[in] stream
  */
-inline void pack_compressed_list_data(
+inline void pack_contiguous_list_data(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   const uint8_t* codes,
   uint32_t n_rows,
@@ -1063,11 +1063,11 @@ inline void pack_compressed_list_data(
   dim3 threads(kBlockSize, 1, 1);
   auto kernel = [pq_bits]() {
     switch (pq_bits) {
-      case 4: return pack_compressed_list_data_kernel<kBlockSize, 4>;
-      case 5: return pack_compressed_list_data_kernel<kBlockSize, 5>;
-      case 6: return pack_compressed_list_data_kernel<kBlockSize, 6>;
-      case 7: return pack_compressed_list_data_kernel<kBlockSize, 7>;
-      case 8: return pack_compressed_list_data_kernel<kBlockSize, 8>;
+      case 4: return pack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return pack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return pack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return pack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return pack_contiguous_list_data_kernel<kBlockSize, 8>;
       default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
     }
   }();
@@ -1076,14 +1076,14 @@ inline void pack_compressed_list_data(
 }
 
 template <typename IdxT>
-void pack_compressed_list_data(raft::resources const& res,
+void pack_contiguous_list_data(raft::resources const& res,
                                index<IdxT>* index,
                                const uint8_t* new_codes,
                                uint32_t n_rows,
                                uint32_t label,
                                std::variant<uint32_t, const uint32_t*> offset_or_indices)
 {
-  pack_compressed_list_data(index->lists()[label]->data.view(),
+  pack_contiguous_list_data(index->lists()[label]->data.view(),
                             new_codes,
                             n_rows,
                             index->pq_dim(),
