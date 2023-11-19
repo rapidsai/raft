@@ -22,6 +22,8 @@
 #include <raft/core/detail/macros.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
+#include <raft/util/integer_utils.hpp>
+#include <rmm/mr/device/device_memory_resource.hpp>
 #include <type_traits>
 
 namespace raft::neighbors::cagra::detail {
@@ -245,4 +247,36 @@ class host_matrix_view_from_device {
   device_matrix_view<T, IdxT> device_view_;
   T* host_ptr;
 };
+
+// Copy matrix src to dst. pad rows with 0 if necessary to make them 16 byte aligned.
+template <typename T, typename data_accessor>
+void copy_with_padding(raft::resources const& res,
+                       raft::device_matrix<T, int64_t, row_major>& dst,
+                       mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> src,
+                       rmm::mr::device_memory_resource* mr = nullptr)
+{
+  if (!mr) { mr = rmm::mr::get_current_device_resource(); }
+  size_t padded_dim = round_up_safe<size_t>(src.extent(1) * sizeof(T), 16) / sizeof(T);
+
+  if ((dst.extent(0) != src.extent(0)) || (static_cast<size_t>(dst.extent(1)) != padded_dim)) {
+    // clear existing memory before allocating to prevent OOM errors on large datasets
+    if (dst.size()) { dst = make_device_matrix<T, int64_t>(res, 0, 0); }
+    dst = make_device_mdarray<T>(res, mr, make_extents<int64_t>(src.extent(0), padded_dim));
+  }
+  if (dst.extent(1) == src.extent(1)) {
+    raft::copy(dst.data_handle(), src.data_handle(), src.size(), resource::get_cuda_stream(res));
+  } else {
+    // copy with padding
+    RAFT_CUDA_TRY(cudaMemsetAsync(
+      dst.data_handle(), 0, dst.size() * sizeof(T), resource::get_cuda_stream(res)));
+    RAFT_CUDA_TRY(cudaMemcpy2DAsync(dst.data_handle(),
+                                    sizeof(T) * dst.extent(1),
+                                    src.data_handle(),
+                                    sizeof(T) * src.extent(1),
+                                    sizeof(T) * src.extent(1),
+                                    src.extent(0),
+                                    cudaMemcpyDefault,
+                                    resource::get_cuda_stream(res)));
+  }
+}
 }  // namespace raft::neighbors::cagra::detail
