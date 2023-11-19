@@ -364,13 +364,14 @@ RAFT_KERNEL compute_distance_to_child_nodes_kernel(
   if (parent_list_index == utils::get_max_value<INDEX_T>()) { return; }
 
   constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
-  const auto parent_index =
-    parent_candidates_ptr[parent_list_index + (lds * query_id)] & ~index_msb_1_mask;
+  const auto raw_parent_index        = parent_candidates_ptr[parent_list_index + (lds * query_id)];
 
-  if (parent_index == utils::get_max_value<INDEX_T>()) {
+  if (raw_parent_index == utils::get_max_value<INDEX_T>()) {
     result_distances_ptr[ldd * blockIdx.y + global_team_id] = utils::get_max_value<DISTANCE_T>();
     return;
   }
+  const auto parent_index = raw_parent_index & ~index_msb_1_mask;
+
   const auto neighbor_list_head_ptr = neighbor_graph_ptr + (graph_degree * parent_index);
 
   const std::size_t child_id = neighbor_list_head_ptr[global_team_id % graph_degree];
@@ -711,8 +712,16 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
     const uint32_t hash_size = hashmap::get_size(hash_bitlen);
     set_value_batch(
       hashmap.data(), hash_size, utils::get_max_value<INDEX_T>(), hash_size, num_queries, stream);
+
+    // Topk hint can not be used when applying a filter
+    uint32_t* const top_hint_ptr =
+      std::is_same<SAMPLE_FILTER_T, raft::neighbors::filtering::none_cagra_sample_filter>::value
+        ? topk_hint.data()
+        : nullptr;
     // Init topk_hint
-    if (topk_hint.size() > 0) { set_value(topk_hint.data(), 0xffffffffu, num_queries, stream); }
+    if (top_hint_ptr != nullptr && topk_hint.size() > 0) {
+      set_value(top_hint_ptr, 0xffffffffu, num_queries, stream);
+    }
 
     // Choose initial entry point candidates at random
     random_pickup<TEAM_SIZE, DATASET_BLOCK_DIM, DATA_T, DISTANCE_T, INDEX_T>(
@@ -750,7 +759,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
                        result_buffer_allocation_size,
                        topk_workspace.data(),
                        true,
-                       topk_hint.data(),
+                       top_hint_ptr,
                        stream);
 
       // termination (1)
@@ -845,7 +854,7 @@ struct search : search_plan_impl<DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T> {
                        result_buffer_allocation_size,
                        topk_workspace.data(),
                        true,
-                       topk_hint.data(),
+                       top_hint_ptr,
                        stream);
     } else {
       // Remove parent bit in search results
