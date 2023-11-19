@@ -48,7 +48,6 @@ requirements:
     - cython >=3.0.0
     - libraft {{ version }}
     - libraft-headers {{ version }}
-    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
     - scikit-build >=0.13.1
@@ -60,6 +59,7 @@ requirements:
     {% endif %}
     - libraft {{ version }}
     - libraft-headers {{ version }}
+    - numpy >=1.21
     - python x.x
     - rmm ={{ minor_version }}
 
