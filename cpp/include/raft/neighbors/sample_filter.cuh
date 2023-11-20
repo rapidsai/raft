@@ -45,4 +45,5 @@ struct bitset_filter {
     return bitset_view_.test(sample_ix);
   }
 };
+
 }  // namespace raft::neighbors::filtering

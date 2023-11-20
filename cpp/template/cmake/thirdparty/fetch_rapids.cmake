@@ -12,7 +12,7 @@
 # the License.
 
 # Use this variable to update RAPIDS and RAFT versions
-set(RAPIDS_VERSION "23.12")
+set(RAPIDS_VERSION "24.02")
 
 set(rapids-cmake-repo kkraus14/rapids-cmake)
 set(rapids-cmake-branch spdlog_1.12_fmt_10)

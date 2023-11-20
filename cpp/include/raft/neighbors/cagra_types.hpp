@@ -25,6 +25,7 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/detail/cagra/utils.hpp>
 #include <raft/util/integer_utils.hpp>
 
 #include <memory>
@@ -330,32 +331,8 @@ struct index : ann::index {
   void copy_padded(raft::resources const& res,
                    mdspan<const T, matrix_extent<int64_t>, row_major, data_accessor> dataset)
   {
-    size_t padded_dim = round_up_safe<size_t>(dataset.extent(1) * sizeof(T), 16) / sizeof(T);
+    detail::copy_with_padding(res, dataset_, dataset);
 
-    if ((dataset_.extent(0) != dataset.extent(0)) ||
-        (static_cast<size_t>(dataset_.extent(1)) != padded_dim)) {
-      // clear existing memory before allocating to prevent OOM errors on large datasets
-      if (dataset_.size()) { dataset_ = make_device_matrix<T, int64_t>(res, 0, 0); }
-      dataset_ = make_device_matrix<T, int64_t>(res, dataset.extent(0), padded_dim);
-    }
-    if (dataset_.extent(1) == dataset.extent(1)) {
-      raft::copy(dataset_.data_handle(),
-                 dataset.data_handle(),
-                 dataset.size(),
-                 resource::get_cuda_stream(res));
-    } else {
-      // copy with padding
-      RAFT_CUDA_TRY(cudaMemsetAsync(
-        dataset_.data_handle(), 0, dataset_.size() * sizeof(T), resource::get_cuda_stream(res)));
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(dataset_.data_handle(),
-                                      sizeof(T) * dataset_.extent(1),
-                                      dataset.data_handle(),
-                                      sizeof(T) * dataset.extent(1),
-                                      sizeof(T) * dataset.extent(1),
-                                      dataset.extent(0),
-                                      cudaMemcpyDefault,
-                                      resource::get_cuda_stream(res)));
-    }
     dataset_view_ = make_device_strided_matrix_view<const T, int64_t>(
       dataset_.data_handle(), dataset_.extent(0), dataset.extent(1), dataset_.extent(1));
     RAFT_LOG_DEBUG("CAGRA dataset strided matrix view %zux%zu, stride %zu",

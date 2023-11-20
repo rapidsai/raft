@@ -62,7 +62,7 @@ Nightly images are located in [dockerhub](https://hub.docker.com/r/rapidsai/raft
 - The following command pulls the nightly container for python version 10, cuda version 12, and RAFT version 23.10:
 
 ```bash
-docker pull rapidsai/raft-ann-bench:23.12a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
+docker pull rapidsai/raft-ann-bench:24.02a-cuda12.0-py3.10 #substitute raft-ann-bench for the exact desired container.
 ```
 
 The CUDA and python versions can be changed for the supported values:
@@ -83,7 +83,7 @@ You can see the exact versions as well in the dockerhub site:
 [//]: # ()
 [//]: # (```bash)
 
-[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:23.12-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
+[//]: # (docker pull nvcr.io/nvidia/rapidsai/raft-ann-bench:24.02-cuda11.8-py3.10 #substitute raft-ann-bench for the exact desired container.)
 
 [//]: # (```)
 
@@ -152,6 +152,11 @@ options:
   -f, --force           re-run algorithms even if their results already exist (default: False)
   -m SEARCH_MODE, --search-mode SEARCH_MODE
                         run search in 'latency' (measure individual batches) or 'throughput' (pipeline batches and measure end-to-end) mode (default: throughput)
+  -t SEARCH_THREADS, --search-threads SEARCH_THREADS
+                        specify the number threads to use for throughput benchmark. Single value or a pair of min and max separated by ':'. Example --search-threads=1:4. Power of 2 values between 'min' and 'max' will be used. If only 'min' is
+                        specified, then a single test is run with 'min' threads. By default min=1, max=<num hyper threads>. (default: None)
+  -r, --dry-run         dry-run mode will convert the yaml config for the specified algorithms and datasets to the json format that's consumed by the lower-level c++ binaries and then print the command to run execute the benchmarks but
+                        will not actually execute the command. (default: False)
 ```
 
 `dataset`: name of the dataset to be searched in [datasets.yaml](#yaml-dataset-config)
@@ -193,27 +198,33 @@ options:
   --dataset-path DATASET_PATH
                         path to dataset folder (default: ${RAPIDS_DATASET_ROOT_DIR})
 ```
-Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo-k{k}-batch_size{batch_size}.csv>`
-and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo-k{k}-batch_size{batch_size}.csv>`.
+Build statistics CSV file is stored in `<dataset-path/<dataset>/result/build/<algo_group.csv>`
+and index search statistics CSV file in `<dataset-path/<dataset>/result/search/<algo_group-k{k}-batch_size{batch_size}_{suffix}.csv>`, where suffix has three values:
+1. `raw`: All search results are exported
+2. `throughput`: Pareto frontier of throughput results is exported
+3. `latency`: Pareto frontier of latency results is exported
+
 
 ### Step 4: Plot Results
 The script `raft-ann-bench.plot` will plot results for all algorithms found in index search statistics
-CSV file in `<dataset-path/<dataset>/result/search/<-k{k}-batch_size{batch_size}>.csv`.
+CSV files `<dataset-path/<dataset>/result/search/*.csv`.
 
 The usage of this script is:
 ```bash
-usage: __main__.py [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS] [-k COUNT]
-                   [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--raw]
+usage:  [-h] [--dataset DATASET] [--dataset-path DATASET_PATH] [--output-filepath OUTPUT_FILEPATH] [--algorithms ALGORITHMS] [--groups GROUPS] [--algo-groups ALGO_GROUPS]
+        [-k COUNT] [-bs BATCH_SIZE] [--build] [--search] [--x-scale X_SCALE] [--y-scale {linear,log,symlog,logit}] [--mode {throughput,latency}] [--time-unit {s,ms,us}]
+        [--raw]
 
 options:
   -h, --help            show this help message and exit
   --dataset DATASET     dataset to plot (default: glove-100-inner)
   --dataset-path DATASET_PATH
-                        path to dataset folder (default: os.getcwd()/datasets/)
+                        path to dataset folder (default: /home/coder/raft/datasets/)
   --output-filepath OUTPUT_FILEPATH
-                        directory for PNG to be saved (default: os.getcwd())
+                        directory for PNG to be saved (default: /home/coder/raft)
   --algorithms ALGORITHMS
-                        plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default (default: None)
+                        plot only comma separated list of named algorithms. If parameters `groups` and `algo-groups are both undefined, then group `base` is plot by default
+                        (default: None)
   --groups GROUPS       plot only comma separated groups of parameters (default: base)
   --algo-groups ALGO_GROUPS, --algo-groups ALGO_GROUPS
                         add comma separated <algorithm>.<group> to plot. Example usage: "--algo-groups=raft_cagra.large,hnswlib.large" (default: None)
@@ -226,8 +237,14 @@ options:
   --x-scale X_SCALE     Scale to use when drawing the X-axis. Typically linear, logit or a2 (default: linear)
   --y-scale {linear,log,symlog,logit}
                         Scale to use when drawing the Y-axis (default: linear)
-  --raw                 Show raw results (not just Pareto frontier) in faded colours (default: False)
+  --mode {throughput,latency}
+                        search mode whose Pareto frontier is used on the y-axis (default: throughput)
+  --time-unit {s,ms,us}
+                        time unit to plot when mode is latency (default: ms)
+  --raw                 Show raw results (not just Pareto frontier) of mode arg (default: False)
 ```
+`mode`: plots pareto frontier of `throughput` or `latency` results exported in the previous step
+
 `algorithms`: plots all algorithms that it can find results for the specified `dataset`. By default, only `base` group will be plotted.
 
 `groups`: plot only specific groups of parameters configurations for an algorithm. Groups are defined in YAML configs (see `configuration`), and by default run `base` group
@@ -326,7 +343,7 @@ For GPU-enabled systems, the `DATA_FOLDER` variable should be a local folder whe
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run --gpus all --rm -it -u $(id -u)                      \
     -v $DATA_FOLDER:/data/benchmarks                            \
-    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10              \
+    rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10              \
     "--dataset deep-image-96-angular"                           \
     "--normalize"                                               \
     "--algorithms raft_cagra,raft_ivf_pq --batch-size 10 -k 10" \
@@ -337,7 +354,7 @@ Usage of the above command is as follows:
 
 | Argument                                                  | Description                                                                                        |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| `rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
+| `rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10`          | Image to use. Can be either `raft-ann-bench` or `raft-ann-bench-datasets`                          |
 | `"--dataset deep-image-96-angular"`                       | Dataset name                                                                                       |
 | `"--normalize"`                                           | Whether to normalize the dataset                                                                   |
 | `"--algorithms raft_cagra,hnswlib --batch-size 10 -k 10"` | Arguments passed to the `run` script, such as the algorithms to benchmark, the batch size, and `k` |
@@ -354,7 +371,7 @@ The container arguments in the above section also be used for the CPU-only conta
 export DATA_FOLDER=path/to/store/datasets/and/results
 docker run  --rm -it -u $(id -u)                  \
     -v $DATA_FOLDER:/data/benchmarks              \
-    rapidsai/raft-ann-bench-cpu:23.12a-py3.10     \
+    rapidsai/raft-ann-bench-cpu:24.02a-py3.10     \
      "--dataset deep-image-96-angular"            \
      "--normalize"                                \
      "--algorithms hnswlib --batch-size 10 -k 10" \
@@ -371,7 +388,7 @@ docker run --gpus all --rm -it -u $(id -u)          \
     --entrypoint /bin/bash                          \
     --workdir /data/benchmarks                      \
     -v $DATA_FOLDER:/data/benchmarks                \
-    rapidsai/raft-ann-bench:23.12a-cuda11.8-py3.10 
+    rapidsai/raft-ann-bench:24.02a-cuda11.8-py3.10 
 ```
 
 This will drop you into a command line in the container, with the `raft-ann-bench` python package ready to use, as described in the [Running the benchmarks](#running-the-benchmarks) section above:
@@ -397,22 +414,27 @@ The benchmarks capture several different measurements. The table below describes
 | index_size | Number of vectors used to train index |
 
 
-The table below describes each of the measurements for the index search benchmarks:
+The table below describes each of the measurements for the index search benchmarks. The most important measurements `Latency`, `items_per_second`, `end_to_end`.
 
-| Name | Description                                                                                                                                           |
-|------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Benchmark | A name that uniquely identifies the benchmark instance                                                                                                |
-| Time | The average runtime for each batch. This is approximately `end_to_end` / `Iterations`                                                                 |
-| CPU | The average `wall-time`. In `throughput` mode, this is the average `wall-time` spent in each thread.                                                  |
-| Iterations | Total number of batches. This is going to be `total_queres` / `n_queries`                                                                             | 
-| Recall | Proportion of correct neighbors to ground truth neighbors. Note this column is only present if groundtruth file is specified in dataset configuration |
-| items_per_second | Total throughput. This is approximately `total_queries` / `end_to_end`.                                                                               |
-| k | Number of neighbors being queried in each iteration                                                                                                   |
+| Name       | Description                                                                                                                                           |
+|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Benchmark  | A name that uniquely identifies the benchmark instance                                                                                                |
+| Time       | The wall-clock time of a single iteration (batch) divided by the number of threads.                                                                   |
+| CPU        | The average CPU time (user + sys time). This does not include idle time (which can also happen while waiting for GPU sync).                           |
+| Iterations | Total number of batches. This is going to be `total_queries` / `n_queries`.                                                                            | 
+| GPU        | GPU latency of a single batch (seconds). In throughput mode this is averaged over multiple threads.                                                   |
+| Latency    | Latency of a single batch (seconds), calculated from wall-clock time. In throughput mode this is averaged over multiple threads.                       |
+| Recall     | Proportion of correct neighbors to ground truth neighbors. Note this column is only present if groundtruth file is specified in dataset configuration.|
+| items_per_second | Total throughput, a.k.a Queries per second (QPS). This is approximately `total_queries` / `end_to_end`.                                         |
+| k          | Number of neighbors being queried in each iteration                                                                                                   |
 | end_to_end | Total time taken to run all batches for all iterations                                                                                                | 
-| n_queries | Total number of query vectors in each batch                                                                                                           |
-| total_queries | Total number of vectors queries across all iterations                                                                                                 |
+| n_queries  | Total number of query vectors in each batch                                                                                                           |
+| total_queries | Total number of vectors queries across all iterations ( = `iterations` * `n_queries`)                                                                 |
 
-Note that the actual table displayed on the screen may differ slightly as the hyper-parameters will also be displayed for each different combination being benchmarked.
+Note the following:
+- A slightly different method is used to measure `Time` and `end_to_end`. That is why `end_to_end` = `Time` * `Iterations` holds only approximately.
+- The actual table displayed on the screen may differ slightly as the hyper-parameters will also be displayed for each different combination being benchmarked.
+- Recall calculation: the number of queries processed per test depends on the number of iterations. Because of this, recall can show slight fluctuations if less neighbors are processed then it is available for the benchmark. 
 
 ## Creating and customizing dataset configurations
 

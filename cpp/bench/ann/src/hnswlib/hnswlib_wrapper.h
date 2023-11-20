@@ -91,6 +91,8 @@ class HnswLib : public ANN<T> {
     return property;
   }
 
+  void set_base_layer_only() { appr_alg_->base_layer_only = true; }
+
  private:
   void get_search_knn_results_(const T* query, int k, size_t* indices, float* distances) const;
 
@@ -147,7 +149,6 @@ void HnswLib<T>::build(const T* dataset, size_t nrow, cudaStream_t)
         char buf[20];
         std::time_t now = std::time(nullptr);
         std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
-
         printf("%s building %zu / %zu\n", buf, i, items_per_thread);
         fflush(stdout);
       }
@@ -163,13 +164,11 @@ void HnswLib<T>::set_search_param(const AnnSearchParam& param_)
   auto param        = dynamic_cast<const SearchParam&>(param_);
   appr_alg_->ef_    = param.ef;
   metric_objective_ = param.metric_objective;
+  num_threads_      = param.num_threads;
 
-  bool use_pool = (metric_objective_ == Objective::LATENCY && param.num_threads > 1) &&
-                  (!thread_pool_ || num_threads_ != param.num_threads);
-  if (use_pool) {
-    num_threads_ = param.num_threads;
-    thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_);
-  }
+  // Create a pool if multiple query threads have been set and the pool hasn't been created already
+  bool create_pool = (metric_objective_ == Objective::LATENCY && num_threads_ > 1 && !thread_pool_);
+  if (create_pool) { thread_pool_ = std::make_unique<FixedThreadPool>(num_threads_); }
 }
 
 template <typename T>
@@ -180,7 +179,7 @@ void HnswLib<T>::search(
     // hnsw can only handle a single vector at a time.
     get_search_knn_results_(query + i * dim_, k, indices + i * k, distances + i * k);
   };
-  if (metric_objective_ == Objective::LATENCY) {
+  if (metric_objective_ == Objective::LATENCY && num_threads_ > 1) {
     thread_pool_->submit(f, batch_size);
   } else {
     for (int i = 0; i < batch_size; i++) {
