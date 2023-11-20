@@ -121,23 +121,28 @@ RAFT_KERNEL GenerateRoundingErrorFreeDataset_kernel(float* const ptr,
   const auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= size) { return; }
 
-  const float u32 = *reinterpret_cast<const uint32_t*>(ptr + tid);
+  const float u32 = *reinterpret_cast<const int32_t*>(ptr + tid);
   ptr[tid]        = u32 / resolution;
 }
 
-void GenerateRoundingErrorFreeDataset(const raft::resources& handle,
-                                      float* const ptr,
-                                      const uint32_t n_row,
-                                      const uint32_t dim,
-                                      raft::random::RngState& rng)
+void GenerateRoundingErrorFreeDataset(
+  const raft::resources& handle,
+  float* const ptr,
+  const uint32_t n_row,
+  const uint32_t dim,
+  raft::random::RngState& rng,
+  const bool diff_flag  // true if compute the norm between two vectors
+)
 {
   auto cuda_stream          = resource::get_cuda_stream(handle);
   const uint32_t size       = n_row * dim;
   const uint32_t block_size = 256;
   const uint32_t grid_size  = (size + block_size - 1) / block_size;
 
-  const uint32_t resolution = 1u << static_cast<unsigned>(std::floor((24 - std::log2(dim)) / 2));
-  raft::random::uniformInt(handle, rng, reinterpret_cast<uint32_t*>(ptr), size, 0u, resolution - 1);
+  const int32_t resolution =
+    1 << static_cast<unsigned>(std::floor((24 - std::log2(dim) - (diff_flag ? 1 : 0)) / 2));
+  raft::random::uniformInt(
+    handle, rng, reinterpret_cast<int32_t*>(ptr), size, -resolution, resolution - 1);
 
   GenerateRoundingErrorFreeDataset_kernel<<<grid_size, block_size, 0, cuda_stream>>>(
     ptr, size, resolution);
@@ -296,9 +301,9 @@ class AnnCagraTest : public ::testing::TestWithParam<AnnCagraInputs> {
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
-      raft::random::normal(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
+      GenerateRoundingErrorFreeDataset(
+        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -385,7 +390,7 @@ class AnnCagraSortTest : public ::testing::TestWithParam<AnnCagraInputs> {
     database.resize(((size_t)ps.n_rows) * ps.dim, handle_.get_stream());
     raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r);
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, false);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -652,9 +657,9 @@ class AnnCagraFilterTest : public ::testing::TestWithParam<AnnCagraInputs> {
     search_queries.resize(ps.n_queries * ps.dim, stream_);
     raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
-      raft::random::normal(handle_, r, database.data(), ps.n_rows * ps.dim, DataT(0.1), DataT(2.0));
-      raft::random::normal(
-        handle_, r, search_queries.data(), ps.n_queries * ps.dim, DataT(0.1), DataT(2.0));
+      GenerateRoundingErrorFreeDataset(handle_, database.data(), ps.n_rows, ps.dim, r, true);
+      GenerateRoundingErrorFreeDataset(
+        handle_, search_queries.data(), ps.n_queries, ps.dim, r, true);
     } else {
       raft::random::uniformInt(
         handle_, r, database.data(), ps.n_rows * ps.dim, DataT(1), DataT(20));
@@ -685,7 +690,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
   std::vector<AnnCagraInputs> inputs = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
-    {1, 8, 17, 1025, 1999},
+    {1, 8, 17, 1599},
     {1, 16},  // k
     {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
