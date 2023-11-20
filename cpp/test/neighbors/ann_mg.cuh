@@ -76,7 +76,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     std::vector<int> device_ids{0, 1};
 
     // IVF-Flat
-    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION}) {
+    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION, dist_mode::SHARDING}) {
       ivf_flat::index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -116,7 +116,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     }
 
     // IVF-PQ
-    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION}) {
+    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION, dist_mode::SHARDING}) {
       ivf_pq::index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
