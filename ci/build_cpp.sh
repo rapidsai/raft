@@ -9,10 +9,14 @@ export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1374 cpp)
+
 version=$(rapids-generate-version)
 
 rapids-logger "Begin cpp build"
 
-RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild conda/recipes/libraft
+RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild \
+    --channel "${LIBRMM_CHANNEL}" \
+    conda/recipes/libraft
 
 rapids-upload-conda-to-s3 cpp
