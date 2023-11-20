@@ -55,7 +55,7 @@ namespace raft::neighbors::ivf_flat {
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a host or device pointer to a row-major matrix [n_rows, dim]
  * @param[in] n_rows the number of samples
  * @param[in] dim the dimensionality of the data
  *
@@ -102,7 +102,7 @@ auto build(raft::resources const& handle,
  *
  * @param[in] handle
  * @param[in] params configure the index building
- * @param[in] dataset a device/host pointer to a row-major matrix [n_rows, dim]
+ * @param[in] dataset a device matrix [n_rows, dim]
  *
  * @return the constructed ivf-flat index
  */
@@ -118,6 +118,9 @@ auto build(raft::resources const& handle,
                                                   static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
 template <typename T, typename IdxT>
 auto build(raft::resources const& handle,
            const index_params& params,
@@ -173,6 +176,9 @@ void build(raft::resources const& handle,
                                                  static_cast<IdxT>(dataset.extent(1)));
 }
 
+/**
+ * @brief Build the index from a dataset in host memory.
+ */
 template <typename T, typename IdxT>
 void build(raft::resources const& handle,
            const index_params& params,
@@ -280,6 +286,11 @@ auto extend(raft::resources const& handle,
                          new_vectors.extent(0));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
 template <typename T, typename IdxT>
 auto extend(raft::resources const& handle,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
@@ -374,6 +385,11 @@ void extend(raft::resources const& handle,
          static_cast<IdxT>(new_vectors.extent(0)));
 }
 
+/**
+ * @brief Extend the index with additional vectors.
+ *
+ * This overloads takes input data in host memory.
+ */
 template <typename T, typename IdxT>
 void extend(raft::resources const& handle,
             raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
