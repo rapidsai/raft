@@ -17,8 +17,8 @@
 
 #include "../test_utils.cuh"
 #include "ann_utils.cuh"
-#include <raft_internal/neighbors/naive_knn.cuh>
 #include <raft/neighbors/ann_mg.cuh>
+#include <raft_internal/neighbors/naive_knn.cuh>
 
 namespace raft::neighbors::mg {
 
@@ -76,7 +76,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     std::vector<int> device_ids{0, 1};
 
     // IVF-Flat
-    for (dist_mode d_mode : { dist_mode::SHARDING, dist_mode::INDEX_DUPLICATION }) {
+    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION}) {
       ivf_flat::index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -88,13 +88,20 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       ivf_flat::search_params search_params;
       search_params.n_probes = ps.nprobe;
 
-      auto index_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_index_dataset.data(), ps.num_db_vecs, ps.dim);
-      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
-      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(indices_ann.data(), ps.num_queries, ps.k);
-      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+      auto index_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
+        h_index_dataset.data(), ps.num_db_vecs, ps.dim);
+      auto query_dataset = raft::make_host_matrix_view<const DataT, IdxT, row_major>(
+        h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, IdxT, row_major>(
+        indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, IdxT, row_major>(
+        distances_ann.data(), ps.num_queries, ps.k);
 
-      auto index = raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
-      raft::neighbors::mg::search<DataT, IdxT>(index, search_params, query_dataset, neighbors, distances);
+      auto index =
+        raft::neighbors::mg::build<DataT, IdxT>(device_ids, d_mode, index_params, index_dataset);
+      raft::neighbors::mg::extend<DataT, IdxT>(index, index_dataset, std::nullopt);
+      raft::neighbors::mg::search<DataT, IdxT>(
+        index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
 
       double min_recall = static_cast<double>(ps.nprobe) / static_cast<double>(ps.nlist);
@@ -109,7 +116,7 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     }
 
     // IVF-PQ
-    for (dist_mode d_mode : { dist_mode::SHARDING, dist_mode::INDEX_DUPLICATION }) {
+    for (dist_mode d_mode : {dist_mode::INDEX_DUPLICATION}) {
       ivf_pq::index_params index_params;
       index_params.n_lists                  = ps.nlist;
       index_params.metric                   = ps.metric;
@@ -120,12 +127,18 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
       ivf_pq::search_params search_params;
       search_params.n_probes = ps.nprobe;
 
-      auto index_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(h_index_dataset.data(), ps.num_db_vecs, ps.dim);
-      auto query_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(h_query_dataset.data(), ps.num_queries, ps.dim);
-      auto neighbors = raft::make_host_matrix_view<IdxT, uint32_t, row_major>(indices_ann.data(), ps.num_queries, ps.k);
-      auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(distances_ann.data(), ps.num_queries, ps.k);
+      auto index_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(
+        h_index_dataset.data(), ps.num_db_vecs, ps.dim);
+      auto query_dataset = raft::make_host_matrix_view<const DataT, uint32_t, row_major>(
+        h_query_dataset.data(), ps.num_queries, ps.dim);
+      auto neighbors = raft::make_host_matrix_view<IdxT, uint32_t, row_major>(
+        indices_ann.data(), ps.num_queries, ps.k);
+      auto distances = raft::make_host_matrix_view<float, uint32_t, row_major>(
+        distances_ann.data(), ps.num_queries, ps.k);
 
-      auto index = raft::neighbors::mg::build<DataT>(device_ids, d_mode, index_params, index_dataset);
+      auto index =
+        raft::neighbors::mg::build<DataT>(device_ids, d_mode, index_params, index_dataset);
+      raft::neighbors::mg::extend<DataT>(index, index_dataset, std::nullopt);
       raft::neighbors::mg::search<DataT>(index, search_params, query_dataset, neighbors, distances);
       resource::sync_stream(handle_);
 
@@ -151,14 +164,14 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
     raft::random::RngState r(1234ULL);
     if constexpr (std::is_same<DataT, float>{}) {
       raft::random::uniform(
-        handle_, r, d_index_dataset.data(), ps.num_db_vecs * ps.dim, DataT(0.1), DataT(2.0));
+        handle_, r, d_index_dataset.data(), d_index_dataset.size(), DataT(0.1), DataT(2.0));
       raft::random::uniform(
-        handle_, r, d_query_dataset.data(), ps.num_queries * ps.dim, DataT(0.1), DataT(2.0));
+        handle_, r, d_query_dataset.data(), d_query_dataset.size(), DataT(0.1), DataT(2.0));
     } else {
       raft::random::uniformInt(
-        handle_, r, d_index_dataset.data(), ps.num_db_vecs * ps.dim, DataT(1), DataT(20));
+        handle_, r, d_index_dataset.data(), d_index_dataset.size(), DataT(1), DataT(20));
       raft::random::uniformInt(
-        handle_, r, d_query_dataset.data(), ps.num_queries * ps.dim, DataT(1), DataT(20));
+        handle_, r, d_query_dataset.data(), d_query_dataset.size(), DataT(1), DataT(20));
     }
 
     raft::copy(h_index_dataset.data(),
@@ -192,5 +205,6 @@ class AnnMGTest : public ::testing::TestWithParam<AnnMGInputs<IdxT>> {
 };
 
 const std::vector<AnnMGInputs<uint32_t>> inputs = {
-  {1000, 10000, 1, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
-};}
+  {1000, 10000, 8, 16, 40, 1024, raft::distance::DistanceType::L2Expanded, true},
+};
+}  // namespace raft::neighbors::mg

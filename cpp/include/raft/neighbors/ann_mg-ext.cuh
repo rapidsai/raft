@@ -22,88 +22,90 @@
 #ifdef RAFT_EXPLICIT_INSTANTIATE_ONLY
 
 namespace raft::neighbors::mg {
-    using namespace raft::neighbors::mg;
+using namespace raft::neighbors::mg;
 
-    template<typename T, typename IdxT>
-    auto build(const std::vector<int> device_ids,
-               raft::neighbors::mg::dist_mode mode,
-               const ivf_flat::index_params& index_params,
-               raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
-        -> detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> RAFT_EXPLICIT;
+template <typename T, typename IdxT>
+auto build(const std::vector<int> device_ids,
+           raft::neighbors::mg::dist_mode mode,
+           const ivf_flat::index_params& index_params,
+           raft::host_matrix_view<const T, IdxT, row_major> index_dataset)
+  -> detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> RAFT_EXPLICIT;
 
-    template<typename T>
-    auto build(const std::vector<int> device_ids,
-               raft::neighbors::mg::dist_mode mode,
-               const ivf_pq::index_params& index_params,
-               raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
-        -> detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> RAFT_EXPLICIT;
+template <typename T>
+auto build(const std::vector<int> device_ids,
+           raft::neighbors::mg::dist_mode mode,
+           const ivf_pq::index_params& index_params,
+           raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)
+  -> detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> RAFT_EXPLICIT;
 
-    template<typename T, typename IdxT>
-    void extend(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
-                raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
-                raft::host_matrix_view<const IdxT, IdxT, row_major> new_indices) RAFT_EXPLICIT;
+template <typename T, typename IdxT>
+void extend(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+            raft::host_matrix_view<const T, IdxT, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const IdxT, IdxT, row_major>> new_indices)
+  RAFT_EXPLICIT;
 
-    template<typename T>
-    void extend(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
-                raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,
-                raft::host_matrix_view<const uint32_t, uint32_t, row_major> new_indices) RAFT_EXPLICIT;
+template <typename T>
+void extend(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+            raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,
+            std::optional<raft::host_vector_view<const uint32_t, uint32_t, row_major>> new_indices)
+  RAFT_EXPLICIT;
 
-    template<typename T, typename IdxT>
-    void search(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
-                const ivf_flat::search_params& search_params,
-                raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
-                raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
-                raft::host_matrix_view<float, IdxT, row_major> distances) RAFT_EXPLICIT;
+template <typename T, typename IdxT>
+void search(detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,
+            const ivf_flat::search_params& search_params,
+            raft::host_matrix_view<const T, IdxT, row_major> query_dataset,
+            raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,
+            raft::host_matrix_view<float, IdxT, row_major> distances) RAFT_EXPLICIT;
 
-    template<typename T>
-    void search(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
-                const ivf_pq::search_params& search_params,
-                raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
-                raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
-                raft::host_matrix_view<float, uint32_t, row_major> distances) RAFT_EXPLICIT;
+template <typename T>
+void search(detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,
+            const ivf_pq::search_params& search_params,
+            raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,
+            raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,
+            raft::host_matrix_view<float, uint32_t, row_major> distances) RAFT_EXPLICIT;
 
-}
+}  // namespace raft::neighbors::mg
 
 #endif  // RAFT_EXPLICIT_INSTANTIATE_ONLY
 
-#define instantiate_raft_neighbors_ann_mg_build(T, IdxT)                        \
-  extern template auto raft::neighbors::mg::build<T, IdxT>(                     \
-      const std::vector<int> device_ids,                                        \
-      raft::neighbors::mg::dist_mode mode,                                      \
-      const ivf_flat::index_params& index_params,                               \
-      raft::host_matrix_view<const T, IdxT, row_major> index_dataset)           \
-    -> detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>;                 \
-                                                                                \
-  extern template auto raft::neighbors::mg::build<T>(                           \
-      const std::vector<int> device_ids,                                        \
-      raft::neighbors::mg::dist_mode mode,                                      \
-      const ivf_pq::index_params& index_params,                                 \
-      raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)       \
-    -> detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>;              \
-                                                                                \
-  extern template void raft::neighbors::mg::extend<T, IdxT>(                    \
-      detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,           \
-      raft::host_matrix_view<const T, IdxT, row_major> new_vectors,             \
-      raft::host_matrix_view<const IdxT, IdxT, row_major> new_indices);         \
-                                                                                \
-  extern template void raft::neighbors::mg::extend<T>(                          \
-      detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,        \
-      raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,         \
-      raft::host_matrix_view<const uint32_t, uint32_t, row_major> new_indices); \
-                                                                                \
-  extern template void raft::neighbors::mg::search<T, IdxT>(                    \
-      detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>& index,           \
-      const ivf_flat::search_params& search_params,                             \
-      raft::host_matrix_view<const T, IdxT, row_major> query_dataset,           \
-      raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,                  \
-      raft::host_matrix_view<float, IdxT, row_major> distances);                \
-                                                                                \
-  extern template void raft::neighbors::mg::search<T>(                          \
-      detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>& index,        \
-      const ivf_pq::search_params& search_params,                               \
-      raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,       \
-      raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,          \
-      raft::host_matrix_view<float, uint32_t, row_major> distances);            \
+#define instantiate_raft_neighbors_ann_mg_build(T, IdxT)                          \
+  extern template auto raft::neighbors::mg::build<T, IdxT>(                       \
+    const std::vector<int> device_ids,                                            \
+    raft::neighbors::mg::dist_mode mode,                                          \
+    const ivf_flat::index_params& index_params,                                   \
+    raft::host_matrix_view<const T, IdxT, row_major> index_dataset)               \
+    ->detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT>;                    \
+                                                                                  \
+  extern template auto raft::neighbors::mg::build<T>(                             \
+    const std::vector<int> device_ids,                                            \
+    raft::neighbors::mg::dist_mode mode,                                          \
+    const ivf_pq::index_params& index_params,                                     \
+    raft::host_matrix_view<const T, uint32_t, row_major> index_dataset)           \
+    ->detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t>;                 \
+                                                                                  \
+  extern template void raft::neighbors::mg::extend<T, IdxT>(                      \
+    detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> & index,              \
+    raft::host_matrix_view<const T, IdxT, row_major> new_vectors,                 \
+    std::optional<raft::host_vector_view<const IdxT, IdxT>> new_indices);         \
+                                                                                  \
+  extern template void raft::neighbors::mg::extend<T>(                            \
+    detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> & index,           \
+    raft::host_matrix_view<const T, uint32_t, row_major> new_vectors,             \
+    std::optional<raft::host_vector_view<const uint32_t, uint32_t>> new_indices); \
+                                                                                  \
+  extern template void raft::neighbors::mg::search<T, IdxT>(                      \
+    detail::ann_mg_index<ivf_flat::index<T, IdxT>, T, IdxT> & index,              \
+    const ivf_flat::search_params& search_params,                                 \
+    raft::host_matrix_view<const T, IdxT, row_major> query_dataset,               \
+    raft::host_matrix_view<IdxT, IdxT, row_major> neighbors,                      \
+    raft::host_matrix_view<float, IdxT, row_major> distances);                    \
+                                                                                  \
+  extern template void raft::neighbors::mg::search<T>(                            \
+    detail::ann_mg_index<ivf_pq::index<uint32_t>, T, uint32_t> & index,           \
+    const ivf_pq::search_params& search_params,                                   \
+    raft::host_matrix_view<const T, uint32_t, row_major> query_dataset,           \
+    raft::host_matrix_view<uint32_t, uint32_t, row_major> neighbors,              \
+    raft::host_matrix_view<float, uint32_t, row_major> distances);
 
 instantiate_raft_neighbors_ann_mg_build(float, uint32_t);
 
