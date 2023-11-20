@@ -26,6 +26,7 @@
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resource/device_properties.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/neighbors/sample_filter_types.hpp>
 
 #include <vector>
 
@@ -48,7 +49,7 @@ namespace multi_cta_search {
 template <class INDEX_T>
 __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [search_width]
                                     const uint32_t search_width,
-                                    INDEX_T* const itopk_indices,        // [num_itopk]
+                                    INDEX_T* const itopk_indices,  // [num_itopk]
                                     const size_t num_itopk,
                                     uint32_t* const terminate_flag)
 {
@@ -75,7 +76,7 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [sea
     if (new_parent) {
       const auto i = __popc(ballot_mask & ((1 << lane_id) - 1)) + num_new_parents;
       if (i < search_width) {
-        next_parent_indices[i] = index;
+        next_parent_indices[i] = j;
         itopk_indices[j] |= index_msb_1_mask;  // set most significant bit as used node
       }
     }
@@ -86,8 +87,8 @@ __device__ void pickup_next_parents(INDEX_T* const next_parent_indices,  // [sea
 }
 
 template <unsigned MAX_ELEMENTS, class INDEX_T>
-__device__ inline void topk_by_bitonic_sort(float* distances,         // [num_elements]
-                                            INDEX_T* indices,         // [num_elements]
+__device__ inline void topk_by_bitonic_sort(float* distances,  // [num_elements]
+                                            INDEX_T* indices,  // [num_elements]
                                             const uint32_t num_elements,
                                             const uint32_t num_itopk  // num_itopk <= num_elements
 )
@@ -124,15 +125,14 @@ __device__ inline void topk_by_bitonic_sort(float* distances,         // [num_el
 // multiple CTAs per single query
 //
 template <unsigned TEAM_SIZE,
-          unsigned BLOCK_SIZE,
-          unsigned BLOCK_COUNT,
           unsigned MAX_ELEMENTS,
           unsigned MAX_DATASET_DIM,
           class DATA_T,
           class DISTANCE_T,
           class INDEX_T,
-          class LOAD_T>
-__launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
+          class LOAD_T,
+          class SAMPLE_FILTER_T>
+__launch_bounds__(1024, 1) __global__ void search_kernel(
   INDEX_T* const result_indices_ptr,       // [num_queries, num_cta_per_query, itopk_size]
   DISTANCE_T* const result_distances_ptr,  // [num_queries, num_cta_per_query, itopk_size]
   const DATA_T* const dataset_ptr,         // [dataset_size, dataset_dim]
@@ -144,7 +144,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const uint32_t graph_degree,
   const unsigned num_distilation,
   const uint64_t rand_xor_mask,
-  const INDEX_T* seed_ptr,             // [num_queries, num_seeds]
+  const INDEX_T* seed_ptr,  // [num_queries, num_seeds]
   const uint32_t num_seeds,
   INDEX_T* const visited_hashmap_ptr,  // [num_queries, 1 << hash_bitlen]
   const uint32_t hash_bitlen,
@@ -152,10 +152,9 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
   const uint32_t search_width,
   const uint32_t min_iteration,
   const uint32_t max_iteration,
-  uint32_t* const num_executed_iterations /* stats */
-)
+  uint32_t* const num_executed_iterations, /* stats */
+  SAMPLE_FILTER_T sample_filter)
 {
-  assert(blockDim.x == BLOCK_SIZE);
   assert(dataset_dim <= MAX_DATASET_DIM);
 
   const auto num_queries       = gridDim.y;
@@ -207,7 +206,7 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     }
 #endif
   const DATA_T* const query_ptr = queries_ptr + (dataset_dim * query_id);
-  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += BLOCK_SIZE) {
+  for (unsigned i = threadIdx.x; i < MAX_DATASET_DIM; i += blockDim.x) {
     unsigned j = device::swizzling(i);
     if (i < dataset_dim) {
       query_buffer[j] = spatial::knn::detail::utils::mapping<float>{}(query_ptr[i]);
@@ -274,27 +273,70 @@ __launch_bounds__(BLOCK_SIZE, BLOCK_COUNT) __global__ void search_kernel(
     _CLK_START();
     // constexpr unsigned max_n_frags = 16;
     constexpr unsigned max_n_frags = 0;
-    device::
-      compute_distance_to_child_nodes<TEAM_SIZE, BLOCK_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
-        result_indices_buffer + itopk_size,
-        result_distances_buffer + itopk_size,
-        query_buffer,
-        dataset_ptr,
-        dataset_dim,
-        dataset_ld,
-        knn_graph,
-        graph_degree,
-        local_visited_hashmap_ptr,
-        hash_bitlen,
-        parent_indices_buffer,
-        search_width);
+    device::compute_distance_to_child_nodes<TEAM_SIZE, MAX_DATASET_DIM, max_n_frags, LOAD_T>(
+      result_indices_buffer + itopk_size,
+      result_distances_buffer + itopk_size,
+      query_buffer,
+      dataset_ptr,
+      dataset_dim,
+      dataset_ld,
+      knn_graph,
+      graph_degree,
+      local_visited_hashmap_ptr,
+      hash_bitlen,
+      parent_indices_buffer,
+      result_indices_buffer,
+      search_width);
     _CLK_REC(clk_compute_distance);
     __syncthreads();
+
+    // Filtering
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+      const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+      for (unsigned p = threadIdx.x; p < search_width; p += blockDim.x) {
+        if (parent_indices_buffer[p] != invalid_index) {
+          const auto parent_id =
+            result_indices_buffer[parent_indices_buffer[p]] & ~index_msb_1_mask;
+          if (!sample_filter(query_id, parent_id)) {
+            // If the parent must not be in the resulting top-k list, remove from the parent list
+            result_distances_buffer[parent_indices_buffer[p]] = utils::get_max_value<DISTANCE_T>();
+            result_indices_buffer[parent_indices_buffer[p]]   = invalid_index;
+          }
+        }
+      }
+      __syncthreads();
+    }
 
     iter++;
   }
 
-  for (uint32_t i = threadIdx.x; i < itopk_size; i += BLOCK_SIZE) {
+  // Post process for filtering
+  if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                              raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+    constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
+    const INDEX_T invalid_index        = utils::get_max_value<INDEX_T>();
+
+    for (unsigned i = threadIdx.x; i < itopk_size + search_width * graph_degree; i += blockDim.x) {
+      const auto node_id = result_indices_buffer[i] & ~index_msb_1_mask;
+      if (node_id != (invalid_index & ~index_msb_1_mask) && !sample_filter(query_id, node_id)) {
+        // If the parent must not be in the resulting top-k list, remove from the parent list
+        result_distances_buffer[i] = utils::get_max_value<DISTANCE_T>();
+        result_indices_buffer[i]   = invalid_index;
+      }
+    }
+
+    __syncthreads();
+    topk_by_bitonic_sort<MAX_ELEMENTS, INDEX_T>(result_distances_buffer,
+                                                result_indices_buffer,
+                                                itopk_size + (search_width * graph_degree),
+                                                itopk_size);
+    __syncthreads();
+  }
+
+  for (uint32_t i = threadIdx.x; i < itopk_size; i += blockDim.x) {
     uint32_t j = i + (itopk_size * (cta_id + (num_cta_per_query * query_id)));
     if (result_distances_ptr != nullptr) { result_distances_ptr[j] = result_distances_buffer[i]; }
     constexpr INDEX_T index_msb_1_mask = utils::gen_index_msb_1_mask<INDEX_T>::value;
@@ -361,88 +403,52 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 struct search_kernel_config {
   // Search kernel function type. Note that the actual values for the template value
   // parameters do not matter, because they are not part of the function signature. The
   // second to fourth value parameters will be selected by the choose_* functions below.
   using kernel_t = decltype(&search_kernel<TEAM_SIZE,
-                                           64,
-                                           16,
                                            128,
                                            MAX_DATASET_DIM,
                                            DATA_T,
                                            DISTANCE_T,
                                            INDEX_T,
-                                           device::LOAD_128BIT_T>);
+                                           device::LOAD_128BIT_T,
+                                           SAMPLE_FILTER_T>);
 
   static auto choose_buffer_size(unsigned result_buffer_size, unsigned block_size) -> kernel_t
   {
     if (result_buffer_size <= 64) {
-      return choose_max_elements<64>(block_size);
-    } else if (result_buffer_size <= 128) {
-      return choose_max_elements<128>(block_size);
-    } else if (result_buffer_size <= 256) {
-      return choose_max_elements<256>(block_size);
-    }
-    THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
-  }
-
-  template <unsigned MAX_ELEMENTS>
-  // Todo: rename this to choose block_size
-  static auto choose_max_elements(unsigned block_size) -> kernel_t
-  {
-    if (block_size == 64) {
       return search_kernel<TEAM_SIZE,
                            64,
-                           16,
-                           MAX_ELEMENTS,
                            MAX_DATASET_DIM,
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 128) {
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
+    } else if (result_buffer_size <= 128) {
       return search_kernel<TEAM_SIZE,
                            128,
-                           8,
-                           MAX_ELEMENTS,
                            MAX_DATASET_DIM,
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 256) {
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
+    } else if (result_buffer_size <= 256) {
       return search_kernel<TEAM_SIZE,
                            256,
-                           4,
-                           MAX_ELEMENTS,
                            MAX_DATASET_DIM,
                            DATA_T,
                            DISTANCE_T,
                            INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else if (block_size == 512) {
-      return search_kernel<TEAM_SIZE,
-                           512,
-                           2,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
-    } else {
-      return search_kernel<TEAM_SIZE,
-                           1024,
-                           1,
-                           MAX_ELEMENTS,
-                           MAX_DATASET_DIM,
-                           DATA_T,
-                           DISTANCE_T,
-                           INDEX_T,
-                           device::LOAD_128BIT_T>;
+                           device::LOAD_128BIT_T,
+                           SAMPLE_FILTER_T>;
     }
+    THROW("Result buffer size %u larger than max buffer size %u", result_buffer_size, 256);
   }
 };
 
@@ -450,13 +456,14 @@ template <unsigned TEAM_SIZE,
           unsigned MAX_DATASET_DIM,
           typename DATA_T,
           typename INDEX_T,
-          typename DISTANCE_T>
+          typename DISTANCE_T,
+          typename SAMPLE_FILTER_T>
 void select_and_run(  // raft::resources const& res,
   raft::device_matrix_view<const DATA_T, int64_t, layout_stride> dataset,
   raft::device_matrix_view<const INDEX_T, int64_t, row_major> graph,
-  INDEX_T* const topk_indices_ptr,          // [num_queries, topk]
-  DISTANCE_T* const topk_distances_ptr,     // [num_queries, topk]
-  const DATA_T* const queries_ptr,          // [num_queries, dataset_dim]
+  INDEX_T* const topk_indices_ptr,       // [num_queries, topk]
+  DISTANCE_T* const topk_distances_ptr,  // [num_queries, topk]
+  const DATA_T* const queries_ptr,       // [num_queries, dataset_dim]
   const uint32_t num_queries,
   const INDEX_T* dev_seed_ptr,              // [num_queries, num_seeds]
   uint32_t* const num_executed_iterations,  // [num_queries,]
@@ -475,10 +482,12 @@ void select_and_run(  // raft::resources const& res,
   size_t search_width,
   size_t min_iterations,
   size_t max_iterations,
+  SAMPLE_FILTER_T sample_filter,
   cudaStream_t stream)
 {
-  auto kernel = search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T>::
-    choose_buffer_size(result_buffer_size, block_size);
+  auto kernel =
+    search_kernel_config<TEAM_SIZE, MAX_DATASET_DIM, DATA_T, INDEX_T, DISTANCE_T, SAMPLE_FILTER_T>::
+      choose_buffer_size(result_buffer_size, block_size);
 
   RAFT_CUDA_TRY(
     cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
@@ -489,7 +498,7 @@ void select_and_run(  // raft::resources const& res,
 
   dim3 block_dims(block_size, 1, 1);
   dim3 grid_dims(num_cta_per_query, num_queries, 1);
-  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %lu smem",
+  RAFT_LOG_DEBUG("Launching kernel with %u threads, (%u, %u) blocks %u smem",
                  block_size,
                  num_cta_per_query,
                  num_queries,
@@ -513,7 +522,8 @@ void select_and_run(  // raft::resources const& res,
                                                        search_width,
                                                        min_iterations,
                                                        max_iterations,
-                                                       num_executed_iterations);
+                                                       num_executed_iterations,
+                                                       sample_filter);
 }
 
 }  // namespace multi_cta_search

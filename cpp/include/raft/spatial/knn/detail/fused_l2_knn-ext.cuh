@@ -36,7 +36,9 @@ void fusedL2Knn(size_t D,
                 bool rowMajorIndex,
                 bool rowMajorQuery,
                 cudaStream_t stream,
-                raft::distance::DistanceType metric) RAFT_EXPLICIT;
+                raft::distance::DistanceType metric,
+                const value_t* index_norms = NULL,
+                const value_t* query_norms = NULL) RAFT_EXPLICIT;
 
 }  // namespace raft::spatial::knn::detail
 
@@ -56,7 +58,9 @@ void fusedL2Knn(size_t D,
     bool rowMajorIndex,                                                                     \
     bool rowMajorQuery,                                                                     \
     cudaStream_t stream,                                                                    \
-    raft::distance::DistanceType metric)
+    raft::distance::DistanceType metric,                                                    \
+    const Mvalue_t* index_norms,                                                            \
+    const Mvalue_t* query_norms);
 
 instantiate_raft_spatial_knn_detail_fusedL2Knn(int32_t, float, true);
 instantiate_raft_spatial_knn_detail_fusedL2Knn(int32_t, float, false);

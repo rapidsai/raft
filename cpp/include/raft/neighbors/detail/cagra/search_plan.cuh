@@ -38,12 +38,13 @@ struct search_plan_impl_base : public search_params {
   {
     set_max_dim_team(dim);
     if (algo == search_algo::AUTO) {
-      if (itopk_size <= 512) {
+      const size_t num_sm = raft::getMultiProcessorCount();
+      if (itopk_size <= 512 && search_params::max_queries >= num_sm * 2lu) {
         algo = search_algo::SINGLE_CTA;
         RAFT_LOG_DEBUG("Auto strategy: selecting single-cta");
       } else {
-        algo = search_algo::MULTI_KERNEL;
-        RAFT_LOG_DEBUG("Auto strategy: selecting multi-kernel");
+        algo = search_algo::MULTI_CTA;
+        RAFT_LOG_DEBUG("Auto strategy: selecting multi-cta");
       }
     }
   }
@@ -65,7 +66,7 @@ struct search_plan_impl_base : public search_params {
   }
 };
 
-template <class DATA_T, class INDEX_T, class DISTANCE_T>
+template <class DATA_T, class INDEX_T, class DISTANCE_T, class SAMPLE_FILTER_T>
 struct search_plan_impl : public search_plan_impl_base {
   int64_t hash_bitlen;
 
@@ -111,9 +112,10 @@ struct search_plan_impl : public search_plan_impl_base {
                           DISTANCE_T* const result_distances_ptr,  // [num_queries, topk]
                           const DATA_T* const queries_ptr,         // [num_queries, dataset_dim]
                           const std::uint32_t num_queries,
-                          const INDEX_T* dev_seed_ptr,             // [num_queries, num_seeds]
+                          const INDEX_T* dev_seed_ptr,                   // [num_queries, num_seeds]
                           std::uint32_t* const num_executed_iterations,  // [num_queries]
-                          uint32_t topk){};
+                          uint32_t topk,
+                          SAMPLE_FILTER_T sample_filter){};
 
   void adjust_search_params()
   {
@@ -129,13 +131,13 @@ struct search_plan_impl : public search_plan_impl_base {
     if (max_iterations < min_iterations) { _max_iterations = min_iterations; }
     if (max_iterations < _max_iterations) {
       RAFT_LOG_DEBUG(
-        "# max_iterations is increased from %u to %u.", max_iterations, _max_iterations);
+        "# max_iterations is increased from %lu to %u.", max_iterations, _max_iterations);
       max_iterations = _max_iterations;
     }
     if (itopk_size % 32) {
       uint32_t itopk32 = itopk_size;
       itopk32 += 32 - (itopk_size % 32);
-      RAFT_LOG_DEBUG("# internal_topk is increased from %u to %u, as it must be multiple of 32.",
+      RAFT_LOG_DEBUG("# internal_topk is increased from %lu to %u, as it must be multiple of 32.",
                      itopk_size,
                      itopk32);
       itopk_size = itopk32;
@@ -288,6 +290,14 @@ struct search_plan_impl : public search_plan_impl_base {
       error_message +=
         "`hashmap_max_fill_rate` must be equal to or greater than 0.1 and smaller than 0.9. " +
         std::to_string(hashmap_max_fill_rate) + " has been given.";
+    }
+    if constexpr (!std::is_same<SAMPLE_FILTER_T,
+                                raft::neighbors::filtering::none_cagra_sample_filter>::value) {
+      if (hashmap_mode == hash_mode::SMALL) {
+        error_message += "`SMALL` hash is not available when filtering";
+      } else {
+        hashmap_mode = hash_mode::HASH;
+      }
     }
     if (algo == search_algo::MULTI_CTA) {
       if (hashmap_mode == hash_mode::SMALL) {

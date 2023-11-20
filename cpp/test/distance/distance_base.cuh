@@ -19,13 +19,13 @@
 #include <raft/common/nvtx.hpp>  // common::nvtx::range
 #include <raft/core/resource/cuda_stream.hpp>
 
-#include <raft/core/device_mdspan.hpp>       // make_device_matrix_view
-#include <raft/core/operators.hpp>           // raft::sqrt
-#include <raft/core/resources.hpp>           // raft::resources
+#include <raft/core/device_mdspan.hpp>  // make_device_matrix_view
+#include <raft/core/operators.hpp>      // raft::sqrt
+#include <raft/core/resources.hpp>      // raft::resources
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>  // raft::distance::DistanceType
 #include <raft/random/rng.cuh>
-#include <rmm/device_uvector.hpp>            // rmm::device_uvector
+#include <rmm/device_uvector.hpp>  // rmm::device_uvector
 
 namespace raft {
 namespace distance {
