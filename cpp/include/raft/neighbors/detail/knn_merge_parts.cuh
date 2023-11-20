@@ -30,16 +30,16 @@ template <typename value_idx = std::int64_t,
           int warp_q,
           int thread_q,
           int tpb>
-__global__ void knn_merge_parts_kernel(const value_t* inK,
-                                       const value_idx* inV,
-                                       value_t* outK,
-                                       value_idx* outV,
-                                       size_t n_samples,
-                                       int n_parts,
-                                       value_t initK,
-                                       value_idx initV,
-                                       int k,
-                                       value_idx* translations)
+RAFT_KERNEL knn_merge_parts_kernel(const value_t* inK,
+                                   const value_idx* inV,
+                                   value_t* outK,
+                                   value_idx* outV,
+                                   size_t n_samples,
+                                   int n_parts,
+                                   value_t initK,
+                                   value_idx initV,
+                                   int k,
+                                   value_idx* translations)
 {
   constexpr int kNumWarps = tpb / WarpSize;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,12 +51,12 @@ namespace detail {
  * @param d_MI: pointer to the device memory that stores the aggregate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void mutual_info_kernel(const int* dContingencyMatrix,
-                                   const int* a,
-                                   const int* b,
-                                   int numUniqueClasses,
-                                   int size,
-                                   double* d_MI)
+RAFT_KERNEL mutual_info_kernel(const int* dContingencyMatrix,
+                               const int* a,
+                               const int* b,
+                               int numUniqueClasses,
+                               int size,
+                               double* d_MI)
 {
   // calculating the indices of pairs of datapoints compared by the current thread
   int j = threadIdx.x + blockIdx.x * blockDim.x;

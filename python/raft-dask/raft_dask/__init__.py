@@ -13,4 +13,4 @@
 # limitations under the License.
 #
 
-__version__ = "23.10.00"
+from raft_dask._version import __git_commit__, __version__

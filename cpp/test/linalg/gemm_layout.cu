@@ -37,7 +37,7 @@ struct GemmLayoutInputs {
 
 // Reference GEMM implementation.
 template <typename T>
-__global__ void naiveGemm(
+RAFT_KERNEL naiveGemm(
   T* Z, T* X, T* Y, int M, int N, int K, bool isZColMajor, bool isXColMajor, bool isYColMajor)
 {
   int tidx = blockIdx.x * blockDim.x + threadIdx.x;

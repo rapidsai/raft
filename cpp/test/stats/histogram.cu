@@ -28,7 +28,7 @@ namespace raft {
 namespace stats {
 
 // Note: this kernel also updates the input vector to take care of OOB bins!
-__global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows)
+RAFT_KERNEL naiveHistKernel(int* bins, int nbins, int* in, int nrows)
 {
   int tid        = threadIdx.x + blockIdx.x * blockDim.x;
   int stride     = blockDim.x * gridDim.x;

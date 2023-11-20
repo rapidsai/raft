@@ -39,6 +39,8 @@ enum resource_type {
   SUB_COMMUNICATOR,        // raft sub communicator
   DEVICE_PROPERTIES,       // cuda device properties
   DEVICE_ID,               // cuda device id
+  STREAM_VIEW,             // view of a cuda stream or a placeholder in
+                           // CUDA-free builds
   THRUST_POLICY,           // thrust execution policy
   WORKSPACE_RESOURCE,      // rmm device memory resource
   CUBLASLT_HANDLE,         // cublasLt handle

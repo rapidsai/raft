@@ -27,7 +27,7 @@ namespace linalg {
 //// Testing unary ops
 
 template <typename Type>
-__global__ void naiveScaleKernel(Type* out, const Type* in, Type scalar, int len)
+RAFT_KERNEL naiveScaleKernel(Type* out, const Type* in, Type scalar, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = scalar * in[idx]; }
@@ -114,7 +114,7 @@ INSTANTIATE_TEST_SUITE_P(ScalarMultiplyTests, ScalarMultiplyTestD, ::testing::Va
 //// Testing binary ops
 
 template <typename Type>
-__global__ void naiveAddKernel(Type* out, const Type* in1, const Type* in2, int len)
+RAFT_KERNEL naiveAddKernel(Type* out, const Type* in1, const Type* in2, int len)
 {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) { out[idx] = in1[idx] + in2[idx]; }

@@ -27,7 +27,7 @@ namespace linalg {
 
 // reference MSE calculation
 template <typename T>
-__global__ void naiveMeanSquaredError(const int n, const T* a, const T* b, T weight, T* out)
+RAFT_KERNEL naiveMeanSquaredError(const int n, const T* a, const T* b, T weight, T* out)
 {
   T err = 0;
   for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {

@@ -20,6 +20,7 @@
 #include <memory>
 #include <omp.h>
 #include <raft/common/nvtx.hpp>
+#include <raft/core/detail/macros.hpp>
 #include <raft/core/interruptible.hpp>
 #include <rmm/cuda_stream.hpp>
 #include <thread>
@@ -27,7 +28,7 @@
 
 namespace raft {
 
-__global__ void gpu_wait(int millis)
+RAFT_KERNEL gpu_wait(int millis)
 {
   for (auto i = millis; i > 0; i--) {
 #if __CUDA_ARCH__ >= 700

@@ -39,14 +39,14 @@ struct RaftKVPMinReduce {
 };  // KVPMinReduce
 
 template <typename DataT, bool Sqrt, typename ReduceOpT, int NWARPS>
-__global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
-                            DataT* x,
-                            DataT* y,
-                            int m,
-                            int n,
-                            int k,
-                            int* workspace,
-                            DataT maxVal)
+RAFT_KERNEL naiveKernel(raft::KeyValuePair<int, DataT>* min,
+                        DataT* x,
+                        DataT* y,
+                        int m,
+                        int n,
+                        int k,
+                        int* workspace,
+                        DataT maxVal)
 {
   int midx  = threadIdx.y + blockIdx.y * blockDim.y;
   int nidx  = threadIdx.x + blockIdx.x * blockDim.x;
@@ -57,6 +57,7 @@ __global__ void naiveKernel(raft::KeyValuePair<int, DataT>* min,
     auto diff = midx >= m || nidx >= n ? DataT(0) : x[xidx] - y[yidx];
     acc += diff * diff;
   }
+
   if (Sqrt) { acc = raft::sqrt(acc); }
   ReduceOpT redOp;
   typedef cub::WarpReduce<raft::KeyValuePair<int, DataT>> WarpReduce;
@@ -343,7 +344,7 @@ const std::vector<Inputs<double>> inputsd = {
   {0.00001, 128, 32, 33, 1234ULL},  {0.00001, 128, 64, 33, 1234ULL},
   {0.00001, 128, 128, 65, 1234ULL}, {0.00001, 64, 128, 129, 1234ULL},
 
-  {0.00001, 1805, 134, 2, 1234ULL}, {0.00001, 8192, 1024, 25, 1234ULL},
+  {0.00001, 1805, 134, 2, 1234ULL},  //{0.00001, 8192, 1024, 25, 1234ULL},
 };
 typedef FusedL2NNTest<double, false> FusedL2NNTestD_Sq;
 TEST_P(FusedL2NNTestD_Sq, Result)

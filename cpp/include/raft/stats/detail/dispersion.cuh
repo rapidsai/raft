@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace detail {
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename DataT, typename IdxT, int TPB, int ColsPerBlk = 32>
-__global__ void weightedMeanKernel(DataT* mu, const DataT* data, const IdxT* counts, IdxT D, IdxT N)
+RAFT_KERNEL weightedMeanKernel(DataT* mu, const DataT* data, const IdxT* counts, IdxT D, IdxT N)
 {
   constexpr int RowsPerBlkPerIter = TPB / ColsPerBlk;
   IdxT thisColId                  = threadIdx.x % ColsPerBlk;
@@ -51,12 +51,12 @@ __global__ void weightedMeanKernel(DataT* mu, const DataT* data, const IdxT* cou
 }
 
 template <typename DataT, typename IdxT, int TPB>
-__global__ void dispersionKernel(DataT* result,
-                                 const DataT* clusters,
-                                 const IdxT* clusterSizes,
-                                 const DataT* mu,
-                                 IdxT dim,
-                                 IdxT nClusters)
+RAFT_KERNEL dispersionKernel(DataT* result,
+                             const DataT* clusters,
+                             const IdxT* clusterSizes,
+                             const DataT* mu,
+                             IdxT dim,
+                             IdxT nClusters)
 {
   IdxT tid    = threadIdx.x + blockIdx.x * blockDim.x;
   IdxT len    = dim * nClusters;

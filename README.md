@@ -255,106 +255,54 @@ pairwise_distance(in1, in2, out=output, metric="euclidean")
 
 ## Installing
 
-RAFT itself can be installed through conda, [CMake Package Manager (CPM)](https://github.com/cpm-cmake/CPM.cmake), pip, or by building the repository from source. Please refer to the [build instructions](docs/source/build.md) for more a comprehensive guide on installing and building RAFT and using it in downstream projects.
+RAFT's C++ and Python libraries can both be installed through Conda and the Python libraries through Pip. 
 
-### Conda
+
+### Installing C++ and Python through Conda
 
 The easiest way to install RAFT is through conda and several packages are provided.
-- `libraft-headers` RAFT headers
-- `libraft` (optional) shared library of pre-compiled template instantiations and runtime APIs.
-- `pylibraft` (optional) Python wrappers around RAFT algorithms and primitives.
-- `raft-dask` (optional) enables deployment of multi-node multi-GPU algorithms that use RAFT `raft::comms` in Dask clusters.
+- `libraft-headers` C++ headers
+- `libraft` (optional) C++ shared library containing pre-compiled template instantiations and runtime API.
+- `pylibraft` (optional) Python library
+- `raft-dask` (optional) Python library for deployment of multi-node multi-GPU algorithms that use the RAFT `raft::comms` abstraction layer in Dask clusters.
+- `raft-ann-bench` (optional) Benchmarking tool for easily producing benchmarks that compare RAFT's vector search algorithms against other state-of-the-art implementations.
+- `raft-ann-bench-cpu` (optional) Reproducible benchmarking tool similar to above, but doesn't require CUDA to be installed on the machine. Can be used to test in environments with competitive CPUs.
 
-Use the following command to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
+Use the following command, depending on your CUDA version, to install all of the RAFT packages with conda (replace `rapidsai` with `rapidsai-nightly` to install more up-to-date but less stable nightly packages). `mamba` is preferred over the `conda` command.
 ```bash
-mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft
+# for CUDA 11.8
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=11.8
 ```
 
-You can also install the conda packages individually using the `mamba` command above.
+```bash
+# for CUDA 12.0
+mamba install -c rapidsai -c conda-forge -c nvidia raft-dask pylibraft cuda-version=12.0
+```
 
-After installing RAFT, `find_package(raft COMPONENTS compiled distributed)` can be used in your CUDA/C++ cmake build to compile and/or link against needed dependencies in your raft target. `COMPONENTS` are optional and will depend on the packages installed.
+Note that the above commands will also install `libraft-headers` and `libraft`.
 
-### Pip
+You can also install the conda packages individually using the `mamba` command above. For example, if you'd like to install RAFT's headers and pre-compiled shared library to use in your project:
+```bash
+# for CUDA 12.0
+mamba install -c rapidsai -c conda-forge -c nvidia libraft libraft-headers cuda-version=12.0
+```
 
-pylibraft and raft-dask both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
+If installing the C++ APIs please see [using libraft](https://docs.rapids.ai/api/raft/nightly/using_libraft/) for more information on using the pre-compiled shared library. You can also refer to the [example C++ template project](https://github.com/rapidsai/raft/tree/branch-23.12/cpp/template) for a ready-to-go CMake configuration that you can drop into your project and build against installed RAFT development artifacts above.
+
+### Installing Python through Pip
+
+`pylibraft` and `raft-dask` both have experimental packages that can be [installed through pip](https://rapids.ai/pip.html#install):
 ```bash
 pip install pylibraft-cu11 --extra-index-url=https://pypi.nvidia.com
 pip install raft-dask-cu11 --extra-index-url=https://pypi.nvidia.com
 ```
 
-### CMake & CPM
+These packages statically build RAFT's pre-compiled instantiations and so the C++ headers and pre-compiled shared library won't be readily available to use in your code.
 
-RAFT uses the [RAPIDS-CMake](https://github.com/rapidsai/rapids-cmake) library, which makes it easy to include in downstream cmake projects. RAPIDS-CMake provides a convenience layer around CPM. Please refer to [these instructions](https://github.com/rapidsai/rapids-cmake#installation) to install and use rapids-cmake in your project.
+The [build instructions](https://docs.rapids.ai/api/raft/nightly/build/) contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ and Python from source](https://docs.rapids.ai/api/raft/nightly/build/#building-c-and-python-from-source) section of the build instructions.
 
-#### Example Template Project
+You can find an example [RAFT project template](cpp/template/README.md) in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing CMake project.
 
-You can find an [example RAFT](cpp/template/README.md) project template in the `cpp/template` directory, which demonstrates how to build a new application with RAFT or incorporate RAFT into an existing cmake project.
-
-#### CMake Targets
-
-Additional CMake targets can be made available by adding components in the table below to the `RAFT_COMPONENTS` list above, separated by spaces. The `raft::raft` target will always be available. RAFT headers require, at a minimum, the CUDA toolkit libraries and RMM dependencies.
-
-| Component   | Target              | Description                                              | Base Dependencies                      |
-|-------------|---------------------|----------------------------------------------------------|----------------------------------------|
-| n/a         | `raft::raft`        | Full RAFT header library                                 | CUDA toolkit, RMM, NVTX, CCCL, CUTLASS |
-| compiled    | `raft::compiled`    | Pre-compiled template instantiations and runtime library | raft::raft                             |
-| distributed | `raft::distributed` | Dependencies for `raft::comms` APIs                      | raft::raft, UCX, NCCL                  |
-
-### Source
-
-The easiest way to build RAFT from source is to use the `build.sh` script at the root of the repository:
-1. Create an environment with the needed dependencies:
-```
-mamba env create --name raft_dev_env -f conda/environments/all_cuda-118_arch-x86_64.yaml
-mamba activate raft_dev_env
-```
-```
-./build.sh raft-dask pylibraft libraft tests bench --compile-lib
-```
-
-The [build](docs/source/build.md) instructions contain more details on building RAFT from source and including it in downstream projects. You can also find a more comprehensive version of the above CPM code snippet the [Building RAFT C++ from source](docs/source/build.md#building-raft-c-from-source-in-cmake) section of the build instructions.
-
-## Folder Structure and Contents
-
-The folder structure mirrors other RAPIDS repos, with the following folders:
-
-- `bench/ann`: Python scripts for running ANN benchmarks
-- `ci`: Scripts for running CI in PRs
-- `conda`: Conda recipes and development conda environments
-- `cpp`: Source code for C++ libraries.
-  - `bench`: Benchmarks source code
-  - `cmake`: CMake modules and templates
-  - `doxygen`: Doxygen configuration
-  - `include`: The C++ API headers are fully-contained here (deprecated directories are excluded from the listing below)
-    - `cluster`: Basic clustering primitives and algorithms.
-    - `comms`: A multi-node multi-GPU communications abstraction layer for NCCL+UCX and MPI+NCCL, which can be deployed in Dask clusters using the `raft-dask` Python package.
-    - `core`: Core API headers which require minimal dependencies aside from RMM and Cudatoolkit. These are safe to expose on public APIs and do not require `nvcc` to build. This is the same for any headers in RAFT which have the suffix `*_types.hpp`.
-    - `distance`: Distance primitives
-    - `linalg`: Dense linear algebra
-    - `matrix`: Dense matrix operations
-    - `neighbors`: Nearest neighbors and knn graph construction
-    - `random`: Random number generation, sampling, and data generation primitives
-    - `solver`: Iterative and combinatorial solvers for optimization and approximation
-    - `sparse`: Sparse matrix operations
-      - `convert`: Sparse conversion functions
-      - `distance`: Sparse distance computations
-      - `linalg`: Sparse linear algebra
-      - `neighbors`: Sparse nearest neighbors and knn graph construction
-      - `op`: Various sparse operations such as slicing and filtering (Note: this will soon be renamed to `sparse/matrix`)
-      - `solver`: Sparse solvers for optimization and approximation
-    - `stats`: Moments, summary statistics, model performance measures
-    - `util`: Various reusable tools and utilities for accelerated algorithm development
-  - `internal`: A private header-only component that hosts the code shared between benchmarks and tests.
-  - `scripts`: Helpful scripts for development
-  - `src`: Compiled APIs and template instantiations for the shared libraries
-  - `template`: A skeleton template containing the bare-bones file structure and cmake configuration for writing applications with RAFT.
-  - `test`: Googletests source code
-- `docs`: Source code and scripts for building library documentation (Uses breath, doxygen, & pydocs)
-- `notebooks`: IPython notebooks with usage examples and tutorials
-- `python`: Source code for Python libraries.
-  - `pylibraft`: Python build and source code for pylibraft library
-  - `raft-dask`: Python build and source code for raft-dask library
-- `thirdparty`: Third-party licenses
 
 ## Contributing
 

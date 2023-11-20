@@ -30,12 +30,12 @@ struct MulInputs {
   uint64_t operand_2;
 };
 
-__global__ void mul64_test_kernel(uint64_t* result_high,
-                                  uint64_t* result_low,
-                                  uint64_t* swapped_result_high,
-                                  uint64_t* swapped_result_low,
-                                  const uint64_t op1,
-                                  const uint64_t op2)
+RAFT_KERNEL mul64_test_kernel(uint64_t* result_high,
+                              uint64_t* result_low,
+                              uint64_t* swapped_result_high,
+                              uint64_t* swapped_result_low,
+                              const uint64_t op1,
+                              const uint64_t op2)
 {
   using raft::wmul_64bit;
   wmul_64bit(*result_high, *result_low, op1, op2);

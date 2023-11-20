@@ -13,5 +13,6 @@ fundamental clustering algorithms which are, themselves, considered reusable bui
    :caption: Contents:
 
    cluster_kmeans.rst
+   cluster_kmeans_balanced.rst
    cluster_slhc.rst
    cluster_spectral.rst

@@ -43,11 +43,11 @@ __host__ __device__ void single_thread_fill(DType* buffer,
 }
 
 template <typename DType, typename ParamType, int CPT, int IPC>
-__global__ void pcg_device_kernel(DType* buffer,
-                                  DeviceState<PCGenerator> r,
-                                  ParamType params,
-                                  const size_t total_threads,
-                                  const size_t len)
+RAFT_KERNEL pcg_device_kernel(DType* buffer,
+                              DeviceState<PCGenerator> r,
+                              ParamType params,
+                              const size_t total_threads,
+                              const size_t len)
 {
   int tid = int(blockIdx.x) * blockDim.x + threadIdx.x;
 

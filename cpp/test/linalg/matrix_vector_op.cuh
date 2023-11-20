@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ namespace raft {
 namespace linalg {
 
 template <typename OutT, typename MatT, typename VecT, typename Lambda, typename IdxType = int>
-__global__ void naiveMatVecKernel(OutT* out,
-                                  const MatT* mat,
-                                  const VecT* vec,
-                                  IdxType D,
-                                  IdxType N,
-                                  bool rowMajor,
-                                  bool bcastAlongRows,
-                                  Lambda op)
+RAFT_KERNEL naiveMatVecKernel(OutT* out,
+                              const MatT* mat,
+                              const VecT* vec,
+                              IdxType D,
+                              IdxType N,
+                              bool rowMajor,
+                              bool bcastAlongRows,
+                              Lambda op)
 {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   IdxType len = N * D;
@@ -93,15 +93,15 @@ template <typename OutT,
           typename Vec2T,
           typename Lambda,
           typename IdxType = int>
-__global__ void naiveMatVecKernel(OutT* out,
-                                  const MatT* mat,
-                                  const Vec1T* vec1,
-                                  const Vec2T* vec2,
-                                  IdxType D,
-                                  IdxType N,
-                                  bool rowMajor,
-                                  bool bcastAlongRows,
-                                  Lambda op)
+RAFT_KERNEL naiveMatVecKernel(OutT* out,
+                              const MatT* mat,
+                              const Vec1T* vec1,
+                              const Vec2T* vec2,
+                              IdxType D,
+                              IdxType N,
+                              bool rowMajor,
+                              bool bcastAlongRows,
+                              Lambda op)
 {
   IdxType idx = threadIdx.x + blockIdx.x * blockDim.x;
   IdxType len = N * D;

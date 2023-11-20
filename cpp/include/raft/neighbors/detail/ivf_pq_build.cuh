@@ -65,7 +65,7 @@ namespace raft::neighbors::ivf_pq::detail {
 using namespace raft::spatial::knn::detail;  // NOLINT
 
 template <uint32_t BlockDim, typename T, typename S>
-__launch_bounds__(BlockDim) __global__ void copy_warped_kernel(
+__launch_bounds__(BlockDim) RAFT_KERNEL copy_warped_kernel(
   T* out, uint32_t ld_out, const S* in, uint32_t ld_in, uint32_t n_cols, size_t n_rows)
 {
   using warp    = Pow2<WarpSize>;
@@ -124,7 +124,7 @@ inline void make_rotation_matrix(raft::resources const& handle,
                                  uint32_t n_rows,
                                  uint32_t n_cols,
                                  float* rotation_matrix,
-                                 raft::random::Rng rng = raft::random::Rng(7ULL))
+                                 raft::random::RngState rng = raft::random::RngState(7ULL))
 {
   common::nvtx::range<common::nvtx::domain::raft> fun_scope(
     "ivf_pq::make_rotation_matrix(%u * %u)", n_rows, n_cols);
@@ -134,7 +134,7 @@ inline void make_rotation_matrix(raft::resources const& handle,
   if (force_random_rotation || !inplace) {
     rmm::device_uvector<float> buf(inplace ? 0 : n * n, stream);
     float* mat = inplace ? rotation_matrix : buf.data();
-    rng.normal(mat, n * n, 0.0f, 1.0f, stream);
+    raft::random::normal(handle, rng, mat, n * n, 0.0f, 1.0f);
     linalg::detail::qrGetQ_inplace(handle, mat, n, n, stream);
     if (!inplace) {
       RAFT_CUDA_TRY(cudaMemcpy2DAsync(rotation_matrix,
@@ -262,10 +262,8 @@ void flat_compute_residuals(
 }
 
 template <uint32_t BlockDim, typename IdxT>
-__launch_bounds__(BlockDim) __global__ void fill_indices_kernel(IdxT n_rows,
-                                                                IdxT* data_indices,
-                                                                IdxT* data_offsets,
-                                                                const uint32_t* labels)
+__launch_bounds__(BlockDim) RAFT_KERNEL
+  fill_indices_kernel(IdxT n_rows, IdxT* data_indices, IdxT* data_offsets, const uint32_t* labels)
 {
   const auto i = IdxT(BlockDim) * IdxT(blockIdx.x) + IdxT(threadIdx.x);
   if (i >= n_rows) { return; }
@@ -313,6 +311,59 @@ auto calculate_offsets_and_indices(IdxT n_rows,
   fill_indices_kernel<n_threads>
     <<<n_blocks, n_threads, 0, stream>>>(n_rows, data_indices, data_offsets, labels);
   return max_cluster_size;
+}
+
+template <typename IdxT>
+void set_centers(raft::resources const& handle, index<IdxT>* index, const float* cluster_centers)
+{
+  auto stream         = resource::get_cuda_stream(handle);
+  auto* device_memory = resource::get_workspace_resource(handle);
+
+  // combine cluster_centers and their norms
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle(),
+                                  sizeof(float) * index->dim_ext(),
+                                  cluster_centers,
+                                  sizeof(float) * index->dim(),
+                                  sizeof(float) * index->dim(),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  rmm::device_uvector<float> center_norms(index->n_lists(), stream, device_memory);
+  raft::linalg::rowNorm(center_norms.data(),
+                        cluster_centers,
+                        index->dim(),
+                        index->n_lists(),
+                        raft::linalg::L2Norm,
+                        true,
+                        stream);
+  RAFT_CUDA_TRY(cudaMemcpy2DAsync(index->centers().data_handle() + index->dim(),
+                                  sizeof(float) * index->dim_ext(),
+                                  center_norms.data(),
+                                  sizeof(float),
+                                  sizeof(float),
+                                  index->n_lists(),
+                                  cudaMemcpyDefault,
+                                  stream));
+
+  //     Rotate cluster_centers
+  float alpha = 1.0;
+  float beta  = 0.0;
+  linalg::gemm(handle,
+               true,
+               false,
+               index->rot_dim(),
+               index->n_lists(),
+               index->dim(),
+               &alpha,
+               index->rotation_matrix().data_handle(),
+               index->dim(),
+               cluster_centers,
+               index->dim(),
+               &beta,
+               index->centers_rot().data_handle(),
+               index->rot_dim(),
+               resource::get_cuda_stream(handle));
 }
 
 template <typename IdxT>
@@ -554,7 +605,7 @@ struct unpack_codes {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void unpack_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_list_data_kernel(
   device_matrix_view<uint8_t, uint32_t, row_major> out_codes,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
@@ -615,6 +666,100 @@ void unpack_list_data(raft::resources const& res,
                    resource::get_cuda_stream(res));
 }
 
+/**
+ * A consumer for the `run_on_vector` that just flattens PQ codes
+ * into a tightly packed matrix. That is, the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct unpack_contiguous {
+  uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `run_on_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline unpack_contiguous(uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /**  Write j-th component (code) of the i-th vector into the output array. */
+  __host__ __device__ inline void operator()(uint8_t code, uint32_t i, uint32_t j)
+  {
+    bitfield_view_t<PqBits> code_view{codes + i * code_size};
+    code_view[j] = code;
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL unpack_contiguous_list_data_kernel(
+  uint8_t* out_codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  run_on_list<PqBits>(
+    in_list_data, offset_or_indices, n_rows, pq_dim, unpack_contiguous<PqBits>(out_codes, pq_dim));
+}
+
+/**
+ * Unpack flat PQ codes from an existing list by the given offset.
+ *
+ * @param[out] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] list_data the packed ivf::list data.
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void unpack_contiguous_list_data(
+  uint8_t* codes,
+  device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return unpack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return unpack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return unpack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return unpack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return unpack_contiguous_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(codes, list_data, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/** Unpack the list data; see the public interface for the api and usage. */
+template <typename IdxT>
+void unpack_contiguous_list_data(raft::resources const& res,
+                                 const index<IdxT>& index,
+                                 uint8_t* out_codes,
+                                 uint32_t n_rows,
+                                 uint32_t label,
+                                 std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  unpack_contiguous_list_data(out_codes,
+                              index.lists()[label]->data.view(),
+                              n_rows,
+                              index.pq_dim(),
+                              offset_or_indices,
+                              index.pq_bits(),
+                              resource::get_cuda_stream(res));
+}
+
 /** A consumer for the `run_on_list` and `run_on_vector` that approximates the original input data.
  */
 struct reconstruct_vectors {
@@ -672,7 +817,7 @@ struct reconstruct_vectors {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void reconstruct_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL reconstruct_list_data_kernel(
   device_matrix_view<float, uint32_t, row_major> out_vectors,
   device_mdspan<const uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> in_list_data,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
@@ -791,7 +936,7 @@ struct pass_codes {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void pack_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_list_data_kernel(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   device_matrix_view<const uint8_t, uint32_t, row_major> codes,
   std::variant<uint32_t, const uint32_t*> offset_or_indices)
@@ -850,6 +995,101 @@ void pack_list_data(raft::resources const& res,
                  offset_or_indices,
                  index->pq_bits(),
                  resource::get_cuda_stream(res));
+}
+
+/**
+ * A producer for the `write_vector` reads tightly packed flat codes. That is,
+ * the codes are not expanded to one code-per-byte.
+ */
+template <uint32_t PqBits>
+struct pack_contiguous {
+  const uint8_t* codes;
+  uint32_t code_size;
+
+  /**
+   * Create a callable to be passed to `write_vector`.
+   *
+   * @param[in] codes flat compressed PQ codes
+   */
+  __host__ __device__ inline pack_contiguous(const uint8_t* codes, uint32_t pq_dim)
+    : codes{codes}, code_size{raft::ceildiv<uint32_t>(pq_dim * PqBits, 8)}
+  {
+  }
+
+  /** Read j-th component (code) of the i-th vector from the source. */
+  __host__ __device__ inline auto operator()(uint32_t i, uint32_t j) -> uint8_t
+  {
+    bitfield_view_t<PqBits> code_view{const_cast<uint8_t*>(codes + i * code_size)};
+    return uint8_t(code_view[j]);
+  }
+};
+
+template <uint32_t BlockSize, uint32_t PqBits>
+__launch_bounds__(BlockSize) RAFT_KERNEL pack_contiguous_list_data_kernel(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  write_list<PqBits, 1>(
+    list_data, offset_or_indices, n_rows, pq_dim, pack_contiguous<PqBits>(codes, pq_dim));
+}
+
+/**
+ * Write flat PQ codes into an existing list by the given offset.
+ *
+ * NB: no memory allocation happens here; the list must fit the data (offset + n_rows).
+ *
+ * @param[out] list_data the packed ivf::list data.
+ * @param[in] codes flat compressed PQ codes [n_rows, ceildiv(pq_dim * pq_bits, 8)]
+ * @param[in] offset_or_indices how many records in the list to skip or the exact indices.
+ * @param[in] pq_bits codebook size (1 << pq_bits)
+ * @param[in] stream
+ */
+inline void pack_contiguous_list_data(
+  device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
+  const uint8_t* codes,
+  uint32_t n_rows,
+  uint32_t pq_dim,
+  std::variant<uint32_t, const uint32_t*> offset_or_indices,
+  uint32_t pq_bits,
+  rmm::cuda_stream_view stream)
+{
+  if (n_rows == 0) { return; }
+
+  constexpr uint32_t kBlockSize = 256;
+  dim3 blocks(div_rounding_up_safe<uint32_t>(n_rows, kBlockSize), 1, 1);
+  dim3 threads(kBlockSize, 1, 1);
+  auto kernel = [pq_bits]() {
+    switch (pq_bits) {
+      case 4: return pack_contiguous_list_data_kernel<kBlockSize, 4>;
+      case 5: return pack_contiguous_list_data_kernel<kBlockSize, 5>;
+      case 6: return pack_contiguous_list_data_kernel<kBlockSize, 6>;
+      case 7: return pack_contiguous_list_data_kernel<kBlockSize, 7>;
+      case 8: return pack_contiguous_list_data_kernel<kBlockSize, 8>;
+      default: RAFT_FAIL("Invalid pq_bits (%u), the value must be within [4, 8]", pq_bits);
+    }
+  }();
+  kernel<<<blocks, threads, 0, stream>>>(list_data, codes, n_rows, pq_dim, offset_or_indices);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename IdxT>
+void pack_contiguous_list_data(raft::resources const& res,
+                               index<IdxT>* index,
+                               const uint8_t* new_codes,
+                               uint32_t n_rows,
+                               uint32_t label,
+                               std::variant<uint32_t, const uint32_t*> offset_or_indices)
+{
+  pack_contiguous_list_data(index->lists()[label]->data.view(),
+                            new_codes,
+                            n_rows,
+                            index->pq_dim(),
+                            offset_or_indices,
+                            index->pq_bits(),
+                            resource::get_cuda_stream(res));
 }
 
 /**
@@ -943,7 +1183,7 @@ struct encode_vectors {
 };
 
 template <uint32_t BlockSize, uint32_t PqBits, typename IdxT>
-__launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL process_and_fill_codes_kernel(
   device_matrix_view<const float, IdxT, row_major> new_vectors,
   std::variant<IdxT, const IdxT*> src_offset_or_indices,
   const uint32_t* new_labels,
@@ -988,7 +1228,7 @@ __launch_bounds__(BlockSize) __global__ void process_and_fill_codes_kernel(
 }
 
 template <uint32_t BlockSize, uint32_t PqBits>
-__launch_bounds__(BlockSize) __global__ void encode_list_data_kernel(
+__launch_bounds__(BlockSize) RAFT_KERNEL encode_list_data_kernel(
   device_mdspan<uint8_t, list_spec<uint32_t, uint32_t>::list_extents, row_major> list_data,
   device_matrix_view<const float, uint32_t, row_major> new_vectors,
   device_mdspan<const float, extent_3d<uint32_t>, row_major> pq_centers,
@@ -1523,6 +1763,7 @@ auto build(raft::resources const& handle,
                 "Unsupported data type");
 
   RAFT_EXPECTS(n_rows > 0 && dim > 0, "empty dataset");
+  RAFT_EXPECTS(n_rows >= params.n_lists, "number of rows can't be less than n_lists");
 
   auto stream = resource::get_cuda_stream(handle);
 
@@ -1635,35 +1876,6 @@ auto build(raft::resources const& handle,
                                             labels_view,
                                             utils::mapping<float>());
 
-    {
-      // combine cluster_centers and their norms
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle(),
-                                      sizeof(float) * index.dim_ext(),
-                                      cluster_centers,
-                                      sizeof(float) * index.dim(),
-                                      sizeof(float) * index.dim(),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-
-      rmm::device_uvector<float> center_norms(index.n_lists(), stream, device_memory);
-      raft::linalg::rowNorm(center_norms.data(),
-                            cluster_centers,
-                            index.dim(),
-                            index.n_lists(),
-                            raft::linalg::L2Norm,
-                            true,
-                            stream);
-      RAFT_CUDA_TRY(cudaMemcpy2DAsync(index.centers().data_handle() + index.dim(),
-                                      sizeof(float) * index.dim_ext(),
-                                      center_norms.data(),
-                                      sizeof(float),
-                                      sizeof(float),
-                                      index.n_lists(),
-                                      cudaMemcpyDefault,
-                                      stream));
-    }
-
     // Make rotation matrix
     make_rotation_matrix(handle,
                          params.force_random_rotation,
@@ -1671,24 +1883,7 @@ auto build(raft::resources const& handle,
                          index.dim(),
                          index.rotation_matrix().data_handle());
 
-    // Rotate cluster_centers
-    float alpha = 1.0;
-    float beta  = 0.0;
-    linalg::gemm(handle,
-                 true,
-                 false,
-                 index.rot_dim(),
-                 index.n_lists(),
-                 index.dim(),
-                 &alpha,
-                 index.rotation_matrix().data_handle(),
-                 index.dim(),
-                 cluster_centers,
-                 index.dim(),
-                 &beta,
-                 index.centers_rot().data_handle(),
-                 index.rot_dim(),
-                 stream);
+    set_centers(handle, &index, cluster_centers);
 
     // Train PQ codebooks
     switch (index.codebook_kind()) {
