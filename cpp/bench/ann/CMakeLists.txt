@@ -44,6 +44,10 @@ find_package(Threads REQUIRED)
 
 if(BUILD_CPU_ONLY)
 
+  # Include necessary logging dependencies
+  include(cmake/thirdparty/get_fmt.cmake)
+  include(cmake/thirdparty/get_spdlog.cmake)
+
   set(RAFT_FAISS_ENABLE_GPU OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_GPU_FLAT OFF)
   set(RAFT_ANN_BENCH_USE_FAISS_GPU_IVF_FLAT OFF)
