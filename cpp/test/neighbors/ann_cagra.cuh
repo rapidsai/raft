@@ -691,7 +691,7 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {100},
     {1000},
     {1, 8, 17, 1599},
-    {1, 16},  // k
+    {16},  // k
     {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
     {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
     {0, 1, 10, 100},  // query size
@@ -704,6 +704,25 @@ inline std::vector<AnnCagraInputs> generate_inputs()
     {0.995});
 
   auto inputs2 = raft::util::itertools::product<AnnCagraInputs>(
+    {100},
+    {1000},
+    {1, 8, 17, 1599},
+    {1},  // k
+    {graph_build_algo::IVF_PQ, graph_build_algo::NN_DESCENT},
+    {search_algo::SINGLE_CTA, search_algo::MULTI_CTA, search_algo::MULTI_KERNEL},
+    {0, 1, 10, 100},  // query size
+    {0},
+    {256},
+    {1},
+    {raft::distance::DistanceType::L2Expanded},
+    {false},
+    {true},
+    {99. / 100}
+    // smaller threshould than the other test cases because it is too strict for Top-1 search
+  );
+  inputs.insert(inputs.end(), inputs2.begin(), inputs2.end());
+
+  inputs2 = raft::util::itertools::product<AnnCagraInputs>(
     {100},
     {1000},
     {1, 3, 5, 7, 8, 17, 64, 128, 137, 192, 256, 512, 619, 1024},  // dim
