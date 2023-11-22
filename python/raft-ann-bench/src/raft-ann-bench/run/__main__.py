@@ -25,6 +25,21 @@ from importlib import import_module
 
 import yaml
 
+log_levels = {
+    "off": 0,
+    "error": 1,
+    "warn": 2,
+    "info": 3,
+    "debug": 4,
+    "trace": 5,
+}
+
+
+def parse_log_level(level_str):
+    if level_str not in log_levels:
+        raise ValueError("Invalid log level: %s" % level_str)
+    return log_levels[level_str.lower()]
+
 
 def positive_int(input_str: str) -> int:
     try:
@@ -37,6 +52,53 @@ def positive_int(input_str: str) -> int:
         )
 
     return i
+
+
+def merge_build_files(build_dir, build_file, temp_build_file):
+
+    build_dict = {}
+
+    # If build file exists, read it
+    build_json_path = os.path.join(build_dir, build_file)
+    tmp_build_json_path = os.path.join(build_dir, temp_build_file)
+    if os.path.isfile(build_json_path):
+        try:
+            with open(build_json_path, "r") as f:
+                build_dict = json.load(f)
+        except Exception as e:
+            print(
+                "Error loading existing build file: %s (%s)"
+                % (build_json_path, e)
+            )
+
+    temp_build_dict = {}
+    if os.path.isfile(tmp_build_json_path):
+        with open(tmp_build_json_path, "r") as f:
+            temp_build_dict = json.load(f)
+    else:
+        raise ValueError("Temp build file not found: %s" % tmp_build_json_path)
+
+    tmp_benchmarks = (
+        temp_build_dict["benchmarks"]
+        if "benchmarks" in temp_build_dict
+        else {}
+    )
+    benchmarks = build_dict["benchmarks"] if "benchmarks" in build_dict else {}
+
+    # If the build time is absolute 0 then an error occurred
+    final_bench_dict = {}
+    for b in benchmarks:
+        if b["real_time"] > 0:
+            final_bench_dict[b["name"]] = b
+
+    for tmp_bench in tmp_benchmarks:
+        if tmp_bench["real_time"] > 0:
+            final_bench_dict[tmp_bench["name"]] = tmp_bench
+
+    temp_build_dict["benchmarks"] = [v for k, v in final_bench_dict.items()]
+    with open(build_json_path, "w") as f:
+        json_str = json.dumps(temp_build_dict, indent=2)
+        f.write(json_str)
 
 
 def validate_algorithm(algos_conf, algo, gpu_present):
@@ -88,6 +150,7 @@ def run_build_and_search(
     batch_size,
     search_threads,
     mode="throughput",
+    raft_log_level="info",
 ):
     for executable, ann_executable_path, algo in executables_to_run.keys():
         # Need to write temporary configuration
@@ -109,6 +172,8 @@ def run_build_and_search(
         if build:
             build_folder = os.path.join(legacy_result_folder, "build")
             os.makedirs(build_folder, exist_ok=True)
+            build_file = f"{algo}.json"
+            temp_build_file = f"{build_file}.lock"
             cmd = [
                 ann_executable_path,
                 "--build",
@@ -116,10 +181,11 @@ def run_build_and_search(
                 "--benchmark_out_format=json",
                 "--benchmark_counters_tabular=true",
                 "--benchmark_out="
-                + f"{os.path.join(build_folder, f'{algo}.json')}",
+                + f"{os.path.join(build_folder, temp_build_file)}",
+                "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
-                cmd = cmd + ["--overwrite"]
+                cmd = cmd + ["--force"]
             cmd = cmd + [temp_conf_filename]
 
             if dry_run:
@@ -129,9 +195,13 @@ def run_build_and_search(
             else:
                 try:
                     subprocess.run(cmd, check=True)
+                    merge_build_files(
+                        build_folder, build_file, temp_build_file
+                    )
                 except Exception as e:
                     print("Error occurred running benchmark: %s" % e)
                 finally:
+                    os.remove(os.path.join(build_folder, temp_build_file))
                     if not search:
                         os.remove(temp_conf_filename)
 
@@ -150,9 +220,10 @@ def run_build_and_search(
                 "--mode=%s" % mode,
                 "--benchmark_out="
                 + f"{os.path.join(search_folder, f'{algo}.json')}",
+                "--raft_log_level=" + f"{parse_log_level(raft_log_level)}",
             ]
             if force:
-                cmd = cmd + ["--overwrite"]
+                cmd = cmd + ["--force"]
 
             if search_threads:
                 cmd = cmd + ["--threads=%s" % search_threads]
@@ -293,6 +364,15 @@ def main():
         "to run execute the benchmarks but will not actually execute "
         "the command.",
         action="store_true",
+    )
+    parser.add_argument(
+        "--raft-log-level",
+        help="Log level, possible values are "
+        "[off, error, warn, info, debug, trace]. "
+        "Default: 'info'. Note that 'debug' or more detailed "
+        "logging level requires that the library is compiled with "
+        "-DRAFT_ACTIVE_LEVEL=<L> where <L> >= <requested log level>",
+        default="info",
     )
 
     if len(sys.argv) == 1:
@@ -511,6 +591,7 @@ def main():
         batch_size,
         args.search_threads,
         mode,
+        args.raft_log_level,
     )
 
 
