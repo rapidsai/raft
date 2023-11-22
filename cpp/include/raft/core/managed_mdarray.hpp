@@ -92,32 +92,6 @@ auto make_managed_mdarray(raft::resources const& handle, extents<IndexType, Exte
 }
 
 /**
- * @brief Create a managed mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param handle raft::resources
- * @param mr rmm memory resource used for allocating the memory for the array
- * @param exts dimensionality of the array (series of integers)
- * @return raft::managed_mdarray
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous,
-          size_t... Extents>
-auto make_managed_mdarray(raft::resources const& handle,
-                          rmm::mr::managed_memory_resource* mr,
-                          extents<IndexType, Extents...> exts)
-{
-  using mdarray_t = managed_mdarray<ElementType, decltype(exts), LayoutPolicy>;
-
-  typename mdarray_t::mapping_type layout{exts};
-  typename mdarray_t::container_policy_type policy{mr};
-
-  return mdarray_t{handle, layout, policy};
-}
-
-/**
  * @brief Create a 2-dim c-contiguous managed mdarray.
  *
  * @tparam ElementType the data type of the matrix elements

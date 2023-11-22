@@ -38,7 +38,8 @@ using managed_mdspan = mdspan<ElementType, Extents, LayoutPolicy, managed_access
 template <typename T, bool B>
 struct is_managed_mdspan : std::false_type {};
 template <typename T>
-struct is_managed_mdspan<T, true> : std::bool_constant<T::accessor_type::is_managed_accessible> {};
+struct is_managed_mdspan<T, true>
+  : std::bool_constant<T::accessor_type::mem_type == memory_type::managed> {};
 
 /**
  * @\brief Boolean to determine if template type T is either raft::managed_mdspan or a derived type

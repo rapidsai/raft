@@ -362,6 +362,10 @@ struct mdbuffer {
 
   using storage_type_variant = concatenated_variant_t<view_type_variant, owning_type_variant>;
 
+  // Non-owning types are stored first in the variant Thus, if we want to access the
+  // owning type corresponding to device memory, we would need to skip over the
+  // non-owning types and then go to the index which corresponds to the memory
+  // type: is_owning * num_non_owning_types + index = 1 * 4 + 1 = 5
   template <memory_type MemType, bool is_owning>
   using storage_type =
     std::variant_alternative_t<std::size_t{is_owning} * std::variant_size_v<view_type_variant> +
@@ -391,6 +395,10 @@ struct mdbuffer {
     return std::array{is_copyable_combination<FromT, FromIndex, Is>()...};
   }
 
+  // Note: bool is a placeholder parameter to allow the underlying templated
+  // calls to be composed together correctly across all of the combinations.
+  // Without it, we cannot construct a fold expression that correctly
+  // distinguishes betwe the from and to indexes
   template <typename FromT, std::size_t... Is>
   auto static constexpr get_copyable_combinations(bool, std::index_sequence<Is...>)
   {
@@ -794,7 +802,7 @@ struct mdbuffer {
     return view<memory_type_constant<mem_type>>();
   }
   /**
-   * @brief Return an mdspan containing const elementgs of the indicated memory type representing a
+   * @brief Return an mdspan containing const elements of the indicated memory type representing a
    * view on the stored data. If the mdbuffer does not contain data of the indicated memory type, a
    * std::bad_variant_access will be thrown.
    */
