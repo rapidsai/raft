@@ -205,4 +205,6 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
   return memory_type_dispatcher(res, std::forward<lambda_t>(f), mdbuffer_type{res, mdbuffer{view}});
 }
 
+/** @} */
+
 }  // namespace raft
