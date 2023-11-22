@@ -56,9 +56,9 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
       if (buf.mem_type() == memory_type::managed) {
         return f(buf.template view<memory_type::managed>());
       }
-    } else if constexpr (detail::is_callable_for_memory_type<lambda_t,
-                                                             mdbuffer_type,
-                                                             memory_type::pinned>) {
+    }
+    if constexpr (detail::
+                    is_callable_for_memory_type<lambda_t, mdbuffer_type, memory_type::pinned>) {
       if (buf.mem_type() == memory_type::pinned) {
         return f(buf.template view<memory_type::pinned>());
       }
