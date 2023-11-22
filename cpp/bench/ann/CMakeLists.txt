@@ -141,7 +141,13 @@ function(ConfigureAnnBench)
     add_dependencies(${BENCH_NAME} ANN_BENCH)
   else()
     add_executable(${BENCH_NAME} ${ConfigureAnnBench_PATH})
-    target_compile_definitions(${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN)
+    # NVTX for the benchmark wrapper is independent from raft::nvtx and tracks the benchmark
+    # iterations. We have an extra header check here to keep CPU-only builds working
+    CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
+    target_compile_definitions(
+      ${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN
+                            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
+    )
     target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
   endif()
 
@@ -341,7 +347,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
 
   target_link_libraries(
     ANN_BENCH PRIVATE nlohmann_json::nlohmann_json benchmark_static dl -static-libgcc
-                      -static-libstdc++ CUDA::nvtx3
+                      fmt::fmt-header-only spdlog::spdlog_header_only -static-libstdc++ CUDA::nvtx3
   )
   set_target_properties(
     ANN_BENCH
@@ -364,8 +370,7 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
-      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}
-  ">
+      $<$<BOOL:${CUDAToolkit_FOUND}>:ANN_BENCH_LINK_CUDART="libcudart.so.${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}.${CUDAToolkit_VERSION_PATCH}">
       $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
   )
 
