@@ -48,6 +48,8 @@ requirements:
     - glog {{ glog_version }}
     - matplotlib
     - nlohmann_json {{ nlohmann_json_version }}
+    - spdlog {{ spdlog_version }}
+    - fmt {{ fmt_version }}
     - python
     - pyyaml
     - pandas

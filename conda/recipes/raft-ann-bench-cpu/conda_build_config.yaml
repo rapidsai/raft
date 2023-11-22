@@ -18,3 +18,9 @@ h5py_version:
 
 nlohmann_json_version:
   - ">=3.11.2"
+
+spdlog_version:
+  - ">=1.11.0,<1.12"
+
+fmt_version:
+  - ">=9.1.0,<10"
