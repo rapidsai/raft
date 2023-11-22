@@ -713,7 +713,7 @@ struct mdbuffer {
         RAFT_EXPECTS(
           is_copyable_from<decltype(other)>(other, mem_type),
           "mdbuffer cannot be constructed from other mdbuffer with indicated memory type");
-        copy_from(res, other, mem_type);
+        return copy_from(res, other, mem_type);
       }()}
   {
   }
@@ -833,7 +833,7 @@ struct mdbuffer {
  */
 
 template <typename ElementType, typename Extents, typename LayoutPolicy, typename ContainerPolicy>
-void __takes_an_mdbufer_ptr(mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>*);
+void __takes_an_mdbuffer_ptr(mdbuffer<ElementType, Extents, LayoutPolicy, ContainerPolicy>*);
 
 template <typename T, typename = void>
 struct is_mdbuffer : std::false_type {};

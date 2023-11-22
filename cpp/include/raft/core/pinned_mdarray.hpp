@@ -147,27 +147,6 @@ auto make_pinned_matrix(raft::resources& res, IndexType n_rows, IndexType n_cols
 }
 
 /**
- * @brief Create a 2-dim c-contiguous pinned mdarray.
- * @tparam ElementType the data type of the matrix elements
- * @tparam IndexType the index type of the extents
- * @tparam LayoutPolicy policy for strides and layout ordering
- * @param[in] n_rows number or rows in matrix
- * @param[in] n_cols number of columns in matrix
- * Note: This function is deprecated and will be removed in a future version. Please use version
- * that accepts raft::resources.
- *
- * @return raft::pinned_matrix
- */
-template <typename ElementType,
-          typename IndexType    = std::uint32_t,
-          typename LayoutPolicy = layout_c_contiguous>
-auto make_pinned_matrix(IndexType n_rows, IndexType n_cols)
-{
-  return make_pinned_mdarray<ElementType, IndexType, LayoutPolicy>(
-    make_extents<IndexType>(n_rows, n_cols));
-}
-
-/**
  * @ingroup pinned_mdarray_factories
  * @brief Create a pinned scalar from v.
  *
