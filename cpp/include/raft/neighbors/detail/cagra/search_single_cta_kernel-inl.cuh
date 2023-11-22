@@ -705,7 +705,7 @@ __launch_bounds__(1024, 1) RAFT_KERNEL
 
     // compute the norms between child nodes and query node
     _CLK_START();
-    constexpr unsigned max_n_frags = 16;
+    constexpr unsigned max_n_frags = 8;
     device::compute_distance_to_child_nodes<TEAM_SIZE, DATASET_BLOCK_DIM, max_n_frags, LOAD_T>(
       result_indices_buffer + internal_topk,
       result_distances_buffer + internal_topk,
