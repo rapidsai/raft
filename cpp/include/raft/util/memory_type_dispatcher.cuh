@@ -123,24 +123,11 @@ auto static constexpr is_callable_for_memory_type =
  * raft::memory_type_dispatcher<raft::mdbuffer<double, matrix_extents<int>>>(res, functor{},
  * float_data.view()); raft::memory_type_dispatcher<raft::mdbuffer<double,
  * matrix_extents<int>>>(res, functor{}, f_data.view());
- *
- * // For convenience, we can wrap this functor in a template which will accept
- * // any mdspan type compatible with the indicated mdbuffer type
- * auto wrapped_functor = raft::mdspan_dispatched_functor<raft::mdbuffer<double,
- * matrix_extents<int>>>(functor{});
- *
- * // All of the following work as expected
- * wrapped_functor(res, host_data.view());
- * wrapped_functor(res, device_data.view());
- * wrapped_functor(res, managed_data.view());
- * wrapped_functor(res, pinned_data.view());
- * wrapped_functor(res, float_data.view());
- * wrapped_functor(res, f_data.view());
  * @endcode
  *
- * As this example shows, `memory_type_dispatcher` and its associated helper
- * `mdspan_dispatched_functor` can be used to dispatch any compatible input to
- * a functor, regardless of the mdspan type(s) that functor supports.
+ * As this example shows, `memory_type_dispatcher` can be used to dispatch any
+ * compatible mdspan input to a functor, regardless of the mdspan type(s) that
+ * functor supports.
  */
 template <typename lambda_t, typename mdbuffer_type, enable_if_mdbuffer<mdbuffer_type>* = nullptr>
 decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, mdbuffer_type&& buf)
@@ -217,24 +204,5 @@ decltype(auto) memory_type_dispatcher(raft::resources const& res, lambda_t&& f, 
 {
   return memory_type_dispatcher(res, std::forward<lambda_t>(f), mdbuffer_type{res, mdbuffer{view}});
 }
-
-template <typename mdbuffer_type, typename lambda_t, enable_if_mdbuffer<mdbuffer_type>* = nullptr>
-struct mdspan_dispatched_functor {
-  template <std::enable_if_t<std::is_default_constructible_v<lambda_t>>* = nullptr>
-  constexpr mdspan_dispatched_functor() : f_{}
-  {
-  }
-
-  mdspan_dispatched_functor(lambda_t&& f) : f_{std::move(f)} {}
-
-  template <typename mdspan_type, enable_if_mdspan<mdspan_type>* = nullptr>
-  auto operator()(raft::resources const& res, mdspan_type view) const
-  {
-    return memory_type_dispatcher<mdbuffer_type>(res, f_, view);
-  }
-
- private:
-  lambda_t f_;
-};
 
 }  // namespace raft
