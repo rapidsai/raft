@@ -76,8 +76,6 @@ class RaftCagra : public ANN<T> {
     : ANN<T>(metric, dim),
       index_params_(param),
       dimension_(dim),
-      mr_(rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull),
-      handle_(cudaStreamPerThread),
       need_dataset_update_(true),
       dataset_(make_device_matrix<T, int64_t>(handle_, 0, 0)),
       graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
@@ -85,13 +83,9 @@ class RaftCagra : public ANN<T> {
       graph_mem_(AllocatorType::Device),
       dataset_mem_(AllocatorType::Device)
   {
-    rmm::mr::set_current_device_resource(&mr_);
     index_params_.cagra_params.metric         = parse_metric_type(metric);
     index_params_.ivf_pq_build_params->metric = parse_metric_type(metric);
-    RAFT_CUDA_TRY(cudaGetDevice(&device_));
   }
-
-  ~RaftCagra() noexcept { rmm::mr::set_current_device_resource(mr_.get_upstream()); }
 
   void build(const T* dataset, size_t nrow, cudaStream_t stream) final;
 
@@ -121,6 +115,21 @@ class RaftCagra : public ANN<T> {
   void save_to_hnswlib(const std::string& file) const;
 
  private:
+  // handle_ must go first to make sure it dies last and all memory allocated in pool
+  configured_raft_resources handle_{};
+  raft::mr::cuda_pinned_resource mr_pinned_;
+  raft::mr::cuda_huge_page_resource mr_huge_page_;
+  AllocatorType graph_mem_;
+  AllocatorType dataset_mem_;
+  BuildParam index_params_;
+  bool need_dataset_update_;
+  raft::neighbors::cagra::search_params search_params_;
+  std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
+  int dimension_;
+  raft::device_matrix<IdxT, int64_t, row_major> graph_;
+  raft::device_matrix<T, int64_t, row_major> dataset_;
+  raft::device_matrix_view<const T, int64_t, row_major> input_dataset_v_;
+
   inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
   {
     switch (mem_type) {
@@ -129,26 +138,10 @@ class RaftCagra : public ANN<T> {
       default: return rmm::mr::get_current_device_resource();
     }
   }
-  // `mr_` must go first to make sure it dies last
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
-  raft::mr::cuda_pinned_resource mr_pinned_;
-  raft::mr::cuda_huge_page_resource mr_huge_page_;
-  raft::device_resources handle_;
-  AllocatorType graph_mem_;
-  AllocatorType dataset_mem_;
-  BuildParam index_params_;
-  bool need_dataset_update_;
-  raft::neighbors::cagra::search_params search_params_;
-  std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
-  int device_;
-  int dimension_;
-  raft::device_matrix<IdxT, int64_t, row_major> graph_;
-  raft::device_matrix<T, int64_t, row_major> dataset_;
-  raft::device_matrix_view<const T, int64_t, row_major> input_dataset_v_;
 };
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
+void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
   auto dataset_view =
     raft::make_host_matrix_view<const T, int64_t>(dataset, IdxT(nrow), dimension_);
@@ -162,7 +155,8 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t)
                                                        index_params_.ivf_pq_refine_rate,
                                                        index_params_.ivf_pq_build_params,
                                                        index_params_.ivf_pq_search_params));
-  return;
+
+  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
 inline std::string allocator_to_string(AllocatorType mem_type)
@@ -257,8 +251,12 @@ void RaftCagra<T, IdxT>::load(const std::string& file)
 }
 
 template <typename T, typename IdxT>
-void RaftCagra<T, IdxT>::search(
-  const T* queries, int batch_size, int k, size_t* neighbors, float* distances, cudaStream_t) const
+void RaftCagra<T, IdxT>::search(const T* queries,
+                                int batch_size,
+                                int k,
+                                size_t* neighbors,
+                                float* distances,
+                                cudaStream_t stream) const
 {
   IdxT* neighbors_IdxT;
   rmm::device_uvector<IdxT> neighbors_storage(0, resource::get_cuda_stream(handle_));
@@ -285,6 +283,6 @@ void RaftCagra<T, IdxT>::search(
                           raft::resource::get_cuda_stream(handle_));
   }
 
-  handle_.sync_stream();
+  handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 }  // namespace raft::bench::ann

@@ -141,12 +141,9 @@ function(ConfigureAnnBench)
     add_dependencies(${BENCH_NAME} ANN_BENCH)
   else()
     add_executable(${BENCH_NAME} ${ConfigureAnnBench_PATH})
-    # NVTX for the benchmark wrapper is independent from raft::nvtx and tracks the benchmark
-    # iterations. We have an extra header check here to keep CPU-only builds working
-    CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
     target_compile_definitions(
       ${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN
-                            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
+                            $<$<BOOL:${GPU_BUILD}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
     )
     target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
   endif()
