@@ -32,9 +32,7 @@
 #define RAFT_LEVEL_OFF      0
 /** @} */
 
-#if !defined(RAFT_ACTIVE_LEVEL)
-#define RAFT_ACTIVE_LEVEL RAFT_LEVEL_INFO
-#endif
+#define RAFT_ACTIVE_LEVEL RAFT_LEVEL_DEBUG
 
 /**
  * @defgroup loggerMacros Helper macros for dealing with logging
