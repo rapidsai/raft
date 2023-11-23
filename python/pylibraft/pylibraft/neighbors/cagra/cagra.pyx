@@ -142,8 +142,6 @@ cdef class IndexParams:
 
 
 cdef class Index:
-    cdef readonly bool trained
-    cdef str active_index_type
 
     def __cinit__(self):
         self.trained = False

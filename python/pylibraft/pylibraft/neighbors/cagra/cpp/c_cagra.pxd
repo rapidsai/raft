@@ -174,6 +174,10 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                         string& str,
                         const index[float, uint32_t]& index,
                         bool include_dataset) except +
+    cdef void serialize_to_hnwslib(
+        const device_resources& handle,
+        string& str,
+        const index[float, uint32_t]& index) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -184,6 +188,11 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                         const index[uint8_t, uint32_t]& index,
                         bool include_dataset) except +
 
+    cdef void serialize_to_hnwslib(
+        const device_resources& handle,
+        string& str,
+        const index[uint8_t, uint32_t]& index) except +
+
     cdef void deserialize(const device_resources& handle,
                           const string& str,
                           index[uint8_t, uint32_t]* index) except +
@@ -192,6 +201,11 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                         string& str,
                         const index[int8_t, uint32_t]& index,
                         bool include_dataset) except +
+
+    cdef void serialize_to_hnwslib(
+        const device_resources& handle,
+        string& str,
+        const index[int8_t, uint32_t]& index) except +
 
     cdef void deserialize(const device_resources& handle,
                           const string& str,
@@ -202,6 +216,11 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                              const index[float, uint32_t]& index,
                              bool include_dataset) except +
 
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[float, uint32_t]& index) except +
+
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
                                index[float, uint32_t]* index) except +
@@ -210,6 +229,11 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                              const string& filename,
                              const index[uint8_t, uint32_t]& index,
                              bool include_dataset) except +
+
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[uint8_t, uint32_t]& index) except +
 
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
@@ -220,6 +244,24 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
                              const index[int8_t, uint32_t]& index,
                              bool include_dataset) except +
 
+    cdef void serialize_to_hnswlib_file(
+        const device_resources& handle,
+        const string& filename,
+        const index[int8_t, uint32_t]& index) except +
+
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
                                index[int8_t, uint32_t]* index) except +
+
+cdef class Index:
+    cdef readonly bool trained
+    cdef str active_index_type
+
+cdef class IndexFloat(Index):
+    pass
+
+cdef class IndexInt8(Index):
+    pass
+
+cdef class IndexUint8(Index):
+    pass
