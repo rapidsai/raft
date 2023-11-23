@@ -133,6 +133,7 @@ class FaissGpu : public ANN<T> {
     property.query_memory_type   = MemoryType::Host;
     return property;
   }
+  std::unique_ptr<ANN<T>> copy() override;
 
  protected:
   template <typename GpuIndex, typename CpuIndex>

@@ -77,9 +77,12 @@ class RaftCagra : public ANN<T> {
       index_params_(param),
       dimension_(dim),
       need_dataset_update_(true),
-      dataset_(make_device_matrix<T, int64_t>(handle_, 0, 0)),
-      graph_(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)),
-      input_dataset_v_(nullptr, 0, 0),
+      dataset_(std::make_shared<raft::device_matrix<T, int64_t, row_major>>(
+        std::move(make_device_matrix<T, int64_t>(handle_, 0, 0)))),
+      graph_(std::make_shared<raft::device_matrix<IdxT, int64_t, row_major>>(
+        std::move(make_device_matrix<IdxT, int64_t>(handle_, 0, 0)))),
+      input_dataset_v_(
+        std::make_shared<raft::device_matrix_view<const T, int64_t, row_major>>(nullptr, 0, 0)),
       graph_mem_(AllocatorType::Device),
       dataset_mem_(AllocatorType::Device)
   {
@@ -113,6 +116,7 @@ class RaftCagra : public ANN<T> {
   void save(const std::string& file) const override;
   void load(const std::string&) override;
   void save_to_hnswlib(const std::string& file) const;
+  std::unique_ptr<ANN<T>> copy() override;
 
  private:
   // handle_ must go first to make sure it dies last and all memory allocated in pool
@@ -124,11 +128,11 @@ class RaftCagra : public ANN<T> {
   BuildParam index_params_;
   bool need_dataset_update_;
   raft::neighbors::cagra::search_params search_params_;
-  std::optional<raft::neighbors::cagra::index<T, IdxT>> index_;
+  std::shared_ptr<raft::neighbors::cagra::index<T, IdxT>> index_;
   int dimension_;
-  raft::device_matrix<IdxT, int64_t, row_major> graph_;
-  raft::device_matrix<T, int64_t, row_major> dataset_;
-  raft::device_matrix_view<const T, int64_t, row_major> input_dataset_v_;
+  std::shared_ptr<raft::device_matrix<IdxT, int64_t, row_major>> graph_;
+  std::shared_ptr<raft::device_matrix<T, int64_t, row_major>> dataset_;
+  std::shared_ptr<raft::device_matrix_view<const T, int64_t, row_major>> input_dataset_v_;
 
   inline rmm::mr::device_memory_resource* get_mr(AllocatorType mem_type)
   {
@@ -148,13 +152,14 @@ void RaftCagra<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t strea
 
   auto& params = index_params_.cagra_params;
 
-  index_.emplace(raft::neighbors::cagra::detail::build(handle_,
-                                                       params,
-                                                       dataset_view,
-                                                       index_params_.nn_descent_params,
-                                                       index_params_.ivf_pq_refine_rate,
-                                                       index_params_.ivf_pq_build_params,
-                                                       index_params_.ivf_pq_search_params));
+  index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
+    std::move(raft::neighbors::cagra::detail::build(handle_,
+                                                    params,
+                                                    dataset_view,
+                                                    index_params_.nn_descent_params,
+                                                    index_params_.ivf_pq_refine_rate,
+                                                    index_params_.ivf_pq_build_params,
+                                                    index_params_.ivf_pq_search_params)));
 
   handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
@@ -192,24 +197,24 @@ void RaftCagra<T, IdxT>::set_search_param(const AnnSearchParam& param)
 
     index_->update_graph(handle_, make_const_mdspan(new_graph.view()));
     // update_graph() only stores a view in the index. We need to keep the graph object alive.
-    graph_ = std::move(new_graph);
+    *graph_ = std::move(new_graph);
   }
 
   if (search_param.dataset_mem != dataset_mem_ || need_dataset_update_) {
     dataset_mem_ = search_param.dataset_mem;
 
     // First free up existing memory
-    dataset_ = make_device_matrix<T, int64_t>(handle_, 0, 0);
-    index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
+    *dataset_ = make_device_matrix<T, int64_t>(handle_, 0, 0);
+    index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
 
     // Allocate space using the correct memory resource.
     RAFT_LOG_INFO("moving dataset to new memory space: %s",
                   allocator_to_string(dataset_mem_).c_str());
 
     auto mr = get_mr(dataset_mem_);
-    raft::neighbors::cagra::detail::copy_with_padding(handle_, dataset_, input_dataset_v_, mr);
+    raft::neighbors::cagra::detail::copy_with_padding(handle_, *dataset_, *input_dataset_v_, mr);
 
-    index_->update_dataset(handle_, make_const_mdspan(dataset_.view()));
+    index_->update_dataset(handle_, make_const_mdspan(dataset_->view()));
 
     // Ideally, instead of dataset_.view(), we should pass a strided matrix view to update.
     // See Issue https://github.com/rapidsai/raft/issues/1972 for details.
@@ -225,9 +230,9 @@ void RaftCagra<T, IdxT>::set_search_dataset(const T* dataset, size_t nrow)
 {
   // It can happen that we are re-using a previous algo object which already has
   // the dataset set. Check if we need update.
-  if (static_cast<size_t>(input_dataset_v_.extent(0)) != nrow ||
-      input_dataset_v_.data_handle() != dataset) {
-    input_dataset_v_     = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
+  if (static_cast<size_t>(input_dataset_v_->extent(0)) != nrow ||
+      input_dataset_v_->data_handle() != dataset) {
+    *input_dataset_v_    = make_device_matrix_view<const T, int64_t>(dataset, nrow, this->dim_);
     need_dataset_update_ = true;
   }
 }
@@ -247,7 +252,14 @@ void RaftCagra<T, IdxT>::save_to_hnswlib(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftCagra<T, IdxT>::load(const std::string& file)
 {
-  index_ = raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file);
+  index_ = std::make_shared<raft::neighbors::cagra::index<T, IdxT>>(
+    std::move(raft::neighbors::cagra::deserialize<T, IdxT>(handle_, file)));
+}
+
+template <typename T, typename IdxT>
+std::unique_ptr<ANN<T>> RaftCagra<T, IdxT>::copy()
+{
+  return std::make_unique<RaftCagra<T, IdxT>>(*this);  // use copy constructor
 }
 
 template <typename T, typename IdxT>

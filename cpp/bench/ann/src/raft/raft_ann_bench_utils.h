@@ -44,21 +44,50 @@ inline raft::distance::DistanceType parse_metric_type(raft::bench::ann::Metric m
 
 class configured_raft_resources {
  public:
-  configured_raft_resources()
-    : mr_{rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull},
-      res_{cudaStreamPerThread},
-      sync_{nullptr}
+  explicit configured_raft_resources(
+    const std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> mr)
+    : mr_{mr},
+      sync_{[]() {
+              auto* ev = new cudaEvent_t;
+              RAFT_CUDA_TRY(cudaEventCreate(ev, cudaEventDisableTiming));
+              return ev;
+            }(),
+            [](cudaEvent_t* ev) {
+              RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(*ev));
+              delete ev;
+            }},
+      res_{cudaStreamPerThread}
   {
-    rmm::mr::set_current_device_resource(&mr_);
-    RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
   }
 
-  ~configured_raft_resources() noexcept
+  configured_raft_resources()
+    : configured_raft_resources{
+        {[]() {
+           auto* mr = new rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>{
+             rmm::mr::get_current_device_resource(), 1024 * 1024 * 1024ull};
+           rmm::mr::set_current_device_resource(mr);
+           return mr;
+         }(),
+         [](rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>* mr) {
+           if (rmm::mr::get_current_device_resource()->is_equal(*mr)) {
+             rmm::mr::set_current_device_resource(mr->get_upstream());
+           }
+           delete mr;
+         }}}
   {
-    RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_));
-    if (rmm::mr::get_current_device_resource()->is_equal(mr_)) {
-      rmm::mr::set_current_device_resource(mr_.get_upstream());
-    }
+  }
+
+  configured_raft_resources(configured_raft_resources&&)            = default;
+  configured_raft_resources& operator=(configured_raft_resources&&) = default;
+  ~configured_raft_resources()                                      = default;
+  configured_raft_resources(const configured_raft_resources& res)
+    : configured_raft_resources{res.mr_}
+  {
+  }
+  configured_raft_resources& operator=(const configured_raft_resources& other)
+  {
+    this->mr_ = other.mr_;
+    return *this;
   }
 
   operator raft::resources&() noexcept { return res_; }
@@ -67,17 +96,17 @@ class configured_raft_resources {
   /** Make the given stream wait on all work submitted to the resource. */
   void stream_wait(cudaStream_t stream) const
   {
-    RAFT_CUDA_TRY(cudaEventRecord(sync_, resource::get_cuda_stream(res_)));
-    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, sync_));
+    RAFT_CUDA_TRY(cudaEventRecord(*sync_, resource::get_cuda_stream(res_)));
+    RAFT_CUDA_TRY(cudaStreamWaitEvent(stream, *sync_));
   }
 
   /** Get the internal sync event (which otherwise used only in `stream_wait`). */
-  cudaEvent_t get_sync_event() const { return sync_; }
+  cudaEvent_t get_sync_event() const { return *sync_; }
 
  private:
-  rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource> mr_;
+  std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::device_memory_resource>> mr_;
+  std::unique_ptr<cudaEvent_t, std::function<void(cudaEvent_t*)>> sync_;
   raft::device_resources res_;
-  cudaEvent_t sync_;
 };
 
 }  // namespace raft::bench::ann

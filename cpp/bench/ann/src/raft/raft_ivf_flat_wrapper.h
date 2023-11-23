@@ -82,13 +82,14 @@ class RaftIvfFlatGpu : public ANN<T> {
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+  std::unique_ptr<ANN<T>> copy() override;
 
  private:
   // handle_ must go first to make sure it dies last and all memory allocated in pool
   configured_raft_resources handle_{};
   BuildParam index_params_;
   raft::neighbors::ivf_flat::search_params search_params_;
-  std::optional<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
+  std::shared_ptr<raft::neighbors::ivf_flat::index<T, IdxT>> index_;
   int device_;
   int dimension_;
 };
@@ -96,8 +97,8 @@ class RaftIvfFlatGpu : public ANN<T> {
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
-  index_.emplace(
-    raft::neighbors::ivf_flat::build(handle_, index_params_, dataset, IdxT(nrow), dimension_));
+  index_ = std::make_shared<raft::neighbors::ivf_flat::index<T, IdxT>>(std::move(
+    raft::neighbors::ivf_flat::build(handle_, index_params_, dataset, IdxT(nrow), dimension_)));
   handle_.stream_wait(stream);  // RAFT stream -> bench stream
 }
 
@@ -119,8 +120,15 @@ void RaftIvfFlatGpu<T, IdxT>::save(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftIvfFlatGpu<T, IdxT>::load(const std::string& file)
 {
-  index_ = raft::neighbors::ivf_flat::deserialize<T, IdxT>(handle_, file);
+  index_ = std::make_shared<raft::neighbors::ivf_flat::index<T, IdxT>>(
+    std::move(raft::neighbors::ivf_flat::deserialize<T, IdxT>(handle_, file)));
   return;
+}
+
+template <typename T, typename IdxT>
+std::unique_ptr<ANN<T>> RaftIvfFlatGpu<T, IdxT>::copy()
+{
+  return std::make_unique<RaftIvfFlatGpu<T, IdxT>>(*this);  // use copy constructor
 }
 
 template <typename T, typename IdxT>

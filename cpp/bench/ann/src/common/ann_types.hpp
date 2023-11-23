@@ -18,6 +18,7 @@
 
 #include "cuda_stub.hpp"  // cudaStream_t
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -118,6 +119,11 @@ class ANN : public AnnBase {
   // The client code should call set_search_dataset() before searching,
   // and should not release dataset before searching is finished.
   virtual void set_search_dataset(const T* /*dataset*/, size_t /*nrow*/){};
+
+  /**
+   * Make a shallow copy of the ANN wrapper that shares the resources and ensures thread-safe access
+   * to them. */
+  virtual auto copy() -> std::unique_ptr<ANN<T>> = 0;
 };
 
 }  // namespace raft::bench::ann

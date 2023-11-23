@@ -291,7 +291,7 @@ void bench_search(::benchmark::State& state,
   {
     nvtx_case nvtx{state.name()};
 
-    ANN<T>* algo = dynamic_cast<ANN<T>*>(current_algo.get());
+    auto algo = dynamic_cast<ANN<T>*>(current_algo.get())->copy();
     for (auto _ : state) {
       [[maybe_unused]] auto ntx_lap = nvtx.lap();
       [[maybe_unused]] auto gpu_lap = gpu_timer.lap();

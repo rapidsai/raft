@@ -62,6 +62,7 @@ class RaftCagraHnswlib : public ANN<T> {
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+  std::unique_ptr<ANN<T>> copy() override;
 
  private:
   raft::device_resources handle_;

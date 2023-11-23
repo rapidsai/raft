@@ -83,13 +83,14 @@ class RaftIvfPQ : public ANN<T> {
   }
   void save(const std::string& file) const override;
   void load(const std::string&) override;
+  std::unique_ptr<ANN<T>> copy() override;
 
  private:
   // handle_ must go first to make sure it dies last and all memory allocated in pool
   configured_raft_resources handle_{};
   BuildParam index_params_;
   raft::neighbors::ivf_pq::search_params search_params_;
-  std::optional<raft::neighbors::ivf_pq::index<IdxT>> index_;
+  std::shared_ptr<raft::neighbors::ivf_pq::index<IdxT>> index_;
   int dimension_;
   float refine_ratio_ = 1.0;
   raft::device_matrix_view<const T, IdxT> dataset_;
@@ -104,9 +105,9 @@ void RaftIvfPQ<T, IdxT>::save(const std::string& file) const
 template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::load(const std::string& file)
 {
-  auto index_tmp = raft::neighbors::ivf_pq::index<IdxT>(handle_, index_params_, dimension_);
-  raft::runtime::neighbors::ivf_pq::deserialize(handle_, file, &index_tmp);
-  index_.emplace(std::move(index_tmp));
+  std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(handle_, index_params_, dimension_)
+    .swap(index_);
+  raft::runtime::neighbors::ivf_pq::deserialize(handle_, file, index_.get());
   return;
 }
 
@@ -114,9 +115,16 @@ template <typename T, typename IdxT>
 void RaftIvfPQ<T, IdxT>::build(const T* dataset, size_t nrow, cudaStream_t stream)
 {
   auto dataset_v = raft::make_device_matrix_view<const T, IdxT>(dataset, IdxT(nrow), dim_);
-
-  index_.emplace(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v));
+  std::make_shared<raft::neighbors::ivf_pq::index<IdxT>>(
+    std::move(raft::runtime::neighbors::ivf_pq::build(handle_, index_params_, dataset_v)))
+    .swap(index_);
   handle_.stream_wait(stream);  // RAFT stream -> bench stream
+}
+
+template <typename T, typename IdxT>
+std::unique_ptr<ANN<T>> RaftIvfPQ<T, IdxT>::copy()
+{
+  return std::make_unique<RaftIvfPQ<T, IdxT>>(*this);  // use copy constructor
 }
 
 template <typename T, typename IdxT>
