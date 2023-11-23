@@ -16,19 +16,20 @@
 
 #pragma once
 
-#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
-
 #include <raft/comms/std_comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/host_mdarray.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/neighbors/ann_types.hpp>
 
+#undef RAFT_EXPLICIT_INSTANTIATE_ONLY
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/ivf_flat.cuh>
 #include <raft/neighbors/ivf_pq.cuh>
-
 #define RAFT_EXPLICIT_INSTANTIATE_ONLY
+
+// Number of rows per batch (search on shards)
+#define N_ROWS_PER_BATCH 33554432 // 2**25
 
 namespace raft::neighbors::mg {
 enum dist_mode { SHARDING, INDEX_DUPLICATION };
@@ -165,11 +166,11 @@ class ann_interface {
 
     const auto& comms = resource::get_comms(handle);
     comms.device_send(neighbors_view.data_handle(),
-                      n_rows * n_neighbors * sizeof(IdxT),
+                      n_rows * n_neighbors,
                       root_rank,
                       resource::get_cuda_stream(handle));
     comms.device_send(distances_view.data_handle(),
-                      n_rows * n_neighbors * sizeof(float),
+                      n_rows * n_neighbors,
                       root_rank,
                       resource::get_cuda_stream(handle));
   }
@@ -357,14 +358,14 @@ class ann_mg_index {
       IdxT n_cols      = query_dataset.extent(1);
       IdxT n_neighbors = neighbors.extent(1);
 
-      IdxT n_rows_per_batches = 1000000;
+      IdxT n_rows_per_batches = N_ROWS_PER_BATCH;
       IdxT n_batches          = (n_rows + n_rows_per_batches - 1) / n_rows_per_batches;
 
       const auto& root_handle = set_current_device_to_root_rank();
       auto in_neighbors       = raft::make_device_matrix<IdxT, IdxT, row_major>(
-        root_handle, n_batches * n_rows_per_batches, n_neighbors);
+        root_handle, num_ranks_ * n_rows_per_batches, n_neighbors);
       auto in_distances = raft::make_device_matrix<float, IdxT, row_major>(
-        root_handle, n_batches * n_rows_per_batches, n_neighbors);
+        root_handle, num_ranks_ * n_rows_per_batches, n_neighbors);
       auto out_neighbors = raft::make_device_matrix<IdxT, IdxT, row_major>(
         root_handle, n_rows_per_batches, n_neighbors);
       auto out_distances = raft::make_device_matrix<float, IdxT, row_major>(
@@ -377,6 +378,7 @@ class ann_mg_index {
         auto query_partition = raft::make_host_matrix_view<const T, IdxT, row_major>(
           query_dataset.data_handle() + query_offset, n_rows_per_batches, n_cols);
 
+        RAFT_NCCL_TRY(ncclGroupStart());
         for (int rank = 0; rank < num_ranks_; rank++) {
           RAFT_CUDA_TRY(cudaSetDevice(dev_ids_[rank]));
           auto& ann_if = ann_interfaces_[rank];
@@ -387,35 +389,49 @@ class ann_mg_index {
           const auto& comms       = resource::get_comms(root_handle);
           uint64_t batch_offset   = rank * n_rows_per_batches * n_neighbors;
           comms.device_recv(in_neighbors.data_handle() + batch_offset,
-                            n_rows_per_batches * n_neighbors * sizeof(IdxT),
+                            n_rows_per_batches * n_neighbors,
                             rank,
                             resource::get_cuda_stream(root_handle));
           comms.device_recv(in_distances.data_handle() + batch_offset,
-                            n_rows_per_batches * n_neighbors * sizeof(float),
+                            n_rows_per_batches * n_neighbors,
                             rank,
                             resource::get_cuda_stream(root_handle));
         }
+        RAFT_NCCL_TRY(ncclGroupEnd());
+
+        auto in_neighbors_view  = raft::make_device_matrix_view<const IdxT, IdxT, row_major>(
+          in_neighbors.data_handle(), num_ranks_ * n_rows_per_batches, n_neighbors);
+        auto in_distances_view = raft::make_device_matrix_view<const float, IdxT, row_major>(
+          in_distances.data_handle(), num_ranks_ * n_rows_per_batches, n_neighbors);
+        auto out_neighbors_view = raft::make_device_matrix_view<IdxT, IdxT, row_major>(
+          out_neighbors.data_handle(), n_rows_per_batches, n_neighbors);
+        auto out_distances_view = raft::make_device_matrix_view<float, IdxT, row_major>(
+          out_distances.data_handle(), n_rows_per_batches, n_neighbors);
+
+        const auto& root_handle_ = set_current_device_to_root_rank();
+        auto trans = raft::make_device_vector<IdxT, IdxT>(root_handle_, num_ranks_);
+        RAFT_CUDA_TRY(cudaMemsetAsync(trans.data_handle(), 0, num_ranks_ * sizeof(IdxT), resource::get_cuda_stream(root_handle_)));
+        auto translations = std::make_optional<raft::device_vector_view<IdxT, IdxT>>(trans.view());
+        raft::neighbors::brute_force::knn_merge_parts<float, IdxT>(root_handle_,
+                                                                   in_distances_view,
+                                                                   in_neighbors_view,
+                                                                   out_distances_view,
+                                                                   out_neighbors_view,
+                                                                   n_rows_per_batches,
+                                                                   translations);
+
+        raft::copy(neighbors.data_handle() + output_offset,
+                   out_neighbors.data_handle(),
+                   n_rows_per_batches * n_neighbors,
+                   resource::get_cuda_stream(root_handle_));
+        raft::copy(distances.data_handle() + output_offset,
+                   out_distances.data_handle(),
+                   n_rows_per_batches * n_neighbors,
+                   resource::get_cuda_stream(root_handle_));
 
         query_offset += n_rows_per_batches * n_cols;
         output_offset += n_rows_per_batches * n_neighbors;
       }
-
-      const auto& root_handle_ = set_current_device_to_root_rank();
-      raft::neighbors::brute_force::knn_merge_parts<float, IdxT>(root_handle_,
-                                                                 in_distances.view(),
-                                                                 in_neighbors.view(),
-                                                                 out_distances.view(),
-                                                                 out_neighbors.view(),
-                                                                 n_rows_per_batches);
-
-      raft::copy(neighbors.data_handle() + output_offset,
-                 out_neighbors.data_handle(),
-                 n_rows_per_batches * n_neighbors,
-                 resource::get_cuda_stream(root_handle_));
-      raft::copy(distances.data_handle() + output_offset,
-                 out_distances.data_handle(),
-                 n_rows_per_batches * n_neighbors,
-                 resource::get_cuda_stream(root_handle_));
     }
 
     set_current_device_to_root_rank();

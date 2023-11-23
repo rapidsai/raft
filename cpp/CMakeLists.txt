@@ -403,7 +403,6 @@ if(RAFT_COMPILE_LIBRARY)
     src/neighbors/refine_float_float.cu
     src/neighbors/refine_int8_t_float.cu
     src/neighbors/refine_uint8_t_float.cu
-    src/neighbors/ann_mg.cu
     src/raft_runtime/cluster/cluster_cost.cuh
     src/raft_runtime/cluster/cluster_cost_double.cu
     src/raft_runtime/cluster/cluster_cost_float.cu
