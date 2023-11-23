@@ -23,6 +23,12 @@ from libc.stdint cimport int8_t, uint8_t, uint32_t
 from libcpp.string cimport string
 
 cimport pylibraft.neighbors.cagra.cpp.c_cagra as c_cagra
+from pylibraft.neighbors.cagra.cagra cimport (
+    Index,
+    IndexFloat,
+    IndexInt8,
+    IndexUint8,
+)
 
 from pylibraft.common.handle import auto_sync_handle
 
@@ -32,7 +38,7 @@ from pylibraft.common import DeviceResources
 
 
 @auto_sync_handle
-def save(filename, c_cagra.Index index, handle=None):
+def save(filename, Index index, handle=None):
     """
     Saves the index to a file.
 
@@ -73,9 +79,9 @@ def save(filename, c_cagra.Index index, handle=None):
 
     cdef string c_filename = filename.encode('utf-8')
 
-    cdef c_cagra.IndexFloat idx_float
-    cdef c_cagra.IndexInt8 idx_int8
-    cdef c_cagra.IndexUint8 idx_uint8
+    cdef IndexFloat idx_float
+    cdef IndexInt8 idx_int8
+    cdef IndexUint8 idx_uint8
 
     cdef c_cagra.index[float, uint32_t] * c_index_float
     cdef c_cagra.index[int8_t, uint32_t] * c_index_int8

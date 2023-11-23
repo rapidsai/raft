@@ -252,16 +252,3 @@ cdef extern from "raft_runtime/neighbors/cagra.hpp" \
     cdef void deserialize_file(const device_resources& handle,
                                const string& filename,
                                index[int8_t, uint32_t]* index) except +
-
-cdef class Index:
-    cdef readonly bool trained
-    cdef str active_index_type
-
-cdef class IndexFloat(Index):
-    pass
-
-cdef class IndexInt8(Index):
-    pass
-
-cdef class IndexUint8(Index):
-    pass

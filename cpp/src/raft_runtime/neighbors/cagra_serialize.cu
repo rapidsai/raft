@@ -33,7 +33,7 @@ namespace raft::runtime::neighbors::cagra {
     raft::neighbors::cagra::serialize(handle, filename, index, include_dataset);              \
   };                                                                                          \
                                                                                               \
-  void serialize_to_hswnlib_file(raft::resources const& handle,                               \
+  void serialize_to_hnswlib_file(raft::resources const& handle,                               \
                                  const std::string& filename,                                 \
                                  const raft::neighbors::cagra::index<DTYPE, uint32_t>& index) \
   {                                                                                           \
