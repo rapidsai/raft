@@ -117,6 +117,16 @@ if(RAFT_ANN_BENCH_USE_FAISS)
 endif()
 
 # ##################################################################################################
+# * Enable NVTX if available
+
+# Note: ANN_BENCH wrappers have extra NVTX code not related to raft::nvtx.They track gbench
+# benchmark cases and iterations. This is to make limited NVTX available to all algos, not just
+# raft.
+if(TARGET CUDA::nvtx3)
+  set(NVTX3_HEADERS_FOUND ON)
+endif()
+
+# ##################################################################################################
 # * Configure tests function-------------------------------------------------------------
 
 function(ConfigureAnnBench)
@@ -143,9 +153,11 @@ function(ConfigureAnnBench)
     add_executable(${BENCH_NAME} ${ConfigureAnnBench_PATH})
     target_compile_definitions(
       ${BENCH_NAME} PRIVATE ANN_BENCH_BUILD_MAIN
-                            $<$<BOOL:${GPU_BUILD}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
+                            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:ANN_BENCH_NVTX3_HEADERS_FOUND>
     )
-    target_link_libraries(${BENCH_NAME} PRIVATE benchmark::benchmark)
+    target_link_libraries(
+      ${BENCH_NAME} PRIVATE benchmark::benchmark $<$<BOOL:${NVTX3_HEADERS_FOUND}>:CUDA::nvtx3>
+    )
   endif()
 
   target_link_libraries(
@@ -343,8 +355,15 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
   target_include_directories(ANN_BENCH PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
   target_link_libraries(
-    ANN_BENCH PRIVATE nlohmann_json::nlohmann_json benchmark_static dl -static-libgcc
-                      fmt::fmt-header-only spdlog::spdlog_header_only -static-libstdc++ CUDA::nvtx3
+    ANN_BENCH
+    PRIVATE nlohmann_json::nlohmann_json
+            benchmark_static
+            dl
+            -static-libgcc
+            fmt::fmt-header-only
+            spdlog::spdlog_header_only
+            -static-libstdc++
+            $<$<BOOL:${NVTX3_HEADERS_FOUND}>:CUDA::nvtx3>
   )
   set_target_properties(
     ANN_BENCH
@@ -358,12 +377,6 @@ if(RAFT_ANN_BENCH_SINGLE_EXE)
                BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
   )
-
-  # Disable NVTX when the nvtx3 headers are missing
-  set(_CMAKE_REQUIRED_INCLUDES_ORIG ${CMAKE_REQUIRED_INCLUDES})
-  get_target_property(CMAKE_REQUIRED_INCLUDES ANN_BENCH INCLUDE_DIRECTORIES)
-  CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
-  set(CMAKE_REQUIRED_INCLUDES ${_CMAKE_REQUIRED_INCLUDES_ORIG})
   target_compile_definitions(
     ANN_BENCH
     PRIVATE
