@@ -63,12 +63,16 @@ outputs:
         {% endif %}
         - cuda-version ={{ cuda_version }}
         - librmm ={{ minor_version }}
+        - spdlog {{ spdlog_version }}
+        - fmt {{ fmt_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
         {% endif %}
         - librmm ={{ minor_version }}
+        - spdlog {{ spdlog_version }}
+        - fmt {{ fmt_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0

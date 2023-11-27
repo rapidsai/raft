@@ -21,6 +21,7 @@
 #include "util.hpp"
 
 #include <benchmark/benchmark.h>
+#include <raft/core/logger.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -131,7 +132,7 @@ void bench_build(::benchmark::State& state,
       log_info("Overwriting file: %s", index.file.c_str());
     } else {
       return state.SkipWithMessage(
-        "Index file already exists (use --overwrite to overwrite the index).");
+        "Index file already exists (use --force to overwrite the index).");
     }
   }
 
@@ -287,8 +288,8 @@ void bench_search(::benchmark::State& state,
   std::shared_ptr<buf<std::size_t>> neighbors =
     std::make_shared<buf<std::size_t>>(algo_property.query_memory_type, k * query_set_size);
 
-  auto start = std::chrono::high_resolution_clock::now();
   cuda_timer gpu_timer;
+  auto start = std::chrono::high_resolution_clock::now();
   {
     nvtx_case nvtx{state.name()};
 
@@ -380,7 +381,7 @@ inline void printf_usage()
   ::benchmark::PrintDefaultHelp();
   fprintf(stdout,
           "          [--build|--search] \n"
-          "          [--overwrite]\n"
+          "          [--force]\n"
           "          [--data_prefix=<prefix>]\n"
           "          [--index_prefix=<prefix>]\n"
           "          [--override_kv=<key:value1:value2:...:valueN>]\n"
@@ -392,7 +393,7 @@ inline void printf_usage()
           "  --build: build mode, will build index\n"
           "  --search: search mode, will search using the built index\n"
           "            one and only one of --build and --search should be specified\n"
-          "  --overwrite: force overwriting existing index files\n"
+          "  --force: force overwriting existing index files\n"
           "  --data_prefix=<prefix>:"
           " prepend <prefix> to dataset file paths specified in the <conf>.json (default = "
           "'data/').\n"
@@ -572,6 +573,8 @@ inline auto run_main(int argc, char** argv) -> int
   std::string mode            = "latency";
   std::string threads_arg_txt = "";
   std::vector<int> threads    = {1, -1};  // min_thread, max_thread
+  std::string log_level_str   = "";
+  int raft_log_level          = raft::logger::get(RAFT_NAME).get_level();
   kv_series override_kv{};
 
   char arg0_default[] = "benchmark";  // NOLINT
@@ -589,14 +592,19 @@ inline auto run_main(int argc, char** argv) -> int
   std::ifstream conf_stream(conf_path);
 
   for (int i = 1; i < argc; i++) {
-    if (parse_bool_flag(argv[i], "--overwrite", force_overwrite) ||
+    if (parse_bool_flag(argv[i], "--force", force_overwrite) ||
         parse_bool_flag(argv[i], "--build", build_mode) ||
         parse_bool_flag(argv[i], "--search", search_mode) ||
         parse_string_flag(argv[i], "--data_prefix", data_prefix) ||
         parse_string_flag(argv[i], "--index_prefix", index_prefix) ||
         parse_string_flag(argv[i], "--mode", mode) ||
         parse_string_flag(argv[i], "--override_kv", new_override_kv) ||
-        parse_string_flag(argv[i], "--threads", threads_arg_txt)) {
+        parse_string_flag(argv[i], "--threads", threads_arg_txt) ||
+        parse_string_flag(argv[i], "--raft_log_level", log_level_str)) {
+      if (!log_level_str.empty()) {
+        raft_log_level = std::stoi(log_level_str);
+        log_level_str  = "";
+      }
       if (!threads_arg_txt.empty()) {
         auto threads_arg = split(threads_arg_txt, ':');
         threads[0]       = std::stoi(threads_arg[0]);
@@ -624,6 +632,8 @@ inline auto run_main(int argc, char** argv) -> int
       i--;
     }
   }
+
+  raft::logger::get(RAFT_NAME).set_level(raft_log_level);
 
   Objective metric_objective = Objective::LATENCY;
   if (mode == "throughput") { metric_objective = Objective::THROUGHPUT; }
