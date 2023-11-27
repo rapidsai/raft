@@ -123,7 +123,12 @@ endif()
 # benchmark cases and iterations. This is to make limited NVTX available to all algos, not just
 # raft.
 if(TARGET CUDA::nvtx3)
-  set(NVTX3_HEADERS_FOUND ON)
+  set(_CMAKE_REQUIRED_INCLUDES_ORIG ${CMAKE_REQUIRED_INCLUDES})
+  get_target_property(CMAKE_REQUIRED_INCLUDES CUDA::nvtx3 INTERFACE_INCLUDE_DIRECTORIES)
+  unset(NVTX3_HEADERS_FOUND CACHE)
+  # Check the headers explicitly to make sure the cpu-only build succeeds
+  CHECK_INCLUDE_FILE_CXX(nvtx3/nvToolsExt.h NVTX3_HEADERS_FOUND)
+  set(CMAKE_REQUIRED_INCLUDES ${_CMAKE_REQUIRED_INCLUDES_ORIG})
 endif()
 
 # ##################################################################################################
