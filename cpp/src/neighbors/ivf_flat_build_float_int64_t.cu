@@ -44,6 +44,18 @@
     raft::resources const& handle,                              \
     const raft::neighbors::ivf_flat::index_params& params,      \
     raft::device_matrix_view<const T, IdxT, row_major> dataset, \
+    raft::neighbors::ivf_flat::index<T, IdxT>& idx);            \
+                                                                \
+  template auto raft::neighbors::ivf_flat::build<T, IdxT>(      \
+    raft::resources const& handle,                              \
+    const raft::neighbors::ivf_flat::index_params& params,      \
+    raft::host_matrix_view<const T, IdxT, row_major> dataset)   \
+    ->raft::neighbors::ivf_flat::index<T, IdxT>;                \
+                                                                \
+  template void raft::neighbors::ivf_flat::build<T, IdxT>(      \
+    raft::resources const& handle,                              \
+    const raft::neighbors::ivf_flat::index_params& params,      \
+    raft::host_matrix_view<const T, IdxT, row_major> dataset,   \
     raft::neighbors::ivf_flat::index<T, IdxT>& idx);
 instantiate_raft_neighbors_ivf_flat_build(float, int64_t);
 
