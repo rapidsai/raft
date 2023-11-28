@@ -103,8 +103,8 @@ void serialize_to_hnswlib(raft::resources const& res,
                           std::ostream& os,
                           const index<T, IdxT>& index_)
 {
-  static_assert(std::is_same_v<IdxT, int> or std::is_same_v<IdxT, uint32_t>,
-                "An hnswlib index can only be trained with int32 or uint32 IdxT");
+  // static_assert(std::is_same_v<IdxT, int> or std::is_same_v<IdxT, uint32_t>,
+  //               "An hnswlib index can only be trained with int32 or uint32 IdxT");
   common::nvtx::range<common::nvtx::domain::raft> fun_scope("cagra::serialize_to_hnswlib");
   RAFT_LOG_DEBUG("Saving CAGRA index to hnswlib format, size %zu, dim %u",
                  static_cast<size_t>(index_.size()),
@@ -122,14 +122,14 @@ void serialize_to_hnswlib(raft::resources const& res,
   // Example:M: 16, dim = 128, data_t = float, index_t = uint32_t, list_size_type = uint32_t,
   // labeltype: size_t size_data_per_element_ = M * 2 * sizeof(index_t) + sizeof(list_size_type) +
   // dim * sizeof(data_t) + sizeof(labeltype)
-  auto size_data_per_element =
-    static_cast<std::size_t>(index_.graph_degree() * 4 + 4 + index_.dim() * 4 + 8);
+  auto size_data_per_element = static_cast<std::size_t>(index_.graph_degree() * sizeof(IdxT) + 4 +
+                                                        index_.dim() * sizeof(T) + 8);
   os.write(reinterpret_cast<char*>(&size_data_per_element), sizeof(std::size_t));
   // label_offset
   std::size_t label_offset = size_data_per_element - 8;
   os.write(reinterpret_cast<char*>(&label_offset), sizeof(std::size_t));
   // offset_data
-  auto offset_data = static_cast<std::size_t>(index_.graph_degree() * 4 + 4);
+  auto offset_data = static_cast<std::size_t>(index_.graph_degree() * sizeof(IdxT) + 4);
   os.write(reinterpret_cast<char*>(&offset_data), sizeof(std::size_t));
   // max_level
   int max_level = 1;
@@ -186,17 +186,17 @@ void serialize_to_hnswlib(raft::resources const& res,
     }
 
     auto data_row = host_dataset.data_handle() + (index_.dim() * i);
-    if constexpr (std::is_same_v<T, float>) {
-      for (std::size_t j = 0; j < index_.dim(); ++j) {
-        auto data_elem = host_dataset(i, j);
-        os.write(reinterpret_cast<char*>(&data_elem), sizeof(T));
-      }
-    } else if constexpr (std::is_same_v<T, std::int8_t> or std::is_same_v<T, std::uint8_t>) {
-      for (std::size_t j = 0; j < index_.dim(); ++j) {
-        auto data_elem = static_cast<int>(host_dataset(i, j));
-        os.write(reinterpret_cast<char*>(&data_elem), sizeof(int));
-      }
+    // if constexpr (std::is_same_v<T, float>) {
+    for (std::size_t j = 0; j < index_.dim(); ++j) {
+      auto data_elem = host_dataset(i, j);
+      os.write(reinterpret_cast<char*>(&data_elem), sizeof(T));
     }
+    // } else if constexpr (std::is_same_v<T, std::int8_t> or std::is_same_v<T, std::uint8_t>) {
+    //   for (std::size_t j = 0; j < index_.dim(); ++j) {
+    //     auto data_elem = static_cast<int>(host_dataset(i, j));
+    //     os.write(reinterpret_cast<char*>(&data_elem), sizeof(int));
+    //   }
+    // }
 
     os.write(reinterpret_cast<char*>(&i), sizeof(std::size_t));
   }
