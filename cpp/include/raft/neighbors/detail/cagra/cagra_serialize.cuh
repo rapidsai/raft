@@ -204,7 +204,6 @@ void serialize_to_hnswlib(raft::resources const& res,
     auto zero = 0;
     os.write(reinterpret_cast<char*>(&zero), sizeof(int));
   }
-  // delete [] host_graph;
 }
 
 template <typename T, typename IdxT>
