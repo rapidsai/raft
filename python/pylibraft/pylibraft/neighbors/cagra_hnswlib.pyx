@@ -284,11 +284,11 @@ def load(filename, dim, dtype, metric="sqeuclidean"):
 
 cdef class SearchParams:
     """
-    CAGRA search parameters
+    Hnswlib search parameters
 
     Parameters
     ----------
-    ef: int
+    ef: int, default=200
         Size of list from which final neighbors k will be selected.
         ef should be greater than or equal to k.
     num_threads: int, default=1
@@ -297,7 +297,7 @@ cdef class SearchParams:
     """
     cdef c_cagra_hnswlib.search_params params
 
-    def __init__(self, ef, num_threads=1):
+    def __init__(self, ef=200, num_threads=1):
         self.params.ef = ef
         self.params.num_threads = num_threads
 
@@ -332,8 +332,8 @@ def search(SearchParams search_params,
     Parameters
     ----------
     search_params : SearchParams
-    index : Index
-        Trained CAGRA index.
+    index : CagraHnswlibIndex
+        Trained CAGRA index saved as base layer only hnswlib index.
     queries : array interface compliant matrix shape (n_samples, dim)
         Supported dtype [float, int8, uint8]
     k : int
