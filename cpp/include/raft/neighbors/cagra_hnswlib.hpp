@@ -28,18 +28,16 @@ namespace raft::neighbors::cagra_hnswlib {
 /**
  * @brief Search hnswlib base layer only index constructed from a CAGRA index
  *
- * See the [cagra::build](#cagra::build) documentation for a usage example.
- *
  * @tparam T data element type
  * @tparam IdxT type of the indices
  *
  * @param[in] res raft resources
  * @param[in] params configure the search
  * @param[in] idx cagra index
- * @param[in] queries a device matrix view to a row-major matrix [n_queries, index->dim()]
- * @param[out] neighbors a device matrix view to the indices of the neighbors in the source dataset
+ * @param[in] queries a host matrix view to a row-major matrix [n_queries, index->dim()]
+ * @param[out] neighbors a host matrix view to the indices of the neighbors in the source dataset
  * [n_queries, k]
- * @param[out] distances a device matrix view to the distances to the selected neighbors [n_queries,
+ * @param[out] distances a host matrix view to the distances to the selected neighbors [n_queries,
  * k]
  *
  * Usage example:
