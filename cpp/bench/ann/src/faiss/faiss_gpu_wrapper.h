@@ -109,11 +109,14 @@ class FaissGpu : public ANN<T> {
     RAFT_CUDA_TRY(cudaEventCreate(&sync_, cudaEventDisableTiming));
     faiss_default_stream_ = gpu_resource_.getDefaultStream(device_);
     raft::resource::set_cuda_stream(handle_, faiss_default_stream_);
+    RAFT_LOG_INFO("device %d", device_);
+    // store the current memory resource in case it is modified by the algorithm
     current_mr_ = rmm::mr::get_per_device_resource(rmm::cuda_device_id{device_});
   }
 
   virtual ~FaissGpu() noexcept
   {
+    // restore the old memory resource
     rmm::mr::set_per_device_resource(rmm::cuda_device_id{device_}, current_mr_);
     RAFT_CUDA_TRY_NO_THROW(cudaEventDestroy(sync_));
   }
@@ -198,6 +201,8 @@ void FaissGpu<T>::build(const T* dataset, size_t nrow, cudaStream_t stream)
     index_ivf->cp.min_points_per_centroid = min_ppc;
   }
   index_->train(nrow, dataset);  // faiss::gpu::GpuIndexFlat::train() will do nothing
+  cudaDeviceSynchronize();
+  RAFT_LOG_INFO("faiss index trained");
   assert(index_->is_trained);
   index_->add(nrow, dataset);
   stream_wait(stream);
@@ -323,17 +328,25 @@ class FaissGpuIVFPQ : public FaissGpu<T> {
     config.device                 = this->device_;
 
     if (config.use_raft) {
-      rmm::mr::cuda_memory_resource cuda_mr;
-      // Construct a resource that uses a coalescing best-fit pool allocator
-      rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource> pool_mr{
-        &cuda_mr, pow(2, 30), pow(2, 31)};
-      rmm::mr::set_per_device_resource(rmm::cuda_device_id{this->device_}, &pool_mr);
-    }
+      auto result =
+        std::shared_ptr<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>{nullptr};
 
-    this->index_ = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
+      auto* upstream = dynamic_cast<rmm::mr::cuda_memory_resource*>(
+        rmm::mr::get_per_device_resource(rmm::cuda_device_id(this->device_)));
+      if (upstream != nullptr) {
+        auto result =
+          std::make_shared<rmm::mr::pool_memory_resource<rmm::mr::cuda_memory_resource>>(upstream);
+        rmm::mr::set_per_device_resource(rmm::cuda_device_id(this->device_), result.get());
+      }
+    }
+    cudaDeviceSynchronize();
+    RAFT_LOG_INFO("set to pool resource");
+
+    int subQuantizers = dim / param.M;
+    this->index_      = std::make_unique<faiss::gpu::GpuIndexIVFPQ>(&(this->gpu_resource_),
                                                                dim,
                                                                param.nlist,
-                                                               param.M,
+                                                               subQuantizers,
                                                                param.bitsPerCode,
                                                                this->metric_type_,
                                                                config);
