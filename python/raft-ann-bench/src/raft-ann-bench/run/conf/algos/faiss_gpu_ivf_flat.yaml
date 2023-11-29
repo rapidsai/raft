@@ -5,6 +5,17 @@ groups:
       nlist: [2048]
       ratio: [1, 4, 10]
       useFloat16: [False]
+      useRaft: [False]
+    search:
+      nprobe: [2048]
+      refine_ratio: [1]
+groups:
+  raft_enabed:
+    build:
+      nlist: [2048]
+      ratio: [1, 4, 10]
+      useFloat16: [False]
+      useRaft: [True]
     search:
       nprobe: [2048]
       refine_ratio: [1]

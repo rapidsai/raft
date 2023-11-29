@@ -43,6 +43,11 @@ void parse_build_param(const nlohmann::json& conf,
                        typename raft::bench::ann::FaissGpuIVFFlat<T>::BuildParam& param)
 {
   parse_base_build_param<T>(conf, param);
+  if (conf.contains("use_raft")) {
+    param.use_raft = conf.at("use_raft");
+  } else {
+    param.use_raft = false;
+  }
 }
 
 template <typename T>

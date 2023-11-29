@@ -37,12 +37,12 @@
 
 #include <raft/core/device_resources.hpp>
 #include <raft/core/resource/stream_view.hpp>
-
-#include <cassert>
-#include <memory>
 #include <rmm/cuda_device.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+
+#include <cassert>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -266,12 +266,15 @@ void FaissGpu<T>::load_(const std::string& file)
 template <typename T>
 class FaissGpuIVFFlat : public FaissGpu<T> {
  public:
-  using typename FaissGpu<T>::BuildParam;
+  struct BuildParam : public FaissGpu<T>::BuildParam {
+    bool use_raft;
+  };
 
   FaissGpuIVFFlat(Metric metric, int dim, const BuildParam& param) : FaissGpu<T>(metric, dim, param)
   {
     faiss::gpu::GpuIndexIVFFlatConfig config;
     config.device = this->device_;
+    config.use_raft = param.use_raft;
     this->index_  = std::make_unique<faiss::gpu::GpuIndexIVFFlat>(
       &(this->gpu_resource_), dim, param.nlist, this->metric_type_, config);
   }
