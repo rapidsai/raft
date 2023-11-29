@@ -24,12 +24,12 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <raft/matrix/select_k.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/csr.hpp>
 #include <raft/sparse/detail/utils.h>
 #include <raft/sparse/distance/distance.cuh>
 #include <raft/sparse/op/slice.cuh>
-#include <raft/spatial/knn/knn.cuh>
 
 #include <algorithm>
 
@@ -365,15 +365,14 @@ class sparse_knn_t {
     bool ascending = raft::distance::is_min_close(metric);
 
     // kernel to slice first (min) k cols and copy into batched merge buffer
-    raft::spatial::knn::select_k(batch_dists,
-                                 batch_indices,
-                                 batch_rows,
-                                 batch_cols,
-                                 out_dists,
-                                 out_indices,
-                                 ascending,
-                                 n_neighbors,
-                                 resource::get_cuda_stream(handle));
+    raft::matrix::select_k<value_t, value_idx>(
+      handle,
+      make_device_matrix_view<const value_t, int64_t>(batch_dists, batch_rows, batch_cols),
+      make_device_matrix_view<const value_idx, int64_t>(batch_indices, batch_rows, batch_cols),
+      make_device_matrix_view<value_t, int64_t>(out_dists, batch_rows, n_neighbors),
+      make_device_matrix_view<value_idx, int64_t>(out_indices, batch_rows, n_neighbors),
+      ascending,
+      true);
   }
 
   void compute_distances(csr_batcher_t<value_idx, value_t>& idx_batcher,

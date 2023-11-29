@@ -267,8 +267,6 @@ struct SelectK  // NOLINT
       case select::Algo::kWarpFiltered:
       case select::Algo::kWarpDistributed:
       case select::Algo::kWarpDistributedShm: return ix == 0;
-      // FAISS version returns a special invalid value:
-      case select::Algo::kFaissBlockSelect: return ix == std::numeric_limits<IdxT>::max();
       // Do not forgive by default
       default: return false;
     }
