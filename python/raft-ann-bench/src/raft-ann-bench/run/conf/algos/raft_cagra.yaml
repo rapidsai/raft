@@ -1,5 +1,6 @@
 name: raft_cagra
 constraints:
+  build: raft-ann-bench.constraints.raft_cagra_build_constraints
   search: raft-ann-bench.constraints.raft_cagra_search_constraints
 groups:
   base:
