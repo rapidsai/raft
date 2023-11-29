@@ -29,9 +29,10 @@
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     bool* adj,                                                                                     \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
+    int_t n,                                                                                       \
     value_t eps);                                                                                  \
                                                                                                    \
   template void                                                                                    \
@@ -40,10 +41,12 @@
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     idx_t* ia,                                                                                     \
     idx_t* ja,                                                                                     \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
-    value_t eps);                                                                                  \
+    int_t n,                                                                                       \
+    value_t eps,                                                                                   \
+    int_t* max_k);                                                                                 \
                                                                                                    \
   template void raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(   \
     raft::resources const& handle,                                                                 \
@@ -98,9 +101,10 @@ instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     bool* adj,                                                                                     \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
+    int_t n,                                                                                       \
     value_t eps);                                                                                  \
                                                                                                    \
   template void                                                                                    \
@@ -109,10 +113,12 @@ instantiate_raft_neighbors_ball_cover(int64_t, float, uint32_t, uint32_t);
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     idx_t* ia,                                                                                     \
     idx_t* ja,                                                                                     \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
-    value_t eps);
+    int_t n,                                                                                       \
+    value_t eps,                                                                                   \
+    int_t* max_k);
 
 instantiate_raft_neighbors_ball_cover_eps(int64_t, float, int64_t, uint32_t);
 instantiate_raft_neighbors_ball_cover_eps(int64_t, double, int64_t, uint32_t);

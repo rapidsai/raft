@@ -339,14 +339,15 @@ template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
           typename dist_func>
-void perform_rbc_query(raft::resources const& handle,
-                       const BallCoverIndex<value_idx, value_t, value_int>& index,
-                       const value_t* query,
-                       value_int n_query_pts,
-                       value_t eps,
-                       const value_t* landmark_dists,
-                       dist_func dfunc,
-                       bool* adj)
+void perform_rbc_eps_nn_query(raft::resources const& handle,
+                              const BallCoverIndex<value_idx, value_t, value_int>& index,
+                              const value_t* query,
+                              value_int n_query_pts,
+                              value_t eps,
+                              const value_t* landmark_dists,
+                              dist_func dfunc,
+                              bool* adj,
+                              value_idx* vd)
 {
   // initialize output
   RAFT_CUDA_TRY(cudaMemsetAsync(
@@ -354,16 +355,8 @@ void perform_rbc_query(raft::resources const& handle,
 
   resource::sync_stream(handle);
 
-  if (index.n == 2) {
-    // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 2>(
-      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj);
-
-  } else if (index.n == 3) {
-    // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 3>(
-      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj);
-  }
+  rbc_eps_pass<value_idx, value_t, value_int>(
+    handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj, vd);
 
   resource::sync_stream(handle);
 }
@@ -372,26 +365,20 @@ template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
           typename dist_func>
-void perform_rbc_query(raft::resources const& handle,
-                       const BallCoverIndex<value_idx, value_t, value_int>& index,
-                       const value_t* query,
-                       value_int n_query_pts,
-                       value_t eps,
-                       const value_t* landmark_dists,
-                       dist_func dfunc,
-                       value_idx* adj_ia,
-                       value_idx* adj_ja)
+void perform_rbc_eps_nn_query(raft::resources const& handle,
+                              const BallCoverIndex<value_idx, value_t, value_int>& index,
+                              const value_t* query,
+                              value_int n_query_pts,
+                              value_t eps,
+                              value_int* max_k,
+                              const value_t* landmark_dists,
+                              dist_func dfunc,
+                              value_idx* adj_ia,
+                              value_idx* adj_ja,
+                              value_idx* vd)
 {
-  if (index.n == 2) {
-    // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 2>(
-      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj_ia, adj_ja);
-
-  } else if (index.n == 3) {
-    // Compute nearest k for each neighborhood in each closest R
-    rbc_low_dim_eps_pass<value_idx, value_t, value_int, 3>(
-      handle, index, query, n_query_pts, eps, landmark_dists, dfunc, adj_ia, adj_ja);
-  }
+  rbc_eps_pass<value_idx, value_t, value_int>(
+    handle, index, query, n_query_pts, eps, max_k, landmark_dists, dfunc, adj_ia, adj_ja, vd);
 
   resource::sync_stream(handle);
 }
@@ -641,15 +628,15 @@ template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_knn_query(raft::resources const& handle,
-                   const BallCoverIndex<value_idx, value_t, value_int>& index,
-                   const value_t eps,
-                   const value_t* query,
-                   value_int n_query_pts,
-                   bool* adj,
-                   distance_func dfunc)
+void rbc_eps_nn_query(raft::resources const& handle,
+                      const BallCoverIndex<value_idx, value_t, value_int>& index,
+                      const value_t eps,
+                      const value_t* query,
+                      value_int n_query_pts,
+                      bool* adj,
+                      value_idx* vd,
+                      distance_func dfunc)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
   rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
@@ -663,23 +650,24 @@ void rbc_knn_query(raft::resources const& handle,
   resource::sync_stream(handle);
 
   // query all points and write to adj
-  perform_rbc_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj);
+  perform_rbc_eps_nn_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj, vd);
 }
 
 template <typename value_idx = std::int64_t,
           typename value_t,
           typename value_int = std::uint32_t,
           typename distance_func>
-void rbc_knn_query(raft::resources const& handle,
-                   const BallCoverIndex<value_idx, value_t, value_int>& index,
-                   const value_t eps,
-                   const value_t* query,
-                   value_int n_query_pts,
-                   value_idx* adj_ia,
-                   value_idx* adj_ja,
-                   distance_func dfunc)
+void rbc_eps_nn_query(raft::resources const& handle,
+                      const BallCoverIndex<value_idx, value_t, value_int>& index,
+                      const value_t eps,
+                      value_int* max_k,
+                      const value_t* query,
+                      value_int n_query_pts,
+                      value_idx* adj_ia,
+                      value_idx* adj_ja,
+                      value_idx* vd,
+                      distance_func dfunc)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
   rmm::device_uvector<value_t> R_dists(index.n_landmarks * n_query_pts,
@@ -693,7 +681,8 @@ void rbc_knn_query(raft::resources const& handle,
   resource::sync_stream(handle);
 
   // query all points and write to adj
-  perform_rbc_query(handle, index, query, n_query_pts, eps, R_dists.data(), dfunc, adj_ia, adj_ja);
+  perform_rbc_eps_nn_query(
+    handle, index, query, n_query_pts, eps, max_k, R_dists.data(), dfunc, adj_ia, adj_ja, vd);
 }
 
 };  // namespace detail

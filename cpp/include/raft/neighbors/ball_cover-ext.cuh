@@ -71,9 +71,10 @@ template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_
 void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
                                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                                bool* adj,
+                               idx_t* vd,
                                const value_t* x,
                                int_t m,
-                               int_t k,
+                               int_t n,
                                value_t eps) RAFT_EXPLICIT;
 
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_t>
@@ -81,10 +82,12 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
                                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index,
                                idx_t* adj_ia,
                                idx_t* adj_ja,
+                               idx_t* vd,
                                const value_t* x,
                                int_t m,
-                               int_t k,
-                               value_t eps) RAFT_EXPLICIT;
+                               int_t n,
+                               value_t eps,
+                               int_t* max_k = nullptr) RAFT_EXPLICIT;
 
 }  // namespace raft::neighbors::ball_cover
 
@@ -111,9 +114,10 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     raft::resources const& handle,                                                                 \
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     bool* adj,                                                                                     \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
+    int_t n,                                                                                       \
     value_t eps);                                                                                  \
                                                                                                    \
   extern template void                                                                             \
@@ -122,10 +126,12 @@ void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
     const raft::neighbors::ball_cover::BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index, \
     idx_t* adj_ia,                                                                                 \
     idx_t* adj_ja,                                                                                 \
+    idx_t* vd,                                                                                     \
     const value_t* x,                                                                              \
     int_t m,                                                                                       \
-    int_t k,                                                                                       \
-    value_t eps);                                                                                  \
+    int_t n,                                                                                       \
+    value_t eps,                                                                                   \
+    int_t* max_k);                                                                                 \
                                                                                                    \
   extern template void                                                                             \
   raft::neighbors::ball_cover::all_knn_query<idx_t, value_t, int_t, matrix_idx_t>(                 \

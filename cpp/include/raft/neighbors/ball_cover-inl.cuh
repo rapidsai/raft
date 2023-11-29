@@ -304,58 +304,92 @@ void knn_query(raft::resources const& handle,
  * @param[in] handle raft handle for resource management
  * @param[in] index ball cover index which has been built
  * @param[out] adj    adjacency matrix [row-major] [on device] [dim = m x n]
+ * @param[out] vd     vertex degree array [on device] [len = m + 1]
+ *                    `vd + m` stores the total number of edges in the adjacency
+ *                    matrix. Pass a nullptr if you don't need this info.
  * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
  * @param[in]  m      number of rows in x
- * @param[in]  k      number of columns in x and index
+ * @param[in]  n      number of columns in x and index
  * @param[in]  eps    defines epsilon neighborhood radius
  */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
 void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
                                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
                                bool* adj,
+                               idx_t* vd,
                                const value_t* x,
                                int_t m,
-                               int_t k,
+                               int_t n,
                                value_t eps)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  ASSERT(index.n == k, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.n == n, "vector dimension needs to be the same for index and queries");
   ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
            index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
          "Metric not supported");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
   // run query
-  raft::spatial::knn::detail::rbc_knn_query(
-    handle, index, eps, x, m, adj, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+  raft::spatial::knn::detail::rbc_eps_nn_query(
+    handle, index, eps, x, m, adj, vd, spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
+/**
+ * @brief Computes epsilon neighborhood for the L2 distance metric using rbc
+ *
+ * @tparam value_t   IO and math type
+ * @tparam idx_t    Index type
+ *
+ * @param[in] handle raft handle for resource management
+ * @param[in] index ball cover index which has been built
+ * @param[out] adj_ia    adjacency matrix CSR row offsets
+ * @param[out] adj_ja    adjacency matrix CSR column indices, needs to be nullptr
+ *                       in first pass with k == 0
+ * @param[out] vd     vertex degree array [on device] [len = m + 1]
+ *                    `vd + m` stores the total number of edges in the adjacency
+ *                    matrix. Pass a nullptr if you don't need this info.
+ * @param[in]  x      first matrix [row-major] [on device] [dim = m x k]
+ * @param[in]  m      number of rows in x
+ * @param[in]  n      number of columns in x and index
+ * @param[in]  eps    defines epsilon neighborhood radius
+ * @param[inout] max_k if nullptr (default), the user needs to make 2 subsequent calls:
+ *                     The first call computes adj_ia and allows adj_ja allocation.
+ *                     The second call fills in adj_ja based on adj_ia.
+ *                     If max_k != nullptr the algorithm only fills up neighbors up to a
+ *                     maximum number of max_k for each row in a single pass. Note
+ *                     that it is not guarantueed to return the nearest neighbors.
+ *                     Upon return max_k is overwritten with the actual max_k found during
+ *                     computation.
+ */
 template <typename idx_t, typename value_t, typename int_t, typename matrix_idx = std::uint32_t>
 void epsUnexpL2NeighborhoodRbc(raft::resources const& handle,
                                const BallCoverIndex<idx_t, value_t, int_t, matrix_idx>& index,
                                idx_t* adj_ia,
                                idx_t* adj_ja,
+                               idx_t* vd,
                                const value_t* x,
                                int_t m,
-                               int_t k,
-                               value_t eps)
+                               int_t n,
+                               value_t eps,
+                               int_t* max_k)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
-  ASSERT(index.n == k, "vector dimension needs to be the same for index and queries");
+  ASSERT(index.n == n, "vector dimension needs to be the same for index and queries");
   ASSERT(index.metric == raft::distance::DistanceType::L2SqrtExpanded ||
            index.metric == raft::distance::DistanceType::L2SqrtUnexpanded,
          "Metric not supported");
   ASSERT(index.is_index_trained(), "index must be previously trained");
 
   // run query
-  raft::spatial::knn::detail::rbc_knn_query(handle,
-                                            index,
-                                            eps,
-                                            x,
-                                            m,
-                                            adj_ia,
-                                            adj_ja,
-                                            spatial::knn::detail::EuclideanFunc<value_t, int_t>());
+  raft::spatial::knn::detail::rbc_eps_nn_query(
+    handle,
+    index,
+    eps,
+    max_k,
+    x,
+    m,
+    adj_ia,
+    adj_ja,
+    vd,
+    spatial::knn::detail::EuclideanFunc<value_t, int_t>());
 }
 
 /**

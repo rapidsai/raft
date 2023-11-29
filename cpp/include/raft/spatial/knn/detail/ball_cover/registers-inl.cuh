@@ -459,29 +459,32 @@ RAFT_KERNEL block_rbc_kernel_registers(const value_t* X_index,
 template <typename value_idx = std::int64_t,
           typename value_t,
           int tpb            = 128,
-          int col_q          = 2,
           typename value_int = std::uint32_t,
           typename distance_func>
-RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
-                                           const value_t* X,
-                                           const value_int n_cols,  // n_cols should be 2 or 3 dims
-                                           const value_t* R_dists,
-                                           const value_int m,
-                                           const value_t eps,
-                                           const value_int n_landmarks,
-                                           const value_idx* R_indptr,
-                                           const value_idx* R_1nn_cols,
-                                           const value_t* R_1nn_dists,
-                                           const value_t* R_radius,
-                                           distance_func dfunc,
-                                           bool* adj)
+RAFT_KERNEL block_rbc_kernel_eps_dense(const value_t* X_index,
+                                       const value_t* X,
+                                       const value_int n_cols,
+                                       const value_t* R_dists,
+                                       const value_int m,
+                                       const value_t eps,
+                                       const value_int n_landmarks,
+                                       const value_idx* R_indptr,
+                                       const value_idx* R_1nn_cols,
+                                       const value_t* R_1nn_dists,
+                                       const value_t* R_radius,
+                                       distance_func dfunc,
+                                       bool* adj,
+                                       value_idx* vd)
 {
-  const value_t* x_ptr = X + (n_cols * blockIdx.x);
+  __shared__ int column_count_smem;
 
-  value_t local_x_ptr[col_q];
-  for (value_int i = 0; i < n_cols; ++i) {
-    local_x_ptr[i] = x_ptr[i];
+  // initialize
+  if (vd != nullptr) {
+    if (threadIdx.x == 0) { column_count_smem = 0; }
+    __syncthreads();
   }
+
+  const value_t* x_ptr = X + (n_cols * blockIdx.x);
 
   for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
     // TODO: this might also be worth computing in-place here
@@ -504,13 +507,9 @@ RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
         adj[blockIdx.x * m + cur_candidate_ind] = true;
+        if (vd != nullptr) atomicAdd(&column_count_smem, 1);
       }
     }
 
@@ -519,53 +518,49 @@ RAFT_KERNEL block_rbc_kernel_registers_eps(const value_t* X_index,
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
         adj[blockIdx.x * m + cur_candidate_ind] = true;
+        if (vd != nullptr) atomicAdd(&column_count_smem, 1);
       }
     }
+  }
+
+  if (vd != nullptr) {
+    __syncthreads();
+    if (threadIdx.x == 0) { vd[blockIdx.x] = column_count_smem; }
   }
 }
 
 template <typename value_idx = std::int64_t,
           typename value_t,
           int tpb            = 128,
-          int col_q          = 2,
           typename value_int = std::uint32_t,
           typename distance_func>
-RAFT_KERNEL block_rbc_kernel_registers_eps_pass2a(
-  const value_t* X_index,
-  const value_t* X,
-  const value_int n_cols,  // n_cols should be 2 or 3 dims
-  const value_t* R_dists,
-  const value_int m,
-  const value_t eps,
-  const value_int n_landmarks,
-  const value_idx* R_indptr,
-  const value_idx* R_1nn_cols,
-  const value_t* R_1nn_dists,
-  const value_t* R_radius,
-  distance_func dfunc,
-  value_idx* adj_ia,
-  value_idx* adj_ja)
+RAFT_KERNEL block_rbc_kernel_eps_csr_pass(const value_t* X_index,
+                                          const value_t* X,
+                                          const value_int n_cols,
+                                          const value_t* R_dists,
+                                          const value_int m,
+                                          const value_t eps,
+                                          const value_int n_landmarks,
+                                          const value_idx* R_indptr,
+                                          const value_idx* R_1nn_cols,
+                                          const value_t* R_1nn_dists,
+                                          const value_t* R_radius,
+                                          distance_func dfunc,
+                                          value_idx* adj_ia,
+                                          value_idx* adj_ja)
 {
   const value_t* x_ptr = X + (n_cols * blockIdx.x);
 
   __shared__ int column_index_smem;
 
+  bool pass2 = adj_ja != nullptr;
+
   // initialize
-  if (threadIdx.x == 0) { column_index_smem = adj_ia[blockIdx.x]; }
+  if (threadIdx.x == 0) { column_index_smem = pass2 ? adj_ia[blockIdx.x] : 0; }
 
   __syncthreads();
-
-  value_t local_x_ptr[col_q];
-  for (value_int i = 0; i < n_cols; ++i) {
-    local_x_ptr[i] = x_ptr[i];
-  }
 
   for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
     // TODO: this might also be worth computing in-place here
@@ -588,13 +583,9 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass2a(
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
-        adj_ja[atomicAdd(&column_index_smem, 1)] = cur_candidate_ind;
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
+        int row_pos = atomicAdd(&column_index_smem, 1);
+        if (pass2) adj_ja[row_pos] = cur_candidate_ind;
       }
     }
 
@@ -603,40 +594,37 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass2a(
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
-        adj_ja[atomicAdd(&column_index_smem, 1)] = cur_candidate_ind;
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
+        int row_pos = atomicAdd(&column_index_smem, 1);
+        if (pass2) adj_ja[row_pos] = cur_candidate_ind;
       }
     }
   }
+
+  __syncthreads();
+  if (threadIdx.x == 0 && !pass2) { adj_ia[blockIdx.x] = column_index_smem; }
 }
 
 template <typename value_idx = std::int64_t,
           typename value_t,
           int tpb            = 128,
-          int col_q          = 2,
           typename value_int = std::uint32_t,
           typename distance_func>
-RAFT_KERNEL block_rbc_kernel_registers_eps_pass1(
-  const value_t* X_index,
-  const value_t* X,
-  const value_int n_cols,  // n_cols should be 2 or 3 dims
-  const value_t* R_dists,
-  const value_int m,
-  const value_t eps,
-  const value_int n_landmarks,
-  const value_idx* R_indptr,
-  const value_idx* R_1nn_cols,
-  const value_t* R_1nn_dists,
-  const value_t* R_radius,
-  distance_func dfunc,
-  value_idx* adj_ia,
-  const value_int adj_ja_size,
-  value_idx* adj_ja)
+RAFT_KERNEL block_rbc_kernel_eps_max_k(const value_t* X_index,
+                                       const value_t* X,
+                                       const value_int n_cols,
+                                       const value_t* R_dists,
+                                       const value_int m,
+                                       const value_t eps,
+                                       const value_int n_landmarks,
+                                       const value_idx* R_indptr,
+                                       const value_idx* R_1nn_cols,
+                                       const value_t* R_1nn_dists,
+                                       const value_t* R_radius,
+                                       distance_func dfunc,
+                                       value_idx* vd,
+                                       const value_int max_k,
+                                       value_idx* tmp)
 {
   const value_t* x_ptr = X + (n_cols * blockIdx.x);
 
@@ -647,22 +635,8 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass1(
 
   __syncthreads();
 
-  value_t local_x_ptr[col_q];
-  for (value_int i = 0; i < n_cols; ++i) {
-    local_x_ptr[i] = x_ptr[i];
-  }
-
-  // we use a fraction 50% of adj_ja to store the columns
-  // total (dense) size would be gridDim.x*m
-  value_int max_num_nnz_per_row = adj_ja_size / gridDim.x / 2;
-  value_int offset              = (gridDim.x + blockIdx.x) * max_num_nnz_per_row;
-
-  /*min_row_pos = 0
-  max_row_pos = max_num_nnz_per_row - 1
-  min_offset = gridDim.x * max_num_nnz_per_row
-  max_offset = (2*gridDim.x -1) * max_num_nnz_per_row <= size - max_num_nnz_per_row
-  min_row_pos + min_offset = gridDim.x * max_num_nnz_per_row
-  max_offset + max_row_pos = 2*gridDim.x * max_num_nnz_per_row -1 <= size-1*/
+  // we store all column indices in dense tmp store [blockDim.x * max_k]
+  value_int offset = blockIdx.x * max_k;
 
   for (value_int cur_k = 0; cur_k < n_landmarks; ++cur_k) {
     // TODO: this might also be worth computing in-place here
@@ -685,14 +659,9 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass1(
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
         int row_pos = atomicAdd(&column_count_smem, 1);
-        if (row_pos < max_num_nnz_per_row) adj_ja[row_pos + offset] = cur_candidate_ind;
+        if (row_pos < max_k) tmp[row_pos + offset] = cur_candidate_ind;
       }
     }
 
@@ -701,32 +670,24 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass1(
       value_t cur_candidate_dist  = R_1nn_dists[R_start_offset + i];
 
       const value_t* y_ptr = X_index + (n_cols * cur_candidate_ind);
-      value_t local_y_ptr[col_q];
-      for (value_int j = 0; j < n_cols; ++j) {
-        local_y_ptr[j] = y_ptr[j];
-      }
-
-      if (dfunc(local_x_ptr, local_y_ptr, n_cols) <= eps) {
+      if (dfunc(x_ptr, y_ptr, n_cols) <= eps) {
         int row_pos = atomicAdd(&column_count_smem, 1);
-        if (row_pos < max_num_nnz_per_row) adj_ja[row_pos + offset] = cur_candidate_ind;
+        if (row_pos < max_k) tmp[row_pos + offset] = cur_candidate_ind;
       }
     }
   }
 
   __syncthreads();
-  if (threadIdx.x == 0) { adj_ia[blockIdx.x] = column_count_smem; }
+  if (threadIdx.x == 0) { vd[blockIdx.x] = column_count_smem; }
 }
 
 template <typename value_idx = std::int64_t, int tpb = 128, typename value_int = std::uint32_t>
-RAFT_KERNEL block_rbc_kernel_registers_eps_pass2b(const value_int m,
-                                                  const value_idx* adj_ia,
-                                                  const value_int adj_ja_size,
-                                                  value_idx* adj_ja)
+RAFT_KERNEL block_rbc_kernel_eps_max_k_copy(const value_int max_k,
+                                            const value_idx* adj_ia,
+                                            const value_idx* tmp,
+                                            value_idx* adj_ja)
 {
-  // we use a fraction 50% of adj_ja to store the columns
-  // total (dense) size would be gridDim.x*m
-  value_int max_num_nnz_per_row = adj_ja_size / gridDim.x / 2;
-  value_int offset              = (gridDim.x + blockIdx.x) * max_num_nnz_per_row;
+  value_int offset = blockIdx.x * max_k;
 
   value_int row_idx       = blockIdx.x;
   value_idx col_start_idx = adj_ia[row_idx];
@@ -735,9 +696,9 @@ RAFT_KERNEL block_rbc_kernel_registers_eps_pass2b(const value_int m,
   value_int limit = Pow2<WarpSize>::roundDown(num_cols);
   value_int i     = threadIdx.x;
   for (; i < limit; i += tpb) {
-    adj_ja[col_start_idx + i] = adj_ja[offset + i];
+    adj_ja[col_start_idx + i] = tmp[offset + i];
   }
-  if (i < num_cols) { adj_ja[col_start_idx + i] = adj_ja[offset + i]; }
+  if (i < num_cols) { adj_ja[col_start_idx + i] = tmp[offset + i]; }
 }
 
 template <typename value_idx,
@@ -1077,18 +1038,18 @@ void rbc_low_dim_pass_two(raft::resources const& handle,
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
-          int dims           = 2,
           typename dist_func>
-void rbc_low_dim_eps_pass(raft::resources const& handle,
-                          const BallCoverIndex<value_idx, value_t, value_int>& index,
-                          const value_t* query,
-                          const value_int n_query_rows,
-                          value_t eps,
-                          const value_t* R_dists,
-                          dist_func& dfunc,
-                          bool* adj)
+void rbc_eps_pass(raft::resources const& handle,
+                  const BallCoverIndex<value_idx, value_t, value_int>& index,
+                  const value_t* query,
+                  const value_int n_query_rows,
+                  value_t eps,
+                  const value_t* R_dists,
+                  dist_func& dfunc,
+                  bool* adj,
+                  value_idx* vd)
 {
-  block_rbc_kernel_registers_eps<value_idx, value_t, 64, dims, value_int>
+  block_rbc_kernel_eps_dense<value_idx, value_t, 64, value_int>
     <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
       index.get_X().data_handle(),
       query,
@@ -1102,56 +1063,89 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
       index.get_R_1nn_dists().data_handle(),
       index.get_R_radius().data_handle(),
       dfunc,
-      adj);
+      adj,
+      vd);
+
+  if (vd != nullptr) {
+    value_idx sum = thrust::reduce(resource::get_thrust_policy(handle), vd, vd + n_query_rows);
+    // copy sum to last element
+    RAFT_CUDA_TRY(cudaMemcpyAsync(vd + n_query_rows,
+                                  &sum,
+                                  sizeof(value_idx),
+                                  cudaMemcpyHostToDevice,
+                                  resource::get_cuda_stream(handle)));
+  }
+
+  resource::sync_stream(handle);
 }
 
 template <typename value_idx,
           typename value_t,
           typename value_int = std::uint32_t,
-          int dims           = 2,
           typename dist_func>
-void rbc_low_dim_eps_pass(raft::resources const& handle,
-                          const BallCoverIndex<value_idx, value_t, value_int>& index,
-                          const value_t* query,
-                          const value_int n_query_rows,
-                          value_t eps,
-                          const value_t* R_dists,
-                          dist_func& dfunc,
-                          value_idx* adj_ia,
-                          value_idx* adj_ja)
+void rbc_eps_pass(raft::resources const& handle,
+                  const BallCoverIndex<value_idx, value_t, value_int>& index,
+                  const value_t* query,
+                  const value_int n_query_rows,
+                  value_t eps,
+                  value_int* max_k,
+                  const value_t* R_dists,
+                  dist_func& dfunc,
+                  value_idx* adj_ia,
+                  value_idx* adj_ja,
+                  value_idx* vd)
 {
-  value_int adj_ja_size = n_query_rows * index.m;
-  // we fill the 2nd half of adj_ja with dense n_query_rows*max_num_nnz_per_row
-  value_int max_num_nnz_per_row = adj_ja_size / n_query_rows / 2;
+  // if max_k == nullptr we are either pass 1 or pass 2
+  if (max_k == nullptr) {
+    if (adj_ja == nullptr) {
+      // pass 1 -> only compute adj_ia / vd
+      value_idx* vd_ptr = (vd != nullptr) ? vd : adj_ia;
+      block_rbc_kernel_eps_csr_pass<value_idx, value_t, 64, value_int>
+        <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+          index.get_X().data_handle(),
+          query,
+          index.n,
+          R_dists,
+          index.m,
+          eps,
+          index.n_landmarks,
+          index.get_R_indptr().data_handle(),
+          index.get_R_1nn_cols().data_handle(),
+          index.get_R_1nn_dists().data_handle(),
+          index.get_R_radius().data_handle(),
+          dfunc,
+          vd_ptr,
+          nullptr);
 
-  block_rbc_kernel_registers_eps_pass1<value_idx, value_t, 64, dims, value_int>
-    <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
-      index.get_X().data_handle(),
-      query,
-      index.n,
-      R_dists,
-      index.m,
-      eps,
-      index.n_landmarks,
-      index.get_R_indptr().data_handle(),
-      index.get_R_1nn_cols().data_handle(),
-      index.get_R_1nn_dists().data_handle(),
-      index.get_R_radius().data_handle(),
-      dfunc,
-      adj_ia,
-      adj_ja_size,
-      adj_ja);
+      thrust::exclusive_scan(
+        resource::get_thrust_policy(handle), vd_ptr, vd_ptr + n_query_rows + 1, adj_ia, 0);
 
-  auto res = thrust::count_if(resource::get_thrust_policy(handle),
-                              adj_ia,
-                              adj_ia + n_query_rows,
-                              [=] __device__(value_idx & x) { return x > max_num_nnz_per_row; });
-  thrust::exclusive_scan(
-    resource::get_thrust_policy(handle), adj_ia, adj_ia + n_query_rows + 1, adj_ia, 0);
+    } else {
+      // pass 2 -> fill in adj_ja
+      block_rbc_kernel_eps_csr_pass<value_idx, value_t, 64, value_int>
+        <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
+          index.get_X().data_handle(),
+          query,
+          index.n,
+          R_dists,
+          index.m,
+          eps,
+          index.n_landmarks,
+          index.get_R_indptr().data_handle(),
+          index.get_R_1nn_cols().data_handle(),
+          index.get_R_1nn_dists().data_handle(),
+          index.get_R_radius().data_handle(),
+          dfunc,
+          adj_ia,
+          adj_ja);
+    }
+  } else {
+    value_int max_k_in = *max_k;
+    value_idx* vd_ptr  = (vd != nullptr) ? vd : adj_ia;
 
-  if (res > 0) {
-    // fallback if memory was not sufficient to store all column indices in first pass
-    block_rbc_kernel_registers_eps_pass2a<value_idx, value_t, 64, dims, value_int>
+    rmm::device_uvector<value_idx> tmp(n_query_rows * max_k_in, resource::get_cuda_stream(handle));
+
+    block_rbc_kernel_eps_max_k<value_idx, value_t, 64, value_int>
       <<<n_query_rows, 64, 0, resource::get_cuda_stream(handle)>>>(
         index.get_X().data_handle(),
         query,
@@ -1165,13 +1159,48 @@ void rbc_low_dim_eps_pass(raft::resources const& handle,
         index.get_R_1nn_dists().data_handle(),
         index.get_R_radius().data_handle(),
         dfunc,
-        adj_ia,
-        adj_ja);
-  } else {
-    block_rbc_kernel_registers_eps_pass2b<value_idx, 32, value_int>
+        vd_ptr,
+        max_k_in,
+        tmp.data());
+
+    value_int actual_max = thrust::reduce(resource::get_thrust_policy(handle),
+                                          vd_ptr,
+                                          vd_ptr + n_query_rows,
+                                          (value_idx)0,
+                                          thrust::maximum<value_idx>());
+
+    if (actual_max > max_k_in) {
+      // ceil vd to max_k
+      thrust::transform(resource::get_thrust_policy(handle),
+                        vd_ptr,
+                        vd_ptr + n_query_rows,
+                        vd_ptr,
+                        [max_k_in] __device__(value_idx vd_count) {
+                          return vd_count > max_k_in ? max_k_in : vd_count;
+                        });
+    }
+
+    thrust::exclusive_scan(
+      resource::get_thrust_policy(handle), vd_ptr, vd_ptr + n_query_rows + 1, adj_ia, 0);
+
+    block_rbc_kernel_eps_max_k_copy<value_idx, 32, value_int>
       <<<n_query_rows, 32, 0, resource::get_cuda_stream(handle)>>>(
-        index.m, adj_ia, adj_ja_size, adj_ja);
+        max_k_in, adj_ia, tmp.data(), adj_ja);
+
+    // return 'new' max-k
+    *max_k = actual_max;
   }
+
+  if (vd != nullptr && (max_k != nullptr || adj_ja == nullptr)) {
+    // copy sum to last element
+    RAFT_CUDA_TRY(cudaMemcpyAsync(vd + n_query_rows,
+                                  adj_ia + n_query_rows,
+                                  sizeof(value_idx),
+                                  cudaMemcpyDeviceToDevice,
+                                  resource::get_cuda_stream(handle)));
+  }
+
+  resource::sync_stream(handle);
 }
 
 };  // namespace detail
