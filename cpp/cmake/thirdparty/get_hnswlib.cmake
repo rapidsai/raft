@@ -19,19 +19,27 @@ function(find_and_configure_hnswlib)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
-    set ( EXTERNAL_INCLUDES_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
-    if( NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/hnswlib-src )
+    # set ( EXTERNAL_INCLUDES_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} )
+    # if( NOT EXISTS ${EXTERNAL_INCLUDES_DIRECTORY}/_deps/hnswlib-src )
 
-        execute_process (
-                COMMAND git clone --branch=v0.6.2 https://github.com/nmslib/hnswlib.git hnswlib-src
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
+    #     execute_process (
+    #             COMMAND git clone --branch=v0.6.2 https://github.com/nmslib/hnswlib.git hnswlib-src
+    #             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps )
 
-        message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
-        execute_process (
-                COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.patch
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src
-        )
-    endif ()
+    #     message("SOURCE ${CMAKE_CURRENT_SOURCE_DIR}")
+    #     execute_process (
+    #             COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/cmake/patches/hnswlib.patch
+    #             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src
+    #     )
+    # endif ()
+    rapids_cpm_find(hnswlib ${PKG_VERSION}
+    GLOBAL_TARGETS      hnswlib
+    BUILD_EXPORT_SET    raft-exports
+    INSTALL_EXPORT_SET  raft-exports
+    CPM_ARGS
+    GIT_REPOSITORY         https://github.com/${PKG_FORK}/hnswlib.git
+    GIT_TAG                ${PKG_PINNED_TAG}
+    EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL})
 
     include(cmake/modules/FindAVX.cmake)
 

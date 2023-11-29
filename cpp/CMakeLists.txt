@@ -207,12 +207,12 @@ add_library(raft::raft ALIAS raft)
 
 target_include_directories(
   raft INTERFACE "$<BUILD_INTERFACE:${RAFT_SOURCE_DIR}/include>" "$<INSTALL_INTERFACE:include>"
-  "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
+  # "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:${CMAKE_CURRENT_BINARY_DIR}/_deps/hnswlib-src/hnswlib>"
 )
 
 if(NOT BUILD_CPU_ONLY)
   # Keep RAFT as lightweight as possible. Only CUDA libs and rmm should be used in global target.
-  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust)
+  target_link_libraries(raft INTERFACE rmm::rmm cuco::cuco nvidia::cutlass::cutlass raft::Thrust "$<$<BOOL:${BUILD_CAGRA_HNSWLIB}>:hnswlib>")
 endif()
 
 target_compile_features(raft INTERFACE cxx_std_17 $<BUILD_INTERFACE:cuda_std_17>)
