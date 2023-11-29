@@ -402,7 +402,6 @@ void rbc_build_index(raft::resources const& handle,
                      BallCoverIndex<value_idx, value_t, value_int>& index,
                      distance_func dfunc)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   ASSERT(!index.is_index_trained(), "index cannot be previously trained");
 
   rmm::device_uvector<value_idx> R_knn_inds(index.m, resource::get_cuda_stream(handle));

@@ -63,7 +63,6 @@ template <typename idx_t, typename value_t, typename int_t, typename matrix_idx_
 void build_index(raft::resources const& handle,
                  BallCoverIndex<idx_t, value_t, int_t, matrix_idx_t>& index)
 {
-  ASSERT(index.n <= 3, "only 2d and 3d vectors are supported in current implementation");
   if (index.metric == raft::distance::DistanceType::Haversine) {
     raft::spatial::knn::detail::rbc_build_index(
       handle, index, spatial::knn::detail::HaversineFunc<value_t, int_t>());
